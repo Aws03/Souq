@@ -26,9 +26,12 @@ public class ProductConfiguration : IEntityTypeConfiguration<Product>
             money.Property(m => m.Currency).HasColumnName("Currency").HasMaxLength(3);
         });
 
+        // Restrict لا Cascade (افتراض EF): حذف فئة لا يجوز أن يمحو منتجاتها —
+        // المنتجات لها حذف منطقي، والفئة ذات المنتجات لا تُحذف أصلاً.
         builder.HasOne(p => p.Category)
                .WithMany()
-               .HasForeignKey(p => p.CategoryId);
+               .HasForeignKey(p => p.CategoryId)
+               .OnDelete(DeleteBehavior.Restrict);
 
         // فهرس على CategoryId لأننا نبحث بالفئة كثيراً (مبدأ الأداء).
         builder.HasIndex(p => p.CategoryId);

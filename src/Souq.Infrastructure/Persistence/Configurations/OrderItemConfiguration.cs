@@ -17,5 +17,12 @@ public class OrderItemConfiguration : IEntityTypeConfiguration<OrderItem>
             m.Property(x => x.Currency).HasColumnName("Currency").HasMaxLength(3);
         });
         builder.Ignore(i => i.LineTotal);   // محسوبة، لا تُخزّن
+
+        // مرجع للمنتج الأصلي (رغم تجميد الاسم والسعر هنا). Restrict يمنع حذف منتج
+        // له مبيعات تاريخية — وهذا سبب إضافي لاعتماد الحذف المنطقي في Product.
+        builder.HasOne<Product>()
+               .WithMany()
+               .HasForeignKey(i => i.ProductId)
+               .OnDelete(DeleteBehavior.Restrict);
     }
 }

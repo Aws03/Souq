@@ -14,6 +14,13 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         builder.Property(o => o.ShippingAddress).HasMaxLength(500);
         builder.HasIndex(o => o.CustomerId);
 
+        // مفتاح أجنبي للعميل دون خاصية تنقّل في الكيان (الطلب لا يحتاج كائن العميل
+        // كاملاً). Restrict: لا يُحذف عميل له طلبات — التاريخ المالي لا يُمحى.
+        builder.HasOne<Customer>()
+               .WithMany()
+               .HasForeignKey(o => o.CustomerId)
+               .OnDelete(DeleteBehavior.Restrict);
+
         // علاقة التجمّع: الطلب يملك أسطره. الوصول للأسطر عبر الحقل الخاص _items.
         builder.HasMany(o => o.Items)
                .WithOne()
