@@ -23,3 +23,10 @@ public class InvalidOrderOperationException : DomainException
 {
     public InvalidOrderOperationException(string message) : base(message) { }
 }
+
+// خطأ: قيمة غير صالحة لبيانات المنتج (مثل مخزون سالب). كونه DomainException
+// يضمن أن تترجمه طبقة الـ API إلى 400 (خطأ عميل) لا 500 (خطأ خادم).
+public class InvalidProductDataException : DomainException
+{
+    public InvalidProductDataException(string message) : base(message) { }
+}

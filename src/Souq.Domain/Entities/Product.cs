@@ -49,11 +49,26 @@ public class Product : Entity
 
     public void IncreaseStock(int quantity) => StockQuantity += quantity;
 
-    public void UpdateDetails(string name, string description, Money price)
+    // تعيين المخزون لقيمة مطلقة (تصحيح/إعادة تخزين من قبل الإدارة) — محروس بقاعدة:
+    // لا يُسمح بقيمة سالبة. التعديل يمرّ عبر هذا الباب فقط، لا عبر set عام.
+    public void SetStock(int quantity)
+    {
+        if (quantity < 0)
+            throw new InvalidProductDataException("لا يمكن أن تكون كمية المخزون سالبة");
+        StockQuantity = quantity;
+    }
+
+    // تحديث الحقول الوصفية للمنتج دفعة واحدة. السعر يبقى ضمن كائن قيمة Money
+    // (يحرس قاعدة عدم السلبية). نُبقي IsActive/المخزون خارج هذه الدالة لأن لهما
+    // أبواباً محروسة خاصة (Deactivate/SetStock) — كل قاعدة في موضعها الصحيح.
+    public void UpdateDetails(string name, string description, Money price,
+                              string imageUrl, int categoryId)
     {
         Name = name;
         Description = description;
         Price = price;
+        ImageUrl = imageUrl;
+        CategoryId = categoryId;
     }
 
     // حذف منطقي بدل الفعلي (مبدأ من الملف: نحافظ على السجلات التاريخية).
