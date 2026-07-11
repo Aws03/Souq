@@ -88,8 +88,15 @@ builder.Services.AddSwaggerGen(c =>
 });
 
 // ── سياسة CORS للسماح للواجهة (React) بالاتصال بالـ API ───────────────────
+// الأصول المسموحة تأتي من Cors:AllowedOrigins (appsettings/متغيرات بيئة)، وتقع
+// افتراضياً على خادم Vite للتطوير المحلي إن لم يُضبط شيء. النشر خلف Nginx
+// (docker-compose.yml) لا يحتاج هذه السياسة إطلاقاً — المتصفح يرى أصلاً واحداً
+// فقط هناك (Nginx يوكّل /api داخلياً)، فهذه السياسة تخدم فقط تشغيل الـ API
+// والواجهة كخادمين منفصلين (تطوير محلي، أو نشر بلا توكيل عكسي).
+var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
+    ?? new[] { "http://localhost:5173" };
 builder.Services.AddCors(o => o.AddPolicy("frontend", p =>
-    p.WithOrigins("http://localhost:5173").AllowAnyHeader().AllowAnyMethod()));
+    p.WithOrigins(allowedOrigins).AllowAnyHeader().AllowAnyMethod()));
 
 var app = builder.Build();
 
