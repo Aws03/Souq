@@ -108,3 +108,82 @@ img { display: block; max-width: 100%; }
   padding: 14px 22px; border-radius: 12px; box-shadow: var(--shadow); z-index: 200; animation: rise .3s; }
 @keyframes rise { from { transform: translateY(20px); opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+
+/* ── إجراءات شريط التنقّل (مصادقة) ── */
+.brand { text-decoration: none; }
+.nav-actions { display: flex; align-items: center; gap: 14px; }
+.nav-link-light { color: var(--paper); text-decoration: none; font-weight: 500; opacity: .9; transition: opacity .15s; }
+.nav-link-light:hover { opacity: 1; }
+.nav-user { color: var(--saffron-soft); font-size: 14px; }
+.nav-link-btn { background: none; color: var(--paper); opacity: .8; font-weight: 500; padding: 0; }
+.nav-link-btn:hover { opacity: 1; text-decoration: underline; }
+
+/* ── صفحات المصادقة (دخول/تسجيل) ── */
+.auth-wrap { min-height: 100vh; display: grid; place-items: center; padding: 28px;
+  background: linear-gradient(135deg, var(--petrol), var(--petrol-700)); }
+.auth-card { background: #fff; border-radius: var(--radius); box-shadow: 0 20px 50px rgba(0,0,0,.25);
+  padding: 34px 30px; width: min(420px, 100%); }
+.auth-brand { font-family: var(--font-display); font-size: 32px; font-weight: 700; color: var(--petrol);
+  text-align: center; letter-spacing: 1px; }
+.auth-brand span { color: var(--saffron); }
+.auth-title { text-align: center; margin-top: 12px; font-size: 22px; }
+.auth-sub { text-align: center; color: var(--muted); font-size: 14px; margin: 4px 0 22px; }
+.auth-alert { background: #fdf0ec; color: var(--clay); border: 1px solid #f1d3ca;
+  padding: 11px 14px; border-radius: 10px; font-size: 14px; margin-bottom: 16px; }
+.field input.invalid, .field textarea.invalid { border-color: var(--clay); background: #fdf7f5; }
+.field-error { display: block; color: var(--clay); font-size: 12.5px; margin-top: 5px; }
+.auth-switch { text-align: center; margin-top: 18px; font-size: 14px; color: var(--muted); }
+.auth-switch a { color: var(--petrol); font-weight: 700; text-decoration: none; }
+.auth-switch a:hover { color: var(--saffron); }
+
+/* ── تخطيط لوحة الإدارة (منفصل تماماً عن المتجر) ── */
+.admin-shell { display: flex; min-height: 100vh; background: var(--paper); }
+.admin-sidebar { width: 240px; background: var(--petrol); color: var(--paper); padding: 22px 0;
+  display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh; }
+.admin-brand { font-family: var(--font-display); font-size: 22px; font-weight: 700; padding: 0 24px 20px;
+  border-bottom: 1px solid rgba(255,255,255,.12); }
+.admin-brand span { color: var(--saffron); }
+.admin-nav { display: flex; flex-direction: column; padding: 16px 0; flex: 1; }
+.admin-nav-link { color: var(--paper); text-decoration: none; padding: 12px 24px; opacity: .8;
+  border-right: 3px solid transparent; transition: all .15s; }
+.admin-nav-link:hover { opacity: 1; background: rgba(255,255,255,.06); }
+.admin-nav-link.active { opacity: 1; background: rgba(232,163,61,.14); border-right-color: var(--saffron); color: var(--saffron-soft); }
+.admin-sidebar-foot { padding: 16px 24px 0; border-top: 1px solid rgba(255,255,255,.12);
+  display: flex; flex-direction: column; gap: 12px; }
+.admin-logout { background: none; color: var(--paper); opacity: .8; text-align: right; padding: 0; font-weight: 500; }
+.admin-logout:hover { opacity: 1; text-decoration: underline; }
+.admin-main { flex: 1; display: flex; flex-direction: column; }
+.admin-header { background: #fff; border-bottom: 1px solid var(--line); padding: 16px 28px;
+  display: flex; justify-content: space-between; align-items: center; }
+.admin-header-title { font-family: var(--font-display); font-weight: 600; color: var(--petrol); }
+.admin-user { color: var(--muted); font-size: 14px; }
+.admin-content { padding: 28px; max-width: 1100px; }
+.admin-page-title { font-size: 24px; color: var(--petrol); }
+.admin-page-sub { color: var(--muted); margin: 4px 0 24px; }
+
+/* بطاقات الإحصاء */
+.stat-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 18px; margin-bottom: 28px; }
+.stat-tile { background: #fff; border-radius: var(--radius); box-shadow: var(--shadow); padding: 22px;
+  border-top: 3px solid var(--saffron); }
+.stat-value { font-family: var(--font-display); font-size: 34px; font-weight: 700; color: var(--petrol); }
+.stat-label { color: var(--muted); font-size: 14px; margin-top: 4px; }
+
+/* بطاقات الوصول السريع */
+.admin-quick { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 18px; }
+.admin-quick-card { background: #fff; border-radius: var(--radius); box-shadow: var(--shadow); padding: 20px;
+  text-decoration: none; color: var(--ink); display: flex; flex-direction: column; gap: 6px; transition: transform .15s, box-shadow .15s; }
+.admin-quick-card:hover { transform: translateY(-3px); box-shadow: 0 14px 32px rgba(15,59,58,.14); }
+.admin-quick-card b { color: var(--petrol); font-size: 17px; }
+.admin-quick-card span { color: var(--muted); font-size: 13.5px; }
+
+/* حاجز قسم قيد الإنشاء */
+.admin-soon { background: #fff; border: 1px dashed var(--line); border-radius: var(--radius);
+  padding: 40px; text-align: center; color: var(--muted); }
+.admin-soon-badge { display: inline-block; background: var(--saffron); color: var(--petrol-700);
+  font-weight: 700; font-size: 13px; padding: 5px 14px; border-radius: 50px; margin-bottom: 12px; }
+
+@media (max-width: 640px) {
+  .admin-sidebar { width: 76px; }
+  .admin-brand, .admin-nav-link, .admin-sidebar-foot { font-size: 0; padding-left: 0; padding-right: 0; text-align: center; }
+  .admin-brand span, .admin-nav-link { font-size: 13px; }
+}

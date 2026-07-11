@@ -1,10 +1,15 @@
 import { useState } from 'react';
+import { useNavigate, useOutletContext } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { api } from '../api/client';
 
-// صفحة الدفع: تجمع العنوان ورمز الدفع، وتُرسل الطلب للخادم الحقيقي.
-export default function Checkout({ onPlaced, onBack }) {
+// صفحة الدفع (محمية: تتطلّب تسجيل الدخول). تجمع العنوان ورمز الدفع وتُرسل الطلب
+// للخادم الحقيقي. هوية العميل تُؤخذ من التوكن في الخادم — لا نرسلها من هنا.
+export default function Checkout() {
   const { items, total, clear } = useCart();
+  const { refreshProducts } = useOutletContext();
+  const navigate = useNavigate();
+
   const [address, setAddress] = useState('');
   const [token, setToken] = useState('card-ok');
   const [busy, setBusy] = useState(false);
@@ -13,16 +18,18 @@ export default function Checkout({ onPlaced, onBack }) {
   const placeOrder = async () => {
     setBusy(true); setError(null);
     try {
-      // TODO (المرحلة 2): يُستبدل customerId الثابت بهوية المستخدم من توكن JWT.
       const created = await api.createOrder({
-        customerId: 1,
         shippingAddress: address,
         items: items.map((i) => ({ productId: i.id, quantity: i.qty })),
         paymentToken: token,
       });
       clear();
+      refreshProducts?.();   // المخزون تغيّر على الخادم — حدّث المتجر
       // نعرض ما أكّده الخادم (المصدر الوحيد للحقيقة)، لا حسابات الواجهة.
-      onPlaced({ orderId: created.orderId, total: created.totalAmount, currency: created.currency });
+      navigate('/confirmation', {
+        replace: true,
+        state: { order: { orderId: created.orderId, total: created.totalAmount, currency: created.currency } },
+      });
     } catch (e) { setError(e.message); }
     finally { setBusy(false); }
   };
@@ -31,21 +38,30 @@ export default function Checkout({ onPlaced, onBack }) {
     <div className="layout">
       <div className="panel">
         <h2 style={{ marginBottom: 20 }}>إتمام الطلب</h2>
-        <div className="field">
-          <label>عنوان الشحن</label>
-          <textarea rows={3} value={address} onChange={(e) => setAddress(e.target.value)}
-            placeholder="المدينة، الحي، الشارع…" />
-        </div>
-        <div className="field">
-          <label>رمز الدفع (جرّب "fail" لمحاكاة الرفض)</label>
-          <input value={token} onChange={(e) => setToken(e.target.value)} />
-        </div>
-        {error && <div style={{ color: 'var(--clay)', marginBottom: 12 }}>⚠ {error}</div>}
-        <div className="total-row"><span>الإجمالي</span><span>{total.toFixed(2)} JOD</span></div>
-        <button className="checkout-btn" disabled={busy || !address || items.length === 0} onClick={placeOrder}>
-          {busy ? 'جارٍ المعالجة…' : 'ادفع الآن'}
-        </button>
-        <button onClick={onBack} style={{ background: 'none', color: 'var(--muted)', marginTop: 14, width: '100%' }}>
+
+        {items.length === 0 ? (
+          <div className="empty">سلّتك فارغة — أضِف منتجات أولاً.</div>
+        ) : (
+          <>
+            <div className="field">
+              <label>عنوان الشحن</label>
+              <textarea rows={3} value={address} onChange={(e) => setAddress(e.target.value)}
+                placeholder="المدينة، الحي، الشارع…" />
+            </div>
+            <div className="field">
+              <label>رمز الدفع (جرّب "fail" لمحاكاة الرفض)</label>
+              <input value={token} onChange={(e) => setToken(e.target.value)} />
+            </div>
+            {error && <div className="auth-alert" style={{ marginBottom: 12 }}>⚠ {error}</div>}
+            <div className="total-row"><span>الإجمالي</span><span>{total.toFixed(2)} JOD</span></div>
+            <button className="checkout-btn" disabled={busy || !address} onClick={placeOrder}>
+              {busy ? 'جارٍ المعالجة…' : 'ادفع الآن'}
+            </button>
+          </>
+        )}
+
+        <button onClick={() => navigate('/')}
+          style={{ background: 'none', color: 'var(--muted)', marginTop: 14, width: '100%' }}>
           ← العودة للمتجر
         </button>
       </div>
