@@ -1,0 +1,179 @@
+# تدقيق مشروع سوق — المرحلة 0
+
+> تاريخ التدقيق: 2026-07-11 — قراءة كاملة للكود (Backend + Frontend + Database) دون أي تعديل.
+
+---
+
+## 1) الملخص التنفيذي
+
+الهيكل المعماري (Clean Architecture) **سليم ومحترم فعلاً**: اتجاه التبعيات صحيح في كل
+ملفات csproj، قواعد العمل تعيش في Domain، والـ Controllers رفيعة. لكن المشروع اليوم
+**غير قابل للتشغيل من طرف لطرف**:
+
+- لا توجد **هجرات EF** إطلاقاً، والبذر يفترض وجودها → الإقلاع يفشل ما لم تُنشأ الجداول يدوياً.
+- الواجهة تعرض **بيانات وهمية** ولا تستدعي الـ API أبداً، وصفحة الدفع **تحاكي** الطلب محلياً.
+- **لا مصادقة ولا صلاحيات**: أي شخص يستطيع إنشاء/تعديل/حذف منتجات.
+- **لا اختبارات** على الإطلاق.
+- **أسرار مكشوفة**: كلمة مرور sa داخل appsettings.json المرفوع للمستودع.
+- ملف الحل `Souq.sln` **معطوب**: `dotnet build Souq.sln` لا يبني أي مشروع.
+
+البناء المباشر لكل مشروع ينجح (0 أخطاء)، أي أن الكود نفسه سليم ترجمةً.
+
+---
+
+## 2) البيئة وحالة البناء (نتائج فعلية)
+
+| الفحص | النتيجة |
+|---|---|
+| `dotnet build Souq.sln` | ⚠️ "Build succeeded" لكن **صفر مشاريع تُبنى** — ملف الحل ينقصه قسم `ProjectConfigurationPlatforms` (وGUIDs المشاريع وهمية `{1111...}`) |
+| `dotnet build src/Souq.API/Souq.API.csproj` | ✅ ينجح — 0 أخطاء، 18 تحذير NuGet (ثغرات معروفة في حزم متعدّية) |
+| `dotnet test` | ⚠️ لا توجد أي مشاريع اختبار |
+| SDKs المثبّتة | 7.0.317 و 10.0.100/10.0.102 — **لا يوجد .NET 8 على الجهاز** |
+| إطار الهدف | `net10.0` في كل csproj (تعديل غير مكتمل الالتزام؛ CLAUDE.md وREADME يقولان .NET 8) |
+| حزم EF Core | 8.0.8 على net10.0 — تعمل، لكنها تجرّ حزماً متعدّية بثغرات (منها `Microsoft.Extensions.Caching.Memory` 8.0.0 بثغرة **عالية الخطورة** GHSA-qj66-m88j-hmgj) |
+| حالة git | تغييرات سابقة **مُجهّزة (staged) وغير ملتزمة**: ميزة تعديل/حذف المنتج + رفع net10.0 + سلسلة اتصال جديدة |
+
+---
+
+## 3) خريطة الملفات
+
+```
+Souq/
+├── Souq.sln                      ⚠️ معطوب (لا يبني شيئاً — انظر §2)
+├── cloude.md                     ⚠️ ملف سياق Claude (الاسم الصحيح المتعارف: CLAUDE.md)
+├── README.md                     ✅ دليل شامل (يذكر .NET 8 — يحتاج تحديثاً)
+├── `/`.sqlproj                   🗑️ مشروع SQL خُلق بالخطأ (مجلد اسمه backtick!)
+├── .vscode/tasks.json            🗑️ يشير لمسار غير موجود (Desktop/Network/Souq/...)
+├── .DS_Store + .vs/              🗑️ غير متجاهلة في .gitignore
+│
+├── src/
+│   ├── Souq.Domain/              ✅ نقي، بلا أي تبعية خارجية
+│   │   ├── Common/               BaseEntity<TId> + Entity (int)
+│   │   ├── Entities/             Product, Order, OrderItem, Category, Customer, Basket
+│   │   ├── ValueObjects/Money.cs Money (مبلغ+عملة، immutable)
+│   │   ├── Enums/OrderStatus.cs  Pending→Paid→Shipped→Delivered / Cancelled
+│   │   ├── Exceptions/           DomainException + 3 مشتقات
+│   │   └── Interfaces/           IRepository<T>, IProduct/IOrder/ICategoryRepository, IUnitOfWork
+│   │
+│   ├── Souq.Application/         ✅ يعتمد على Domain فقط (MediatR + FluentValidation)
+│   │   ├── Common/               Result/Result<T>, PaginatedList, ValidationBehavior,
+│   │   │                         IPaymentService, IEmailService
+│   │   └── Features/
+│   │       ├── Products/         GetProducts (بحث+ترقيم), GetProductById,
+│   │       │                     Create/Update/DeleteProduct (+ Validators)
+│   │       ├── Orders/           CreateOrder (مخزون+دفع+حفظ ذرّي), GetOrderById
+│   │       └── Categories/       GetCategories
+│   │
+│   ├── Souq.Infrastructure/      ✅ EF Core + SQL Server
+│   │   ├── Persistence/          AppDbContext (= IUnitOfWork), 4 Configurations,
+│   │   │   │                     RepositoryBase + 3 مستودعات, DbSeeder
+│   │   │   └── Migrations/       ❌ غير موجود إطلاقاً
+│   │   └── Services/             FakePaymentService 🎭, ConsoleEmailService 🎭
+│   │
+│   └── Souq.API/                 ✅ Controllers رفيعة + Middleware أخطاء مركزي
+│       ├── Controllers/          Products (5 نقاط), Orders (2), Categories (1)
+│       ├── Middleware/           ExceptionHandlingMiddleware
+│       ├── Program.cs            DI + CORS + Swagger + بذر تلقائي
+│       └── appsettings.json      🔴 كلمة مرور sa مكشوفة
+│
+├── frontend/                     React 18 + Vite (RTL)
+│   ├── src/App.jsx               🎭 SEED_PRODUCTS/SEED_CATEGORIES — بيانات وهمية
+│   ├── src/api/client.js         ✅ مكتوب جيداً لكنه **غير مستخدَم من أي مكوّن**
+│   ├── src/hooks/useProducts.js  ✅ جاهز لكنه **غير مستخدَم**
+│   ├── src/context/CartContext   ✅ سلة تعمل (Context+Reducer) — بلا persistence
+│   ├── src/pages/                Storefront ✅ / Checkout 🎭 محاكاة / Confirmation ✅
+│   ├── src/components/           Navbar, CartDrawer, ProductCard ✅
+│   └── vite.config.js            ⚠️ proxy → :5000 بينما الـ API يقلع على :14906
+│
+├── database/                     ✅ 01_schema.sql + 02_seed.sql (متطابقان مع الكيانات،
+│                                    بل أكمل من نموذج EF — انظر §5)
+└── docs/                         كيف-تفكر-كمهندس-برمجيات.md + هذا الملف
+```
+
+---
+
+## 4) حالة الميزات
+
+| الميزة | الحالة | التفاصيل |
+|---|---|---|
+| كتالوج المنتجات (API) | ✅ مكتملة | بحث + تصفية بالفئة + ترقيم حقيقي في `ProductRepository.SearchAsync` |
+| منتج واحد (API) | 🟡 ناقصة | لا `Include(Category)` → `CategoryName` تعود null دائماً؛ ويُرجع منتجات معطّلة (لا فلتر IsActive) |
+| إنشاء/تعديل/حذف منتج (API) | 🟡 ناقصة | المنطق مكتمل (حذف منطقي عبر Deactivate) لكن **بلا أي حماية** — أي زائر "مدير"؛ وCreate لا يفحص `result.IsSuccess` قبل إرجاع 201 |
+| الفئات (API) | ✅ مكتملة | قراءة فقط (يكفي حالياً) |
+| إنشاء طلب (API) | 🟡 ناقصة | التنسيق ممتاز (تحقق مخزون → خصم → دفع → حفظ ذرّي) لكن: `CustomerId` يأتي من جسم الطلب بلا تحقق من وجوده، البريد ثابت `customer@example.com`، والدفع يُحصَّل **قبل** الحفظ (خطر: دفع ناجح + حفظ فاشل) |
+| متابعة طلب (API) | 🟡 ناقصة | تعمل، لكن أي شخص يقرأ طلب أي شخص (لا ownership check)؛ `GET /orders/mine` غير موجود |
+| المصادقة والصلاحيات | ❌ غائبة كلياً | كيان Customer موجود + مدير مبذور بـ hash وهمي `HASHED_admin123`؛ لا تسجيل/دخول، لا JWT، لا BCrypt، لا `[Authorize]` |
+| الدفع | 🎭 وهمية بالتصميم | `FakePaymentService` خلف `IPaymentService` — الاستبدال بـ Stripe سطر DI واحد (مرحلة 6) |
+| البريد | 🎭 وهمية بالتصميم | `ConsoleEmailService` يطبع في السجل |
+| السلة (Domain) | ⚠️ كود ميت | كيان `Basket` موجود في Domain بلا مستودع/Configuration/DbSet/API — السلة فعلياً في ذاكرة المتصفح فقط |
+| هجرات EF | ❌ غائبة | `DbSeeder.SeedAsync` ينادي `MigrateAsync()` وصفر هجرات موجودة → الجداول لا تُنشأ، والبذر ينفجر بـ "Invalid object name" ما لم تُشغَّل سكربتات SQL يدوياً |
+| واجهة: عرض المنتجات | 🎭 وهمية | `App.jsx` يستخدم مصفوفات SEED؛ `api/client.js` و`useProducts` جاهزان وغير موصولين |
+| واجهة: بحث/تصفية/ترقيم | 🎭 وهمية | كلها على مصفوفة السيد محلياً؛ لا ترقيم في الواجهة أصلاً |
+| واجهة: الدفع | 🎭 وهمية | `Checkout.jsx` يولّد رقم طلب عشوائي بعد `setTimeout` |
+| واجهة: صور المنتجات | ⚠️ عدم تطابق | الواجهة تعرض حقل `emoji` غير موجود في `ProductDto` (الـ API يرجع `imageUrl` نصياً مثل "headphones") — سينكسر العرض عند الربط الحقيقي |
+| واجهة: توجيه (Routing) | ⚠️ | `react-router-dom` مثبّتة وغير مستخدمة (تنقّل بـ state يدوي) |
+| اختبارات | ❌ غائبة | لا وحدة ولا تكامل |
+| تسجيل (Logging) | 🟡 | الافتراضي فقط؛ لا Serilog ولا سجل منظّم |
+| DevOps | ❌ غائبة | لا Docker، لا CI، لا Health checks، لا فصل بيئات |
+
+---
+
+## 5) الثغرات المانعة للإنتاج (مرتبة بالخطورة)
+
+### 🔴 حرجة (تمنع التشغيل أو تكشف النظام)
+1. **لا هجرات EF** — التطبيق لا يستطيع إنشاء قاعدته؛ الاعتماد الحالي على سكربت يدوي.
+2. **لا مصادقة/صلاحيات** — نقاط الكتابة كلها (منتجات، طلبات) مفتوحة للعموم، و`CustomerId` يُقبل من جسم الطلب (انتحال هوية بسيط).
+3. **أسرار في المستودع** — سلسلة اتصال بكلمة مرور sa في `appsettings.json` (مخالفة صريحة للقاعدة 4 في CLAUDE.md). يجب نقلها لـ user-secrets/متغيرات بيئة **وتدوير كلمة المرور**.
+4. **الواجهة منفصلة عن الـ API** — بيانات وهمية + طلبات محاكاة = لا يوجد "متجر" فعلياً.
+5. **`Souq.sln` معطوب** — أي CI مستقبلي سيُخدع بـ "Build succeeded" وهو يبني صفر مشاريع.
+
+### 🟠 عالية (أخطاء ستظهر فور التشغيل الحقيقي)
+6. **تضارب المنافذ**: vite proxy → `:5000` بينما `launchSettings.json` يشغّل الـ API على `:14906`.
+7. **الدفع قبل الحفظ** في `CreateOrderHandler`: نجاح `ChargeAsync` ثم فشل `SaveChangesAsync` = عميل مدفوع منه بلا طلب. (يصبح خطيراً فعلاً مع Stripe في المرحلة 6 — يُحل بـ capture-after-save أو idempotency).
+8. **نموذج EF أفقر من مخطط SQL اليدوي**: لا قيد فريد على `Customers.Email`، لا FK من `Orders.CustomerId` إلى `Customers`، لا Configuration لكيان Customer أصلاً. الهجرة الأولى يجب أن تعوّض هذا وإلا اختلف الواقع عن `database/01_schema.sql`.
+9. **حزم بثغرات معروفة**: EF 8.0.8 على net10.0 يجرّ `Caching.Memory` 8.0.0 (ثغرة عالية). الحل الطبيعي: ترقية حزم EF إلى 10.x (انظر §7 قرار 1).
+10. **عدم تطابق عقد البيانات** واجهة↔API (`emoji` مقابل `imageUrl`).
+
+### 🟡 متوسطة
+11. `GetProductById` بلا Include للفئة وبلا فلتر IsActive.
+12. `ProductsController.Create` يتجاهل فشل Result (يرجع 201 دائماً).
+13. بريد التأكيد ثابت `customer@example.com` (يُحل تلقائياً مع المصادقة).
+14. لا فحص ownership في `GET /orders/{id}`.
+15. كيان `Basket` كود ميت — قرار: حذفه أو تفعيله لاحقاً (سلة محفوظة بالخادم).
+16. لا اختبارات إطلاقاً (مرحلة 5 مخصصة لها).
+17. `CreatedAt/UpdatedAt` بـ set عام في `BaseEntity` — تسريب تغليف بسيط.
+
+### ⚪ منخفضة (نظافة)
+18. ملفات نفايات: مجلد `` ` `` بمشروع sqlproj، `tasks.json` بمسار ميت، `.DS_Store`، `.vs/` — تُحذف وتُضاف لـ .gitignore.
+19. `cloude.md` — تسمية غير قياسية (Claude Code يبحث عن `CLAUDE.md`).
+20. `react-router-dom` تبعية غير مستخدمة.
+21. توثيق (README/CLAUDE.md) يذكر .NET 8 والواقع net10.0.
+
+---
+
+## 6) قرارات تحتاج موافقتك قبل المرحلة 1
+
+1. **إطار العمل**: جهازك لا يملك .NET 8 (فقط 7 و10). **اقتراحي: البقاء على net10.0
+   وترقية حزم EF Core إلى 10.x** (يصلح أيضاً ثغرات الحزم المتعدية)، وتحديث التوثيق.
+   البديل: تثبيت .NET 8 SDK والرجوع لـ net8.0 (LTS أطول عمراً حتى نوفمبر 2026 مقابل
+   net10 LTS حتى 2028).
+2. **العمل المُجهّز غير الملتزم** (ميزة تعديل/حذف المنتج + net10): اقتراحي التزامه
+   commit مستقلاً كما هو قبل بدء المرحلة 1 حتى يبقى التاريخ نظيفاً.
+3. **إعادة توليد `Souq.sln`** بـ `dotnet new sln` بدل الترقيع اليدوي.
+4. **كيان Basket**: إبقاؤه معطّلاً الآن وحذفه إن لم نخطط لسلة خادمية؟ (لا يعطّل شيئاً حالياً).
+
+---
+
+## 7) ترتيب الأولويات
+
+خارطة المراحل 1→8 سليمة منطقياً وأوافق عليها، مع **تعديلين** فقط:
+
+- **أنقل نقل الأسرار من المرحلة 7 إلى المرحلة 1**: إخراج سلسلة الاتصال إلى
+  user-secrets عمل دقائق، وكل يوم تأخير يكرّس سراً في تاريخ git (وهو أصلاً قاعدة
+  صارمة في CLAUDE.md). الأتمتة الكاملة (متغيرات بيئة/Docker) تبقى في 7.
+- **أضيف لبداية المرحلة 1 بنداً صفرياً: "إصلاح الورشة"** — إصلاح Souq.sln، توحيد
+  المنفذ (proxy ↔ launchSettings)، حسم قرار net10/EF10، حذف ملفات النفايات،
+  وتحديث .gitignore. بدونها معيار قبول المرحلة 1 نفسه غير قابل للتحقق.
+
+الباقي كما هو: 1 (تشغيل E2E) ← 2 (JWT) ← 3 (ميزات المتجر) ← 4 (تقوية) ← 5 (اختبارات)
+← 6 (Stripe/كوبونات/تقييمات) ← 7 (DevOps) ← 8 (مراجعة نهائية).
