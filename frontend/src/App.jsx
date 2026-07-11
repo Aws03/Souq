@@ -11,7 +11,9 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import AdminLayout from './pages/admin/AdminLayout';
 import Dashboard from './pages/admin/Dashboard';
-import AdminSection from './pages/admin/AdminSection';
+import Products from './pages/admin/Products';
+import Categories from './pages/admin/Categories';
+import Orders from './pages/admin/Orders';
 import './styles.css';
 
 // ============================================================================
@@ -54,9 +56,9 @@ export default function App() {
       {/* ── لوحة الإدارة (Admin فقط) — تخطيط منفصل ── */}
       <Route path="/admin" element={<AdminRoute><AdminLayout /></AdminRoute>}>
         <Route index element={<Dashboard />} />
-        <Route path="products" element={<AdminSection title="إدارة المنتجات" />} />
-        <Route path="categories" element={<AdminSection title="إدارة الفئات" />} />
-        <Route path="orders" element={<AdminSection title="الطلبات" />} />
+        <Route path="products" element={<Products />} />
+        <Route path="categories" element={<Categories />} />
+        <Route path="orders" element={<Orders />} />
       </Route>
 
       {/* ── المتجر (عميل/زائر) ── */}

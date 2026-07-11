@@ -44,6 +44,31 @@ async function request(path, options = {}) {
   return res.status === 204 ? null : res.json();
 }
 
+// رفع ملف (multipart/form-data): لا نضبط Content-Type يدوياً — المتصفح يولّد
+// حدّ الأجزاء (boundary) بنفسه، وضبطه يدوياً يكسر الطلب.
+async function upload(path, formData) {
+  const token = tokenStore.get();
+  const res = await fetch(BASE + path, {
+    method: 'POST',
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: formData,
+  });
+
+  if (res.status === 401) {
+    tokenStore.clear();
+    window.dispatchEvent(new Event('auth:unauthorized'));
+  }
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    const err = new Error(body.error || 'حدث خطأ في رفع الملف');
+    err.status = res.status;
+    err.code = body.code;
+    throw err;
+  }
+  return res.json();
+}
+
 // دوال معبّرة بأسماء المجال، تخفي تفاصيل HTTP عن بقية التطبيق.
 export const api = {
   // ── المصادقة ──
@@ -63,4 +88,29 @@ export const api = {
   // ── الطلبات ──
   createOrder: (payload) => request('/orders', { method: 'POST', body: JSON.stringify(payload) }),
   getOrder: (id) => request(`/orders/${id}`),
+
+  // ── إدارة المنتجات (أدمن) ──
+  createProduct: (payload) => request('/products', { method: 'POST', body: JSON.stringify(payload) }),
+  updateProduct: (id, payload) => request(`/products/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
+  deleteProduct: (id) => request(`/products/${id}`, { method: 'DELETE' }),
+  uploadProductImage: (id, file) => {
+    const form = new FormData();
+    form.append('file', file);
+    return upload(`/products/${id}/image`, form);
+  },
+
+  // ── إدارة الفئات (أدمن) ──
+  createCategory: (payload) => request('/categories', { method: 'POST', body: JSON.stringify(payload) }),
+  updateCategory: (id, payload) => request(`/categories/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
+  deleteCategory: (id) => request(`/categories/${id}`, { method: 'DELETE' }),
+
+  // ── إدارة الطلبات (أدمن) ──
+  getOrders: (params = {}) => {
+    const q = new URLSearchParams(
+      Object.entries(params).filter(([, v]) => v != null && v !== '')
+    ).toString();
+    return request(`/orders?${q}`);
+  },
+  updateOrderStatus: (id, action) =>
+    request(`/orders/${id}/status`, { method: 'PUT', body: JSON.stringify({ action }) }),
 };
