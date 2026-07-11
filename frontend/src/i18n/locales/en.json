@@ -1,4 +1,7 @@
 {
+  "announcement": {
+    "freeShipping": "Free shipping on orders over 50 JOD — delivery across Jordan"
+  },
   "common": {
     "previous": "Previous",
     "next": "Next",
@@ -29,7 +32,8 @@
     "searchAria": "Search for a product",
     "categoriesAll": "All",
     "categoriesAria": "Product categories",
-    "langToggleAria": "Toggle language"
+    "langToggleAria": "Toggle language",
+    "wishlistAria": "Wishlist"
   },
   "cart": {
     "title": "Your Cart",
@@ -55,7 +59,11 @@
     "reviewsTitle": "Reviews",
     "ratingSummary": "{{count}} reviews",
     "signInToReview": "to be able to review this product.",
-    "backToStore": "← Back to store"
+    "backToStore": "← Back to store",
+    "viewProduct": "View product",
+    "badgeNew": "New",
+    "wishlistAdd": "Add to wishlist",
+    "wishlistRemove": "Remove from wishlist"
   },
   "reviews": {
     "addTitle": "Add your review",
@@ -68,10 +76,35 @@
     "emptyMessage": "Be the first to review this product."
   },
   "store": {
-    "heroHeadlinePrefix": "Shop with confidence, ",
-    "heroHeadlineStrong": "with authentic Arabian identity",
-    "heroSubline": "Carefully curated products — from electronics to authentic handicrafts, fast delivery and quality guaranteed.",
-    "heroCta": "Shop now"
+    "heroCta": "Shop now",
+    "heroDotsAria": "Slideshow navigation",
+    "heroSlideAria": "Slide {{n}}",
+    "heroSlides": [
+      {
+        "headline": "Shop with confidence, with authentic Arabian identity",
+        "subline": "Carefully curated products — from electronics to authentic handicrafts, fast delivery and quality guaranteed.",
+        "cta": "Shop now"
+      },
+      {
+        "headline": "Season deals are waiting for you",
+        "subline": "Discounts across a wide range of products for a limited time.",
+        "cta": "Discover deals"
+      },
+      {
+        "headline": "Quality that lasts, prices that fit",
+        "subline": "Every product passes strict selection standards before it reaches you.",
+        "cta": "Start shopping"
+      }
+    ],
+    "shopNow": "Shop now",
+    "viewAll": "View all",
+    "newArrivals": "New Arrivals",
+    "bestSellers": "Best Sellers",
+    "allProducts": "All Products",
+    "promo1Headline": "Electronics collection",
+    "promo1Subline": "The latest devices at competitive prices with a full authenticity guarantee.",
+    "promo2Headline": "An elegant home touch",
+    "promo2Subline": "Carefully selected pieces to refresh your home's atmosphere."
   },
   "auth": {
     "loginTitle": "Sign in",
@@ -276,6 +309,26 @@
         "Deliver": "Deliver"
       }
     }
+  },
+  "wishlist": {
+    "title": "Wishlist",
+    "emptyTitle": "Your wishlist is empty",
+    "emptyMessage": "Add products you like by tapping the heart icon."
+  },
+  "footer": {
+    "brandDesc": "Marka — a modern online store with an authentic Arabian identity, carefully curated products and fast delivery.",
+    "quickLinks": "Quick Links",
+    "customerService": "Customer Service",
+    "contactUs": "Contact Us",
+    "home": "Home",
+    "faq": "FAQ",
+    "shipping": "Shipping Policy",
+    "returns": "Return Policy",
+    "contactLink": "Contact Us",
+    "address": "Amman, Jordan",
+    "privacyPolicy": "Privacy Policy",
+    "terms": "Terms & Conditions",
+    "copyright": "© {{year}} Marka. All rights reserved."
   },
   "errors": {
     "connection": "A server connection error occurred",

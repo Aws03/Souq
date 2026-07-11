@@ -1,0 +1,18 @@
+.category { padding: 32px 0 8px; }
+
+.category__grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+@media (max-width: 767px) { .category__grid { grid-template-columns: repeat(2, 1fr); } }
+
+.category__card {
+  display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center;
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--card-radius);
+  padding: 24px 12px; transition: transform var(--ease-hover), border-color var(--ease-hover), box-shadow var(--ease-hover);
+}
+.category__card:hover { transform: translateY(-3px); border-color: var(--saffron); box-shadow: var(--shadow); }
+
+.category__icon {
+  width: 52px; height: 52px; border-radius: 50%; background: var(--soft); color: var(--petrol);
+  display: grid; place-items: center;
+}
+.category__name { font-weight: 700; font-size: var(--fs-body); }
+.category__cta { color: var(--saffron); font-size: var(--fs-caption); font-weight: 600; }

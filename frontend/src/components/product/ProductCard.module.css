@@ -5,7 +5,21 @@
 }
 .card:hover { transform: translateY(-4px); box-shadow: 0 14px 32px rgba(15, 59, 58, .14); }
 
-.media { display: block; height: 170px; border-bottom: 3px solid var(--saffron); overflow: hidden; }
+.media { position: relative; height: 170px; border-bottom: 3px solid var(--saffron); overflow: hidden; }
+.mediaLink { display: block; height: 100%; }
+
+.badge {
+  position: absolute; top: 8px; inset-inline-start: 8px; z-index: 1;
+  background: var(--saffron); color: var(--petrol-700); font-size: 11px; font-weight: 700;
+  padding: 3px 10px; border-radius: 50px;
+}
+
+.wishlistBtn {
+  position: absolute; top: 8px; inset-inline-end: 8px; z-index: 1;
+  width: 30px; height: 30px; border-radius: 50%; background: rgb(255 255 255 / 0.9); color: var(--clay);
+  display: grid; place-items: center; transition: transform var(--ease-hover), background var(--ease-hover);
+}
+.wishlistBtn:hover { background: #fff; transform: scale(1.08); }
 
 .body { padding: 16px; flex: 1; display: flex; flex-direction: column; gap: 6px; }
 .name { font-size: 17px; }

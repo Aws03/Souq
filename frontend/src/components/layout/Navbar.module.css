@@ -1,42 +1,43 @@
 .navbar {
-  background: var(--petrol); color: var(--paper); padding: 12px clamp(16px, 4vw, 28px);
+  background: var(--surface); color: var(--ink); border-bottom: 1px solid var(--line);
+  padding: 0 clamp(16px, 4vw, 28px); height: var(--navbar-height);
   display: flex; align-items: center; gap: 18px; position: sticky; top: 0; z-index: 50;
 }
 
 .brand {
-  font-family: var(--font-display); font-size: 24px; font-weight: 700; color: var(--paper);
+  font-family: var(--font-display); font-size: 24px; font-weight: 700; color: var(--petrol);
   letter-spacing: .5px; text-decoration: none; flex-shrink: 0;
 }
 .brand span { color: var(--saffron); }
 
-.searchDesktop { flex: 1; }
+.searchDesktop { flex: 1; max-width: 480px; margin: 0 auto; }
 
-.actions { display: flex; align-items: center; gap: 14px; flex-shrink: 0; }
-.linkLight { color: var(--paper); text-decoration: none; font-weight: 500; opacity: .9; transition: opacity var(--ease-hover); }
+.actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; margin-inline-start: auto; }
+.linkLight { color: var(--ink); text-decoration: none; font-weight: 500; opacity: .8; transition: opacity var(--ease-hover); }
 .linkLight:hover { opacity: 1; }
-.user { color: var(--saffron-soft); font-size: var(--fs-caption); white-space: nowrap; }
-.linkBtn { color: var(--paper); opacity: .8; font-weight: 500; }
+.user { color: var(--petrol); font-size: var(--fs-caption); white-space: nowrap; font-weight: 500; }
+.linkBtn { color: var(--ink); opacity: .7; font-weight: 500; }
 .linkBtn:hover { opacity: 1; text-decoration: underline; }
 
-.cartBtn {
-  position: relative; background: var(--saffron); color: var(--petrol-700); font-weight: 700;
-  width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center;
-  transition: transform var(--ease-hover);
+.iconBtn {
+  position: relative; background: var(--soft); color: var(--petrol);
+  width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center;
+  transition: background var(--ease-hover), transform var(--ease-hover);
 }
-.cartBtn:hover { transform: translateY(-1px); }
-.cartCount {
+.iconBtn:hover { background: var(--saffron-soft); transform: translateY(-1px); }
+.iconBadge {
   position: absolute; top: -4px; left: -4px; background: var(--clay); color: #fff; border-radius: 50%;
   width: 19px; height: 19px; display: grid; place-items: center; font-size: 11px; font-weight: 700;
 }
 
-.hamburger { display: none; color: var(--paper); width: 36px; height: 36px; }
+.hamburger { display: none; color: var(--ink); width: 36px; height: 36px; }
 
 .langToggle {
-  color: var(--paper); background: rgb(255 255 255 / 0.12); border-radius: 999px;
+  color: var(--petrol); background: var(--soft); border-radius: 999px;
   font-weight: 700; font-size: var(--fs-caption); padding: 6px 12px; flex-shrink: 0;
   transition: background var(--ease-hover);
 }
-.langToggle:hover { background: rgb(255 255 255 / 0.22); }
+.langToggle:hover { background: var(--saffron-soft); }
 
 @media (max-width: 767px) {
   .hamburger { display: grid; place-items: center; }

@@ -1,1 +1,2 @@
-.section { padding-top: 28px; scroll-margin-top: 120px; }
+.section { padding-top: 28px; scroll-margin-top: calc(var(--navbar-height) + 56px); }
+.allProductsTitle { font-size: var(--fs-heading-lg); margin-bottom: 18px; }

@@ -1,0 +1,39 @@
+.footer { background: var(--petrol); color: var(--paper); margin-top: 40px; }
+
+.footer__grid {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 28px;
+  padding-top: clamp(32px, 5vw, 56px); padding-bottom: 32px;
+}
+@media (max-width: 900px) { .footer__grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 520px) { .footer__grid { grid-template-columns: 1fr; } }
+
+.footer__col { display: flex; flex-direction: column; gap: 12px; }
+
+.footer__brand { font-family: var(--font-display); font-size: 22px; font-weight: 700; color: var(--paper); }
+.footer__brand span { color: var(--saffron); }
+.footer__desc { color: rgb(250 247 241 / 0.75); font-size: var(--fs-body-sm); max-width: 32ch; }
+
+.footer__social { display: flex; gap: 10px; margin-top: 4px; }
+.footer__social a {
+  width: 32px; height: 32px; border-radius: 50%; background: rgb(255 255 255 / 0.1);
+  display: grid; place-items: center; transition: background var(--ease-hover);
+}
+.footer__social a:hover { background: var(--saffron); color: var(--petrol-700); }
+
+.footer__heading { font-size: var(--fs-body); color: var(--saffron-soft); margin-bottom: 4px; }
+
+.footer__links { display: flex; flex-direction: column; gap: 10px; }
+.footer__links a { color: rgb(250 247 241 / 0.8); font-size: var(--fs-body-sm); text-decoration: none; }
+.footer__links a:hover { color: var(--paper); text-decoration: underline; }
+
+.footer__contact { display: flex; flex-direction: column; gap: 10px; list-style: none; }
+.footer__contact li { display: flex; align-items: center; gap: 8px; color: rgb(250 247 241 / 0.8); font-size: var(--fs-body-sm); }
+
+.footer__bottom { border-top: 1px solid rgb(255 255 255 / 0.12); }
+.footer__bottomInner {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px;
+  padding-top: 16px; padding-bottom: 16px; font-size: var(--fs-caption); color: rgb(250 247 241 / 0.65);
+}
+.footer__legal { display: flex; gap: 18px; }
+.footer__legal a { color: rgb(250 247 241 / 0.65); text-decoration: none; }
+.footer__legal a:hover { color: var(--paper); text-decoration: underline; }

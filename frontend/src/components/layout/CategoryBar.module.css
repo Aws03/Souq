@@ -1,4 +1,4 @@
-.bar { background: var(--surface); border-bottom: 1px solid var(--line); position: sticky; top: 62px; z-index: 40; }
+.bar { background: var(--soft); border-bottom: 1px solid var(--line); position: sticky; top: var(--navbar-height); z-index: 40; }
 .scroller {
   max-width: 1240px; margin: 0 auto; padding: 10px clamp(16px, 4vw, 28px);
   display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none;

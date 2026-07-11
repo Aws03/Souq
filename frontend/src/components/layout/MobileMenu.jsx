@@ -16,6 +16,7 @@ export default function MobileMenu({ open, onClose, searchTerm, onSearchChange }
       <div className={styles.sheet} role="dialog" aria-modal="true">
         <SearchBar value={searchTerm} onChange={onSearchChange} className={styles.search} />
         <nav className={styles.links} onClick={onClose}>
+          <Link to="/wishlist">{t('nav.wishlistAria')}</Link>
           {isAdmin && <Link to="/admin">{t('nav.adminPanel')}</Link>}
           {isAuthenticated ? (
             <>

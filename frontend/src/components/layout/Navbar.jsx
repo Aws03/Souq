@@ -2,18 +2,21 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useCart } from '../../context/CartContext';
+import { useWishlist } from '../../context/WishlistContext';
 import { useAuth } from '../../context/AuthContext';
 import { setLanguage } from '../../i18n';
-import { CartIcon, MenuIcon } from '../icons/Icons';
+import { CartIcon, HeartIcon, MenuIcon } from '../icons/Icons';
 import SearchBar from './SearchBar';
 import MobileMenu from './MobileMenu';
 import styles from './Navbar.module.css';
 
-// شريط تنقّل المتجر: ثابت أعلى الصفحة، الشعار يميناً (RTL)، البحث وسطاً،
-// السلة والمصادقة يساراً. يتحوّل على الجوال إلى هامبرغر + ورقة سفلية.
+// شريط تنقّل المتجر: خلفية بيضاء ثابتة أعلى الصفحة (تحت شريط الإعلان)، الشعار
+// يميناً (RTL)، البحث وسطاً، أيقونات اللغة/المفضّلة/السلة يساراً. يتحوّل على
+// الجوال إلى هامبرغر + ورقة سفلية.
 export default function Navbar({ onCartClick, searchTerm, onSearchChange }) {
   const { t, i18n } = useTranslation();
   const { count } = useCart();
+  const { count: wishlistCount } = useWishlist();
   const { user, isAuthenticated, isAdmin, logout } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -49,9 +52,14 @@ export default function Navbar({ onCartClick, searchTerm, onSearchChange }) {
           {otherLanguage === 'en' ? 'EN' : 'ع'}
         </button>
 
-        <button className={styles.cartBtn} onClick={onCartClick} aria-label={t('nav.viewCart')}>
+        <Link to="/wishlist" className={styles.iconBtn} aria-label={t('nav.wishlistAria')}>
+          <HeartIcon size={18} filled={wishlistCount > 0} />
+          {wishlistCount > 0 && <span className={styles.iconBadge}>{wishlistCount}</span>}
+        </Link>
+
+        <button className={styles.iconBtn} onClick={onCartClick} aria-label={t('nav.viewCart')}>
           <CartIcon size={18} />
-          {count > 0 && <span className={styles.cartCount}>{count}</span>}
+          {count > 0 && <span className={styles.iconBadge}>{count}</span>}
         </button>
       </div>
 

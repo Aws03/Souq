@@ -1,0 +1,22 @@
+.announcement {
+  background: var(--petrol); color: var(--paper); height: var(--announcement-height);
+  display: flex; align-items: center; overflow: hidden;
+}
+
+.announcement__track {
+  display: flex; gap: 64px; white-space: nowrap; flex-shrink: 0;
+  padding-inline-start: 100%;
+  animation: announcement-scroll 20s linear infinite;
+  font-size: var(--fs-caption); font-weight: 600; letter-spacing: .2px;
+}
+
+.announcement__item { flex-shrink: 0; }
+
+@keyframes announcement-scroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(-100%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .announcement__track { animation: none; padding-inline-start: 16px; }
+}
