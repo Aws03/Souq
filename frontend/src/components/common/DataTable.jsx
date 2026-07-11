@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import Skeleton from './Skeleton';
 import { EmptyState, ErrorBanner } from './StateViews';
 import styles from './DataTable.module.css';
@@ -8,8 +9,9 @@ import styles from './DataTable.module.css';
  */
 export default function DataTable({
   columns, rows, rowKey, loading, error, onRetry,
-  emptyTitle = 'لا بيانات بعد', emptyMessage, skeletonRows = 5,
+  emptyTitle, emptyMessage, skeletonRows = 5,
 }) {
+  const { t } = useTranslation();
   if (error) return <ErrorBanner message={error} onRetry={onRetry} />;
 
   return (
@@ -32,7 +34,7 @@ export default function DataTable({
         </tbody>
       </table>
       {!loading && rows.length === 0 && (
-        <EmptyState title={emptyTitle} message={emptyMessage} />
+        <EmptyState title={emptyTitle ?? t('common.noDataYet')} message={emptyMessage} />
       )}
     </div>
   );

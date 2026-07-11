@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useOutletContext, useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
 import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
@@ -18,6 +19,7 @@ import styles from './ProductDetail.module.css';
 // صفحة تفصيل منتج: صورة كبيرة + بيانات كاملة + إضافة للسلة، وأسفلها التقييمات
 // (متوسط + قائمة مرقّمة + نموذج إضافة تقييم لمن يحقّ له).
 export default function ProductDetail() {
+  const { t } = useTranslation();
   const { id } = useParams();
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
@@ -74,7 +76,7 @@ export default function ProductDetail() {
           {reviews && reviews.totalCount > 0 && (
             <div className={styles.ratingLine}>
               <StarRating value={reviews.averageRating} />
-              <span>{reviews.averageRating} ({reviews.totalCount} تقييم)</span>
+              <span>{reviews.averageRating} ({t('product.ratingSummary', { count: reviews.totalCount })})</span>
             </div>
           )}
           <p className={styles.desc}>{product.description}</p>
@@ -82,20 +84,20 @@ export default function ProductDetail() {
           <div className={styles.buyRow}>
             <PriceTag amount={product.price} currency={product.currency} />
             <Button variant="primary" loading={adding} disabled={outOfStock} onClick={handleAdd}>
-              {outOfStock ? 'نفد' : 'أضف للسلة'}
+              {outOfStock ? t('product.outOfStock') : t('product.addToCart')}
             </Button>
           </div>
         </div>
       </div>
 
       <section className={styles.reviewsSection}>
-        <h2 className={styles.sectionTitle}>التقييمات</h2>
+        <h2 className={styles.sectionTitle}>{t('product.reviewsTitle')}</h2>
 
         {isAuthenticated ? (
           <ReviewForm productId={id} onSubmitted={() => { setPage(1); loadReviews(); }} />
         ) : (
           <p className={styles.signInHint}>
-            <Link to="/login">سجّل الدخول</Link> لتتمكّن من تقييم هذا المنتج.
+            <Link to="/login">{t('auth.signIn')}</Link> {t('product.signInToReview')}
           </p>
         )}
 
@@ -104,7 +106,7 @@ export default function ProductDetail() {
         <Pagination page={page} totalPages={totalPages} onChange={setPage} />
       </section>
 
-      <Button variant="link" onClick={() => navigate('/')}>← العودة للمتجر</Button>
+      <Button variant="link" onClick={() => navigate('/')}>{t('product.backToStore')}</Button>
     </div>
   );
 }

@@ -1,11 +1,14 @@
+import { useTranslation } from 'react-i18next';
 import StarRating from '../product/StarRating';
 import { EmptyState, ErrorBanner } from '../common/StateViews';
 import Skeleton from '../common/Skeleton';
 import { StarIcon } from '../icons/Icons';
+import { formatDate } from '../../i18n';
 import styles from './ReviewList.module.css';
 
 // قائمة تقييمات منتج: هيكل تحميل، حالة فارغة، لافتة خطأ، ثم بطاقة لكل تقييم.
 export default function ReviewList({ reviews, loading, error, onRetry }) {
+  const { t } = useTranslation();
   if (error) return <ErrorBanner message={error} onRetry={onRetry} />;
 
   if (loading) {
@@ -23,7 +26,7 @@ export default function ReviewList({ reviews, loading, error, onRetry }) {
   }
 
   if (reviews.length === 0) {
-    return <EmptyState icon={StarIcon} title="لا تقييمات بعد" message="كن أول من يقيّم هذا المنتج." />;
+    return <EmptyState icon={StarIcon} title={t('reviews.emptyTitle')} message={t('reviews.emptyMessage')} />;
   }
 
   return (
@@ -35,7 +38,7 @@ export default function ReviewList({ reviews, loading, error, onRetry }) {
             <StarRating value={r.rating} />
           </div>
           <p className={styles.comment}>{r.comment}</p>
-          <span className={styles.date}>{new Date(r.createdAt).toLocaleDateString('ar-JO')}</span>
+          <span className={styles.date}>{formatDate(r.createdAt)}</span>
         </div>
       ))}
     </div>

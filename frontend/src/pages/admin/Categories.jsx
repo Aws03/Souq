@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { api } from '../../api/client';
 import { useToast } from '../../context/ToastContext';
 import DataTable from '../../components/common/DataTable';
@@ -10,6 +11,7 @@ import styles from './Admin.module.css';
 // شاشة إدارة الفئات. القائمة صغيرة عادةً (غير مرقّمة في الـ API) فنعرضها كاملة
 // كجدول مسطّح، مع اسم الفئة الأب محلولاً من القائمة نفسها.
 export default function Categories() {
+  const { t } = useTranslation();
   const toast = useToast();
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -32,28 +34,28 @@ export default function Categories() {
     if (editing?.id) await api.updateCategory(editing.id, payload);
     else await api.createCategory(payload);
     setEditing(null);
-    toast.success(editing?.id ? 'تم تحديث الفئة' : 'تمت إضافة الفئة');
+    toast.success(editing?.id ? t('admin.categories.updated') : t('admin.categories.created'));
     load();
   };
 
   const remove = async (category) => {
-    if (!window.confirm(`حذف الفئة "${category.name}"؟`)) return;
+    if (!window.confirm(t('admin.categories.confirmDelete', { name: category.name }))) return;
     try {
       await api.deleteCategory(category.id);
-      toast.success('تم حذف الفئة');
+      toast.success(t('admin.categories.deleted'));
       load();
     } catch (e) { toast.error(e.message); }
   };
 
   const columns = [
-    { key: 'name', header: 'الاسم', render: (c) => c.name },
-    { key: 'slug', header: 'المُعرّف', render: (c) => <span dir="ltr">{c.slug}</span> },
-    { key: 'parent', header: 'الفئة الأب', render: (c) => (c.parentId ? parentName(c.parentId) : '—') },
+    { key: 'name', header: t('admin.categories.colName'), render: (c) => c.name },
+    { key: 'slug', header: t('admin.categories.colSlug'), render: (c) => <span dir="ltr">{c.slug}</span> },
+    { key: 'parent', header: t('admin.categories.colParent'), render: (c) => (c.parentId ? parentName(c.parentId) : '—') },
     {
       key: 'actions', header: '', render: (c) => (
         <RowActionsMenu actions={[
-          { label: 'تعديل', onClick: () => setEditing(c) },
-          { label: 'حذف', variant: 'danger', onClick: () => remove(c) },
+          { label: t('common.edit'), onClick: () => setEditing(c) },
+          { label: t('common.delete'), variant: 'danger', onClick: () => remove(c) },
         ]} />
       ),
     },
@@ -61,15 +63,15 @@ export default function Categories() {
 
   return (
     <div>
-      <h2 className={styles.pageTitle}>إدارة الفئات</h2>
-      <p className={styles.pageSub}>نظّم فئات المتجر وفئاتها الفرعية.</p>
+      <h2 className={styles.pageTitle}>{t('admin.categories.title')}</h2>
+      <p className={styles.pageSub}>{t('admin.categories.subtitle')}</p>
 
       <div className={styles.toolbar}>
-        <Button variant="primary" onClick={() => setEditing({})}>+ إضافة فئة</Button>
+        <Button variant="primary" onClick={() => setEditing({})}>{t('admin.categories.addCategory')}</Button>
       </div>
 
       <DataTable columns={columns} rows={categories} rowKey={(c) => c.id} loading={loading} error={error}
-        onRetry={load} emptyTitle="لا فئات بعد" emptyMessage="أضف أول فئة لتنظيم منتجاتك." />
+        onRetry={load} emptyTitle={t('admin.categories.emptyTitle')} emptyMessage={t('admin.categories.emptyMessage')} />
 
       {editing !== null && (
         <CategoryFormDrawer category={editing.id ? editing : null} categories={categories}

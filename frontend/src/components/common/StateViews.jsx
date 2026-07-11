@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { AlertIcon, PackageIcon, RefreshIcon } from '../icons/Icons';
 import Button from './Button';
 import styles from './StateViews.module.css';
@@ -21,13 +22,14 @@ export function EmptyState({ title, message, actionLabel, onAction, icon: Icon =
 
 /** لافتة خطأ داخل الصفحة مع زر إعادة محاولة — بديل عن alert() المتصفح. */
 export function ErrorBanner({ message, onRetry }) {
+  const { t } = useTranslation();
   return (
     <div className={styles.error} role="alert">
       <AlertIcon size={18} />
       <span className={styles.errorMsg}>{message}</span>
       {onRetry && (
         <button type="button" className={styles.retry} onClick={onRetry}>
-          <RefreshIcon size={14} /> إعادة المحاولة
+          <RefreshIcon size={14} /> {t('common.retry')}
         </button>
       )}
     </div>

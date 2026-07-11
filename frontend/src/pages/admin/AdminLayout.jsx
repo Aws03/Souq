@@ -1,4 +1,5 @@
 import { Outlet, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../context/AuthContext';
 import AdminSidebar from './AdminSidebar';
 import AdminMobileTabBar from './AdminMobileTabBar';
@@ -10,6 +11,7 @@ import styles from './AdminLayout.module.css';
 // على الجوال يتحوّل الشريط الجانبي إلى شريط تبويب سفلي (AdminMobileTabBar).
 // ============================================================================
 export default function AdminLayout() {
+  const { t } = useTranslation();
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
@@ -21,8 +23,8 @@ export default function AdminLayout() {
 
       <div className={styles.main}>
         <header className={styles.header}>
-          <span className={styles.headerTitle}>لوحة تحكّم المتجر</span>
-          <span className={styles.headerUser}>{user?.fullName || 'المدير'}</span>
+          <span className={styles.headerTitle}>{t('admin.headerTitle')}</span>
+          <span className={styles.headerUser}>{user?.fullName || t('admin.adminFallback')}</span>
         </header>
         <main className={styles.content}>
           <Outlet />

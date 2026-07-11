@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../context/AuthContext';
 import FormField, { inputClass } from '../../components/common/FormField';
 import Button from '../../components/common/Button';
@@ -9,6 +10,7 @@ import styles from './Auth.module.css';
 // صفحة الدخول. تحقّق فوري لكل حقل + رسالة خطأ واضحة من الخادم. عند النجاح:
 // الأدمن يهبط في لوحة الإدارة، والعميل يعود لوجهته الأصلية أو المتجر.
 export default function Login() {
+  const { t } = useTranslation();
   const { login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -21,9 +23,9 @@ export default function Login() {
   const [busy, setBusy] = useState(false);
 
   const errors = {
-    email: !email ? 'البريد الإلكتروني مطلوب'
-      : !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? 'صيغة البريد غير صحيحة' : null,
-    password: !password ? 'كلمة المرور مطلوبة' : null,
+    email: !email ? t('auth.emailRequired')
+      : !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? t('auth.emailInvalid') : null,
+    password: !password ? t('auth.passwordRequired') : null,
   };
   const isValid = !errors.email && !errors.password;
 
@@ -36,14 +38,14 @@ export default function Login() {
       const user = await login(email.trim(), password);
       navigate(user?.role === 'Admin' ? '/admin' : (from && from !== '/login' ? from : '/'), { replace: true });
     } catch (err) {
-      setServerError(err.message || 'تعذّر تسجيل الدخول');
+      setServerError(err.message || t('auth.loginFailed'));
     } finally { setBusy(false); }
   };
 
   return (
-    <AuthLayout title="تسجيل الدخول" subtitle="أهلاً بعودتك — ادخل لمتابعة التسوّق" serverError={serverError}>
+    <AuthLayout title={t('auth.loginTitle')} subtitle={t('auth.loginSubtitle')} serverError={serverError}>
       <form onSubmit={submit} noValidate>
-        <FormField label="البريد الإلكتروني" error={touched.email && errors.email}>
+        <FormField label={t('auth.emailLabel')} error={touched.email && errors.email}>
           <input type="email" dir="ltr" value={email} autoComplete="email"
             className={inputClass(touched.email && errors.email)}
             onChange={(e) => setEmail(e.target.value)}
@@ -51,7 +53,7 @@ export default function Login() {
             placeholder="you@example.com" />
         </FormField>
 
-        <FormField label="كلمة المرور" error={touched.password && errors.password}>
+        <FormField label={t('auth.passwordLabel')} error={touched.password && errors.password}>
           <input type="password" value={password} autoComplete="current-password"
             className={inputClass(touched.password && errors.password)}
             onChange={(e) => setPassword(e.target.value)}
@@ -59,9 +61,9 @@ export default function Login() {
             placeholder="••••••••" />
         </FormField>
 
-        <Button type="submit" variant="saffron" size="lg" loading={busy} className={styles.submit}>دخول</Button>
+        <Button type="submit" variant="saffron" size="lg" loading={busy} className={styles.submit}>{t('auth.loginSubmit')}</Button>
 
-        <p className={styles.switch}>ليس لديك حساب؟ <Link to="/register">أنشئ حساباً</Link></p>
+        <p className={styles.switch}>{t('auth.noAccount')} <Link to="/register">{t('auth.createAccount')}</Link></p>
       </form>
     </AuthLayout>
   );

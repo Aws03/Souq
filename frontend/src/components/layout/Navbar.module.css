@@ -31,6 +31,13 @@
 
 .hamburger { display: none; color: var(--paper); width: 36px; height: 36px; }
 
+.langToggle {
+  color: var(--paper); background: rgb(255 255 255 / 0.12); border-radius: 999px;
+  font-weight: 700; font-size: var(--fs-caption); padding: 6px 12px; flex-shrink: 0;
+  transition: background var(--ease-hover);
+}
+.langToggle:hover { background: rgb(255 255 255 / 0.22); }
+
 @media (max-width: 767px) {
   .hamburger { display: grid; place-items: center; }
   .searchDesktop { display: none; }

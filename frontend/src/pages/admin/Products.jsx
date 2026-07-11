@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { api } from '../../api/client';
 import { useToast } from '../../context/ToastContext';
 import DataTable from '../../components/common/DataTable';
@@ -17,6 +18,7 @@ const PAGE_SIZE = 10;
 // إضافة/تعديل بسحب وإفلات صورة. الحذف حذف منطقي (تعطيل) — يختفي المنتج من
 // القائمة فوراً لأن GET /products يعرض النشط فقط.
 export default function Products() {
+  const { t } = useTranslation();
   const toast = useToast();
   const [items, setItems] = useState([]);
   const [totalPages, setTotalPages] = useState(1);
@@ -47,30 +49,30 @@ export default function Products() {
       : (await api.createProduct(payload)).id;
     if (file) await api.uploadProductImage(id, file);
     setEditing(null);
-    toast.success(editing?.id ? 'تم تحديث المنتج' : 'تمت إضافة المنتج');
+    toast.success(editing?.id ? t('admin.products.updated') : t('admin.products.created'));
     load();
   };
 
   const remove = async (product) => {
-    if (!window.confirm(`تعطيل المنتج "${product.name}"؟ سيختفي من المتجر.`)) return;
+    if (!window.confirm(t('admin.products.confirmDisable', { name: product.name }))) return;
     try {
       await api.deleteProduct(product.id);
-      toast.success('تم تعطيل المنتج');
+      toast.success(t('admin.products.disabled'));
       load();
     } catch (e) { toast.error(e.message); }
   };
 
   const columns = [
-    { key: 'img', header: 'الصورة', render: (p) => <div className={styles.thumb}><ProductImage product={p} /></div> },
-    { key: 'name', header: 'الاسم', render: (p) => p.name },
-    { key: 'cat', header: 'الفئة', render: (p) => p.categoryName || '—' },
-    { key: 'price', header: 'السعر', render: (p) => formatPrice(p.price, p.currency) },
-    { key: 'stock', header: 'المخزون', render: (p) => p.stockQuantity },
+    { key: 'img', header: t('admin.products.colImage'), render: (p) => <div className={styles.thumb}><ProductImage product={p} /></div> },
+    { key: 'name', header: t('admin.products.colName'), render: (p) => p.name },
+    { key: 'cat', header: t('admin.products.colCategory'), render: (p) => p.categoryName || '—' },
+    { key: 'price', header: t('admin.products.colPrice'), render: (p) => formatPrice(p.price, p.currency) },
+    { key: 'stock', header: t('admin.products.colStock'), render: (p) => p.stockQuantity },
     {
       key: 'actions', header: '', render: (p) => (
         <RowActionsMenu actions={[
-          { label: 'تعديل', onClick: () => setEditing(p) },
-          { label: 'تعطيل', variant: 'danger', onClick: () => remove(p) },
+          { label: t('common.edit'), onClick: () => setEditing(p) },
+          { label: t('common.disable'), variant: 'danger', onClick: () => remove(p) },
         ]} />
       ),
     },
@@ -78,23 +80,23 @@ export default function Products() {
 
   return (
     <div>
-      <h2 className={styles.pageTitle}>إدارة المنتجات</h2>
-      <p className={styles.pageSub}>أضف منتجات جديدة، عدّل بياناتها وصورها، أو عطّلها.</p>
+      <h2 className={styles.pageTitle}>{t('admin.products.title')}</h2>
+      <p className={styles.pageSub}>{t('admin.products.subtitle')}</p>
 
       <div className={styles.toolbar}>
         <label className={styles.search}>
           <SearchIcon size={16} />
-          <input value={keyword} onChange={(e) => setKeyword(e.target.value)} placeholder="ابحث بالاسم أو الوصف..." />
+          <input value={keyword} onChange={(e) => setKeyword(e.target.value)} placeholder={t('admin.products.searchPlaceholder')} />
         </label>
         <select value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
-          <option value="">كل الفئات</option>
+          <option value="">{t('admin.products.allCategories')}</option>
           {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
-        <Button variant="primary" onClick={() => setEditing({})}>+ إضافة منتج</Button>
+        <Button variant="primary" onClick={() => setEditing({})}>{t('admin.products.addProduct')}</Button>
       </div>
 
       <DataTable columns={columns} rows={items} rowKey={(p) => p.id} loading={loading} error={error}
-        onRetry={load} emptyTitle="لا منتجات مطابقة" emptyMessage="جرّب تعديل البحث أو الفئة، أو أضف منتجاً جديداً." />
+        onRetry={load} emptyTitle={t('admin.products.emptyTitle')} emptyMessage={t('admin.products.emptyMessage')} />
 
       <Pagination page={page} totalPages={totalPages} onChange={setPage} />
 

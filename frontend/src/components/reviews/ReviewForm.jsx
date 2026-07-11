@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { api } from '../../api/client';
 import { useToast } from '../../context/ToastContext';
 import Button from '../common/Button';
@@ -10,6 +11,7 @@ import styles from './ReviewForm.module.css';
 // نموذج إضافة تقييم. الخادم هو الحكم الفعلي في الأحقّية (اشترى واستلم المنتج،
 // ولم يقيّمه من قبل) — نعرض رسالة الخطأ التي يُعيدها كما هي، لا نخمّنها هنا.
 export default function ReviewForm({ productId, onSubmitted }) {
+  const { t } = useTranslation();
   const toast = useToast();
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState('');
@@ -18,13 +20,13 @@ export default function ReviewForm({ productId, onSubmitted }) {
 
   const submit = async (e) => {
     e.preventDefault();
-    if (rating === 0) return setError('اختر تقييماً من 1 إلى 5 نجوم');
-    if (!comment.trim()) return setError('اكتب تعليقاً عن تجربتك مع المنتج');
+    if (rating === 0) return setError(t('reviews.ratingRequired'));
+    if (!comment.trim()) return setError(t('reviews.commentRequired'));
 
     setBusy(true); setError(null);
     try {
       await api.createReview(productId, { rating, comment: comment.trim() });
-      toast.success('تم إرسال تقييمك — شكراً لك');
+      toast.success(t('reviews.submitted'));
       setRating(0); setComment('');
       onSubmitted?.();
     } catch (err) { setError(err.message); }
@@ -33,12 +35,12 @@ export default function ReviewForm({ productId, onSubmitted }) {
 
   return (
     <form className={styles.form} onSubmit={submit}>
-      <h3 className={styles.title}>أضف تقييمك</h3>
+      <h3 className={styles.title}>{t('reviews.addTitle')}</h3>
       {error && <ErrorBanner message={error} />}
       <StarRating value={rating} onChange={setRating} size={22} />
       <textarea className={inputClass(false, styles.textarea)} rows={3} value={comment}
-        onChange={(e) => setComment(e.target.value)} placeholder="شاركنا رأيك في المنتج…" />
-      <Button type="submit" variant="primary" loading={busy}>إرسال التقييم</Button>
+        onChange={(e) => setComment(e.target.value)} placeholder={t('reviews.commentPlaceholder')} />
+      <Button type="submit" variant="primary" loading={busy}>{t('reviews.submit')}</Button>
     </form>
   );
 }

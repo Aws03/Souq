@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, useOutletContext } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useCart } from '../../context/CartContext';
 import { api } from '../../api/client';
 import { ErrorBanner, EmptyState } from '../../components/common/StateViews';
@@ -15,6 +16,7 @@ import styles from './Checkout.module.css';
 //  2) بطاقة حقيقية عبر Stripe Elements (لا تصل تفاصيلها خادمنا إطلاقاً) →
 //     تأكيد لدى الخادم يتحقّق من النتيجة مع Stripe نفسها قبل إتمام الطلب.
 export default function Checkout() {
+  const { t } = useTranslation();
   const { items, total, clear } = useCart();
   const { refreshProducts } = useOutletContext();
   const navigate = useNavigate();
@@ -30,7 +32,7 @@ export default function Checkout() {
   const [serverError, setServerError] = useState(null);
 
   const currency = items[0]?.currency || 'JOD';
-  const addressError = !address.trim() ? 'عنوان الشحن مطلوب' : null;
+  const addressError = !address.trim() ? t('checkout.addressRequired') : null;
 
   const applyCoupon = async () => {
     setCouponBusy(true); setCouponError(null);
@@ -70,8 +72,8 @@ export default function Checkout() {
   if (items.length === 0 && !order) {
     return (
       <div className="souq-layout">
-        <EmptyState icon={PackageIcon} title="سلّتك فارغة" message="أضِف منتجات أولاً قبل إتمام الطلب."
-          actionLabel="تصفّح المتجر" onAction={() => navigate('/')} />
+        <EmptyState icon={PackageIcon} title={t('checkout.emptyCartTitle')} message={t('checkout.emptyCartMessage')}
+          actionLabel={t('checkout.browseStore')} onAction={() => navigate('/')} />
       </div>
     );
   }

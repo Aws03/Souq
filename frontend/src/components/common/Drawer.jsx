@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { CloseIcon } from '../icons/Icons';
 import styles from './Drawer.module.css';
 
@@ -6,6 +7,7 @@ import styles from './Drawer.module.css';
  * الإضافة/التعديل في لوحة الإدارة (من اليمين). busy يمنع الإغلاق أثناء الحفظ.
  */
 export default function Drawer({ open, onClose, side = 'left', title, busy = false, width = 420, footer, children }) {
+  const { t } = useTranslation();
   if (!open) return null;
 
   return (
@@ -14,7 +16,7 @@ export default function Drawer({ open, onClose, side = 'left', title, busy = fal
       <aside className={`${styles.panel} ${styles[side]}`} style={{ width: `min(${width}px, 92vw)` }} role="dialog" aria-modal="true">
         <div className={styles.head}>
           <h3 className={styles.title}>{title}</h3>
-          <button type="button" className={styles.close} onClick={onClose} disabled={busy} aria-label="إغلاق">
+          <button type="button" className={styles.close} onClick={onClose} disabled={busy} aria-label={t('common.close')}>
             <CloseIcon size={18} />
           </button>
         </div>

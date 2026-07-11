@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { CardElement, Elements, useElements, useStripe } from '@stripe/react-stripe-js';
+import { useTranslation } from 'react-i18next';
 
 import { api } from '../../api/client';
 import Button from '../../components/common/Button';
@@ -16,6 +17,7 @@ const CARD_ELEMENT_OPTIONS = {
 
 // نموذج الدفع الفعلي — يعمل داخل <Elements> فقط (useStripe/useElements يحتاجانها).
 function InnerForm({ order, onPaid }) {
+  const { t } = useTranslation();
   const stripe = useStripe();
   const elements = useElements();
   const [busy, setBusy] = useState(false);
@@ -34,7 +36,7 @@ function InnerForm({ order, onPaid }) {
     try {
       const confirmed = await api.confirmOrderPayment(order.orderId);
       if (confirmed.status !== 'Paid') {
-        setError('تعذّر تأكيد الدفع — حاول مرة أخرى.'); setBusy(false); return;
+        setError(t('checkout.confirmFailed')); setBusy(false); return;
       }
       onPaid();
     } catch (err) { setError(err.message); setBusy(false); }
@@ -45,7 +47,7 @@ function InnerForm({ order, onPaid }) {
       {error && <ErrorBanner message={error} />}
       <div className={styles.cardBox}><CardElement options={CARD_ELEMENT_OPTIONS} /></div>
       <Button type="submit" variant="saffron" size="lg" loading={busy} disabled={!stripe} className={styles.submit}>
-        ادفع الآن
+        {t('checkout.payNow')}
       </Button>
     </form>
   );
@@ -53,17 +55,18 @@ function InnerForm({ order, onPaid }) {
 
 // خطوة الدفع: تنتظر تحميل Stripe.js (بمفتاحه من الخادم) ثم تعرض حقل البطاقة.
 export default function CardPaymentForm({ order, onPaid }) {
+  const { t } = useTranslation();
   const [stripePromise, setStripePromise] = useState(undefined);
 
   useEffect(() => { getStripePromise().then(setStripePromise); }, []);
 
   if (stripePromise === undefined) return null;
   if (stripePromise === null)
-    return <ErrorBanner message="الدفع عبر البطاقة غير مُهيّأ بعد على الخادم (مفتاح Stripe مفقود)." />;
+    return <ErrorBanner message={t('checkout.paymentNotConfigured')} />;
 
   return (
     <div className={styles.panel}>
-      <h2 className={styles.panelTitle}>بيانات البطاقة</h2>
+      <h2 className={styles.panelTitle}>{t('checkout.cardTitle')}</h2>
       <Elements stripe={stripePromise}>
         <InnerForm order={order} onPaid={onPaid} />
       </Elements>

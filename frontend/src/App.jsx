@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Routes, Route, Outlet, Navigate, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { CartProvider } from './context/CartContext';
 import { useToast } from './context/ToastContext';
 import { ProtectedRoute, AdminRoute } from './components/ProtectedRoute';
@@ -26,13 +27,14 @@ import './styles.css';
 // — لكل دور تجربته الخاصة، لا صفحة واحدة بأزرار مخفية.
 // ============================================================================
 function CustomerLayout() {
+  const { t } = useTranslation();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
   const navigate = useNavigate();
   const toast = useToast();
 
-  const showToast = (name) => toast.success(`أُضيف "${name}" للسلة`);
+  const showToast = (name) => toast.success(t('cart.added', { name }));
   const refreshProducts = () => setRefreshKey((k) => k + 1);
 
   return (

@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import Skeleton from '../common/Skeleton';
 import { EmptyState, ErrorBanner } from '../common/StateViews';
 import { PackageIcon } from '../icons/Icons';
@@ -9,6 +10,7 @@ const SKELETON_COUNT = 8;
 // شبكة المنتجات: تتولّى حالات التحميل (هيكل)، الخطأ (لافتة + إعادة محاولة)،
 // الفراغ (حالة مصمَّمة)، والعرض الطبيعي — بدل تكرار هذا المنطق في كل صفحة.
 export default function ProductGrid({ products, loading, error, onRetry, onAdded }) {
+  const { t } = useTranslation();
   if (error) return <ErrorBanner message={error} onRetry={onRetry} />;
 
   if (loading) {
@@ -29,7 +31,7 @@ export default function ProductGrid({ products, loading, error, onRetry, onAdded
   }
 
   if (products.length === 0) {
-    return <EmptyState icon={PackageIcon} title="لا منتجات مطابقة" message="جرّب كلمة بحث أو فئة مختلفة." />;
+    return <EmptyState icon={PackageIcon} title={t('product.noMatchTitle')} message={t('product.noMatchMessage')} />;
   }
 
   return (

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useCart } from '../../context/CartContext';
 import Button from '../common/Button';
 import ProductImage from './ProductImage';
@@ -11,6 +12,7 @@ const ADD_FEEDBACK_MS = 350;
 // بطاقة منتج واحدة قابلة لإعادة الاستخدام. مبدأ "المسؤولية الواحدة":
 // مهمتها عرض منتج وزر الإضافة فقط.
 export default function ProductCard({ product, onAdded }) {
+  const { t } = useTranslation();
   const { add } = useCart();
   const [adding, setAdding] = useState(false);
   const outOfStock = product.stockQuantity <= 0;
@@ -32,7 +34,7 @@ export default function ProductCard({ product, onAdded }) {
         <div className={styles.foot}>
           <PriceTag amount={product.price} currency={product.currency} />
           <Button variant="primary" size="sm" loading={adding} disabled={outOfStock} onClick={handleAdd}>
-            {outOfStock ? 'نفد' : 'أضف للسلة'}
+            {outOfStock ? t('product.outOfStock') : t('product.addToCart')}
           </Button>
         </div>
       </div>

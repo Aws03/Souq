@@ -1,3 +1,5 @@
+import i18n from '../i18n';
+
 // ============================================================================
 // عميل API موحّد — لماذا ملف واحد؟ (مبدأ DRY + فصل الاهتمامات)
 // بدل تكرار إعدادات fetch (الرابط، الترويسات، معالجة الأخطاء) في كل مكوّن،
@@ -36,7 +38,7 @@ async function request(path, options = {}) {
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    const err = new Error(body.error || 'حدث خطأ في الاتصال بالخادم');
+    const err = new Error(body.error || i18n.t('errors.connection'));
     err.status = res.status;
     err.code = body.code;
     throw err;
@@ -61,7 +63,7 @@ async function upload(path, formData) {
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    const err = new Error(body.error || 'حدث خطأ في رفع الملف');
+    const err = new Error(body.error || i18n.t('errors.upload'));
     err.status = res.status;
     err.code = body.code;
     throw err;

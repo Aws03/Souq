@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../context/AuthContext';
 import FormField, { inputClass } from '../../components/common/FormField';
 import Button from '../../components/common/Button';
@@ -9,6 +10,7 @@ import styles from './Auth.module.css';
 // صفحة إنشاء حساب. نفس منهج التحقّق الفوري. التسجيل ينشئ عميلاً دائماً
 // (لا يُنشأ أدمن من هنا) ويسجّل الدخول تلقائياً ثم يوجّه للمتجر.
 export default function Register() {
+  const { t } = useTranslation();
   const { register } = useAuth();
   const navigate = useNavigate();
 
@@ -21,13 +23,13 @@ export default function Register() {
   const blur = (k) => () => setTouched((t) => ({ ...t, [k]: true }));
 
   const errors = {
-    fullName: !form.fullName.trim() ? 'الاسم الكامل مطلوب'
-      : form.fullName.trim().length < 3 ? 'الاسم قصير جداً' : null,
-    email: !form.email ? 'البريد الإلكتروني مطلوب'
-      : !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email) ? 'صيغة البريد غير صحيحة' : null,
-    password: !form.password ? 'كلمة المرور مطلوبة'
-      : form.password.length < 8 ? 'كلمة المرور 8 أحرف على الأقل' : null,
-    confirm: form.confirm !== form.password ? 'كلمتا المرور غير متطابقتين' : null,
+    fullName: !form.fullName.trim() ? t('auth.fullNameRequired')
+      : form.fullName.trim().length < 3 ? t('auth.fullNameTooShort') : null,
+    email: !form.email ? t('auth.emailRequired')
+      : !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email) ? t('auth.emailInvalid') : null,
+    password: !form.password ? t('auth.passwordRequired')
+      : form.password.length < 8 ? t('auth.passwordMinLength') : null,
+    confirm: form.confirm !== form.password ? t('auth.confirmPasswordMismatch') : null,
   };
   const isValid = !Object.values(errors).some(Boolean);
 
@@ -40,38 +42,38 @@ export default function Register() {
       await register(form.fullName.trim(), form.email.trim(), form.password);
       navigate('/', { replace: true });
     } catch (err) {
-      setServerError(err.message || 'تعذّر إنشاء الحساب');
+      setServerError(err.message || t('auth.registerFailed'));
     } finally { setBusy(false); }
   };
 
   const err = (k) => (touched[k] ? errors[k] : null);
 
   return (
-    <AuthLayout title="إنشاء حساب" subtitle="انضمّ إلى ماركة وابدأ التسوّق" serverError={serverError}>
+    <AuthLayout title={t('auth.registerTitle')} subtitle={t('auth.registerSubtitle')} serverError={serverError}>
       <form onSubmit={submit} noValidate>
-        <FormField label="الاسم الكامل" error={err('fullName')}>
+        <FormField label={t('auth.fullNameLabel')} error={err('fullName')}>
           <input value={form.fullName} autoComplete="name" className={inputClass(err('fullName'))}
-            onChange={set('fullName')} onBlur={blur('fullName')} placeholder="محمد عبدالله" />
+            onChange={set('fullName')} onBlur={blur('fullName')} placeholder={t('auth.fullNamePlaceholder')} />
         </FormField>
 
-        <FormField label="البريد الإلكتروني" error={err('email')}>
+        <FormField label={t('auth.emailLabel')} error={err('email')}>
           <input type="email" dir="ltr" value={form.email} autoComplete="email" className={inputClass(err('email'))}
             onChange={set('email')} onBlur={blur('email')} placeholder="you@example.com" />
         </FormField>
 
-        <FormField label="كلمة المرور" error={err('password')}>
+        <FormField label={t('auth.passwordLabel')} error={err('password')}>
           <input type="password" value={form.password} autoComplete="new-password" className={inputClass(err('password'))}
-            onChange={set('password')} onBlur={blur('password')} placeholder="8 أحرف على الأقل" />
+            onChange={set('password')} onBlur={blur('password')} placeholder={t('auth.passwordPlaceholderMin')} />
         </FormField>
 
-        <FormField label="تأكيد كلمة المرور" error={err('confirm')}>
+        <FormField label={t('auth.confirmPasswordLabel')} error={err('confirm')}>
           <input type="password" value={form.confirm} autoComplete="new-password" className={inputClass(err('confirm'))}
-            onChange={set('confirm')} onBlur={blur('confirm')} placeholder="أعد كتابة كلمة المرور" />
+            onChange={set('confirm')} onBlur={blur('confirm')} placeholder={t('auth.confirmPasswordPlaceholder')} />
         </FormField>
 
-        <Button type="submit" variant="saffron" size="lg" loading={busy} className={styles.submit}>إنشاء الحساب</Button>
+        <Button type="submit" variant="saffron" size="lg" loading={busy} className={styles.submit}>{t('auth.registerSubmit')}</Button>
 
-        <p className={styles.switch}>لديك حساب بالفعل؟ <Link to="/login">سجّل الدخول</Link></p>
+        <p className={styles.switch}>{t('auth.haveAccount')} <Link to="/login">{t('auth.signIn')}</Link></p>
       </form>
     </AuthLayout>
   );

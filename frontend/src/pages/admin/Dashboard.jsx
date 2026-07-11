@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { api } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 import { ErrorBanner } from '../../components/common/StateViews';
@@ -8,6 +9,7 @@ import styles from './Admin.module.css';
 
 // لوحة تحكّم الأدمن: ترحيب + إحصاءات حقيقية من الـ API (لا أرقام وهمية).
 export default function Dashboard() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const [stats, setStats] = useState(null);
   const [error, setError] = useState(null);
@@ -20,31 +22,31 @@ export default function Dashboard() {
 
   return (
     <div>
-      <h2 className={styles.pageTitle}>أهلاً، {user?.fullName || 'المدير'}</h2>
-      <p className={styles.pageSub}>نظرة سريعة على متجرك.</p>
+      <h2 className={styles.pageTitle}>{t('admin.dashboard.greeting', { name: user?.fullName || t('admin.adminFallback') })}</h2>
+      <p className={styles.pageSub}>{t('admin.dashboard.subtitle')}</p>
 
       {error && <ErrorBanner message={error} />}
 
       <div className={styles.statRow}>
         <div className={styles.statTile}>
           <div className={styles.statValue}>{stats ? stats.products : <Skeleton width={60} height={34} />}</div>
-          <div className={styles.statLabel}>منتج معروض</div>
+          <div className={styles.statLabel}>{t('admin.dashboard.productsLabel')}</div>
         </div>
         <div className={styles.statTile}>
           <div className={styles.statValue}>{stats ? stats.categories : <Skeleton width={40} height={34} />}</div>
-          <div className={styles.statLabel}>فئة</div>
+          <div className={styles.statLabel}>{t('admin.dashboard.categoriesLabel')}</div>
         </div>
       </div>
 
       <div className={styles.quick}>
         <Link to="/admin/products" className={styles.quickCard}>
-          <b>إدارة المنتجات</b><span>إضافة، تعديل، أو تعطيل المنتجات ورفع صورها.</span>
+          <b>{t('admin.dashboard.manageProducts')}</b><span>{t('admin.dashboard.manageProductsDesc')}</span>
         </Link>
         <Link to="/admin/categories" className={styles.quickCard}>
-          <b>إدارة الفئات</b><span>تنظيم فئات المتجر.</span>
+          <b>{t('admin.dashboard.manageCategories')}</b><span>{t('admin.dashboard.manageCategoriesDesc')}</span>
         </Link>
         <Link to="/admin/orders" className={styles.quickCard}>
-          <b>الطلبات</b><span>متابعة الطلبات وتحديث حالتها.</span>
+          <b>{t('admin.dashboard.ordersTitle')}</b><span>{t('admin.dashboard.ordersDesc')}</span>
         </Link>
       </div>
     </div>
