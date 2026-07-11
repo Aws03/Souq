@@ -6,3 +6,5 @@ dist/
 .DS_Store
 .vs/
 .vscode/
+# صور المنتجات المرفوعة (محتوى مستخدم، لا مصدر)
+src/Souq.API/wwwroot/uploads/

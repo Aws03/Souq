@@ -1,6 +1,8 @@
 using System.Security.Claims;
 using System.Text;
+using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.Extensions.FileProviders;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Souq.API.Middleware;
@@ -8,13 +10,26 @@ using Souq.Application;
 using Souq.Application.Common.Interfaces;
 using Souq.Infrastructure;
 using Souq.Infrastructure.Persistence;
+using Souq.Infrastructure.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // ── تجميع الطبقات (كل طبقة تسجّل نفسها) ──────────────────────────────────
 builder.Services.AddApplication();                         // طبقة حالات الاستخدام
 builder.Services.AddInfrastructure(builder.Configuration); // التقنيات (DB, Payment, Auth...)
-builder.Services.AddControllers();
+
+// enums تُقرأ/تُكتب كنصوص ("Shipped" بدل 2) — أوضح لمستهلكي الـ API.
+builder.Services.AddControllers()
+    .AddJsonOptions(o => o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
+
+// ── تخزين ملفات الصور محلياً: نضبط المسار الفيزيائي هنا حيث يُعرف wwwroot ──
+var uploadsPath = Path.Combine(builder.Environment.ContentRootPath, "wwwroot", "uploads");
+Directory.CreateDirectory(uploadsPath);
+builder.Services.Configure<FileStorageOptions>(o =>
+{
+    o.RootPath = uploadsPath;
+    o.PublicBasePath = "/uploads";
+});
 
 // ── المصادقة: التحقّق من توكن JWT الوارد ─────────────────────────────────
 // المفتاح سرّ يأتي من user-secrets/البيئة. نُعطّل إعادة تخطيط المطالبات
@@ -93,6 +108,13 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
+// نخدم مجلد الرفع بمزوّد ملفات صريح على uploadsPath: لا نعتمد على WebRootPath
+// لأن wwwroot قد لا يكون موجوداً لحظة بناء المضيف (فيصبح المزوّد الافتراضي فارغاً).
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(uploadsPath),
+    RequestPath = "/uploads",
+});
 app.UseCors("frontend");
 app.UseAuthentication();     // من أنت؟ (يفكّ التوكن)
 app.UseAuthorization();      // هل يُسمح لك؟ (يفرض [Authorize])

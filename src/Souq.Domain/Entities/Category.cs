@@ -22,4 +22,13 @@ public class Category : Entity
         Slug = slug;
         ParentId = parentId;
     }
+
+    // تحديث بيانات الفئة (للمدير). تفرّد الـ slug وصحّة الأب يُحرَسان في المعالج
+    // لأنهما يحتاجان استعلام قاعدة البيانات (لا يملك الكيان وصولاً إليها).
+    public void UpdateDetails(string name, string slug, int? parentId = null)
+    {
+        Name = name;
+        Slug = slug;
+        ParentId = parentId;
+    }
 }

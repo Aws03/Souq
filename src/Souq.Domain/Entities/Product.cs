@@ -71,6 +71,15 @@ public class Product : Entity
         CategoryId = categoryId;
     }
 
+    // تعيين صورة المنتج بعد رفعها (باب محروس خاص، منفصل عن UpdateDetails لأن
+    // الرفع عملية مستقلّة لها نقطتها الخاصة). لا يُقبل رابط فارغ.
+    public void SetImageUrl(string imageUrl)
+    {
+        if (string.IsNullOrWhiteSpace(imageUrl))
+            throw new InvalidProductDataException("رابط الصورة مطلوب");
+        ImageUrl = imageUrl;
+    }
+
     // حذف منطقي بدل الفعلي (مبدأ من الملف: نحافظ على السجلات التاريخية).
     public void Deactivate() => IsActive = false;
     public void Activate() => IsActive = true;

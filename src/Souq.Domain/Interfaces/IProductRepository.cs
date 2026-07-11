@@ -9,4 +9,8 @@ public interface IProductRepository : IRepository<Product>
     Task<IReadOnlyList<Product>> GetByCategoryAsync(int categoryId, CancellationToken ct = default);
     Task<(IReadOnlyList<Product> Items, int TotalCount)> SearchAsync(
         string? keyword, int? categoryId, int page, int pageSize, CancellationToken ct = default);
+
+    // هل يشير أي منتج (نشط أو معطّل) لهذه الفئة؟ (لمنع حذف فئة مستخدمة —
+    // نشمل المعطّلة لأن المفتاح الأجنبي قائم بغضّ النظر عن IsActive).
+    Task<bool> ExistsInCategoryAsync(int categoryId, CancellationToken ct = default);
 }

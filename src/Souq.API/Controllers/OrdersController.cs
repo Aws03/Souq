@@ -6,6 +6,8 @@ using Souq.Application.Features.Orders.Commands;
 using Souq.Application.Features.Orders.Queries;
 using Souq.Domain.Common;
 
+// ملاحظة: OrderStatusAction معرّف في Souq.Application.Features.Orders.Commands.
+
 namespace Souq.API.Controllers;
 
 // كل نقاط الطلبات تتطلّب تسجيل الدخول: لا طلب دون هوية معروفة.
@@ -46,6 +48,28 @@ public class OrdersController : ControllerBase
         return Ok(result.Value);
     }
 
+    // GET /api/orders  (مدير) — كل الطلبات مرقّمة لشاشة الإدارة.
+    [HttpGet]
+    [Authorize(Roles = Roles.Admin)]
+    public async Task<IActionResult> GetAll([FromQuery] int page = 1, [FromQuery] int pageSize = 20)
+        => Ok(await _mediator.Send(new GetOrdersQuery(page, pageSize)));
+
+    // PUT /api/orders/5/status  (مدير) — انتقال حالة الطلب (شحن/تسليم/إلغاء).
+    [HttpPut("{id:int}/status")]
+    [Authorize(Roles = Roles.Admin)]
+    public async Task<IActionResult> UpdateStatus(int id, [FromBody] UpdateOrderStatusRequest body)
+    {
+        var result = await _mediator.Send(new UpdateOrderStatusCommand(id, body.Action));
+        if (result.IsSuccess) return NoContent();
+        return result.ErrorCode == "NotFound"
+            ? NotFound(new { error = result.Error })
+            : BadRequest(new { error = result.Error, code = result.ErrorCode });
+    }
+
     private int CurrentUserId() =>
         int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 }
+
+// جسم طلب تحديث الحالة. الإجراء enum يُرسَل كنص ("Ship"/"Deliver"/"Cancel")
+// بفضل JsonStringEnumConverter المسجّل في Program.
+public record UpdateOrderStatusRequest(OrderStatusAction Action);

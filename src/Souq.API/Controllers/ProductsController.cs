@@ -72,6 +72,33 @@ public class ProductsController : ControllerBase
         return result.IsSuccess ? NoContent() : MapFailure(result);
     }
 
+    // POST /api/products/5/image  (للمدير) — يرفع صورة المنتج (multipart/form-data).
+    // التحقّق الشكلي للملف (وجوده، حجمه، نوعه) اهتمام HTTP فنحسمه هنا قبل الأمر؛
+    // التخزين نفسه خلف IFileStorage في طبقة Application.
+    [HttpPost("{id:int}/image")]
+    [Authorize(Roles = Roles.Admin)]
+    [RequestSizeLimit(6 * 1024 * 1024)]
+    public async Task<IActionResult> UploadImage(int id, IFormFile file)
+    {
+        if (file is null || file.Length == 0)
+            return BadRequest(new { error = "لم يُرفق ملف صورة" });
+        if (file.Length > 5 * 1024 * 1024)
+            return BadRequest(new { error = "حجم الصورة يتجاوز 5 ميغابايت" });
+
+        var allowed = new[] { "image/jpeg", "image/png", "image/webp", "image/gif" };
+        if (!allowed.Contains(file.ContentType))
+            return BadRequest(new { error = "صيغة الصورة غير مدعومة (JPEG/PNG/WebP/GIF فقط)" });
+
+        await using var stream = file.OpenReadStream();
+        var result = await _mediator.Send(new UploadProductImageCommand(id, stream, file.FileName));
+        if (!result.IsSuccess)
+            return result.ErrorCode == "NotFound"
+                ? NotFound(new { error = result.Error })
+                : BadRequest(new { error = result.Error, code = result.ErrorCode });
+
+        return Ok(new { imageUrl = result.Value });
+    }
+
     // ترجمة فشل Result إلى رمز HTTP موحّد: "غير موجود" ⇒ 404، وأي فشل عمل آخر ⇒ 400.
     // مكان واحد يحكم هذا التحويل لكل الأوامر التي لا تُرجع قيمة (DRY).
     private IActionResult MapFailure(Result result) =>

@@ -34,6 +34,9 @@ public static class DependencyInjection
         services.AddScoped<ICustomerRepository, CustomerRepository>();
         services.AddScoped<IPaymentService, FakePaymentService>();
         services.AddScoped<IEmailService, ConsoleEmailService>();
+        // تخزين الملفات محلياً (قرص) — يُبدَّل بتخزين سحابي في الإنتاج. مسار المجلد
+        // يُضبط في طبقة الـ API حيث يُعرف wwwroot (Configure<FileStorageOptions>).
+        services.AddScoped<IFileStorage, LocalFileStorage>();
 
         // ── المصادقة: تجزئة كلمة المرور + إصدار التوكن (عديمة الحالة ⇒ Singleton) ──
         services.AddOptions<JwtSettings>()

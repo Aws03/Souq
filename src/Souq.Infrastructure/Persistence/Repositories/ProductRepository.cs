@@ -32,4 +32,8 @@ public class ProductRepository : RepositoryBase<Product>, IProductRepository
                                .ToListAsync(ct);
         return (items, total);
     }
+
+    // نشمل المعطّلة (لا فلتر IsActive): المفتاح الأجنبي قائم بغضّ النظر عنه.
+    public async Task<bool> ExistsInCategoryAsync(int categoryId, CancellationToken ct = default)
+        => await Db.Products.AnyAsync(p => p.CategoryId == categoryId, ct);
 }
