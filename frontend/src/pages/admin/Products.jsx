@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../../api/client';
 import Pagination from '../../components/Pagination';
+import ProductImage from '../../components/ProductImage';
 import ProductForm from './ProductForm';
 
 const PAGE_SIZE = 10;
@@ -82,7 +83,7 @@ export default function Products() {
             {!loading && items.length === 0 && <tr><td colSpan={6} className="admin-table-empty">لا منتجات مطابقة</td></tr>}
             {!loading && items.map((p) => (
               <tr key={p.id}>
-                <td><div className="table-thumb">{p.imageUrl ? <img src={p.imageUrl} alt={p.name} /> : '—'}</div></td>
+                <td><div className="table-thumb"><ProductImage product={p} /></div></td>
                 <td>{p.name}</td>
                 <td>{p.categoryName || '—'}</td>
                 <td>{p.price.toFixed(2)} {p.currency}</td>

@@ -60,10 +60,16 @@ img { display: block; max-width: 100%; }
 .card:hover { transform: translateY(-4px); box-shadow: 0 14px 32px rgba(15,59,58,.14); }
 /* القوس: نصف دائرة علوية تعطي إحساس "كشك السوق" */
 .card-arch { height: 150px; background: var(--soft); display: grid; place-items: center;
-  border-bottom: 3px solid var(--saffron); position: relative; }
+  border-bottom: 3px solid var(--saffron); position: relative; overflow: hidden; }
 .card-arch::before { content: ''; position: absolute; bottom: 0; left: 50%; transform: translateX(-50%);
   width: 80%; height: 28px; background: var(--paper); border-radius: 50% 50% 0 0 / 100% 100% 0 0; }
-.card-emoji { font-size: 64px; }
+
+/* صورة المنتج الحقيقية (مرحلة 3ج) — تملأ القوس بالكامل. البديل الأنيق حين لا
+   توجد صورة بعد: حرف الاسم الأول على تدرّج هوية سوق، بلا إيموجي إطلاقاً. */
+.product-photo { width: 100%; height: 100%; object-fit: cover; }
+.product-photo-fallback { width: 100%; height: 100%; display: grid; place-items: center;
+  background: linear-gradient(135deg, var(--petrol), var(--petrol-700)); color: var(--saffron-soft); }
+.product-photo-fallback span { font-family: var(--font-display); font-size: 40px; font-weight: 700; }
 .card-body { padding: 16px; flex: 1; display: flex; flex-direction: column; }
 .card-body h3 { font-size: 17px; margin-bottom: 4px; }
 .card-cat { font-size: 12px; color: var(--saffron); font-weight: 700; margin-bottom: 8px; }
@@ -85,8 +91,8 @@ img { display: block; max-width: 100%; }
 .drawer-body { flex: 1; overflow-y: auto; padding: 18px 22px; }
 .drawer-foot { padding: 20px 22px; border-top: 1px solid var(--line); background: #fff; }
 .cart-line { display: flex; gap: 12px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--line); }
-.cart-line .emoji { font-size: 36px; width: 52px; height: 52px; background: var(--soft);
-  border-radius: 10px; display: grid; place-items: center; }
+.cart-thumb { width: 52px; height: 52px; border-radius: 10px; overflow: hidden; flex-shrink: 0; }
+.cart-thumb .product-photo-fallback span { font-size: 20px; }
 .qty { display: flex; align-items: center; gap: 8px; }
 .qty button { width: 26px; height: 26px; border-radius: 7px; background: var(--soft); font-weight: 700; font-size: 16px; }
 .total-row { display: flex; justify-content: space-between; font-size: 20px; font-weight: 700;
@@ -219,6 +225,7 @@ img { display: block; max-width: 100%; }
 .table-thumb { width: 44px; height: 44px; border-radius: 8px; background: var(--soft);
   overflow: hidden; display: grid; place-items: center; color: var(--muted); font-size: 12px; }
 .table-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.table-thumb .product-photo-fallback span { font-size: 18px; }
 
 /* ── ترقيم الصفحات ── */
 .pagination { display: flex; align-items: center; justify-content: center; gap: 16px; margin-top: 20px; }

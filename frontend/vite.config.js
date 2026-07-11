@@ -16,6 +16,14 @@ export default defineConfig({
           proxy.on('error', (e) => console.error('[api-proxy]', e.message));
         },
       },
+      // صور المنتجات المرفوعة (مرحلة 3ب) يخدمها الـ API على /uploads مباشرة —
+      // بلا هذا الوكيل ستُطلب من خادم Vite نفسه فتُرجع 404 في التطوير.
+      '/uploads': {
+        target: 'http://127.0.0.1:5200',
+        configure(proxy) {
+          proxy.on('error', (e) => console.error('[uploads-proxy]', e.message));
+        },
+      },
     }
   }
 })

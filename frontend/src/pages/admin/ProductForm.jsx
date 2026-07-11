@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import Modal from '../../components/Modal';
+import { isRealImage } from '../../components/ProductImage';
 
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 const MAX_SIZE = 5 * 1024 * 1024;
@@ -15,7 +16,7 @@ export default function ProductForm({ product, categories, onSave, onClose }) {
   const [stockQuantity, setStockQuantity] = useState(product?.stockQuantity ?? '');
   const [categoryId, setCategoryId] = useState(product?.categoryId ?? (categories[0]?.id ?? ''));
   const [file, setFile] = useState(null);
-  const [preview, setPreview] = useState(product?.imageUrl || null);
+  const [preview, setPreview] = useState(isRealImage(product?.imageUrl) ? product.imageUrl : null);
   const [dragOver, setDragOver] = useState(false);
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);

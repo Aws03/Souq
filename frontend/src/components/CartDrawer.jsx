@@ -1,5 +1,5 @@
 import { useCart } from '../context/CartContext';
-import { emojiFor } from '../utils/productEmoji';
+import ProductImage from './ProductImage';
 
 // درج السلة: يعرض محتواها ويتيح تعديل الكميات والانتقال للدفع.
 export default function CartDrawer({ open, onClose, onCheckout }) {
@@ -20,7 +20,7 @@ export default function CartDrawer({ open, onClose, onCheckout }) {
           ) : (
             items.map((i) => (
               <div className="cart-line" key={i.id}>
-                <span className="emoji">{emojiFor(i)}</span>
+                <div className="cart-thumb"><ProductImage product={i} /></div>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 700 }}>{i.name}</div>
                   <div style={{ color: 'var(--muted)', fontSize: 13 }}>
