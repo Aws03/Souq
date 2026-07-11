@@ -1,8 +1,10 @@
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Souq.Application.Common.Models;
 using Souq.Application.Features.Products.Commands;
 using Souq.Application.Features.Products.Queries;
+using Souq.Domain.Common;
 
 namespace Souq.API.Controllers;
 
@@ -38,17 +40,21 @@ public class ProductsController : ControllerBase
         return result.IsSuccess ? Ok(result.Value) : NotFound(new { error = result.Error });
     }
 
-    // POST /api/products  (للمدير) — ينشئ منتجاً.
+    // POST /api/products  (للمدير) — ينشئ منتجاً. محمي: دور Admin فقط.
     [HttpPost]
+    [Authorize(Roles = Roles.Admin)]
     public async Task<IActionResult> Create([FromBody] CreateProductCommand command)
     {
         var result = await _mediator.Send(command);
+        if (!result.IsSuccess)
+            return BadRequest(new { error = result.Error, code = result.ErrorCode });
         // 201 Created مع رابط المورد الجديد (ممارسة REST صحيحة).
         return CreatedAtAction(nameof(GetById), new { id = result.Value }, new { id = result.Value });
     }
 
     // PUT /api/products/5  (للمدير) — يحدّث منتجاً قائماً بالكامل.
     [HttpPut("{id:int}")]
+    [Authorize(Roles = Roles.Admin)]
     public async Task<IActionResult> Update(int id, [FromBody] UpdateProductCommand command)
     {
         // نفرض معرّف المسار على الأمر؛ معرّف المسار هو مصدر الحقيقة لا جسم الطلب
@@ -59,6 +65,7 @@ public class ProductsController : ControllerBase
 
     // DELETE /api/products/5  (للمدير) — حذف منطقي (تعطيل) للمنتج.
     [HttpDelete("{id:int}")]
+    [Authorize(Roles = Roles.Admin)]
     public async Task<IActionResult> Delete(int id)
     {
         var result = await _mediator.Send(new DeleteProductCommand(id));

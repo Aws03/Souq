@@ -1,4 +1,6 @@
 using Microsoft.EntityFrameworkCore;
+using Souq.Application.Common.Interfaces;
+using Souq.Domain.Common;
 using Souq.Domain.Entities;
 using Souq.Domain.ValueObjects;
 
@@ -7,10 +9,20 @@ namespace Souq.Infrastructure.Persistence;
 // يملأ قاعدة البيانات ببيانات أولية عند أول تشغيل (للتجربة المباشرة).
 public static class DbSeeder
 {
-    public static async Task SeedAsync(AppDbContext db)
+    // بيانات دخول المدير الافتراضي (بيئة التطوير فقط — تُغيّر للإنتاج).
+    public const string AdminEmail = "admin@souq.com";
+    private const string AdminPassword = "Admin@123";
+
+    public static async Task SeedAsync(AppDbContext db, IPasswordHasher hasher)
     {
-        await db.Database.MigrateAsync();          // يطبّق الهجرات تلقائياً
-        if (await db.Categories.AnyAsync()) return; // لا نكرّر البذر
+        await db.Database.MigrateAsync();               // يطبّق الهجرات تلقائياً
+        await SeedCatalogAsync(db);
+        await SeedAdminAsync(db, hasher);
+    }
+
+    private static async Task SeedCatalogAsync(AppDbContext db)
+    {
+        if (await db.Categories.AnyAsync()) return;     // لا نكرّر بذر الكتالوج
 
         var electronics = new Category("إلكترونيات", "electronics");
         var fashion = new Category("أزياء", "fashion");
@@ -28,9 +40,23 @@ public static class DbSeeder
             new Product("ركوة قهوة نحاسية", "صناعة يدوية لقهوة عربية أصيلة", new Money(28.000m), 15, "coffeepot", home.Id),
             new Product("كوب حراري", "يحفظ الحرارة 12 ساعة", new Money(14.500m), 60, "mug", home.Id)
         );
-
-        // مستخدم مدير افتراضي (كلمة المرور هنا hash تجريبي).
-        db.Customers.Add(new Customer("مدير المتجر", "admin@souq.com", "HASHED_admin123", "Admin"));
         await db.SaveChangesAsync();
+    }
+
+    // بذر المدير idempotent: يُنشئه إن غاب، ويُصلح تجزئته إن كانت بصيغة قديمة غير
+    // BCrypt (البذرة الأولى خزّنت "HASHED_admin123" الذي لا يصلح للدخول الحقيقي).
+    private static async Task SeedAdminAsync(AppDbContext db, IPasswordHasher hasher)
+    {
+        var admin = await db.Customers.FirstOrDefaultAsync(c => c.Email == AdminEmail);
+        if (admin is null)
+        {
+            db.Customers.Add(new Customer("مدير المتجر", AdminEmail, hasher.Hash(AdminPassword), Roles.Admin));
+            await db.SaveChangesAsync();
+        }
+        else if (!admin.PasswordHash.StartsWith("$2"))  // ليست تجزئة BCrypt
+        {
+            admin.ChangePasswordHash(hasher.Hash(AdminPassword));
+            await db.SaveChangesAsync();
+        }
     }
 }

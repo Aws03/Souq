@@ -6,6 +6,7 @@ using Souq.Domain.Interfaces;
 using Souq.Infrastructure.Persistence;
 using Souq.Infrastructure.Persistence.Repositories;
 using Souq.Infrastructure.Services;
+using Microsoft.Extensions.Options;
 
 namespace Souq.Infrastructure;
 
@@ -30,8 +31,18 @@ public static class DependencyInjection
         services.AddScoped<IProductRepository, ProductRepository>();
         services.AddScoped<IOrderRepository, OrderRepository>();
         services.AddScoped<ICategoryRepository, CategoryRepository>();
+        services.AddScoped<ICustomerRepository, CustomerRepository>();
         services.AddScoped<IPaymentService, FakePaymentService>();
         services.AddScoped<IEmailService, ConsoleEmailService>();
+
+        // ── المصادقة: تجزئة كلمة المرور + إصدار التوكن (عديمة الحالة ⇒ Singleton) ──
+        services.AddOptions<JwtSettings>()
+            .Bind(config.GetSection("Jwt"))
+            .Validate(s => !string.IsNullOrWhiteSpace(s.Key),
+                "مفتاح JWT (Jwt:Key) غير مضبوط. اضبطه في user-secrets/متغيرات البيئة.")
+            .ValidateOnStart();
+        services.AddSingleton<IPasswordHasher, BcryptPasswordHasher>();
+        services.AddSingleton<IJwtTokenGenerator, JwtTokenGenerator>();
 
         return services;
     }

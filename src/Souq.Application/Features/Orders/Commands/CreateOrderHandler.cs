@@ -25,20 +25,27 @@ public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, Result<Ord
 {
     private readonly IProductRepository _products;
     private readonly IOrderRepository _orders;
+    private readonly ICustomerRepository _customers;
     private readonly IPaymentService _payment;
     private readonly IEmailService _email;
     private readonly IUnitOfWork _uow;
 
     public CreateOrderHandler(
-        IProductRepository products, IOrderRepository orders,
+        IProductRepository products, IOrderRepository orders, ICustomerRepository customers,
         IPaymentService payment, IEmailService email, IUnitOfWork uow)
     {
-        _products = products; _orders = orders;
+        _products = products; _orders = orders; _customers = customers;
         _payment = payment; _email = email; _uow = uow;
     }
 
     public async Task<Result<OrderCreatedDto>> Handle(CreateOrderCommand cmd, CancellationToken ct)
     {
+        // CustomerId يأتي من توكن المستخدم (يفرضه الـ Controller) لا من جسم الطلب،
+        // فوجوده مضمون منطقياً؛ نتحقّق دفاعياً ونستخدم بريده الحقيقي في التأكيد.
+        var customer = await _customers.GetByIdAsync(cmd.CustomerId, ct);
+        if (customer is null)
+            return Result<OrderCreatedDto>.Failure("العميل غير موجود", "CustomerNotFound");
+
         var order = new Order(cmd.CustomerId, cmd.ShippingAddress);
 
         // (1)+(2) نمرّ على كل سطر: نتحقّق ثم نضيف وننقص المخزون.
@@ -77,7 +84,7 @@ public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, Result<Ord
         await _uow.SaveChangesAsync(ct);
 
         // أثر جانبي غير حرج (البريد): لو فشل لا نُفشل الطلب.
-        await _email.SendOrderConfirmationAsync("customer@example.com", order.Id, ct);
+        await _email.SendOrderConfirmationAsync(customer.Email, order.Id, ct);
 
         return Result<OrderCreatedDto>.Success(new OrderCreatedDto(
             order.Id, order.Status.ToString(),

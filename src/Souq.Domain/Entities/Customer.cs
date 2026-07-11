@@ -22,4 +22,12 @@ public class Customer : Entity
         PasswordHash = passwordHash;
         Role = role;
     }
+
+    // الباب الوحيد لتغيير التجزئة (إعادة تعيين كلمة مرور، ترقية hash قديم).
+    public void ChangePasswordHash(string newPasswordHash)
+    {
+        if (string.IsNullOrWhiteSpace(newPasswordHash))
+            throw new ArgumentException("تجزئة كلمة المرور مطلوبة", nameof(newPasswordHash));
+        PasswordHash = newPasswordHash;
+    }
 }
