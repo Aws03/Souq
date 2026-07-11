@@ -6,5 +6,7 @@ dist/
 .DS_Store
 .vs/
 .vscode/
+# أسرار Docker Compose المحلية (كلمة مرور SQL، مفتاح JWT، مفاتيح Stripe) — .env.example فقط يُرفع.
+.env
 # صور المنتجات المرفوعة (محتوى مستخدم، لا مصدر)
 src/Souq.API/wwwroot/uploads/
