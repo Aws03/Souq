@@ -15,11 +15,18 @@ namespace Souq.Application.Features.Orders.Commands;
 //   - الكيان (Product/Order) = يحرس قواعده.
 //   - المعالج (هذا) = يرتّب الخطوات بالترتيب الصحيح.
 //
-// الخطوات بترتيب مقصود:
-//   1) نتحقّق من وجود كل منتج وتوفّر كميته (نفشل مبكراً قبل أي تعديل).
-//   2) نبني الطلب وننقص المخزون.
-//   3) نُحصّل الدفع عبر الواجهة (لا نعرف Stripe أو PayPal — فقط IPaymentService).
-//   4) نحفظ كل شيء ذرّياً عبر وحدة العمل (الكل ينجح أو الكل يُلغى).
+// الخطوات بترتيب مقصود (نسخة مُقوّاة — مرحلة 4، يعالج بند AUDIT ٧ "الدفع قبل
+// الحفظ"): كان الترتيب القديم يُحصّل الدفع ثم يحفظ، فإن فشل الحفظ بعد نجاح
+// التحصيل ينتج "عميل دُفع منه بلا طلب محفوظ". الترتيب الجديد:
+//   1) نتحقّق من وجود كل منتج وتوفّر كميته وننقص المخزون (نفشل مبكراً قبل أي دفع).
+//   2) نحفظ الطلب Pending فوراً — قبل أي محاولة تحصيل. أي محاولة دفع لاحقة
+//      ستقابلها دائماً سجل طلب موجود بالفعل.
+//   3) نُحصّل الدفع. لو فشل: نُعيد المخزون ونُلغي الطلب (تعويض حجز فاشل) بدل
+//      ترك مخزون منقوص بلا مقابل — لا نرمي الاستثناء للأعلى، الفشل هنا متوقّع.
+//   4) لو نجح: نُعلّم الطلب مدفوعاً ونحفظ. فشل هذا الحفظ الأخير تحديداً (عطل
+//      قاعدة بيانات لحظي بعد نجاح تحصيل حقيقي) يبقى ممكناً نظرياً، لكن الطلب
+//      يبقى في القاعدة Pending وقابلاً للتوفيق يدوياً بمطابقة مرجع الدفع —
+//      أفضل بكثير من عدم وجود أي سجل إطلاقاً.
 // ============================================================================
 public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, Result<OrderCreatedDto>>
 {
@@ -47,8 +54,9 @@ public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, Result<Ord
             return Result<OrderCreatedDto>.Failure("العميل غير موجود", "CustomerNotFound");
 
         var order = new Order(cmd.CustomerId, cmd.ShippingAddress);
+        var reservedProducts = new List<Product>();   // نحتفظ بها لإعادة المخزون إن فشل الدفع
 
-        // (1)+(2) نمرّ على كل سطر: نتحقّق ثم نضيف وننقص المخزون.
+        // (1) نمرّ على كل سطر: نتحقّق ثم نضيف وننقص المخزون.
         foreach (var line in cmd.Items)
         {
             var product = await _products.GetByIdAsync(line.ProductId, ct);
@@ -63,6 +71,7 @@ public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, Result<Ord
                 // نمرّر لقطة من الاسم والسعر (تُجمّد في الطلب).
                 order.AddItem(product.Id, product.Name, product.Price, line.Quantity);
                 _products.Update(product);
+                reservedProducts.Add(product);
             }
             catch (InsufficientStockException ex)
             {
@@ -71,16 +80,30 @@ public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, Result<Ord
             }
         }
 
+        // (2) نحفظ الطلب Pending فوراً — قبل أي محاولة تحصيل (انظر التعليق أعلاه).
+        await _orders.AddAsync(order, ct);
+        await _uow.SaveChangesAsync(ct);
+
         // (3) تحصيل الدفع عبر الواجهة المجرّدة.
         var payResult = await _payment.ChargeAsync(order.TotalAmount, cmd.PaymentToken, ct);
         if (!payResult.Succeeded)
+        {
+            // تعويض الحجز الفاشل: نُعيد المخزون ونُلغي الطلب بدل تركه Pending للأبد.
+            foreach (var product in reservedProducts)
+            {
+                var line = order.Items.First(i => i.ProductId == product.Id);
+                product.IncreaseStock(line.Quantity);
+                _products.Update(product);
+            }
+            order.Cancel();
+            await _uow.SaveChangesAsync(ct);
+
             return Result<OrderCreatedDto>.Failure(
                 payResult.FailureReason ?? "فشل الدفع", "PaymentFailed");
+        }
 
+        // (4) نجح الدفع: نُعلّم الطلب مدفوعاً ونحفظ مرة أخرى.
         order.MarkAsPaid();                     // الانتقال محروس داخل الكيان
-        await _orders.AddAsync(order, ct);
-
-        // (4) حفظ ذرّي: إنقاص المخزون + إضافة الطلب يُحفظان معاً أو لا شيء.
         await _uow.SaveChangesAsync(ct);
 
         // أثر جانبي غير حرج (البريد): لو فشل لا نُفشل الطلب.

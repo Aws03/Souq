@@ -13,7 +13,7 @@ public class GetProductByIdHandler : IRequestHandler<GetProductByIdQuery, Result
 
     public async Task<Result<ProductDto>> Handle(GetProductByIdQuery q, CancellationToken ct)
     {
-        var p = await _products.GetByIdAsync(q.Id, ct);
+        var p = await _products.GetActiveByIdAsync(q.Id, ct);
         if (p is null)
             return Result<ProductDto>.Failure("المنتج غير موجود", "NotFound");
 

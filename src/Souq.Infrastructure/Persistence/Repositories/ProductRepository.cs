@@ -9,6 +9,10 @@ public class ProductRepository : RepositoryBase<Product>, IProductRepository
 {
     public ProductRepository(AppDbContext db) : base(db) { }
 
+    public async Task<Product?> GetActiveByIdAsync(int id, CancellationToken ct = default)
+        => await Db.Products.Include(p => p.Category)
+                            .FirstOrDefaultAsync(p => p.Id == id && p.IsActive, ct);
+
     public async Task<IReadOnlyList<Product>> GetByCategoryAsync(int categoryId, CancellationToken ct = default)
         => await Db.Products.Where(p => p.CategoryId == categoryId && p.IsActive)
                             .Include(p => p.Category).ToListAsync(ct);

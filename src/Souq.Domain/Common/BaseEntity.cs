@@ -10,7 +10,10 @@ public abstract class BaseEntity<TId>
 {
     public TId Id { get; protected set; } = default!;
 
-    // نسجّل التواريخ تلقائياً (سنملؤها في طبقة Infrastructure عبر اعتراض الحفظ).
-    public DateTime CreatedAt { get; set; }
-    public DateTime? UpdatedAt { get; set; }
+    // نسجّل التواريخ تلقائياً (تُملأ في طبقة Infrastructure عبر اعتراض الحفظ في
+    // AppDbContext.SaveChangesAsync). الـ setter داخلي لا عام — أي كود خارج طبقة
+    // Infrastructure (المُصرَّح لها عبر InternalsVisibleTo في Souq.Domain.csproj)
+    // لا يستطيع تزوير هذه التواريخ.
+    public DateTime CreatedAt { get; internal set; }
+    public DateTime? UpdatedAt { get; internal set; }
 }

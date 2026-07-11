@@ -5,4 +5,11 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <!-- لاحظ: لا أي ProjectReference هنا. Domain لا يعتمد على أحد. -->
+
+  <!-- BaseEntity.CreatedAt/UpdatedAt بـ setter داخلي (internal) لا عام — يمنع أي
+       كود خارجي من تزوير التواريخ، لكن يسمح لـ AppDbContext (طبقة Infrastructure)
+       بضبطها عند الحفظ. هذا استثناء وحيد مقصود لحقل تقني بحت. -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="Souq.Infrastructure" />
+  </ItemGroup>
 </Project>
