@@ -88,6 +88,33 @@ export const api = {
   // ── الطلبات ──
   createOrder: (payload) => request('/orders', { method: 'POST', body: JSON.stringify(payload) }),
   getOrder: (id) => request(`/orders/${id}`),
+  confirmOrderPayment: (id) => request(`/orders/${id}/confirm-payment`, { method: 'POST' }),
+
+  // ── الدفع (Stripe) ──
+  getPaymentConfig: () => request('/payments/config'),
+
+  // ── الكوبونات ──
+  applyCoupon: (code, subtotal, currency = 'JOD') =>
+    request(`/coupons/apply?${new URLSearchParams({ code, subtotal, currency })}`),
+  getCoupons: (params = {}) => {
+    const q = new URLSearchParams(
+      Object.entries(params).filter(([, v]) => v != null && v !== '')
+    ).toString();
+    return request(`/coupons?${q}`);
+  },
+  createCoupon: (payload) => request('/coupons', { method: 'POST', body: JSON.stringify(payload) }),
+  updateCoupon: (id, payload) => request(`/coupons/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
+  deleteCoupon: (id) => request(`/coupons/${id}`, { method: 'DELETE' }),
+
+  // ── التقييمات ──
+  getProductReviews: (productId, params = {}) => {
+    const q = new URLSearchParams(
+      Object.entries(params).filter(([, v]) => v != null && v !== '')
+    ).toString();
+    return request(`/products/${productId}/reviews?${q}`);
+  },
+  createReview: (productId, payload) =>
+    request(`/products/${productId}/reviews`, { method: 'POST', body: JSON.stringify(payload) }),
 
   // ── إدارة المنتجات (أدمن) ──
   createProduct: (payload) => request('/products', { method: 'POST', body: JSON.stringify(payload) }),

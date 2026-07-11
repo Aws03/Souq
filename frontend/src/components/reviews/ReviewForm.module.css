@@ -1,0 +1,6 @@
+.form {
+  background: var(--soft); border-radius: var(--radius); padding: 18px 20px;
+  display: flex; flex-direction: column; gap: 12px; align-items: flex-start; margin-bottom: 24px;
+}
+.title { font-size: var(--fs-heading); color: var(--petrol); }
+.textarea { width: 100%; }

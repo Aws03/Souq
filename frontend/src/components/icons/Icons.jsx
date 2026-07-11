@@ -125,6 +125,18 @@ export const ReceiptIcon = ({ size = 18 }) => (
   </svg>
 );
 
+export const StarIcon = ({ size = 16, filled = false }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill={filled ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={1.8} strokeLinejoin="round">
+    <path d="m12 3 2.7 5.9 6.3.7-4.7 4.4 1.3 6.3L12 17.3 6.4 20.3l1.3-6.3-4.7-4.4 6.3-.7L12 3Z" />
+  </svg>
+);
+
+export const PercentIcon = ({ size = 18 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" {...base}>
+    <path d="M5 19 19 5" /><circle cx="7" cy="7" r="2.3" /><circle cx="17" cy="17" r="2.3" />
+  </svg>
+);
+
 export const RefreshIcon = ({ size = 16 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" {...base}>
     <path d="M4 12a8 8 0 0 1 14-5.2M20 12a8 8 0 0 1-14 5.2" /><path d="M18 3v4h-4M6 21v-4h4" />

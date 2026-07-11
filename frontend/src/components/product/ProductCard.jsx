@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useCart } from '../../context/CartContext';
 import Button from '../common/Button';
 import ProductImage from './ProductImage';
@@ -22,10 +23,10 @@ export default function ProductCard({ product, onAdded }) {
 
   return (
     <article className={styles.card}>
-      <div className={styles.media}><ProductImage product={product} /></div>
+      <Link to={`/products/${product.id}`} className={styles.media}><ProductImage product={product} /></Link>
       <div className={styles.body}>
         <CategoryBadge name={product.categoryName} />
-        <h3 className={styles.name}>{product.name}</h3>
+        <h3 className={styles.name}><Link to={`/products/${product.id}`} className={styles.nameLink}>{product.name}</Link></h3>
         <p className={styles.desc}>{product.description}</p>
         <StockBadge quantity={product.stockQuantity} />
         <div className={styles.foot}>

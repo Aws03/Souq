@@ -24,13 +24,19 @@ public class Order : Entity
     public int CustomerId { get; private set; }
     public OrderStatus Status { get; private set; }
     public string ShippingAddress { get; private set; } = default!;
+    public string? CouponCode { get; private set; }
+    public Money? DiscountAmount { get; private set; }
+    public string? PaymentIntentId { get; private set; }
 
     // نكشف الأسطر للقراءة فقط — لا يستطيع الخارج الإضافة/الحذف مباشرة.
     public IReadOnlyCollection<OrderItem> Items => _items.AsReadOnly();
 
-    // الإجمالي محسوب من الأسطر، فيستحيل أن يتعارض معها.
-    public Money TotalAmount =>
+    // الإجمالي الفرعي محسوب من الأسطر، فيستحيل أن يتعارض معها.
+    public Money Subtotal =>
         _items.Aggregate(Money.Zero(), (sum, item) => sum.Add(item.LineTotal));
+
+    // الإجمالي النهائي = الفرعي ناقص الخصم (إن وُجد كوبون مطبَّق).
+    public Money TotalAmount => DiscountAmount is null ? Subtotal : Subtotal.Subtract(DiscountAmount);
 
     private Order() { }
 
@@ -55,6 +61,32 @@ public class Order : Entity
             existing.IncreaseQuantity(quantity);
         else
             _items.Add(new OrderItem(productId, productName, unitPrice, quantity));
+    }
+
+    // تطبيق كوبون خصم — قبل الدفع فقط. القيمة تصل جاهزة (Coupon.CalculateDiscount
+    // في Application حسبها فعلاً)؛ هنا نحرس فقط أن الحالة والعملة والحد منطقيان،
+    // كي يستحيل تطبيق خصم فاسد حتى لو أخطأ المستدعي.
+    public void ApplyCoupon(string code, Money discountAmount)
+    {
+        if (Status != OrderStatus.Pending)
+            throw new InvalidOrderOperationException("لا يمكن تطبيق كوبون على طلب بدأت معالجته");
+        if (discountAmount.Currency != Subtotal.Currency)
+            throw new InvalidOrderOperationException("عملة الخصم لا تطابق عملة الطلب");
+        if (discountAmount.Amount > Subtotal.Amount)
+            throw new InvalidOrderOperationException("قيمة الخصم أكبر من إجمالي الطلب");
+
+        CouponCode = code;
+        DiscountAmount = discountAmount;
+    }
+
+    // ربط الطلب بنيّة دفع لدى بوّابة الدفع (Stripe PaymentIntent) — قبل الدفع فقط.
+    public void SetPaymentIntent(string paymentIntentId)
+    {
+        if (Status != OrderStatus.Pending)
+            throw new InvalidOrderOperationException("لا يمكن ربط نيّة دفع بطلب بدأت معالجته");
+        if (string.IsNullOrWhiteSpace(paymentIntentId))
+            throw new InvalidOrderOperationException("معرّف نيّة الدفع مطلوب");
+        PaymentIntentId = paymentIntentId;
     }
 
     // انتقالات الحالة (State Machine). كل انتقال محروس: لا يمكن شحن طلب لم يُدفع.

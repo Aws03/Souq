@@ -18,6 +18,8 @@ public class AppDbContext : DbContext, IUnitOfWork
     public DbSet<Order> Orders => Set<Order>();
     public DbSet<OrderItem> OrderItems => Set<OrderItem>();
     public DbSet<Customer> Customers => Set<Customer>();
+    public DbSet<Coupon> Coupons => Set<Coupon>();
+    public DbSet<Review> Reviews => Set<Review>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

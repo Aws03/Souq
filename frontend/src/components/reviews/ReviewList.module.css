@@ -1,0 +1,6 @@
+.list { display: flex; flex-direction: column; gap: 18px; }
+.item { background: var(--surface); border-radius: var(--radius-sm); box-shadow: var(--shadow); padding: 16px 18px; }
+.head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.name { font-weight: 700; font-size: var(--fs-body-sm); }
+.comment { font-size: var(--fs-body-sm); color: var(--ink); line-height: 1.6; }
+.date { display: block; color: var(--muted); font-size: var(--fs-caption); margin-top: 8px; }

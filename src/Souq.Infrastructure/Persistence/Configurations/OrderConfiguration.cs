@@ -12,7 +12,16 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         builder.HasKey(o => o.Id);
         builder.Property(o => o.Status).HasConversion<int>();   // enum يُخزّن كرقم
         builder.Property(o => o.ShippingAddress).HasMaxLength(500);
+        builder.Property(o => o.CouponCode).HasMaxLength(50);
+        builder.Property(o => o.PaymentIntentId).HasMaxLength(100);
         builder.HasIndex(o => o.CustomerId);
+
+        // خصم الكوبون المطبَّق (اختياري — owned optional، لا شيء يُخزَّن بلا كوبون).
+        builder.OwnsOne(o => o.DiscountAmount, m =>
+        {
+            m.Property(x => x.Amount).HasColumnName("DiscountAmount").HasColumnType("decimal(18,2)");
+            m.Property(x => x.Currency).HasColumnName("DiscountCurrency").HasMaxLength(3);
+        });
 
         // مفتاح أجنبي للعميل دون خاصية تنقّل في الكيان (الطلب لا يحتاج كائن العميل
         // كاملاً). Restrict: لا يُحذف عميل له طلبات — التاريخ المالي لا يُمحى.

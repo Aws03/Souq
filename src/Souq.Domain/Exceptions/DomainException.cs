@@ -30,3 +30,16 @@ public class InvalidProductDataException : DomainException
 {
     public InvalidProductDataException(string message) : base(message) { }
 }
+
+// خطأ: كوبون غير صالح للاستخدام الآن (منتهٍ، معطّل، مستنفَد، أو الطلب لا يبلغ
+// الحد الأدنى) أو بيانات إنشاء كوبون غير منطقية (نسبة خصم خارج 1-100 مثلاً).
+public class InvalidCouponException : DomainException
+{
+    public InvalidCouponException(string message) : base(message) { }
+}
+
+// خطأ: بيانات تقييم غير صالحة (تقييم خارج 1-5، تعليق فارغ أو طويل جداً).
+public class InvalidReviewException : DomainException
+{
+    public InvalidReviewException(string message) : base(message) { }
+}

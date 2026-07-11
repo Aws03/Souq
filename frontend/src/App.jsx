@@ -7,6 +7,7 @@ import Navbar from './components/layout/Navbar';
 import CartDrawer from './components/cart/CartDrawer';
 import ToastContainer from './components/common/ToastContainer';
 import Store from './pages/Store';
+import ProductDetail from './pages/ProductDetail';
 import Checkout from './pages/checkout/Checkout';
 import Confirmation from './pages/Confirmation';
 import Login from './pages/auth/Login';
@@ -15,6 +16,7 @@ import AdminLayout from './pages/admin/AdminLayout';
 import Dashboard from './pages/admin/Dashboard';
 import Products from './pages/admin/Products';
 import Categories from './pages/admin/Categories';
+import Coupons from './pages/admin/Coupons';
 import Orders from './pages/admin/Orders';
 import './styles.css';
 
@@ -56,12 +58,14 @@ export default function App() {
           <Route index element={<Dashboard />} />
           <Route path="products" element={<Products />} />
           <Route path="categories" element={<Categories />} />
+          <Route path="coupons" element={<Coupons />} />
           <Route path="orders" element={<Orders />} />
         </Route>
 
         {/* ── المتجر (عميل/زائر) ── */}
         <Route element={<CustomerLayout />}>
           <Route index element={<Store />} />
+          <Route path="/products/:id" element={<ProductDetail />} />
           <Route path="/checkout" element={<ProtectedRoute><Checkout /></ProtectedRoute>} />
           <Route path="/confirmation" element={<ProtectedRoute><Confirmation /></ProtectedRoute>} />
         </Route>

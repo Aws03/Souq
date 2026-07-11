@@ -17,7 +17,29 @@
 .itemQty { color: var(--muted); font-size: var(--fs-caption); }
 .itemTotal { font-weight: 700; color: var(--petrol); font-size: var(--fs-caption); white-space: nowrap; }
 
+.subtotalRow, .discountRow {
+  display: flex; justify-content: space-between; font-size: var(--fs-body-sm); color: var(--muted); margin-bottom: 6px;
+}
+.discountRow { color: var(--clay); font-weight: 700; }
+
 .totalRow {
   display: flex; justify-content: space-between; font-size: 20px; font-weight: 700;
   font-family: var(--font-display); color: var(--petrol); padding-top: 12px; border-top: 1px dashed var(--line);
+}
+
+/* ── كوبون الخصم ── */
+.couponRow { display: flex; gap: 10px; margin-bottom: 6px; }
+.couponRow input {
+  flex: 1; padding: 11px 14px; border: 1px solid var(--line); border-radius: 10px;
+  background: var(--surface); font-family: var(--font-body);
+}
+.couponError { display: block; color: var(--clay); font-size: 12.5px; margin-bottom: 16px; }
+.couponApplied {
+  display: flex; align-items: center; gap: 6px; color: var(--success); background: var(--success-soft);
+  border-radius: var(--radius-sm); padding: 9px 14px; font-size: var(--fs-caption); font-weight: 700; margin-bottom: 16px;
+}
+
+/* ── حقل بطاقة Stripe ── */
+.cardBox {
+  border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; background: var(--surface); margin-bottom: 18px;
 }

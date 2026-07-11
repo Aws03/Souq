@@ -39,6 +39,15 @@ public record Money
 
     public Money Multiply(int quantity) => new(Amount * quantity, Currency);
 
+    // الطرح يرفض عملتين مختلفتين مثل الجمع، ويرث حراسة "لا سالب" من المُنشئ
+    // نفسه (خصم أكبر من المبلغ الأصلي يرمي استثناءً بدل نتيجة سالبة صامتة).
+    public Money Subtract(Money other)
+    {
+        if (Currency != other.Currency)
+            throw new InvalidOperationException("لا يمكن طرح عملتين مختلفتين");
+        return new Money(Amount - other.Amount, Currency);
+    }
+
     // قيمة جاهزة للصفر — تُستخدم كنقطة بداية عند جمع عناصر الطلب.
     public static Money Zero(string currency = "JOD") => new(0, currency);
 

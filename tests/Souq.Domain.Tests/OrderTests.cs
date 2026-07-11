@@ -167,4 +167,63 @@ public class OrderTests
 
         act.Should().Throw<InvalidOrderOperationException>();
     }
+
+    [Fact]
+    public void ApplyCoupon_يخصم_من_الإجمالي_النهائي_دون_مسّ_الفرعي()
+    {
+        var order = NewOrder();
+        order.AddItem(1, "سماعات", new Money(50), 2); // فرعي = 100
+
+        order.ApplyCoupon("SAVE10", new Money(10));
+
+        order.Subtotal.Amount.Should().Be(100);
+        order.TotalAmount.Amount.Should().Be(90);
+        order.CouponCode.Should().Be("SAVE10");
+    }
+
+    [Fact]
+    public void ApplyCoupon_بخصم_أكبر_من_الفرعي_يُرفض()
+    {
+        var order = NewOrder();
+        order.AddItem(1, "سماعات", new Money(50), 1); // فرعي = 50
+
+        var act = () => order.ApplyCoupon("BIG", new Money(100));
+
+        act.Should().Throw<InvalidOrderOperationException>();
+    }
+
+    [Fact]
+    public void ApplyCoupon_بعد_الدفع_يُرفض()
+    {
+        var order = NewOrder();
+        order.AddItem(1, "سماعات", new Money(50), 1);
+        order.MarkAsPaid();
+
+        var act = () => order.ApplyCoupon("LATE", new Money(5));
+
+        act.Should().Throw<InvalidOrderOperationException>();
+    }
+
+    [Fact]
+    public void SetPaymentIntent_يخزّن_المعرّف_قبل_الدفع()
+    {
+        var order = NewOrder();
+        order.AddItem(1, "سماعات", new Money(50), 1);
+
+        order.SetPaymentIntent("pi_123");
+
+        order.PaymentIntentId.Should().Be("pi_123");
+    }
+
+    [Fact]
+    public void SetPaymentIntent_بعد_الدفع_يُرفض()
+    {
+        var order = NewOrder();
+        order.AddItem(1, "سماعات", new Money(50), 1);
+        order.MarkAsPaid();
+
+        var act = () => order.SetPaymentIntent("pi_late");
+
+        act.Should().Throw<InvalidOrderOperationException>();
+    }
 }

@@ -1,11 +1,12 @@
 import { NavLink } from 'react-router-dom';
-import { GridIcon, PackageIcon, TagIcon, ReceiptIcon } from '../../components/icons/Icons';
+import { GridIcon, PackageIcon, TagIcon, ReceiptIcon, PercentIcon } from '../../components/icons/Icons';
 import styles from './AdminLayout.module.css';
 
 const TABS = [
   { to: '/admin', end: true, label: 'الرئيسية', icon: GridIcon },
   { to: '/admin/products', label: 'المنتجات', icon: PackageIcon },
   { to: '/admin/categories', label: 'الفئات', icon: TagIcon },
+  { to: '/admin/coupons', label: 'الكوبونات', icon: PercentIcon },
   { to: '/admin/orders', label: 'الطلبات', icon: ReceiptIcon },
 ];
 

@@ -1,1 +1,2 @@
 .footActions { display: flex; justify-content: flex-end; gap: 10px; }
+.checkboxRow { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: var(--fs-body-sm); cursor: pointer; }

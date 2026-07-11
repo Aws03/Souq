@@ -4,20 +4,19 @@ using Souq.Domain.ValueObjects;
 namespace Souq.Infrastructure.Services;
 
 // ============================================================================
-// FakePaymentService — تنفيذ تجريبي لبوّابة الدفع للتطوير/التعلّم.
-// الفكرة الهندسية الأهم: طبقة Application لا تعرف أن هذا "وهمي". تتعامل مع
-// IPaymentService فقط. عند الانتقال للإنتاج نكتب StripePaymentService ينفّذ
-// نفس الواجهة، ونبدّله بسطر واحد في DI — دون لمس أي منطق أعمال.
-// هذا هو العائد العملي لمبدأ "اعزل ما يتغيّر بسرعة".
+// FakePaymentService — تنفيذ تجريبي لبوّابة الدفع، يُستخدم تلقائياً حين لا يوجد
+// مفتاح Stripe مضبوط (تطوير محلي بلا حساب Stripe). لا محاكاة فشل هنا عمداً:
+// اختبار مسار الفشل الحقيقي يكون عبر بطاقات Stripe التجريبية المُوثَّقة
+// (مثل 4000000000000002) بعد تفعيل StripePaymentService، لا عبر رمز اصطناعي.
 // ============================================================================
 public class FakePaymentService : IPaymentService
 {
-    public Task<PaymentResult> ChargeAsync(Money amount, string paymentToken, CancellationToken ct = default)
+    public Task<PaymentIntentResult> CreateIntentAsync(Money amount, string orderReference, CancellationToken ct = default)
     {
-        // قاعدة محاكاة: أي رمز يبدأ بـ "fail" يُحاكي فشل الدفع (لاختبار المسار).
-        if (paymentToken.StartsWith("fail", StringComparison.OrdinalIgnoreCase))
-            return Task.FromResult(new PaymentResult(false, null, "رُفضت البطاقة"));
-
-        return Task.FromResult(new PaymentResult(true, Guid.NewGuid().ToString(), null));
+        var id = $"pi_fake_{Guid.NewGuid():N}";
+        return Task.FromResult(new PaymentIntentResult(id, $"{id}_secret_fake"));
     }
+
+    public Task<PaymentConfirmationResult> ConfirmAsync(string paymentIntentId, CancellationToken ct = default)
+        => Task.FromResult(new PaymentConfirmationResult(true, null));
 }

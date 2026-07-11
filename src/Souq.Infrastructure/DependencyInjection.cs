@@ -26,14 +26,28 @@ public static class DependencyInjection
             options.UseSqlServer(connectionString));
 
         // ربط كل واجهة بتنفيذها. هذا هو "مكان الحقيقة" لقرارات التقنية.
-        // لتبديل الدفع لاحقاً: غيّر السطر التالي فقط إلى StripePaymentService.
         services.AddScoped<IUnitOfWork>(sp => sp.GetRequiredService<AppDbContext>());
         services.AddScoped<IProductRepository, ProductRepository>();
         services.AddScoped<IOrderRepository, OrderRepository>();
         services.AddScoped<ICategoryRepository, CategoryRepository>();
         services.AddScoped<ICustomerRepository, CustomerRepository>();
-        services.AddScoped<IPaymentService, FakePaymentService>();
+        services.AddScoped<ICouponRepository, CouponRepository>();
+        services.AddScoped<IReviewRepository, ReviewRepository>();
         services.AddScoped<IEmailService, ConsoleEmailService>();
+
+        // بوّابة الدفع: Stripe حقيقي إن وُجد مفتاح سرّي مضبوط (user-secrets/بيئة)،
+        // وإلا محاكاة تجريبية (تطوير محلي بلا حساب Stripe). القرار هنا فقط —
+        // لا كود آخر في النظام يعرف أيّهما يعمل، فكلاهما ينفّذ IPaymentService نفسها.
+        var stripeSecretKey = config["Stripe:SecretKey"];
+        if (!string.IsNullOrWhiteSpace(stripeSecretKey))
+        {
+            services.AddOptions<StripeSettings>().Bind(config.GetSection("Stripe"));
+            services.AddScoped<IPaymentService, StripePaymentService>();
+        }
+        else
+        {
+            services.AddScoped<IPaymentService, FakePaymentService>();
+        }
         // تخزين الملفات محلياً (قرص) — يُبدَّل بتخزين سحابي في الإنتاج. مسار المجلد
         // يُضبط في طبقة الـ API حيث يُعرف wwwroot (Configure<FileStorageOptions>).
         services.AddScoped<IFileStorage, LocalFileStorage>();

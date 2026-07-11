@@ -1,0 +1,110 @@
+import { useEffect, useState } from 'react';
+import { Link, useNavigate, useOutletContext, useParams } from 'react-router-dom';
+
+import { api } from '../api/client';
+import { useAuth } from '../context/AuthContext';
+import { useCart } from '../context/CartContext';
+import Button from '../components/common/Button';
+import Pagination from '../components/common/Pagination';
+import Skeleton from '../components/common/Skeleton';
+import { ErrorBanner } from '../components/common/StateViews';
+import { CategoryBadge, PriceTag, StockBadge } from '../components/product/ProductBadges';
+import ProductImage from '../components/product/ProductImage';
+import StarRating from '../components/product/StarRating';
+import ReviewForm from '../components/reviews/ReviewForm';
+import ReviewList from '../components/reviews/ReviewList';
+import styles from './ProductDetail.module.css';
+
+// صفحة تفصيل منتج: صورة كبيرة + بيانات كاملة + إضافة للسلة، وأسفلها التقييمات
+// (متوسط + قائمة مرقّمة + نموذج إضافة تقييم لمن يحقّ له).
+export default function ProductDetail() {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
+  const { add } = useCart();
+  const { showToast } = useOutletContext();
+
+  const [product, setProduct] = useState(null);
+  const [productError, setProductError] = useState(null);
+  const [adding, setAdding] = useState(false);
+
+  const [reviews, setReviews] = useState(null);
+  const [reviewsError, setReviewsError] = useState(null);
+  const [page, setPage] = useState(1);
+
+  useEffect(() => {
+    setProduct(null); setProductError(null);
+    api.getProduct(id).then(setProduct).catch((e) => setProductError(e.message));
+  }, [id]);
+
+  const loadReviews = () => {
+    setReviewsError(null);
+    api.getProductReviews(id, { page, pageSize: 5 }).then(setReviews).catch((e) => setReviewsError(e.message));
+  };
+  useEffect(loadReviews, [id, page]);
+
+  const handleAdd = () => {
+    setAdding(true);
+    add(product);
+    setTimeout(() => { setAdding(false); showToast(product.name); }, 350);
+  };
+
+  if (productError) return <div className="souq-layout"><ErrorBanner message={productError} /></div>;
+  if (!product) {
+    return (
+      <div className="souq-layout">
+        <div className={styles.grid}>
+          <Skeleton height={360} radius={14} />
+          <div><Skeleton height={30} width="70%" /></div>
+        </div>
+      </div>
+    );
+  }
+
+  const outOfStock = product.stockQuantity <= 0;
+  const totalPages = reviews ? Math.ceil(reviews.totalCount / reviews.pageSize) : 1;
+
+  return (
+    <div className="souq-layout">
+      <div className={styles.grid}>
+        <div className={styles.media}><ProductImage product={product} /></div>
+        <div>
+          <CategoryBadge name={product.categoryName} />
+          <h1 className={styles.name}>{product.name}</h1>
+          {reviews && reviews.totalCount > 0 && (
+            <div className={styles.ratingLine}>
+              <StarRating value={reviews.averageRating} />
+              <span>{reviews.averageRating} ({reviews.totalCount} تقييم)</span>
+            </div>
+          )}
+          <p className={styles.desc}>{product.description}</p>
+          <StockBadge quantity={product.stockQuantity} />
+          <div className={styles.buyRow}>
+            <PriceTag amount={product.price} currency={product.currency} />
+            <Button variant="primary" loading={adding} disabled={outOfStock} onClick={handleAdd}>
+              {outOfStock ? 'نفد' : 'أضف للسلة'}
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      <section className={styles.reviewsSection}>
+        <h2 className={styles.sectionTitle}>التقييمات</h2>
+
+        {isAuthenticated ? (
+          <ReviewForm productId={id} onSubmitted={() => { setPage(1); loadReviews(); }} />
+        ) : (
+          <p className={styles.signInHint}>
+            <Link to="/login">سجّل الدخول</Link> لتتمكّن من تقييم هذا المنتج.
+          </p>
+        )}
+
+        <ReviewList reviews={reviews?.items ?? []} loading={!reviews && !reviewsError}
+          error={reviewsError} onRetry={loadReviews} />
+        <Pagination page={page} totalPages={totalPages} onChange={setPage} />
+      </section>
+
+      <Button variant="link" onClick={() => navigate('/')}>← العودة للمتجر</Button>
+    </div>
+  );
+}

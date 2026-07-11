@@ -32,6 +32,25 @@ public class OrdersController : ControllerBase
         return CreatedAtAction(nameof(GetById), new { id = result.Value!.OrderId }, result.Value);
     }
 
+    // POST /api/orders/5/confirm-payment — بعد أن يُصادق العميل على الدفع من
+    // متصفّحه مع Stripe مباشرة، يستدعي هذه النقطة كي نتحقّق من النتيجة لدى
+    // بوّابة الدفع نفسها ونُتمّم الطلب. لا يعني نجاح هذا الاستدعاء أن الدفع
+    // بالضرورة نجح — الجسم يحمل الحالة الفعلية بعد التحقّق الحقيقي.
+    [HttpPost("{id:int}/confirm-payment")]
+    public async Task<IActionResult> ConfirmPayment(int id)
+    {
+        // فحص الملكية أولاً (نفس منطق GetById): لا يؤكّد عميل دفع طلب عميل آخر.
+        var order = await _mediator.Send(new GetOrderByIdQuery(id));
+        if (!order.IsSuccess) return NotFound(new { error = order.Error });
+        if (order.Value!.CustomerId != CurrentUserId() && !User.IsInRole(Roles.Admin))
+            return NotFound(new { error = "الطلب غير موجود" });
+
+        var result = await _mediator.Send(new ConfirmOrderPaymentCommand(id));
+        if (!result.IsSuccess)
+            return BadRequest(new { error = result.Error, code = result.ErrorCode });
+        return Ok(result.Value);
+    }
+
     // GET /api/orders/5 — متابعة الطلب. يراه صاحبه أو المدير فقط.
     [HttpGet("{id:int}")]
     public async Task<IActionResult> GetById(int id)

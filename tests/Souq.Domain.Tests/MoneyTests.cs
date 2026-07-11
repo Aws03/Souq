@@ -39,6 +39,31 @@ public class MoneyTests
     }
 
     [Fact]
+    public void Subtract_بنفس_العملة_يطرح_المبلغين()
+    {
+        var result = new Money(10, "JOD").Subtract(new Money(4, "JOD"));
+
+        result.Amount.Should().Be(6);
+        result.Currency.Should().Be("JOD");
+    }
+
+    [Fact]
+    public void Subtract_بعملتين_مختلفتين_يُرفض()
+    {
+        var act = () => new Money(10, "JOD").Subtract(new Money(5, "USD"));
+
+        act.Should().Throw<InvalidOperationException>();
+    }
+
+    [Fact]
+    public void Subtract_ناتج_سالب_يُرفض()
+    {
+        var act = () => new Money(5, "JOD").Subtract(new Money(10, "JOD"));
+
+        act.Should().Throw<ArgumentException>();
+    }
+
+    [Fact]
     public void Multiply_يضرب_المبلغ_بالكمية()
     {
         var result = new Money(10).Multiply(3);

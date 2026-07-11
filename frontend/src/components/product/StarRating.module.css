@@ -1,0 +1,5 @@
+.stars { display: inline-flex; gap: 2px; }
+.star { color: var(--line); display: grid; place-items: center; cursor: default; }
+.star.filled { color: var(--saffron); }
+.stars[role="radiogroup"] .star { cursor: pointer; transition: transform var(--ease-hover); }
+.stars[role="radiogroup"] .star:hover { transform: scale(1.15); }
