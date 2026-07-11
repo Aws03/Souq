@@ -24,12 +24,17 @@ public class ApplyCouponHandler : IRequestHandler<ApplyCouponQuery, Result<Coupo
         if (coupon is null)
             return Result<CouponPreviewDto>.Failure("رمز الكوبون غير صحيح", "CouponNotFound");
 
-        var subtotal = new Money(q.Subtotal, q.Currency);
-        try { coupon.EnsureUsable(subtotal, DateTime.UtcNow); }
+        try
+        {
+            var subtotal = new Money(q.Subtotal, q.Currency);
+            coupon.EnsureUsable(subtotal, DateTime.UtcNow);
+            var discount = coupon.CalculateDiscount(subtotal);
+            return Result<CouponPreviewDto>.Success(
+                new CouponPreviewDto(coupon.Code, discount.Amount, subtotal.Amount - discount.Amount));
+        }
         catch (InvalidCouponException ex) { return Result<CouponPreviewDto>.Failure(ex.Message, "InvalidCoupon"); }
-
-        var discount = coupon.CalculateDiscount(subtotal);
-        return Result<CouponPreviewDto>.Success(
-            new CouponPreviewDto(coupon.Code, discount.Amount, subtotal.Amount - discount.Amount));
+        // Money يرمي ArgumentException لمبلغ سالب أو عملة فارغة — مدخل غير صالح من العميل،
+        // لا خطأ خادم (بلا هذا catch كان يتسرّب كـ 500 غير معالج).
+        catch (ArgumentException) { return Result<CouponPreviewDto>.Failure("الإجمالي الفرعي غير صحيح", "InvalidSubtotal"); }
     }
 }
