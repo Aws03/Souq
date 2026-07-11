@@ -6,6 +6,7 @@ export default defineConfig({
   server: {
     port: 5173,
     // يحوّل أي طلب /api تلقائياً إلى خادم الـ .NET (يتجنّب مشاكل CORS أثناء التطوير).
-    proxy: { '/api': 'http://localhost:5000' }
+    // ملاحظة: 5200 وليس 5000 — macOS يحجز 5000 لخدمة AirPlay.
+    proxy: { '/api': 'http://localhost:5200' }
   }
 })

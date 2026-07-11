@@ -3,3 +3,6 @@ obj/
 node_modules/
 dist/
 *.user
+.DS_Store
+.vs/
+.vscode/

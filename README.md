@@ -1,7 +1,7 @@
 # 🛒 متجر "سوق" — مشروع تعليمي متكامل (Clean Architecture)
 
 مرجع عملي يطبّق كل مبدأ ذكرناه في ملف **"كيف تفكّر كمهندس برمجيات"**، عبر متجر إلكتروني
-حقيقي قابل للتشغيل: **C# .NET 8 REST API** + **SQL Server** + **React**.
+حقيقي قابل للتشغيل: **C# .NET 10 REST API** + **SQL Server** + **React**.
 
 > الفكرة ليست تغطية كل ميزة في كل متجر، بل بناء **النواة الكاملة باحتراف**
 > (كتالوج → سلة → دفع → طلب) بحيث تتعلّم منها *النمط* الذي تُضيف به أي ميزة بنفسك.
@@ -62,14 +62,14 @@ API ──► Infrastructure ──► Application ──► Domain
 الطريقة الأسهل: شغّل المشروع و EF Core سيُنشئ الجداول ويبذرها تلقائياً.
 أو يدوياً لفهم البنية: شغّل `database/01_schema.sql` ثم `database/02_seed.sql`.
 
-### 2) الـ Backend (.NET 8)
+### 2) الـ Backend (.NET 10)
 ```bash
 cd src/Souq.API
 dotnet restore
 dotnet run
 ```
-يفتح Swagger على `https://localhost:5001/swagger` لتجربة كل نقاط الـ API.
-> عدّل سلسلة الاتصال في `appsettings.json` لتطابق خادم SQL Server عندك.
+يفتح Swagger على `http://localhost:5200/swagger` لتجربة كل نقاط الـ API.
+> سلسلة الاتصال تُضبط عبر user-secrets (انظر أدناه)، لا في `appsettings.json`.
 
 ### 3) الـ Frontend (React)
 ```bash
