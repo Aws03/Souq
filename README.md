@@ -63,13 +63,18 @@ API ──► Infrastructure ──► Application ──► Domain
 أو يدوياً لفهم البنية: شغّل `database/01_schema.sql` ثم `database/02_seed.sql`.
 
 ### 2) الـ Backend (.NET 10)
+أولاً (مرة واحدة): اضبط سلسلة الاتصال كسرّ محلي — لا تُكتب في `appsettings.json` أبداً:
 ```bash
-cd src/Souq.API
-dotnet restore
-dotnet run
+dotnet user-secrets set "ConnectionStrings:Default" \
+  "Server=localhost,1433;Database=SouqDb;User ID=sa;Password=<كلمة-مرورك>;Encrypt=True;TrustServerCertificate=True;" \
+  --project src/Souq.API
+```
+ثم شغّل:
+```bash
+dotnet run --project src/Souq.API
 ```
 يفتح Swagger على `http://localhost:5200/swagger` لتجربة كل نقاط الـ API.
-> سلسلة الاتصال تُضبط عبر user-secrets (انظر أدناه)، لا في `appsettings.json`.
+عند الإقلاع تُطبَّق هجرات EF تلقائياً وتُبذر البيانات الأولية.
 
 ### 3) الـ Frontend (React)
 ```bash

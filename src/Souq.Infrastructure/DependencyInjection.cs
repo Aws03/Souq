@@ -13,9 +13,16 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration config)
     {
-        // الاتصال بـ SQL Server. سلسلة الاتصال تأتي من الإعدادات لا من الكود (Config).
+        // الاتصال بـ SQL Server. سلسلة الاتصال سرّ: تأتي من user-secrets (تطوير)
+        // أو متغيرات البيئة (إنتاج) — لا تُخزّن في appsettings المرفوع أبداً.
+        var connectionString = config.GetConnectionString("Default");
+        if (string.IsNullOrWhiteSpace(connectionString))
+            throw new InvalidOperationException(
+                "سلسلة الاتصال 'Default' غير مضبوطة. للتطوير: " +
+                "dotnet user-secrets set \"ConnectionStrings:Default\" \"...\" --project src/Souq.API");
+
         services.AddDbContext<AppDbContext>(options =>
-            options.UseSqlServer(config.GetConnectionString("Default")));
+            options.UseSqlServer(connectionString));
 
         // ربط كل واجهة بتنفيذها. هذا هو "مكان الحقيقة" لقرارات التقنية.
         // لتبديل الدفع لاحقاً: غيّر السطر التالي فقط إلى StripePaymentService.
