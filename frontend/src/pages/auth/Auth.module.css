@@ -1,0 +1,14 @@
+.wrap {
+  min-height: 100vh; display: grid; place-items: center; padding: 28px;
+  background: linear-gradient(135deg, var(--petrol), var(--petrol-700));
+}
+.card { background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow-lg); padding: 34px 30px; width: min(420px, 100%); }
+.brand { font-family: var(--font-display); font-size: 30px; font-weight: 700; color: var(--petrol); text-align: center; letter-spacing: .5px; }
+.brand span { color: var(--saffron); }
+.title { text-align: center; margin-top: 12px; font-size: var(--fs-heading-lg); }
+.subtitle { text-align: center; color: var(--muted); font-size: var(--fs-body-sm); margin: 4px 0 22px; }
+
+.submit { width: 100%; margin-top: 4px; }
+.switch { text-align: center; margin-top: 18px; font-size: var(--fs-body-sm); color: var(--muted); }
+.switch a { color: var(--petrol); font-weight: 700; text-decoration: none; }
+.switch a:hover { color: var(--saffron); }

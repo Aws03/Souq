@@ -1,0 +1,49 @@
+.shell { display: flex; min-height: 100vh; background: var(--paper); }
+
+/* ── الشريط الجانبي (سطح المكتب) ── */
+.sidebar {
+  width: 232px; background: var(--petrol); color: var(--paper); padding: 22px 0;
+  display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh; flex-shrink: 0;
+}
+.brand {
+  font-family: var(--font-display); font-size: 20px; font-weight: 700; padding: 0 22px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, .12);
+}
+.brand span { color: var(--saffron); }
+.nav { display: flex; flex-direction: column; padding: 14px 0; flex: 1; gap: 2px; }
+.navLink {
+  display: flex; align-items: center; gap: 10px; color: var(--paper); text-decoration: none;
+  padding: 12px 22px; opacity: .78; border-right: 3px solid transparent; transition: all var(--ease-hover);
+}
+.navLink:hover { opacity: 1; background: rgba(255, 255, 255, .06); }
+.navLink.active { opacity: 1; background: rgba(232, 163, 61, .14); border-right-color: var(--saffron); color: var(--saffron-soft); }
+.sidebarFoot { padding: 14px 22px 0; border-top: 1px solid rgba(255, 255, 255, .12); display: flex; flex-direction: column; gap: 10px; }
+.logout { background: none; color: var(--paper); opacity: .8; text-align: right; padding: 0; font-weight: 500; }
+.logout:hover { opacity: 1; text-decoration: underline; }
+
+/* ── المحتوى ── */
+.main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.header {
+  background: var(--surface); border-bottom: 1px solid var(--line); padding: 16px clamp(16px, 4vw, 28px);
+  display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 10;
+}
+.headerTitle { font-family: var(--font-display); font-weight: 600; color: var(--petrol); }
+.headerUser { color: var(--muted); font-size: var(--fs-body-sm); }
+.content { padding: clamp(16px, 4vw, 28px); max-width: 1100px; width: 100%; }
+
+/* ── شريط التبويب السفلي (الجوال) ── */
+.tabBar {
+  display: none; position: fixed; bottom: 0; left: 0; right: 0; z-index: 60;
+  background: var(--petrol); box-shadow: 0 -4px 20px rgba(0, 0, 0, .18);
+}
+.tab {
+  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px;
+  padding: 10px 4px 8px; color: var(--paper); opacity: .7; font-size: 11px; text-decoration: none;
+}
+.tabActive { opacity: 1; color: var(--saffron-soft); }
+
+@media (max-width: 767px) {
+  .sidebar { display: none; }
+  .tabBar { display: flex; }
+  .content { padding-bottom: 84px; }
+}

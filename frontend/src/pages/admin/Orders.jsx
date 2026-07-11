@@ -1,6 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../../api/client';
-import Pagination from '../../components/Pagination';
+import { useToast } from '../../context/ToastContext';
+import DataTable from '../../components/common/DataTable';
+import RowActionsMenu from '../../components/common/RowActionsMenu';
+import Pagination from '../../components/common/Pagination';
+import { formatPrice } from '../../components/product/ProductBadges';
+import styles from './Admin.module.css';
 
 const PAGE_SIZE = 20;
 
@@ -15,11 +20,11 @@ const ACTIONS = {
   Pending: [['Cancel', 'إلغاء']],
   Paid: [['Ship', 'شحن'], ['Cancel', 'إلغاء']],
   Shipped: [['Deliver', 'تسليم']],
-  Delivered: [],
-  Cancelled: [],
+  Delivered: [], Cancelled: [],
 };
 
 export default function Orders() {
+  const toast = useToast();
   const [items, setItems] = useState([]);
   const [totalPages, setTotalPages] = useState(1);
   const [page, setPage] = useState(1);
@@ -41,48 +46,41 @@ export default function Orders() {
     setBusyId(order.id);
     try {
       await api.updateOrderStatus(order.id, action);
+      toast.success('تم تحديث حالة الطلب');
       load();
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setBusyId(null);
-    }
+    } catch (e) { toast.error(e.message); }
+    finally { setBusyId(null); }
   };
+
+  const columns = [
+    { key: 'id', header: '#', render: (o) => o.id },
+    { key: 'customer', header: 'العميل', render: (o) => `#${o.customerId}` },
+    {
+      key: 'status', header: 'الحالة',
+      render: (o) => <span className={`${styles.statusBadge} ${styles[o.status.toLowerCase()]}`}>{STATUS_LABEL[o.status] || o.status}</span>,
+    },
+    { key: 'count', header: 'الأصناف', render: (o) => o.itemCount },
+    { key: 'total', header: 'الإجمالي', render: (o) => formatPrice(o.totalAmount, o.currency) },
+    { key: 'date', header: 'التاريخ', render: (o) => new Date(o.createdAt).toLocaleDateString('ar-JO') },
+    {
+      key: 'actions', header: '', render: (o) => {
+        const actions = ACTIONS[o.status] || [];
+        if (actions.length === 0) return null;
+        return (
+          <RowActionsMenu disabled={busyId === o.id}
+            actions={actions.map(([action, label]) => ({ label, onClick: () => act(o, action) }))} />
+        );
+      },
+    },
+  ];
 
   return (
     <div>
-      <h2 className="admin-page-title">الطلبات</h2>
-      <p className="admin-page-sub">تابع طلبات العملاء وحدّث حالتها.</p>
+      <h2 className={styles.pageTitle}>الطلبات</h2>
+      <p className={styles.pageSub}>تابع طلبات العملاء وحدّث حالتها.</p>
 
-      {error && <div className="auth-alert">⚠ {error}</div>}
-
-      <div className="admin-table-wrap">
-        <table className="admin-table">
-          <thead>
-            <tr><th>#</th><th>العميل</th><th>الحالة</th><th>الأصناف</th><th>الإجمالي</th><th>التاريخ</th><th></th></tr>
-          </thead>
-          <tbody>
-            {loading && <tr><td colSpan={7} className="admin-table-empty">جارٍ التحميل...</td></tr>}
-            {!loading && items.length === 0 && <tr><td colSpan={7} className="admin-table-empty">لا طلبات بعد</td></tr>}
-            {!loading && items.map((o) => (
-              <tr key={o.id}>
-                <td>{o.id}</td>
-                <td>#{o.customerId}</td>
-                <td><span className={`status-badge status-${o.status.toLowerCase()}`}>{STATUS_LABEL[o.status] || o.status}</span></td>
-                <td>{o.itemCount}</td>
-                <td>{o.totalAmount.toFixed(2)} {o.currency}</td>
-                <td>{new Date(o.createdAt).toLocaleDateString('ar-SA')}</td>
-                <td className="admin-table-actions">
-                  {(ACTIONS[o.status] || []).map(([action, label]) => (
-                    <button key={action} className="btn-ghost" disabled={busyId === o.id}
-                      onClick={() => act(o, action)}>{label}</button>
-                  ))}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <DataTable columns={columns} rows={items} rowKey={(o) => o.id} loading={loading} error={error}
+        onRetry={load} emptyTitle="لا طلبات بعد" emptyMessage="ستظهر طلبات العملاء هنا فور ورودها." />
 
       <Pagination page={page} totalPages={totalPages} onChange={setPage} />
     </div>

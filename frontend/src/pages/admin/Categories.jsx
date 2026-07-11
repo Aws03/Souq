@@ -1,10 +1,16 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../../api/client';
-import CategoryForm from './CategoryForm';
+import { useToast } from '../../context/ToastContext';
+import DataTable from '../../components/common/DataTable';
+import RowActionsMenu from '../../components/common/RowActionsMenu';
+import Button from '../../components/common/Button';
+import CategoryFormDrawer from './CategoryFormDrawer';
+import styles from './Admin.module.css';
 
 // شاشة إدارة الفئات. القائمة صغيرة عادةً (غير مرقّمة في الـ API) فنعرضها كاملة
 // كجدول مسطّح، مع اسم الفئة الأب محلولاً من القائمة نفسها.
 export default function Categories() {
+  const toast = useToast();
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -26,6 +32,7 @@ export default function Categories() {
     if (editing?.id) await api.updateCategory(editing.id, payload);
     else await api.createCategory(payload);
     setEditing(null);
+    toast.success(editing?.id ? 'تم تحديث الفئة' : 'تمت إضافة الفئة');
     load();
   };
 
@@ -33,48 +40,39 @@ export default function Categories() {
     if (!window.confirm(`حذف الفئة "${category.name}"؟`)) return;
     try {
       await api.deleteCategory(category.id);
+      toast.success('تم حذف الفئة');
       load();
-    } catch (e) {
-      setError(e.message);
-    }
+    } catch (e) { toast.error(e.message); }
   };
+
+  const columns = [
+    { key: 'name', header: 'الاسم', render: (c) => c.name },
+    { key: 'slug', header: 'المُعرّف', render: (c) => <span dir="ltr">{c.slug}</span> },
+    { key: 'parent', header: 'الفئة الأب', render: (c) => (c.parentId ? parentName(c.parentId) : '—') },
+    {
+      key: 'actions', header: '', render: (c) => (
+        <RowActionsMenu actions={[
+          { label: 'تعديل', onClick: () => setEditing(c) },
+          { label: 'حذف', variant: 'danger', onClick: () => remove(c) },
+        ]} />
+      ),
+    },
+  ];
 
   return (
     <div>
-      <h2 className="admin-page-title">إدارة الفئات</h2>
-      <p className="admin-page-sub">نظّم فئات المتجر وفئاتها الفرعية.</p>
+      <h2 className={styles.pageTitle}>إدارة الفئات</h2>
+      <p className={styles.pageSub}>نظّم فئات المتجر وفئاتها الفرعية.</p>
 
-      {error && <div className="auth-alert">⚠ {error}</div>}
-
-      <div className="admin-toolbar">
-        <button className="btn-primary" onClick={() => setEditing({})}>+ إضافة فئة</button>
+      <div className={styles.toolbar}>
+        <Button variant="primary" onClick={() => setEditing({})}>+ إضافة فئة</Button>
       </div>
 
-      <div className="admin-table-wrap">
-        <table className="admin-table">
-          <thead>
-            <tr><th>الاسم</th><th>المُعرّف</th><th>الفئة الأب</th><th></th></tr>
-          </thead>
-          <tbody>
-            {loading && <tr><td colSpan={4} className="admin-table-empty">جارٍ التحميل...</td></tr>}
-            {!loading && categories.length === 0 && <tr><td colSpan={4} className="admin-table-empty">لا فئات بعد</td></tr>}
-            {!loading && categories.map((c) => (
-              <tr key={c.id}>
-                <td>{c.name}</td>
-                <td dir="ltr" style={{ textAlign: 'right' }}>{c.slug}</td>
-                <td>{c.parentId ? parentName(c.parentId) : '—'}</td>
-                <td className="admin-table-actions">
-                  <button className="btn-ghost" onClick={() => setEditing(c)}>تعديل</button>
-                  <button className="btn-danger" onClick={() => remove(c)}>حذف</button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <DataTable columns={columns} rows={categories} rowKey={(c) => c.id} loading={loading} error={error}
+        onRetry={load} emptyTitle="لا فئات بعد" emptyMessage="أضف أول فئة لتنظيم منتجاتك." />
 
       {editing !== null && (
-        <CategoryForm category={editing.id ? editing : null} categories={categories}
+        <CategoryFormDrawer category={editing.id ? editing : null} categories={categories}
           onSave={save} onClose={() => setEditing(null)} />
       )}
     </div>

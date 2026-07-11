@@ -1,0 +1,9 @@
+.wrap {
+  display: flex; align-items: center; gap: 8px; background: var(--surface);
+  border-radius: 50px; padding: 10px 16px; color: var(--muted);
+  flex: 1; max-width: 420px;
+}
+.wrap input { flex: 1; background: none; color: var(--ink); font-size: var(--fs-body-sm); }
+.wrap input::placeholder { color: var(--muted); }
+.wrap input:focus-visible { outline: none; }
+.wrap:focus-within { box-shadow: 0 0 0 3px var(--saffron); border-radius: 50px; }

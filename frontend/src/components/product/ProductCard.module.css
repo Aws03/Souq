@@ -1,0 +1,16 @@
+.card {
+  background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow);
+  overflow: hidden; transition: transform var(--ease-hover), box-shadow var(--ease-hover);
+  display: flex; flex-direction: column;
+}
+.card:hover { transform: translateY(-4px); box-shadow: 0 14px 32px rgba(15, 59, 58, .14); }
+
+.media { height: 170px; border-bottom: 3px solid var(--saffron); overflow: hidden; }
+
+.body { padding: 16px; flex: 1; display: flex; flex-direction: column; gap: 6px; }
+.name { font-size: 17px; }
+.desc {
+  font-size: var(--fs-caption); color: var(--muted); flex: 1;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.foot { display: flex; align-items: center; justify-content: space-between; margin-top: 6px; }

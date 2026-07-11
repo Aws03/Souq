@@ -1,0 +1,9 @@
+.preview {
+  background: linear-gradient(135deg, var(--petrol), var(--petrol-700)); color: var(--paper);
+  border-radius: var(--radius); padding: 20px; margin-bottom: 18px;
+  display: flex; flex-direction: column; gap: 22px;
+}
+.previewNumber { font-family: var(--font-display); font-size: 19px; letter-spacing: 2px; direction: ltr; text-align: left; }
+.previewRow { display: flex; justify-content: flex-end; color: var(--saffron-soft); font-size: var(--fs-caption); direction: ltr; }
+
+.row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }

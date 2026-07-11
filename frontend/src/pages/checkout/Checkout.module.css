@@ -1,0 +1,23 @@
+.grid {
+  display: grid; grid-template-columns: 380px 1fr; gap: 28px; align-items: start;
+}
+@media (max-width: 860px) { .grid { grid-template-columns: 1fr; } }
+
+.panel { background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); padding: 26px; }
+.panelTitle { font-size: var(--fs-heading); color: var(--petrol); margin-bottom: 16px; }
+.panelTitle:not(:first-child) { margin-top: 26px; }
+.submit { width: 100%; margin-top: 6px; }
+
+.summary { background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); padding: 26px; position: sticky; top: 84px; }
+.items { max-height: 320px; overflow-y: auto; margin-bottom: 14px; }
+.item { display: flex; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.itemThumb { width: 44px; height: 44px; border-radius: 8px; overflow: hidden; flex-shrink: 0; }
+.itemInfo { flex: 1; min-width: 0; }
+.itemName { font-weight: 600; font-size: var(--fs-body-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.itemQty { color: var(--muted); font-size: var(--fs-caption); }
+.itemTotal { font-weight: 700; color: var(--petrol); font-size: var(--fs-caption); white-space: nowrap; }
+
+.totalRow {
+  display: flex; justify-content: space-between; font-size: 20px; font-weight: 700;
+  font-family: var(--font-display); color: var(--petrol); padding-top: 12px; border-top: 1px dashed var(--line);
+}

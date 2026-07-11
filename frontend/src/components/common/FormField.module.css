@@ -1,0 +1,12 @@
+.field { margin-bottom: 16px; }
+.label { display: block; font-weight: 700; font-size: var(--fs-label); margin-bottom: 6px; }
+
+.input {
+  width: 100%; padding: 11px 14px; border: 1px solid var(--line); border-radius: 10px;
+  background: var(--surface); font-family: var(--font-body); transition: border-color var(--ease-hover);
+}
+.input:focus { border-color: var(--petrol); }
+.invalid { border-color: var(--clay); background: #fdf7f5; }
+
+.error { display: block; color: var(--clay); font-size: 12.5px; margin-top: 5px; }
+.hint { display: block; color: var(--muted); font-size: 12px; margin-top: 5px; }

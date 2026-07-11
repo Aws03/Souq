@@ -1,0 +1,12 @@
+.hero {
+  background: linear-gradient(135deg, var(--petrol), var(--petrol-700)); color: var(--paper);
+  padding: clamp(48px, 8vw, 80px) clamp(16px, 4vw, 28px); position: relative; overflow: hidden;
+}
+.hero::after {
+  content: ''; position: absolute; inset: 0; opacity: .06; pointer-events: none;
+  background: radial-gradient(circle at 85% 20%, var(--saffron) 0, transparent 45%);
+}
+.inner { max-width: 640px; margin: 0 auto; text-align: center; position: relative; }
+.headline { font-size: var(--fs-display); margin-bottom: 14px; }
+.headline b { color: var(--saffron); }
+.subline { opacity: .85; margin-bottom: 26px; font-size: var(--fs-body); }

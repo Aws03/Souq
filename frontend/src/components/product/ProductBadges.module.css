@@ -1,0 +1,12 @@
+.price { font-family: var(--font-display); font-weight: 700; font-size: 18px; color: var(--petrol); }
+
+.category {
+  display: inline-block; font-size: var(--fs-label); color: var(--saffron); font-weight: 700;
+  text-transform: uppercase; letter-spacing: .3px;
+}
+
+.stock {
+  display: inline-block; padding: 3px 10px; border-radius: 50px; font-size: 11px; font-weight: 700;
+}
+.stock.low { background: #fdf3e2; color: #a06a12; }
+.stock.out { background: #fdf0ec; color: var(--clay); }

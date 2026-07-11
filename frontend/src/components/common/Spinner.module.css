@@ -1,0 +1,12 @@
+.spinner {
+  display: inline-block; border-radius: 50%;
+  border: 2.5px solid rgba(15, 59, 58, .18);
+  border-top-color: var(--petrol);
+  animation: spin .7s linear infinite;
+  flex-shrink: 0;
+}
+.spinner.inverted {
+  border-color: rgba(255, 255, 255, .35);
+  border-top-color: #fff;
+}
+@keyframes spin { to { transform: rotate(360deg); } }

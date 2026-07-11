@@ -1,6 +1,10 @@
 import { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../../context/AuthContext';
+import FormField, { inputClass } from '../../components/common/FormField';
+import Button from '../../components/common/Button';
+import AuthLayout from './AuthLayout';
+import styles from './Auth.module.css';
 
 // صفحة الدخول. تحقّق فوري لكل حقل + رسالة خطأ واضحة من الخادم. عند النجاح:
 // الأدمن يهبط في لوحة الإدارة، والعميل يعود لوجهته الأصلية أو المتجر.
@@ -30,51 +34,35 @@ export default function Login() {
     setBusy(true); setServerError(null);
     try {
       const user = await login(email.trim(), password);
-      // نوجّه حسب الدور: الأدمن للوحة الإدارة، غيره لوجهته أو المتجر.
-      navigate(user?.role === 'Admin' ? '/admin' : (from && from !== '/login' ? from : '/'),
-        { replace: true });
+      navigate(user?.role === 'Admin' ? '/admin' : (from && from !== '/login' ? from : '/'), { replace: true });
     } catch (err) {
       setServerError(err.message || 'تعذّر تسجيل الدخول');
     } finally { setBusy(false); }
   };
 
   return (
-    <div className="auth-wrap">
-      <form className="auth-card" onSubmit={submit} noValidate>
-        <div className="auth-brand">سو<span>ق</span></div>
-        <h2 className="auth-title">تسجيل الدخول</h2>
-        <p className="auth-sub">أهلاً بعودتك — ادخل لمتابعة التسوّق</p>
-
-        {serverError && <div className="auth-alert">⚠ {serverError}</div>}
-
-        <div className="field">
-          <label>البريد الإلكتروني</label>
+    <AuthLayout title="تسجيل الدخول" subtitle="أهلاً بعودتك — ادخل لمتابعة التسوّق" serverError={serverError}>
+      <form onSubmit={submit} noValidate>
+        <FormField label="البريد الإلكتروني" error={touched.email && errors.email}>
           <input type="email" dir="ltr" value={email} autoComplete="email"
-            className={touched.email && errors.email ? 'invalid' : ''}
+            className={inputClass(touched.email && errors.email)}
             onChange={(e) => setEmail(e.target.value)}
             onBlur={() => setTouched((t) => ({ ...t, email: true }))}
             placeholder="you@example.com" />
-          {touched.email && errors.email && <span className="field-error">{errors.email}</span>}
-        </div>
+        </FormField>
 
-        <div className="field">
-          <label>كلمة المرور</label>
+        <FormField label="كلمة المرور" error={touched.password && errors.password}>
           <input type="password" value={password} autoComplete="current-password"
-            className={touched.password && errors.password ? 'invalid' : ''}
+            className={inputClass(touched.password && errors.password)}
             onChange={(e) => setPassword(e.target.value)}
             onBlur={() => setTouched((t) => ({ ...t, password: true }))}
             placeholder="••••••••" />
-          {touched.password && errors.password && <span className="field-error">{errors.password}</span>}
-        </div>
+        </FormField>
 
-        <button className="checkout-btn" type="submit" disabled={busy}>
-          {busy ? 'جارٍ الدخول…' : 'دخول'}
-        </button>
+        <Button type="submit" variant="saffron" size="lg" loading={busy} className={styles.submit}>دخول</Button>
 
-        <p className="auth-switch">
-          ليس لديك حساب؟ <Link to="/register">أنشئ حساباً</Link>
-        </p>
+        <p className={styles.switch}>ليس لديك حساب؟ <Link to="/register">أنشئ حساباً</Link></p>
       </form>
-    </div>
+    </AuthLayout>
   );
 }

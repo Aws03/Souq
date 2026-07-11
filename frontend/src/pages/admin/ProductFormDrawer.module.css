@@ -1,0 +1,12 @@
+.dropzone {
+  border: 2px dashed var(--line); border-radius: var(--radius); background: var(--surface);
+  min-height: 140px; display: grid; place-items: center; cursor: pointer; margin-bottom: 18px;
+  overflow: hidden; transition: border-color var(--ease-hover), background var(--ease-hover);
+}
+.dropzone:hover, .dropzone.dragOver { border-color: var(--saffron); background: #fffaf0; }
+.dropHint { text-align: center; color: var(--muted); font-size: var(--fs-body-sm); padding: 20px; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.dropHint small { color: var(--muted); font-size: 11.5px; }
+.preview { width: 100%; max-height: 200px; object-fit: contain; }
+
+.row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.footActions { display: flex; justify-content: flex-end; gap: 10px; }

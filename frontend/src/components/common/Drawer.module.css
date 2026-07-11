@@ -1,0 +1,25 @@
+.overlay { position: fixed; inset: 0; background: rgba(15, 59, 58, .4); z-index: 100; }
+
+.panel {
+  position: fixed; top: 0; bottom: 0; background: var(--paper); z-index: 101;
+  display: flex; flex-direction: column; animation: slide-in var(--ease-panel);
+}
+.panel.left { left: 0; box-shadow: 4px 0 30px rgba(0, 0, 0, .2); }
+.panel.right { right: 0; box-shadow: -4px 0 30px rgba(0, 0, 0, .2); }
+
+@keyframes slide-in { from { transform: translateX(0); opacity: 0; } }
+.panel.left { animation-name: slide-in-left; }
+.panel.right { animation-name: slide-in-right; }
+@keyframes slide-in-left { from { transform: translateX(-16px); opacity: 0; } }
+@keyframes slide-in-right { from { transform: translateX(16px); opacity: 0; } }
+
+.head {
+  background: var(--petrol); color: var(--paper); padding: 18px 22px;
+  display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;
+}
+.title { font-size: var(--fs-heading); }
+.close { color: var(--paper); opacity: .85; }
+.close:hover { opacity: 1; }
+
+.body { flex: 1; overflow-y: auto; padding: 18px 22px; }
+.foot { padding: 18px 22px; border-top: 1px solid var(--line); background: var(--surface); flex-shrink: 0; }

@@ -1,15 +1,23 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../../api/client';
-import Pagination from '../../components/Pagination';
-import ProductImage from '../../components/ProductImage';
-import ProductForm from './ProductForm';
+import { useToast } from '../../context/ToastContext';
+import DataTable from '../../components/common/DataTable';
+import RowActionsMenu from '../../components/common/RowActionsMenu';
+import Pagination from '../../components/common/Pagination';
+import Button from '../../components/common/Button';
+import ProductImage from '../../components/product/ProductImage';
+import { formatPrice } from '../../components/product/ProductBadges';
+import { SearchIcon } from '../../components/icons/Icons';
+import ProductFormDrawer from './ProductFormDrawer';
+import styles from './Admin.module.css';
 
 const PAGE_SIZE = 10;
 
-// شاشة إدارة المنتجات: جدول ببحث/تصفية/ترقيم حقيقية من الـ API + نموذج
+// شاشة إدارة المنتجات: جدول ببحث/تصفية/ترقيم حقيقية من الـ API + درج
 // إضافة/تعديل بسحب وإفلات صورة. الحذف حذف منطقي (تعطيل) — يختفي المنتج من
-// القائمة فوراً لأن GET /products يعرض النشط فقط (سلوك موثّق منذ المرحلة 1).
+// القائمة فوراً لأن GET /products يعرض النشط فقط.
 export default function Products() {
+  const toast = useToast();
   const [items, setItems] = useState([]);
   const [totalPages, setTotalPages] = useState(1);
   const [page, setPage] = useState(1);
@@ -31,8 +39,6 @@ export default function Products() {
   }, [keyword, categoryId, page]);
 
   useEffect(() => { load(); }, [load]);
-
-  // البحث/التصفية تُرجع دائماً للصفحة الأولى — نتيجة مختلفة عن الصفحة الحالية.
   useEffect(() => { setPage(1); }, [keyword, categoryId]);
 
   const save = async (payload, file) => {
@@ -41,6 +47,7 @@ export default function Products() {
       : (await api.createProduct(payload)).id;
     if (file) await api.uploadProductImage(id, file);
     setEditing(null);
+    toast.success(editing?.id ? 'تم تحديث المنتج' : 'تمت إضافة المنتج');
     load();
   };
 
@@ -48,60 +55,51 @@ export default function Products() {
     if (!window.confirm(`تعطيل المنتج "${product.name}"؟ سيختفي من المتجر.`)) return;
     try {
       await api.deleteProduct(product.id);
+      toast.success('تم تعطيل المنتج');
       load();
-    } catch (e) {
-      setError(e.message);
-    }
+    } catch (e) { toast.error(e.message); }
   };
+
+  const columns = [
+    { key: 'img', header: 'الصورة', render: (p) => <div className={styles.thumb}><ProductImage product={p} /></div> },
+    { key: 'name', header: 'الاسم', render: (p) => p.name },
+    { key: 'cat', header: 'الفئة', render: (p) => p.categoryName || '—' },
+    { key: 'price', header: 'السعر', render: (p) => formatPrice(p.price, p.currency) },
+    { key: 'stock', header: 'المخزون', render: (p) => p.stockQuantity },
+    {
+      key: 'actions', header: '', render: (p) => (
+        <RowActionsMenu actions={[
+          { label: 'تعديل', onClick: () => setEditing(p) },
+          { label: 'تعطيل', variant: 'danger', onClick: () => remove(p) },
+        ]} />
+      ),
+    },
+  ];
 
   return (
     <div>
-      <h2 className="admin-page-title">إدارة المنتجات</h2>
-      <p className="admin-page-sub">أضف منتجات جديدة، عدّل بياناتها وصورها، أو عطّلها.</p>
+      <h2 className={styles.pageTitle}>إدارة المنتجات</h2>
+      <p className={styles.pageSub}>أضف منتجات جديدة، عدّل بياناتها وصورها، أو عطّلها.</p>
 
-      {error && <div className="auth-alert">⚠ {error}</div>}
-
-      <div className="admin-toolbar">
-        <input className="search" placeholder="ابحث بالاسم أو الوصف..."
-          value={keyword} onChange={(e) => setKeyword(e.target.value)} />
+      <div className={styles.toolbar}>
+        <label className={styles.search}>
+          <SearchIcon size={16} />
+          <input value={keyword} onChange={(e) => setKeyword(e.target.value)} placeholder="ابحث بالاسم أو الوصف..." />
+        </label>
         <select value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
           <option value="">كل الفئات</option>
           {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
-        <button className="btn-primary" onClick={() => setEditing({})}>+ إضافة منتج</button>
+        <Button variant="primary" onClick={() => setEditing({})}>+ إضافة منتج</Button>
       </div>
 
-      <div className="admin-table-wrap">
-        <table className="admin-table">
-          <thead>
-            <tr>
-              <th>الصورة</th><th>الاسم</th><th>الفئة</th><th>السعر</th><th>المخزون</th><th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading && <tr><td colSpan={6} className="admin-table-empty">جارٍ التحميل...</td></tr>}
-            {!loading && items.length === 0 && <tr><td colSpan={6} className="admin-table-empty">لا منتجات مطابقة</td></tr>}
-            {!loading && items.map((p) => (
-              <tr key={p.id}>
-                <td><div className="table-thumb"><ProductImage product={p} /></div></td>
-                <td>{p.name}</td>
-                <td>{p.categoryName || '—'}</td>
-                <td>{p.price.toFixed(2)} {p.currency}</td>
-                <td>{p.stockQuantity <= 3 ? <span className="stock-low">{p.stockQuantity}</span> : p.stockQuantity}</td>
-                <td className="admin-table-actions">
-                  <button className="btn-ghost" onClick={() => setEditing(p)}>تعديل</button>
-                  <button className="btn-danger" onClick={() => remove(p)}>تعطيل</button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <DataTable columns={columns} rows={items} rowKey={(p) => p.id} loading={loading} error={error}
+        onRetry={load} emptyTitle="لا منتجات مطابقة" emptyMessage="جرّب تعديل البحث أو الفئة، أو أضف منتجاً جديداً." />
 
       <Pagination page={page} totalPages={totalPages} onChange={setPage} />
 
       {editing !== null && (
-        <ProductForm product={editing.id ? editing : null} categories={categories}
+        <ProductFormDrawer product={editing.id ? editing : null} categories={categories}
           onSave={save} onClose={() => setEditing(null)} />
       )}
     </div>

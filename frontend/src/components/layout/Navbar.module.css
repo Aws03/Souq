@@ -1,0 +1,38 @@
+.navbar {
+  background: var(--petrol); color: var(--paper); padding: 12px clamp(16px, 4vw, 28px);
+  display: flex; align-items: center; gap: 18px; position: sticky; top: 0; z-index: 50;
+}
+
+.brand {
+  font-family: var(--font-display); font-size: 24px; font-weight: 700; color: var(--paper);
+  letter-spacing: .5px; text-decoration: none; flex-shrink: 0;
+}
+.brand span { color: var(--saffron); }
+
+.searchDesktop { flex: 1; }
+
+.actions { display: flex; align-items: center; gap: 14px; flex-shrink: 0; }
+.linkLight { color: var(--paper); text-decoration: none; font-weight: 500; opacity: .9; transition: opacity var(--ease-hover); }
+.linkLight:hover { opacity: 1; }
+.user { color: var(--saffron-soft); font-size: var(--fs-caption); white-space: nowrap; }
+.linkBtn { color: var(--paper); opacity: .8; font-weight: 500; }
+.linkBtn:hover { opacity: 1; text-decoration: underline; }
+
+.cartBtn {
+  position: relative; background: var(--saffron); color: var(--petrol-700); font-weight: 700;
+  width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center;
+  transition: transform var(--ease-hover);
+}
+.cartBtn:hover { transform: translateY(-1px); }
+.cartCount {
+  position: absolute; top: -4px; left: -4px; background: var(--clay); color: #fff; border-radius: 50%;
+  width: 19px; height: 19px; display: grid; place-items: center; font-size: 11px; font-weight: 700;
+}
+
+.hamburger { display: none; color: var(--paper); width: 36px; height: 36px; }
+
+@media (max-width: 767px) {
+  .hamburger { display: grid; place-items: center; }
+  .searchDesktop { display: none; }
+  .linkLight, .linkBtn, .user { display: none; }
+}

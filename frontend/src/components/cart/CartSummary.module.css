@@ -1,0 +1,7 @@
+.row { display: flex; justify-content: space-between; font-size: var(--fs-body-sm); color: var(--muted); margin-bottom: 8px; }
+.total {
+  display: flex; justify-content: space-between; font-size: 20px; font-weight: 700;
+  font-family: var(--font-display); color: var(--petrol); margin: 10px 0 16px;
+  padding-top: 12px; border-top: 1px dashed var(--line);
+}
+.cta { width: 100%; }
