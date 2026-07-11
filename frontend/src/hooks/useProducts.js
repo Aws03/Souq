@@ -6,7 +6,9 @@ import { api } from '../api/client';
 // لماذا؟ منطق "اجلب بيانات وتعامل مع التحميل والخطأ" يتكرّر كثيراً. نغلّفه مرة
 // ونعيد استخدامه. المكوّن يصبح نظيفاً: يستدعي useProducts ويعرض النتيجة فقط.
 // ============================================================================
-export function useProducts({ keyword, categoryId } = {}) {
+// refreshKey: قيمة يبدّلها المستدعي ليجبر إعادة الجلب (مثلاً بعد إتمام طلب،
+// كي تعكس الواجهة المخزون الجديد من الخادم).
+export function useProducts({ keyword, categoryId, refreshKey } = {}) {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -19,7 +21,7 @@ export function useProducts({ keyword, categoryId } = {}) {
       .catch((e) => { if (active) setError(e.message); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };   // تنظيف لتجنّب تحديث مكوّن أُزيل
-  }, [keyword, categoryId]);
+  }, [keyword, categoryId, refreshKey]);
 
   return { products, loading, error };
 }

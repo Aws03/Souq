@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useCart } from '../context/CartContext';
+import { api } from '../api/client';
 
-// صفحة الدفع: تجمع العنوان ورمز الدفع، وتُرسل الطلب للخادم.
+// صفحة الدفع: تجمع العنوان ورمز الدفع، وتُرسل الطلب للخادم الحقيقي.
 export default function Checkout({ onPlaced, onBack }) {
   const { items, total, clear } = useCart();
   const [address, setAddress] = useState('');
@@ -12,13 +13,16 @@ export default function Checkout({ onPlaced, onBack }) {
   const placeOrder = async () => {
     setBusy(true); setError(null);
     try {
-      // في النسخة الكاملة: نستدعي api.createOrder(...) للخادم.
-      // هنا (وضع العرض) نحاكي الاستجابة محلياً.
-      await new Promise((r) => setTimeout(r, 700));
-      if (token.startsWith('fail')) throw new Error('رُفضت البطاقة');
-      const orderId = Math.floor(1000 + Math.random() * 9000);
+      // TODO (المرحلة 2): يُستبدل customerId الثابت بهوية المستخدم من توكن JWT.
+      const created = await api.createOrder({
+        customerId: 1,
+        shippingAddress: address,
+        items: items.map((i) => ({ productId: i.id, quantity: i.qty })),
+        paymentToken: token,
+      });
       clear();
-      onPlaced({ orderId, total, items });
+      // نعرض ما أكّده الخادم (المصدر الوحيد للحقيقة)، لا حسابات الواجهة.
+      onPlaced({ orderId: created.orderId, total: created.totalAmount, currency: created.currency });
     } catch (e) { setError(e.message); }
     finally { setBusy(false); }
   };

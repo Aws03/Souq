@@ -8,7 +8,7 @@ export default function Confirmation({ order, onContinue }) {
         <p style={{ color: 'var(--muted)', margin: '8px 0 20px' }}>
           رقم الطلب <b style={{ color: 'var(--petrol)' }}>#{order.orderId}</b> — سنُرسل لك تأكيداً بالبريد.
         </p>
-        <div className="total-row"><span>المدفوع</span><span>{order.total.toFixed(2)} JOD</span></div>
+        <div className="total-row"><span>المدفوع</span><span>{order.total.toFixed(2)} {order.currency}</span></div>
         <button className="checkout-btn" onClick={onContinue}>متابعة التسوّق</button>
       </div>
     </div>

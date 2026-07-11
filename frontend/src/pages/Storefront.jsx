@@ -2,7 +2,8 @@ import { useState } from 'react';
 import ProductCard from '../components/ProductCard';
 
 // صفحة المتجر: البحث + التصفية بالفئة + شبكة المنتجات.
-export default function Storefront({ products, categories, loading, filter, setFilter, onAdded }) {
+// (البحث محلي على الصفحة المعروضة مؤقتاً — يتصل بالـ API في المرحلة 3 مع الترقيم.)
+export default function Storefront({ products, categories, loading, error, filter, setFilter, onAdded }) {
   const [search, setSearch] = useState('');
   const visible = products.filter((p) =>
     p.name.includes(search) || p.description.includes(search));
@@ -23,8 +24,12 @@ export default function Storefront({ products, categories, loading, filter, setF
               onClick={() => setFilter(c.id)}>{c.name}</button>
           ))}
         </div>
-        {loading ? (
+        {error ? (
+          <div className="empty">⚠ {error}</div>
+        ) : loading ? (
           <div className="empty">جارٍ التحميل…</div>
+        ) : visible.length === 0 ? (
+          <div className="empty">لا منتجات مطابقة</div>
         ) : (
           <div className="grid">
             {visible.map((p) => <ProductCard key={p.id} product={p} onAdded={onAdded} />)}

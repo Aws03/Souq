@@ -1,4 +1,5 @@
 import { useCart } from '../context/CartContext';
+import { emojiFor } from '../utils/productEmoji';
 
 // مكوّن قابل لإعادة الاستخدام: بطاقة منتج واحدة. يتلقّى المنتج كـ prop ويعرضه.
 // مبدأ "المسؤولية الواحدة": مهمته عرض منتج وزر الإضافة فقط.
@@ -10,7 +11,7 @@ export default function ProductCard({ product, onAdded }) {
 
   return (
     <div className="card">
-      <div className="card-arch"><span className="card-emoji">{product.emoji}</span></div>
+      <div className="card-arch"><span className="card-emoji">{emojiFor(product)}</span></div>
       <div className="card-body">
         <div className="card-cat">{product.categoryName}</div>
         <h3>{product.name}</h3>
