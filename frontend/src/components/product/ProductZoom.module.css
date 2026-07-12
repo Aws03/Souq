@@ -14,7 +14,6 @@
 }
 
 /* ── الصورة الرئيسية ── */
-.mainRow { position: relative; }
 .mainBox {
   position: relative; width: 100%; max-width: 500px; aspect-ratio: 1; margin: 0 auto;
   border-radius: var(--card-radius); overflow: hidden; box-shadow: var(--shadow);
@@ -34,23 +33,13 @@
 
 .tapOverlay { position: absolute; inset: 0; z-index: 1; background: transparent; }
 
-/* مؤشّر بصري لموضع أخذ العيّنة على الصورة — مربّع شفّاف صغير يتبع المؤشّر */
-.lens {
-  position: absolute; width: 110px; height: 110px; margin-top: -55px; margin-inline-start: -55px;
-  border: 2px solid var(--saffron); background: rgb(232 163 61 / 0.18);
-  pointer-events: none; z-index: 3; border-radius: 6px;
-}
-
-/* اللوحة المكبَّرة — تظهر بجانب الصورة الرئيسية (تُحلّ الجهة منطقياً: يساراً في
-   RTL، يميناً في LTR) على الشاشات الواسعة فقط؛ على الأضيق نكتفي بأزرار +/-
-   والصندوق الكامل. */
-.zoomPanel {
-  display: none; position: absolute; top: 0; inset-inline-end: calc(100% + 18px);
-  width: 460px; height: 460px; border-radius: var(--card-radius); border: 1px solid var(--line);
-  background-repeat: no-repeat; background-color: var(--surface); box-shadow: var(--shadow-lg); z-index: 5;
-}
-@media (min-width: 1180px) {
-  .zoomPanel { display: block; }
+/* الطبقة المكبَّرة — تغطّي الصورة نفسها (نفس الموضع والحجم) عند التمرير وتتبع
+   المؤشّر عبر background-position. pointer-events: none كي تبقى أحداث الفأرة
+   على صندوق الصورة نفسه فلا ينقطع التتبّع ولا يختفي زر العدسة. */
+.zoomOverlay {
+  position: absolute; inset: 0; z-index: 1;
+  background-repeat: no-repeat; background-color: var(--soft);
+  pointer-events: none;
 }
 
 /* ── أزرار التكبير/التصغير + عرض كامل ── */
@@ -109,5 +98,4 @@
 
 @media (max-width: 480px) {
   .mainBox { max-width: 100%; }
-  .lens, .zoomPanel { display: none; } /* لا تكبير تمرير على الجوال — اللمس يفتح الصندوق الكامل */
 }

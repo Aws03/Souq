@@ -12,7 +12,8 @@ const MAX_THUMBNAILS = 5;
 
 const clamp = (n, min, max) => Math.min(max, Math.max(min, n));
 
-// عارض صورة/فيديو منتج بتكبير يتتبّع المؤشّر (كعدسة صائغ خارجية) + أزرار
+// عارض صورة/فيديو منتج بتكبير في المكان: عند التمرير تظهر طبقة مكبَّرة فوق
+// الصورة نفسها (نفس الموضع والحجم) تتتبّع المؤشّر — لا لوحة جانبية. + أزرار
 // تكبير/تصغير + صف مصغّرات + صندوق عرض كامل الشاشة. الجوال يستبدل تكبير
 // التمرير (لا مؤشّر فأرة) بفتح الصندوق مباشرة عند اللمس.
 export default function ProductZoom({ images, videoUrl, productName }) {
@@ -82,44 +83,22 @@ export default function ProductZoom({ images, videoUrl, productName }) {
           poster={hasImages ? activeImage : undefined} src={videoUrl} />
       ) : (
         <>
-          <div className={styles.mainRow}>
-            <div
-              ref={imageBoxRef}
-              className={styles.mainBox}
-              onMouseMove={!isTouchDevice ? handleMouseMove : undefined}
-              onMouseEnter={!isTouchDevice ? () => setHovering(true) : undefined}
-              onMouseLeave={!isTouchDevice ? () => setHovering(false) : undefined}
-            >
-              {hasImages ? (
-                <img src={activeImage} alt={productName} className={styles.mainImg} />
-              ) : (
-                <div className={styles.fallback} aria-hidden="true"><CameraIcon size={48} /></div>
-              )}
-
-              {hasImages && (
-                <button type="button" className={styles.zoomIcon}
-                  onClick={openLightbox} aria-label={t('product.zoomAria')}>
-                  <SearchIcon size={16} />
-                </button>
-              )}
-
-              {isTouchDevice && hasImages && (
-                <button type="button" className={styles.tapOverlay} onClick={openLightbox}
-                  aria-label={t('product.zoomAria')} />
-              )}
-            </div>
-
-            {hovering && hasImages && (
-              <div
-                className={styles.lens}
-                style={{ insetInlineStart: `${cursorPct.x}%`, top: `${cursorPct.y}%` }}
-                aria-hidden="true"
-              />
+          <div
+            ref={imageBoxRef}
+            className={styles.mainBox}
+            onMouseMove={!isTouchDevice ? handleMouseMove : undefined}
+            onMouseEnter={!isTouchDevice ? () => setHovering(true) : undefined}
+            onMouseLeave={!isTouchDevice ? () => setHovering(false) : undefined}
+          >
+            {hasImages ? (
+              <img src={activeImage} alt={productName} className={styles.mainImg} />
+            ) : (
+              <div className={styles.fallback} aria-hidden="true"><CameraIcon size={48} /></div>
             )}
 
             {hovering && hasImages && (
               <div
-                className={styles.zoomPanel}
+                className={styles.zoomOverlay}
                 style={{
                   backgroundImage: `url(${activeImage})`,
                   backgroundPosition: `${cursorPct.x}% ${cursorPct.y}%`,
@@ -127,6 +106,18 @@ export default function ProductZoom({ images, videoUrl, productName }) {
                 }}
                 aria-hidden="true"
               />
+            )}
+
+            {hasImages && (
+              <button type="button" className={styles.zoomIcon}
+                onClick={openLightbox} aria-label={t('product.zoomAria')}>
+                <SearchIcon size={16} />
+              </button>
+            )}
+
+            {isTouchDevice && hasImages && (
+              <button type="button" className={styles.tapOverlay} onClick={openLightbox}
+                aria-label={t('product.zoomAria')} />
             )}
           </div>
 

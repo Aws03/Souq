@@ -43,3 +43,15 @@
 /* اسم ثانوي (اللغة الأخرى) أسفل الاسم الأساسي في جدول المنتجات — الإدارة
    ترى الاسمين معاً بغضّ النظر عن لغة الواجهة الحالية. */
 .nameSecondary { color: var(--muted); font-size: var(--fs-caption); margin-top: 2px; }
+
+/* أزرار إجراءات الصف (تعديل/حذف) ظاهرة دوماً — بديل القائمة المنسدلة التي
+   كانت تُقصّ بحاوية overflow-x الخاصة بالجدول. تعيش داخل عمود بعرض ثابت
+   (120px+) مع منع الالتفاف كي يبقى الزران مرئيين كاملين على كل المقاسات. */
+.rowActions { display: inline-flex; gap: 6px; white-space: nowrap; }
+.actionBtn {
+  flex: 0 0 auto; width: 34px; height: 34px; border-radius: 8px;
+  display: grid; place-items: center; color: var(--muted);
+  transition: background var(--ease-hover), color var(--ease-hover);
+}
+.actionBtn:hover { background: var(--soft); color: var(--petrol); }
+.actionDanger:hover { background: #fdf0ec; color: var(--clay); }
