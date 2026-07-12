@@ -1,9 +1,11 @@
 .grid {
   display: grid; grid-template-columns: 380px 1fr; gap: 28px; align-items: start;
 }
-@media (max-width: 860px) { .grid { grid-template-columns: 1fr; } }
 
 .panel { background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); padding: 26px; }
+/* أي حقل داخل بطاقة الدفع يترك مساحة علوية عند التمرير إليه (تركيز على الجوال)
+   بمقدار ارتفاع شريط التنقّل اللاصق — فلا يختفي الحقل (كالكوبون) خلف الشريط. */
+.panel input, .panel textarea { scroll-margin-top: calc(var(--navbar-height) + 12px); }
 .panelTitle { font-size: var(--fs-heading); color: var(--petrol); margin-bottom: 16px; }
 .panelTitle:not(:first-child) { margin-top: 26px; }
 .submit { width: 100%; margin-top: 6px; }
@@ -28,11 +30,16 @@
 }
 
 /* ── كوبون الخصم ── */
-.couponRow { display: flex; gap: 10px; margin-bottom: 6px; }
+.couponRow { display: flex; gap: 10px; margin-bottom: 6px; flex-wrap: wrap; }
 .couponRow input {
-  flex: 1; padding: 11px 14px; border: 1px solid var(--line); border-radius: 10px;
+  /* min-width: 0 حاسم: عنصر flex يأخذ افتراضياً حدّاً أدنى = عرض محتواه الضمني
+     (الإدخال ~20 حرفاً)، فلا ينكمش ويتجاوز الصفّ عرض الشاشة أفقياً على 390px.
+     تصفيره يسمح بالانكماش، وflex-wrap يُنزل الزرّ أسفله على الشاشات الضيّقة جداً. */
+  flex: 1 1 160px; min-width: 0;
+  padding: 11px 14px; border: 1px solid var(--line); border-radius: 10px;
   background: var(--surface); font-family: var(--font-body);
 }
+.couponRow button { flex-shrink: 0; } /* الزرّ يحافظ على حجمه، الإدخال هو من ينكمش */
 .couponError { display: block; color: var(--clay); font-size: 12.5px; margin-bottom: 16px; }
 .couponApplied {
   display: flex; align-items: center; gap: 6px; color: var(--success); background: var(--success-soft);
@@ -42,4 +49,22 @@
 /* ── حقل بطاقة Stripe ── */
 .cardBox {
   border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; background: var(--surface); margin-bottom: 18px;
+}
+
+/* ── الجوال (≤860px: عمود واحد) ── */
+@media (max-width: 860px) {
+  .grid {
+    grid-template-columns: 1fr;
+    /* min-height بـ dvh (الارتفاع الديناميكي المطابق للمنطقة المرئية، لا 100vh
+       الذي يشمل خلف شريط المتصفّح) + مساحة سفلية تشمل safe-area — كي يبقى زر
+       المتابعة وحقل الكوبون قابلَين للوصول فوق شريط المتصفّح/المؤشّر السفلي.
+       نفس منطق إصلاح الدرج. */
+    min-height: 100dvh;
+    padding-bottom: calc(28px + env(safe-area-inset-bottom, 0px));
+  }
+  /* الملخّص لاصق للشاشات الواسعة فقط (عمودان). على الجوال (عمود واحد) اللصق
+     بلا فائدة ويزاحم تمرير النموذج تحته — نُبطله. */
+  .summary { position: static; }
+  /* حشو أخفّ داخل البطاقتين على الجوال — 26px يهدر جزءاً كبيراً من عرض 390px. */
+  .panel, .summary { padding: 20px 16px; }
 }
