@@ -28,7 +28,11 @@
   display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 10;
 }
 .headerTitle { font-family: var(--font-display); font-weight: 600; color: var(--petrol); }
+.headerRight { display: flex; align-items: center; gap: 14px; }
 .headerUser { color: var(--muted); font-size: var(--fs-body-sm); }
+/* إجراءات الرأس (رجوع/خروج) للجوال فقط — سطح المكتب يوفّرها في الشريط الجانبي. */
+.headerAction { display: none; color: var(--petrol); font-weight: 600; font-size: var(--fs-body-sm); background: none; }
+.headerAction:hover { text-decoration: underline; }
 .content { padding: clamp(16px, 4vw, 28px); max-width: 1100px; width: 100%; }
 
 /* ── شريط التبويب السفلي (الجوال) ── */
@@ -46,4 +50,7 @@
   .sidebar { display: none; }
   .tabBar { display: flex; }
   .content { padding-bottom: 84px; }
+  /* على الجوال نخفي اسم المستخدم لتوفير مساحة ونُظهر إجراءَي الرجوع/الخروج. */
+  .headerUser { display: none; }
+  .headerAction { display: inline-block; }
 }

@@ -1,4 +1,12 @@
-.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; padding: 28px 0; }
+/* رابط الرجوع للمتجر أعلى الصفحة — ظاهر فوراً وبمساحة نقر مريحة على الجوال. */
+.backLink {
+  display: inline-flex; align-items: center; gap: 6px; margin-top: 20px;
+  color: var(--muted); font-weight: 600; font-size: var(--fs-body-sm);
+  padding: 8px 4px; transition: color var(--ease-hover);
+}
+.backLink:hover { color: var(--petrol); }
+
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; padding: 20px 0 28px; }
 @media (max-width: 720px) { .grid { grid-template-columns: 1fr; } }
 
 .name { font-size: var(--fs-heading-lg); margin: 6px 0 10px; }

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { SearchIcon, CloseIcon, ChevronIcon, ExpandIcon, CameraIcon } from '../icons/Icons';
 import { isRealImage } from './ProductImage';
@@ -49,7 +50,8 @@ export default function ProductZoom({ images, videoUrl, productName }) {
 
   const openLightbox = () => setLightboxOpen(true);
 
-  // Escape يغلق، الأسهم تتنقّل بين الصور — يعمل فقط حين الصندوق مفتوحاً.
+  // Escape يغلق، الأسهم تتنقّل بين الصور، ونمنع تمرير الصفحة خلف الصندوق —
+  // كلّه يعمل فقط حين الصندوق مفتوحاً (وتُستعاد حالة التمرير عند الإغلاق).
   useEffect(() => {
     if (!lightboxOpen) return;
     const onKeyDown = (e) => {
@@ -58,7 +60,12 @@ export default function ProductZoom({ images, videoUrl, productName }) {
       else if (e.key === 'ArrowLeft') setActiveIndex((i) => (i - 1 + galleryImages.length) % galleryImages.length);
     };
     window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      document.body.style.overflow = prevOverflow;
+    };
   }, [lightboxOpen, galleryImages.length]);
 
   return (
@@ -83,9 +90,13 @@ export default function ProductZoom({ images, videoUrl, productName }) {
           poster={hasImages ? activeImage : undefined} src={videoUrl} />
       ) : (
         <>
+          {/* صندوق الصورة كله قابل للنقر لفتح العرض الكامل (سطح مكتب وجوال معاً)
+              — لا نعتمد على كشف اللمس الهشّ. تكبير التمرير مجرّد طبقة بصرية
+              (pointer-events: none) فلا يعترض النقر. */}
           <div
             ref={imageBoxRef}
             className={styles.mainBox}
+            onClick={hasImages ? openLightbox : undefined}
             onMouseMove={!isTouchDevice ? handleMouseMove : undefined}
             onMouseEnter={!isTouchDevice ? () => setHovering(true) : undefined}
             onMouseLeave={!isTouchDevice ? () => setHovering(false) : undefined}
@@ -113,11 +124,6 @@ export default function ProductZoom({ images, videoUrl, productName }) {
                 onClick={openLightbox} aria-label={t('product.zoomAria')}>
                 <SearchIcon size={16} />
               </button>
-            )}
-
-            {isTouchDevice && hasImages && (
-              <button type="button" className={styles.tapOverlay} onClick={openLightbox}
-                aria-label={t('product.zoomAria')} />
             )}
           </div>
 
@@ -154,8 +160,13 @@ export default function ProductZoom({ images, videoUrl, productName }) {
         </>
       )}
 
-      {lightboxOpen && hasImages && (
-        <div className={styles.lightboxOverlay} onClick={() => setLightboxOpen(false)}>
+      {/* العرض الكامل يُرسَم عبر Portal على body — خارج أي حاوية بـ overflow/
+          transform قد تقصّه أو تحبس ترتيب طبقاته، فيبقى زر الإغلاق والخلفية
+          فوق كل شيء ويعملان بموثوقية. النقر على الخلفية يغلق؛ النقر على الصورة
+          (stage) يوقف الانتشار فلا يغلق؛ زر X يغلق صراحةً. */}
+      {lightboxOpen && hasImages && createPortal(
+        <div className={styles.lightboxOverlay} onClick={() => setLightboxOpen(false)}
+          role="dialog" aria-modal="true">
           <button type="button" className={styles.lightboxClose}
             onClick={() => setLightboxOpen(false)} aria-label={t('common.close')}>
             <CloseIcon size={22} />
@@ -179,7 +190,8 @@ export default function ProductZoom({ images, videoUrl, productName }) {
               </>
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

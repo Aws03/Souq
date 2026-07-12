@@ -10,6 +10,7 @@ import Pagination from '../components/common/Pagination';
 import Skeleton from '../components/common/Skeleton';
 import { ErrorBanner } from '../components/common/StateViews';
 import { CategoryBadge, PriceTag, StockBadge, getProductName } from '../components/product/ProductBadges';
+import { ChevronIcon } from '../components/icons/Icons';
 import ProductZoom from '../components/product/ProductZoom';
 import StarRating from '../components/product/StarRating';
 import ReviewForm from '../components/reviews/ReviewForm';
@@ -68,6 +69,11 @@ export default function ProductDetail() {
 
   return (
     <div className="souq-layout">
+      {/* رابط الرجوع أعلى الصفحة (لا في أسفلها بعد التقييمات) — ظاهر فوراً على
+          الجوال وسطح المكتب بلا تمرير، وفي مسار الصفحة الطبيعي فلا يزاحم شيئاً. */}
+      <button type="button" className={styles.backLink} onClick={() => navigate('/')}>
+        <ChevronIcon dir="end" size={16} /> {t('product.backToStore')}
+      </button>
       <div className={styles.grid}>
         <ProductZoom images={[product.imageUrl]} videoUrl={product.videoUrl} productName={getProductName(product)} />
         <div>
@@ -105,8 +111,6 @@ export default function ProductDetail() {
           error={reviewsError} onRetry={loadReviews} />
         <Pagination page={page} totalPages={totalPages} onChange={setPage} />
       </section>
-
-      <Button variant="link" onClick={() => navigate('/')}>{t('product.backToStore')}</Button>
     </div>
   );
 }

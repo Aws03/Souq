@@ -24,7 +24,13 @@ export default function AdminLayout() {
       <div className={styles.main}>
         <header className={styles.header}>
           <span className={styles.headerTitle}>{t('admin.headerTitle')}</span>
-          <span className={styles.headerUser}>{user?.fullName || t('admin.adminFallback')}</span>
+          <div className={styles.headerRight}>
+            <span className={styles.headerUser}>{user?.fullName || t('admin.adminFallback')}</span>
+            {/* الرجوع للمتجر + الخروج متاحان على الجوال هنا (الشريط الجانبي يوفّرهما
+                على سطح المكتب، لكنه مخفيّ على الجوال لصالح شريط التبويب السفلي). */}
+            <a href="/" className={styles.headerAction}>{t('admin.backToStore')}</a>
+            <button type="button" className={styles.headerAction} onClick={doLogout}>{t('admin.logout')}</button>
+          </div>
         </header>
         <main className={styles.content}>
           <Outlet />
