@@ -3,15 +3,16 @@ import Hero from '../components/store/Hero';
 import CategoryGrid from '../components/store/CategoryGrid';
 import ProductSection from '../components/store/ProductSection';
 import PromoBanner from '../components/store/PromoBanner';
-import CategoryBar from '../components/layout/CategoryBar';
+import FilterBar from '../components/store/FilterBar';
 import ProductGrid from '../components/product/ProductGrid';
 import styles from './Storefront.module.css';
 
 // صفحة المتجر (الرئيسية): بانر شرائح، بطاقات فئات، صفّا منتجات مكتشفة
 // ("وصل حديثاً"/"الأكثر مبيعاً") يفصل بينهما شريطا ترويج بتخطيط متبادل، ثم
-// شبكة الكتالوج الكاملة القابلة للبحث والتصفية بالفئة.
+// شريط الفلاتر (فئات متعددة/سعر/ترتيب) فشبكة الكتالوج الكاملة.
 export default function Storefront({
-  products, categories, loading, error, onRetry, filter, setFilter, onAdded,
+  products, categories, loading, error, onRetry, onAdded,
+  filters, onToggleCategory, onSelectCategory, onPriceChange, onSortChange, onClearFilters,
   newArrivals, newArrivalsLoading, bestSellers, bestSellersLoading,
 }) {
   const { t } = useTranslation();
@@ -23,7 +24,9 @@ export default function Storefront({
   return (
     <>
       <Hero />
-      <CategoryGrid categories={categories} onSelect={setFilter} />
+      {/* بطاقة فئة = "تسوّق هذه الفئة": تستبدل تحديد الفلاتر بهذه الفئة وحدها،
+          وCategoryGrid نفسه يتولّى التمرير لشبكة المنتجات. */}
+      <CategoryGrid categories={categories} onSelect={onSelectCategory} />
 
       <ProductSection
         title={t('store.newArrivals')} products={newArrivals} loading={newArrivalsLoading}
@@ -45,7 +48,11 @@ export default function Storefront({
         ctaLabel={t('store.heroCta')} onCtaClick={scrollToGrid} reverse variant={1}
       />
 
-      <CategoryBar categories={categories} activeId={filter} onSelect={setFilter} />
+      <FilterBar
+        categories={categories} filters={filters}
+        onToggleCategory={onToggleCategory} onPriceChange={onPriceChange}
+        onSortChange={onSortChange} onClearFilters={onClearFilters}
+      />
       <div className={`souq-layout ${styles.section}`} id="product-grid">
         <h2 className={styles.allProductsTitle}>{t('store.allProducts')}</h2>
         <ProductGrid products={products} loading={loading} error={error} onRetry={onRetry} onAdded={onAdded} />

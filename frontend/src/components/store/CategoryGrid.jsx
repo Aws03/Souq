@@ -4,8 +4,8 @@ import styles from './CategoryGrid.module.css';
 
 const ICONS = [TagIcon, PackageIcon, GridIcon, PercentIcon];
 
-// صف من 4 بطاقات فئة أسفل البانر — اختصار مباشر للتصفّح، بديل عن تمرير رقاقات
-// CategoryBar فقط. النقر يطبّق نفس فلتر CategoryBar ثم يمرّر لشبكة المنتجات.
+// صف من 4 بطاقات فئة أسفل البانر — اختصار مباشر للتصفّح، بديل عن شرائح فئات
+// FilterBar فقط. النقر يطبّق فلتر الفئة نفسه ثم يمرّر لشبكة المنتجات.
 export default function CategoryGrid({ categories, onSelect, targetId = 'product-grid' }) {
   const { t } = useTranslation();
   if (!categories.length) return null;

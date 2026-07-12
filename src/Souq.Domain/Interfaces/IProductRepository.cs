@@ -1,4 +1,5 @@
 using Souq.Domain.Entities;
+using Souq.Domain.Enums;
 
 namespace Souq.Domain.Interfaces;
 
@@ -12,8 +13,12 @@ public interface IProductRepository : IRepository<Product>
     Task<Product?> GetActiveByIdAsync(int id, CancellationToken ct = default);
 
     Task<IReadOnlyList<Product>> GetByCategoryAsync(int categoryId, CancellationToken ct = default);
+
+    // بحث الكتالوج: كلمة + فئات متعددة (فارغة/null = الكل) + نطاق سعر + ترتيب.
     Task<(IReadOnlyList<Product> Items, int TotalCount)> SearchAsync(
-        string? keyword, int? categoryId, int page, int pageSize, CancellationToken ct = default);
+        string? keyword, IReadOnlyCollection<int>? categoryIds, int page, int pageSize,
+        decimal? minPrice = null, decimal? maxPrice = null,
+        ProductSortBy sortBy = ProductSortBy.Newest, CancellationToken ct = default);
 
     // هل يشير أي منتج (نشط أو معطّل) لهذه الفئة؟ (لمنع حذف فئة مستخدمة —
     // نشمل المعطّلة لأن المفتاح الأجنبي قائم بغضّ النظر عن IsActive).

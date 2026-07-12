@@ -8,21 +8,26 @@ import { api } from '../api/client';
 // ============================================================================
 // refreshKey: قيمة يبدّلها المستدعي ليجبر إعادة الجلب (مثلاً بعد إتمام طلب،
 // كي تعكس الواجهة المخزون الجديد من الخادم). refetch: إعادة محاولة يدوية بعد خطأ.
-export function useProducts({ keyword, categoryId, refreshKey } = {}) {
+export function useProducts({ keyword, categoryIds, minPrice, maxPrice, sortBy, refreshKey } = {}) {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [retryTick, setRetryTick] = useState(0);
 
+  // مصفوفة الفئات تصل بمرجع جديد كل رسم — نشتقّ تمثيلاً نصّياً ثابتاً كتبعية
+  // للتأثير كي لا يُعاد الجلب إلا حين يتغيّر المحتوى فعلاً.
+  const catsKey = (categoryIds || []).join(',');
+
   useEffect(() => {
     let active = true;
     setLoading(true);
-    api.getProducts({ keyword, categoryId })
+    api.getProducts({ keyword, categoryIds, minPrice, maxPrice, sortBy })
       .then((data) => { if (active) { setProducts(data.items); setError(null); } })
       .catch((e) => { if (active) setError(e.message); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };   // تنظيف لتجنّب تحديث مكوّن أُزيل
-  }, [keyword, categoryId, refreshKey, retryTick]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- categoryIds ممثَّلة بـ catsKey
+  }, [keyword, catsKey, minPrice, maxPrice, sortBy, refreshKey, retryTick]);
 
   const refetch = useCallback(() => setRetryTick((t) => t + 1), []);
 

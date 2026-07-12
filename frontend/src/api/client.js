@@ -81,10 +81,15 @@ export const api = {
     request('/auth/reset-password', { method: 'POST', body: JSON.stringify({ token, newPassword }) }),
 
   // ── الكتالوج ──
+  // المصفوفات (categoryIds) تُرسَل كمفتاح متكرّر (categoryIds=1&categoryIds=2)
+  // — الصيغة الوحيدة التي يربطها ASP.NET إلى List<int>، لا "1,2" المفصولة.
   getProducts: (params = {}) => {
-    const q = new URLSearchParams(
-      Object.entries(params).filter(([, v]) => v != null && v !== '')
-    ).toString();
+    const q = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value == null || value === '') return;
+      if (Array.isArray(value)) value.forEach((v) => q.append(key, v));
+      else q.append(key, value);
+    });
     return request(`/products?${q}`);
   },
   getProduct: (id) => request(`/products/${id}`),

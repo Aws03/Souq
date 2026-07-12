@@ -5,6 +5,7 @@ using Souq.Application.Common.Models;
 using Souq.Application.Features.Products.Commands;
 using Souq.Application.Features.Products.Queries;
 using Souq.Domain.Common;
+using Souq.Domain.Enums;
 
 namespace Souq.API.Controllers;
 
@@ -21,13 +22,18 @@ public class ProductsController : ControllerBase
     private readonly IMediator _mediator;
     public ProductsController(IMediator mediator) => _mediator = mediator;
 
-    // GET /api/products?keyword=&categoryId=&page=1&pageSize=12
+    // GET /api/products?keyword=&categoryIds=1&categoryIds=2&minPrice=&maxPrice=&sortBy=Newest&page=1&pageSize=12
+    // categoryIds تتكرّر كمفتاح لكل فئة (الربط القياسي لـ List<int>)، وsortBy
+    // تُربَط بالاسم (Newest/PriceAsc/PriceDesc/BestSelling) — قيمة غير صالحة ⇒ 400 تلقائياً.
     [HttpGet]
     public async Task<IActionResult> GetAll(
-        [FromQuery] string? keyword, [FromQuery] int? categoryId,
+        [FromQuery] string? keyword, [FromQuery] List<int>? categoryIds,
+        [FromQuery] decimal? minPrice, [FromQuery] decimal? maxPrice,
+        [FromQuery] ProductSortBy sortBy = ProductSortBy.Newest,
         [FromQuery] int page = 1, [FromQuery] int pageSize = 12)
     {
-        var result = await _mediator.Send(new GetProductsQuery(keyword, categoryId, page, pageSize));
+        var result = await _mediator.Send(
+            new GetProductsQuery(keyword, categoryIds, page, pageSize, minPrice, maxPrice, sortBy));
         return Ok(result);
     }
 

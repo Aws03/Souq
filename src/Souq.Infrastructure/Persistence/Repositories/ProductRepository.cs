@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Souq.Domain.Entities;
+using Souq.Domain.Enums;
 using Souq.Domain.Interfaces;
 
 namespace Souq.Infrastructure.Persistence.Repositories;
@@ -18,7 +19,9 @@ public class ProductRepository : RepositoryBase<Product>, IProductRepository
                             .Include(p => p.Category).ToListAsync(ct);
 
     public async Task<(IReadOnlyList<Product>, int)> SearchAsync(
-        string? keyword, int? categoryId, int page, int pageSize, CancellationToken ct = default)
+        string? keyword, IReadOnlyCollection<int>? categoryIds, int page, int pageSize,
+        decimal? minPrice = null, decimal? maxPrice = null,
+        ProductSortBy sortBy = ProductSortBy.Newest, CancellationToken ct = default)
     {
         // نبني الاستعلام تدريجياً حسب المعايير المتوفّرة (Query Composition).
         var query = Db.Products.Include(p => p.Category).Where(p => p.IsActive);
@@ -29,15 +32,36 @@ public class ProductRepository : RepositoryBase<Product>, IProductRepository
         if (!string.IsNullOrWhiteSpace(keyword))
             query = query.Where(p =>
                 p.NameAr.Contains(keyword) || p.NameEn.Contains(keyword) || p.Description.Contains(keyword));
-        if (categoryId.HasValue)
-            query = query.Where(p => p.CategoryId == categoryId.Value);
+        if (categoryIds is { Count: > 0 })
+            query = query.Where(p => categoryIds.Contains(p.CategoryId));
+        if (minPrice.HasValue)
+            query = query.Where(p => p.Price.Amount >= minPrice.Value);
+        if (maxPrice.HasValue)
+            query = query.Where(p => p.Price.Amount <= maxPrice.Value);
 
         var total = await query.CountAsync(ct);   // العدد الكلي قبل الترقيم (للأزرار)
 
+        // "الأكثر مبيعاً" = مجموع الكميات عبر الطلبات المُسلَّمة فقط (Delivered —
+        // المبيعات المؤكّدة فعلاً، لا الملغاة ولا المعلّقة). لا عمود OrderId على
+        // OrderItem (مفتاح ظلّ، انظر OrderConfiguration) فنصل عبر Orders.SelectMany
+        // — يُترجم إلى استعلام فرعي مترابط واحد، لا تحميل بيانات للذاكرة.
+        // ThenByDescending(Id) يكسر التعادل (وأصفار المبيعات) بثبات: الأحدث أولاً.
+        var ordered = sortBy switch
+        {
+            ProductSortBy.PriceAsc => query.OrderBy(p => p.Price.Amount).ThenByDescending(p => p.Id),
+            ProductSortBy.PriceDesc => query.OrderByDescending(p => p.Price.Amount).ThenByDescending(p => p.Id),
+            ProductSortBy.BestSelling => query.OrderByDescending(p =>
+                    Db.Orders.Where(o => o.Status == OrderStatus.Delivered)
+                             .SelectMany(o => o.Items)
+                             .Where(i => i.ProductId == p.Id)
+                             .Sum(i => (int?)i.Quantity) ?? 0)
+                .ThenByDescending(p => p.Id),
+            _ => query.OrderByDescending(p => p.Id),
+        };
+
         // الترقيم الفعلي: نتخطّى صفحات سابقة ونأخذ صفحة واحدة فقط.
-        var items = await query.OrderByDescending(p => p.Id)
-                               .Skip((page - 1) * pageSize).Take(pageSize)
-                               .ToListAsync(ct);
+        var items = await ordered.Skip((page - 1) * pageSize).Take(pageSize)
+                                 .ToListAsync(ct);
         return (items, total);
     }
 

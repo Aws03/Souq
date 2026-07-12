@@ -1,0 +1,50 @@
+/* شريط الفلاتر — يحلّ محلّ CategoryBar القديم فوق شبكة الكتالوج، بنفس لصوقه
+   تحت شريط التنقّل، ويضيف نطاق السعر والترتيب وصف الوسوم المفعّلة. */
+.bar { background: var(--soft); border-bottom: 1px solid var(--line); position: sticky; top: var(--navbar-height); z-index: 40; }
+.inner {
+  max-width: 1240px; margin: 0 auto; padding: 10px clamp(16px, 4vw, 28px);
+  display: flex; flex-direction: column; gap: 8px;
+}
+.row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+
+/* ── شرائح الفئات (متعدّدة الاختيار) ── */
+.chips { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; min-width: 0; }
+.chips::-webkit-scrollbar { display: none; }
+.chip {
+  padding: 7px 16px; border-radius: 50px; background: var(--surface); color: var(--ink);
+  border: 1px solid var(--line); font-weight: 500; font-size: var(--fs-caption);
+  white-space: nowrap; transition: all var(--ease-hover); flex-shrink: 0;
+}
+.chip:hover { border-color: var(--petrol); }
+.chipActive { background: var(--petrol); border-color: var(--petrol); color: var(--paper); }
+
+/* ── نطاق السعر + الترتيب ── */
+.controls { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-inline-start: auto; }
+.label { color: var(--muted); font-size: var(--fs-caption); font-weight: 600; }
+.price { display: flex; align-items: center; gap: 6px; }
+.price input {
+  width: 84px; padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px;
+  background: var(--surface); color: var(--ink); font-size: var(--fs-caption);
+}
+.price input:focus { border-color: var(--petrol); outline: none; }
+.dash { color: var(--muted); }
+.sort { display: flex; align-items: center; gap: 6px; }
+.sort select {
+  padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px;
+  background: var(--surface); color: var(--ink); font-size: var(--fs-caption);
+  font-family: var(--font-body);
+}
+
+/* ── وسوم الفلاتر المفعّلة ── */
+.tags { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.tag {
+  display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px;
+  border-radius: 50px; background: var(--saffron-soft); color: var(--ink);
+  font-size: var(--fs-caption); font-weight: 600; transition: background var(--ease-hover);
+}
+.tag:hover { background: var(--soft); }
+.clearAll {
+  color: var(--clay); font-weight: 700; font-size: var(--fs-caption);
+  padding: 5px 10px; border-radius: 8px; transition: background var(--ease-hover);
+}
+.clearAll:hover { background: #fdf0ec; }

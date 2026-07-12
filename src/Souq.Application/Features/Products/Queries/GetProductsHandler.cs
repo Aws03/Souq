@@ -16,7 +16,8 @@ public class GetProductsHandler : IRequestHandler<GetProductsQuery, PaginatedLis
 
     public async Task<PaginatedList<ProductDto>> Handle(GetProductsQuery q, CancellationToken ct)
     {
-        var (items, total) = await _products.SearchAsync(q.Keyword, q.CategoryId, q.Page, q.PageSize, ct);
+        var (items, total) = await _products.SearchAsync(
+            q.Keyword, q.CategoryIds, q.Page, q.PageSize, q.MinPrice, q.MaxPrice, q.SortBy, ct);
 
         var dtos = items.Select(p => new ProductDto(
             p.Id, p.NameAr, p.NameEn, p.Description,
