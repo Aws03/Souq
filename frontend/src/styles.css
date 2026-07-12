@@ -49,6 +49,14 @@
   --ease-panel: 250ms ease;
 }
 
+/* الإنجليزية تستخدم Inter بدل الخطّين العربيين — يُضبط lang على <html> عند
+   تبديل اللغة (i18n/index.js)، فيُعاد تعريف متغيّرَي الخط هنا تلقائياً؛ كل
+   عنصر يقرأ var(--font-body)/var(--font-display) يتبدّل معه دون لمس أي مكوّن. */
+html[lang="en"] {
+  --font-display: 'Inter', sans-serif;
+  --font-body: 'Inter', sans-serif;
+}
+
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html { scroll-behavior: smooth; }
 body { font-family: var(--font-body); background: var(--paper); color: var(--ink);

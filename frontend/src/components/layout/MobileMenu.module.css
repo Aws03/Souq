@@ -10,8 +10,8 @@
 
 .links { display: flex; flex-direction: column; gap: 4px; }
 .links a, .links button {
-  padding: 13px 6px; text-align: right; font-weight: 600; font-size: var(--fs-body);
-  border-bottom: 1px solid var(--line); color: var(--ink);
+  padding: 13px 6px; text-align: start; font-weight: 600; font-size: var(--fs-body);
+  border-bottom: 1px solid var(--line); color: var(--ink); width: 100%;
 }
 .links a:last-child, .links button:last-child { border-bottom: none; }
 .hello { padding: 13px 6px; color: var(--muted); font-weight: 500; }

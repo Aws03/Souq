@@ -19,7 +19,7 @@ public class GetProductsHandler : IRequestHandler<GetProductsQuery, PaginatedLis
         var (items, total) = await _products.SearchAsync(q.Keyword, q.CategoryId, q.Page, q.PageSize, ct);
 
         var dtos = items.Select(p => new ProductDto(
-            p.Id, p.Name, p.Description,
+            p.Id, p.NameAr, p.NameEn, p.Description,
             p.Price.Amount, p.Price.Currency,
             p.StockQuantity, p.ImageUrl,
             p.CategoryId, p.Category?.Name)).ToList();

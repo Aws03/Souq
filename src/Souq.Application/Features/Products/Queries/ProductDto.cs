@@ -8,7 +8,7 @@ namespace Souq.Application.Features.Products.Queries;
 // 3) تسطيح: نحوّل Money (كائن) إلى رقم + عملة بسيطين يسهل على JSON تمثيلهما.
 // ============================================================================
 public record ProductDto(
-    int Id, string Name, string Description,
+    int Id, string NameAr, string NameEn, string Description,
     decimal Price, string Currency,
     int StockQuantity, string ImageUrl,
     int CategoryId, string? CategoryName);

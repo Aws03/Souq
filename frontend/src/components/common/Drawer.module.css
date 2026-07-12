@@ -3,9 +3,16 @@
 .panel {
   position: fixed; top: 0; bottom: 0; background: var(--paper); z-index: 101;
   display: flex; flex-direction: column; animation: slide-in var(--ease-panel);
+  width: min(var(--drawer-width, 420px), 92vw);
 }
 .panel.left { left: 0; box-shadow: 4px 0 30px rgba(0, 0, 0, .2); }
 .panel.right { right: 0; box-shadow: -4px 0 30px rgba(0, 0, 0, .2); }
+
+/* شاشة كاملة على الجوال: لا درج جانبي ضيّق يزاحم المحتوى — نفس تخطيط
+   head/body(قابل للتمرير)/foot(ثابت) يبقى، لكن بعرض/ارتفاع الشاشة كاملَين. */
+@media (max-width: 480px) {
+  .panel { width: 100vw; height: 100vh; top: 0; bottom: 0; left: 0; right: 0; border-radius: 0; }
+}
 
 @keyframes slide-in { from { transform: translateX(0); opacity: 0; } }
 .panel.left { animation-name: slide-in-left; }
@@ -21,5 +28,11 @@
 .close { color: var(--paper); opacity: .85; }
 .close:hover { opacity: 1; }
 
-.body { flex: 1; overflow-y: auto; padding: 18px 22px; }
+/* min-height: 0 ضروري هنا: بلا هذا، عنصر flex بـ overflow-y:auto يتمدّد
+   ليحوي محتواه كاملاً (السلوك الافتراضي min-height:auto) بدل الانضباط بالمساحة
+   المتاحة والتمرير داخلياً — فيدفع .foot (وزر الحفظ فيه) خارج الشاشة في أي
+   نموذج أطول من الارتفاع المرئي (نموذج الكوبون مثلاً: 7 حقول). هذا هو الإصلاح
+   الجذري، لا مجرّد زيادة overflow/min-height على الحاوية.
+   */
+.body { flex: 1; min-height: 0; overflow-y: auto; padding: 18px 22px; }
 .foot { padding: 18px 22px; border-top: 1px solid var(--line); background: var(--surface); flex-shrink: 0; }

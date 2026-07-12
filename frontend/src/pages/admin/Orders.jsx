@@ -50,18 +50,21 @@ export default function Orders() {
     finally { setBusyId(null); }
   };
 
+  // عرض/محاذاة ثابتان لكل عمود (colgroup في DataTable) — لا يهتزّ الجدول بين
+  // صفحات بأطوال قيم مختلفة. status يقصّ بنقاط + title احتياطاً لتسميات أطول.
   const columns = [
-    { key: 'id', header: '#', render: (o) => o.id },
-    { key: 'customer', header: t('admin.orders.colCustomer'), render: (o) => `#${o.customerId}` },
+    { key: 'id', header: '#', width: '56px', align: 'end', render: (o) => o.id },
+    { key: 'customer', header: t('admin.orders.colCustomer'), width: '90px', align: 'end', render: (o) => `#${o.customerId}` },
     {
-      key: 'status', header: t('admin.orders.colStatus'),
+      key: 'status', header: t('admin.orders.colStatus'), width: '130px', truncate: true,
+      tooltip: (o) => t(`admin.orders.status.${o.status}`, { defaultValue: o.status }),
       render: (o) => <span className={`${styles.statusBadge} ${styles[o.status.toLowerCase()]}`}>{t(`admin.orders.status.${o.status}`, { defaultValue: o.status })}</span>,
     },
-    { key: 'count', header: t('admin.orders.colItems'), render: (o) => o.itemCount },
-    { key: 'total', header: t('admin.orders.colTotal'), render: (o) => formatPrice(o.totalAmount, o.currency) },
-    { key: 'date', header: t('admin.orders.colDate'), render: (o) => formatDate(o.createdAt) },
+    { key: 'count', header: t('admin.orders.colItems'), width: '80px', align: 'end', render: (o) => o.itemCount },
+    { key: 'total', header: t('admin.orders.colTotal'), width: '120px', align: 'end', render: (o) => formatPrice(o.totalAmount, o.currency) },
+    { key: 'date', header: t('admin.orders.colDate'), width: '110px', render: (o) => formatDate(o.createdAt) },
     {
-      key: 'actions', header: '', render: (o) => {
+      key: 'actions', header: t('admin.orders.colActions'), width: '64px', align: 'end', render: (o) => {
         const actions = ACTIONS[o.status] || [];
         if (actions.length === 0) return null;
         return (
@@ -78,7 +81,8 @@ export default function Orders() {
       <p className={styles.pageSub}>{t('admin.orders.subtitle')}</p>
 
       <DataTable columns={columns} rows={items} rowKey={(o) => o.id} loading={loading} error={error}
-        onRetry={load} emptyTitle={t('admin.orders.emptyTitle')} emptyMessage={t('admin.orders.emptyMessage')} />
+        onRetry={load} emptyTitle={t('admin.orders.emptyTitle')} emptyMessage={t('admin.orders.emptyMessage')}
+        minWidth="620px" stickyFirstColumn />
 
       <Pagination page={page} totalPages={totalPages} onChange={setPage} />
     </div>

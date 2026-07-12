@@ -20,9 +20,9 @@ public class CreateProductHandler : IRequestHandler<CreateProductCommand, Result
     {
         // ننشئ الكيان عبر مُنشئه — فيطبّق قواعده الداخلية تلقائياً.
         var product = new Product(
-            cmd.Name, cmd.Description,
+            cmd.NameAr, cmd.Description,
             new Money(cmd.Price),          // يتحقّق Money من أن السعر غير سالب
-            cmd.StockQuantity, cmd.ImageUrl, cmd.CategoryId);
+            cmd.StockQuantity, cmd.ImageUrl, cmd.CategoryId, cmd.NameEn);
 
         await _products.AddAsync(product, ct);
         await _uow.SaveChangesAsync(ct);   // الحفظ الفعلي يحدث هنا، مرة واحدة

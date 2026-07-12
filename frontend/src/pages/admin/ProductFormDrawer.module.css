@@ -10,3 +10,9 @@
 
 .row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .footActions { display: flex; justify-content: flex-end; gap: 10px; }
+
+/* على أضيق الشاشات (375-390px) يضيق العمودان لدرجة تُصعّب إدخال نص طويل
+   (أسماء المنتج الثنائية اللغة) — نُكدّس الحقول عمودياً بدل التزاحم. */
+@media (max-width: 390px) {
+  .row { grid-template-columns: 1fr; }
+}

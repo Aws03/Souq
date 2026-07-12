@@ -23,8 +23,12 @@ public class ProductRepository : RepositoryBase<Product>, IProductRepository
         // نبني الاستعلام تدريجياً حسب المعايير المتوفّرة (Query Composition).
         var query = Db.Products.Include(p => p.Category).Where(p => p.IsActive);
 
+        // Name خاصية محسوبة غير مُعيَّنة لعمود (انظر Ignore في ProductConfiguration)
+        // فلا يمكن لـ EF ترجمتها ضمن استعلام — نبحث في NameAr وNameEn المُعيَّنين
+        // فعلياً، ما يجعل البحث يطابق أيّاً من اللغتين مجاناً.
         if (!string.IsNullOrWhiteSpace(keyword))
-            query = query.Where(p => p.Name.Contains(keyword) || p.Description.Contains(keyword));
+            query = query.Where(p =>
+                p.NameAr.Contains(keyword) || p.NameEn.Contains(keyword) || p.Description.Contains(keyword));
         if (categoryId.HasValue)
             query = query.Where(p => p.CategoryId == categoryId.Value);
 

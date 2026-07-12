@@ -18,7 +18,7 @@ public class GetProductByIdHandler : IRequestHandler<GetProductByIdQuery, Result
             return Result<ProductDto>.Failure("المنتج غير موجود", "NotFound");
 
         return Result<ProductDto>.Success(new ProductDto(
-            p.Id, p.Name, p.Description, p.Price.Amount, p.Price.Currency,
+            p.Id, p.NameAr, p.NameEn, p.Description, p.Price.Amount, p.Price.Currency,
             p.StockQuantity, p.ImageUrl, p.CategoryId, p.Category?.Name));
     }
 }

@@ -31,14 +31,14 @@ public static class DbSeeder
         await db.SaveChangesAsync();
 
         db.Products.AddRange(
-            new Product("سمّاعات لاسلكية", "صوت نقي وعزل ضوضاء فعّال", new Money(59.900m), 25, "headphones", electronics.Id),
-            new Product("ساعة ذكية", "تتبّع اللياقة والإشعارات", new Money(120.000m), 12, "watch", electronics.Id),
-            new Product("لوحة مفاتيح ميكانيكية", "إضاءة خلفية ومفاتيح مريحة", new Money(45.500m), 30, "keyboard", electronics.Id),
-            new Product("حقيبة ظهر جلدية", "تصميم أنيق ومتين للعمل والسفر", new Money(35.000m), 18, "backpack", fashion.Id),
-            new Product("نظّارة شمسية", "حماية UV وإطار خفيف", new Money(22.000m), 40, "sunglasses", fashion.Id),
-            new Product("مصباح مكتب LED", "إضاءة قابلة للتعديل وموفّرة للطاقة", new Money(18.750m), 50, "lamp", home.Id),
-            new Product("ركوة قهوة نحاسية", "صناعة يدوية لقهوة عربية أصيلة", new Money(28.000m), 15, "coffeepot", home.Id),
-            new Product("كوب حراري", "يحفظ الحرارة 12 ساعة", new Money(14.500m), 60, "mug", home.Id)
+            new Product("سمّاعات لاسلكية", "صوت نقي وعزل ضوضاء فعّال", new Money(59.900m), 25, "headphones", electronics.Id, nameEn: "Wireless Headphones"),
+            new Product("ساعة ذكية", "تتبّع اللياقة والإشعارات", new Money(120.000m), 12, "watch", electronics.Id, nameEn: "Smart Watch"),
+            new Product("لوحة مفاتيح ميكانيكية", "إضاءة خلفية ومفاتيح مريحة", new Money(45.500m), 30, "keyboard", electronics.Id, nameEn: "Mechanical Keyboard"),
+            new Product("حقيبة ظهر جلدية", "تصميم أنيق ومتين للعمل والسفر", new Money(35.000m), 18, "backpack", fashion.Id, nameEn: "Leather Backpack"),
+            new Product("نظّارة شمسية", "حماية UV وإطار خفيف", new Money(22.000m), 40, "sunglasses", fashion.Id, nameEn: "Sunglasses"),
+            new Product("مصباح مكتب LED", "إضاءة قابلة للتعديل وموفّرة للطاقة", new Money(18.750m), 50, "lamp", home.Id, nameEn: "LED Desk Lamp"),
+            new Product("ركوة قهوة نحاسية", "صناعة يدوية لقهوة عربية أصيلة", new Money(28.000m), 15, "coffeepot", home.Id, nameEn: "Copper Coffee Pot"),
+            new Product("كوب حراري", "يحفظ الحرارة 12 ساعة", new Money(14.500m), 60, "mug", home.Id, nameEn: "Thermal Mug")
         );
         await db.SaveChangesAsync();
     }

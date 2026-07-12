@@ -7,7 +7,7 @@ import RowActionsMenu from '../../components/common/RowActionsMenu';
 import Pagination from '../../components/common/Pagination';
 import Button from '../../components/common/Button';
 import ProductImage from '../../components/product/ProductImage';
-import { formatPrice } from '../../components/product/ProductBadges';
+import { formatPrice, getProductName } from '../../components/product/ProductBadges';
 import { SearchIcon } from '../../components/icons/Icons';
 import ProductFormDrawer from './ProductFormDrawer';
 import styles from './Admin.module.css';
@@ -54,7 +54,7 @@ export default function Products() {
   };
 
   const remove = async (product) => {
-    if (!window.confirm(t('admin.products.confirmDisable', { name: product.name }))) return;
+    if (!window.confirm(t('admin.products.confirmDisable', { name: getProductName(product) }))) return;
     try {
       await api.deleteProduct(product.id);
       toast.success(t('admin.products.disabled'));
@@ -63,13 +63,21 @@ export default function Products() {
   };
 
   const columns = [
-    { key: 'img', header: t('admin.products.colImage'), render: (p) => <div className={styles.thumb}><ProductImage product={p} /></div> },
-    { key: 'name', header: t('admin.products.colName'), render: (p) => p.name },
-    { key: 'cat', header: t('admin.products.colCategory'), render: (p) => p.categoryName || '—' },
-    { key: 'price', header: t('admin.products.colPrice'), render: (p) => formatPrice(p.price, p.currency) },
-    { key: 'stock', header: t('admin.products.colStock'), render: (p) => p.stockQuantity },
+    { key: 'img', header: t('admin.products.colImage'), width: '70px', render: (p) => <div className={styles.thumb}><ProductImage product={p} /></div> },
     {
-      key: 'actions', header: '', render: (p) => (
+      key: 'name', header: t('admin.products.colName'), truncate: true, tooltip: (p) => p.nameEn ? `${p.nameAr} / ${p.nameEn}` : p.nameAr,
+      render: (p) => (
+        <div>
+          <div>{p.nameAr}</div>
+          {p.nameEn && p.nameEn !== p.nameAr && <div className={styles.nameSecondary}>{p.nameEn}</div>}
+        </div>
+      ),
+    },
+    { key: 'cat', header: t('admin.products.colCategory'), width: '140px', truncate: true, tooltip: (p) => p.categoryName, render: (p) => p.categoryName || '—' },
+    { key: 'price', header: t('admin.products.colPrice'), width: '110px', align: 'end', render: (p) => formatPrice(p.price, p.currency) },
+    { key: 'stock', header: t('admin.products.colStock'), width: '90px', align: 'end', render: (p) => p.stockQuantity },
+    {
+      key: 'actions', header: t('admin.products.colActions'), width: '64px', align: 'end', render: (p) => (
         <RowActionsMenu actions={[
           { label: t('common.edit'), onClick: () => setEditing(p) },
           { label: t('common.disable'), variant: 'danger', onClick: () => remove(p) },
@@ -96,7 +104,8 @@ export default function Products() {
       </div>
 
       <DataTable columns={columns} rows={items} rowKey={(p) => p.id} loading={loading} error={error}
-        onRetry={load} emptyTitle={t('admin.products.emptyTitle')} emptyMessage={t('admin.products.emptyMessage')} />
+        onRetry={load} emptyTitle={t('admin.products.emptyTitle')} emptyMessage={t('admin.products.emptyMessage')}
+        minWidth="620px" stickyFirstColumn />
 
       <Pagination page={page} totalPages={totalPages} onChange={setPage} />
 

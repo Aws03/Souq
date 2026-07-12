@@ -13,7 +13,10 @@ export default function Drawer({ open, onClose, side = 'left', title, busy = fal
   return (
     <>
       <div className={styles.overlay} onClick={() => !busy && onClose()} />
-      <aside className={`${styles.panel} ${styles[side]}`} style={{ width: `min(${width}px, 92vw)` }} role="dialog" aria-modal="true">
+      {/* عرض الدرج فرق تصميم لكل استدعاء — يُمرَّر كخاصية CSS مخصّصة (لا width
+          مباشرة) كي تستطيع media query الجوال في Drawer.module.css تجاوزه
+          بعرض كامل الشاشة بلا !important (الأولوية العادية لا تكفي فوق style مباشر). */}
+      <aside className={`${styles.panel} ${styles[side]}`} style={{ '--drawer-width': `${width}px` }} role="dialog" aria-modal="true">
         <div className={styles.head}>
           <h3 className={styles.title}>{title}</h3>
           <button type="button" className={styles.close} onClick={onClose} disabled={busy} aria-label={t('common.close')}>

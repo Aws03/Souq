@@ -12,7 +12,11 @@ namespace Souq.Domain.Entities;
 // ============================================================================
 public class Product : Entity
 {
-    public string Name { get; private set; } = default!;
+    public string NameAr { get; private set; } = default!;
+    public string NameEn { get; private set; } = default!;
+    // توافق خلفي: أي كود قديم يقرأ Name (رسائل استثناءات، لقطة اسم سطر الطلب)
+    // يستمر بالعمل دون تعديل — يُقرأ من الاسم العربي دوماً.
+    public string Name => NameAr;
     public string Description { get; private set; } = default!;
     public Money Price { get; private set; } = default!;   // كائن قيمة، لا decimal عارٍ
     public int StockQuantity { get; private set; }
@@ -23,10 +27,14 @@ public class Product : Entity
 
     private Product() { }
 
-    public Product(string name, string description, Money price,
-                   int stockQuantity, string imageUrl, int categoryId)
+    // nameEn اختياري: يُطابق الاسم العربي تلقائياً إن غاب (منتج لم يُترجم بعد
+    // بدل قيمة فارغة في الواجهة). nameAr يبقى في موضعه الأصلي كي تستمر كل
+    // استدعاءات المُنشئ القديمة (اختبارات/كود سابق) بالعمل دون تعديل.
+    public Product(string nameAr, string description, Money price,
+                   int stockQuantity, string imageUrl, int categoryId, string? nameEn = null)
     {
-        Name = name;
+        NameAr = nameAr;
+        NameEn = string.IsNullOrWhiteSpace(nameEn) ? nameAr : nameEn;
         Description = description;
         Price = price;
         StockQuantity = stockQuantity;
@@ -61,10 +69,11 @@ public class Product : Entity
     // تحديث الحقول الوصفية للمنتج دفعة واحدة. السعر يبقى ضمن كائن قيمة Money
     // (يحرس قاعدة عدم السلبية). نُبقي IsActive/المخزون خارج هذه الدالة لأن لهما
     // أبواباً محروسة خاصة (Deactivate/SetStock) — كل قاعدة في موضعها الصحيح.
-    public void UpdateDetails(string name, string description, Money price,
-                              string imageUrl, int categoryId)
+    public void UpdateDetails(string nameAr, string description, Money price,
+                              string imageUrl, int categoryId, string? nameEn = null)
     {
-        Name = name;
+        NameAr = nameAr;
+        NameEn = string.IsNullOrWhiteSpace(nameEn) ? nameAr : nameEn;
         Description = description;
         Price = price;
         ImageUrl = imageUrl;

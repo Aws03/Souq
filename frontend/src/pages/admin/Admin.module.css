@@ -39,3 +39,7 @@
 .cancelled { background: #fdf0ec; color: var(--clay); }
 
 .thumb { width: 44px; height: 44px; border-radius: 8px; overflow: hidden; background: var(--soft); }
+
+/* اسم ثانوي (اللغة الأخرى) أسفل الاسم الأساسي في جدول المنتجات — الإدارة
+   ترى الاسمين معاً بغضّ النظر عن لغة الواجهة الحالية. */
+.nameSecondary { color: var(--muted); font-size: var(--fs-caption); margin-top: 2px; }

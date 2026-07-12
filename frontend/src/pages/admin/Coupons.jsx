@@ -52,20 +52,30 @@ export default function Coupons() {
     } catch (e) { toast.error(e.message); }
   };
 
+  // ترتيب الأعمدة وعرضها ثابتان (colgroup في DataTable) — لا يتفاوتان حسب طول
+  // المحتوى، فيبقى الجدول محاذىً بانتظام على كل صف.
   const columns = [
-    { key: 'code', header: t('admin.coupons.colCode'), render: (c) => <span dir="ltr">{c.code}</span> },
+    { key: 'code', header: t('admin.coupons.colCode'), width: '110px', truncate: true, tooltip: (c) => c.code, render: (c) => <span dir="ltr">{c.code}</span> },
     {
-      key: 'value', header: t('admin.coupons.colDiscount'),
+      key: 'type', header: t('admin.coupons.colType'), width: '130px',
+      render: (c) => (c.type === 'Percentage' ? t('admin.couponForm.typePercentage') : t('admin.couponForm.typeFixed')),
+    },
+    {
+      key: 'value', header: t('admin.coupons.colDiscount'), width: '90px', align: 'end',
       render: (c) => (c.type === 'Percentage' ? `${c.value}%` : formatPrice(c.value, 'JOD')),
     },
-    { key: 'uses', header: t('admin.coupons.colUsage'), render: (c) => `${c.usedCount}${c.maxUses ? ` / ${c.maxUses}` : ''}` },
-    { key: 'expires', header: t('admin.coupons.colExpires'), render: (c) => (c.expiresAt ? formatDate(c.expiresAt) : '—') },
     {
-      key: 'status', header: t('admin.coupons.colStatus'),
+      key: 'minOrder', header: t('admin.coupons.colMinOrder'), width: '110px', align: 'end',
+      render: (c) => (c.minOrderAmount ? formatPrice(c.minOrderAmount, 'JOD') : '—'),
+    },
+    { key: 'expires', header: t('admin.coupons.colExpires'), width: '110px', render: (c) => (c.expiresAt ? formatDate(c.expiresAt) : '—') },
+    { key: 'uses', header: t('admin.coupons.colUsage'), width: '90px', align: 'end', render: (c) => `${c.usedCount}${c.maxUses ? ` / ${c.maxUses}` : ''}` },
+    {
+      key: 'status', header: t('admin.coupons.colStatus'), width: '90px',
       render: (c) => <span className={`${styles.statusBadge} ${c.isActive ? styles.paid : styles.cancelled}`}>{c.isActive ? t('admin.coupons.active') : t('admin.coupons.inactive')}</span>,
     },
     {
-      key: 'actions', header: '', render: (c) => (
+      key: 'actions', header: t('admin.coupons.colActions'), width: '64px', align: 'end', render: (c) => (
         <RowActionsMenu actions={[
           { label: t('common.edit'), onClick: () => setEditing(c) },
           { label: t('common.delete'), variant: 'danger', onClick: () => remove(c) },
@@ -84,7 +94,8 @@ export default function Coupons() {
       </div>
 
       <DataTable columns={columns} rows={items} rowKey={(c) => c.id} loading={loading} error={error}
-        onRetry={load} emptyTitle={t('admin.coupons.emptyTitle')} emptyMessage={t('admin.coupons.emptyMessage')} />
+        onRetry={load} emptyTitle={t('admin.coupons.emptyTitle')} emptyMessage={t('admin.coupons.emptyMessage')}
+        minWidth="780px" stickyFirstColumn />
 
       <Pagination page={page} totalPages={totalPages} onChange={setPage} />
 

@@ -2,6 +2,17 @@ import { useTranslation } from 'react-i18next';
 import i18n from '../../i18n';
 import styles from './ProductBadges.module.css';
 
+/**
+ * اسم المنتج بلغة الواجهة الحالية. يقبل شكل الـ API الثنائي اللغة
+ * (nameAr/nameEn) ويتساقط إلى name القديم دفاعاً عن عناصر سلة/مفضّلة
+ * محفوظة في localStorage من قبل هذا التحديث (بلا الحقلين الجديدين).
+ */
+export function getProductName(product) {
+  if (!product) return '';
+  if (i18n.language === 'ar') return product.nameAr ?? product.name ?? '';
+  return product.nameEn ?? product.nameAr ?? product.name ?? '';
+}
+
 /** يهيّئ السعر بصيغة الدينار الأردني (٣ خانات عشرية: فلس)، مثال: 59.900 د.أ / 59.900 JOD */
 export function formatPrice(amount, currency = 'JOD') {
   if (currency === 'JOD') {

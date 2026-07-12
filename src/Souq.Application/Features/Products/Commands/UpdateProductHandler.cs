@@ -39,9 +39,9 @@ public class UpdateProductHandler : IRequestHandler<UpdateProductCommand, Result
 
         // نحافظ على عملة المنتج الحالية بدل فرض عملة افتراضية عند التحديث.
         product.UpdateDetails(
-            cmd.Name, cmd.Description,
+            cmd.NameAr, cmd.Description,
             new Money(cmd.Price, product.Price.Currency),
-            cmd.ImageUrl, cmd.CategoryId);
+            cmd.ImageUrl, cmd.CategoryId, cmd.NameEn);
         product.SetStock(cmd.StockQuantity);
 
         _products.Update(product);

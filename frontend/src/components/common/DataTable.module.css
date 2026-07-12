@@ -1,9 +1,27 @@
-.wrap { background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); overflow: auto; }
-.table { width: 100%; border-collapse: collapse; font-size: var(--fs-body-sm); }
+.wrap {
+  background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow);
+  overflow-x: auto;
+}
+/* table-layout: fixed يجعل عرض <col> فعلياً (لا يتجاهله المتصفح حسب المحتوى) —
+   هذا هو أساس "أعمدة بعرض ثابت" بدل الطول العشوائي حسب أطول قيمة في العمود. */
+.table { width: 100%; min-width: 100%; border-collapse: collapse; font-size: var(--fs-body-sm); table-layout: fixed; }
 .table th {
-  text-align: right; padding: 14px 16px; color: var(--muted); font-weight: 700;
+  text-align: start; padding: 14px 16px; color: var(--muted); font-weight: 700;
   font-size: var(--fs-label); border-bottom: 1px solid var(--line); white-space: nowrap;
 }
-.table td { padding: 12px 16px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+.table td { padding: 12px 16px; border-bottom: 1px solid var(--line); vertical-align: middle; text-align: start; }
 .table tr:last-child td { border-bottom: none; }
 .table tbody tr:nth-child(even) { background: var(--paper); }
+
+.alignStart { text-align: start; }
+.alignEnd { text-align: end; } /* الأعمدة الرقمية (سعر، عدد) — يمينها في LTR ويسارها في RTL */
+
+.truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* عمود أول ثابت أثناء التمرير الأفقي على الجوال (انظر media query في الصفحات
+   التي تفعّل stickyFirstColumn) — الخلفية إلزامية كي لا يشفّ محتوى الأعمدة خلفه. */
+.stickyCol {
+  position: sticky; inset-inline-start: 0; z-index: 1;
+  background: inherit; background-color: var(--surface);
+}
+.table tbody tr:nth-child(even) .stickyCol { background-color: var(--paper); }

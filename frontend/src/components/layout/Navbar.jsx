@@ -48,15 +48,17 @@ export default function Navbar({ onCartClick, searchTerm, onSearchChange }) {
           </>
         )}
 
-        <button type="button" className={styles.langToggle} onClick={toggleLanguage} aria-label={t('nav.langToggleAria')}>
+        <button type="button" className={`${styles.langToggle} ${styles.desktopOnly}`} onClick={toggleLanguage} aria-label={t('nav.langToggleAria')}>
           {otherLanguage === 'en' ? 'EN' : 'ع'}
         </button>
 
-        <Link to="/wishlist" className={styles.iconBtn} aria-label={t('nav.wishlistAria')}>
+        <Link to="/wishlist" className={`${styles.iconBtn} ${styles.desktopOnly}`} aria-label={t('nav.wishlistAria')}>
           <HeartIcon size={18} filled={wishlistCount > 0} />
           {wishlistCount > 0 && <span className={styles.iconBadge}>{wishlistCount}</span>}
         </Link>
 
+        {/* السلة تبقى ظاهرة على الجوال أيضاً — إجراء أساسي في متجر إلكتروني،
+            بخلاف اللغة/المفضّلة اللتين تنتقلان إلى القائمة السفلية هناك. */}
         <button className={styles.iconBtn} onClick={onCartClick} aria-label={t('nav.viewCart')}>
           <CartIcon size={18} />
           {count > 0 && <span className={styles.iconBadge}>{count}</span>}
@@ -64,7 +66,8 @@ export default function Navbar({ onCartClick, searchTerm, onSearchChange }) {
       </div>
 
       <MobileMenu open={menuOpen} onClose={() => setMenuOpen(false)}
-        searchTerm={searchTerm} onSearchChange={onSearchChange} />
+        searchTerm={searchTerm} onSearchChange={onSearchChange}
+        currentLanguage={i18n.language} otherLanguage={otherLanguage} onToggleLanguage={toggleLanguage} />
     </nav>
   );
 }

@@ -15,7 +15,9 @@ public class ProductConfiguration : IEntityTypeConfiguration<Product>
     {
         builder.ToTable("Products");
         builder.HasKey(p => p.Id);
-        builder.Property(p => p.Name).HasMaxLength(200).IsRequired();
+        builder.Property(p => p.NameAr).HasMaxLength(200).IsRequired();
+        builder.Property(p => p.NameEn).HasMaxLength(200).IsRequired();
+        builder.Ignore(p => p.Name); // خاصية محسوبة للتوافق الخلفي — لا عمود لها
         builder.Property(p => p.Description).HasMaxLength(2000);
         builder.Property(p => p.ImageUrl).HasMaxLength(500);
 

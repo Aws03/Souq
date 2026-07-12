@@ -9,6 +9,6 @@ namespace Souq.Application.Features.Products.Commands;
 // لتعارض معرّف المسار مع معرّف الجسم.
 public record UpdateProductCommand(
     int Id,
-    string Name, string Description, decimal Price,
-    int StockQuantity, string ImageUrl, int CategoryId
+    string NameAr, string Description, decimal Price,
+    int StockQuantity, string ImageUrl, int CategoryId, string? NameEn = null
 ) : IRequest<Result>;

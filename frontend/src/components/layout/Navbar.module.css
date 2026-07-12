@@ -1,7 +1,8 @@
 .navbar {
   background: var(--surface); color: var(--ink); border-bottom: 1px solid var(--line);
   padding: 0 clamp(16px, 4vw, 28px); height: var(--navbar-height);
-  display: flex; align-items: center; gap: 18px; position: sticky; top: 0; z-index: 50;
+  display: flex; align-items: center; gap: 18px; flex-wrap: nowrap; position: sticky; top: 0; z-index: 50;
+  overflow-x: hidden; /* شبكة أمان: لا انسكاب أفقي مهما ضاق العرض */
 }
 
 .brand {
@@ -43,4 +44,9 @@
   .hamburger { display: grid; place-items: center; }
   .searchDesktop { display: none; }
   .linkLight, .linkBtn, .user { display: none; }
+  /* الجوال يبقى بالشعار + الهامبرغر + السلة فقط — اللغة والمفضّلة تنتقلان
+     إلى القائمة السفلية (MobileMenu) كي لا يزدحم الشريط أو ينسكب أفقياً. */
+  .desktopOnly { display: none; }
+  .navbar { gap: 10px; padding-inline: 14px; }
+  .actions { gap: 8px; }
 }

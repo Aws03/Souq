@@ -48,11 +48,11 @@ export default function Categories() {
   };
 
   const columns = [
-    { key: 'name', header: t('admin.categories.colName'), render: (c) => c.name },
-    { key: 'slug', header: t('admin.categories.colSlug'), render: (c) => <span dir="ltr">{c.slug}</span> },
-    { key: 'parent', header: t('admin.categories.colParent'), render: (c) => (c.parentId ? parentName(c.parentId) : '—') },
+    { key: 'name', header: t('admin.categories.colName'), truncate: true, tooltip: (c) => c.name, render: (c) => c.name },
+    { key: 'slug', header: t('admin.categories.colSlug'), width: '160px', render: (c) => <span dir="ltr">{c.slug}</span> },
+    { key: 'parent', header: t('admin.categories.colParent'), width: '160px', truncate: true, render: (c) => (c.parentId ? parentName(c.parentId) : '—') },
     {
-      key: 'actions', header: '', render: (c) => (
+      key: 'actions', header: t('admin.categories.colActions'), width: '64px', align: 'end', render: (c) => (
         <RowActionsMenu actions={[
           { label: t('common.edit'), onClick: () => setEditing(c) },
           { label: t('common.delete'), variant: 'danger', onClick: () => remove(c) },
@@ -71,7 +71,8 @@ export default function Categories() {
       </div>
 
       <DataTable columns={columns} rows={categories} rowKey={(c) => c.id} loading={loading} error={error}
-        onRetry={load} emptyTitle={t('admin.categories.emptyTitle')} emptyMessage={t('admin.categories.emptyMessage')} />
+        onRetry={load} emptyTitle={t('admin.categories.emptyTitle')} emptyMessage={t('admin.categories.emptyMessage')}
+        minWidth="480px" stickyFirstColumn />
 
       {editing !== null && (
         <CategoryFormDrawer category={editing.id ? editing : null} categories={categories}

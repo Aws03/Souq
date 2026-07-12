@@ -17,7 +17,8 @@ const MAX_SIZE = 5 * 1024 * 1024;
 export default function ProductFormDrawer({ product, categories, onSave, onClose }) {
   const { t } = useTranslation();
   const isEdit = !!product;
-  const [name, setName] = useState(product?.name ?? '');
+  const [nameAr, setNameAr] = useState(product?.nameAr ?? '');
+  const [nameEn, setNameEn] = useState(product?.nameEn ?? '');
   const [description, setDescription] = useState(product?.description ?? '');
   const [price, setPrice] = useState(product?.price ?? '');
   const [stockQuantity, setStockQuantity] = useState(product?.stockQuantity ?? '');
@@ -39,14 +40,15 @@ export default function ProductFormDrawer({ product, categories, onSave, onClose
 
   const submit = async (e) => {
     e.preventDefault();
-    if (!name.trim()) return setError(t('admin.productForm.nameRequired'));
+    if (!nameAr.trim()) return setError(t('admin.productForm.nameRequired'));
     if (!price || Number(price) <= 0) return setError(t('admin.productForm.priceInvalid'));
     if (!categoryId) return setError(t('admin.productForm.categoryRequired'));
 
     setBusy(true); setError(null);
     try {
       await onSave({
-        name: name.trim(), description: description.trim(), price: Number(price),
+        nameAr: nameAr.trim(), nameEn: nameEn.trim() || null,
+        description: description.trim(), price: Number(price),
         stockQuantity: Number(stockQuantity) || 0, categoryId: Number(categoryId),
         imageUrl: product?.imageUrl ?? '',
       }, file);
@@ -80,9 +82,16 @@ export default function ProductFormDrawer({ product, categories, onSave, onClose
             hidden onChange={(e) => pickFile(e.target.files?.[0])} />
         </div>
 
-        <FormField label={t('admin.productForm.nameLabel')}>
-          <input className={inputClass(false)} value={name} onChange={(e) => setName(e.target.value)} placeholder={t('admin.productForm.namePlaceholder')} />
-        </FormField>
+        <div className={styles.row}>
+          <FormField label={t('admin.productForm.nameLabel')}>
+            <input className={inputClass(false)} value={nameAr} dir="rtl"
+              onChange={(e) => setNameAr(e.target.value)} placeholder="مثال: سماعات لاسلكية" />
+          </FormField>
+          <FormField label={t('admin.productForm.nameEnLabel')} hint={t('admin.productForm.nameEnHint')}>
+            <input className={inputClass(false)} value={nameEn} dir="ltr"
+              onChange={(e) => setNameEn(e.target.value)} placeholder="e.g. Wireless Headphones" />
+          </FormField>
+        </div>
 
         <FormField label={t('admin.productForm.descriptionLabel')}>
           <textarea className={inputClass(false)} rows={3} value={description} onChange={(e) => setDescription(e.target.value)} />

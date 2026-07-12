@@ -9,7 +9,7 @@ import Button from '../components/common/Button';
 import Pagination from '../components/common/Pagination';
 import Skeleton from '../components/common/Skeleton';
 import { ErrorBanner } from '../components/common/StateViews';
-import { CategoryBadge, PriceTag, StockBadge } from '../components/product/ProductBadges';
+import { CategoryBadge, PriceTag, StockBadge, getProductName } from '../components/product/ProductBadges';
 import ProductImage from '../components/product/ProductImage';
 import StarRating from '../components/product/StarRating';
 import ReviewForm from '../components/reviews/ReviewForm';
@@ -48,7 +48,7 @@ export default function ProductDetail() {
   const handleAdd = () => {
     setAdding(true);
     add(product);
-    setTimeout(() => { setAdding(false); showToast(product.name); }, 350);
+    setTimeout(() => { setAdding(false); showToast(getProductName(product)); }, 350);
   };
 
   if (productError) return <div className="souq-layout"><ErrorBanner message={productError} /></div>;
@@ -72,7 +72,7 @@ export default function ProductDetail() {
         <div className={styles.media}><ProductImage product={product} /></div>
         <div>
           <CategoryBadge name={product.categoryName} />
-          <h1 className={styles.name}>{product.name}</h1>
+          <h1 className={styles.name}>{getProductName(product)}</h1>
           {reviews && reviews.totalCount > 0 && (
             <div className={styles.ratingLine}>
               <StarRating value={reviews.averageRating} />

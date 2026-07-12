@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { CameraIcon } from '../icons/Icons';
+import { getProductName } from './ProductBadges';
 import styles from './ProductImage.module.css';
 
 // صور رفعها الأدمن الفعلية تبدأ بـ /uploads/ أو برابط كامل. أي شيء غير ذلك
@@ -14,7 +15,7 @@ export default function ProductImage({ product, className = '' }) {
 
   if (showImage) {
     return (
-      <img src={product.imageUrl} alt={product.name} className={`${styles.photo} ${className}`}
+      <img src={product.imageUrl} alt={getProductName(product)} className={`${styles.photo} ${className}`}
         onError={() => setBroken(true)} />
     );
   }
