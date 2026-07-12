@@ -1,13 +1,15 @@
-using System.Net;
-using System.Net.Mail;
+using MailKit.Net.Smtp;
+using MailKit.Security;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using MimeKit;
 using Souq.Application.Common.Interfaces;
 
 namespace Souq.Infrastructure.Services;
 
 // إعدادات SMTP جيميل. AppPassword سرّ دوماً (متغيّر بيئة Gmail__AppPassword) —
 // لا يُقرأ من appsettings المرفوع أبداً (انظر AddInfrastructure).
+// Port: 587 (STARTTLS) قياسياً، أو 465 (TLS ضمني) حين يحجب مزوّد الإنترنت 587.
 public class GmailSmtpOptions
 {
     public string Host { get; set; } = "smtp.gmail.com";
@@ -19,9 +21,11 @@ public class GmailSmtpOptions
 }
 
 // ============================================================================
-// GmailEmailService — إرسال حقيقي عبر SmtpClient (بلا حزمة إضافية؛ System.Net.Mail
-// جزء من .NET أصلاً). يعمل فقط حين Gmail:AppPassword مضبوط؛ غيابه يُبقي النظام
-// يعمل عبر ConsoleEmailService بدل رمي خطأ عند الإقلاع (نفس نمط الدفع التجريبي).
+// GmailEmailService — إرسال حقيقي عبر MailKit (المكتبة التي توصي بها Microsoft
+// رسمياً بدل System.Net.Mail.SmtpClient المُهمل، والذي لا يدعم TLS الضمني على
+// 465 أصلاً — ضروري حين يكون 587 محجوباً). يعمل فقط حين Gmail:AppPassword
+// مضبوط؛ غيابه يُبقي النظام يعمل عبر ConsoleEmailService بدل رمي خطأ عند
+// الإقلاع (نفس نمط الدفع التجريبي).
 // ============================================================================
 public class GmailEmailService : IEmailService
 {
@@ -50,33 +54,34 @@ public class GmailEmailService : IEmailService
 
     private async Task SendAsync(string toEmail, string subject, string htmlBody, CancellationToken ct)
     {
-        using var client = new SmtpClient(_opts.Host, _opts.Port)
-        {
-            EnableSsl = _opts.EnableSsl,
-            Credentials = new NetworkCredential(_opts.Username, _opts.AppPassword),
-        };
-        using var message = new MailMessage
-        {
-            From = new MailAddress(_opts.Username, "ماركة Marka"),
-            Subject = subject,
-            SubjectEncoding = System.Text.Encoding.UTF8,
-            Body = htmlBody,
-            BodyEncoding = System.Text.Encoding.UTF8,
-            IsBodyHtml = true,
-        };
-        message.To.Add(toEmail);
+        var message = new MimeMessage();
+        message.From.Add(new MailboxAddress("ماركة Marka", _opts.Username));
+        message.To.Add(MailboxAddress.Parse(toEmail));
+        message.Subject = subject;
+        message.Body = new BodyBuilder { HtmlBody = htmlBody }.ToMessageBody();
+
+        // 465 = TLS ضمني (مصافحة فور الاتصال)، غيره = STARTTLS (ترقية بعد الاتصال).
+        var socketOptions = _opts.Port == 465 ? SecureSocketOptions.SslOnConnect
+            : _opts.EnableSsl ? SecureSocketOptions.StartTls : SecureSocketOptions.Auto;
 
         try
         {
-            // SmtpClient.SendMailAsync لا يقبل CancellationToken قبل .NET 6 لكن
-            // نسخة .NET 10 تدعمها — تمرَّر مباشرة، لا مبرّر لتجاهلها.
-            await client.SendMailAsync(message, ct);
+            using var client = new SmtpClient();
+            await client.ConnectAsync(_opts.Host, _opts.Port, socketOptions, ct);
+            await client.AuthenticateAsync(_opts.Username, _opts.AppPassword, ct);
+            await client.SendAsync(message, ct);
+            await client.DisconnectAsync(quit: true, ct);
+            // سجلّ نجاح صريح: بدونه لا سبيل للتفريق بين "أُرسل فعلاً" و"لم
+            // يُستدعَ أصلاً" عند تشخيص شكاوى عدم وصول البريد.
+            _logger.LogInformation("أُرسل بريد \"{Subject}\" إلى {Email} عبر {Host}:{Port}",
+                subject, toEmail, _opts.Host, _opts.Port);
         }
-        catch (SmtpException ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             // فشل الإرسال لا يجب أن يُسقط تدفّق العمل (مثلاً: لا نكشف فشل جيميل
             // لطالب إعادة التعيين — الرسالة الموحّدة "نجاح دائماً" تبقى كما هي).
-            // نسجّله فقط ليتتبّعه المطوّر.
+            // نسجّله فقط ليتتبّعه المطوّر. (MailKit يرمي أنواعاً عدة: مصادقة/أوامر
+            // SMTP/شبكة — نلتقطها جميعاً عدا الإلغاء الذي يخصّ المستدعي.)
             _logger.LogError(ex, "فشل إرسال بريد عبر Gmail SMTP إلى {Email}", toEmail);
         }
     }

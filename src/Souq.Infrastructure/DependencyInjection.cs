@@ -43,7 +43,15 @@ public static class DependencyInjection
             services.Configure<GmailSmtpOptions>(o =>
             {
                 config.GetSection("Gmail").Bind(o);
-                o.AppPassword = gmailAppPassword;
+                // كلمات مرور التطبيقات تعرضها Google بمجموعات تفصلها مسافات
+                // (أحياناً U+00A0 غير القابلة للكسر) وتُلصَق كما هي — ننظّف كل
+                // المسافات دفاعياً بدل فشل مصادقة SMTP غامض (5.7.8 BadCredentials).
+                o.AppPassword = string.Concat(gmailAppPassword.Where(c => !char.IsWhiteSpace(c)));
+                // Gmail:SenderEmail اسم بديل مقبول لـ Gmail:Username (يستخدمه بعض
+                // الإعداد المحلي) — Username الصريح يتقدّم عليه إن وُجد كلاهما.
+                if (string.IsNullOrWhiteSpace(config["Gmail:Username"]) &&
+                    !string.IsNullOrWhiteSpace(config["Gmail:SenderEmail"]))
+                    o.Username = config["Gmail:SenderEmail"]!;
                 o.FrontendUrl = config["App:FrontendUrl"] ?? "http://localhost:5173";
             });
             services.AddScoped<IEmailService, GmailEmailService>();
