@@ -52,7 +52,9 @@ public static class DependencyInjection
                 if (string.IsNullOrWhiteSpace(config["Gmail:Username"]) &&
                     !string.IsNullOrWhiteSpace(config["Gmail:SenderEmail"]))
                     o.Username = config["Gmail:SenderEmail"]!;
-                o.FrontendUrl = config["App:FrontendUrl"] ?? "http://localhost:5173";
+                // FRONTEND_URL (متغيّر بيئة، أولوية للنشر الشبكي) ثم App:FrontendUrl
+                // (appsettings) ثم افتراضي التطوير المحلي.
+                o.FrontendUrl = config["FRONTEND_URL"] ?? config["App:FrontendUrl"] ?? "http://localhost:5173";
             });
             services.AddScoped<IEmailService, GmailEmailService>();
         }

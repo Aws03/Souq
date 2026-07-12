@@ -131,6 +131,20 @@ public class ForgotPasswordHandlerTests
     }
 
     [Fact]
+    public async Task يُرسَل_البريد_لعنوان_الطالب_نفسه_لا_لعنوان_ثابت()
+    {
+        // حارس انحدار: الرسالة تذهب لعنوان العميل الطالب بالضبط، مهما كان —
+        // ليس لعنوان مدير/مرسِل ثابت. نستخدم عنواناً مميّزاً يختلف عن أي افتراضي.
+        var customer = new Customer("زبون", "distinct.buyer@example.net", "hashed");
+        _customers.GetByEmailAsync("distinct.buyer@example.net", Arg.Any<CancellationToken>()).Returns(customer);
+
+        await CreateHandler().Handle(new ForgotPasswordCommand("distinct.buyer@example.net"), CancellationToken.None);
+
+        await _email.Received(1).SendPasswordResetEmailAsync(
+            "distinct.buyer@example.net", Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task بريد_غير_موجود_يُرجع_نجاحاً_دون_إرسال_بريد()
     {
         // نجاح دائماً — لا نكشف عبر رمز/زمن استجابة مختلفَين إن كان البريد مسجّلاً

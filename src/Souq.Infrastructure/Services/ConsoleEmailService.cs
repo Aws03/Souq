@@ -26,7 +26,9 @@ public class ConsoleEmailService : IEmailService
 
     public Task SendPasswordResetEmailAsync(string toEmail, string resetToken, CancellationToken ct = default)
     {
-        var frontendUrl = _config["App:FrontendUrl"] ?? "http://localhost:5173";
+        // FRONTEND_URL (متغيّر بيئة، أولوية للنشر الشبكي) ثم App:FrontendUrl
+        // (appsettings) ثم افتراضي التطوير المحلي — نفس المنطق في GmailEmailService.
+        var frontendUrl = _config["FRONTEND_URL"] ?? _config["App:FrontendUrl"] ?? "http://localhost:5173";
         var link = $"{frontendUrl.TrimEnd('/')}/reset-password?token={resetToken}";
         _logger.LogInformation("📧 رابط إعادة تعيين كلمة المرور لـ {Email}: {Link}", toEmail, link);
         return Task.CompletedTask;
