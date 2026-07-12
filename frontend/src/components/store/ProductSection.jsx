@@ -7,7 +7,7 @@ const SKELETON_COUNT = 4;
 
 // صف منتجات عام بعنوان + رابط "عرض الكل" — يُستخدم لكل من "وصل حديثاً" و
 // "الأكثر مبيعاً". تمرير أفقي على الجوال، شبكة ثابتة على سطح المكتب.
-export default function ProductSection({ title, products, loading, onAdded, isNew = false, viewAllTargetId = 'product-grid' }) {
+export default function ProductSection({ title, products, loading, onAdded, isNew = false, viewAllTargetId = 'catalog' }) {
   const { t } = useTranslation();
 
   const scrollToAll = () => {
@@ -39,7 +39,7 @@ export default function ProductSection({ title, products, loading, onAdded, isNe
               ))
             : products.map((p) => (
                 <div className={styles.productSection__item} key={p.id}>
-                  <ProductCard product={p} onAdded={onAdded} isNew={isNew} ctaVariant="view" />
+                  <ProductCard product={p} onAdded={onAdded} isNew={isNew} />
                 </div>
               ))}
         </div>

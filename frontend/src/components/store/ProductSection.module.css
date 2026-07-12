@@ -5,17 +5,18 @@
 .productSection__viewAll { color: var(--petrol); font-weight: 600; font-size: var(--fs-body-sm); flex-shrink: 0; }
 .productSection__viewAll:hover { text-decoration: underline; }
 
+/* صفّ تمرير أفقي مستمر على كل المقاسات (نمط المرجع) — لا يتحوّل لشبكة على سطح
+   المكتب؛ يعرض بطاقات إضافية بالتمرير جانبياً. */
 .productSection__row {
-  display: flex; gap: 16px; overflow-x: auto; scroll-snap-type: x proximity; padding-bottom: 4px;
+  display: flex; gap: 16px; overflow-x: auto; scroll-snap-type: x proximity; padding-bottom: 8px;
   scrollbar-width: none;
 }
 .productSection__row::-webkit-scrollbar { display: none; }
 
-.productSection__item, .productSection__skeletonCard { flex: 0 0 230px; scroll-snap-align: start; }
+.productSection__item, .productSection__skeletonCard { flex: 0 0 220px; scroll-snap-align: start; }
 .productSection__skeletonCard { background: var(--surface); border-radius: var(--card-radius); box-shadow: var(--shadow); overflow: hidden; }
 .productSection__skeletonBody { padding: 16px; display: flex; flex-direction: column; gap: 10px; }
 
-@media (min-width: 768px) {
-  .productSection__row { display: grid; grid-template-columns: repeat(4, 1fr); overflow: visible; }
-  .productSection__item, .productSection__skeletonCard { flex: unset; }
+@media (max-width: 520px) {
+  .productSection__item, .productSection__skeletonCard { flex: 0 0 62vw; }
 }

@@ -1,0 +1,19 @@
+/* لاصق أسفل شريط التنقّل (بارتفاعه) — يبقى ظاهراً مع تمرير الصفحة، بتمرير
+   أفقي على الجوال. */
+.bar {
+  background: var(--surface); border-bottom: 1px solid var(--line);
+  position: sticky; top: var(--navbar-height); z-index: 45;
+}
+.scroller {
+  max-width: 1240px; margin: 0 auto; padding: 0 clamp(16px, 4vw, 28px);
+  display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none;
+}
+.scroller::-webkit-scrollbar { display: none; }
+
+.link {
+  flex-shrink: 0; padding: 13px 14px; color: var(--ink); text-decoration: none; font-weight: 600;
+  font-size: var(--fs-body-sm); white-space: nowrap; border-bottom: 2px solid transparent;
+  transition: color var(--ease-hover), border-color var(--ease-hover);
+}
+.link:hover { color: var(--petrol); }
+.active { color: var(--petrol); border-bottom-color: var(--saffron); }

@@ -1,6 +1,6 @@
 {
   "announcement": {
-    "freeShipping": "Free shipping on orders over 50 JOD — delivery across Jordan"
+    "freeShipping": "Free shipping on orders over 50 JOD — delivery across Jordan — Marka"
   },
   "common": {
     "previous": "Previous",
@@ -33,7 +33,9 @@
     "categoriesAll": "All",
     "categoriesAria": "Product categories",
     "langToggleAria": "Toggle language",
-    "wishlistAria": "Wishlist"
+    "wishlistAria": "Wishlist",
+    "home": "Home",
+    "offers": "Offers"
   },
   "cart": {
     "title": "Your Cart",
@@ -129,6 +131,19 @@
     "promo1Subline": "The latest devices at competitive prices with a full authenticity guarantee.",
     "promo2Headline": "An elegant home touch",
     "promo2Subline": "Carefully selected pieces to refresh your home's atmosphere."
+  },
+  "catalog": {
+    "resultsCount": "Showing {{shown}} / {{total}} products",
+    "apply": "Apply",
+    "clear": "Clear",
+    "viewAria": "Grid view mode",
+    "view_grid5": "5 per row",
+    "view_grid4": "4 per row",
+    "view_list": "List view"
+  },
+  "offers": {
+    "title": "Offers",
+    "subtitle": "A hand-picked selection of our products — browse the latest arrivals."
   },
   "auth": {
     "loginTitle": "Sign in",

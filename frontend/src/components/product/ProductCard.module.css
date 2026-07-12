@@ -1,12 +1,18 @@
 .card {
-  background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow);
-  overflow: hidden; transition: transform var(--ease-hover), box-shadow var(--ease-hover);
-  display: flex; flex-direction: column;
+  position: relative; background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow);
+  overflow: hidden; display: flex; flex-direction: column;
+  transition: transform var(--ease-hover), box-shadow var(--ease-hover);
 }
-.card:hover { transform: translateY(-4px); box-shadow: 0 14px 32px rgba(15, 59, 58, .14); }
+/* تمرير الفأرة: رفع خفيف بالظلّ فقط — لا تأثيرات أخرى (نظيف كالمرجع). */
+.card:hover { transform: translateY(-3px); box-shadow: 0 14px 30px rgba(15, 59, 58, .13); }
 
-.media { position: relative; height: 170px; border-bottom: 3px solid var(--saffron); overflow: hidden; }
-.mediaLink { display: block; width: 100%; height: 100%; padding: 0; }
+/* الصورة كاملة بلا قصّ (object-fit: contain عبر fit) على خلفية فاتحة، بنسبة
+   مربّعة ثابتة كي تتراصّ البطاقات بانتظام. */
+.media {
+  display: block; position: relative; aspect-ratio: 1; background: var(--paper);
+  overflow: hidden; border-bottom: 3px solid var(--saffron);
+}
+.media img, .media > div { width: 100%; height: 100%; }
 
 .badge {
   position: absolute; top: 8px; inset-inline-start: 8px; z-index: 1;
@@ -14,42 +20,28 @@
   padding: 3px 10px; border-radius: 50px;
 }
 
-/* عمود أيقونات فوق الصورة (المفضّلة + تكبير) — يظهر القلب دائماً (حالته تهمّ
-   دون تمرير)، وأيقونة التكبير عند تمرير الفأرة فقط على سطح المكتب. */
-.cardActions {
-  position: absolute; top: 8px; inset-inline-end: 8px; z-index: 1;
-  display: flex; flex-direction: column; gap: 6px;
+.wishBtn {
+  position: absolute; top: 8px; inset-inline-end: 8px; z-index: 2;
+  width: 32px; height: 32px; border-radius: 50%; background: rgb(255 255 255 / 0.92); color: var(--clay);
+  display: grid; place-items: center; box-shadow: var(--shadow);
+  transition: transform var(--ease-hover), background var(--ease-hover);
 }
-.iconOverlayBtn {
-  width: 30px; height: 30px; border-radius: 50%; background: rgb(255 255 255 / 0.9); color: var(--clay);
-  display: grid; place-items: center; transition: transform var(--ease-hover), background var(--ease-hover), opacity var(--ease-hover);
-}
-.iconOverlayBtn:hover { background: #fff; transform: scale(1.08); }
+.wishBtn:hover { background: #fff; transform: scale(1.08); }
 
-.zoomBtn { color: var(--petrol); opacity: 0; }
-.card:hover .zoomBtn, .card:focus-within .zoomBtn { opacity: 1; }
-@media (hover: none) {
-  .zoomBtn { opacity: 1; } /* لا "تمرير" فأرة على اللمس — الأيقونة ظاهرة دوماً */
-}
-
-.lightboxOverlay {
-  position: fixed; inset: 0; z-index: 200; background: rgb(10 20 20 / 0.85);
-  display: flex; align-items: center; justify-content: center; padding: 24px;
-}
-.lightboxImage { width: min(560px, 90vw); height: min(560px, 80vh); border-radius: var(--card-radius); overflow: hidden; }
-.lightboxClose {
-  position: absolute; top: 18px; inset-inline-end: 18px; z-index: 1;
-  width: 40px; height: 40px; border-radius: 50%; background: rgb(255 255 255 / 0.12); color: var(--paper);
-  display: grid; place-items: center; transition: background var(--ease-hover);
-}
-.lightboxClose:hover { background: rgb(255 255 255 / 0.22); }
-
-.body { padding: 16px; flex: 1; display: flex; flex-direction: column; gap: 6px; }
-.name { font-size: 17px; }
-.nameLink { color: inherit; text-decoration: none; }
-.nameLink:hover { color: var(--petrol); }
-.desc {
-  font-size: var(--fs-caption); color: var(--muted); flex: 1;
+.body { padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 12px; flex: 1; }
+.name { font-size: 15px; font-weight: 600; line-height: 1.45; }
+.nameLink {
+  color: var(--ink); text-decoration: none;
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
 }
-.foot { display: flex; align-items: center; justify-content: space-between; margin-top: 6px; }
+.nameLink:hover { color: var(--petrol); }
+.foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: auto; }
+
+/* ── وضع القائمة: بطاقة أفقية (صورة جانبية + تفاصيل) ── */
+.cardList { flex-direction: row; }
+.cardList .media { width: 180px; flex-shrink: 0; border-bottom: none; border-inline-end: 3px solid var(--saffron); }
+.cardList .body { justify-content: center; }
+.cardList .name { -webkit-line-clamp: 3; }
+@media (max-width: 520px) {
+  .cardList .media { width: 120px; }
+}

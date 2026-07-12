@@ -10,7 +10,7 @@ const SLIDE_BACKGROUND_CLASSES = ['hero__bg0', 'hero__bg1', 'hero__bg2'];
 
 // بانر رئيسي بعرض كامل بعدّة شرائح تتقدّم تلقائياً كل 4 ثوانٍ، مع نقاط تحكّم
 // يدوية أسفلها. يتوقّف التقدّم التلقائي إن طلب المستخدم تقليل الحركة.
-export default function Hero({ targetId = 'product-grid' }) {
+export default function Hero({ targetId = 'catalog' }) {
   const { t } = useTranslation();
   const slides = t('store.heroSlides', { returnObjects: true });
   const [active, setActive] = useState(0);

@@ -1,6 +1,6 @@
 {
   "announcement": {
-    "freeShipping": "شحن مجاني للطلبات فوق 50 دينار — توصيل لجميع أنحاء الأردن"
+    "freeShipping": "شحن مجاني للطلبات فوق 50 دينار — توصيل لجميع أنحاء الأردن — ماركة"
   },
   "common": {
     "previous": "السابق",
@@ -33,7 +33,9 @@
     "categoriesAll": "الكل",
     "categoriesAria": "فئات المنتجات",
     "langToggleAria": "تبديل اللغة",
-    "wishlistAria": "المفضّلة"
+    "wishlistAria": "المفضّلة",
+    "home": "الرئيسية",
+    "offers": "العروض"
   },
   "cart": {
     "title": "سلّتك",
@@ -117,8 +119,8 @@
       "maxAria": "أعلى سعر",
       "sort": "ترتيب",
       "sort_newest": "الأحدث",
-      "sort_priceAsc": "السعر: الأقل",
-      "sort_priceDesc": "السعر: الأعلى",
+      "sort_priceAsc": "السعر: من الأقل",
+      "sort_priceDesc": "السعر: من الأعلى",
       "sort_bestSelling": "الأكثر مبيعاً",
       "remove": "إزالة فلتر {{name}}",
       "removePrice": "إزالة فلتر السعر",
@@ -129,6 +131,19 @@
     "promo1Subline": "أحدث الأجهزة بأسعار تنافسية وضمان أصالة كامل.",
     "promo2Headline": "لمسة منزلية أنيقة",
     "promo2Subline": "قطع مختارة بعناية لتجديد أجواء منزلك."
+  },
+  "catalog": {
+    "resultsCount": "عرض {{shown}} / {{total}} منتج",
+    "apply": "تطبيق",
+    "clear": "مسح",
+    "viewAria": "طريقة عرض الشبكة",
+    "view_grid5": "5 في الصف",
+    "view_grid4": "4 في الصف",
+    "view_list": "عرض قائمة"
+  },
+  "offers": {
+    "title": "العروض",
+    "subtitle": "تشكيلة مختارة من منتجاتنا — تصفّح أحدث ما وصل."
   },
   "auth": {
     "loginTitle": "تسجيل الدخول",

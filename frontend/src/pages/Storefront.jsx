@@ -1,61 +1,41 @@
+import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Hero from '../components/store/Hero';
-import CategoryGrid from '../components/store/CategoryGrid';
 import ProductSection from '../components/store/ProductSection';
-import PromoBanner from '../components/store/PromoBanner';
-import FilterBar from '../components/store/FilterBar';
-import ProductGrid from '../components/product/ProductGrid';
+import Catalog from '../components/catalog/Catalog';
 import styles from './Storefront.module.css';
 
-// صفحة المتجر (الرئيسية): بانر شرائح، بطاقات فئات، صفّا منتجات مكتشفة
-// ("وصل حديثاً"/"الأكثر مبيعاً") يفصل بينهما شريطا ترويج بتخطيط متبادل، ثم
-// شريط الفلاتر (فئات متعددة/سعر/ترتيب) فشبكة الكتالوج الكاملة.
+// الصفحة الرئيسية: بانر + ثلاثة صفوف تمرير أفقي (أحدث/أكثر مبيعاً/عروض) ثم
+// الكتالوج الكامل (شبكة قابلة للفلترة والترقيم). حين يوجد أي فلتر/بحث نشط في
+// الرابط نُخفي الأقسام الترويجية وتصبح الصفحة قائمة كتالوج مفلترة نظيفة —
+// فالنقر على فئة من الشريط العلوي (?cats=id) يقود لعرض تلك الفئة وحدها.
 export default function Storefront({
-  products, categories, loading, error, onRetry, onAdded,
-  filters, onToggleCategory, onSelectCategory, onPriceChange, onSortChange, onClearFilters,
-  newArrivals, newArrivalsLoading, bestSellers, bestSellersLoading,
+  categories, onAdded, searchTerm, refreshKey,
+  newArrivals, newArrivalsLoading, bestSellers, bestSellersLoading, offers, offersLoading,
 }) {
   const { t } = useTranslation();
+  const [searchParams] = useSearchParams();
 
-  const scrollToGrid = () => {
-    document.getElementById('product-grid')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  };
+  const hasActiveView = ['cats', 'min', 'max', 'sort', 'page'].some((k) => searchParams.get(k)) || !!searchTerm;
+  const showSections = !hasActiveView;
 
   return (
     <>
-      <Hero />
-      {/* بطاقة فئة = "تسوّق هذه الفئة": تستبدل تحديد الفلاتر بهذه الفئة وحدها،
-          وCategoryGrid نفسه يتولّى التمرير لشبكة المنتجات. */}
-      <CategoryGrid categories={categories} onSelect={onSelectCategory} />
+      {showSections && (
+        <>
+          <Hero targetId="catalog" />
+          <ProductSection title={t('store.newArrivals')} products={newArrivals} loading={newArrivalsLoading}
+            onAdded={onAdded} isNew viewAllTargetId="catalog" />
+          <ProductSection title={t('store.bestSellers')} products={bestSellers} loading={bestSellersLoading}
+            onAdded={onAdded} viewAllTargetId="catalog" />
+          <ProductSection title={t('nav.offers')} products={offers} loading={offersLoading}
+            onAdded={onAdded} viewAllTargetId="catalog" />
+        </>
+      )}
 
-      <ProductSection
-        title={t('store.newArrivals')} products={newArrivals} loading={newArrivalsLoading}
-        onAdded={onAdded} isNew
-      />
-
-      <PromoBanner
-        headline={t('store.promo1Headline')} subline={t('store.promo1Subline')}
-        ctaLabel={t('store.heroCta')} onCtaClick={scrollToGrid} variant={0}
-      />
-
-      <ProductSection
-        title={t('store.bestSellers')} products={bestSellers} loading={bestSellersLoading}
-        onAdded={onAdded}
-      />
-
-      <PromoBanner
-        headline={t('store.promo2Headline')} subline={t('store.promo2Subline')}
-        ctaLabel={t('store.heroCta')} onCtaClick={scrollToGrid} reverse variant={1}
-      />
-
-      <FilterBar
-        categories={categories} filters={filters}
-        onToggleCategory={onToggleCategory} onPriceChange={onPriceChange}
-        onSortChange={onSortChange} onClearFilters={onClearFilters}
-      />
-      <div className={`souq-layout ${styles.section}`} id="product-grid">
+      <div className={`souq-layout ${styles.section}`} id="catalog">
         <h2 className={styles.allProductsTitle}>{t('store.allProducts')}</h2>
-        <ProductGrid products={products} loading={loading} error={error} onRetry={onRetry} onAdded={onAdded} />
+        <Catalog categories={categories} searchTerm={searchTerm} onAdded={onAdded} refreshKey={refreshKey} />
       </div>
     </>
   );

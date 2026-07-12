@@ -1,16 +1,19 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Routes, Route, Outlet, Navigate, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { CartProvider } from './context/CartContext';
 import { WishlistProvider } from './context/WishlistContext';
 import { useToast } from './context/ToastContext';
+import { api } from './api/client';
 import { ProtectedRoute, AdminRoute } from './components/ProtectedRoute';
 import AnnouncementBar from './components/layout/AnnouncementBar';
 import Navbar from './components/layout/Navbar';
+import CategoryNav from './components/layout/CategoryNav';
 import Footer from './components/layout/Footer';
 import CartDrawer from './components/cart/CartDrawer';
 import ToastContainer from './components/common/ToastContainer';
 import Store from './pages/Store';
+import Offers from './pages/Offers';
 import ProductDetail from './pages/ProductDetail';
 import Wishlist from './pages/Wishlist';
 import Checkout from './pages/checkout/Checkout';
@@ -37,18 +40,26 @@ function CustomerLayout() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
+  const [categories, setCategories] = useState([]);
   const navigate = useNavigate();
   const toast = useToast();
 
   const showToast = (name) => toast.success(t('cart.added', { name }));
   const refreshProducts = () => setRefreshKey((k) => k + 1);
 
+  // الفئات تُجلب مرّة واحدة هنا (تخطيط المتجر) وتُشارَك مع شريط الفئات وكل
+  // الصفحات عبر سياق الـ Outlet — بدل جلبها في كل صفحة على حدة.
+  useEffect(() => {
+    api.getCategories().then(setCategories).catch(() => setCategories([]));
+  }, []);
+
   return (
     <CartProvider>
       <WishlistProvider>
         <AnnouncementBar />
         <Navbar onCartClick={() => setDrawerOpen(true)} searchTerm={searchTerm} onSearchChange={setSearchTerm} />
-        <Outlet context={{ showToast, refreshProducts, refreshKey, searchTerm }} />
+        <CategoryNav categories={categories} />
+        <Outlet context={{ showToast, refreshProducts, refreshKey, searchTerm, categories }} />
         <Footer />
         <CartDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)}
           onCheckout={() => { setDrawerOpen(false); navigate('/checkout'); }} />
@@ -79,6 +90,7 @@ export default function App() {
         {/* ── المتجر (عميل/زائر) ── */}
         <Route element={<CustomerLayout />}>
           <Route index element={<Store />} />
+          <Route path="/offers" element={<Offers />} />
           <Route path="/products/:id" element={<ProductDetail />} />
           <Route path="/wishlist" element={<Wishlist />} />
           <Route path="/checkout" element={<ProtectedRoute><Checkout /></ProtectedRoute>} />
