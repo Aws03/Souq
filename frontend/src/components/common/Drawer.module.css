@@ -9,9 +9,16 @@
 .panel.right { right: 0; box-shadow: -4px 0 30px rgba(0, 0, 0, .2); }
 
 /* شاشة كاملة على الجوال: لا درج جانبي ضيّق يزاحم المحتوى — نفس تخطيط
-   head/body(قابل للتمرير)/foot(ثابت) يبقى، لكن بعرض/ارتفاع الشاشة كاملَين. */
+   head/body(قابل للتمرير)/foot(ثابت) يبقى، لكن بعرض/ارتفاع الشاشة كاملَين.
+   ملاحظة حرجة: 100vh على متصفّحات الجوال يشمل المساحة خلف شريط أدوات
+   المتصفّح السفلي، فيدفع .foot (وزر الحفظ فيه) أسفل الشاشة المرئية. 100dvh
+   (الارتفاع الديناميكي) يساوي المنطقة المرئية فعلاً فيبقى الزر ظاهراً دوماً.
+   نُبقي 100vh سطراً أول كبديل للمتصفّحات الأقدم التي لا تعرف dvh. */
 @media (max-width: 480px) {
-  .panel { width: 100vw; height: 100vh; top: 0; bottom: 0; left: 0; right: 0; border-radius: 0; }
+  .panel {
+    width: 100vw; height: 100vh; height: 100dvh;
+    top: 0; bottom: 0; left: 0; right: 0; border-radius: 0;
+  }
 }
 
 @keyframes slide-in { from { transform: translateX(0); opacity: 0; } }
@@ -34,5 +41,14 @@
    نموذج أطول من الارتفاع المرئي (نموذج الكوبون مثلاً: 7 حقول). هذا هو الإصلاح
    الجذري، لا مجرّد زيادة overflow/min-height على الحاوية.
    */
-.body { flex: 1; min-height: 0; overflow-y: auto; padding: 18px 22px; }
-.foot { padding: 18px 22px; border-top: 1px solid var(--line); background: var(--surface); flex-shrink: 0; }
+/* padding-bottom إضافي (فوق الحشو العلوي) كي لا يلتصق آخر حقل بالتذييل الثابت،
+   ويشمل safe-area للأجهزة ذات المؤشّر السفلي (iPhone) — فيبقى المحتوى قابلاً
+   للتمرير حتى نهايته بوضوح تحت أي عنصر ثابت. */
+.body {
+  flex: 1; min-height: 0; overflow-y: auto;
+  padding: 18px 22px calc(28px + env(safe-area-inset-bottom, 0px));
+}
+.foot {
+  padding: 18px 22px calc(18px + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid var(--line); background: var(--surface); flex-shrink: 0;
+}

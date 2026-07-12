@@ -64,6 +64,14 @@ public class GmailEmailService : IEmailService
         var socketOptions = _opts.Port == 465 ? SecureSocketOptions.SslOnConnect
             : _opts.EnableSsl ? SecureSocketOptions.StartTls : SecureSocketOptions.Auto;
 
+        // سجلّ محاولة صريح قبل الإرسال: المستقبِل + الموضوع + الخادم/المنفذ
+        // + المرسِل. بوجوده نعرف من السجل أن الإرسال بدأ فعلاً (لا استُبدل بصمت
+        // بـ ConsoleEmailService) وإلى أي عنوان بالضبط — نقطة البداية في تشخيص
+        // أي شكوى "لم يصلني البريد".
+        _logger.LogInformation(
+            "إرسال بريد Gmail: المستقبِل={Email} الموضوع=\"{Subject}\" المرسِل={From} الخادم={Host}:{Port}",
+            toEmail, subject, _opts.Username, _opts.Host, _opts.Port);
+
         try
         {
             using var client = new SmtpClient();
@@ -71,18 +79,20 @@ public class GmailEmailService : IEmailService
             await client.AuthenticateAsync(_opts.Username, _opts.AppPassword, ct);
             await client.SendAsync(message, ct);
             await client.DisconnectAsync(quit: true, ct);
-            // سجلّ نجاح صريح: بدونه لا سبيل للتفريق بين "أُرسل فعلاً" و"لم
-            // يُستدعَ أصلاً" عند تشخيص شكاوى عدم وصول البريد.
-            _logger.LogInformation("أُرسل بريد \"{Subject}\" إلى {Email} عبر {Host}:{Port}",
+            // تأكيد نجاح صريح: بدونه لا سبيل للتفريق بين "أُرسل فعلاً" و"فشل".
+            _logger.LogInformation("✅ نجح إرسال بريد \"{Subject}\" إلى {Email} عبر {Host}:{Port}",
                 subject, toEmail, _opts.Host, _opts.Port);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             // فشل الإرسال لا يجب أن يُسقط تدفّق العمل (مثلاً: لا نكشف فشل جيميل
             // لطالب إعادة التعيين — الرسالة الموحّدة "نجاح دائماً" تبقى كما هي).
-            // نسجّله فقط ليتتبّعه المطوّر. (MailKit يرمي أنواعاً عدة: مصادقة/أوامر
-            // SMTP/شبكة — نلتقطها جميعاً عدا الإلغاء الذي يخصّ المستدعي.)
-            _logger.LogError(ex, "فشل إرسال بريد عبر Gmail SMTP إلى {Email}", toEmail);
+            // نسجّل الاستثناء كاملاً (النوع + الرسالة + المكدّس) ليتتبّعه المطوّر.
+            // (MailKit يرمي أنواعاً عدة: مصادقة/أوامر SMTP/شبكة — نلتقطها جميعاً
+            // عدا الإلغاء الذي يخصّ المستدعي.)
+            _logger.LogError(ex,
+                "❌ فشل إرسال بريد عبر Gmail SMTP إلى {Email} (الموضوع=\"{Subject}\" الخادم={Host}:{Port}): {ErrorType}: {ErrorMessage}",
+                toEmail, subject, _opts.Host, _opts.Port, ex.GetType().Name, ex.Message);
         }
     }
 
