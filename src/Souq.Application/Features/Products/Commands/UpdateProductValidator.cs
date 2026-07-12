@@ -15,6 +15,7 @@ public class UpdateProductValidator : AbstractValidator<UpdateProductCommand>
         RuleFor(x => x.Price).GreaterThan(0);
         RuleFor(x => x.StockQuantity).GreaterThanOrEqualTo(0);
         RuleFor(x => x.ImageUrl).MaximumLength(500);
+        RuleFor(x => x.VideoUrl).MaximumLength(500);
         RuleFor(x => x.CategoryId).GreaterThan(0);
     }
 }

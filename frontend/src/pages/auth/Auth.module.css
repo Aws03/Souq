@@ -12,3 +12,9 @@
 .switch { text-align: center; margin-top: 18px; font-size: var(--fs-body-sm); color: var(--muted); }
 .switch a { color: var(--petrol); font-weight: 700; text-decoration: none; }
 .switch a:hover { color: var(--saffron); }
+
+.forgotLink { text-align: end; margin: -8px 0 16px; font-size: var(--fs-caption); }
+.forgotLink a { color: var(--petrol); font-weight: 600; text-decoration: none; }
+.forgotLink a:hover { color: var(--saffron); text-decoration: underline; }
+
+.successBox { text-align: center; color: var(--ink); line-height: 1.7; padding: 8px 0 18px; }

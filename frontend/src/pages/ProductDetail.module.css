@@ -1,7 +1,6 @@
 .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; padding: 28px 0; }
 @media (max-width: 720px) { .grid { grid-template-columns: 1fr; } }
 
-.media { border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow); aspect-ratio: 1; border-bottom: 4px solid var(--saffron); }
 .name { font-size: var(--fs-heading-lg); margin: 6px 0 10px; }
 .ratingLine { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: var(--fs-caption); margin-bottom: 14px; }
 .desc { color: var(--muted); line-height: 1.7; margin-bottom: 16px; }

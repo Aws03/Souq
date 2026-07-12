@@ -36,6 +36,13 @@ services:
       Stripe__SecretKey: ${STRIPE_SECRET_KEY:-}
       Stripe__PublishableKey: ${STRIPE_PUBLISHABLE_KEY:-}
       Stripe__WebhookSecret: ${STRIPE_WEBHOOK_SECRET:-}
+      # اختياري — بلا Gmail__AppPassword يعمل البريد تلقائياً عبر ConsoleEmailService
+      # (طباعة رابط إعادة التعيين في سجلّ الحاوية بدل إرسال حقيقي).
+      Gmail__AppPassword: ${GMAIL_APP_PASSWORD:-}
+      Gmail__Username: ${GMAIL_USERNAME:-aws.03.dev@gmail.com}
+      # رابط الواجهة الفعلي هنا 8081 (منفذ الحزمة)، لا 5173 (التطوير المحلي) —
+      # يُستخدم لبناء رابط إعادة تعيين كلمة المرور داخل البريد المُرسَل.
+      App__FrontendUrl: ${APP_FRONTEND_URL:-http://localhost:8081}
     depends_on:
       db:
         condition: service_healthy

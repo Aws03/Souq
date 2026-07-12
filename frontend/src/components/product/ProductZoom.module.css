@@ -1,0 +1,113 @@
+.wrap { position: relative; }
+
+/* ── تبويب صور/فيديو ── */
+.tabs { display: flex; gap: 8px; margin-bottom: 12px; }
+.tab {
+  padding: 8px 18px; border-radius: 999px; background: var(--soft); color: var(--muted);
+  font-weight: 600; font-size: var(--fs-body-sm); transition: background var(--ease-hover), color var(--ease-hover);
+}
+.tabActive { background: var(--petrol); color: var(--paper); }
+
+.video {
+  width: 100%; aspect-ratio: 1; border-radius: var(--card-radius); background: #000;
+  border-bottom: 4px solid var(--saffron); object-fit: contain;
+}
+
+/* ── الصورة الرئيسية ── */
+.mainRow { position: relative; }
+.mainBox {
+  position: relative; width: 100%; max-width: 500px; aspect-ratio: 1; margin: 0 auto;
+  border-radius: var(--card-radius); overflow: hidden; box-shadow: var(--shadow);
+  border-bottom: 4px solid var(--saffron); background: var(--soft); cursor: zoom-in;
+}
+.mainImg { width: 100%; height: 100%; object-fit: cover; user-select: none; }
+.fallback { width: 100%; height: 100%; display: grid; place-items: center; color: var(--muted); }
+
+.zoomIcon {
+  position: absolute; top: 10px; inset-inline-end: 10px; z-index: 2;
+  width: 34px; height: 34px; border-radius: 50%; background: rgb(255 255 255 / 0.92); color: var(--petrol);
+  display: grid; place-items: center; opacity: 0; transition: opacity var(--ease-hover), transform var(--ease-hover);
+}
+.mainBox:hover .zoomIcon { opacity: 1; }
+.zoomIcon:hover { transform: scale(1.08); }
+@media (hover: none) { .zoomIcon { opacity: 1; } }
+
+.tapOverlay { position: absolute; inset: 0; z-index: 1; background: transparent; }
+
+/* مؤشّر بصري لموضع أخذ العيّنة على الصورة — مربّع شفّاف صغير يتبع المؤشّر */
+.lens {
+  position: absolute; width: 110px; height: 110px; margin-top: -55px; margin-inline-start: -55px;
+  border: 2px solid var(--saffron); background: rgb(232 163 61 / 0.18);
+  pointer-events: none; z-index: 3; border-radius: 6px;
+}
+
+/* اللوحة المكبَّرة — تظهر بجانب الصورة الرئيسية (تُحلّ الجهة منطقياً: يساراً في
+   RTL، يميناً في LTR) على الشاشات الواسعة فقط؛ على الأضيق نكتفي بأزرار +/-
+   والصندوق الكامل. */
+.zoomPanel {
+  display: none; position: absolute; top: 0; inset-inline-end: calc(100% + 18px);
+  width: 460px; height: 460px; border-radius: var(--card-radius); border: 1px solid var(--line);
+  background-repeat: no-repeat; background-color: var(--surface); box-shadow: var(--shadow-lg); z-index: 5;
+}
+@media (min-width: 1180px) {
+  .zoomPanel { display: block; }
+}
+
+/* ── أزرار التكبير/التصغير + عرض كامل ── */
+.controls { display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+.zoomBtn {
+  width: 38px; height: 38px; border-radius: 50%; background: var(--soft); color: var(--petrol);
+  font-size: 16px; display: grid; place-items: center; transition: background var(--ease-hover);
+}
+.zoomBtn:hover:not(:disabled) { background: var(--saffron-soft); }
+.zoomBtn:disabled { opacity: .4; cursor: not-allowed; }
+.zoomValue { min-width: 40px; text-align: center; font-weight: 700; color: var(--petrol); }
+.fullscreenBtn {
+  display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 999px;
+  background: var(--surface); color: var(--petrol); border: 1px solid var(--line); font-weight: 600;
+  font-size: var(--fs-body-sm); transition: border-color var(--ease-hover);
+}
+.fullscreenBtn:hover { border-color: var(--petrol); }
+
+/* ── صف المصغّرات ── */
+.thumbs { display: flex; gap: 10px; margin-top: 14px; justify-content: center; flex-wrap: wrap; }
+.thumb {
+  width: 64px; height: 64px; border-radius: 10px; overflow: hidden; border: 2px solid transparent;
+  transition: border-color var(--ease-hover), transform var(--ease-hover);
+}
+.thumb img { width: 100%; height: 100%; object-fit: cover; }
+.thumb:hover { transform: translateY(-2px); }
+.thumbActive { border-color: var(--saffron); }
+
+/* ── صندوق العرض الكامل (Lightbox) ── */
+.lightboxOverlay {
+  position: fixed; inset: 0; z-index: 300; background: rgb(10 20 20 / 0.92);
+  display: flex; align-items: center; justify-content: center; padding: 24px;
+}
+.lightboxStage { position: relative; max-width: min(900px, 92vw); max-height: 88vh; touch-action: pinch-zoom; }
+.lightboxImg { max-width: min(900px, 92vw); max-height: 88vh; object-fit: contain; border-radius: 8px; display: block; }
+
+.lightboxClose {
+  position: absolute; top: 18px; inset-inline-end: 18px; z-index: 1;
+  width: 42px; height: 42px; border-radius: 50%; background: rgb(255 255 255 / 0.12); color: var(--paper);
+  display: grid; place-items: center; transition: background var(--ease-hover);
+}
+.lightboxClose:hover { background: rgb(255 255 255 / 0.22); }
+
+.lightboxNav {
+  position: absolute; top: 50%; transform: translateY(-50%); z-index: 1;
+  width: 44px; height: 44px; border-radius: 50%; background: rgb(255 255 255 / 0.12); color: var(--paper);
+  display: grid; place-items: center; transition: background var(--ease-hover);
+}
+.lightboxNav:hover { background: rgb(255 255 255 / 0.22); }
+.navPrev { inset-inline-start: -60px; }
+.navNext { inset-inline-end: -60px; }
+@media (max-width: 700px) {
+  .navPrev { inset-inline-start: 8px; }
+  .navNext { inset-inline-end: 8px; }
+}
+
+@media (max-width: 480px) {
+  .mainBox { max-width: 100%; }
+  .lens, .zoomPanel { display: none; } /* لا تكبير تمرير على الجوال — اللمس يفتح الصندوق الكامل */
+}

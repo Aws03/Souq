@@ -33,7 +33,25 @@ public static class DependencyInjection
         services.AddScoped<ICustomerRepository, CustomerRepository>();
         services.AddScoped<ICouponRepository, CouponRepository>();
         services.AddScoped<IReviewRepository, ReviewRepository>();
-        services.AddScoped<IEmailService, ConsoleEmailService>();
+
+        // البريد: Gmail SMTP حقيقي إن وُجدت كلمة مرور تطبيق مضبوطة (Gmail__AppPassword
+        // كمتغيّر بيئة — سرّ، لا يُقرأ أبداً من appsettings المرفوع)، وإلا طباعة في
+        // السجل فقط (تطوير محلي بلا حساب Gmail). نفس نمط قرار بوّابة الدفع أدناه.
+        var gmailAppPassword = config["Gmail:AppPassword"];
+        if (!string.IsNullOrWhiteSpace(gmailAppPassword))
+        {
+            services.Configure<GmailSmtpOptions>(o =>
+            {
+                config.GetSection("Gmail").Bind(o);
+                o.AppPassword = gmailAppPassword;
+                o.FrontendUrl = config["App:FrontendUrl"] ?? "http://localhost:5173";
+            });
+            services.AddScoped<IEmailService, GmailEmailService>();
+        }
+        else
+        {
+            services.AddScoped<IEmailService, ConsoleEmailService>();
+        }
 
         // بوّابة الدفع: Stripe حقيقي إن وُجد مفتاح سرّي مضبوط (user-secrets/بيئة)،
         // وإلا محاكاة تجريبية (تطوير محلي بلا حساب Stripe). القرار هنا فقط —
@@ -51,6 +69,7 @@ public static class DependencyInjection
         // تخزين الملفات محلياً (قرص) — يُبدَّل بتخزين سحابي في الإنتاج. مسار المجلد
         // يُضبط في طبقة الـ API حيث يُعرف wwwroot (Configure<FileStorageOptions>).
         services.AddScoped<IFileStorage, LocalFileStorage>();
+        services.AddScoped<IVideoStorage, LocalVideoStorage>();
 
         // ── المصادقة: تجزئة كلمة المرور + إصدار التوكن (عديمة الحالة ⇒ Singleton) ──
         services.AddOptions<JwtSettings>()

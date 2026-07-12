@@ -10,4 +10,7 @@ public class CustomerRepository : RepositoryBase<Customer>, ICustomerRepository
 
     public async Task<Customer?> GetByEmailAsync(string email, CancellationToken ct = default)
         => await Db.Customers.FirstOrDefaultAsync(c => c.Email == email, ct);
+
+    public async Task<Customer?> GetByResetTokenAsync(string token, CancellationToken ct = default)
+        => await Db.Customers.FirstOrDefaultAsync(c => c.PasswordResetToken == token, ct);
 }

@@ -10,7 +10,7 @@ import Pagination from '../components/common/Pagination';
 import Skeleton from '../components/common/Skeleton';
 import { ErrorBanner } from '../components/common/StateViews';
 import { CategoryBadge, PriceTag, StockBadge, getProductName } from '../components/product/ProductBadges';
-import ProductImage from '../components/product/ProductImage';
+import ProductZoom from '../components/product/ProductZoom';
 import StarRating from '../components/product/StarRating';
 import ReviewForm from '../components/reviews/ReviewForm';
 import ReviewList from '../components/reviews/ReviewList';
@@ -69,7 +69,7 @@ export default function ProductDetail() {
   return (
     <div className="souq-layout">
       <div className={styles.grid}>
-        <div className={styles.media}><ProductImage product={product} /></div>
+        <ProductZoom images={[product.imageUrl]} videoUrl={product.videoUrl} productName={getProductName(product)} />
         <div>
           <CategoryBadge name={product.categoryName} />
           <h1 className={styles.name}>{getProductName(product)}</h1>

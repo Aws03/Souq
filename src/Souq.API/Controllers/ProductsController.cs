@@ -99,6 +99,32 @@ public class ProductsController : ControllerBase
         return Ok(new { imageUrl = result.Value });
     }
 
+    // POST /api/products/5/video  (للمدير) — يرفع فيديو المنتج (multipart/form-data).
+    // نفس منهج UploadImage تماماً: تحقّق شكلي هنا (حجم/نوع)، تخزين خلف IVideoStorage.
+    [HttpPost("{id:int}/video")]
+    [Authorize(Roles = Roles.Admin)]
+    [RequestSizeLimit(55 * 1024 * 1024)]
+    public async Task<IActionResult> UploadVideo(int id, IFormFile file)
+    {
+        if (file is null || file.Length == 0)
+            return BadRequest(new { error = "لم يُرفق ملف فيديو" });
+        if (file.Length > 50 * 1024 * 1024)
+            return BadRequest(new { error = "حجم الفيديو يتجاوز 50 ميغابايت" });
+
+        var allowed = new[] { "video/mp4", "video/webm" };
+        if (!allowed.Contains(file.ContentType))
+            return BadRequest(new { error = "صيغة الفيديو غير مدعومة (MP4/WebM فقط)" });
+
+        await using var stream = file.OpenReadStream();
+        var result = await _mediator.Send(new UploadProductVideoCommand(id, stream, file.FileName));
+        if (!result.IsSuccess)
+            return result.ErrorCode == "NotFound"
+                ? NotFound(new { error = result.Error })
+                : BadRequest(new { error = result.Error, code = result.ErrorCode });
+
+        return Ok(new { videoUrl = result.Value });
+    }
+
     // ترجمة فشل Result إلى رمز HTTP موحّد: "غير موجود" ⇒ 404، وأي فشل عمل آخر ⇒ 400.
     // مكان واحد يحكم هذا التحويل لكل الأوامر التي لا تُرجع قيمة (DRY).
     private IActionResult MapFailure(Result result) =>

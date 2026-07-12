@@ -17,6 +17,8 @@ import Checkout from './pages/checkout/Checkout';
 import Confirmation from './pages/Confirmation';
 import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
+import ForgotPassword from './pages/auth/ForgotPassword';
+import ResetPassword from './pages/auth/ResetPassword';
 import AdminLayout from './pages/admin/AdminLayout';
 import Dashboard from './pages/admin/Dashboard';
 import Products from './pages/admin/Products';
@@ -62,6 +64,8 @@ export default function App() {
         {/* ── المصادقة ── */}
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
 
         {/* ── لوحة الإدارة (Admin فقط) — تخطيط منفصل ── */}
         <Route path="/admin" element={<AdminRoute><AdminLayout /></AdminRoute>}>

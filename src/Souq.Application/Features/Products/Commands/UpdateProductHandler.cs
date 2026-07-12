@@ -41,7 +41,7 @@ public class UpdateProductHandler : IRequestHandler<UpdateProductCommand, Result
         product.UpdateDetails(
             cmd.NameAr, cmd.Description,
             new Money(cmd.Price, product.Price.Currency),
-            cmd.ImageUrl, cmd.CategoryId, cmd.NameEn);
+            cmd.ImageUrl, cmd.CategoryId, cmd.NameEn, cmd.VideoUrl);
         product.SetStock(cmd.StockQuantity);
 
         _products.Update(product);

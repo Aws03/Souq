@@ -25,6 +25,25 @@ public class AuthController : ControllerBase
     public async Task<IActionResult> Login([FromBody] LoginCommand command)
         => Respond(await _mediator.Send(command));
 
+    // POST /api/auth/forgot-password — ينجح دائماً (200) بلا كشف إن كان البريد
+    // مسجّلاً؛ التفصيل الفعلي (هل أُرسلت رسالة؟) يبقى في السجل الخادم فقط.
+    [HttpPost("forgot-password")]
+    public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordCommand command)
+    {
+        await _mediator.Send(command);
+        return Ok(new { message = "إن كان البريد الإلكتروني مسجّلاً، وصلك رابط إعادة التعيين." });
+    }
+
+    // POST /api/auth/reset-password — رمز غير صالح/منتهٍ ⇒ 400 برسالة واضحة.
+    [HttpPost("reset-password")]
+    public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordCommand command)
+    {
+        var result = await _mediator.Send(command);
+        return result.IsSuccess
+            ? Ok(new { message = "تم تحديث كلمة المرور بنجاح." })
+            : BadRequest(new { error = result.Error, code = result.ErrorCode });
+    }
+
     // فشل بريد مكرّر ⇒ 409، بيانات دخول خاطئة ⇒ 401، غير ذلك ⇒ 400.
     private IActionResult Respond(Result<AuthResponse> result)
     {

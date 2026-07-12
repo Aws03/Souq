@@ -76,6 +76,9 @@ export const api = {
   // ── المصادقة ──
   register: (payload) => request('/auth/register', { method: 'POST', body: JSON.stringify(payload) }),
   login: (payload) => request('/auth/login', { method: 'POST', body: JSON.stringify(payload) }),
+  forgotPassword: (email) => request('/auth/forgot-password', { method: 'POST', body: JSON.stringify({ email }) }),
+  resetPassword: (token, newPassword) =>
+    request('/auth/reset-password', { method: 'POST', body: JSON.stringify({ token, newPassword }) }),
 
   // ── الكتالوج ──
   getProducts: (params = {}) => {
@@ -126,6 +129,11 @@ export const api = {
     const form = new FormData();
     form.append('file', file);
     return upload(`/products/${id}/image`, form);
+  },
+  uploadProductVideo: (id, file) => {
+    const form = new FormData();
+    form.append('file', file);
+    return upload(`/products/${id}/video`, form);
   },
 
   // ── إدارة الفئات (أدمن) ──

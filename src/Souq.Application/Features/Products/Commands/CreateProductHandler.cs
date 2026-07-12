@@ -22,7 +22,7 @@ public class CreateProductHandler : IRequestHandler<CreateProductCommand, Result
         var product = new Product(
             cmd.NameAr, cmd.Description,
             new Money(cmd.Price),          // يتحقّق Money من أن السعر غير سالب
-            cmd.StockQuantity, cmd.ImageUrl, cmd.CategoryId, cmd.NameEn);
+            cmd.StockQuantity, cmd.ImageUrl, cmd.CategoryId, cmd.NameEn, cmd.VideoUrl);
 
         await _products.AddAsync(product, ct);
         await _uow.SaveChangesAsync(ct);   // الحفظ الفعلي يحدث هنا، مرة واحدة

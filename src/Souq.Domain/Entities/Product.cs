@@ -21,17 +21,19 @@ public class Product : Entity
     public Money Price { get; private set; } = default!;   // كائن قيمة، لا decimal عارٍ
     public int StockQuantity { get; private set; }
     public string ImageUrl { get; private set; } = default!;
+    public string? VideoUrl { get; private set; }            // اختياري — لا كل منتج له فيديو
     public bool IsActive { get; private set; }
     public int CategoryId { get; private set; }
     public Category? Category { get; private set; }          // علاقة تنقّل (Navigation)
 
     private Product() { }
 
-    // nameEn اختياري: يُطابق الاسم العربي تلقائياً إن غاب (منتج لم يُترجم بعد
-    // بدل قيمة فارغة في الواجهة). nameAr يبقى في موضعه الأصلي كي تستمر كل
-    // استدعاءات المُنشئ القديمة (اختبارات/كود سابق) بالعمل دون تعديل.
+    // nameEn/videoUrl اختياريان في آخر القائمة (nameEn يتردّد إلى nameAr إن غاب،
+    // videoUrl يبقى فارغاً إن غاب) كي تستمر كل استدعاءات المُنشئ القديمة
+    // (اختبارات/كود سابق) بالعمل دون تعديل.
     public Product(string nameAr, string description, Money price,
-                   int stockQuantity, string imageUrl, int categoryId, string? nameEn = null)
+                   int stockQuantity, string imageUrl, int categoryId,
+                   string? nameEn = null, string? videoUrl = null)
     {
         NameAr = nameAr;
         NameEn = string.IsNullOrWhiteSpace(nameEn) ? nameAr : nameEn;
@@ -39,6 +41,7 @@ public class Product : Entity
         Price = price;
         StockQuantity = stockQuantity;
         ImageUrl = imageUrl;
+        VideoUrl = string.IsNullOrWhiteSpace(videoUrl) ? null : videoUrl;
         CategoryId = categoryId;
         IsActive = true;
     }
@@ -70,13 +73,14 @@ public class Product : Entity
     // (يحرس قاعدة عدم السلبية). نُبقي IsActive/المخزون خارج هذه الدالة لأن لهما
     // أبواباً محروسة خاصة (Deactivate/SetStock) — كل قاعدة في موضعها الصحيح.
     public void UpdateDetails(string nameAr, string description, Money price,
-                              string imageUrl, int categoryId, string? nameEn = null)
+                              string imageUrl, int categoryId, string? nameEn = null, string? videoUrl = null)
     {
         NameAr = nameAr;
         NameEn = string.IsNullOrWhiteSpace(nameEn) ? nameAr : nameEn;
         Description = description;
         Price = price;
         ImageUrl = imageUrl;
+        VideoUrl = string.IsNullOrWhiteSpace(videoUrl) ? null : videoUrl;
         CategoryId = categoryId;
     }
 
@@ -88,6 +92,11 @@ public class Product : Entity
             throw new InvalidProductDataException("رابط الصورة مطلوب");
         ImageUrl = imageUrl;
     }
+
+    // تعيين فيديو المنتج بعد رفعه — نفس منطق SetImageUrl لكن اختياري (يُقبل
+    // مسحه بإرسال null/فارغ، بخلاف الصورة الإلزامية دوماً).
+    public void SetVideoUrl(string? videoUrl) =>
+        VideoUrl = string.IsNullOrWhiteSpace(videoUrl) ? null : videoUrl;
 
     // حذف منطقي بدل الفعلي (مبدأ من الملف: نحافظ على السجلات التاريخية).
     public void Deactivate() => IsActive = false;

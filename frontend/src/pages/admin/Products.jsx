@@ -43,11 +43,12 @@ export default function Products() {
   useEffect(() => { load(); }, [load]);
   useEffect(() => { setPage(1); }, [keyword, categoryId]);
 
-  const save = async (payload, file) => {
+  const save = async (payload, file, videoFile) => {
     const id = editing?.id
       ? (await api.updateProduct(editing.id, payload), editing.id)
       : (await api.createProduct(payload)).id;
     if (file) await api.uploadProductImage(id, file);
+    if (videoFile) await api.uploadProductVideo(id, videoFile);
     setEditing(null);
     toast.success(editing?.id ? t('admin.products.updated') : t('admin.products.created'));
     load();

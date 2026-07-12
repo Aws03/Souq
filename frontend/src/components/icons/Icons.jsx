@@ -143,6 +143,19 @@ export const RefreshIcon = ({ size = 16 }) => (
   </svg>
 );
 
+export const VideoIcon = ({ size = 28 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" {...base}>
+    <rect x="2.5" y="5.5" width="14" height="13" rx="2" />
+    <path d="m16.5 10 4.5-2.8v9.6L16.5 14" strokeLinejoin="round" />
+  </svg>
+);
+
+export const ExpandIcon = ({ size = 16 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" {...base}>
+    <path d="M9 4H4v5M15 4h5v5M9 20H4v-5M15 20h5v-5" />
+  </svg>
+);
+
 export const HeartIcon = ({ size = 18, filled = false }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill={filled ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={1.8} strokeLinejoin="round">
     <path d="M12 20.5s-7.5-4.6-10-9.3C.6 7.8 2.4 4 6.1 4c2 0 3.6 1 5.9 3.3C14.3 5 15.9 4 17.9 4c3.7 0 5.5 3.8 4.1 7.2-2.5 4.7-10 9.3-10 9.3Z" />

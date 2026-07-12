@@ -10,5 +10,5 @@ namespace Souq.Application.Features.Products.Queries;
 public record ProductDto(
     int Id, string NameAr, string NameEn, string Description,
     decimal Price, string Currency,
-    int StockQuantity, string ImageUrl,
+    int StockQuantity, string ImageUrl, string? VideoUrl,
     int CategoryId, string? CategoryName);

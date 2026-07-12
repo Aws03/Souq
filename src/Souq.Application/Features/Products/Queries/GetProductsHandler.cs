@@ -21,7 +21,7 @@ public class GetProductsHandler : IRequestHandler<GetProductsQuery, PaginatedLis
         var dtos = items.Select(p => new ProductDto(
             p.Id, p.NameAr, p.NameEn, p.Description,
             p.Price.Amount, p.Price.Currency,
-            p.StockQuantity, p.ImageUrl,
+            p.StockQuantity, p.ImageUrl, p.VideoUrl,
             p.CategoryId, p.Category?.Name)).ToList();
 
         return new PaginatedList<ProductDto>(dtos, total, q.Page, q.PageSize);

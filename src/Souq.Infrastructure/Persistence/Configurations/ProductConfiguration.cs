@@ -20,6 +20,7 @@ public class ProductConfiguration : IEntityTypeConfiguration<Product>
         builder.Ignore(p => p.Name); // خاصية محسوبة للتوافق الخلفي — لا عمود لها
         builder.Property(p => p.Description).HasMaxLength(2000);
         builder.Property(p => p.ImageUrl).HasMaxLength(500);
+        builder.Property(p => p.VideoUrl).HasMaxLength(500);
 
         // كائن القيمة Money يُخزّن كعمودين داخل جدول المنتج (Owned Type).
         builder.OwnsOne(p => p.Price, money =>

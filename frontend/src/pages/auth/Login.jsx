@@ -61,6 +61,8 @@ export default function Login() {
             placeholder="••••••••" />
         </FormField>
 
+        <p className={styles.forgotLink}><Link to="/forgot-password">{t('auth.forgotPasswordLink')}</Link></p>
+
         <Button type="submit" variant="saffron" size="lg" loading={busy} className={styles.submit}>{t('auth.loginSubmit')}</Button>
 
         <p className={styles.switch}>{t('auth.noAccount')} <Link to="/register">{t('auth.createAccount')}</Link></p>

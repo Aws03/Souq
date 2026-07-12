@@ -43,3 +43,9 @@ public class InvalidReviewException : DomainException
 {
     public InvalidReviewException(string message) : base(message) { }
 }
+
+// خطأ: رمز إعادة تعيين كلمة المرور منتهي الصلاحية (أُنشئ منذ أكثر من ساعتين).
+public class InvalidPasswordResetException : DomainException
+{
+    public InvalidPasswordResetException(string message) : base(message) { }
+}

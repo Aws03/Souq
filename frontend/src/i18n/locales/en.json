@@ -64,7 +64,12 @@
     "badgeNew": "New",
     "wishlistAdd": "Add to wishlist",
     "wishlistRemove": "Remove from wishlist",
-    "zoomAria": "Zoom image"
+    "zoomAria": "Zoom image",
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out",
+    "viewFullscreen": "Fullscreen",
+    "tabPhotos": "Photos",
+    "tabVideo": "Video"
   },
   "reviews": {
     "addTitle": "Add your review",
@@ -133,7 +138,20 @@
     "haveAccount": "Already have an account?",
     "signIn": "Sign in",
     "loginFailed": "Failed to sign in",
-    "registerFailed": "Failed to create account"
+    "registerFailed": "Failed to create account",
+    "forgotPasswordLink": "Forgot password?",
+    "forgotPasswordTitle": "Recover password",
+    "forgotPasswordSubtitle": "Enter your email and we'll send you a reset link",
+    "forgotPasswordSubmit": "Send reset link",
+    "forgotPasswordSuccess": "If that email is registered, you'll receive a reset link shortly.",
+    "backToLogin": "Back to sign in",
+    "resetPasswordTitle": "Set a new password",
+    "resetPasswordSubtitle": "Choose a new password for your account",
+    "resetPasswordSubmit": "Update password",
+    "resetPasswordSuccess": "Password updated successfully. Redirecting to sign in…",
+    "newPasswordLabel": "New password",
+    "invalidResetLink": "This reset link is invalid or has expired.",
+    "requestNewLink": "Request a new link"
   },
   "checkout": {
     "emptyCartTitle": "Your cart is empty",
@@ -226,7 +244,14 @@
       "imageSizeError": "Image size exceeds 5MB",
       "nameRequired": "Product name is required",
       "priceInvalid": "Price must be greater than zero",
-      "categoryRequired": "Choose a category for the product"
+      "categoryRequired": "Choose a category for the product",
+      "videoLabel": "Product video (optional)",
+      "videoDropHint": "Drag a video here or click to select",
+      "videoDropHintSub": "MP4 · WebM — up to 50MB",
+      "videoTypeError": "Unsupported video format (MP4/WebM only)",
+      "videoSizeError": "Video size exceeds 50MB",
+      "currentVideo": "Current video",
+      "removeVideo": "Remove video"
     },
     "categories": {
       "title": "Manage Categories",

@@ -64,7 +64,12 @@
     "badgeNew": "جديد",
     "wishlistAdd": "أضف للمفضّلة",
     "wishlistRemove": "إزالة من المفضّلة",
-    "zoomAria": "تكبير الصورة"
+    "zoomAria": "تكبير الصورة",
+    "zoomIn": "تكبير",
+    "zoomOut": "تصغير",
+    "viewFullscreen": "عرض كامل",
+    "tabPhotos": "صور",
+    "tabVideo": "فيديو"
   },
   "reviews": {
     "addTitle": "أضف تقييمك",
@@ -133,7 +138,20 @@
     "haveAccount": "لديك حساب بالفعل؟",
     "signIn": "سجّل الدخول",
     "loginFailed": "تعذّر تسجيل الدخول",
-    "registerFailed": "تعذّر إنشاء الحساب"
+    "registerFailed": "تعذّر إنشاء الحساب",
+    "forgotPasswordLink": "نسيت كلمة المرور؟",
+    "forgotPasswordTitle": "استعادة كلمة المرور",
+    "forgotPasswordSubtitle": "أدخل بريدك الإلكتروني وسنرسل لك رابط إعادة التعيين",
+    "forgotPasswordSubmit": "إرسال رابط إعادة التعيين",
+    "forgotPasswordSuccess": "إن كان البريد الإلكتروني مسجّلاً، ستصلك رسالة تحتوي رابط إعادة التعيين خلال دقائق.",
+    "backToLogin": "العودة لتسجيل الدخول",
+    "resetPasswordTitle": "تعيين كلمة مرور جديدة",
+    "resetPasswordSubtitle": "اختر كلمة مرور جديدة لحسابك",
+    "resetPasswordSubmit": "تحديث كلمة المرور",
+    "resetPasswordSuccess": "تم تحديث كلمة المرور بنجاح. سيتم تحويلك لتسجيل الدخول…",
+    "newPasswordLabel": "كلمة المرور الجديدة",
+    "invalidResetLink": "رابط إعادة التعيين غير صالح أو منتهي الصلاحية.",
+    "requestNewLink": "اطلب رابطاً جديداً"
   },
   "checkout": {
     "emptyCartTitle": "سلّتك فارغة",
@@ -226,7 +244,14 @@
       "imageSizeError": "حجم الصورة يتجاوز 5 ميغابايت",
       "nameRequired": "اسم المنتج مطلوب",
       "priceInvalid": "السعر يجب أن يكون أكبر من صفر",
-      "categoryRequired": "اختر فئة للمنتج"
+      "categoryRequired": "اختر فئة للمنتج",
+      "videoLabel": "فيديو المنتج (اختياري)",
+      "videoDropHint": "اسحب فيديو هنا أو انقر للاختيار",
+      "videoDropHintSub": "MP4 · WebM — حتى 50 ميغابايت",
+      "videoTypeError": "صيغة الفيديو غير مدعومة (MP4/WebM فقط)",
+      "videoSizeError": "حجم الفيديو يتجاوز 50 ميغابايت",
+      "currentVideo": "الفيديو الحالي",
+      "removeVideo": "إزالة الفيديو"
     },
     "categories": {
       "title": "إدارة الفئات",

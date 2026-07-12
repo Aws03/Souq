@@ -10,5 +10,5 @@ namespace Souq.Application.Features.Products.Commands;
 public record UpdateProductCommand(
     int Id,
     string NameAr, string Description, decimal Price,
-    int StockQuantity, string ImageUrl, int CategoryId, string? NameEn = null
+    int StockQuantity, string ImageUrl, int CategoryId, string? NameEn = null, string? VideoUrl = null
 ) : IRequest<Result>;

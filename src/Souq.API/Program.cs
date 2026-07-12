@@ -31,6 +31,16 @@ builder.Services.Configure<FileStorageOptions>(o =>
     o.PublicBasePath = "/uploads";
 });
 
+// ── تخزين فيديوهات المنتجات: مجلّد فرعي تحت uploads نفسه (يخدمه نفس مزوّد
+// الملفات الثابتة أدناه على /uploads تلقائياً، بلا تسجيل إضافي). ──
+var videosPath = Path.Combine(uploadsPath, "videos");
+Directory.CreateDirectory(videosPath);
+builder.Services.Configure<VideoStorageOptions>(o =>
+{
+    o.RootPath = videosPath;
+    o.PublicBasePath = "/uploads/videos";
+});
+
 // ── المصادقة: التحقّق من توكن JWT الوارد ─────────────────────────────────
 // المفتاح سرّ يأتي من user-secrets/البيئة. نُعطّل إعادة تخطيط المطالبات
 // (MapInboundClaims=false) كي تصل بالأسماء نفسها التي كتبها المُصدِّر تماماً.
