@@ -3,8 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { api } from '../../api/client';
 import { useToast } from '../../context/ToastContext';
 import DataTable from '../../components/common/DataTable';
+import RowActionsMenu from '../../components/common/RowActionsMenu';
 import Pagination from '../../components/common/Pagination';
-import { PencilIcon, TrashIcon } from '../../components/icons/Icons';
 import Button from '../../components/common/Button';
 import { formatPrice } from '../../components/product/ProductBadges';
 import { formatDate } from '../../i18n';
@@ -75,19 +75,11 @@ export default function Coupons() {
       render: (c) => <span className={`${styles.statusBadge} ${c.isActive ? styles.paid : styles.cancelled}`}>{c.isActive ? t('admin.coupons.active') : t('admin.coupons.inactive')}</span>,
     },
     {
-      // زرّان ظاهران دوماً (لا قائمة منسدلة — كانت تُقصّ بـ overflow الجدول)
-      // داخل عمود ثابت 120px يتّسع لهما كاملين على كل المقاسات.
-      key: 'actions', header: t('admin.coupons.colActions'), width: '120px', align: 'end', render: (c) => (
-        <span className={styles.rowActions}>
-          <button type="button" className={styles.actionBtn}
-            onClick={() => setEditing(c)} aria-label={t('common.edit')} title={t('common.edit')}>
-            <PencilIcon />
-          </button>
-          <button type="button" className={`${styles.actionBtn} ${styles.actionDanger}`}
-            onClick={() => remove(c)} aria-label={t('common.delete')} title={t('common.delete')}>
-            <TrashIcon />
-          </button>
-        </span>
+      key: 'actions', header: t('admin.coupons.colActions'), width: '64px', align: 'end', render: (c) => (
+        <RowActionsMenu actions={[
+          { label: t('common.edit'), onClick: () => setEditing(c) },
+          { label: t('common.delete'), variant: 'danger', onClick: () => remove(c) },
+        ]} />
       ),
     },
   ];
@@ -103,7 +95,7 @@ export default function Coupons() {
 
       <DataTable columns={columns} rows={items} rowKey={(c) => c.id} loading={loading} error={error}
         onRetry={load} emptyTitle={t('admin.coupons.emptyTitle')} emptyMessage={t('admin.coupons.emptyMessage')}
-        minWidth="850px" stickyFirstColumn />
+        minWidth="780px" stickyFirstColumn />
 
       <Pagination page={page} totalPages={totalPages} onChange={setPage} />
 

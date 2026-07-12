@@ -32,12 +32,6 @@ export const TrashIcon = ({ size = 16 }) => (
   </svg>
 );
 
-export const PencilIcon = ({ size = 16 }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" {...base}>
-    <path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
-  </svg>
-);
-
 export const ChevronIcon = ({ size = 16, dir = 'down' }) => {
   const rotate = { down: 0, up: 180, start: 90, end: -90 }[dir];
   return (

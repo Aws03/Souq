@@ -1,17 +1,18 @@
-.wrap { position: relative; display: inline-block; }
 .trigger {
   width: 32px; height: 32px; border-radius: 8px; display: grid; place-items: center;
   color: var(--muted); transition: background var(--ease-hover);
 }
 .trigger:hover { background: var(--soft); color: var(--ink); }
 
+/* القائمة تعيش في Portal على body بموضع fixed (يحسبه المكوّن من موضع الزر) —
+   خارج أي حاوية overflow فلا تُقصّ إطلاقاً. فوق كل الطبقات الأخرى (أعلاها 300). */
 .menu {
-  position: absolute; top: calc(100% + 6px); left: 0; z-index: 20; min-width: 140px;
+  position: fixed; z-index: 400; min-width: 140px;
   background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-sm);
   box-shadow: var(--shadow-lg); overflow: hidden; padding: 6px;
 }
 .item {
-  display: block; width: 100%; text-align: right; padding: 9px 12px; border-radius: 6px;
+  display: block; width: 100%; text-align: start; padding: 9px 12px; border-radius: 6px;
   font-size: var(--fs-body-sm); color: var(--ink); transition: background var(--ease-hover);
 }
 .item:hover:not(:disabled) { background: var(--soft); }
