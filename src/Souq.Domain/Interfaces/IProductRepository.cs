@@ -30,4 +30,9 @@ public interface IProductRepository : IRepository<Product>
 
     // المنتجات النشطة التي بلغ مخزونها حدّ التنبيه أو نزل تحته — للتنبيه والبادج.
     Task<IReadOnlyList<Product>> GetLowStockAsync(CancellationToken ct = default);
+
+    // منتجات ذات صلة لصفحة تفصيل منتج: نفس الفئة أولاً (الأكثر مبيعاً)، ثم
+    // تعبئة الباقي بأحدث منتجات من فئات أخرى. يستبعد المنتج نفسه دائماً.
+    Task<IReadOnlyList<Product>> GetRelatedAsync(
+        int productId, int categoryId, int count, CancellationToken ct = default);
 }

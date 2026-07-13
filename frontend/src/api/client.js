@@ -93,6 +93,7 @@ export const api = {
     return request(`/products?${q}`);
   },
   getProduct: (id) => request(`/products/${id}`),
+  getRelatedProducts: (id, count = 6) => request(`/products/${id}/related?count=${count}`),
   getCategories: () => request('/categories'),
 
   // ── الطلبات ──

@@ -83,4 +83,34 @@ public class ProductRepository : RepositoryBase<Product>, IProductRepository
                             .Where(p => p.IsActive && p.StockQuantity <= p.LowStockThreshold)
                             .OrderBy(p => p.StockQuantity).ThenBy(p => p.Id)
                             .ToListAsync(ct);
+
+    // منتجات ذات صلة: نفس منطق "الأكثر مبيعاً" في SearchAsync (مجموع الكميات
+    // عبر الطلبات المُسلَّمة فقط) لكن مقصوراً على فئة المنتج الحالي كي تكون
+    // الاقتراحات فعلاً مشابهة. إن لم تكفِ نفس الفئة، نُكمل بأحدث منتجات من فئات
+    // أخرى (تنويع) بدل إرجاع عدد أقلّ من count.
+    public async Task<IReadOnlyList<Product>> GetRelatedAsync(
+        int productId, int categoryId, int count, CancellationToken ct = default)
+    {
+        var sameCategory = await Db.Products.Include(p => p.Category)
+            .Where(p => p.IsActive && p.CategoryId == categoryId && p.Id != productId)
+            .OrderByDescending(p =>
+                Db.Orders.Where(o => o.Status == OrderStatus.Delivered)
+                         .SelectMany(o => o.Items)
+                         .Where(i => i.ProductId == p.Id)
+                         .Sum(i => (int?)i.Quantity) ?? 0)
+            .ThenByDescending(p => p.Id)
+            .Take(count)
+            .ToListAsync(ct);
+
+        if (sameCategory.Count >= count) return sameCategory;
+
+        var excludedIds = sameCategory.Select(p => p.Id).Append(productId).ToList();
+        var others = await Db.Products.Include(p => p.Category)
+            .Where(p => p.IsActive && p.CategoryId != categoryId && !excludedIds.Contains(p.Id))
+            .OrderByDescending(p => p.Id)
+            .Take(count - sameCategory.Count)
+            .ToListAsync(ct);
+
+        return sameCategory.Concat(others).ToList();
+    }
 }

@@ -15,6 +15,7 @@ import ProductZoom from '../components/product/ProductZoom';
 import StarRating from '../components/product/StarRating';
 import ReviewForm from '../components/reviews/ReviewForm';
 import ReviewList from '../components/reviews/ReviewList';
+import ProductSection from '../components/store/ProductSection';
 import styles from './ProductDetail.module.css';
 
 // صفحة تفصيل منتج: صورة كبيرة + بيانات كاملة + إضافة للسلة، وأسفلها التقييمات
@@ -35,9 +36,17 @@ export default function ProductDetail() {
   const [reviewsError, setReviewsError] = useState(null);
   const [page, setPage] = useState(1);
 
+  const [related, setRelated] = useState(null);
+  const [relatedLoading, setRelatedLoading] = useState(true);
+
   useEffect(() => {
     setProduct(null); setProductError(null);
     api.getProduct(id).then(setProduct).catch((e) => setProductError(e.message));
+  }, [id]);
+
+  useEffect(() => {
+    setRelated(null); setRelatedLoading(true);
+    api.getRelatedProducts(id).then(setRelated).catch(() => setRelated([])).finally(() => setRelatedLoading(false));
   }, [id]);
 
   const loadReviews = () => {
@@ -95,6 +104,9 @@ export default function ProductDetail() {
           </div>
         </div>
       </div>
+
+      <ProductSection title={t('product.relatedTitle')} products={related} loading={relatedLoading}
+        onAdded={showToast} showViewAll={false} />
 
       <section className={styles.reviewsSection}>
         <h2 className={styles.sectionTitle}>{t('product.reviewsTitle')}</h2>

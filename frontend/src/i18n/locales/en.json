@@ -72,7 +72,8 @@
     "zoomOut": "Zoom out",
     "viewFullscreen": "Fullscreen",
     "tabPhotos": "Photos",
-    "tabVideo": "Video"
+    "tabVideo": "Video",
+    "relatedTitle": "Related products"
   },
   "reviews": {
     "addTitle": "Add your review",

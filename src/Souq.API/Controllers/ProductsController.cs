@@ -46,6 +46,15 @@ public class ProductsController : ControllerBase
         return result.IsSuccess ? Ok(result.Value) : NotFound(new { error = result.Error });
     }
 
+    // GET /api/products/5/related — منتجات ذات صلة (نفس الفئة الأكثر مبيعاً
+    // أولاً، ثم تعبئة بأحدث فئات أخرى). عامة بلا مصادقة مثل GetById.
+    [HttpGet("{id:int}/related")]
+    public async Task<IActionResult> GetRelated(int id, [FromQuery] int count = 6)
+    {
+        var result = await _mediator.Send(new GetRelatedProductsQuery(id, count));
+        return result.IsSuccess ? Ok(result.Value) : NotFound(new { error = result.Error });
+    }
+
     // POST /api/products  (للمدير) — ينشئ منتجاً. محمي: دور Admin فقط.
     [HttpPost]
     [Authorize(Roles = Roles.Admin)]

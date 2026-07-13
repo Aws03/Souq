@@ -7,7 +7,7 @@ const SKELETON_COUNT = 4;
 
 // صف منتجات عام بعنوان + رابط "عرض الكل" — يُستخدم لكل من "وصل حديثاً" و
 // "الأكثر مبيعاً". تمرير أفقي على الجوال، شبكة ثابتة على سطح المكتب.
-export default function ProductSection({ title, products, loading, onAdded, isNew = false, viewAllTargetId = 'catalog' }) {
+export default function ProductSection({ title, products, loading, onAdded, isNew = false, viewAllTargetId = 'catalog', showViewAll = true }) {
   const { t } = useTranslation();
 
   const scrollToAll = () => {
@@ -21,9 +21,11 @@ export default function ProductSection({ title, products, loading, onAdded, isNe
       <div className="souq-layout">
         <div className={styles.productSection__head}>
           <h2 className={styles.productSection__title}>{title}</h2>
-          <button type="button" className={styles.productSection__viewAll} onClick={scrollToAll}>
-            {t('store.viewAll')}
-          </button>
+          {showViewAll && (
+            <button type="button" className={styles.productSection__viewAll} onClick={scrollToAll}>
+              {t('store.viewAll')}
+            </button>
+          )}
         </div>
 
         <div className={styles.productSection__row}>
