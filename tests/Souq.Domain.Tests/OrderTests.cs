@@ -21,6 +21,68 @@ public class OrderTests
     }
 
     [Fact]
+    public void جديد_يسجّل_سطر_تاريخ_أول_بحالة_Pending()
+    {
+        var order = NewOrder();
+
+        order.StatusHistory.Should().ContainSingle();
+        order.StatusHistory.Single().Status.Should().Be(OrderStatus.Pending);
+    }
+
+    [Fact]
+    public void كل_انتقال_حالة_يضيف_سطر_تاريخ_جديد()
+    {
+        var order = NewOrder();
+        order.AddItem(1, "سماعات", new Money(50), 1);
+
+        order.MarkAsPaid();
+        order.MarkAsShipped();
+        order.MarkAsDelivered();
+
+        order.StatusHistory.Should().HaveCount(4); // Pending + Paid + Shipped + Delivered
+        order.StatusHistory.Select(h => h.Status).Should().Equal(
+            OrderStatus.Pending, OrderStatus.Paid, OrderStatus.Shipped, OrderStatus.Delivered);
+    }
+
+    [Fact]
+    public void MarkAsShipped_يخزّن_رقم_التتبّع_وشركة_الشحن_والملاحظة()
+    {
+        var order = NewOrder();
+        order.AddItem(1, "سماعات", new Money(50), 1);
+        order.MarkAsPaid();
+
+        order.MarkAsShipped("TRK-123", "أرامكس", "سلّم للمندوب");
+
+        order.TrackingNumber.Should().Be("TRK-123");
+        order.ShippingCarrier.Should().Be("أرامكس");
+        order.StatusHistory.Last().Note.Should().Be("سلّم للمندوب");
+    }
+
+    [Fact]
+    public void MarkAsShipped_بلا_رقم_تتبّع_يترك_الحقل_فارغاً()
+    {
+        var order = NewOrder();
+        order.AddItem(1, "سماعات", new Money(50), 1);
+        order.MarkAsPaid();
+
+        order.MarkAsShipped();
+
+        order.TrackingNumber.Should().BeNull();
+        order.ShippingCarrier.Should().BeNull();
+    }
+
+    [Fact]
+    public void Cancel_بملاحظة_يسجّلها_في_سطر_التاريخ()
+    {
+        var order = NewOrder();
+        order.AddItem(1, "سماعات", new Money(50), 1);
+
+        order.Cancel("فشل الدفع");
+
+        order.StatusHistory.Last().Note.Should().Be("فشل الدفع");
+    }
+
+    [Fact]
     public void AddItem_يضيف_سطراً_جديداً_ويحسب_الإجمالي()
     {
         var order = NewOrder();

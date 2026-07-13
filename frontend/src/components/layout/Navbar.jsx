@@ -38,6 +38,7 @@ export default function Navbar({ onCartClick, searchTerm, onSearchChange }) {
 
         {isAuthenticated ? (
           <>
+            <Link to="/orders" className={`${styles.linkLight} ${styles.desktopOnly}`}>{t('nav.myOrders')}</Link>
             <span className={styles.user}>{t('nav.hello', { name: user.fullName?.split(' ')[0] })}</span>
             <button className={styles.linkBtn} onClick={logout}>{t('nav.logout')}</button>
           </>

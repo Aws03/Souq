@@ -99,6 +99,10 @@ export const api = {
   createOrder: (payload) => request('/orders', { method: 'POST', body: JSON.stringify(payload) }),
   getOrder: (id) => request(`/orders/${id}`),
   confirmOrderPayment: (id) => request(`/orders/${id}/confirm-payment`, { method: 'POST' }),
+  getMyOrders: () => request('/orders/mine'),
+  // تتبّع بلا مصادقة (رابط قابل للمشاركة) — نفس نقطة الخادم العامة تُستخدم هنا
+  // وفي صفحة تفصيل الطلب داخل التطبيق معاً (لا فرق بين الحالتين من الواجهة).
+  getOrderTracking: (id) => request(`/orders/${id}/tracking`),
 
   // ── الدفع (Stripe) ──
   getPaymentConfig: () => request('/payments/config'),
@@ -158,6 +162,6 @@ export const api = {
     ).toString();
     return request(`/orders?${q}`);
   },
-  updateOrderStatus: (id, action) =>
-    request(`/orders/${id}/status`, { method: 'PUT', body: JSON.stringify({ action }) }),
+  updateOrderStatus: (id, action, extra = {}) =>
+    request(`/orders/${id}/status`, { method: 'PUT', body: JSON.stringify({ action, ...extra }) }),
 };

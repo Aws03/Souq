@@ -58,7 +58,7 @@ public class ConfirmOrderPaymentHandler : IRequestHandler<ConfirmOrderPaymentCom
                 product.IncreaseStock(item.Quantity);
                 _products.Update(product);
             }
-            order.Cancel();
+            order.Cancel(confirmation.FailureReason ?? "فشل الدفع");
             await _uow.SaveChangesAsync(ct);
 
             return Result<OrderConfirmedDto>.Failure(confirmation.FailureReason ?? "فشل الدفع", "PaymentFailed");

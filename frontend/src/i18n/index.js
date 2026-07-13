@@ -53,4 +53,10 @@ export function formatDate(iso) {
   return new Date(iso).toLocaleDateString(locale);
 }
 
+// تاريخ + وقت معاً (خط زمني تتبّع الطلب) — نفس منطق اللغة/التقويم أعلاه.
+export function formatDateTime(iso) {
+  const locale = i18n.language === 'ar' ? 'ar-JO' : 'en-US';
+  return new Date(iso).toLocaleString(locale, { dateStyle: 'medium', timeStyle: 'short' });
+}
+
 export default i18n;

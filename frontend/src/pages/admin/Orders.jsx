@@ -7,6 +7,7 @@ import RowActionsMenu from '../../components/common/RowActionsMenu';
 import Pagination from '../../components/common/Pagination';
 import { formatPrice } from '../../components/product/ProductBadges';
 import { formatDate } from '../../i18n';
+import ShipOrderDrawer from './ShipOrderDrawer';
 import styles from './Admin.module.css';
 
 const PAGE_SIZE = 20;
@@ -29,6 +30,7 @@ export default function Orders() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [busyId, setBusyId] = useState(null);
+  const [shippingOrder, setShippingOrder] = useState(null); // الطلب المفتوح درج شحنه، أو null
 
   const load = useCallback(() => {
     setLoading(true);
@@ -50,6 +52,15 @@ export default function Orders() {
     finally { setBusyId(null); }
   };
 
+  // الشحن وحده يحتاج مدخلات إضافية (رقم تتبّع/شركة شحن) فيُفتح له درج بدل
+  // تطبيق الإجراء فوراً كباقي الانتقالات.
+  const ship = async (extra) => {
+    await api.updateOrderStatus(shippingOrder.id, 'Ship', extra);
+    toast.success(t('admin.orders.statusUpdated'));
+    setShippingOrder(null);
+    load();
+  };
+
   // عرض/محاذاة ثابتان لكل عمود (colgroup في DataTable) — لا يهتزّ الجدول بين
   // صفحات بأطوال قيم مختلفة. status يقصّ بنقاط + title احتياطاً لتسميات أطول.
   const columns = [
@@ -69,7 +80,10 @@ export default function Orders() {
         if (actions.length === 0) return null;
         return (
           <RowActionsMenu disabled={busyId === o.id}
-            actions={actions.map((action) => ({ label: t(`admin.orders.action.${action}`), onClick: () => act(o, action) }))} />
+            actions={actions.map((action) => ({
+              label: t(`admin.orders.action.${action}`),
+              onClick: () => action === 'Ship' ? setShippingOrder(o) : act(o, action),
+            }))} />
         );
       },
     },
@@ -85,6 +99,10 @@ export default function Orders() {
         minWidth="620px" stickyFirstColumn />
 
       <Pagination page={page} totalPages={totalPages} onChange={setPage} />
+
+      {shippingOrder && (
+        <ShipOrderDrawer order={shippingOrder} onShip={ship} onClose={() => setShippingOrder(null)} />
+      )}
     </div>
   );
 }

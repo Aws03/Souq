@@ -35,7 +35,7 @@ export default function Confirmation() {
 
         <div className={styles.actions}>
           <Button variant="saffron" size="lg" onClick={() => navigate('/')}>{t('confirmation.continueShopping')}</Button>
-          <Button variant="ghost" size="lg" onClick={() => navigate('/')}>{t('confirmation.trackOrder')}</Button>
+          <Button variant="ghost" size="lg" onClick={() => navigate(`/orders/${order.orderId}`)}>{t('confirmation.trackOrder')}</Button>
         </div>
       </div>
     </div>

@@ -9,7 +9,13 @@ namespace Souq.Application.Features.Orders.Commands;
 // يُطلب انتقال تعسّفي (مثل إعادة الطلب لـ Pending)؛ نكشف الانتقالات المعنيّة فقط.
 public enum OrderStatusAction { Ship, Deliver, Cancel }
 
-public record UpdateOrderStatusCommand(int OrderId, OrderStatusAction Action) : IRequest<Result>;
+// Note اختياري لكل إجراء (يُسجَّل في سجلّ تاريخ الطلب). TrackingNumber/ShippingCarrier
+// ذَواتَي معنى فقط مع Ship — يُتجاهَلان صامتاً لأي إجراء آخر (الكيان نفسه لا
+// يقبلهما إلا داخل MarkAsShipped).
+public record UpdateOrderStatusCommand(
+    int OrderId, OrderStatusAction Action,
+    string? Note = null, string? TrackingNumber = null, string? ShippingCarrier = null
+) : IRequest<Result>;
 
 public class UpdateOrderStatusHandler : IRequestHandler<UpdateOrderStatusCommand, Result>
 {
@@ -32,9 +38,9 @@ public class UpdateOrderStatusHandler : IRequestHandler<UpdateOrderStatusCommand
             // الكيان يحرس صحّة الانتقال (لا يُشحن طلب لم يُدفع...). خطأ متوقّع ⇒ Result.
             switch (cmd.Action)
             {
-                case OrderStatusAction.Ship: order.MarkAsShipped(); break;
-                case OrderStatusAction.Deliver: order.MarkAsDelivered(); break;
-                case OrderStatusAction.Cancel: order.Cancel(); break;
+                case OrderStatusAction.Ship: order.MarkAsShipped(cmd.TrackingNumber, cmd.ShippingCarrier, cmd.Note); break;
+                case OrderStatusAction.Deliver: order.MarkAsDelivered(cmd.Note); break;
+                case OrderStatusAction.Cancel: order.Cancel(cmd.Note); break;
             }
         }
         catch (InvalidOrderOperationException ex)

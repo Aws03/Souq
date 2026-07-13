@@ -7,7 +7,8 @@ namespace Souq.Application.Features.Orders.Queries;
 public record OrderItemDto(int ProductId, string ProductName, decimal UnitPrice, int Quantity, decimal LineTotal);
 public record OrderDto(int Id, int CustomerId, string Status, string ShippingAddress,
     decimal Subtotal, decimal? DiscountAmount, string? CouponCode,
-    decimal TotalAmount, string Currency, DateTime CreatedAt, List<OrderItemDto> Items);
+    decimal TotalAmount, string Currency, DateTime CreatedAt, List<OrderItemDto> Items,
+    string? TrackingNumber, string? ShippingCarrier);
 
 public record GetOrderByIdQuery(int Id) : IRequest<Result<OrderDto>>;
 
@@ -26,7 +27,8 @@ public class GetOrderByIdHandler : IRequestHandler<GetOrderByIdQuery, Result<Ord
             order.Subtotal.Amount, order.DiscountAmount?.Amount, order.CouponCode,
             order.TotalAmount.Amount, order.TotalAmount.Currency, order.CreatedAt,
             order.Items.Select(i => new OrderItemDto(
-                i.ProductId, i.ProductName, i.UnitPrice.Amount, i.Quantity, i.LineTotal.Amount)).ToList());
+                i.ProductId, i.ProductName, i.UnitPrice.Amount, i.Quantity, i.LineTotal.Amount)).ToList(),
+            order.TrackingNumber, order.ShippingCarrier);
 
         return Result<OrderDto>.Success(dto);
     }

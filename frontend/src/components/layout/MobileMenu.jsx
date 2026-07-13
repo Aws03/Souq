@@ -21,6 +21,7 @@ export default function MobileMenu({ open, onClose, searchTerm, onSearchChange, 
           {isAdmin && <Link to="/admin" onClick={onClose}>{t('nav.adminPanel')}</Link>}
           {isAuthenticated ? (
             <>
+              <Link to="/orders" onClick={onClose}>{t('nav.myOrders')}</Link>
               <span className={styles.hello}>{t('nav.hello', { name: user.fullName?.split(' ')[0] })}</span>
               <button type="button" onClick={() => { logout(); onClose(); }}>{t('nav.logoutFull')}</button>
             </>

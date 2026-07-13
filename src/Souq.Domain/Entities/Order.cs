@@ -20,6 +20,10 @@ namespace Souq.Domain.Entities;
 public class Order : Entity
 {
     private readonly List<OrderItem> _items = new();
+    // سجلّ انتقالات الحالة — جزء من التجمّع مثل _items تماماً. RecordStatusChange
+    // هو الباب الوحيد للإضافة إليه، يُستدعى داخلياً من كل دالة تُغيّر Status،
+    // فيستحيل هندسياً أن ينتقل الطلب لحالة جديدة دون أن يُسجَّل ذلك.
+    private readonly List<OrderStatusHistory> _statusHistory = new();
 
     public int CustomerId { get; private set; }
     public OrderStatus Status { get; private set; }
@@ -27,9 +31,12 @@ public class Order : Entity
     public string? CouponCode { get; private set; }
     public Money? DiscountAmount { get; private set; }
     public string? PaymentIntentId { get; private set; }
+    public string? TrackingNumber { get; private set; }
+    public string? ShippingCarrier { get; private set; }
 
     // نكشف الأسطر للقراءة فقط — لا يستطيع الخارج الإضافة/الحذف مباشرة.
     public IReadOnlyCollection<OrderItem> Items => _items.AsReadOnly();
+    public IReadOnlyCollection<OrderStatusHistory> StatusHistory => _statusHistory.AsReadOnly();
 
     // الإجمالي الفرعي محسوب من الأسطر، فيستحيل أن يتعارض معها.
     public Money Subtotal =>
@@ -45,7 +52,12 @@ public class Order : Entity
         CustomerId = customerId;
         ShippingAddress = shippingAddress;
         Status = OrderStatus.Pending;   // كل طلب يبدأ "بانتظار الدفع"
+        RecordStatusChange(null);       // سطر تاريخ أول يوثّق لحظة إنشاء الطلب
     }
+
+    // الباب الوحيد لتسجيل سطر تاريخ — private لا internal حتى: لا يُستدعى إلا
+    // من داخل Order نفسه، مباشرة بعد كل تغيير فعلي لـ Status.
+    private void RecordStatusChange(string? note) => _statusHistory.Add(new OrderStatusHistory(Status, note));
 
     // الباب الوحيد لإضافة منتج للطلب. القاعدة محمية: لا إضافة بعد بدء المعالجة.
     public void AddItem(int productId, string productName, Money unitPrice, int quantity)
@@ -90,34 +102,45 @@ public class Order : Entity
     }
 
     // انتقالات الحالة (State Machine). كل انتقال محروس: لا يمكن شحن طلب لم يُدفع.
-    public void MarkAsPaid()
+    // note اختياري في كل انتقال — يوثّق سبب/تفصيل الانتقال في سجلّ التاريخ
+    // (مثال: سبب الإلغاء، أو ملاحظة الإدارة عند الشحن).
+    public void MarkAsPaid(string? note = null)
     {
         if (Status != OrderStatus.Pending)
             throw new InvalidOrderOperationException("لا يمكن دفع طلب ليس بانتظار الدفع");
         if (!_items.Any())
             throw new InvalidOrderOperationException("لا يمكن دفع طلب فارغ");
         Status = OrderStatus.Paid;
+        RecordStatusChange(note);
     }
 
-    public void MarkAsShipped()
+    // trackingNumber/shippingCarrier اختياريان أيضاً — قد تُشحن الشحنة قبل توفّر
+    // رقم التتبّع من شركة الشحن. يُقبلان الآن فقط (لحظة الشحن) لا لاحقاً بشكل
+    // مستقلّ، تماشياً مع سير عمل الإدارة الفعلي (تُدخلان معاً عند الشحن).
+    public void MarkAsShipped(string? trackingNumber = null, string? shippingCarrier = null, string? note = null)
     {
         if (Status != OrderStatus.Paid)
             throw new InvalidOrderOperationException("لا يمكن شحن طلب لم يُدفع");
         Status = OrderStatus.Shipped;
+        TrackingNumber = string.IsNullOrWhiteSpace(trackingNumber) ? null : trackingNumber;
+        ShippingCarrier = string.IsNullOrWhiteSpace(shippingCarrier) ? null : shippingCarrier;
+        RecordStatusChange(note);
     }
 
-    public void MarkAsDelivered()
+    public void MarkAsDelivered(string? note = null)
     {
         if (Status != OrderStatus.Shipped)
             throw new InvalidOrderOperationException("لا يمكن تسليم طلب لم يُشحن");
         Status = OrderStatus.Delivered;
+        RecordStatusChange(note);
     }
 
-    public void Cancel()
+    public void Cancel(string? note = null)
     {
         // لا نُلغي طلباً شُحن أو سُلّم.
         if (Status is OrderStatus.Shipped or OrderStatus.Delivered)
             throw new InvalidOrderOperationException("لا يمكن إلغاء طلب تم شحنه أو تسليمه");
         Status = OrderStatus.Cancelled;
+        RecordStatusChange(note);
     }
 }

@@ -16,6 +16,8 @@ import Store from './pages/Store';
 import Offers from './pages/Offers';
 import ProductDetail from './pages/ProductDetail';
 import Wishlist from './pages/Wishlist';
+import MyOrders from './pages/MyOrders';
+import OrderTracking from './pages/OrderTracking';
 import Checkout from './pages/checkout/Checkout';
 import Confirmation from './pages/Confirmation';
 import Login from './pages/auth/Login';
@@ -95,6 +97,10 @@ export default function App() {
           <Route path="/offers" element={<Offers />} />
           <Route path="/products/:id" element={<ProductDetail />} />
           <Route path="/wishlist" element={<Wishlist />} />
+          <Route path="/orders" element={<ProtectedRoute><MyOrders /></ProtectedRoute>} />
+          {/* بلا حارس عمداً: نفس رابط التتبّع العام القابل للمشاركة (الخادم لا
+              يتطلّب مصادقة لهذه النقطة) — يعمل لزائر لم يُسجّل الدخول أيضاً. */}
+          <Route path="/orders/:id" element={<OrderTracking />} />
           <Route path="/checkout" element={<ProtectedRoute><Checkout /></ProtectedRoute>} />
           <Route path="/confirmation" element={<ProtectedRoute><Confirmation /></ProtectedRoute>} />
         </Route>

@@ -21,6 +21,7 @@
   "nav": {
     "openMenu": "Open menu",
     "adminPanel": "Admin panel",
+    "myOrders": "My Orders",
     "hello": "Hi, {{name}}",
     "logout": "Log out",
     "logoutFull": "Log out",
@@ -215,6 +216,24 @@
     "continueShopping": "Continue shopping",
     "trackOrder": "Track your order"
   },
+  "orders": {
+    "myOrdersTitle": "My Orders",
+    "emptyTitle": "No orders yet",
+    "emptyMessage": "Your orders will appear here after your first purchase.",
+    "orderNumber": "Order #{{id}}",
+    "backToStore": "Back to store",
+    "trackingNumber": "Tracking number",
+    "trackingCopied": "Tracking number copied",
+    "copy": "Copy",
+    "copied": "Copied",
+    "status": {
+      "Pending": "Pending payment",
+      "Paid": "Paid",
+      "Shipped": "Shipped",
+      "Delivered": "Delivered",
+      "Cancelled": "Cancelled"
+    }
+  },
   "admin": {
     "headerTitle": "Store control panel",
     "adminFallback": "Admin",
@@ -399,7 +418,14 @@
         "Cancel": "Cancel",
         "Ship": "Ship",
         "Deliver": "Deliver"
-      }
+      },
+      "shipTitle": "Ship order #{{id}}",
+      "confirmShip": "Confirm shipping",
+      "trackingNumberLabel": "Tracking number (optional)",
+      "trackingNumberHint": "Can be added later if not available yet",
+      "carrierLabel": "Shipping carrier (optional)",
+      "carrierPlaceholder": "Aramex, Jordan Post...",
+      "noteLabel": "Note (optional)"
     }
   },
   "wishlist": {

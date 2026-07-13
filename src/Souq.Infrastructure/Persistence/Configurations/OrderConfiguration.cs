@@ -14,6 +14,8 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         builder.Property(o => o.ShippingAddress).HasMaxLength(500);
         builder.Property(o => o.CouponCode).HasMaxLength(50);
         builder.Property(o => o.PaymentIntentId).HasMaxLength(100);
+        builder.Property(o => o.TrackingNumber).HasMaxLength(100);
+        builder.Property(o => o.ShippingCarrier).HasMaxLength(100);
         builder.HasIndex(o => o.CustomerId);
 
         // خصم الكوبون المطبَّق (اختياري — owned optional، لا شيء يُخزَّن بلا كوبون).
@@ -36,5 +38,13 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
                .HasForeignKey("OrderId")
                .OnDelete(DeleteBehavior.Cascade);
         builder.Navigation(o => o.Items).UsePropertyAccessMode(PropertyAccessMode.Field);
+
+        // علاقة تجمّع ثانية: سجلّ تاريخ الحالة. نفس نمط Items تماماً (مفتاح أجنبي
+        // ظلّي + وصول عبر الحقل الخاص _statusHistory) — الطلب يملك تاريخه كما يملك أسطره.
+        builder.HasMany(o => o.StatusHistory)
+               .WithOne()
+               .HasForeignKey("OrderId")
+               .OnDelete(DeleteBehavior.Cascade);
+        builder.Navigation(o => o.StatusHistory).UsePropertyAccessMode(PropertyAccessMode.Field);
     }
 }

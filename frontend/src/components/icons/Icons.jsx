@@ -45,6 +45,12 @@ export const CheckIcon = ({ size = 18 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" {...base}><path d="m5 13 4 4L19 7" /></svg>
 );
 
+export const CopyIcon = ({ size = 16 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" {...base}>
+    <rect x="9" y="9" width="12" height="12" rx="2" /><path d="M5 15V5a2 2 0 0 1 2-2h10" />
+  </svg>
+);
+
 export const MenuIcon = ({ size = 22 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" {...base}><path d="M4 6h16M4 12h16M4 18h16" /></svg>
 );

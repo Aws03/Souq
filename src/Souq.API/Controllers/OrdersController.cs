@@ -67,6 +67,24 @@ public class OrdersController : ControllerBase
         return Ok(result.Value);
     }
 
+    // GET /api/orders/mine — طلبات العميل الحالي (شاشة "طلباتي"). الهوية من
+    // التوكن حصراً، فلا حاجة لفحص ملكية إضافي (الاستعلام يجلب طلباته هو فقط).
+    [HttpGet("mine")]
+    public async Task<IActionResult> GetMine()
+        => Ok(await _mediator.Send(new GetMyOrdersQuery(CurrentUserId())));
+
+    // GET /api/orders/5/tracking — رابط تتبّع قابل للمشاركة، بلا مصادقة عمداً
+    // (AllowAnonymous يتجاوز [Authorize] على مستوى الـ Controller). العقد
+    // (OrderTrackingDto) مُصمَّم عمداً ليكشف الحدّ الأدنى فقط — لا هوية العميل
+    // ولا عنوانه ولا مبلغه — تحسّباً لتخمين المعرّفات التسلسلية.
+    [HttpGet("{id:int}/tracking")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GetTracking(int id)
+    {
+        var result = await _mediator.Send(new GetOrderTrackingQuery(id));
+        return result.IsSuccess ? Ok(result.Value) : NotFound(new { error = result.Error });
+    }
+
     // GET /api/orders  (مدير) — كل الطلبات مرقّمة لشاشة الإدارة.
     [HttpGet]
     [Authorize(Roles = Roles.Admin)]
@@ -74,11 +92,14 @@ public class OrdersController : ControllerBase
         => Ok(await _mediator.Send(new GetOrdersQuery(page, pageSize)));
 
     // PUT /api/orders/5/status  (مدير) — انتقال حالة الطلب (شحن/تسليم/إلغاء).
+    // TrackingNumber/ShippingCarrier ذَواتَي معنى فقط مع Ship (الكيان يتجاهلهما
+    // لأي إجراء آخر)؛ Note اختياري لكل الإجراءات ويُسجَّل في سجلّ تاريخ الطلب.
     [HttpPut("{id:int}/status")]
     [Authorize(Roles = Roles.Admin)]
     public async Task<IActionResult> UpdateStatus(int id, [FromBody] UpdateOrderStatusRequest body)
     {
-        var result = await _mediator.Send(new UpdateOrderStatusCommand(id, body.Action));
+        var result = await _mediator.Send(new UpdateOrderStatusCommand(
+            id, body.Action, body.Note, body.TrackingNumber, body.ShippingCarrier));
         if (result.IsSuccess) return NoContent();
         return result.ErrorCode == "NotFound"
             ? NotFound(new { error = result.Error })
@@ -91,4 +112,5 @@ public class OrdersController : ControllerBase
 
 // جسم طلب تحديث الحالة. الإجراء enum يُرسَل كنص ("Ship"/"Deliver"/"Cancel")
 // بفضل JsonStringEnumConverter المسجّل في Program.
-public record UpdateOrderStatusRequest(OrderStatusAction Action);
+public record UpdateOrderStatusRequest(
+    OrderStatusAction Action, string? Note = null, string? TrackingNumber = null, string? ShippingCarrier = null);

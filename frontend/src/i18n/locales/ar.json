@@ -21,6 +21,7 @@
   "nav": {
     "openMenu": "فتح القائمة",
     "adminPanel": "لوحة الإدارة",
+    "myOrders": "طلباتي",
     "hello": "مرحباً، {{name}}",
     "logout": "خروج",
     "logoutFull": "تسجيل الخروج",
@@ -215,6 +216,24 @@
     "continueShopping": "متابعة التسوّق",
     "trackOrder": "تتبّع طلبك"
   },
+  "orders": {
+    "myOrdersTitle": "طلباتي",
+    "emptyTitle": "لا طلبات بعد",
+    "emptyMessage": "طلباتك ستظهر هنا فور إتمام أول عملية شراء.",
+    "orderNumber": "الطلب #{{id}}",
+    "backToStore": "الرجوع للمتجر",
+    "trackingNumber": "رقم التتبّع",
+    "trackingCopied": "تم نسخ رقم التتبّع",
+    "copy": "نسخ",
+    "copied": "تم النسخ",
+    "status": {
+      "Pending": "بانتظار الدفع",
+      "Paid": "مدفوع",
+      "Shipped": "تم الشحن",
+      "Delivered": "تم التسليم",
+      "Cancelled": "ملغى"
+    }
+  },
   "admin": {
     "headerTitle": "لوحة تحكّم المتجر",
     "adminFallback": "المدير",
@@ -399,7 +418,14 @@
         "Cancel": "إلغاء",
         "Ship": "شحن",
         "Deliver": "تسليم"
-      }
+      },
+      "shipTitle": "شحن الطلب #{{id}}",
+      "confirmShip": "تأكيد الشحن",
+      "trackingNumberLabel": "رقم التتبّع (اختياري)",
+      "trackingNumberHint": "يمكن إضافته لاحقاً إن لم يتوفّر الآن",
+      "carrierLabel": "شركة الشحن (اختياري)",
+      "carrierPlaceholder": "أرامكس، بريد أردن...",
+      "noteLabel": "ملاحظة (اختياري)"
     }
   },
   "wishlist": {
