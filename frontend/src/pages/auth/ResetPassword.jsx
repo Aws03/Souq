@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { api } from '../../api/client';
 import FormField, { inputClass } from '../../components/common/FormField';
+import PasswordInput from '../../components/common/PasswordInput';
 import Button from '../../components/common/Button';
 import AuthLayout from './AuthLayout';
 import styles from './Auth.module.css';
@@ -59,7 +60,7 @@ export default function ResetPassword() {
       ) : (
         <form onSubmit={submit} noValidate>
           <FormField label={t('auth.newPasswordLabel')} error={touched.password && errors.password}>
-            <input type="password" value={password} autoComplete="new-password"
+            <PasswordInput value={password} autoComplete="new-password"
               className={inputClass(touched.password && errors.password)}
               onChange={(e) => setPassword(e.target.value)}
               onBlur={() => setTouched((t) => ({ ...t, password: true }))}
@@ -67,7 +68,7 @@ export default function ResetPassword() {
           </FormField>
 
           <FormField label={t('auth.confirmPasswordLabel')} error={touched.confirm && errors.confirm}>
-            <input type="password" value={confirm} autoComplete="new-password"
+            <PasswordInput value={confirm} autoComplete="new-password"
               className={inputClass(touched.confirm && errors.confirm)}
               onChange={(e) => setConfirm(e.target.value)}
               onBlur={() => setTouched((t) => ({ ...t, confirm: true }))}

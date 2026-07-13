@@ -3,6 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../context/AuthContext';
 import FormField, { inputClass } from '../../components/common/FormField';
+import PasswordInput from '../../components/common/PasswordInput';
 import Button from '../../components/common/Button';
 import AuthLayout from './AuthLayout';
 import styles from './Auth.module.css';
@@ -54,7 +55,7 @@ export default function Login() {
         </FormField>
 
         <FormField label={t('auth.passwordLabel')} error={touched.password && errors.password}>
-          <input type="password" value={password} autoComplete="current-password"
+          <PasswordInput value={password} autoComplete="current-password"
             className={inputClass(touched.password && errors.password)}
             onChange={(e) => setPassword(e.target.value)}
             onBlur={() => setTouched((t) => ({ ...t, password: true }))}

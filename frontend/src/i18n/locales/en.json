@@ -166,6 +166,8 @@
     "passwordRequired": "Password is required",
     "passwordMinLength": "Password must be at least 8 characters",
     "passwordPlaceholderMin": "At least 8 characters",
+    "passwordShow": "Show password",
+    "passwordHide": "Hide password",
     "confirmPasswordLabel": "Confirm password",
     "confirmPasswordPlaceholder": "Re-enter your password",
     "confirmPasswordMismatch": "Passwords do not match",

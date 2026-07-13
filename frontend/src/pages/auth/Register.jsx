@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../context/AuthContext';
 import FormField, { inputClass } from '../../components/common/FormField';
+import PasswordInput from '../../components/common/PasswordInput';
 import Button from '../../components/common/Button';
 import AuthLayout from './AuthLayout';
 import styles from './Auth.module.css';
@@ -62,12 +63,12 @@ export default function Register() {
         </FormField>
 
         <FormField label={t('auth.passwordLabel')} error={err('password')}>
-          <input type="password" value={form.password} autoComplete="new-password" className={inputClass(err('password'))}
+          <PasswordInput value={form.password} autoComplete="new-password" className={inputClass(err('password'))}
             onChange={set('password')} onBlur={blur('password')} placeholder={t('auth.passwordPlaceholderMin')} />
         </FormField>
 
         <FormField label={t('auth.confirmPasswordLabel')} error={err('confirm')}>
-          <input type="password" value={form.confirm} autoComplete="new-password" className={inputClass(err('confirm'))}
+          <PasswordInput value={form.confirm} autoComplete="new-password" className={inputClass(err('confirm'))}
             onChange={set('confirm')} onBlur={blur('confirm')} placeholder={t('auth.confirmPasswordPlaceholder')} />
         </FormField>
 

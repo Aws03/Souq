@@ -166,6 +166,8 @@
     "passwordRequired": "كلمة المرور مطلوبة",
     "passwordMinLength": "كلمة المرور 8 أحرف على الأقل",
     "passwordPlaceholderMin": "8 أحرف على الأقل",
+    "passwordShow": "إظهار كلمة المرور",
+    "passwordHide": "إخفاء كلمة المرور",
     "confirmPasswordLabel": "تأكيد كلمة المرور",
     "confirmPasswordPlaceholder": "أعد كتابة كلمة المرور",
     "confirmPasswordMismatch": "كلمتا المرور غير متطابقتين",
