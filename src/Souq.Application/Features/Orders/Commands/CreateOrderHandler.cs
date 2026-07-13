@@ -2,6 +2,7 @@ using MediatR;
 using Souq.Application.Common.Interfaces;
 using Souq.Application.Common.Models;
 using Souq.Domain.Entities;
+using Souq.Domain.Enums;
 using Souq.Domain.Exceptions;
 using Souq.Domain.Interfaces;
 using Souq.Domain.ValueObjects;
@@ -28,15 +29,17 @@ public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, Result<Ord
     private readonly IOrderRepository _orders;
     private readonly ICustomerRepository _customers;
     private readonly ICouponRepository _coupons;
+    private readonly IStockMovementRepository _stockMovements;
     private readonly IPaymentService _payment;
     private readonly IUnitOfWork _uow;
 
     public CreateOrderHandler(
         IProductRepository products, IOrderRepository orders, ICustomerRepository customers,
-        ICouponRepository coupons, IPaymentService payment, IUnitOfWork uow)
+        ICouponRepository coupons, IStockMovementRepository stockMovements,
+        IPaymentService payment, IUnitOfWork uow)
     {
         _products = products; _orders = orders; _customers = customers;
-        _coupons = coupons; _payment = payment; _uow = uow;
+        _coupons = coupons; _stockMovements = stockMovements; _payment = payment; _uow = uow;
     }
 
     public async Task<Result<OrderCreatedDto>> Handle(CreateOrderCommand cmd, CancellationToken ct)
@@ -79,6 +82,10 @@ public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, Result<Ord
             product.DecreaseStock(quantity);
             order.AddItem(product.Id, product.Name, product.Price, quantity);
             _products.Update(product);
+            // نسجّل كل بيع في سجلّ حركة المخزون (كمية سالبة = نقص). يُحفظ ذرّياً
+            // ضمن نفس معاملة الطلب أدناه — فلا بيع دون أثر مخزون ولا العكس.
+            await _stockMovements.AddAsync(
+                StockMovement.For(product, StockMovementType.Sale, -quantity), ct);
         }
         if (coupon is not null)
             order.ApplyCoupon(coupon.Code, coupon.CalculateDiscount(subtotal));

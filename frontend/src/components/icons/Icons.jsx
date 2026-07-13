@@ -113,6 +113,18 @@ export const GridIcon = ({ size = 18 }) => (
   </svg>
 );
 
+export const InventoryIcon = ({ size = 18 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" {...base}>
+    <path d="M3 7 12 3l9 4-9 4-9-4Z" /><path d="M3 7v10l9 4 9-4V7" /><path d="M12 11v10" />
+  </svg>
+);
+
+export const HistoryIcon = ({ size = 18 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" {...base}>
+    <path d="M3 12a9 9 0 1 0 3-6.7L3 8" /><path d="M3 4v4h4" /><path d="M12 8v4l3 2" />
+  </svg>
+);
+
 export const TagIcon = ({ size = 18 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" {...base}>
     <path d="M11.5 3.5 20 12l-8 8-8.5-8.5V3.5h8Z" /><circle cx="8" cy="8" r="1.3" fill="currentColor" stroke="none" />

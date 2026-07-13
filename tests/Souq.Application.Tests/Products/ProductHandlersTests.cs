@@ -3,6 +3,7 @@ using NSubstitute;
 using Souq.Application.Features.Products.Commands;
 using Souq.Application.Features.Products.Queries;
 using Souq.Domain.Entities;
+using Souq.Domain.Enums;
 using Souq.Domain.Interfaces;
 using Souq.Domain.ValueObjects;
 
@@ -11,18 +12,37 @@ namespace Souq.Application.Tests.Products;
 public class CreateProductHandlerTests
 {
     private readonly IProductRepository _products = Substitute.For<IProductRepository>();
+    private readonly IStockMovementRepository _stockMovements = Substitute.For<IStockMovementRepository>();
     private readonly IUnitOfWork _uow = Substitute.For<IUnitOfWork>();
 
     [Fact]
-    public async Task ينشئ_المنتج_ويحفظه_مرة_واحدة()
+    public async Task ينشئ_المنتج_ويسجّل_مخزونه_الابتدائي_حركة_توريد()
     {
-        var handler = new CreateProductHandler(_products, _uow);
+        var handler = new CreateProductHandler(_products, _stockMovements, _uow);
         var cmd = new CreateProductCommand("سماعات", "وصف", 59.9m, 10, "headphones", CategoryId: 1);
 
         var result = await handler.Handle(cmd, CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
         await _products.Received(1).AddAsync(Arg.Any<Product>(), Arg.Any<CancellationToken>());
+        // المخزون الابتدائي (10) يُسجَّل حركة Purchase موجبة.
+        await _stockMovements.Received(1).AddAsync(
+            Arg.Is<StockMovement>(m => m.Type == StockMovementType.Purchase && m.QuantityChange == 10),
+            Arg.Any<CancellationToken>());
+        // حفظ أول للمنتج (يولّد المعرّف)، ثم ثانٍ للحركة المرتبطة بمعرّفه.
+        await _uow.Received(2).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task منتج_بمخزون_صفر_يُحفظ_مرة_واحدة_بلا_حركة()
+    {
+        var handler = new CreateProductHandler(_products, _stockMovements, _uow);
+        var cmd = new CreateProductCommand("سماعات", "وصف", 59.9m, 0, "headphones", CategoryId: 1);
+
+        var result = await handler.Handle(cmd, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        await _stockMovements.DidNotReceive().AddAsync(Arg.Any<StockMovement>(), Arg.Any<CancellationToken>());
         await _uow.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 }
@@ -31,9 +51,10 @@ public class UpdateProductHandlerTests
 {
     private readonly IProductRepository _products = Substitute.For<IProductRepository>();
     private readonly ICategoryRepository _categories = Substitute.For<ICategoryRepository>();
+    private readonly IStockMovementRepository _stockMovements = Substitute.For<IStockMovementRepository>();
     private readonly IUnitOfWork _uow = Substitute.For<IUnitOfWork>();
 
-    private UpdateProductHandler CreateHandler() => new(_products, _categories, _uow);
+    private UpdateProductHandler CreateHandler() => new(_products, _categories, _stockMovements, _uow);
 
     private static Product NewProduct() =>
         new("سماعات", "وصف", new Money(50), 10, "headphones", categoryId: 1);
@@ -79,6 +100,26 @@ public class UpdateProductHandlerTests
         product.Price.Currency.Should().Be("JOD"); // العملة الأصلية بقيت كما هي
         product.StockQuantity.Should().Be(20);
         product.CategoryId.Should().Be(2);
+
+        // تغيّر المخزون (10 ⇒ 20) يُسجَّل حركة تصحيح بفارق موجب (+10).
+        await _stockMovements.Received(1).AddAsync(
+            Arg.Is<StockMovement>(m => m.Type == StockMovementType.Adjustment && m.QuantityChange == 10),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task تحديث_بلا_تغيير_مخزون_لا_يسجّل_حركة()
+    {
+        var product = NewProduct(); // مخزون 10
+        _products.GetByIdAsync(1, Arg.Any<CancellationToken>()).Returns(product);
+        _categories.GetByIdAsync(2, Arg.Any<CancellationToken>()).Returns(new Category("أزياء", "fashion"));
+
+        // نفس المخزون (10) — نعدّل الاسم/السعر فقط.
+        var result = await CreateHandler().Handle(
+            new UpdateProductCommand(1, "اسم", "وصف", 75, 10, "img.jpg", 2), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        await _stockMovements.DidNotReceive().AddAsync(Arg.Any<StockMovement>(), Arg.Any<CancellationToken>());
     }
 }
 

@@ -40,6 +40,51 @@
 
 .thumb { width: 44px; height: 44px; border-radius: 8px; overflow: hidden; background: var(--soft); }
 
+/* ── جرد المخزون ── */
+/* شارة مستوى المخزون: ثلاث درجات لونية (منخفض/يقترب/وفير). */
+.stockPill {
+  display: inline-block; min-width: 40px; text-align: center; padding: 4px 10px;
+  border-radius: 50px; font-weight: 700; font-size: 13px;
+}
+.stockLow { background: #fdf0ec; color: var(--clay); }
+.stockWarn { background: #fdf3e2; color: #a06a12; }
+.stockOk { background: var(--success-soft); color: var(--success); }
+
+/* تنبيه المخزون المنخفض أعلى شاشة الجرد. */
+.lowStockAlert {
+  background: #fdf0ec; color: var(--clay); border: 1px solid #f3cfc4;
+  border-radius: var(--radius); padding: 12px 18px; margin-bottom: 20px;
+  font-weight: 600; font-size: var(--fs-body-sm);
+}
+
+/* بطاقة تنبيه المخزون على لوحة التحكّم (رابط لشاشة الجرد). */
+.alertCard {
+  display: block; text-decoration: none; margin-bottom: 24px;
+  background: #fdf0ec; border: 1px solid #f3cfc4; border-radius: var(--radius);
+  padding: 16px 20px; color: var(--clay);
+  transition: transform var(--ease-hover), box-shadow var(--ease-hover);
+}
+.alertCard:hover { transform: translateY(-2px); box-shadow: 0 12px 28px rgba(178, 74, 46, .14); }
+.alertCard b { display: block; font-size: 16px; margin-bottom: 2px; }
+.alertCard span { color: var(--clay); font-size: var(--fs-body-sm); opacity: .85; }
+
+/* سجلّ حركة المخزون داخل الدرج. */
+.movementList { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+.movementRow {
+  display: grid; grid-template-columns: auto auto 1fr; gap: 6px 12px; align-items: center;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px;
+}
+.moveType { font-weight: 700; font-size: 12.5px; padding: 3px 10px; border-radius: 50px; }
+.move_purchase { background: var(--success-soft); color: var(--success); }
+.move_sale { background: var(--info-soft); color: var(--petrol); }
+.move_adjustment { background: #fdf3e2; color: #a06a12; }
+.move_return { background: #eaf1fb; color: var(--info); }
+.moveDelta { font-family: var(--font-display); font-weight: 700; font-size: 16px; }
+.moveUp { color: var(--success); }
+.moveDown { color: var(--clay); }
+.moveMeta { grid-column: 3; color: var(--muted); font-size: var(--fs-caption); }
+.moveDate { grid-column: 1 / -1; color: var(--muted); font-size: var(--fs-caption); }
+
 /* اسم ثانوي (اللغة الأخرى) أسفل الاسم الأساسي في جدول المنتجات — الإدارة
    ترى الاسمين معاً بغضّ النظر عن لغة الواجهة الحالية. */
 .nameSecondary { color: var(--muted); font-size: var(--fs-caption); margin-top: 2px; }

@@ -23,4 +23,11 @@ public interface IProductRepository : IRepository<Product>
     // هل يشير أي منتج (نشط أو معطّل) لهذه الفئة؟ (لمنع حذف فئة مستخدمة —
     // نشمل المعطّلة لأن المفتاح الأجنبي قائم بغضّ النظر عن IsActive).
     Task<bool> ExistsInCategoryAsync(int categoryId, CancellationToken ct = default);
+
+    // كل المنتجات النشطة مع فئاتها (لشاشة جرد المخزون) — الأقلّ مخزوناً أولاً كي
+    // يرى المدير المنتجات الحرجة في الأعلى مباشرة.
+    Task<IReadOnlyList<Product>> GetInventoryAsync(CancellationToken ct = default);
+
+    // المنتجات النشطة التي بلغ مخزونها حدّ التنبيه أو نزل تحته — للتنبيه والبادج.
+    Task<IReadOnlyList<Product>> GetLowStockAsync(CancellationToken ct = default);
 }

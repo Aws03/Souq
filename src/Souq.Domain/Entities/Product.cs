@@ -20,6 +20,15 @@ public class Product : Entity
     public string Description { get; private set; } = default!;
     public Money Price { get; private set; } = default!;   // كائن قيمة، لا decimal عارٍ
     public int StockQuantity { get; private set; }
+    // حدّ التنبيه للمخزون المنخفض: عند بلوغه أو النزول تحته يُعتبر المنتج "منخفض
+    // المخزون" فينبّه المدير. قاعدة عمل تعيش في المنتج نفسه، لا في الواجهة.
+    public int LowStockThreshold { get; private set; } = DefaultLowStockThreshold;
+
+    // خاصية محسوبة (لا عمود لها): هل بلغ المخزون حدّ التنبيه أو نزل تحته؟
+    // مكان واحد للحقيقة يستخدمه كل من يسأل "هل هذا المنتج منخفض؟".
+    public bool IsLowStock => StockQuantity <= LowStockThreshold;
+
+    public const int DefaultLowStockThreshold = 5;
     public string ImageUrl { get; private set; } = default!;
     public string? VideoUrl { get; private set; }            // اختياري — لا كل منتج له فيديو
     public bool IsActive { get; private set; }
@@ -33,7 +42,8 @@ public class Product : Entity
     // (اختبارات/كود سابق) بالعمل دون تعديل.
     public Product(string nameAr, string description, Money price,
                    int stockQuantity, string imageUrl, int categoryId,
-                   string? nameEn = null, string? videoUrl = null)
+                   string? nameEn = null, string? videoUrl = null,
+                   int lowStockThreshold = DefaultLowStockThreshold)
     {
         NameAr = nameAr;
         NameEn = string.IsNullOrWhiteSpace(nameEn) ? nameAr : nameEn;
@@ -43,6 +53,7 @@ public class Product : Entity
         ImageUrl = imageUrl;
         VideoUrl = string.IsNullOrWhiteSpace(videoUrl) ? null : videoUrl;
         CategoryId = categoryId;
+        LowStockThreshold = lowStockThreshold < 0 ? DefaultLowStockThreshold : lowStockThreshold;
         IsActive = true;
     }
 
@@ -67,6 +78,14 @@ public class Product : Entity
         if (quantity < 0)
             throw new InvalidProductDataException("لا يمكن أن تكون كمية المخزون سالبة");
         StockQuantity = quantity;
+    }
+
+    // تعديل حدّ التنبيه للمخزون المنخفض (باب محروس خاص) — لا يُقبل حدّ سالب.
+    public void SetLowStockThreshold(int threshold)
+    {
+        if (threshold < 0)
+            throw new InvalidProductDataException("لا يمكن أن يكون حدّ التنبيه سالباً");
+        LowStockThreshold = threshold;
     }
 
     // تحديث الحقول الوصفية للمنتج دفعة واحدة. السعر يبقى ضمن كائن قيمة Money

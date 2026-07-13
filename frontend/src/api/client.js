@@ -146,6 +146,11 @@ export const api = {
   updateCategory: (id, payload) => request(`/categories/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
   deleteCategory: (id) => request(`/categories/${id}`, { method: 'DELETE' }),
 
+  // ── جرد المخزون (أدمن) ──
+  getInventory: () => request('/admin/inventory'),
+  getLowStock: () => request('/admin/inventory/low-stock'),
+  getStockMovements: (productId) => request(`/admin/inventory/${productId}/movements`),
+
   // ── إدارة الطلبات (أدمن) ──
   getOrders: (params = {}) => {
     const q = new URLSearchParams(

@@ -18,11 +18,12 @@ public class CreateOrderHandlerTests
     private readonly IOrderRepository _orders = Substitute.For<IOrderRepository>();
     private readonly ICustomerRepository _customers = Substitute.For<ICustomerRepository>();
     private readonly ICouponRepository _coupons = Substitute.For<ICouponRepository>();
+    private readonly IStockMovementRepository _stockMovements = Substitute.For<IStockMovementRepository>();
     private readonly IPaymentService _payment = Substitute.For<IPaymentService>();
     private readonly IUnitOfWork _uow = Substitute.For<IUnitOfWork>();
 
     private CreateOrderHandler CreateHandler() =>
-        new(_products, _orders, _customers, _coupons, _payment, _uow);
+        new(_products, _orders, _customers, _coupons, _stockMovements, _payment, _uow);
 
     private static Customer NewCustomer() => new("عميل", "customer@souq.com", "hash");
     private static Product NewProduct(int stock = 10) =>
@@ -112,6 +113,11 @@ public class CreateOrderHandlerTests
         product.StockQuantity.Should().Be(8);
         savedOrder!.Status.Should().Be(OrderStatus.Pending);
         savedOrder.PaymentIntentId.Should().Be("pi_123");
+
+        // كل بيع يُسجَّل حركة مخزون Sale بكمية سالبة (نقص) تساوي المطلوب.
+        await _stockMovements.Received(1).AddAsync(
+            Arg.Is<StockMovement>(m => m.Type == StockMovementType.Sale && m.QuantityChange == -2),
+            Arg.Any<CancellationToken>());
 
         // حفظ الطلب Pending أولاً، ثم حفظ ثانٍ لربط نيّة الدفع.
         await _uow.Received(2).SaveChangesAsync(Arg.Any<CancellationToken>());

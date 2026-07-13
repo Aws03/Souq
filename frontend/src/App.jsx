@@ -25,6 +25,7 @@ import ResetPassword from './pages/auth/ResetPassword';
 import AdminLayout from './pages/admin/AdminLayout';
 import Dashboard from './pages/admin/Dashboard';
 import Products from './pages/admin/Products';
+import Inventory from './pages/admin/Inventory';
 import Categories from './pages/admin/Categories';
 import Coupons from './pages/admin/Coupons';
 import Orders from './pages/admin/Orders';
@@ -82,6 +83,7 @@ export default function App() {
         <Route path="/admin" element={<AdminRoute><AdminLayout /></AdminRoute>}>
           <Route index element={<Dashboard />} />
           <Route path="products" element={<Products />} />
+          <Route path="inventory" element={<Inventory />} />
           <Route path="categories" element={<Categories />} />
           <Route path="coupons" element={<Coupons />} />
           <Route path="orders" element={<Orders />} />

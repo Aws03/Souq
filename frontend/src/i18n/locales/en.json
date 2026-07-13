@@ -225,6 +225,7 @@
       "dashboard": "Dashboard",
       "home": "Home",
       "products": "Products",
+      "inventory": "Inventory",
       "categories": "Categories",
       "coupons": "Coupons",
       "orders": "Orders"
@@ -259,6 +260,31 @@
       "disabled": "Product disabled",
       "updated": "Product updated",
       "created": "Product added"
+    },
+    "inventory": {
+      "title": "Inventory",
+      "subtitle": "Live stock levels for every product, lowest first.",
+      "colImage": "Image",
+      "colName": "Product",
+      "colCategory": "Category",
+      "colStock": "Stock",
+      "colThreshold": "Alert at",
+      "colActions": "Actions",
+      "emptyTitle": "No products",
+      "emptyMessage": "Add products to track their stock here.",
+      "viewHistory": "Movement history",
+      "historyTitle": "Movement history: {{name}}",
+      "noMovements": "No stock movements yet",
+      "newQuantity": "Stock after: {{qty}}",
+      "lowStockAlert": "{{count}} product(s) at or below the alert threshold — consider restocking.",
+      "lowStockBadge": "{{count}} product(s) low on stock",
+      "lowStockBadgeHint": "Tap to review inventory and restock.",
+      "moveType": {
+        "Purchase": "Purchase",
+        "Sale": "Sale",
+        "Adjustment": "Adjustment",
+        "Return": "Return"
+      }
     },
     "productForm": {
       "editTitle": "Edit product",

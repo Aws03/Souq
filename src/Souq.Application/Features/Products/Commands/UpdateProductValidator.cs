@@ -14,6 +14,9 @@ public class UpdateProductValidator : AbstractValidator<UpdateProductCommand>
         RuleFor(x => x.Description).MaximumLength(2000);
         RuleFor(x => x.Price).GreaterThan(0);
         RuleFor(x => x.StockQuantity).GreaterThanOrEqualTo(0);
+        // null مقبول (نُبقي الحدّ الحالي)؛ إن أُرسلت قيمة فيجب ألّا تكون سالبة.
+        RuleFor(x => x.LowStockThreshold).GreaterThanOrEqualTo(0)
+            .When(x => x.LowStockThreshold.HasValue);
         RuleFor(x => x.ImageUrl).MaximumLength(500);
         RuleFor(x => x.VideoUrl).MaximumLength(500);
         RuleFor(x => x.CategoryId).GreaterThan(0);

@@ -1,5 +1,7 @@
 using MediatR;
 using Souq.Application.Common.Models;
+using Souq.Domain.Entities;
+using Souq.Domain.Enums;
 using Souq.Domain.Interfaces;
 using Souq.Domain.ValueObjects;
 
@@ -19,12 +21,15 @@ public class UpdateProductHandler : IRequestHandler<UpdateProductCommand, Result
 {
     private readonly IProductRepository _products;
     private readonly ICategoryRepository _categories;
+    private readonly IStockMovementRepository _stockMovements;
     private readonly IUnitOfWork _uow;
 
     public UpdateProductHandler(
-        IProductRepository products, ICategoryRepository categories, IUnitOfWork uow)
+        IProductRepository products, ICategoryRepository categories,
+        IStockMovementRepository stockMovements, IUnitOfWork uow)
     {
-        _products = products; _categories = categories; _uow = uow;
+        _products = products; _categories = categories;
+        _stockMovements = stockMovements; _uow = uow;
     }
 
     public async Task<Result> Handle(UpdateProductCommand cmd, CancellationToken ct)
@@ -42,9 +47,20 @@ public class UpdateProductHandler : IRequestHandler<UpdateProductCommand, Result
             cmd.NameAr, cmd.Description,
             new Money(cmd.Price, product.Price.Currency),
             cmd.ImageUrl, cmd.CategoryId, cmd.NameEn, cmd.VideoUrl);
+
+        // تعديل المخزون من الإدارة حركة تصحيح (Adjustment) — نسجّلها فقط إن تغيّر
+        // المخزون فعلاً (لا حركة صفرية عند تعديل الاسم/السعر وحده). نحسب الفرق قبل
+        // تطبيق SetStock كي نلتقط الاتجاه بإشارته.
+        var stockDelta = cmd.StockQuantity - product.StockQuantity;
         product.SetStock(cmd.StockQuantity);
+        if (cmd.LowStockThreshold is int threshold)
+            product.SetLowStockThreshold(threshold);
 
         _products.Update(product);
+        if (stockDelta != 0)
+            await _stockMovements.AddAsync(
+                StockMovement.For(product, StockMovementType.Adjustment, stockDelta,
+                    "تعديل يدوي من الإدارة"), ct);
         await _uow.SaveChangesAsync(ct);
 
         return Result.Success();

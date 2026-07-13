@@ -33,6 +33,7 @@ public static class DependencyInjection
         services.AddScoped<ICustomerRepository, CustomerRepository>();
         services.AddScoped<ICouponRepository, CouponRepository>();
         services.AddScoped<IReviewRepository, ReviewRepository>();
+        services.AddScoped<IStockMovementRepository, StockMovementRepository>();
 
         // البريد: Gmail SMTP حقيقي إن وُجدت كلمة مرور تطبيق مضبوطة (Gmail__AppPassword
         // كمتغيّر بيئة — سرّ، لا يُقرأ أبداً من appsettings المرفوع)، وإلا طباعة في

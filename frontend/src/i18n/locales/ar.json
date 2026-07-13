@@ -225,6 +225,7 @@
       "dashboard": "لوحة التحكم",
       "home": "الرئيسية",
       "products": "المنتجات",
+      "inventory": "المخزون",
       "categories": "الفئات",
       "coupons": "الكوبونات",
       "orders": "الطلبات"
@@ -259,6 +260,31 @@
       "disabled": "تم تعطيل المنتج",
       "updated": "تم تحديث المنتج",
       "created": "تمت إضافة المنتج"
+    },
+    "inventory": {
+      "title": "جرد المخزون",
+      "subtitle": "مستويات المخزون الحيّة لكل منتج، والمنتجات المنخفضة أولاً.",
+      "colImage": "الصورة",
+      "colName": "المنتج",
+      "colCategory": "الفئة",
+      "colStock": "المخزون",
+      "colThreshold": "حدّ التنبيه",
+      "colActions": "الإجراءات",
+      "emptyTitle": "لا منتجات",
+      "emptyMessage": "أضف منتجات لتتابع مخزونها هنا.",
+      "viewHistory": "سجلّ الحركة",
+      "historyTitle": "سجلّ حركة: {{name}}",
+      "noMovements": "لا حركات مخزون بعد",
+      "newQuantity": "المخزون بعدها: {{qty}}",
+      "lowStockAlert": "{{count}} منتج بلغ حدّ التنبيه أو أقلّ — يُنصح بإعادة التخزين.",
+      "lowStockBadge": "{{count}} منتج منخفض المخزون",
+      "lowStockBadgeHint": "اضغط لمراجعة الجرد وإعادة التخزين.",
+      "moveType": {
+        "Purchase": "توريد",
+        "Sale": "بيع",
+        "Adjustment": "تصحيح",
+        "Return": "إرجاع"
+      }
     },
     "productForm": {
       "editTitle": "تعديل منتج",

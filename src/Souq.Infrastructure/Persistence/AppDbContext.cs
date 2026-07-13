@@ -20,6 +20,7 @@ public class AppDbContext : DbContext, IUnitOfWork
     public DbSet<Customer> Customers => Set<Customer>();
     public DbSet<Coupon> Coupons => Set<Coupon>();
     public DbSet<Review> Reviews => Set<Review>();
+    public DbSet<StockMovement> StockMovements => Set<StockMovement>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

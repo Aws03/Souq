@@ -1,6 +1,6 @@
 import { NavLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { GridIcon, PackageIcon, TagIcon, ReceiptIcon, PercentIcon } from '../../components/icons/Icons';
+import { GridIcon, PackageIcon, InventoryIcon, TagIcon, ReceiptIcon, PercentIcon } from '../../components/icons/Icons';
 import styles from './AdminLayout.module.css';
 
 // الشريط الجانبي للوحة الإدارة (سطح المكتب) — يختفي على الجوال لصالح شريط سفلي.
@@ -11,6 +11,7 @@ export default function AdminSidebar({ onLogout }) {
   const NAV = [
     { to: '/admin', end: true, label: t('admin.nav.dashboard'), icon: GridIcon },
     { to: '/admin/products', label: t('admin.nav.products'), icon: PackageIcon },
+    { to: '/admin/inventory', label: t('admin.nav.inventory'), icon: InventoryIcon },
     { to: '/admin/categories', label: t('admin.nav.categories'), icon: TagIcon },
     { to: '/admin/coupons', label: t('admin.nav.coupons'), icon: PercentIcon },
     { to: '/admin/orders', label: t('admin.nav.orders'), icon: ReceiptIcon },

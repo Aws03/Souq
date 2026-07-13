@@ -68,4 +68,19 @@ public class ProductRepository : RepositoryBase<Product>, IProductRepository
     // نشمل المعطّلة (لا فلتر IsActive): المفتاح الأجنبي قائم بغضّ النظر عنه.
     public async Task<bool> ExistsInCategoryAsync(int categoryId, CancellationToken ct = default)
         => await Db.Products.AnyAsync(p => p.CategoryId == categoryId, ct);
+
+    // جرد المخزون: المنتجات النشطة مع فئاتها، الأقلّ مخزوناً أولاً (المنتجات
+    // الحرجة في الأعلى). كسر التعادل بالمعرّف كي يبقى الترتيب ثابتاً.
+    public async Task<IReadOnlyList<Product>> GetInventoryAsync(CancellationToken ct = default)
+        => await Db.Products.Include(p => p.Category).Where(p => p.IsActive)
+                            .OrderBy(p => p.StockQuantity).ThenBy(p => p.Id)
+                            .ToListAsync(ct);
+
+    // المنخفض مخزونه: المخزون بلغ حدّ التنبيه أو نزل تحته. نكتب المقارنة صراحةً
+    // (لا الخاصية المحسوبة IsLowStock) كي يترجمها EF إلى SQL على العمودين.
+    public async Task<IReadOnlyList<Product>> GetLowStockAsync(CancellationToken ct = default)
+        => await Db.Products.Include(p => p.Category)
+                            .Where(p => p.IsActive && p.StockQuantity <= p.LowStockThreshold)
+                            .OrderBy(p => p.StockQuantity).ThenBy(p => p.Id)
+                            .ToListAsync(ct);
 }
