@@ -5,9 +5,11 @@ import { useCart } from '../../context/CartContext';
 import { useWishlist } from '../../context/WishlistContext';
 import { useAuth } from '../../context/AuthContext';
 import { setLanguage } from '../../i18n';
+import { getTheme, setTheme } from '../../theme';
 import { CartIcon, HeartIcon, MenuIcon } from '../icons/Icons';
 import SearchBar from './SearchBar';
 import MobileMenu from './MobileMenu';
+import ThemeSwitcher from './ThemeSwitcher';
 import styles from './Navbar.module.css';
 
 // شريط تنقّل المتجر: خلفية بيضاء ثابتة أعلى الصفحة (تحت شريط الإعلان)، الشعار
@@ -19,9 +21,12 @@ export default function Navbar({ onCartClick, searchTerm, onSearchChange }) {
   const { count: wishlistCount } = useWishlist();
   const { user, isAuthenticated, isAdmin, logout } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [theme, setThemeState] = useState(getTheme());
 
   const otherLanguage = i18n.language === 'ar' ? 'en' : 'ar';
   const toggleLanguage = () => setLanguage(otherLanguage);
+
+  const changeTheme = (next) => { setTheme(next); setThemeState(next); };
 
   return (
     <nav className={styles.navbar}>
@@ -53,6 +58,10 @@ export default function Navbar({ onCartClick, searchTerm, onSearchChange }) {
           {otherLanguage === 'en' ? 'EN' : 'ع'}
         </button>
 
+        <div className={styles.desktopOnly}>
+          <ThemeSwitcher current={theme} onChange={changeTheme} />
+        </div>
+
         <Link to="/wishlist" className={`${styles.iconBtn} ${styles.desktopOnly}`} aria-label={t('nav.wishlistAria')}>
           <HeartIcon size={18} filled={wishlistCount > 0} />
           {wishlistCount > 0 && <span className={styles.iconBadge}>{wishlistCount}</span>}
@@ -68,7 +77,8 @@ export default function Navbar({ onCartClick, searchTerm, onSearchChange }) {
 
       <MobileMenu open={menuOpen} onClose={() => setMenuOpen(false)}
         searchTerm={searchTerm} onSearchChange={onSearchChange}
-        currentLanguage={i18n.language} otherLanguage={otherLanguage} onToggleLanguage={toggleLanguage} />
+        currentLanguage={i18n.language} otherLanguage={otherLanguage} onToggleLanguage={toggleLanguage}
+        theme={theme} onThemeChange={changeTheme} />
     </nav>
   );
 }

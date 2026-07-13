@@ -36,7 +36,14 @@
     "langToggleAria": "تبديل اللغة",
     "wishlistAria": "المفضّلة",
     "home": "الرئيسية",
-    "offers": "العروض"
+    "offers": "العروض",
+    "themeSwitcherAria": "لون المتجر",
+    "theme": {
+      "default": "افتراضي",
+      "ocean": "المحيط",
+      "rose": "وردي",
+      "forest": "الغابة"
+    }
   },
   "cart": {
     "title": "سلّتك",

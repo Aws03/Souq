@@ -2,11 +2,15 @@ import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../context/AuthContext';
 import SearchBar from './SearchBar';
+import ThemeSwitcher from './ThemeSwitcher';
 import styles from './MobileMenu.module.css';
 
 // ورقة سفلية (Bottom Sheet) تظهر على الجوال عند فتح زر الهامبرغر: بحث + روابط
 // + المفضّلة وتبديل اللغة (انتقلا هنا من شريط التنقّل على الجوال لتفادي الازدحام).
-export default function MobileMenu({ open, onClose, searchTerm, onSearchChange, currentLanguage, otherLanguage, onToggleLanguage }) {
+export default function MobileMenu({
+  open, onClose, searchTerm, onSearchChange,
+  currentLanguage, otherLanguage, onToggleLanguage, theme, onThemeChange,
+}) {
   const { t } = useTranslation();
   const { user, isAuthenticated, isAdmin, logout } = useAuth();
   if (!open) return null;
@@ -35,6 +39,11 @@ export default function MobileMenu({ open, onClose, searchTerm, onSearchChange, 
             {currentLanguage === 'ar' ? 'English' : 'العربية'} ({otherLanguage === 'en' ? 'EN' : 'ع'})
           </button>
         </nav>
+
+        <div className={styles.themeRow}>
+          <span className={styles.themeLabel}>{t('nav.themeSwitcherAria')}</span>
+          <ThemeSwitcher current={theme} onChange={onThemeChange} />
+        </div>
       </div>
     </>
   );

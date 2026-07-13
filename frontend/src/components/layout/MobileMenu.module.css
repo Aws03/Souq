@@ -15,3 +15,6 @@
 }
 .links a:last-child, .links button:last-child { border-bottom: none; }
 .hello { padding: 13px 6px; color: var(--muted); font-weight: 500; }
+
+.themeRow { display: flex; align-items: center; justify-content: space-between; padding: 13px 6px 0; margin-top: 4px; }
+.themeLabel { font-weight: 600; font-size: var(--fs-body); color: var(--ink); }

@@ -36,7 +36,14 @@
     "langToggleAria": "Toggle language",
     "wishlistAria": "Wishlist",
     "home": "Home",
-    "offers": "Offers"
+    "offers": "Offers",
+    "themeSwitcherAria": "Store color",
+    "theme": {
+      "default": "Default",
+      "ocean": "Ocean",
+      "rose": "Rose",
+      "forest": "Forest"
+    }
   },
   "cart": {
     "title": "Your Cart",
