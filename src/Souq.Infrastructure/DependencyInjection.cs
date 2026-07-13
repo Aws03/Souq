@@ -35,11 +35,26 @@ public static class DependencyInjection
         services.AddScoped<IReviewRepository, ReviewRepository>();
         services.AddScoped<IStockMovementRepository, StockMovementRepository>();
 
-        // البريد: Gmail SMTP حقيقي إن وُجدت كلمة مرور تطبيق مضبوطة (Gmail__AppPassword
-        // كمتغيّر بيئة — سرّ، لا يُقرأ أبداً من appsettings المرفوع)، وإلا طباعة في
-        // السجل فقط (تطوير محلي بلا حساب Gmail). نفس نمط قرار بوّابة الدفع أدناه.
+        // البريد: Resend API حقيقي إن وُجد مفتاح مضبوط (Resend__ApiKey كمتغيّر
+        // بيئة — سرّ، لا يُقرأ أبداً من appsettings المرفوع)، وإلا Gmail SMTP إن
+        // وُجدت كلمة مرور تطبيق مضبوطة، وإلا طباعة في السجل فقط (تطوير محلي بلا
+        // أي منهما). نفس نمط قرار بوّابة الدفع أدناه — Resend يتقدّم لأنه أوثق
+        // للتسليم الفعلي من SMTP جيميل (لا حدود إرسال يومية صارمة، تتبّع تسليم).
+        var resendApiKey = config["Resend:ApiKey"];
         var gmailAppPassword = config["Gmail:AppPassword"];
-        if (!string.IsNullOrWhiteSpace(gmailAppPassword))
+        if (!string.IsNullOrWhiteSpace(resendApiKey))
+        {
+            services.Configure<ResendOptions>(o =>
+            {
+                config.GetSection("Resend").Bind(o);
+                o.ApiKey = resendApiKey;
+                // FRONTEND_URL (متغيّر بيئة، أولوية للنشر الشبكي) ثم App:FrontendUrl
+                // (appsettings) ثم افتراضي التطوير المحلي.
+                o.FrontendUrl = config["FRONTEND_URL"] ?? config["App:FrontendUrl"] ?? "http://localhost:5173";
+            });
+            services.AddScoped<IEmailService, ResendEmailService>();
+        }
+        else if (!string.IsNullOrWhiteSpace(gmailAppPassword))
         {
             services.Configure<GmailSmtpOptions>(o =>
             {
