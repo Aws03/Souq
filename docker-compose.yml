@@ -37,11 +37,12 @@ services:
       Stripe__SecretKey: ${STRIPE_SECRET_KEY:-}
       Stripe__PublishableKey: ${STRIPE_PUBLISHABLE_KEY:-}
       Stripe__WebhookSecret: ${STRIPE_WEBHOOK_SECRET:-}
-      # اختياري — بلا Resend__ApiKey (ولا Gmail__AppPassword أدناه) يعمل البريد
-      # تلقائياً عبر ConsoleEmailService (طباعة رابط إعادة التعيين في سجلّ
-      # الحاوية بدل إرسال حقيقي). Resend يتقدّم على Gmail إن ضُبط كلاهما.
+      # اختياري — ترتيب الأولوية Resend ← Brevo ← Gmail ← ConsoleEmailService
+      # (بلا أي منها تُطبَع رابط إعادة التعيين في سجلّ الحاوية بدل إرسال حقيقي).
       Resend__ApiKey: ${RESEND_API_KEY:-}
-      # اختياري — بديل Gmail SMTP إن لم يُضبط Resend__ApiKey أعلاه.
+      # اختياري — بديل Resend، يعمل فقط إن لم يُضبط Resend__ApiKey أعلاه.
+      Brevo__ApiKey: ${BREVO_API_KEY:-}
+      # اختياري — بديل Resend/Brevo عبر SMTP إن لم يُضبط أيّ منهما أعلاه.
       Gmail__AppPassword: ${GMAIL_APP_PASSWORD:-}
       Gmail__Username: ${GMAIL_USERNAME:-aws.03.dev@gmail.com}
       # بعض مزوّدي الإنترنت يحجبون المنفذ 587 (STARTTLS) — عندها استخدم 465

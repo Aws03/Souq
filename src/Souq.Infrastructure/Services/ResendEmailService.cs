@@ -63,6 +63,14 @@ public class ResendEmailService : IEmailService
             html = htmlBody,
         });
 
+        // تشخيص الإعداد قبل أي محاولة إرسال — لا يطبع المفتاح نفسه أبداً، فقط
+        // "configured"/"missing"، إلى جانب FrontendUrl الفعلي المُستخدَم في بناء
+        // رابط إعادة التعيين (لتشخيص شكاوى "لم يصلني البريد"/"الرابط خاطئ").
+        _logger.LogInformation(
+            "Resend config: ApiKey={ApiKeyStatus} From={From} FrontendUrl={FrontendUrl}",
+            string.IsNullOrWhiteSpace(_opts.ApiKey) ? "missing" : "configured",
+            _opts.From, _opts.FrontendUrl);
+
         // سجلّ محاولة صريح قبل الإرسال — نفس منهج GmailEmailService: نعرف من
         // السجل أن الإرسال بدأ فعلاً وإلى أي عنوان بالضبط.
         _logger.LogInformation(
@@ -78,17 +86,21 @@ public class ResendEmailService : IEmailService
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _opts.ApiKey);
 
             using var response = await Http.SendAsync(request, ct);
+            // نقرأ الجسم دوماً (نجاحاً أو فشلاً) — Resend يُعيد { "id": "..." } عند
+            // النجاح و{ "message": "...", "name": "..." } عند الفشل؛ كلاهما مفيد للتشخيص.
+            var responseBody = await response.Content.ReadAsStringAsync(ct);
 
             if (response.IsSuccessStatusCode)
             {
-                _logger.LogInformation("✅ نجح إرسال بريد \"{Subject}\" إلى {Email} عبر Resend", subject, toEmail);
+                _logger.LogInformation(
+                    "✅ نجح إرسال بريد \"{Subject}\" إلى {Email} عبر Resend — الحالة={StatusCode} الاستجابة={Body}",
+                    subject, toEmail, (int)response.StatusCode, responseBody);
             }
             else
             {
-                var errorBody = await response.Content.ReadAsStringAsync(ct);
                 _logger.LogError(
-                    "❌ فشل إرسال بريد عبر Resend إلى {Email} (الموضوع=\"{Subject}\"): {StatusCode} {Body}",
-                    toEmail, subject, (int)response.StatusCode, errorBody);
+                    "❌ فشل إرسال بريد عبر Resend إلى {Email} (الموضوع=\"{Subject}\"): الحالة={StatusCode} الاستجابة={Body}",
+                    toEmail, subject, (int)response.StatusCode, responseBody);
             }
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
