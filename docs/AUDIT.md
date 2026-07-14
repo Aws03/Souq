@@ -104,7 +104,7 @@ Souq/
 | متابعة طلب (API) | 🟡 ناقصة | تعمل، لكن أي شخص يقرأ طلب أي شخص (لا ownership check)؛ `GET /orders/mine` غير موجود |
 | المصادقة والصلاحيات | ❌ غائبة كلياً | كيان Customer موجود + مدير مبذور بـ hash وهمي `HASHED_admin123`؛ لا تسجيل/دخول، لا JWT، لا BCrypt، لا `[Authorize]` |
 | الدفع | 🎭 وهمية بالتصميم | `FakePaymentService` خلف `IPaymentService` — الاستبدال بـ Stripe سطر DI واحد (مرحلة 6) |
-| البريد | 🎭 وهمية بالتصميم | `ConsoleEmailService` يطبع في السجل |
+| البريد | 🎭 وهمية بالتصميم | `ConsoleEmailService` يطبع في السجل (⚠️ تجاوزته الأحداث — انظر §9: بريد حقيقي متعدّد المزوّدين) |
 | السلة (Domain) | ⚠️ كود ميت | كيان `Basket` موجود في Domain بلا مستودع/Configuration/DbSet/API — السلة فعلياً في ذاكرة المتصفح فقط |
 | هجرات EF | ❌ غائبة | `DbSeeder.SeedAsync` ينادي `MigrateAsync()` وصفر هجرات موجودة → الجداول لا تُنشأ، والبذر ينفجر بـ "Invalid object name" ما لم تُشغَّل سكربتات SQL يدوياً |
 | واجهة: عرض المنتجات | 🎭 وهمية | `App.jsx` يستخدم مصفوفات SEED؛ `api/client.js` و`useProducts` جاهزان وغير موصولين |
@@ -246,3 +246,35 @@ Docker Compose في مرحلة 7): كتالوج حقيقي، مصادقة JWT، 
 Docker محقَّقة. كل بند حرج/عالٍ من التدقيق الأصلي (§5) محلول. المتبقّي (CI،
 إعداد بيئة إنتاج فعلية، تنظيف الطلبات المهجورة، إشراف التقييمات) قرارات نطاق
 مؤجَّلة صراحة، لا ثغرات مكتشَفة سهواً.
+
+---
+
+## 9) تحديث: بنية تعدّد مزوّدي البريد الحقيقيين (2026-07-14)
+
+> يُلغي هذا القسم وصف "🎭 وهمية بالتصميم" للبريد في جدول §4 — البريد الحقيقي مُنفَّذ
+> الآن بالكامل خلف `IEmailService` نفسها، بلا أي تغيير في طبقتَي Application/API.
+
+`IEmailService` (`Souq.Application.Common.Interfaces`) له اليوم **أربعة تنفيذات**
+في `Souq.Infrastructure/Services/`، تُختار بترتيب أولويّة واحد في `AddInfrastructure`
+(كل مستوى يُفعَّل فقط حين يوجد سرّه الخاص مضبوطاً، وإلا ينتقل للتالي):
+
+```
+Resend:ApiKey مضبوط؟   → ResendEmailService  (HttpClient خام، Authorization: Bearer)
+  لا  →  Brevo:ApiKey مضبوط؟  → BrevoEmailService   (HttpClient خام، رأس api-key)
+           لا  →  Gmail:AppPassword مضبوط؟  → GmailEmailService  (SMTP عبر MailKit)
+                    لا  →  ConsoleEmailService  (طباعة في السجل — تطوير محلي بلا أي مفتاح)
+```
+
+- **Resend وBrevo**: بلا أي حزمة SDK إضافية — `HttpClient` مباشرة (حقل ثابت مشترك
+  لتفادي استنزاف المقابس)، وقالب HTML واحد مشترك (`EmailTemplates.cs`) بين كل
+  التنفيذات الثلاثة الحقيقية كي لا تتكرّر رسائل التأكيد/إعادة التعيين حرفياً.
+- **تسجيل تشخيصي في كل تنفيذ حقيقي**: حالة المفتاح (`configured`/`missing` — لا
+  يُطبع المفتاح نفسه أبداً)، ورمز حالة HTTP وجسم الاستجابة الكاملَين لكل محاولة
+  إرسال. هذا التسجيل شخّص فعلياً مشكلة حقيقية أثناء التطوير: نطاق Resend التجريبي
+  (`onboarding@resend.dev`) يرفض الإرسال لأي مستلم غير مالك الحساب نفسه (403)
+  حتى يُتحقَّق نطاق حقيقي في لوحة Resend — قيد من مزوّد الخدمة، لا خلل في الكود.
+- **الأسرار تبقى خارج appsettings المرفوع** (Resend:ApiKey/Brevo:ApiKey/
+  Gmail:AppPassword) — user-secrets محلياً، أو RESEND_API_KEY/BREVO_API_KEY/
+  GMAIL_APP_PASSWORD في `.env` (Docker، خارج git). appsettings.json يحمل فقط
+  القيم غير السرّية الافتراضية (Resend:From، Brevo:SenderName/SenderEmail،
+  Gmail:Username) — نفس نمط الأسرار المتّبع في كل الملف منذ §8.
