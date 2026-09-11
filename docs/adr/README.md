@@ -20,5 +20,10 @@ An ADR captures **one** significant decision: the context, the options considere
 | [0014](0014-money-precision.md) | `decimal(19,4)` + currency minor units enforced by `Money` | Accepted (implemented 1A) |
 | [0015](0015-testing-strategy.md) | Testcontainers integration tests, NetArchTest architecture tests, AwesomeAssertions, Vitest | Accepted (implemented 1A) |
 | [0016](0016-upload-validation.md) | Content-sniffed uploads with server-chosen extensions and a locked-down static file server | Accepted (implemented 1A) |
+| [0017](0017-error-contract.md) | RFC 7807 ProblemDetails with typed errors, stable codes and one status mapping | Accepted (implemented 1B) |
+| [0018](0018-observability.md) | Built-in structured logging, W3C trace id as correlation id, request line and log scopes | Accepted (implemented 1B) |
+| [0019](0019-authorization-foundation.md) | `ICurrentUser`, permission policies, ownership in use cases, explicit auth on every endpoint | Accepted (implemented 1B) |
+| [0020](0020-configuration-and-secrets.md) | Typed validated options, fail-fast startup, no implicit dev fallbacks outside Development | Accepted (implemented 1B) |
+| [0021](0021-transaction-boundaries.md) | Use case owns the unit of work; no transaction spans a network call; compensation and outbox | Accepted (1B) |
 
 **Template:** Context · Problem · Options considered · Decision · Why · Consequences · Revisit when.

@@ -28,12 +28,12 @@
 
 ## 3. Authorization, tenant isolation, IDOR
 
-- **Roles today:** `Customer`, `Admin`.
+- **Roles today:** `Customer`, `Admin`, mapped to permissions in one table (`RolePermissions`, 1B). Endpoints declare the permission they need (`[HasPermission]`), and every endpoint must declare an explicit decision ([ADR-0019](adr/0019-authorization-foundation.md)).
 - **Target roles:** PlatformOwner, PlatformAdmin, TenantAdmin, TenantStaff, Customer, mapped to **permissions** in code ([AuthenticationAndAuthorization.md](AuthenticationAndAuthorization.md)).
 - **IDOR prevention (three layers):**
   1. The tenant filter, so another tenant's rows are invisible.
-  2. Ownership checks, so a customer only sees their own orders (a 404 otherwise).
-  3. Identity always taken from the token, never from the request body.
+  2. Ownership checks **inside the use case**, so a customer only sees and confirms their own orders (a 404 otherwise).
+  3. Identity always taken from the token through `ICurrentUser`; commands have no customer id field to tamper with.
 - **Automated proof:**
   - An integration test enumerates all admin endpoints (anonymous → 401, customer → 403).
   - Customer A cannot read or confirm customer B's order (404).
@@ -71,6 +71,8 @@
 | Email provider keys | user-secrets | environment variable |
 | Admin bootstrap credentials | user-secrets (`Seed:AdminEmail`/`Seed:AdminPassword`) | environment variable, set once, removed after first start |
 
+- **Fail fast (1B, [ADR-0020](adr/0020-configuration-and-secrets.md)):** settings are typed options validated before the database is touched. A missing connection string, a JWT key shorter than 256 bits, missing JWT issuer/audience, a missing payment provider outside Development, or missing Stripe keys when Stripe is selected stop the startup with a message that names the key and never prints its value.
+- **Development conveniences never run implicitly elsewhere:** the fake payment gateway, reset links in the console log, and the development admin work only in Development (and Testing). Anything unsafe for real customers that is enabled explicitly is logged as a warning at every start.
 - `appsettings.json` contains **no secrets and no personal data** (the personal email defaults were removed in 1A).
 - `.env` is git-ignored; `.env.example` holds placeholders only.
 - **Checked at every phase gate:** grep for keys, passwords, and connection strings in the diff.
@@ -99,6 +101,7 @@
 - **Amount conversion:** the adapter converts `Money` to the provider's minor units (`StripeAmountConverter`, unit-tested).
   - Stripe documents currencies as two-decimal unless listed as zero-decimal. JOD (3 ISO decimals) is therefore sent ×100, rounded away from zero to the nearest 0.01. That matches the previous behaviour, now explicit.
   - ⚠️ **Must be verified before JOD goes live on Stripe.** If the account treats JOD as a three-decimal currency, the multiplier must be 1000. Getting this wrong would charge a tenth of the price. This is listed as an open risk in the roadmap.
+- **Fake gateway (1B):** it confirms every payment without money. It used to be selected automatically whenever no Stripe key was set — including in the Production Docker stack, where any order could be marked Paid for free. It is now implicit only in Development/Testing; elsewhere the API refuses to start unless `Payments:Provider=Fake` is set explicitly (demo use), which is logged at every start.
 - **Account model:** today there is **one** platform Stripe account configured by environment. The client instance is created per adapter (1A), not through a static global. Per-tenant accounts, or Stripe Connect, is decision D-13, due in Phase 11.
 
 ## 9. Logging and sensitive data
@@ -116,7 +119,12 @@
 - Configuration diagnostics log only `configured`/`missing`, never values.
 - Unexpected exceptions are logged server-side with the stack trace. Clients receive a generic message.
 
-**Phase 1B:** structured scopes (`TenantId`, `UserId`, `CorrelationId`) on every log entry.
+**Rules added in 1B ([ADR-0018](adr/0018-observability.md)):**
+- One line per request with method, path **without the query string**, route template, status and duration. Headers (including `Authorization`) and bodies are never logged.
+- Every log inside a request carries `CorrelationId` (the W3C trace id, also returned as `X-Correlation-Id` and as `traceId` in errors) and `UserId`; use-case logs add `UseCase`. `TenantId` joins in Phase 2.
+- Use-case logging records name and duration only — never the request payload.
+- EF Core SQL text is off by default, and parameter values are never logged.
+- Integration tests prove that no password, JWT or `Authorization` value appears in any log.
 
 ## 10. Audit logging (Phase 4)
 
@@ -140,7 +148,8 @@ They are written by a MediatR behavior for commands marked `IAuditableCommand`. 
 | B4 | Long-lived JWT in `localStorage`, no revocation | ⏳ Phase 3 |
 | B5 | No rate limiting | ⏳ Phase 3 |
 | B6 | Plaintext reset tokens | ✅ Fixed (hash only) |
-| B7 | Ownership checks in controllers; role-only authorization | ⏳ 1B (`ICurrentUser`) / Phase 3 (permissions) |
+| B7 | Ownership checks in controllers; role-only authorization | ✅ 1B: `ICurrentUser`, ownership in use cases, permission policies. Tenant/staff/platform roles in Phase 3 |
+| New (1B) | Fake payment gateway selected implicitly in Production | ✅ 1B: explicit selection outside Development, startup refusal otherwise |
 | B8 | Anonymous tracking by sequential id exposes notes | ⏳ Phase 9 (tracking tokens) |
 | B9 | Security headers | 🟡 Uploads fixed in 1A; the rest in Phase 20 |
 | B10 | App connects as `sa` | ⏳ Phase 23 (least-privilege login) |

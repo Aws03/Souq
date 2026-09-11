@@ -136,3 +136,26 @@ The harness exists since Phase 1A. It already proves **user-level** isolation: c
 | A cache entry is served to the wrong tenant | Tenant-prefixed keys; the cache wrapper requires a tenant id |
 | A URL to another tenant's upload is shared | Storage keys are unguessable; storefronts reference only their own tenant prefix |
 | The platform owner acts inside a tenant | Explicit "support mode" use cases, audited (Phase 18) |
+
+## 8. Phase 2 readiness (after Phase 1B)
+
+**Already in place — Phase 2 builds on these instead of inventing them:**
+
+| Foundation | Where | What Phase 2 adds |
+|---|---|---|
+| Request identity port `ICurrentUser` | `Application/Common/Security`; adapter in `API/Security` | `TenantId` from the `tid` claim, checked against the host |
+| One request log scope (`CorrelationId`, `UserId`) | `RequestLoggingMiddleware` | `TenantId` in the same scope, so every log line knows its tenant |
+| A SaveChanges interceptor seam | `AuditTimestampsInterceptor` | `TenantWriteGuardInterceptor` next to it: stamp on insert, reject cross-tenant writes |
+| Reads only through query services (internal to Infrastructure) | `Infrastructure/Persistence/Queries` | Global query filters apply automatically; no feature builds its own `IQueryable` (architecture test) |
+| No `TenantId` in client-bindable requests | Architecture test (tripwire) | Stays green: the tenant never comes from a body or query string |
+| A foreign resource is 404 | Ownership checks + ProblemDetails | The same rule for another tenant's rows |
+| An explicit auth decision per endpoint, and a reviewed public list | `AuthorizationBoundaryTests` | Platform endpoints get their own list and host |
+| SQL Server test harness and authorization matrix | `Souq.IntegrationTests` | The two-tenant isolation suite (§5) |
+
+**Deliberately not built in 1B** (no fake tenant behaviour): `ITenantContext`, `Tenant`/`TenantDomain`, `ITenantOwned`, `TenantId` columns, global query filters, the resolution middleware, tenant-aware cache keys and storage paths.
+
+**Phase 2 prerequisites (exact):**
+1. Approve decisions D-01, D-02, D-03, D-06, and P-04 (naming of the default tenant).
+2. A copy of the development database, to rehearse the `TenantId` backfill migration (risk R4).
+3. A Development host strategy: `*.localhost` subdomains, or the dev-only `X-Tenant` header.
+4. Work order: `Tenant` + `TenantDomain` → resolution middleware + `ITenantContext` → `ITenantOwned`, global filters and the write guard → backfill migration to the default tenant → composite unique indexes and `TenantId`-leading indexes → the isolation suite → tenant-aware storage keys and cache keys.

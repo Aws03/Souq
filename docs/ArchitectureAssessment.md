@@ -1048,3 +1048,31 @@ Every finding closed in Phase 1A has at least one automated test; the column say
 - D3/D4/D6/D12: read-side query services, `ProductSortBy`, error strategy, `TimeProvider` (1B).
 - E1–E6: frontend structure (15).
 - The Stripe JOD multiplier needs verification before live payments (P-05).
+
+## 17. Status after Phase 1B (2026-09-11)
+
+Same conventions as §16. Phase 1B also found and fixed three problems the Phase 0 audit had not listed (marked **New**).
+
+| ID | Finding | Status | Proof |
+|---|---|---|---|
+| A9 | Arabic server messages shown to English-UI users | 🟡 Stable error codes; the frontend translates them when the UI language differs from the server's. Server-side localization comes with tenant languages (Phase 5). | Vitest: code translation, ar/en key parity |
+| B7 | Ownership checks in controllers; role-only authorization | ✅ `ICurrentUser`; ownership in use cases (404 for foreign resources); permission policies; confirm-payment now owner-checked | Unit (handlers) + Integration (authorization matrix, intruder 404) + Arch (controllers can't read claims) |
+| C13 | Review list N+1 | ✅ Reviewer name by JOIN: a constant 3 queries | Integration: executed SQL commands counted |
+| D3 | Repository method explosion and over-fetching | ✅ One projection query service per module; repositories trimmed to write needs | Integration: paging, filters, sort determinism |
+| D4 | `ProductSortBy` in the Domain | ✅ Moved to the catalog read contract | Build |
+| D5 | Duplicated, non-standard error mapping | ✅ RFC 7807 ProblemDetails + stable codes + one status table ([ADR-0017](adr/0017-error-contract.md)) | Integration (every error class) + unit (exception mapping) |
+| D6 | Mixed error strategies | ✅ Handler-decided outcomes → `Result`; entity rules → `DomainException` (422); handlers never catch domain exceptions | Unit |
+| D7 | `Update()` on tracked entities | ✅ Removed from the repository contract | Build + existing tests |
+| D10 | `Program.cs` configures Infrastructure options | ✅ Storage options registered and validated in Infrastructure | Integration: startup |
+| D12 | `DateTime.UtcNow` in the Domain and handlers | ✅ `TimeProvider`; an interceptor stamps audit fields | Arch (IL scan) + Integration (fixed clock) |
+| **New** | The fake payment gateway, which confirms every payment, was selected automatically whenever no Stripe key was set — including in the Production Docker stack | ✅ Implicit only in Development/Testing; elsewhere startup fails unless it is chosen explicitly, and then it is logged at every start ([ADR-0020](adr/0020-configuration-and-secrets.md)) | Unit (selector) + Integration (startup refusal) |
+| **New** | Four lists had no paging: my orders, inventory, low stock, stock ledger | ✅ Paged with the shared validator | Integration |
+| **New** | Email providers used a static `HttpClient` with a 100 s timeout on the request path | ✅ `IHttpClientFactory` clients with a 15 s timeout | Build |
+
+**Still open,** with the owning phase:
+- A1–A8, A10, A11: tenancy and white-label (Phases 2–15).
+- B4/B5: token lifetime, revocation, rate limiting (3). B8: tracking by sequential id (9). B9: security headers beyond `/uploads` (20). B10: `sa` login (23).
+- C6 residual: abandoned Pending orders expire in Phase 6/9. C7 (5). C12 (8/12).
+- D8: email sent inside the request → outbox (14). D9: token issuance tied to `Customer` (3).
+- E1–E6: frontend structure (15).
+- P-05: the Stripe JOD multiplier.

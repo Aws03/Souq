@@ -54,7 +54,7 @@ API ──► Infrastructure ──► Application ──► Domain
 | **الحذف المنطقي** | `Domain/Entities/Product.cs` (`Deactivate`) | لا نحذف فعلياً؛ نحافظ على التاريخ. |
 | **عزل بوّابة الدفع** | `Application/Common/Interfaces/IPaymentService.cs` | تبديل Stripe بـ PayPal = تنفيذ جديد، صفر تغيير في المنطق. |
 | **Thin Controllers** | `API/Controllers/*` | الـ Controller يترجم HTTP فقط؛ لا منطق أعمال. |
-| **معالجة أخطاء مركزية** | `API/Middleware/ExceptionHandlingMiddleware.cs` | شكل خطأ موحّد لكل النظام. |
+| **عقد أخطاء موحّد (RFC 7807)** | `API/Middleware/GlobalExceptionHandler.cs` و`API/Http/ProblemDetailsConventions.cs` | كل خطأ ProblemDetails برمز ثابت (`code`) ومعرّف تتبّع (`traceId`). |
 
 ---
 
@@ -109,9 +109,10 @@ docker compose up --build
 | GET | `/api/orders/{id}` | متابعة طلب |
 
 **الدفع الآن عبر Stripe.js حقيقي** (Elements في الواجهة، لا رمز دفع في جسم
-الطلب). بلا مفتاح Stripe مضبوط يعمل النظام تلقائياً عبر بوّابة تجريبية دائمة
-النجاح؛ لاختبار فشل الدفع فعلياً فعِّل Stripe واستخدم بطاقاته التجريبية
-الموثَّقة (مثل `4000000000000002` لمحاكاة رفض).
+الطلب). في التطوير المحلي (Development) بلا مفتاح Stripe يعمل النظام عبر بوّابة
+تجريبية دائمة النجاح؛ خارج التطوير يرفض الـ API الإقلاع ما لم تُضبط
+`Payments:Provider=Fake` صراحةً (عرض توضيحي فقط). لاختبار فشل الدفع فعلياً فعِّل
+Stripe واستخدم بطاقاته التجريبية الموثَّقة (مثل `4000000000000002` لمحاكاة رفض).
 
 ---
 

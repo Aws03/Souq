@@ -118,18 +118,19 @@ There is no global `IsDeleted` flag with a global filter. Each aggregate has an 
 ## 8. Audit fields, time, relationships, transactions
 
 - **Timestamps:**
-  - `CreatedAt` / `UpdatedAt` are stamped by `AppDbContext`, stored as `datetime2` in UTC.
-  - From Phase 1B, `TimeProvider` supplies the clock.
+  - `CreatedAt` / `UpdatedAt` are stamped by `AuditTimestampsInterceptor` (a SaveChanges interceptor) from `TimeProvider`, and stored as `datetime2` in UTC. Phase 2's tenant write guard is a second interceptor next to it.
   - Actor columns (`CreatedBy`) are added only where the business asks "who?" (status history, ledger, audit log). Everything else goes to the `AuditLog`.
 - **Relationships:**
   - FKs are declared for every relationship **inside** a module.
   - Delete behaviour is `Restrict` by default, and `Cascade` only for aggregate children (order → lines).
   - Across modules: an id plus a snapshot, no FK (the only exception is `TenantId`).
   - Aggregate-child FKs are `NOT NULL`.
-- **Transactions:**
-  - One `SaveChanges` = one transaction = one use case.
-  - A checkout that spans modules uses a single unit of work.
-  - External calls (payment provider) happen **outside** the transaction, and a compensation handles provider failure (a Phase 1A fix).
+- **Transactions ([ADR-0021](adr/0021-transaction-boundaries.md)):**
+  - The command handler owns the boundary; each `SaveChangesAsync` is one atomic transaction. Work across modules in one step uses the same unit of work.
+  - No transaction is open during a network call: save → call the provider → save. A provider failure is compensated in a new step (checkout); races are resolved by `rowversion` and an idempotent re-read (payment confirmation).
+  - Tracked aggregates are saved without `Update()`, so only changed columns are written.
+  - Side effects (email) happen after the commit; the outbox (Phase 14) makes them reliable.
+- **Reads ([ADR-0008](adr/0008-cqrs-strategy.md)):** query services project with `AsNoTracking` straight into DTOs and page with a mandatory ordering plus an `Id` tiebreaker. They are the only place a listing's SQL is written — the single point where Phase 2's tenant filter and `TenantId`-leading indexes apply.
 
 ## 9. Current state and Phase 1A changes
 
@@ -143,6 +144,8 @@ There is no global `IsDeleted` flag with a global filter. Each aggregate has an 
 | B6: plaintext reset tokens | Only a SHA-256 hash is stored; column widened for the hash |
 
 Deferred to later phases, with the phase noted: `TenantId` (2), `Users` split (3), variants, slugs, and translations (5), inventory items and reservations (6), order snapshot totals and numbers (9).
+
+**Phase 1B:** no schema change and no migration. The existing indexes cover the new read paths (`IX_OrderItems_ProductId` for the best-selling sort, `IX_StockMovements_ProductId_CreatedAt` for the paged ledger, `IX_Orders_CustomerId` for "my orders"). The admin order list sorts by `CreatedAt` without a dedicated index; Phase 2 adds `(TenantId, CreatedAt DESC)`, so no interim index was added.
 
 ## 10. Migration workflow
 

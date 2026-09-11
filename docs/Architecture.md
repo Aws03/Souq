@@ -126,8 +126,12 @@ flowchart TB
 | Application → Infrastructure/API, EF Core, ASP.NET Core, Stripe, MailKit | Use cases must not know technology | `Souq.ArchitectureTests` ✅ |
 | Infrastructure → API | Adapters must not know the delivery mechanism | `Souq.ArchitectureTests` ✅ |
 | Controllers → repositories, `DbContext`, EF Core, provider SDKs | No database access or business logic in controllers | `Souq.ArchitectureTests` ✅ |
-| Domain entities in API contracts | Entities are not DTOs: exposing them leaks internals and freezes the model | Code review now; test once DTO namespaces are standardized (1B) |
-| Module A → Module B's entities, repositories, or tables | Keeps modules independently changeable and extractable | Architecture tests per module as modules are migrated (Phase 1B onward) |
+| Domain entities in API contracts | Entities are not DTOs: exposing them leaks internals and freezes the model | `Souq.ArchitectureTests` ✅ (no entity reachable from any request or response contract, 1B) |
+| Module A → Module B's entities, repositories, or tables | Keeps modules independently changeable and extractable | `Souq.ArchitectureTests` ✅ for Application feature modules (1B); Domain and Infrastructure per module as each module is rebuilt |
+| `IQueryable` crossing the Application or Domain surface | SQL would be built outside Infrastructure, bypassing paging limits and (Phase 2) tenant filters | `Souq.ArchitectureTests` ✅ (1B) |
+| A `TenantId` in a client-bindable command or query | The tenant is decided by the server, never the client | `Souq.ArchitectureTests` ✅ — a tripwire for Phase 2 (1B) |
+| Reading the clock directly (`DateTime.UtcNow`) | Time-dependent rules must be testable with a fixed clock | `Souq.ArchitectureTests` ✅ (IL scan, 1B) |
+| Controllers reading claims or deciding ownership | Identity comes from `ICurrentUser`; ownership is a use-case rule | `Souq.ArchitectureTests` ✅ (1B) |
 | React pages → business rules (prices, stock, permissions) | The backend is authoritative; the UI only reflects decisions | Code review; server tests prove enforcement |
 | New generic `IRepository<T>`/`IService<T>` abstractions without a demonstrated second use | Pattern cargo-cult | Code review (documented in DevelopmentGuide) |
 
@@ -187,7 +191,7 @@ flowchart TB
 |---|---|---|
 | **Commands** (checkout, cancel, adjust stock, create product) | MediatR command → handler → aggregate methods → unit of work | Invariants live in aggregates; the validation pipeline runs automatically |
 | **Simple queries** (get order, get product) | MediatR query → **query service** in Infrastructure projecting straight into DTOs (`AsNoTracking`, `Select`) | Removes the over-fetching of loading entities and mapping in memory (Phase 0 D3); the Application layer stays EF-free |
-| **Search/filter/sort/page listings** | Query service + shared `PageRequest`/`PagedResult<T>`, sort-field allowlists, validators | One reusable mechanism for ~15 listings (Phase 1B) |
+| **Search/filter/sort/page listings** | Query service + `IPagedQuery`/`PagedQueryValidator` + `ToPageAsync` (ordered query + explicit projection), typed criteria, per-resource sort allowlists with an `Id` tiebreaker | One reusable mechanism for every listing — implemented in 1B |
 | **Dashboards and reports** | Start as query services over indexed tables. Move to **read models** (pre-aggregated daily tables) when queries exceed agreed latency | CQRS level 2 only with evidence (Phase 17/21) |
 | **Transactional multi-step flows** (checkout) | One command orchestrating module contracts inside one transaction | Correctness first; no eventual consistency where money and stock are involved |
 
@@ -221,13 +225,27 @@ Scale in this order, stopping as soon as the problem is solved:
 
 | Concern | Mechanism | Phase |
 |---|---|---|
-| Validation | FluentValidation + `ValidationBehavior` (all commands and queries, including paging) | ✅ (paging validators 1A) |
-| Errors | Result → HTTP mapping in one helper (1A); RFC 7807 ProblemDetails + typed errors (1B) | 1A / 1B |
-| Concurrency | `rowversion` + `ConcurrencyConflictException` → 409 | 1A |
-| Tenant context | `ITenantContext` + EF global query filters + write guard | 2 |
-| Current user | `ICurrentUser` (claims → user, roles, tenant) | 1B |
-| Time | `TimeProvider` | 1B |
-| Logging | Structured logging with scopes (tenant, user, correlation id); redaction rules ([Security.md](Security.md)) | 1A redaction / 1B scopes |
+| Validation | FluentValidation + `ValidationBehavior` (async; all commands and queries); `PagedQueryValidator` for every list | ✅ 1A / 1B |
+| Errors | RFC 7807 ProblemDetails, typed `Error`/`ErrorKind`, stable codes, one status table ([ADR-0017](adr/0017-error-contract.md)) | ✅ 1B |
+| Reads and paging | One projection query service per module; `ToPageAsync` over an ordered query + projection | ✅ 1B |
+| Concurrency | `rowversion` + `ConcurrencyConflictException` → 409 | ✅ 1A |
+| Transactions | Use case owns the unit of work; no transaction spans a network call; compensation; outbox later ([ADR-0021](adr/0021-transaction-boundaries.md)) | ✅ 1B (documented) / 14 (outbox) |
+| Current user and authorization | `ICurrentUser`, permission policies, ownership in use cases, explicit auth on every endpoint ([ADR-0019](adr/0019-authorization-foundation.md)) | ✅ 1B / 3 (roles) |
+| Tenant context | `ITenantContext` + EF global query filters + write guard ([MultiTenancy.md §8](MultiTenancy.md#8-phase-2-readiness-after-phase-1b)) | 2 |
+| Time | `TimeProvider`; audit timestamps in a SaveChanges interceptor | ✅ 1B |
+| Logging and correlation | Request line, W3C correlation id, scopes (`CorrelationId`, `UserId`, `UseCase`; `TenantId` in 2), redaction ([ADR-0018](adr/0018-observability.md)) | ✅ 1A redaction / 1B |
+| Configuration | Typed options validated at startup, fail-fast, no implicit dev fallbacks outside Development ([ADR-0020](adr/0020-configuration-and-secrets.md)) | ✅ 1B |
 | Audit | `AuditLog` via a MediatR behavior on `IAuditableCommand` | 4 |
 | Background work | Hosted services (reservation expiry, outbox dispatch) | 6 / 14 |
-| Architecture enforcement | `tests/Souq.ArchitectureTests` (NetArchTest) | 1A |
+| Architecture enforcement | `tests/Souq.ArchitectureTests` (NetArchTest + IL scan) | ✅ 1A / 1B |
+
+## 11. External integration conventions (ports and adapters)
+
+Every integration — payments, email, storage today; shipping (Phase 12) and notifications (Phase 14) later — follows the same rules:
+
+1. **A port exists only at a real boundary:** an external system, or a technology with real variants (payment gateway, email provider, file storage, password hashing, token issuing, current user). A concrete application service with one implementation gets no interface (`OrderStockRelease`, `OrderPaymentConfirmation`). The clock is .NET's own `TimeProvider`.
+2. **Ports speak our language:** `Money`, `Stream`, records. No provider SDK type appears in a port, and provider exceptions are translated at the adapter (`InvalidPaymentWebhookException`, `ConcurrencyConflictException`).
+3. **Every adapter has a stand-in** for development and tests (`FakePaymentService`, `ConsoleEmailService`, the capturing test doubles). Stand-ins are selected implicitly only in Development/Testing ([ADR-0020](adr/0020-configuration-and-secrets.md)).
+4. **Adapter settings are typed options validated at startup;** secrets are never logged, and provider errors are logged with masked data and truncated bodies.
+5. **HTTP adapters** use `IHttpClientFactory` with a timeout. Calls happen **outside** database transactions ([ADR-0021](adr/0021-transaction-boundaries.md)).
+6. **Tenant awareness enters inside adapters** (storage key prefix, per-tenant gateway keys, sender identity) without changing the ports.

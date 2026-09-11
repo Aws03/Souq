@@ -13,10 +13,13 @@
   - Valid for 120 minutes. The client stores it in `localStorage`.
   - No refresh or revocation.
 - **Password reset:** ✅ a 32-byte CSPRNG token, only its SHA-256 hash stored, 2-hour lifetime, single-use, never logged.
-- **Authorization:**
-  - `[Authorize]` and `[Authorize(Roles = "Admin")]` on controllers.
-  - Ownership checks for orders happen in `OrdersController` (they move to Application in 1B).
-- **Guard test:** ✅ `AuthorizationBoundaryTests` enumerates every admin endpoint and asserts anonymous → 401, customer → 403.
+- **Authorization (1B ✅, [ADR-0019](adr/0019-authorization-foundation.md)):**
+  - `ICurrentUser` (Application port, read from the token in `Souq.API.Security`) is how use cases learn who is calling. Commands carry no customer id.
+  - Permissions are code constants (`catalog.manage`, `orders.manage`, `inventory.view`, `promotions.manage`). `RolePermissions` maps `Admin` → all and `Customer` → none.
+  - Endpoints declare `[HasPermission(...)]`, `[Authorize]` or `[AllowAnonymous]` explicitly.
+  - Ownership checks (`CanAccessOwnedBy`) live in the use cases: order details and payment confirmation. Someone else's order is 404.
+  - Payment confirmation has two entry points with different authorization: the owning customer (token) and the Stripe webhook (signature).
+- **Guard tests:** ✅ `AuthorizationBoundaryTests` enumerates every endpoint: each declares a decision; the public surface equals a reviewed list; every declared permission exists; permission-protected endpoints answer anonymous → 401 and customer → 403. An architecture test forbids controllers from reading claims.
 
 ## 2. Target identity model
 

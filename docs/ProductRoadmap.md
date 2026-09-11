@@ -1,7 +1,7 @@
 # Souq Platform: Product Roadmap
 
 > **Goal:** turn Souq into one **white-label, multi-tenant e-commerce platform**, sold to many clients (≈ $5,000+ each) and maintainable by a professional team.
-> **Status:** Phase 0 ✅ · Target architecture ✅ documented · Phase 1A ✅ complete on branch `phase/1a-architecture-stabilization` (awaiting your review and merge). Next: Phase 1B.
+> **Status:** Phase 0 ✅ · Target architecture ✅ documented · Phase 1A ✅ (merged to `main`) · Phase 1B ✅ complete on branch `phase/1b-production-foundations` (awaiting your review and merge). Next: Phase 2.
 > **Companion document:** [ArchitectureAssessment.md](ArchitectureAssessment.md) covers the current state, the problem register (IDs such as `B1` and `C2`), the target architecture, and the full reasoning behind every decision (`D-xx`).
 > **Last updated:** 2026-09-11
 
@@ -107,7 +107,7 @@ Status legend: ✅ done · 🟡 in progress · ⏳ planned · ⏸ awaiting appro
   - ADRs 0001–0016 in [adr/](adr/).
 - **Decision:** modular monolith + Clean/Hexagonal boundaries + selective DDD + vertical slices + selective CQRS. Modules are namespaces inside the four layer projects, enforced by architecture tests.
 
-### Phase 1A: Stabilize + foundations the fixes depend on ✅ (⏸ awaiting review)
+### Phase 1A: Stabilize + foundations the fixes depend on ✅ (merged 2026-09-11)
 - **Goal.** Fix the confirmed correctness and security defects before tenancy multiplies them. Put in place the minimum foundations those fixes need and every later phase reuses: concurrency, money precision, test harness, architecture tests.
 - **Scope change (2026-09-11).** Per the architecture brief, concurrency (C1/C4), JOD precision (C5), the payment-port cleanup (D1/D2), and the integration-test harness moved here from 1B.
 - **Scope.**
@@ -153,23 +153,31 @@ Status legend: ✅ done · 🟡 in progress · ⏳ planned · ⏸ awaiting appro
   - `npm test` + `npm run build` are green.
   - Architecture tests pass.
 
-### Phase 1B: Architecture foundations (remaining) ⏳
-- **Goal.** Finish the shared building blocks, and start moving existing code into module namespaces.
-- **Scope.**
-  - Error contract (D-08): RFC 7807 ProblemDetails + typed `Error` + stable codes the frontend translates (D5, D6, A9).
-  - `ICurrentUser`. Ownership checks move from controllers into Application (B7).
-  - `PageRequest`/`PagedResult<T>` + sort allowlists. The read-side **query-service** pattern (D-07), with Products as the reference (D3, D4).
-  - `TimeProvider` (D12).
-  - Structured logging scopes (D-16).
-  - Move existing code into module namespaces (Catalog, Inventory, Ordering, Promotions, Reviews, Identity) and add per-module architecture tests.
-- **Exit criteria.**
+### Phase 1B: Production foundations ✅ (⏸ awaiting review)
+- **Goal.** Finish the shared building blocks every later module reuses, before multi-tenancy multiplies them.
+- **Scope reconciliation (2026-09-11).** Re-derived from the repository, not from the original bullet list:
+  - Already delivered in 1A and not redone: the money model, concurrency tokens and 409s, the Testcontainers SQL Server harness, one Result→HTTP helper, upload validation, the payment port.
+  - **Module namespace moves stay per phase.** The old bullet "move existing code into module namespaces" contradicted [ADR-0002](adr/0002-modular-monolith-structure.md) and [Architecture.md §4](Architecture.md#4-physical-structure-of-modules) ("no big-bang rename; each module moves when its phase rebuilds it"). The ADR wins. 1B adds module-isolation architecture tests over today's feature folders instead.
+- **Delivered.**
+  - **Error contract:** RFC 7807 ProblemDetails with a stable `code` and `traceId`, typed `Error`/`ErrorKind`, one status table, domain exceptions with codes → 422, handlers never catch them (D5, D6); the frontend translates codes (A9). [ADR-0017](adr/0017-error-contract.md).
+  - **Clock:** `TimeProvider` everywhere; audit timestamps in a SaveChanges interceptor; an IL-level rule against direct clock reads (D12).
+  - **Authorization:** `ICurrentUser`, permission policies (`[HasPermission]`), ownership checks in use cases (B7), payment confirmation split into owner and webhook entry points, an explicit auth decision on every endpoint. [ADR-0019](adr/0019-authorization-foundation.md).
+  - **Reads:** one projection query service per module; shared paging (`IPagedQuery`, `PagedQueryValidator`, `ToPageAsync` over an `IOrderedQueryable` plus a projection); id tiebreakers on every sort; `ProductSortBy` out of the Domain (D3, D4); repositories trimmed and `Update()` removed (D7); review N+1 removed (C13); four unbounded lists paged.
+  - **Observability:** W3C correlation id header equal to the ProblemDetails `traceId`, one request log line, scopes (`CorrelationId`, `UserId`, `UseCase`), slow-use-case warnings, JSON logs in Production. [ADR-0018](adr/0018-observability.md).
+  - **Configuration:** validated typed options, fail-fast before data access, an explicit payment provider outside Development (the fake gateway had been implicit in the Production Docker stack), startup warnings, HTTP client timeouts, storage options out of `Program.cs` (D10). [ADR-0020](adr/0020-configuration-and-secrets.md).
+  - **Transactions** documented and standardized. [ADR-0021](adr/0021-transaction-boundaries.md).
+  - **Architecture tests:** module isolation, the `TenantId` tripwire, no entities in contracts, no `IQueryable` across boundaries, no direct clock reads, controllers can't read claims.
+- **Not in 1B, by design:** `ITenantContext`, `TenantId`, global query filters (Phase 2); identity split and token rotation (3); audit log (4); outbox (14); OpenTelemetry (23). No schema migration was needed.
+- **Result (2026-09-11).** 352 tests green: Domain 95 · Application 118 · Architecture 24 · Integration 95 (real SQL Server) · Frontend 20. `dotnet build` 0 warnings; `npm run build` clean. Every commit verified on its own tree. Status per finding: [ArchitectureAssessment §17](ArchitectureAssessment.md#17-status-after-phase-1b-2026-09-11).
+- **Exit criteria (met).**
   - Every API error is ProblemDetails.
-  - Controllers contain no ownership logic.
+  - Controllers contain no ownership or claims logic.
   - Module dependency tests pass.
-  - The UI is unchanged.
+  - The UI is unchanged apart from paging on four lists.
 
 ### Phase 2: Multi-tenancy foundation ⏳
 - **Goal.** Every tenant-owned row belongs to exactly one tenant, and the backend blocks cross-tenant access by default.
+- **Foundations already in place (1B).** `ICurrentUser` ready for a `tid` claim; one request log scope with a `TenantId` slot; the SaveChanges interceptor seam for the write guard; reads only through query services (one place for filters); the `TenantId` tripwire test; explicit endpoint authorization; 404 for foreign resources. Checklist and exact prerequisites: [MultiTenancy.md §8](MultiTenancy.md#8-phase-2-readiness-after-phase-1b).
 - **Scope.**
   - Domain: a `Tenant` aggregate (name, slug, status, default culture, currency, time zone), `TenantDomain`, and an `ITenantOwned` marker.
   - Resolution (D-02): Host header → `TenantDomains` (cached).
@@ -477,10 +485,10 @@ Each decision is argued in full (options, recommendation, rationale) in Architec
 | P-01 | Branching strategy | ✅ **Decided:** one branch per phase (`phase/1a-architecture-stabilization`), merged to `main` after your review | 1A |
 | P-02 | Assertion library license | ✅ **Decided:** AwesomeAssertions 9.6 (Apache-2.0) replaces FluentAssertions 8 (commercial license verified on NuGet) — [ADR-0015](adr/0015-testing-strategy.md) | 1A |
 | **P-05** | Stripe + JOD minor units | ⚠️ **Verify with Stripe before enabling JOD payments.** Stripe's docs describe non-listed currencies as two-decimal (×100, implemented). If your account treats JOD as three-decimal, the multiplier must be 1000. | before live payments |
-| D-07 | Read-side strategy | ✅ **Decided:** repositories for writes; per-feature query services (EF projections) for reads — [ADR-0008](adr/0008-cqrs-strategy.md) | 1B |
-| D-08 | Error contract | ✅ **Decided:** RFC 7807 ProblemDetails + typed errors + stable codes (one Result→HTTP mapping already in 1A) | 1B |
+| D-07 | Read-side strategy | ✅ **Implemented in 1B:** repositories for writes; one projection query service per module for reads — [ADR-0008](adr/0008-cqrs-strategy.md) | 1B |
+| D-08 | Error contract | ✅ **Implemented in 1B:** RFC 7807 ProblemDetails + typed errors + stable codes — [ADR-0017](adr/0017-error-contract.md) | 1B |
 | D-09 | Money model | ✅ **Decided and implemented in 1A:** `decimal(19,4)` + minor-unit enforcement — [ADR-0014](adr/0014-money-precision.md). Explicit (non-default) currency arrives with tenants (Phase 2). | 1A / 2 |
-| D-16 | Logging | ✅ **Decided:** built-in structured logging with scopes; redaction rules applied in 1A | 1B |
+| D-16 | Logging | ✅ **Implemented in 1B:** built-in structured logging, W3C correlation id, scopes; redaction rules from 1A — [ADR-0018](adr/0018-observability.md) | 1B |
 | D-20 | Integration tests | ✅ **Decided and implemented:** Testcontainers SQL Server + `WebApplicationFactory` — [ADR-0015](adr/0015-testing-strategy.md) | 1A |
 | D-01 | Tenant isolation | Shared database + `TenantId` + global query filters + write guard; a seam for a dedicated database per tenant | 2 |
 | D-02 | Tenant resolution | By host/custom domain; the token's `tid` claim must match; platform admin lives on its own host | 2 |
@@ -488,7 +496,7 @@ Each decision is argued in full (options, recommendation, rationale) in Architec
 | D-06 | User vs customer model | One `Users` table (`TenantId NULL` = platform user) + a `Customer` profile; accounts are per tenant | 2–3 |
 | P-04 | Naming | "Souq" is the platform; "Marka" becomes the first (demo) tenant | 2 |
 | D-04 | Identity implementation | Evolve the existing custom JWT + BCrypt into a `User` aggregate with refresh-token rotation | 3 |
-| D-05 | Authorization model | Permission-based policies; built-in roles mapped to permissions in code | 3 |
+| D-05 | Authorization model | Permission-based policies; built-in roles mapped to permissions in code. **Mechanism implemented in 1B** ([ADR-0019](adr/0019-authorization-foundation.md)); tenant/staff/platform roles arrive in Phase 3 | 3 |
 | D-11 | Feature modules | Per-tenant module flags, enforced server-side and exposed to the UI | 4 |
 | D-12 | White-label runtime | Storefront config API + TenantProvider/ThemeProvider with semantic tokens | 4 / 15 |
 | D-17 | Auditing | `AuditLog` written by a MediatR behavior for auditable commands | 4 |
@@ -507,7 +515,7 @@ Each decision is argued in full (options, recommendation, rationale) in Architec
 |---|---|---|---|---|
 | R1 | **Cross-tenant data leak** | Medium | Critical | Central query filters + write guard, no raw SQL without a tenant predicate, per-entity isolation tests from Phase 2, a review checklist, optional SQL Server RLS (Phase 20) |
 | R2 | Scope and timeline growth (24 gates) | High | High | A first-sellable line (§11), strict phase exit criteria, deferring "nice to have" items |
-| R3 | Refactoring breaks the working app | Medium | High | Incremental phases, app runnable at every gate, integration tests from 1B |
+| R3 | Refactoring breaks the working app | Medium | High | Incremental phases, app runnable at every gate, integration tests since 1A, every commit verified on its own tree |
 | R4 | Data-migration errors (TenantId backfill, User split) | Medium | High | Migrations rehearsed on a copy of the dev database, reversible `Down()` where feasible, a backup before each migration phase |
 | R5 | **Licensing**: FluentAssertions 8 and MediatR ≥ 13 are commercial; the repo is MIT | High | Medium | P-02 in 1A; pin MediatR at 12.x (Apache-2.0) unless you choose the commercial terms; P-03 before selling |
 | R6 | Payment compliance (PCI DSS) | Low | High | Card data never touches our servers (Stripe Elements → SAQ-A scope); decide merchant-of-record via D-13 |
@@ -571,3 +579,4 @@ The earlier `AUDIT.md` (Arabic, 8-phase program) and the engineering-thinking gu
 |---|---|
 | 2026-09-11 | Initial roadmap produced in Phase 0 |
 | 2026-09-11 | Target architecture documented (ADRs 0001–0016). Phase 1A scope expanded per the brief (concurrency, money precision, payment port, test harness) and completed |
+| 2026-09-11 | Phase 1A merged to `main`. Phase 1B scope re-derived from the repository (module namespace moves stay per phase, per ADR-0002) and completed; ADRs 0017–0021 |

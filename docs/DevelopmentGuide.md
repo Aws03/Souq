@@ -24,7 +24,9 @@ dotnet run --project src/Souq.API                  # http://localhost:5200/swagg
 cd frontend && npm install && npm run dev          # http://localhost:5173
 ```
 
-**Docker (full stack):** `cp .env.example .env`, fill in the values, then `docker compose up --build`. In Production mode no admin exists unless `SEED_ADMIN_EMAIL`/`SEED_ADMIN_PASSWORD` are set.
+**Startup validation:** settings are checked before the database is touched. A missing connection string or a `Jwt:Key` shorter than 32 bytes stops the API with a message naming the key. Development uses the fake payment gateway automatically when no Stripe key is set; other environments need Stripe keys or an explicit `Payments:Provider=Fake` ([ADR-0020](adr/0020-configuration-and-secrets.md)).
+
+**Docker (full stack):** `cp .env.example .env`, fill in the values, then `docker compose up --build`. The stack runs in Production mode: no admin exists unless `SEED_ADMIN_EMAIL`/`SEED_ADMIN_PASSWORD` are set, and the API refuses to start without Stripe keys unless `PAYMENTS_PROVIDER=Fake` is set for a demo.
 
 ## 3. Tests
 
@@ -40,7 +42,9 @@ cd frontend && npm install && npm run dev          # http://localhost:5173
 - Never weaken or delete a test to make it pass. If a test exposes a design problem, fix the design.
 - New business rule → a Domain test.
 - New use case → an Application test.
-- New endpoint → covered by the authorization boundary test automatically (admin endpoints), plus an integration test if it has non-trivial SQL, authorization, or concurrency behaviour.
+- New endpoint → declare `[AllowAnonymous]`, `[Authorize]` or `[HasPermission]` (the boundary tests fail otherwise; a new public endpoint also goes into their reviewed list), plus an integration test if it has non-trivial SQL, authorization, or concurrency behaviour.
+- New list → paged: the query implements `IPagedQuery`, its validator inherits `PagedQueryValidator`, and the query service ends with `ToPageAsync` and an `Id` tiebreaker. Prove ordering and filters against SQL Server.
+- New error code → add its translation to both `frontend/src/i18n/locales/*.json` files (a test keeps the keys identical).
 - From Phase 2: new tenant-owned data → isolation tests.
 
 ## 4. Git workflow
@@ -55,8 +59,13 @@ cd frontend && npm install && npm run dev          # http://localhost:5173
 |---|---|
 | A rule that must always hold (no negative stock, valid transitions) | `Souq.Domain` entity or value object method |
 | A use case (place order, cancel order) | `Souq.Application/Features/<Module>/<UseCase>` command/query + handler + validator |
-| A read for a screen or listing | query handler + (1B onward) a query service projecting into DTOs |
-| A way to talk to Stripe, SMTP, disk, or blob storage | port in `Souq.Application/Common/Interfaces`, adapter in `Souq.Infrastructure` |
+| A read for a screen or listing | query + handler in `Features/<Module>/Queries`; the module's read port (`ICatalogQueries`, `IOrderQueries`…) in Application; the `AsNoTracking` projection in `Infrastructure/Persistence/Queries` ([ADR-0008](adr/0008-cqrs-strategy.md)) |
+| An expected failure the use case decides (not found, duplicate, stale edit, provider down) | `Result.Failure(Error.NotFound(...) / Error.Conflict(code, ...) / …)` — the `ErrorKind` picks the HTTP status ([ADR-0017](adr/0017-error-contract.md)) |
+| A rule an entity always enforces | a `DomainException` subclass with a stable `Code` (422). Handlers never catch it. |
+| "Who is calling?" / "may they touch this?" | inject `ICurrentUser`; use `RequireUserId()` and `CanAccessOwnedBy(ownerId, permission)`. Never put a user id in a command. |
+| A new setting | a typed options class + validator + `ValidateOnStart` in the layer that uses it; secrets only in user-secrets or environment variables |
+| "Now" | inject `TimeProvider` (never `DateTime.UtcNow`; an architecture test scans for it) |
+| A way to talk to Stripe, SMTP, disk, or blob storage | port in `Souq.Application/Common/Interfaces`, adapter in `Souq.Infrastructure` ([Architecture.md §11](Architecture.md#11-external-integration-conventions-ports-and-adapters)) |
 | EF mapping, SQL, migrations | `Souq.Infrastructure/Persistence` |
 | An HTTP endpoint | a thin controller in `Souq.API/Controllers` that sends a MediatR request |
 | UI logic without rendering (payload builders, formatting) | `frontend/src/features/<feature>/*.js` + a `*.test.js` next to it |
@@ -66,8 +75,10 @@ cd frontend && npm install && npm run dev          # http://localhost:5173
 - Query the database from controllers.
 - Return Domain entities from endpoints.
 - Add generic repositories or services without two real consumers.
-- Log tokens, links, or personal data.
+- Log tokens, links, personal data, request payloads, headers or query strings.
 - Hard-code a brand, currency, or tenant.
+- Catch a `DomainException` in a handler, or return an unbounded list.
+- Call `Update()` on a tracked entity (it no longer exists — the unit of work saves changes) or hold a transaction open across a network call ([ADR-0021](adr/0021-transaction-boundaries.md)).
 
 ## 6. Money
 

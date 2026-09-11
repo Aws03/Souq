@@ -153,9 +153,11 @@ docker compose up --build
 | Frontend  | http://localhost:8081             |
 | API       | http://localhost:5201/swagger     |
 
-Migrations and seed data run automatically on API startup. Without a Stripe
-key configured, payments run through a built-in fake gateway that always
-succeeds — the app works out of the box with zero external accounts.
+Migrations and seed data run automatically on API startup. **Payments:** set
+Stripe test keys, or `PAYMENTS_PROVIDER=Fake` for a demo in which every payment
+succeeds without money (never with real customers). With neither, the API
+refuses to start — the Docker stack runs in Production mode. Local
+`dotnet run` (Development) uses the fake gateway automatically.
 
 ### Option B — Local development
 
@@ -213,7 +215,7 @@ is running. Summary of the main endpoints:
 ### Products
 | Method | Endpoint                                                    | Auth  | Description                     |
 | ------ | ------------------------------------------------------------ | ----- | -------------------------------- |
-| GET    | `/api/products?keyword=&categoryId=&page=1&pageSize=12`      | —     | Search / filter / paginate products |
+| GET    | `/api/products?keyword=&categoryIds=&minPrice=&maxPrice=&sortBy=&page=1&pageSize=12` | — | Search / filter / sort / paginate products |
 | GET    | `/api/products/{id}`                                          | —     | Get a single product             |
 | POST   | `/api/products`                                                | Admin | Create a product                 |
 | PUT    | `/api/products/{id}`                                           | Admin | Update a product                 |
@@ -242,7 +244,8 @@ is running. Summary of the main endpoints:
 | ------ | ------------------------------------------ | --------- | --------------------------------------------- |
 | POST   | `/api/orders`                                | Customer  | Place an order and start payment              |
 | POST   | `/api/orders/{id}/confirm-payment`           | Customer  | Confirm payment client-side after Stripe Elements |
-| GET    | `/api/orders/{id}`                            | Customer  | Get order details                             |
+| GET    | `/api/orders/{id}`                            | Customer  | Get order details (own orders only; others are 404) |
+| GET    | `/api/orders/mine?page=1&pageSize=20`          | Customer  | The current customer's orders (paged)         |
 | GET    | `/api/orders?page=1&pageSize=20`               | Admin     | List all orders                               |
 | PUT    | `/api/orders/{id}/status`                      | Admin     | Update order status                           |
 | GET    | `/api/payments/config`                         | —         | Get the Stripe publishable key                |
@@ -254,7 +257,9 @@ is running. Summary of the main endpoints:
 | GET    | `/api/products/{productId}/reviews`      | —        | List reviews for a product |
 | POST   | `/api/products/{productId}/reviews`      | Customer | Submit a review             |
 
-All error responses share a consistent shape: `{ "error": "message", "code": "ErrorCode" }`.
+All error responses are RFC 7807 `application/problem+json` with a stable
+`code` (the contract clients branch on) and a `traceId`; every response carries
+an `X-Correlation-Id` header with the same id. Details: [docs/ApiDocumentation.md](docs/ApiDocumentation.md).
 
 ---
 
@@ -265,9 +270,10 @@ Used by `docker-compose.yml` (copy `.env.example` to `.env` and fill in real val
 | Variable                 | Required | Description                                                                 |
 | ------------------------- | -------- | ----------------------------------------------------------------------------- |
 | `DB_SA_PASSWORD`          | Yes      | SQL Server `sa` password for the isolated Docker DB container (must meet SQL Server's complexity policy). |
-| `JWT_KEY`                 | Yes      | Signing secret for JWT access tokens. Use a long, random string (32+ chars). |
-| `STRIPE_SECRET_KEY`       | No       | Stripe secret key. Omit to fall back to a built-in fake payment gateway that always succeeds. |
-| `STRIPE_PUBLISHABLE_KEY`  | No       | Stripe publishable key, exposed to the frontend via `/api/payments/config`.  |
+| `JWT_KEY`                 | Yes      | Signing secret for JWT access tokens: at least 32 bytes of random text (the API refuses to start with a shorter key). |
+| `STRIPE_SECRET_KEY`       | Yes, unless `PAYMENTS_PROVIDER=Fake` | Stripe secret key (test keys work). |
+| `STRIPE_PUBLISHABLE_KEY`  | With Stripe | Stripe publishable key, exposed to the frontend via `/api/payments/config`. |
+| `PAYMENTS_PROVIDER`       | No       | Empty = Stripe. `Fake` = a demo gateway where every payment succeeds without money; logged as a warning at every start. Never use it with real customers. |
 | `STRIPE_WEBHOOK_SECRET`   | No       | Stripe webhook signing secret, used to verify incoming webhook events.       |
 | `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` | First start | Creates the first admin outside Development (password ≥ 12 chars). **No default admin exists outside Development.** Remove after the first start. |
 | `RESEND_API_KEY` / `BREVO_API_KEY` (+ `BREVO_SENDER_EMAIL`) / `GMAIL_APP_PASSWORD` (+ `GMAIL_USERNAME`) | No | Email provider, in priority order. Without one, emails are not sent: a warning is logged, and reset links are never logged outside Development. |
@@ -287,11 +293,11 @@ dotnet test
 
 | Suite | What it proves | Needs |
 | --- | --- | --- |
-| `Souq.Domain.Tests` (87) | Entity invariants, money precision, state machines | — |
-| `Souq.Application.Tests` (102) | Use-case orchestration, validation, upload sniffing | — |
-| `Souq.ArchitectureTests` (7) | Clean Architecture dependency rules, thin controllers | — |
-| `Souq.IntegrationTests` (29) | Migrations, concurrency (rowversion), JOD precision, authorization boundaries, uploads, password reset — on real SQL Server | **Docker** |
-| `frontend` — `npm test` (8) | Admin query/payload logic | — |
+| `Souq.Domain.Tests` (95) | Entity invariants, money precision, state machines, stable error codes | — |
+| `Souq.Application.Tests` (118) | Use-case orchestration, ownership and permissions, validation, paging, upload sniffing, use-case logging | — |
+| `Souq.ArchitectureTests` (24) | Layer and module rules, no entities in contracts, no `IQueryable` leaks, no direct clock reads, `TenantId` tripwire | — |
+| `Souq.IntegrationTests` (95) | Migrations, error contract, authorization matrix, concurrency, JOD precision, paging/sorting/N+1, logging and correlation, startup configuration, uploads, password reset — on real SQL Server | **Docker** |
+| `frontend` — `npm test` (20) | Error parsing and code translations, query strings, admin payloads | — |
 
 The integration suite starts `mcr.microsoft.com/mssql/server:2022-latest` through Testcontainers;
 the first run pulls the image. See [docs/DevelopmentGuide.md](docs/DevelopmentGuide.md).

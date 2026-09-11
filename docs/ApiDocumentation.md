@@ -35,25 +35,36 @@ Routes move into these areas in the phase that rebuilds each module. The fronten
 | Read OK | 200 |
 | Created | 201 + `Location` (or `{ id }`) |
 | Updated or deleted with no body | 204 |
-| Validation failed (shape, ranges, paging) | 400 |
-| Not authenticated / token invalid | 401 |
-| Authenticated but not allowed (role or permission) | 403 |
+| Validation failed (shape, ranges, paging, unreadable JSON, unsupported upload type) | 400 |
+| Not authenticated, token invalid, wrong credentials | 401 |
+| Authenticated but lacking the permission | 403 |
 | Resource missing **or owned by someone else** (tenant or user) | **404**. Never 403, which would leak that the resource exists. |
-| Business rule violated (invalid transition, insufficient stock, coupon expired) | 400 today → 422 with ProblemDetails (1B) |
-| Concurrency conflict or duplicate unique value | **409** |
-| Unsupported upload type | 400 (`UnsupportedMediaType` code) |
+| Conflict with the current state: concurrent write (`ConcurrencyConflict`), duplicate (`DuplicateValue`, `EmailTaken`, `SlugTaken`), stale edit (`StockChanged`), delete blocked (`CategoryInUse`) | **409** |
+| Business rule violated (invalid transition, insufficient stock, coupon unusable, too many decimals) | **422** |
 | Too many requests | 429 (Phase 3) |
+| Required external provider unavailable (`PaymentUnavailable`) | 503 |
 | Unexpected | 500, generic message, no internals |
 
-## 4. Errors
+## 4. Errors ([ADR-0017](adr/0017-error-contract.md))
 
-- **Today (after 1A):**
-  - `{ "error": "<message>", "code": "<StableCode>" }`.
-  - Result → HTTP mapping lives in **one** place (`Souq.API/Http/ResultHttpExtensions.cs`) instead of three copies.
-  - The middleware maps `ValidationException` → 400, `DomainException` → 400, `ConcurrencyConflictException` → 409, `UniqueConstraintViolationException` → 409, anything else → 500.
-- **Target (1B):**
-  - RFC 7807 `application/problem+json` with `type`, `title`, `status`, `detail`, `code`, `traceId`, and per-field `errors` for validation.
-  - Messages stay human-readable, but the **`code` is the contract**: the frontend translates codes, so English-UI users stop receiving Arabic server text (Phase 0 A9).
+Every error is RFC 7807 `application/problem+json`:
+
+```json
+{
+  "title": "Unprocessable Entity",
+  "status": 422,
+  "detail": "الكمية المطلوبة (3) من \"سماعات\" غير متوفرة. المتاح: 1",
+  "code": "InsufficientStock",
+  "traceId": "4bf92f3577b34da6a3ce929d0e0e4736"
+}
+```
+
+- **`code` is the contract.** Clients branch on it and translate it. `detail` is for humans and may change.
+- **`traceId`** equals the `X-Correlation-Id` response header and the request's log scope. Support asks for it.
+- **Validation (400)** adds `errors`, keyed by the JSON path the client sent: `{ "errors": { "items[0].quantity": ["…"] } }`.
+- **Framework errors use the same shape:** 401 `Unauthenticated`, 403 `Forbidden`, 404 `NotFound` (unknown route too), 400 `ValidationFailed` (unreadable JSON, without internal type names). Unexpected errors are 500 `ServerError` with a generic message; the exception exists only in the log.
+- **Where codes come from:** use cases return `Result.Failure(Error.X(code, message))` for outcomes they decide; entities throw a `DomainException` whose `Code` is stable (`InsufficientStock`, `InvalidOrderOperation`, `InvalidCoupon`, `InvalidMoney`, `InvalidReview`, `InvalidProductData`, `ResetTokenExpired`). One table in `Souq.API/Http/ProblemDetailsConventions.cs` maps the kind to the status.
+- **Frontend:** `frontend/src/api/problem.js` turns every error into one `Error` with `message`, `code`, `status`, `traceId`, `fieldErrors`. Translations live under `errors.codes` in `frontend/src/i18n/locales/*.json` (a test keeps Arabic and English keys identical).
 
 ## 5. Lists: pagination, filtering, sorting, search
 
@@ -70,15 +81,20 @@ Routes move into these areas in the phase that rebuilds each module. The fronten
   - Repeated keys for arrays. Comma-separated lists are not used.
 - **Sorting:** a `sortBy` enum per resource (an allowlist). Raw column names from the client are never accepted.
 - **Search:** `keyword`, bilingual `LIKE` today. A search port will abstract it if a search engine arrives.
-- **Implementation (1B):** a shared `PageRequest`/`PagedResult<T>` + query-service extensions, so paging is written once.
+- **Every list endpoint is paged** — including `/api/orders/mine` (default 20) and the admin inventory lists (inventory 50, low stock 20, stock movements 50). A badge that only needs a count asks for `pageSize=1` and reads `totalCount`.
+- **Implementation (1B):**
+  - The query implements `IPagedQuery`; its validator inherits `PagedQueryValidator<T>` (one place for the limits).
+  - The use case passes typed criteria and a `PageRequest` to the module's query service (`ICatalogQueries`, `IOrderQueries`, …).
+  - The query service (Infrastructure) ends with `ToPageAsync(projection, page)`, which only accepts an ordered query and an explicit projection. Every sort ends with an `Id` tiebreaker, so rows never repeat or vanish between pages.
+  - `IQueryable` never leaves Infrastructure (architecture test).
 
 ## 6. Authentication, authorization, tenant resolution
 
 - `Authorization: Bearer <access token>`. From Phase 3 the refresh token travels in an `HttpOnly` cookie.
 - The **tenant is never a parameter.** It comes from the Host header, and for authenticated calls it must match the token's `tid` claim ([MultiTenancy.md](MultiTenancy.md)).
-- **Customer identity comes from the token, never from the body.** For example `CreateOrderCommand.CustomerId` is overwritten from the claims.
-- Authorization today uses `[Authorize(Roles = ...)]`. Target: permission policies (`[HasPermission(...)]`) plus resource ownership checks inside Application ([AuthenticationAndAuthorization.md](AuthenticationAndAuthorization.md)).
-- **Automated guard:** an integration test enumerates every admin-only endpoint and asserts anonymous → 401 and customer → 403, so new endpoints can't silently ship unprotected.
+- **Customer identity comes from the token, never from the body.** Use cases read it from `ICurrentUser`; commands have no customer id field at all.
+- **Authorization (1B, [ADR-0019](adr/0019-authorization-foundation.md)):** endpoints declare `[HasPermission(Permissions.X.Y)]`, `[Authorize]` or `[AllowAnonymous]` — explicitly, every one. Resource ownership is checked inside the use case (404 for someone else's resource).
+- **Automated guards:** integration tests enumerate every endpoint and assert that each declares its decision, that the public surface equals a reviewed list, that every declared permission exists, and that permission-protected endpoints answer anonymous → 401 and customer → 403.
 
 ## 7. Versioning
 
@@ -102,7 +118,13 @@ Routes move into these areas in the phase that rebuilds each module. The fronten
 - The controller checks presence and the size ceiling (HTTP concerns).
 - The **Application layer** validates the actual content by magic bytes, and the stored file extension is derived from the detected type, never from the client's filename or `Content-Type` ([Security.md §5](Security.md#5-input-validation-xss-and-uploads)).
 
-## 10. Documentation rules
+## 10. Correlation ([ADR-0018](adr/0018-observability.md))
+
+- Every response carries `X-Correlation-Id`: the request's W3C trace id (32 hex characters). It is also the `traceId` in error bodies and the `CorrelationId` in the server logs.
+- An incoming W3C `traceparent` header is honoured (for gateways or services in front of the API). Arbitrary client-chosen ids are not accepted.
+- The header is exposed to browsers through CORS so the UI can show it on error screens.
+
+## 11. Documentation rules
 
 - Every new endpoint appears in Swagger with its auth requirement.
 - A module's public HTTP surface is listed in [Modules.md](Modules.md) when that module is rebuilt.
