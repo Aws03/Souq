@@ -134,9 +134,10 @@ public class AuthorizationBoundaryTests
         var (second, _) = await _api.NewCustomerAsync();
         await _api.PlaceOrderAsync(first, productId, 1);
 
-        var secondOrders = await second.GetFromJsonAsync<List<TestApi.IdBody>>("/api/orders/mine", TestApi.Json);
+        var secondOrders = await second.GetFromJsonAsync<TestApi.PageBody<TestApi.IdBody>>("/api/orders/mine", TestApi.Json);
 
-        secondOrders.Should().BeEmpty();
+        secondOrders!.Items.Should().BeEmpty();
+        secondOrders.TotalCount.Should().Be(0);
     }
 
     private sealed record EndpointInfo(

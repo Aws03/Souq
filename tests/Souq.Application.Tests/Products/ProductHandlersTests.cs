@@ -183,16 +183,16 @@ public class DeleteProductHandlerTests
 
 public class GetProductByIdHandlerTests
 {
-    private readonly IProductRepository _products = Substitute.For<IProductRepository>();
+    private readonly ICatalogQueries _catalog = Substitute.For<ICatalogQueries>();
 
-    private GetProductByIdHandler CreateHandler() => new(_products);
+    private GetProductByIdHandler CreateHandler() => new(_catalog);
 
     [Fact]
     public async Task منتج_غير_موجود_أو_معطّل_يُرجع_NotFound()
     {
-        // GetActiveByIdAsync هي ما يستخدمه هذا المعالج تحديداً (مرحلة 4، بند AUDIT ١١) —
-        // تُرجع null لكل من المنتج غير الموجود والمعطّل، فلا تسريب لبيانات معطّلة.
-        _products.GetActiveByIdAsync(1, Arg.Any<CancellationToken>()).Returns((Product?)null);
+        // FindActiveProductAsync تُرجع null لكل من المنتج غير الموجود والمعطّل (تصفية IsActive
+        // في SQL — اختبار تكامل) فلا تسريب لبيانات معطّلة.
+        _catalog.FindActiveProductAsync(1, Arg.Any<CancellationToken>()).Returns((ProductDto?)null);
 
         var result = await CreateHandler().Handle(new GetProductByIdQuery(1), CancellationToken.None);
 
@@ -201,16 +201,14 @@ public class GetProductByIdHandlerTests
     }
 
     [Fact]
-    public async Task منتج_نشط_يُعاد_مع_اسم_فئته()
+    public async Task منتج_نشط_يُعاد_كما_أسقطه_منفذ_القراءة()
     {
-        var category = new Category("إلكترونيات", "electronics");
-        var product = new Product("سماعات", "وصف", new Money(50), 10, "headphones", categoryId: 1);
-        typeof(Product).GetProperty(nameof(Product.Category))!.SetValue(product, category);
-        _products.GetActiveByIdAsync(1, Arg.Any<CancellationToken>()).Returns(product);
+        var dto = new ProductDto(1, "سماعات", "Headphones", "وصف", 50, "JOD", 10, "img", null, 1, "إلكترونيات");
+        _catalog.FindActiveProductAsync(1, Arg.Any<CancellationToken>()).Returns(dto);
 
         var result = await CreateHandler().Handle(new GetProductByIdQuery(1), CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
-        result.Value!.CategoryName.Should().Be("إلكترونيات");
+        result.Value.Should().Be(dto);
     }
 }

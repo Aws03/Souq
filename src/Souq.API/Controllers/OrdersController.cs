@@ -45,9 +45,10 @@ public class OrdersController : ControllerBase
         return result.IsSuccess ? Ok(result.Value) : this.Failure(result);
     }
 
-    // GET /api/orders/mine — طلبات المستخدم الحالي.
+    // GET /api/orders/mine?page=1&pageSize=20 — طلبات المستخدم الحالي، مرقّمة.
     [HttpGet("mine")]
-    public async Task<IActionResult> GetMine() => Ok(await _mediator.Send(new GetMyOrdersQuery()));
+    public async Task<IActionResult> GetMine([FromQuery] int page = 1, [FromQuery] int pageSize = 20)
+        => Ok(await _mediator.Send(new GetMyOrdersQuery(page, pageSize)));
 
     // GET /api/orders/5/tracking — رابط تتبّع قابل للمشاركة بلا مصادقة عمداً. العقد
     // يكشف الحدّ الأدنى فقط (رموز تتبّع عشوائية بدل المعرّف في المرحلة 9).

@@ -1,25 +1,23 @@
 using AwesomeAssertions;
 using NSubstitute;
 using Souq.Application.Features.Products.Queries;
-using Souq.Domain.Entities;
-using Souq.Domain.Interfaces;
-using Souq.Domain.ValueObjects;
 
 namespace Souq.Application.Tests.Products;
 
+// استبعاد المنتج نفسه وأولوية نفس الفئة سلوك SQL في CatalogQueries (اختبار تكامل)؛ هنا
+// عقد المعالج: غير موجود ⇒ 404، والعدد يُمرَّر كما طُلب.
 public class GetRelatedProductsHandlerTests
 {
-    private readonly IProductRepository _products = Substitute.For<IProductRepository>();
+    private readonly ICatalogQueries _catalog = Substitute.For<ICatalogQueries>();
 
-    private GetRelatedProductsHandler CreateHandler() => new(_products);
+    private GetRelatedProductsHandler CreateHandler() => new(_catalog);
 
-    private static Product NewProduct(int categoryId = 1) =>
-        new("سماعات", "وصف", new Money(50), 10, "headphones", categoryId: categoryId);
+    private static ProductDto Dto(int id) => new(id, "سماعات", "Headphones", "وصف", 50, "JOD", 10, "img", null, 3, "إلكترونيات");
 
     [Fact]
     public async Task منتج_غير_موجود_أو_معطّل_يُرجع_NotFound()
     {
-        _products.GetActiveByIdAsync(1, Arg.Any<CancellationToken>()).Returns((Product?)null);
+        _catalog.FindRelatedProductsAsync(1, 6, Arg.Any<CancellationToken>()).Returns((IReadOnlyList<ProductDto>?)null);
 
         var result = await CreateHandler().Handle(new GetRelatedProductsQuery(1), CancellationToken.None);
 
@@ -28,32 +26,23 @@ public class GetRelatedProductsHandlerTests
     }
 
     [Fact]
-    public async Task يستبعد_المنتج_الحالي_ويستخدم_فئته_وعدده_الافتراضي()
+    public async Task يُعيد_المنتجات_ذات_الصلة_بالعدد_الافتراضي()
     {
-        var product = NewProduct(categoryId: 3);
-        typeof(Souq.Domain.Common.Entity).GetProperty("Id")!.SetValue(product, 1);
-        _products.GetActiveByIdAsync(1, Arg.Any<CancellationToken>()).Returns(product);
-        _products.GetRelatedAsync(1, 3, 6, Arg.Any<CancellationToken>())
-            .Returns(new List<Product> { NewProduct(categoryId: 3) });
+        _catalog.FindRelatedProductsAsync(1, 6, Arg.Any<CancellationToken>()).Returns(new List<ProductDto> { Dto(2) });
 
         var result = await CreateHandler().Handle(new GetRelatedProductsQuery(1), CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
-        result.Value.Should().HaveCount(1);
-        await _products.Received(1).GetRelatedAsync(1, 3, 6, Arg.Any<CancellationToken>());
+        result.Value.Should().ContainSingle().Which.Id.Should().Be(2);
     }
 
     [Fact]
-    public async Task يمرّر_العدد_المطلوب_للمستودع()
+    public async Task يمرّر_العدد_المطلوب_لمنفذ_القراءة()
     {
-        var product = NewProduct(categoryId: 2);
-        typeof(Souq.Domain.Common.Entity).GetProperty("Id")!.SetValue(product, 5);
-        _products.GetActiveByIdAsync(5, Arg.Any<CancellationToken>()).Returns(product);
-        _products.GetRelatedAsync(5, 2, 3, Arg.Any<CancellationToken>())
-            .Returns(new List<Product>());
+        _catalog.FindRelatedProductsAsync(5, 3, Arg.Any<CancellationToken>()).Returns(new List<ProductDto>());
 
         await CreateHandler().Handle(new GetRelatedProductsQuery(5, 3), CancellationToken.None);
 
-        await _products.Received(1).GetRelatedAsync(5, 2, 3, Arg.Any<CancellationToken>());
+        await _catalog.Received(1).FindRelatedProductsAsync(5, 3, Arg.Any<CancellationToken>());
     }
 }

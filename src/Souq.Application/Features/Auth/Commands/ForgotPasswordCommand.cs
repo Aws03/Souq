@@ -31,7 +31,6 @@ public class ForgotPasswordHandler : IRequestHandler<ForgotPasswordCommand, Resu
         if (customer is not null)
         {
             var token = customer.GenerateResetToken(_clock.GetUtcNow().UtcDateTime);
-            _customers.Update(customer);
             await _uow.SaveChangesAsync(ct);
 
             await _email.SendPasswordResetEmailAsync(customer.Email, token, ct);

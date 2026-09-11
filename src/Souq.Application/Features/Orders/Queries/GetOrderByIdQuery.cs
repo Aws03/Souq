@@ -1,7 +1,6 @@
 using MediatR;
 using Souq.Application.Common.Models;
 using Souq.Application.Common.Security;
-using Souq.Domain.Interfaces;
 
 namespace Souq.Application.Features.Orders.Queries;
 
@@ -17,28 +16,19 @@ public record GetOrderByIdQuery(int Id) : IRequest<Result<OrderDto>>;
 // 403). الفحص هنا لا في الـ Controller — Phase 0 B7.
 public class GetOrderByIdHandler : IRequestHandler<GetOrderByIdQuery, Result<OrderDto>>
 {
-    private readonly IOrderRepository _orders;
+    private readonly IOrderQueries _orders;
     private readonly ICurrentUser _currentUser;
 
-    public GetOrderByIdHandler(IOrderRepository orders, ICurrentUser currentUser)
+    public GetOrderByIdHandler(IOrderQueries orders, ICurrentUser currentUser)
     {
         _orders = orders; _currentUser = currentUser;
     }
 
     public async Task<Result<OrderDto>> Handle(GetOrderByIdQuery q, CancellationToken ct)
     {
-        var order = await _orders.GetWithItemsAsync(q.Id, ct);
-        if (order is null || !_currentUser.CanAccessOwnedBy(order.CustomerId, Permissions.Orders.Manage))
-            return Result<OrderDto>.Failure(Error.NotFound("الطلب غير موجود"));
-
-        var dto = new OrderDto(
-            order.Id, order.CustomerId, order.Status.ToString(), order.ShippingAddress,
-            order.Subtotal.Amount, order.DiscountAmount?.Amount, order.CouponCode,
-            order.TotalAmount.Amount, order.TotalAmount.Currency, order.CreatedAt,
-            order.Items.Select(i => new OrderItemDto(
-                i.ProductId, i.ProductName, i.UnitPrice.Amount, i.Quantity, i.LineTotal.Amount)).ToList(),
-            order.TrackingNumber, order.ShippingCarrier);
-
-        return Result<OrderDto>.Success(dto);
+        var order = await _orders.FindAsync(q.Id, ct);
+        return order is null || !_currentUser.CanAccessOwnedBy(order.CustomerId, Permissions.Orders.Manage)
+            ? Result<OrderDto>.Failure(Error.NotFound("الطلب غير موجود"))
+            : Result<OrderDto>.Success(order);
     }
 }

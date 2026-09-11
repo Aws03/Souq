@@ -1,21 +1,17 @@
 using MediatR;
-using Souq.Domain.Interfaces;
+using Souq.Application.Common.Models;
 
 namespace Souq.Application.Features.Inventory.Queries;
 
-// جرد كامل للمخزون (شاشة المدير): كل المنتجات النشطة، الأقلّ مخزوناً أولاً.
-public record GetInventoryQuery : IRequest<IReadOnlyList<InventoryItemDto>>;
+// جرد المخزون (شاشة المدير): المنتجات النشطة، الأقلّ مخزوناً أولاً — مرقّم (كان يعيد الكل).
+public record GetInventoryQuery(int Page = 1, int PageSize = 50)
+    : IRequest<PaginatedList<InventoryItemDto>>, IPagedQuery;
 
-public class GetInventoryHandler : IRequestHandler<GetInventoryQuery, IReadOnlyList<InventoryItemDto>>
+public class GetInventoryHandler : IRequestHandler<GetInventoryQuery, PaginatedList<InventoryItemDto>>
 {
-    private readonly IProductRepository _products;
-    public GetInventoryHandler(IProductRepository products) => _products = products;
+    private readonly IInventoryQueries _inventory;
+    public GetInventoryHandler(IInventoryQueries inventory) => _inventory = inventory;
 
-    public async Task<IReadOnlyList<InventoryItemDto>> Handle(GetInventoryQuery q, CancellationToken ct)
-    {
-        var items = await _products.GetInventoryAsync(ct);
-        return items.Select(p => new InventoryItemDto(
-            p.Id, p.NameAr, p.NameEn, p.ImageUrl, p.Category?.Name,
-            p.StockQuantity, p.LowStockThreshold, p.IsLowStock)).ToList();
-    }
+    public Task<PaginatedList<InventoryItemDto>> Handle(GetInventoryQuery q, CancellationToken ct) =>
+        _inventory.ListAsync(PageRequest.From(q), ct);
 }

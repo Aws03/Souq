@@ -43,7 +43,13 @@ public sealed class SouqApiFactory : WebApplicationFactory<Program>, IAsyncLifet
         builder.UseSetting("Seed:AdminPassword", AdminPassword);
         builder.UseSetting("Storage:Local:RootPath", UploadsRoot);
 
-        builder.ConfigureLogging(logging => logging.AddProvider(Logs));
+        builder.ConfigureLogging(logging =>
+        {
+            logging.AddProvider(Logs);
+            // أوامر SQL المنفَّذة تُلتقط دائماً لمزوّد الاختبار (أياً كان مستوى الإعداد) كي تعدّ
+            // اختبارات N+1 الاستعلامات فعلياً بدل الافتراض.
+            logging.AddFilter<CapturingLoggerProvider>("Microsoft.EntityFrameworkCore.Database.Command", LogLevel.Information);
+        });
         builder.ConfigureTestServices(services =>
         {
             // نلتقط البريد بدل إرساله — لنقرأ رمز إعادة التعيين كما يصل للمستخدم.

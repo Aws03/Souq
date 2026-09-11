@@ -32,7 +32,6 @@ public sealed class OrderStockRelease
             if (product is null) continue; // منتج لم يعد موجوداً — لا مخزون نعيده إليه
 
             product.IncreaseStock(item.Quantity);
-            _products.Update(product);
             await _movements.AddAsync(
                 StockMovement.For(product, StockMovementType.Cancellation, item.Quantity, reason), ct);
         }

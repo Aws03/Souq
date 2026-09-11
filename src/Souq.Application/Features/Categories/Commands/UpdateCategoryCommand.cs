@@ -40,7 +40,6 @@ public class UpdateCategoryHandler : IRequestHandler<UpdateCategoryCommand, Resu
         }
 
         category.UpdateDetails(cmd.Name.Trim(), slug, cmd.ParentId);
-        _categories.Update(category);
         await _uow.SaveChangesAsync(ct);
         return Result.Success();
     }

@@ -1,18 +1,19 @@
 using Souq.Domain.Entities;
+using Souq.Domain.Enums;
 
 namespace Souq.Domain.Interfaces;
 
+// منفذ الكتابة للطلبات. قوائم العرض وتفاصيله عبر IOrderQueries (ADR-0008).
 public interface IOrderRepository : IRepository<Order>
 {
-    // نحتاج جلب الطلب مع أسطره معاً (التجمّع كاملاً).
+    // التجمّع كاملاً (الأسطر + سجلّ الحالة) متتبَّعاً — لانتقالات الحالة والتأكيد.
     Task<Order?> GetWithItemsAsync(int id, CancellationToken ct = default);
-    Task<IReadOnlyList<Order>> GetByCustomerAsync(int customerId, CancellationToken ct = default);
 
     // الحالة الحالية كما هي في قاعدة البيانات الآن (بلا تتبّع) — لحسم سباقات التأكيد
     // المتزامن: النسخة المتتبَّعة في الذاكرة قد تكون قديمة بعد تعارض حفظ.
-    Task<Souq.Domain.Enums.OrderStatus?> GetStatusAsync(int id, CancellationToken ct = default);
+    Task<OrderStatus?> GetStatusAsync(int id, CancellationToken ct = default);
 
-    // كل الطلبات مرقّمة (لشاشة طلبات المدير) — الأحدث أولاً.
-    Task<(IReadOnlyList<Order> Items, int TotalCount)> GetPagedAsync(
-        int page, int pageSize, CancellationToken ct = default);
+    // أحدث طلب مُسلَّم للعميل يحوي المنتج (دليل أحقّية التقييم)، أو null. استعلام EXISTS
+    // واحد بدل تحميل كل طلبات العميل بأسطرها ثم البحث في الذاكرة.
+    Task<int?> FindDeliveredOrderIdContainingAsync(int customerId, int productId, CancellationToken ct = default);
 }

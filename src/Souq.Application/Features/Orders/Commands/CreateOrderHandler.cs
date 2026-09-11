@@ -92,7 +92,6 @@ public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, Result<Ord
         {
             product.DecreaseStock(quantity);
             order.AddItem(product.Id, product.Name, product.Price, quantity);
-            _products.Update(product);
             // كل بيع يُسجَّل في سجلّ حركة المخزون (كمية سالبة = نقص)، ذرّياً مع الطلب.
             await _stockMovements.AddAsync(
                 StockMovement.For(product, StockMovementType.Sale, -quantity), ct);
@@ -123,7 +122,6 @@ public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, Result<Ord
         }
 
         order.SetPaymentIntent(intent.PaymentIntentId);
-        _orders.Update(order);
         await _uow.SaveChangesAsync(ct);
 
         return Result<OrderCreatedDto>.Success(new OrderCreatedDto(

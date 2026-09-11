@@ -12,16 +12,16 @@ export default function Dashboard() {
   const { t } = useTranslation();
   const { user } = useAuth();
   const [stats, setStats] = useState(null);
-  const [lowStock, setLowStock] = useState([]);
+  const [lowStockCount, setLowStockCount] = useState(0);
   const [error, setError] = useState(null);
 
   useEffect(() => {
     Promise.all([api.getProducts({ pageSize: 1 }), api.getCategories()])
       .then(([products, categories]) => setStats({ products: products.totalCount, categories: categories.length }))
       .catch((e) => setError(e.message));
-    // تنبيه المخزون المنخفض مستقلّ عن الإحصاءات (فشله لا يمنع عرضها) — لا نُظهر
-    // شيئاً إن لم يوجد منخفض، أو إن فشل الجلب (تنبيه ثانوي، لا يُعطّل اللوحة).
-    api.getLowStock().then(setLowStock).catch(() => setLowStock([]));
+    // تنبيه المخزون المنخفض مستقلّ عن الإحصاءات (فشله لا يمنع عرضها) — يكفيه العدد
+    // (pageSize=1 ثم totalCount) لا تحميل كل المنتجات المنخفضة.
+    api.getLowStock({ pageSize: 1 }).then((res) => setLowStockCount(res.totalCount)).catch(() => setLowStockCount(0));
   }, []);
 
   return (
@@ -31,9 +31,9 @@ export default function Dashboard() {
 
       {error && <ErrorBanner message={error} />}
 
-      {lowStock.length > 0 && (
+      {lowStockCount > 0 && (
         <Link to="/admin/inventory" className={styles.alertCard}>
-          <b>{t('admin.inventory.lowStockBadge', { count: lowStock.length })}</b>
+          <b>{t('admin.inventory.lowStockBadge', { count: lowStockCount })}</b>
           <span>{t('admin.inventory.lowStockBadgeHint')}</span>
         </Link>
       )}

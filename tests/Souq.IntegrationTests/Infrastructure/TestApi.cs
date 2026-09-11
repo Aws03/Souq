@@ -43,14 +43,24 @@ public sealed class TestApi
         return Authorized(auth!.Token);
     }
 
-    public async Task<int> CreateProductAsync(HttpClient admin, decimal price = 10m, int stock = 5)
+    public async Task<int> CreateProductAsync(
+        HttpClient admin, decimal price = 10m, int stock = 5, int? categoryId = null, string? name = null)
     {
-        var categories = await admin.GetFromJsonAsync<List<IdBody>>("/api/categories", Json);
+        categoryId ??= (await admin.GetFromJsonAsync<List<IdBody>>("/api/categories", Json))!.First().Id;
         var response = await admin.PostAsJsonAsync("/api/products", new
         {
-            nameAr = $"منتج {Guid.NewGuid():N}", description = "اختبار", price, stockQuantity = stock,
-            imageUrl = "placeholder", categoryId = categories!.First().Id,
+            nameAr = name ?? $"منتج {Guid.NewGuid():N}", description = "اختبار", price, stockQuantity = stock,
+            imageUrl = "placeholder", categoryId,
         });
+        response.StatusCode.Should().Be(System.Net.HttpStatusCode.Created, await response.Content.ReadAsStringAsync());
+        return (await response.Content.ReadFromJsonAsync<IdBody>(Json))!.Id;
+    }
+
+    // فئة جديدة فريدة — تعزل قوائم اختبار عن بيانات الاختبارات الأخرى في القاعدة المشتركة.
+    public async Task<int> CreateCategoryAsync(HttpClient admin)
+    {
+        var slug = $"it-{Guid.NewGuid():N}"[..24];
+        var response = await admin.PostAsJsonAsync("/api/categories", new { name = $"فئة {slug}", slug });
         response.StatusCode.Should().Be(System.Net.HttpStatusCode.Created, await response.Content.ReadAsStringAsync());
         return (await response.Content.ReadFromJsonAsync<IdBody>(Json))!.Id;
     }
@@ -74,6 +84,10 @@ public sealed class TestApi
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
         return client;
     }
+
+    // شكل PaginatedList في JSON — عقد كل القوائم المرقّمة.
+    public sealed record PageBody<T>(
+        List<T> Items, int PageNumber, int PageSize, int TotalCount, int TotalPages, bool HasNext, bool HasPrevious);
 
     public sealed record AuthBody(string Token);
     public sealed record IdBody(int Id);

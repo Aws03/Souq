@@ -2,24 +2,18 @@ using AwesomeAssertions;
 using NSubstitute;
 using Souq.Application.Features.Orders.Queries;
 using Souq.Application.Tests.TestDoubles;
-using Souq.Domain.Entities;
-using Souq.Domain.Interfaces;
-using Souq.Domain.ValueObjects;
 
 namespace Souq.Application.Tests.Orders;
 
 // فحص الملكية انتقل من OrdersController إلى حالة الاستخدام (Phase 0 B7).
 public class GetOrderByIdHandlerTests
 {
-    private readonly IOrderRepository _orders = Substitute.For<IOrderRepository>();
+    private readonly IOrderQueries _orders = Substitute.For<IOrderQueries>();
 
-    private Order OrderOwnedBy(int customerId)
-    {
-        var order = new Order(customerId, "عمّان");
-        order.AddItem(1, "سماعات", new Money(50), 1);
-        _orders.GetWithItemsAsync(1, Arg.Any<CancellationToken>()).Returns(order);
-        return order;
-    }
+    private void OrderOwnedBy(int customerId) =>
+        _orders.FindAsync(1, Arg.Any<CancellationToken>()).Returns(new OrderDto(
+            1, customerId, "Pending", "عمّان", 50, null, null, 50, "JOD", DateTime.UnixEpoch,
+            [new OrderItemDto(1, "سماعات", 50, 1, 50)], null, null));
 
     [Fact]
     public async Task صاحب_الطلب_يراه()
@@ -54,5 +48,16 @@ public class GetOrderByIdHandlerTests
             .Handle(new GetOrderByIdQuery(1), CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task طلب_غير_موجود_404()
+    {
+        _orders.FindAsync(1, Arg.Any<CancellationToken>()).Returns((OrderDto?)null);
+
+        var result = await new GetOrderByIdHandler(_orders, TestCurrentUser.Admin())
+            .Handle(new GetOrderByIdQuery(1), CancellationToken.None);
+
+        result.ErrorCode.Should().Be("NotFound");
     }
 }

@@ -1,5 +1,6 @@
 using AwesomeAssertions;
 using Souq.Application.Features.Coupons.Queries;
+using Souq.Application.Features.Inventory.Queries;
 using Souq.Application.Features.Orders.Queries;
 using Souq.Application.Features.Products.Queries;
 using Souq.Application.Features.Reviews.Queries;
@@ -54,5 +55,19 @@ public class PagingValidatorTests
         new GetCouponsQueryValidator().Validate(new GetCouponsQuery(PageSize: 1000)).IsValid.Should().BeFalse();
         new GetProductReviewsQueryValidator().Validate(new GetProductReviewsQuery(ProductId: 0)).IsValid.Should().BeFalse();
         new GetRelatedProductsQueryValidator().Validate(new GetRelatedProductsQuery(1, Count: 500)).IsValid.Should().BeFalse();
+    }
+
+    [Fact]
+    public void القوائم_التي_كانت_بلا_حدّ_صارت_مرقّمة_ومحروسة()
+    {
+        // "طلباتي" والجرد والمنخفض وسجلّ الحركة كانت تعيد كل الصفوف (Part 15).
+        new GetMyOrdersQueryValidator().Validate(new GetMyOrdersQuery(PageSize: 101)).IsValid.Should().BeFalse();
+        new GetInventoryQueryValidator().Validate(new GetInventoryQuery(Page: 0)).IsValid.Should().BeFalse();
+        new GetLowStockQueryValidator().Validate(new GetLowStockQuery(PageSize: 0)).IsValid.Should().BeFalse();
+        new GetStockMovementsQueryValidator().Validate(new GetStockMovementsQuery(ProductId: 0)).IsValid.Should().BeFalse();
+
+        new GetMyOrdersQueryValidator().Validate(new GetMyOrdersQuery()).IsValid.Should().BeTrue();
+        new GetInventoryQueryValidator().Validate(new GetInventoryQuery()).IsValid.Should().BeTrue();
+        new GetStockMovementsQueryValidator().Validate(new GetStockMovementsQuery(ProductId: 3, PageSize: 100)).IsValid.Should().BeTrue();
     }
 }

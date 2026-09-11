@@ -5,12 +5,11 @@ namespace Souq.Application.Features.Products.Queries;
 
 // الاستعلامات مُدخلات عامة (زوّار) مثل الأوامر تماماً — ValidationBehavior يطبّق
 // هذه القواعد تلقائياً قبل المعالج، فمدخل غير صالح يعود 400 بدل خطأ SQL (500).
-public class GetProductsQueryValidator : AbstractValidator<GetProductsQuery>
+// قواعد الصفحة موروثة من PagedQueryValidator (مصدر واحد لكل القوائم).
+public class GetProductsQueryValidator : PagedQueryValidator<GetProductsQuery>
 {
     public GetProductsQueryValidator()
     {
-        RuleFor(x => x.Page).GreaterThanOrEqualTo(1);
-        RuleFor(x => x.PageSize).InclusiveBetween(1, PagingRules.MaxPageSize);
         RuleFor(x => x.Keyword).MaximumLength(200);
         RuleFor(x => x.MinPrice).GreaterThanOrEqualTo(0).When(x => x.MinPrice.HasValue);
         RuleFor(x => x.MaxPrice).GreaterThanOrEqualTo(0).When(x => x.MaxPrice.HasValue);

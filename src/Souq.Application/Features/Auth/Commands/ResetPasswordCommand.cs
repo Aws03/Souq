@@ -27,8 +27,6 @@ public class ResetPasswordHandler : IRequestHandler<ResetPasswordCommand, Result
 
         // رمز منتهٍ ⇒ الكيان يرمي InvalidPasswordResetException (422 مركزياً) قبل أي حفظ.
         customer.ResetPassword(_hasher.Hash(cmd.NewPassword), _clock.GetUtcNow().UtcDateTime);
-
-        _customers.Update(customer);
         await _uow.SaveChangesAsync(ct);
 
         return Result.Success();

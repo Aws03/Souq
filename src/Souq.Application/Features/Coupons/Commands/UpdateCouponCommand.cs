@@ -33,8 +33,6 @@ public class UpdateCouponHandler : IRequestHandler<UpdateCouponCommand, Result>
             cmd.ExpiresAt, cmd.MaxUses);
 
         if (cmd.IsActive) coupon.Activate(); else coupon.Deactivate();
-
-        _coupons.Update(coupon);
         await _uow.SaveChangesAsync(ct);
         return Result.Success();
     }

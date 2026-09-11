@@ -7,7 +7,6 @@ using Souq.Application.Common.Models;
 using Souq.Application.Common.Security;
 using Souq.Application.Features.Products.Commands;
 using Souq.Application.Features.Products.Queries;
-using Souq.Domain.Enums;
 
 namespace Souq.API.Controllers;
 

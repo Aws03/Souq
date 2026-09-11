@@ -47,8 +47,6 @@ public class UpdateOrderStatusHandler : IRequestHandler<UpdateOrderStatusCommand
         // الطلب الملغى لم يُشحن، فمخزونه المحجوز يعود للبيع — في نفس معاملة الإلغاء.
         if (cmd.Action == OrderStatusAction.Cancel)
             await _stockRelease.ReleaseAsync(order, cmd.Note ?? AdminCancellationNote, ct);
-
-        _orders.Update(order);
         await _uow.SaveChangesAsync(ct);
         return Result.Success();
     }

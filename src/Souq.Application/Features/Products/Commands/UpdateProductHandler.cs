@@ -55,8 +55,6 @@ public class UpdateProductHandler : IRequestHandler<UpdateProductCommand, Result
         if (cmd.LowStockThreshold is int threshold)
             product.SetLowStockThreshold(threshold);
 
-        _products.Update(product);
-
         // تعديل المخزون من الإدارة حركة تصحيح (Adjustment) بإشارة الفارق — تُسجَّل فقط
         // إن تغيّر المخزون فعلاً (لا حركة صفرية).
         if (cmd.StockQuantity is int newStock)

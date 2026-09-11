@@ -1,5 +1,6 @@
 import i18n from '../i18n';
 import { toApiError } from './problem';
+import { toQueryString } from './query';
 
 // ============================================================================
 // عميل API موحّد — لماذا ملف واحد؟ (مبدأ DRY + فصل الاهتمامات)
@@ -80,18 +81,8 @@ export const api = {
   resetPassword: (token, newPassword) =>
     request('/auth/reset-password', { method: 'POST', body: JSON.stringify({ token, newPassword }) }),
 
-  // ── الكتالوج ──
-  // المصفوفات (categoryIds) تُرسَل كمفتاح متكرّر (categoryIds=1&categoryIds=2)
-  // — الصيغة الوحيدة التي يربطها ASP.NET إلى List<int>، لا "1,2" المفصولة.
-  getProducts: (params = {}) => {
-    const q = new URLSearchParams();
-    Object.entries(params).forEach(([key, value]) => {
-      if (value == null || value === '') return;
-      if (Array.isArray(value)) value.forEach((v) => q.append(key, v));
-      else q.append(key, value);
-    });
-    return request(`/products?${q}`);
-  },
+  // ── الكتالوج ── (سلسلة الاستعلام لكل القوائم من toQueryString: مصفوفات بمفتاح متكرّر)
+  getProducts: (params = {}) => request(`/products${toQueryString(params)}`),
   getProduct: (id) => request(`/products/${id}`),
   getRelatedProducts: (id, count = 6) => request(`/products/${id}/related?count=${count}`),
   getCategories: () => request('/categories'),
@@ -100,7 +91,8 @@ export const api = {
   createOrder: (payload) => request('/orders', { method: 'POST', body: JSON.stringify(payload) }),
   getOrder: (id) => request(`/orders/${id}`),
   confirmOrderPayment: (id) => request(`/orders/${id}/confirm-payment`, { method: 'POST' }),
-  getMyOrders: () => request('/orders/mine'),
+  // مرقّمة (PaginatedList): { items, totalCount, totalPages, ... }
+  getMyOrders: (params = {}) => request(`/orders/mine${toQueryString(params)}`),
   // تتبّع بلا مصادقة (رابط قابل للمشاركة) — نفس نقطة الخادم العامة تُستخدم هنا
   // وفي صفحة تفصيل الطلب داخل التطبيق معاً (لا فرق بين الحالتين من الواجهة).
   getOrderTracking: (id) => request(`/orders/${id}/tracking`),
@@ -111,23 +103,13 @@ export const api = {
   // ── الكوبونات ──
   applyCoupon: (code, subtotal, currency = 'JOD') =>
     request(`/coupons/apply?${new URLSearchParams({ code, subtotal, currency })}`),
-  getCoupons: (params = {}) => {
-    const q = new URLSearchParams(
-      Object.entries(params).filter(([, v]) => v != null && v !== '')
-    ).toString();
-    return request(`/coupons?${q}`);
-  },
+  getCoupons: (params = {}) => request(`/coupons${toQueryString(params)}`),
   createCoupon: (payload) => request('/coupons', { method: 'POST', body: JSON.stringify(payload) }),
   updateCoupon: (id, payload) => request(`/coupons/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
   deleteCoupon: (id) => request(`/coupons/${id}`, { method: 'DELETE' }),
 
   // ── التقييمات ──
-  getProductReviews: (productId, params = {}) => {
-    const q = new URLSearchParams(
-      Object.entries(params).filter(([, v]) => v != null && v !== '')
-    ).toString();
-    return request(`/products/${productId}/reviews?${q}`);
-  },
+  getProductReviews: (productId, params = {}) => request(`/products/${productId}/reviews${toQueryString(params)}`),
   createReview: (productId, payload) =>
     request(`/products/${productId}/reviews`, { method: 'POST', body: JSON.stringify(payload) }),
 
@@ -152,17 +134,14 @@ export const api = {
   deleteCategory: (id) => request(`/categories/${id}`, { method: 'DELETE' }),
 
   // ── جرد المخزون (أدمن) ──
-  getInventory: () => request('/admin/inventory'),
-  getLowStock: () => request('/admin/inventory/low-stock'),
-  getStockMovements: (productId) => request(`/admin/inventory/${productId}/movements`),
+  // كلها مرقّمة (PaginatedList). الشارة تكفيها low-stock بـ pageSize=1 ثم totalCount.
+  getInventory: (params = {}) => request(`/admin/inventory${toQueryString(params)}`),
+  getLowStock: (params = {}) => request(`/admin/inventory/low-stock${toQueryString(params)}`),
+  getStockMovements: (productId, params = {}) =>
+    request(`/admin/inventory/${productId}/movements${toQueryString(params)}`),
 
   // ── إدارة الطلبات (أدمن) ──
-  getOrders: (params = {}) => {
-    const q = new URLSearchParams(
-      Object.entries(params).filter(([, v]) => v != null && v !== '')
-    ).toString();
-    return request(`/orders?${q}`);
-  },
+  getOrders: (params = {}) => request(`/orders${toQueryString(params)}`),
   updateOrderStatus: (id, action, extra = {}) =>
     request(`/orders/${id}/status`, { method: 'PUT', body: JSON.stringify({ action, ...extra }) }),
 };

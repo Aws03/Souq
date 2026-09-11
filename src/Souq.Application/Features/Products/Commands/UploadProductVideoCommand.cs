@@ -37,7 +37,6 @@ public class UploadProductVideoHandler : IRequestHandler<UploadProductVideoComma
 
         var url = await _storage.SaveAsync(cmd.Content, "videos", type.Extension, ct);
         product.SetVideoUrl(url);
-        _products.Update(product);
         await _uow.SaveChangesAsync(ct);
 
         return Result<string>.Success(url);

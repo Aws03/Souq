@@ -2,7 +2,6 @@ using MediatR;
 using Souq.Application.Common.Models;
 using Souq.Application.Common.Security;
 using Souq.Domain.Entities;
-using Souq.Domain.Enums;
 using Souq.Domain.Interfaces;
 
 namespace Souq.Application.Features.Reviews.Commands;
@@ -32,15 +31,13 @@ public class CreateReviewHandler : IRequestHandler<CreateReviewCommand, Result<i
         if (await _reviews.HasCustomerReviewedProductAsync(customerId, cmd.ProductId, ct))
             return Result<int>.Failure(Error.Conflict("AlreadyReviewed", "قيّمت هذا المنتج مسبقاً"));
 
-        var orders = await _orders.GetByCustomerAsync(customerId, ct);
-        var eligibleOrder = orders.FirstOrDefault(o =>
-            o.Status == OrderStatus.Delivered && o.Items.Any(i => i.ProductId == cmd.ProductId));
-
-        if (eligibleOrder is null)
+        // استعلام واحد لأحدث طلب مُسلَّم يحوي المنتج — لا تحميل كل طلبات العميل بأسطرها.
+        var eligibleOrderId = await _orders.FindDeliveredOrderIdContainingAsync(customerId, cmd.ProductId, ct);
+        if (eligibleOrderId is null)
             return Result<int>.Failure(Error.BusinessRule("NotEligible", "يمكنك تقييم منتج اشتريته واستلمته فقط"));
 
         // تقييم خارج 1-5 أو تعليق فارغ ⇒ InvalidReviewException (422 مركزياً).
-        var review = new Review(cmd.ProductId, customerId, eligibleOrder.Id, cmd.Rating, cmd.Comment);
+        var review = new Review(cmd.ProductId, customerId, eligibleOrderId.Value, cmd.Rating, cmd.Comment);
 
         await _reviews.AddAsync(review, ct);
         await _uow.SaveChangesAsync(ct);

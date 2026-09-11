@@ -1,19 +1,19 @@
 using MediatR;
-using Souq.Domain.Interfaces;
+using Souq.Application.Features.Products.Queries;
 
 namespace Souq.Application.Features.Categories.Queries;
 
 public record CategoryDto(int Id, string Name, string Slug, int? ParentId);
-public record GetCategoriesQuery() : IRequest<List<CategoryDto>>;
 
-public class GetCategoriesHandler : IRequestHandler<GetCategoriesQuery, List<CategoryDto>>
+// شجرة فئات متجر واحد صغيرة بطبيعتها (عشرات) — تُعاد كاملة، مُسقطة بلا تتبّع عبر منفذ قراءة
+// وحدة Catalog. (IRepository.ListAllAsync العام أُزيل: فخّ يحمّل أي جدول كاملاً.)
+public record GetCategoriesQuery() : IRequest<IReadOnlyList<CategoryDto>>;
+
+public class GetCategoriesHandler : IRequestHandler<GetCategoriesQuery, IReadOnlyList<CategoryDto>>
 {
-    private readonly ICategoryRepository _categories;
-    public GetCategoriesHandler(ICategoryRepository categories) => _categories = categories;
+    private readonly ICatalogQueries _catalog;
+    public GetCategoriesHandler(ICatalogQueries catalog) => _catalog = catalog;
 
-    public async Task<List<CategoryDto>> Handle(GetCategoriesQuery q, CancellationToken ct)
-    {
-        var all = await _categories.ListAllAsync(ct);
-        return all.Select(c => new CategoryDto(c.Id, c.Name, c.Slug, c.ParentId)).ToList();
-    }
+    public Task<IReadOnlyList<CategoryDto>> Handle(GetCategoriesQuery q, CancellationToken ct) =>
+        _catalog.ListCategoriesAsync(ct);
 }

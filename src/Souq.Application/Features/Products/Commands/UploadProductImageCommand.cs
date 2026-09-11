@@ -38,7 +38,6 @@ public class UploadProductImageHandler : IRequestHandler<UploadProductImageComma
 
         var url = await _storage.SaveAsync(cmd.Content, "images", type.Extension, ct);
         product.SetImageUrl(url);
-        _products.Update(product);
         await _uow.SaveChangesAsync(ct);
 
         return Result<string>.Success(url);

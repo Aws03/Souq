@@ -3,22 +3,21 @@ using Souq.Domain.Common;
 namespace Souq.Domain.Interfaces;
 
 // ============================================================================
-// IRepository<T> — واجهة معمّمة للوصول للبيانات (نمط Repository).
+// IRepository<T> — منفذ الكتابة لتجمّع (نمط Repository).
 //
-// لماذا واجهة وليست تنفيذاً؟ هنا جوهر "عكس التبعية":
-//   - طبقة Domain تقول: "أنا أحتاج طريقة لجلب وحفظ الكيانات". (هذه الواجهة)
-//   - طبقة Infrastructure تقول: "أنا سأنفّذها باستخدام EF Core و SQL Server".
+// لماذا واجهة وليست تنفيذاً؟ جوهر "عكس التبعية": Domain يقول "أحتاج جلب وحفظ الكيانات"،
+// وInfrastructure ينفّذها بـ EF Core. Domain لا يعرف SQL إطلاقاً. السهم يشير للداخل دائماً.
 //
-// النتيجة: Domain لا يعرف ولا يهتم بـ SQL إطلاقاً. لو بدّلنا قاعدة البيانات
-// كلها غداً، لا يتغيّر حرف واحد في Domain. السهم يشير للداخل دائماً.
-//
-// لماذا معمّم <T>؟ لئلا نكتب نفس دوال (جلب/إضافة/حذف) لكل كيان على حدة (DRY).
+// ما ليس هنا عمداً (Phase 1B):
+//   Update — الكيان المُحمَّل عبر المستودع متتبَّع؛ وحدة العمل تكتشف ما تغيّر وتكتب الأعمدة
+//            المتغيّرة فقط. Update() كان يعلّم كل الأعمدة معدّلة فيكتب فوق تغييرات متزامنة
+//            على أعمدة لم نلمسها (Phase 0 D7).
+//   ListAllAsync — تحميل جدول كامل لأي تجمّع كان فخّاً ينمو مع البيانات. القراءات للعرض تمرّ
+//            عبر خدمات القراءة (ICatalogQueries…) بإسقاط وترقيم (ADR-0008).
 // ============================================================================
 public interface IRepository<T> where T : Entity
 {
     Task<T?> GetByIdAsync(int id, CancellationToken ct = default);
-    Task<IReadOnlyList<T>> ListAllAsync(CancellationToken ct = default);
     Task AddAsync(T entity, CancellationToken ct = default);
-    void Update(T entity);
     void Remove(T entity);
 }

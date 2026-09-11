@@ -2,10 +2,9 @@ using Souq.Domain.Entities;
 
 namespace Souq.Domain.Interfaces;
 
-// سجلّ حركة المخزون: نضيف حركة، ونجلب تاريخ منتج (الأحدث أولاً). لا حذف/تعديل —
-// السجلّ للقراءة والإضافة فقط بطبيعته (سجلّ تدقيق).
+// سجلّ حركة المخزون: إضافة فقط — سجلّ تدقيق لا يُعدَّل ولا يُحذف. قراءته (مرقّمة، الأحدث
+// أولاً) عبر IInventoryQueries (ADR-0008).
 public interface IStockMovementRepository
 {
     Task AddAsync(StockMovement movement, CancellationToken ct = default);
-    Task<IReadOnlyList<StockMovement>> GetByProductAsync(int productId, CancellationToken ct = default);
 }

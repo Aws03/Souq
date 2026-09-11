@@ -1,30 +1,17 @@
 using MediatR;
 using Souq.Application.Common.Models;
-using Souq.Domain.Interfaces;
 
 namespace Souq.Application.Features.Products.Queries;
 
-// معالج الاستعلام: يحتوي منطق التنسيق فقط (ينادي المستودع ويحوّل النتيجة لـ DTO).
-// لا يعرف شيئاً عن HTTP ولا عن SQL — يعتمد على واجهة المستودع فقط.
+// معالج الاستعلام: يترجم الطلب إلى معايير بحث مطبوعة ويمرّرها لمنفذ القراءة. لا يعرف SQL
+// ولا EF — الإسقاط والترتيب الحتمي في CatalogQueries (Infrastructure، ADR-0008).
 public class GetProductsHandler : IRequestHandler<GetProductsQuery, PaginatedList<ProductDto>>
 {
-    private readonly IProductRepository _products;
+    private readonly ICatalogQueries _catalog;
+    public GetProductsHandler(ICatalogQueries catalog) => _catalog = catalog;
 
-    // حقن التبعية (Dependency Injection): نستقبل المستودع جاهزاً، لا نُنشئه بأنفسنا.
-    // هذا يجعل المعالج قابلاً للاختبار (نمرّر مستودعاً وهمياً في الاختبار).
-    public GetProductsHandler(IProductRepository products) => _products = products;
-
-    public async Task<PaginatedList<ProductDto>> Handle(GetProductsQuery q, CancellationToken ct)
-    {
-        var (items, total) = await _products.SearchAsync(
-            q.Keyword, q.CategoryIds, q.Page, q.PageSize, q.MinPrice, q.MaxPrice, q.SortBy, ct);
-
-        var dtos = items.Select(p => new ProductDto(
-            p.Id, p.NameAr, p.NameEn, p.Description,
-            p.Price.Amount, p.Price.Currency,
-            p.StockQuantity, p.ImageUrl, p.VideoUrl,
-            p.CategoryId, p.Category?.Name)).ToList();
-
-        return new PaginatedList<ProductDto>(dtos, total, q.Page, q.PageSize);
-    }
+    public Task<PaginatedList<ProductDto>> Handle(GetProductsQuery q, CancellationToken ct) =>
+        _catalog.SearchProductsAsync(
+            new ProductSearch(q.Keyword, q.CategoryIds, q.MinPrice, q.MaxPrice, q.SortBy),
+            PageRequest.From(q), ct);
 }

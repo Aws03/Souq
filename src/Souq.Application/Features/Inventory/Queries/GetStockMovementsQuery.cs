@@ -1,21 +1,19 @@
 using MediatR;
-using Souq.Domain.Interfaces;
+using Souq.Application.Common.Models;
 
 namespace Souq.Application.Features.Inventory.Queries;
 
-// سجلّ حركة مخزون منتج واحد (درج التاريخ) — الأحدث أولاً.
-public record GetStockMovementsQuery(int ProductId) : IRequest<IReadOnlyList<StockMovementDto>>;
+// سجلّ حركة مخزون منتج واحد (درج التاريخ) — الأحدث أولاً، مرقّم: السجلّ دفتري لا يُحذف
+// منه شيء، فبلا ترقيم يكبر الردّ مع كل بيع إلى الأبد.
+public record GetStockMovementsQuery(int ProductId, int Page = 1, int PageSize = 50)
+    : IRequest<PaginatedList<StockMovementDto>>, IPagedQuery;
 
 public class GetStockMovementsHandler
-    : IRequestHandler<GetStockMovementsQuery, IReadOnlyList<StockMovementDto>>
+    : IRequestHandler<GetStockMovementsQuery, PaginatedList<StockMovementDto>>
 {
-    private readonly IStockMovementRepository _movements;
-    public GetStockMovementsHandler(IStockMovementRepository movements) => _movements = movements;
+    private readonly IInventoryQueries _inventory;
+    public GetStockMovementsHandler(IInventoryQueries inventory) => _inventory = inventory;
 
-    public async Task<IReadOnlyList<StockMovementDto>> Handle(GetStockMovementsQuery q, CancellationToken ct)
-    {
-        var items = await _movements.GetByProductAsync(q.ProductId, ct);
-        return items.Select(m => new StockMovementDto(
-            m.Id, m.Type.ToString(), m.QuantityChange, m.NewQuantity, m.Note, m.CreatedAt)).ToList();
-    }
+    public Task<PaginatedList<StockMovementDto>> Handle(GetStockMovementsQuery q, CancellationToken ct) =>
+        _inventory.ListMovementsAsync(q.ProductId, PageRequest.From(q), ct);
 }

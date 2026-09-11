@@ -1,28 +1,20 @@
 using MediatR;
 using Souq.Application.Common.Models;
-using Souq.Domain.Interfaces;
 
 namespace Souq.Application.Features.Products.Queries;
 
-public record GetRelatedProductsQuery(int ProductId, int Count = 6) : IRequest<Result<List<ProductDto>>>;
+public record GetRelatedProductsQuery(int ProductId, int Count = 6) : IRequest<Result<IReadOnlyList<ProductDto>>>;
 
-public class GetRelatedProductsHandler : IRequestHandler<GetRelatedProductsQuery, Result<List<ProductDto>>>
+public class GetRelatedProductsHandler : IRequestHandler<GetRelatedProductsQuery, Result<IReadOnlyList<ProductDto>>>
 {
-    private readonly IProductRepository _products;
-    public GetRelatedProductsHandler(IProductRepository products) => _products = products;
+    private readonly ICatalogQueries _catalog;
+    public GetRelatedProductsHandler(ICatalogQueries catalog) => _catalog = catalog;
 
-    public async Task<Result<List<ProductDto>>> Handle(GetRelatedProductsQuery q, CancellationToken ct)
+    public async Task<Result<IReadOnlyList<ProductDto>>> Handle(GetRelatedProductsQuery q, CancellationToken ct)
     {
-        var product = await _products.GetActiveByIdAsync(q.ProductId, ct);
-        if (product is null)
-            return Result<List<ProductDto>>.Failure(Error.NotFound("المنتج غير موجود"));
-
-        var related = await _products.GetRelatedAsync(product.Id, product.CategoryId, q.Count, ct);
-
-        var dtos = related.Select(p => new ProductDto(
-            p.Id, p.NameAr, p.NameEn, p.Description, p.Price.Amount, p.Price.Currency,
-            p.StockQuantity, p.ImageUrl, p.VideoUrl, p.CategoryId, p.Category?.Name)).ToList();
-
-        return Result<List<ProductDto>>.Success(dtos);
+        var related = await _catalog.FindRelatedProductsAsync(q.ProductId, q.Count, ct);
+        return related is null
+            ? Result<IReadOnlyList<ProductDto>>.Failure(Error.NotFound("المنتج غير موجود"))
+            : Result<IReadOnlyList<ProductDto>>.Success(related);
     }
 }
