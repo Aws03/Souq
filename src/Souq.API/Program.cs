@@ -109,7 +109,10 @@ var app = builder.Build();
 // المفتاح (بلا قيمته). ثم تحذيرات الإعداد غير المناسب للإنتاج مرة واحدة في السجل. ──
 app.Services.GetRequiredService<IStartupValidator>().Validate();
 var startupLog = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Souq.Startup");
-foreach (var warning in app.Services.GetRequiredService<InfrastructureStartupReport>().Warnings)
+var startupReport = app.Services.GetRequiredService<InfrastructureStartupReport>();
+startupLog.LogInformation("Adapters selected: payments {PaymentProvider}, email {EmailProvider}",
+    startupReport.PaymentProvider, startupReport.EmailProvider);
+foreach (var warning in startupReport.Warnings)
     startupLog.LogWarning("Configuration warning: {ConfigurationWarning}", warning);
 
 // ── الهجرات + البذر عند الإقلاع. المدير الافتراضي في Development فقط؛ خارجها يُنشأ

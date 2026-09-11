@@ -8,7 +8,7 @@ namespace Souq.Application.Features.Products.Commands;
 // DeleteProductHandler — حذف منطقي (Soft Delete) عبر Deactivate().
 // لماذا لا نحذف الصف فعلياً؟ المنتجات مرتبطة بعناصر طلبات تاريخية (OrderItem)؛
 // حذفها يكسر سلامة السجلّات ويُفقد تاريخ المبيعات. بدلاً من ذلك نُعطّله فيختفي
-// من واجهة المتجر (SearchAsync يصفّي IsActive) مع بقاء أثره محفوظاً.
+// من واجهة المتجر (CatalogQueries يصفّي IsActive) مع بقاء أثره محفوظاً.
 // هذا تطبيق مباشر للمبدأ الموثّق في الكيان: "حذف منطقي بدل الفعلي".
 // ============================================================================
 public class DeleteProductHandler : IRequestHandler<DeleteProductCommand, Result>
