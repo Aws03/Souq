@@ -71,7 +71,8 @@ Module schemas (`catalog.Products`) were considered and **postponed**. The owner
 | Order | Ordering | User (in tenant) | ✓ | `(TenantId, OrderNumber)` and `(TenantId, TrackingToken)` (Phase 9) | `(TenantId, CreatedAt)`, `(TenantId, CustomerId)`, `(TenantId, Status, CreatedAt)` | **Never** (financial record; cancelled ≠ deleted) | Created/Updated, `PlacedAt`, status history with actor | **`rowversion`** |
 | OrderItem | Ordering | User | ✓ | — | `(OrderId)` | Cascade with order (never deleted in practice) | Created | via Order |
 | OrderStatusHistory | Ordering | User | ✓ | — | `(OrderId)` | **Never** | Created (+ actor) | — |
-| Payment / Refund | Payments | Tenant | ✓ | `ProviderPaymentId` | `(TenantId, OrderId)` | **Never** | Created/Updated | `rowversion` |
+| Payment / Refund (Phase 11) | Payments | User (in tenant) | ✓ | Payment: `(TenantId, OrderId)` (one per order) and `(TenantId, ProviderPaymentId)` | Refund: `(TenantId, PaymentId)` | **Never** (financial records) | Created/Updated | **`rowversion`** on the payment (a refund reserves its amount there) |
+| StorePaymentAccount (Phase 11) | Platform | Tenant | ✓ | `(TenantId)`: one per store | — | Hard (disconnect) | Created/Updated (+ user) | — |
 | Coupon | Promotions | Tenant | ✓ | `(TenantId, Code)` | `(TenantId, IsActive)` | Soft (Inactive) once redeemed; hard before | Created/Updated | **`rowversion`** |
 | CouponRedemption (Phase 10) | Promotions | User (in tenant) | ✓ | `(TenantId, OrderId)`: one per order | `(TenantId, CouponId, CustomerId, Status)` for the per-customer count, `(TenantId, CustomerId)` | **Never** (status Reserved → Confirmed or Released) | Created/Updated | via the coupon's `rowversion` |
 | ShippingMethod | Shipping | Tenant | ✓ | `(TenantId, Code)` | — | Soft (Inactive) | Created/Updated | — |
@@ -103,6 +104,7 @@ Module schemas (`catalog.Products`) were considered and **postponed**. The owner
 |---|---|---|---|
 | `InventoryItems` (Phase 6) | Checkouts for the last unit; checkout vs payment vs admin correction | Oversell; lost update | Second save fails; the inventory writer re-reads the committed values and retries (up to 5 attempts), so the loser gets `422 InsufficientStock`, not a 409 ([ADR-0026](adr/0026-inventory-reservations.md)) |
 | `Coupons.UsedCount` (Phase 10) | Checkouts taking the last use; a cancellation racing a checkout | Limit exceeded; lost update | The use is taken at checkout inside the order transaction. The loser re-reads (up to 5 attempts) and gets `422 InvalidCoupon` if no use is left ([ADR-0030](adr/0030-coupon-redemptions.md)) |
+| `Payments` (Phase 11) | Two refunds of one payment; a refund result racing another request | Refunds exceeding the payment | A refund reserves its amount on the payment row. The loser re-reads (up to 5 attempts) and gets `422 RefundExceedsPayment` ([ADR-0031](adr/0031-payments-and-refunds.md)) |
 | `Orders.Status` | Client confirmation vs Stripe webhook; admin vs payment | Double side effects | Loser re-reads: already Paid → idempotent success |
 
 **Rejected alternatives:**
@@ -244,6 +246,16 @@ Deferred to later phases, with the phase noted: `TenantId` (2), `Users` split (3
 | `CouponRedemptions` | New: `CouponId`, `OrderId` and `CustomerId` (composite FKs within the store, Restrict), `DiscountAmount` and `Currency`, `Status` (Reserved, Confirmed, Released). Unique `(TenantId, OrderId)`; `(TenantId, CouponId, CustomerId, Status)` for the per-customer count |
 | Backfill | Each existing order that used a coupon still present gets a redemption: Pending → Reserved; Paid, Shipped or Delivered → Confirmed; Cancelled → none. Counters keep their value and gain the pending orders, which now hold their use. Nothing is deleted or rewritten |
 | `Down()` | Subtracts the reserved uses from the counters, then drops the table and the columns. Development only |
+
+**Phase 11 (`Phase11Payments`, additive with a data backfill, rehearsed by `MigrationRehearsalTests`, [ADR-0031](adr/0031-payments-and-refunds.md)):**
+
+| Change | Detail |
+|---|---|
+| `Payments` | New: `OrderId` (composite FK within the store, Restrict), `Gateway` (the account that created the intent), `ProviderPaymentId`, `Amount` and `Currency`, `Status`, `RefundedAmount`, `PendingRefundAmount`, `rowversion`. Unique `(TenantId, OrderId)` and `(TenantId, ProviderPaymentId)`. No card columns (`PaymentDataRulesTests`) |
+| `Refunds` | New: `PaymentId` (composite FK within the store, Restrict), `Amount` and `Currency`, `Reason`, `Status`, `ProviderRefundId`, `FailureReason`, `RequestedByUserId`, `CompletedAt` |
+| `StorePaymentAccounts` | New: one per store. `PublishableKey` as is; `SecretKeyCipher` and `WebhookSecretCipher` are AES-GCM ciphertext only, with no column for the plain value; `SecretKeyHint` (last four characters), `LiveMode`, `UpdatedByUserId` |
+| Backfill | Each order with a payment intent gets a payment: the fake gateway for `pi_fake_` intents, otherwise the deployment account; the placed total; Pending → Pending, Paid/Shipped/Delivered → Succeeded, Cancelled → Succeeded if its history shows it was paid first, else Cancelled. Runs after the unique indexes, so a duplicated intent stops the migration instead of being hidden. Nothing is deleted or rewritten |
+| `Down()` | Drops the three tables (payments, refunds, store accounts with their encrypted keys). Orders keep their intent ids. Development only |
 
 ## 10. Migration workflow
 

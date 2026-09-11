@@ -20,9 +20,20 @@ public class UpdateOrderStatusHandlerTests
     private readonly IInventoryReservations _reservations = Substitute.For<IInventoryReservations>();
     private readonly IUnitOfWork _uow = TestUnitOfWork.Create();
 
-    private UpdateOrderStatusHandler CreateHandler() => new(
-        _orders, _reservations, Substitute.For<Souq.Application.Features.Coupons.Contracts.ICouponRedemptions>(),
-        TestCurrentUser.Admin(), _uow);
+    private readonly Souq.Application.Features.Payments.Contracts.IOrderPayments _payments =
+        Substitute.For<Souq.Application.Features.Payments.Contracts.IOrderPayments>();
+    private readonly Souq.Application.Common.Interfaces.IPaymentService _gateway =
+        Substitute.For<Souq.Application.Common.Interfaces.IPaymentService>();
+
+    private UpdateOrderStatusHandler CreateHandler()
+    {
+        var coupons = Substitute.For<Souq.Application.Features.Coupons.Contracts.ICouponRedemptions>();
+        return new(_orders, _reservations, coupons, _payments,
+            new OrderPaymentConfirmation(_orders, _reservations, Substitute.For<ICustomerRepository>(), coupons, _payments,
+                Substitute.For<Souq.Application.Features.Baskets.Contracts.IBasketCheckout>(), _gateway,
+                Substitute.For<Souq.Application.Common.Interfaces.IEmailService>(), _uow),
+            TestCurrentUser.Admin(), _uow);
+    }
 
     private static Order OrderInStatus(OrderStatus status)
     {
@@ -116,6 +127,59 @@ public class UpdateOrderStatusHandlerTests
         await _reservations.Received(1).CancelAsync(OrderStockReference.For(4), "طلب العميل", false, Arg.Any<CancellationToken>());
         await _uow.Received(1).InTransactionAsync(Arg.Any<Func<Task>>(), Arg.Any<CancellationToken>());
         await _uow.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task إلغاء_طلب_مدفوع_يردّ_ماله_كاملاً_وإلغاء_غير_المدفوع_لا_يستردّ()
+    {
+        var paid = OrderInStatus(OrderStatus.Paid);
+        _orders.GetWithItemsAsync(1, Arg.Any<CancellationToken>()).Returns(paid);
+
+        (await CreateHandler().Handle(new UpdateOrderStatusCommand(1, OrderStatusAction.Cancel, "منتج تالف"), CancellationToken.None))
+            .IsSuccess.Should().BeTrue();
+        // كل المتبقّي (بلا مبلغ)، بسبب الإلغاء، باسم الموظّف — بعد التزام معاملة الإلغاء.
+        await _payments.Received(1).RefundAsync(paid.Id, null, "منتج تالف", Arg.Is<int?>(id => id != null), Arg.Any<CancellationToken>());
+
+        _payments.ClearReceivedCalls();
+        _orders.GetWithItemsAsync(2, Arg.Any<CancellationToken>()).Returns(OrderInStatus(OrderStatus.Pending));
+        await CreateHandler().Handle(new UpdateOrderStatusCommand(2, OrderStatusAction.Cancel), CancellationToken.None);
+        await _payments.DidNotReceiveWithAnyArgs().RefundAsync(default, default, default, default, default);
+    }
+
+    [Fact]
+    public async Task إلغاء_الإدارة_لطلب_لم_يُدفع_يسأل_البوّابة_أولاً_فلا_يُلغى_طلب_دُفع_للتوّ()
+    {
+        var justPaid = OrderInStatus(OrderStatus.Pending);
+        justPaid.SetPaymentIntent("pi_race");
+        _orders.GetWithItemsAsync(4, Arg.Any<CancellationToken>()).Returns(justPaid);
+        _gateway.CancelIntentAsync("pi_race", Arg.Any<CancellationToken>())
+            .Returns(Souq.Application.Common.Interfaces.PaymentIntentState.Succeeded);
+        _gateway.ConfirmAsync("pi_race", Arg.Any<CancellationToken>())
+            .Returns(new Souq.Application.Common.Interfaces.PaymentConfirmationResult(true, null));
+
+        var result = await CreateHandler().Handle(new UpdateOrderStatusCommand(4, OrderStatusAction.Cancel), CancellationToken.None);
+
+        result.ErrorCode.Should().Be("OrderAlreadyPaid");
+        justPaid.Status.Should().Be(OrderStatus.Paid, "دفعه العميل قبل الإلغاء: يُؤكَّد ولا يُلغى");
+        await _payments.Received(1).MarkSucceededAsync(4, Arg.Any<CancellationToken>());
+        await NoInventoryCall();
+    }
+
+    [Fact]
+    public async Task إلغاء_الإدارة_لطلب_لم_يُدفع_يُلغي_نيّته_ويحسم_دفعته_ملغاة()
+    {
+        var pending = OrderInStatus(OrderStatus.Pending);
+        pending.SetPaymentIntent("pi_open");
+        _orders.GetWithItemsAsync(4, Arg.Any<CancellationToken>()).Returns(pending);
+        _gateway.CancelIntentAsync("pi_open", Arg.Any<CancellationToken>())
+            .Returns(Souq.Application.Common.Interfaces.PaymentIntentState.Cancelled);
+
+        (await CreateHandler().Handle(new UpdateOrderStatusCommand(4, OrderStatusAction.Cancel), CancellationToken.None))
+            .IsSuccess.Should().BeTrue();
+
+        pending.Status.Should().Be(OrderStatus.Cancelled);
+        await _payments.Received(1).MarkClosedAsync(4, false, Arg.Any<CancellationToken>());
+        await _payments.DidNotReceiveWithAnyArgs().RefundAsync(default, default, default, default, default);
     }
 
     [Fact]

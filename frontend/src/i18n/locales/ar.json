@@ -275,7 +275,8 @@
     "cancelOrder": "إلغاء الطلب",
     "keepOrder": "الإبقاء على الطلب",
     "cancelConfirm": "إلغاء هذا الطلب غير المدفوع؟ ستُحرَّر الأصناف المحجوزة له.",
-    "cancelledToast": "تم إلغاء الطلب"
+    "cancelledToast": "تم إلغاء الطلب",
+    "refundedLabel": "المُستردّ"
   },
   "admin": {
     "headerTitle": "لوحة تحكّم المتجر",
@@ -293,7 +294,8 @@
       "categories": "الفئات",
       "coupons": "الكوبونات",
       "orders": "الطلبات",
-      "customers": "العملاء"
+      "customers": "العملاء",
+      "payments": "المدفوعات"
     },
     "dashboard": {
       "greeting": "أهلاً، {{name}}",
@@ -569,7 +571,38 @@
         "PaymentGateway": "بوّابة الدفع"
       },
       "cancelConfirm": "إلغاء هذا الطلب؟ يعود مخزونه المحجوز أو المباع. الطلب المدفوع يُسترد خارج المنصّة حتى تتوفّر الاستردادات.",
-      "confirmCancel": "تأكيد الإلغاء"
+      "confirmCancel": "تأكيد الإلغاء",
+      "cancelPaidConfirm": "إلغاء هذا الطلب المدفوع؟ يعود المخزون ويُردّ المبلغ كاملاً.",
+      "payment": {
+        "title": "الدفع",
+        "status": {
+          "Pending": "بانتظار الدفع",
+          "Succeeded": "مدفوع",
+          "Failed": "فشل",
+          "Cancelled": "ملغى"
+        },
+        "refunded": "رُدّ {{amount}}",
+        "refundStatus": {
+          "Pending": "معلّق",
+          "Succeeded": "مُستردّ",
+          "Failed": "مرفوض"
+        },
+        "refund": "استرداد",
+        "retry": "إعادة الاسترداد",
+        "refundDone": "تمّ الاسترداد",
+        "refundPending": "لم تُجب بوّابة الدفع، فالاسترداد معلّق. أعد المحاولة بعد قليل.",
+        "refundFailed": "رفضت بوّابة الدفع الاسترداد. {{reason}}",
+        "form": {
+          "amountLabel": "المبلغ",
+          "amountHint": "اتركه فارغاً لاسترداد كل المتبقّي ({{max}}).",
+          "reasonLabel": "السبب (اختياري)",
+          "submit": "استرداد",
+          "amountInvalid": "أدخل مبلغاً أكبر من صفر.",
+          "exceedsRefundable": "أقصى ما يُستردّ {{max}}.",
+          "tooManyDecimals": "خانات عشرية أكثر مما تسمح به العملة.",
+          "nothingToRefund": "لم يبقَ ما يُستردّ."
+        }
+      }
     },
     "customers": {
       "title": "العملاء",
@@ -615,6 +648,39 @@
       },
       "eraseConfirm": "سيُمحى اسم العميل وبريده وهاتفه وعناوينه المحفوظة نهائياً ولن يستطيع الدخول. تبقى طلباته للمحاسبة. لا يمكن التراجع عن هذا.",
       "eraseConfirmButton": "حذف نهائي"
+    },
+    "payments": {
+      "title": "المدفوعات",
+      "subtitle": "أين تُقبض مدفوعات البطاقات في هذا المتجر.",
+      "storeAccount": "حساب Stripe الخاص بالمتجر",
+      "platformAccount": "حساب المنصّة الافتراضي",
+      "storeAccountHint": "المفتاح السرّي {{hint}} · آخر تحديث {{date}}",
+      "platformAccountHint": "تُقبض المدفوعات في حساب المنصّة. اربط حساب Stripe الخاص بالمتجر لتُدفع مباشرة.",
+      "mode": {
+        "live": "حقيقي",
+        "test": "وضع تجريبي"
+      },
+      "secretsNotConfigured": "لا يستطيع هذا الخادم حفظ مفاتيح الدفع بعد: لا مفتاح تشفير مضبوط. راجع مشغّل المنصّة.",
+      "saved": "حُفظ حساب الدفع",
+      "disconnected": "فُكّ ربط حساب المتجر. المدفوعات الجديدة تذهب لحساب المنصّة.",
+      "disconnect": "فكّ الربط",
+      "confirmDisconnect": "فكّ ربط حساب Stripe الخاص بالمتجر؟ ستذهب المدفوعات الجديدة لحساب المنصّة، ولن تُستردّ مدفوعات قبضها حساب المتجر حتى يُعاد ربطه.",
+      "form": {
+        "publishableLabel": "المفتاح العلني",
+        "publishableHint": "يبدأ بـ pk_live_ (أو pk_test_ للتجربة).",
+        "secretLabel": "المفتاح السرّي",
+        "secretHint": "يبدأ بـ sk_live_ أو rk_live_. يُحفظ مشفّراً ولا يُعرض ثانيةً.",
+        "keepSecretHint": "اتركه فارغاً لإبقاء المفتاح المحفوظ ({{hint}}).",
+        "webhookLabel": "سرّ توقيع الإشعارات (اختياري)",
+        "webhookHint": "يبدأ بـ whsec_. يتيح لـ Stripe تأكيد الدفع حتى لو أغلق العميل الصفحة.",
+        "keepWebhookHint": "سرّ الإشعارات محفوظ. اتركه فارغاً لإبقائه.",
+        "publishableInvalid": "أدخل مفتاح Stripe علنياً (pk_live_… أو pk_test_…).",
+        "secretRequired": "المفتاح السرّي مطلوب لربط الحساب.",
+        "secretInvalid": "أدخل مفتاح Stripe سرّياً (sk_… أو rk_…).",
+        "modeMismatch": "المفتاحان من الوضع نفسه: تجريبي أو حقيقي.",
+        "webhookInvalid": "سرّ الإشعارات يبدأ بـ whsec_.",
+        "testKeysNotAllowed": "المفاتيح التجريبية غير مسموحة على هذا الخادم: بطاقات الاختبار لا تنقل مالاً حقيقياً."
+      }
     }
   },
   "wishlist": {
@@ -712,7 +778,15 @@
       "BasketEmpty": "سلتك فارغة.",
       "OrderAlreadyPaid": "دُفع هذا الطلب قبل إلغائه. تواصل مع المتجر لإلغائه.",
       "PaymentProcessing": "الدفع قيد المعالجة. حاول بعد قليل.",
-      "CouponInUse": "استُخدم هذا الكوبون في طلبات — عطّله بدل حذفه."
+      "CouponInUse": "استُخدم هذا الكوبون في طلبات — عطّله بدل حذفه.",
+      "RefundExceedsPayment": "المبلغ أكبر مما يمكن استرداده.",
+      "NothingToRefund": "لم يبقَ ما يُستردّ من هذا الطلب.",
+      "PaymentNotRefundable": "لا يُستردّ إلا دفع مكتمل.",
+      "RefundNotPending": "هذا الاسترداد محسوم.",
+      "InvalidPaymentKeys": "المفتاحان ليسا مفتاحَي Stripe صالحَين من الوضع نفسه.",
+      "TestKeysNotAllowed": "المفاتيح التجريبية غير مسموحة على هذا الخادم.",
+      "SecretsNotConfigured": "لا يستطيع هذا الخادم حفظ مفاتيح الدفع: لا مفتاح تشفير مضبوط.",
+      "PaymentsUnavailable": "الدفع غير متاح الآن. حاول لاحقاً."
     }
   },
   "account": {

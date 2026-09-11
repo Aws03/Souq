@@ -4,6 +4,7 @@ using Souq.Application.Common.Models;
 using Souq.Application.Features.Baskets.Contracts;
 using Souq.Application.Features.Coupons.Contracts;
 using Souq.Application.Features.Inventory.Contracts;
+using Souq.Application.Features.Payments.Contracts;
 using Souq.Domain.Entities;
 using Souq.Domain.Enums;
 using Souq.Domain.Interfaces;
@@ -33,6 +34,7 @@ public sealed class OrderPaymentConfirmation
     private readonly IInventoryReservations _reservations;
     private readonly ICustomerRepository _customers;
     private readonly ICouponRedemptions _couponRedemptions;
+    private readonly IOrderPayments _payments;
     private readonly IBasketCheckout _baskets;
     private readonly IPaymentService _payment;
     private readonly IEmailService _email;
@@ -40,10 +42,11 @@ public sealed class OrderPaymentConfirmation
 
     public OrderPaymentConfirmation(
         IOrderRepository orders, IInventoryReservations reservations, ICustomerRepository customers,
-        ICouponRedemptions couponRedemptions, IBasketCheckout baskets, IPaymentService payment, IEmailService email, IUnitOfWork uow)
+        ICouponRedemptions couponRedemptions, IOrderPayments payments, IBasketCheckout baskets, IPaymentService payment,
+        IEmailService email, IUnitOfWork uow)
     {
-        _orders = orders; _reservations = reservations; _customers = customers;
-        _couponRedemptions = couponRedemptions; _baskets = baskets; _payment = payment; _email = email; _uow = uow;
+        _orders = orders; _reservations = reservations; _customers = customers; _couponRedemptions = couponRedemptions;
+        _payments = payments; _baskets = baskets; _payment = payment; _email = email; _uow = uow;
     }
 
     public async Task<Result<OrderConfirmedDto>> ConfirmAsync(Order order, CancellationToken ct)
@@ -70,6 +73,8 @@ public sealed class OrderPaymentConfirmation
 
         // استخدام الكوبون حُجز عند إنشاء الطلب (المرحلة 10)؛ الدفع يؤكّده في المعاملة نفسها.
         await _couponRedemptions.ConfirmAsync(order.Id, ct);
+        // دفعة الطلب (المرحلة 11) تُحسم ناجحةً في المعاملة نفسها.
+        await _payments.MarkSucceededAsync(order.Id, ct);
 
         await _baskets.ConsumeAsync(order.CustomerId, order.Items.Select(i => new PricingLine(i.ProductId, i.Quantity)).ToList(), ct);
 
@@ -100,13 +105,36 @@ public sealed class OrderPaymentConfirmation
         return Result<OrderConfirmedDto>.Success(ToDto(order, order.Status));
     }
 
+    // إلغاء طلب لم يُدفع بمبادرة شخص (صاحبه أو الإدارة): نطلب من البوّابة إلغاء نيّته أولاً، خارج أي معاملة (ADR-0021) —
+    //   نجحت قبل الإلغاء ⇒ يُؤكَّد الدفع ويُرفض الإلغاء (OrderAlreadyPaid)؛ قيد المعالجة ⇒ يُرفض الآن (PaymentProcessing)؛
+    //   أُلغيت أو لا نيّة ⇒ CancelAsync. المرحلة 11: مسار الإدارة يمرّ به أيضاً — إلغاؤها طلباً دفعه العميل في اللحظة نفسها كان
+    //   يترك المال على طلب ملغى لا يُستردّ.
+    public async Task<Result> CancelUnpaidAsync(Order order, string reason, OrderActor by, CancellationToken ct)
+    {
+        if (order.PaymentIntentId is { } intentId)
+        {
+            var state = await _payment.CancelIntentAsync(intentId, ct);
+            if (state == PaymentIntentState.Processing)
+                return Result.Failure(Error.BusinessRule("PaymentProcessing", "الدفع قيد المعالجة الآن؛ حاول بعد قليل"));
+            if (state == PaymentIntentState.Succeeded)
+            {
+                await ConfirmAsync(order, ct);
+                return Result.Failure(Error.BusinessRule("OrderAlreadyPaid", "دُفع الطلب قبل إلغائه — إلغاؤه الآن إلغاء طلب مدفوع"));
+            }
+        }
+
+        await CancelAsync(order, reason, expired: false, by, ct);
+        return Result.Success();
+    }
+
     // إلغاء طلب لم يُشحن مع حجوزاته في معاملة واحدة — مسار واحد لفشل الدفع، فشل بدء الدفع، انتهاء المهلة، وإلغاء العميل.
-    // استخدام الكوبون يعود للكوبون معه (المرحلة 10).
+    // استخدام الكوبون يعود للكوبون معه (المرحلة 10)، ودفعته المعلّقة تُحسم: فاشلة إن رفضتها البوّابة، وإلا ملغاة (المرحلة 11).
     public async Task CancelAsync(Order order, string reason, bool expired, OrderActor by, CancellationToken ct)
     {
         order.Cancel(reason, by);
         await _uow.InTransactionAsync(async () =>
         {
+            await _payments.MarkClosedAsync(order.Id, failed: by.Kind == OrderActorKind.PaymentGateway, ct);
             await _uow.SaveChangesAsync(ct);
             await _reservations.CancelAsync(OrderStockReference.For(order.Id), reason, expired, ct);
             await _couponRedemptions.ReleaseAsync(order.Id, ct);

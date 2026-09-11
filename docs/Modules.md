@@ -243,13 +243,16 @@ Each entry lists:
 - **Responsibility:** collecting money through providers without ever touching card data.
 - **Owns:** `Payments`, `Refunds`, per-tenant provider configuration (encrypted).
 - **Must not own:** order state.
-- **Contracts:** `IPaymentService` / `IPaymentGateway` (create intent, confirm, refund, parse webhook, client config).
+- **Contracts:** `IPaymentService`, the gateway port (create intent, confirm, cancel, refund, parse webhook, client config), implemented by one router; `IOrderPayments` (Ordering records, settles and refunds an order's payment) and `IPaymentQueries` (Phase 11).
 - **Domain:** refunded ≤ captured; idempotency keys; conversion to the provider's minor units.
 - **Infrastructure:** Stripe (and future providers), the fake gateway.
 - **Depends on:** Platform (tenant gateway configuration).
 - **Forbidden:** calling Ordering; storing a PAN, CVV, or raw card data.
 - **Extraction:** a strong candidate (PCI isolation).
-- **Today:** the `IPaymentService` port + Stripe/Fake adapters. Webhook parsing moved behind the port in 1A.
+- **Today (Phase 11, [ADR-0031](adr/0031-payments-and-refunds.md)):**
+  - `Payment` and `Refund`. Refunds run as reserve–call–record with idempotency keys.
+  - A router picks, per call, the store's own Stripe account (encrypted keys) or the deployment account. Webhooks are routed to the store that created the intent.
+  - Ordering calls it through `IOrderPayments`. The contract Ordering → Payments is enforced by `ModuleAndContractRuleTests`.
 
 ### Promotions
 - **Responsibility:** discount rules.

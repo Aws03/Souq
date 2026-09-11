@@ -56,6 +56,10 @@ public static class DependencyInjection
         services.AddScoped<Features.Baskets.BasketViews>();
         // وحدة Promotions (المرحلة 10): استخدامات الكوبونات — حجز عند إنشاء الطلب، تأكيد بالدفع، تحرير بالإلغاء.
         services.AddScoped<Features.Coupons.Contracts.ICouponRedemptions, Features.Coupons.Redemptions.CouponRedemptions>();
+        // وحدة Payments (المرحلة 11): دفعة الطلب واستردادها لـ Ordering، ومحرّر حساب بوّابة المتجر لمساري المتجر والمنصّة.
+        // سياسة مفاتيحه (StorePaymentPolicy) يسجّلها Infrastructure من الإعداد والبيئة.
+        services.AddScoped<Features.Payments.Contracts.IOrderPayments, Features.Payments.OrderPayments>();
+        services.AddScoped<Features.Stores.StorePaymentAccountEditor>();
         // الدفع من السلة (المرحلة 9): Ordering يقرأ أسطرها ويستهلك المشترى منها عند تأكيد الدفع.
         services.AddScoped<Features.Baskets.Contracts.IBasketCheckout, Features.Baskets.BasketCheckout>();
         // منطق تأكيد الدفع وإلغاء الطلب غير المشحون، لكل مداخله (العميل المالك، توقيع البوّابة، منسّق المهلة).

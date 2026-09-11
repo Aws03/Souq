@@ -74,6 +74,18 @@ public class PlatformTenantsController : ControllerBase
     public async Task<IActionResult> UpdateSettings(int id, [FromBody] StoreSettingsInput settings)
         => this.ToHttp(await _mediator.Send(new UpdateTenantSettingsCommand(id, settings)));
 
+    // حساب بوّابة المتجر (المرحلة 11): المفاتيح تُشفَّر مربوطة بالمتجر داخل نطاقه، ولا سرّ في أي ردّ.
+    [HttpGet("{id:int}/payments")]
+    public async Task<IActionResult> GetPayments(int id) => this.ToHttp(await _mediator.Send(new GetTenantPaymentAccountQuery(id)));
+
+    [HttpPut("{id:int}/payments")]
+    public async Task<IActionResult> UpdatePayments(int id, [FromBody] StorePaymentAccountInput account)
+        => this.ToHttp(await _mediator.Send(new UpdateTenantPaymentAccountCommand(id, account)));
+
+    [HttpDelete("{id:int}/payments")]
+    public async Task<IActionResult> RemovePayments(int id)
+        => this.ToHttp(await _mediator.Send(new RemoveTenantPaymentAccountCommand(id)));
+
     // { "modules": ["promotions", "reviews", "wishlist"] } — القائمة كاملة تستبدل الحالية.
     [HttpPut("{id:int}/modules")]
     public async Task<IActionResult> SetModules(int id, [FromBody] TenantModulesRequest body)

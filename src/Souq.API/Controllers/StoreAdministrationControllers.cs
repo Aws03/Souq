@@ -59,6 +59,27 @@ public class StoreSettingsController : ControllerBase
     }
 }
 
+// حساب بوّابة الدفع الخاص بالمتجر (المرحلة 11، store.payments.manage): بلا معرّف في المسار، والسرّان يُكتبان ولا يُقرآن —
+// GET يعيد التلميح وهل سرّ الإشعارات مضبوط فقط. DELETE يعيد المتجر لحساب النشر.
+[ApiController]
+[Route("api/admin/store/payments")]
+[HasPermission(Permissions.Store.Payments)]
+public class StorePaymentsController : ControllerBase
+{
+    private readonly IMediator _mediator;
+    public StorePaymentsController(IMediator mediator) => _mediator = mediator;
+
+    [HttpGet]
+    public async Task<IActionResult> Get() => Ok(await _mediator.Send(new GetStorePaymentAccountQuery()));
+
+    [HttpPut]
+    public async Task<IActionResult> Update([FromBody] StorePaymentAccountInput account)
+        => this.ToHttp(await _mediator.Send(new UpdateStorePaymentAccountCommand(account)));
+
+    [HttpDelete]
+    public async Task<IActionResult> Remove() => this.ToHttp(await _mediator.Send(new RemoveStorePaymentAccountCommand()));
+}
+
 [ApiController]
 [Route("api/admin/staff")]
 [HasPermission(Permissions.Store.Staff)]

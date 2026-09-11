@@ -275,7 +275,8 @@
     "cancelOrder": "Cancel order",
     "keepOrder": "Keep order",
     "cancelConfirm": "Cancel this unpaid order? The items reserved for it will be released.",
-    "cancelledToast": "Order cancelled"
+    "cancelledToast": "Order cancelled",
+    "refundedLabel": "Refunded"
   },
   "admin": {
     "headerTitle": "Store control panel",
@@ -293,7 +294,8 @@
       "categories": "Categories",
       "coupons": "Coupons",
       "orders": "Orders",
-      "customers": "Customers"
+      "customers": "Customers",
+      "payments": "Payments"
     },
     "dashboard": {
       "greeting": "Welcome, {{name}}",
@@ -569,7 +571,38 @@
         "PaymentGateway": "Payment gateway"
       },
       "cancelConfirm": "Cancel this order? Its reserved or sold stock returns to inventory. A paid order must be refunded outside the platform until refunds are available.",
-      "confirmCancel": "Confirm cancellation"
+      "confirmCancel": "Confirm cancellation",
+      "cancelPaidConfirm": "Cancel this paid order? The stock goes back and the payment is refunded in full.",
+      "payment": {
+        "title": "Payment",
+        "status": {
+          "Pending": "Awaiting payment",
+          "Succeeded": "Paid",
+          "Failed": "Failed",
+          "Cancelled": "Cancelled"
+        },
+        "refunded": "Refunded {{amount}}",
+        "refundStatus": {
+          "Pending": "Pending",
+          "Succeeded": "Refunded",
+          "Failed": "Refused"
+        },
+        "refund": "Refund",
+        "retry": "Retry refund",
+        "refundDone": "Refund issued",
+        "refundPending": "The payment provider didn't answer, so the refund is pending. Retry it shortly.",
+        "refundFailed": "The payment provider refused the refund. {{reason}}",
+        "form": {
+          "amountLabel": "Amount",
+          "amountHint": "Leave empty to refund everything left ({{max}}).",
+          "reasonLabel": "Reason (optional)",
+          "submit": "Refund",
+          "amountInvalid": "Enter an amount greater than zero.",
+          "exceedsRefundable": "At most {{max}} can be refunded.",
+          "tooManyDecimals": "Too many decimal places for this currency.",
+          "nothingToRefund": "Nothing is left to refund."
+        }
+      }
     },
     "customers": {
       "title": "Customers",
@@ -615,6 +648,39 @@
       },
       "eraseConfirm": "The customer's name, email, phone and saved addresses will be erased permanently and they won't be able to sign in. Their orders stay for accounting. This can't be undone.",
       "eraseConfirmButton": "Erase permanently"
+    },
+    "payments": {
+      "title": "Payments",
+      "subtitle": "Where this store's card payments are collected.",
+      "storeAccount": "The store's own Stripe account",
+      "platformAccount": "The platform's default account",
+      "storeAccountHint": "Secret key {{hint}} · updated {{date}}",
+      "platformAccountHint": "Payments are collected in the platform's account. Connect the store's Stripe account to be paid directly.",
+      "mode": {
+        "live": "Live",
+        "test": "Test mode"
+      },
+      "secretsNotConfigured": "This server can't store payment keys yet: no encryption key is configured. Ask the platform operator.",
+      "saved": "Payment account saved",
+      "disconnected": "Store account disconnected. New payments go to the platform's account.",
+      "disconnect": "Disconnect",
+      "confirmDisconnect": "Disconnect the store's Stripe account? New payments will go to the platform's account, and payments taken by the store's account can't be refunded until it's reconnected.",
+      "form": {
+        "publishableLabel": "Publishable key",
+        "publishableHint": "Starts with pk_live_ (or pk_test_ for testing).",
+        "secretLabel": "Secret key",
+        "secretHint": "Starts with sk_live_ or rk_live_. Stored encrypted and never shown again.",
+        "keepSecretHint": "Leave empty to keep the saved key ({{hint}}).",
+        "webhookLabel": "Webhook signing secret (optional)",
+        "webhookHint": "Starts with whsec_. Lets Stripe confirm payments even if the customer closes the page.",
+        "keepWebhookHint": "A webhook secret is saved. Leave empty to keep it.",
+        "publishableInvalid": "Enter a Stripe publishable key (pk_live_… or pk_test_…).",
+        "secretRequired": "The secret key is required to connect the account.",
+        "secretInvalid": "Enter a Stripe secret key (sk_… or rk_…).",
+        "modeMismatch": "Both keys must be from the same mode: test or live.",
+        "webhookInvalid": "The webhook secret starts with whsec_.",
+        "testKeysNotAllowed": "Test keys aren't allowed on this server: test cards don't move real money."
+      }
     }
   },
   "wishlist": {
@@ -712,7 +778,15 @@
       "BasketEmpty": "Your basket is empty.",
       "OrderAlreadyPaid": "This order was paid before it could be cancelled. Contact the store to cancel it.",
       "PaymentProcessing": "The payment is still processing. Try again in a moment.",
-      "CouponInUse": "This coupon has been used in orders — deactivate it instead of deleting it."
+      "CouponInUse": "This coupon has been used in orders — deactivate it instead of deleting it.",
+      "RefundExceedsPayment": "The amount is more than what can still be refunded.",
+      "NothingToRefund": "Nothing is left to refund on this order.",
+      "PaymentNotRefundable": "Only a completed payment can be refunded.",
+      "RefundNotPending": "This refund is already settled.",
+      "InvalidPaymentKeys": "The keys aren't valid Stripe keys of the same mode.",
+      "TestKeysNotAllowed": "Test keys aren't allowed on this server.",
+      "SecretsNotConfigured": "This server can't store payment keys: no encryption key is configured.",
+      "PaymentsUnavailable": "Payments are unavailable right now. Please try again later."
     }
   },
   "account": {

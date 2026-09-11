@@ -40,6 +40,11 @@ services:
       Stripe__SecretKey: ${STRIPE_SECRET_KEY:-}
       Stripe__PublishableKey: ${STRIPE_PUBLISHABLE_KEY:-}
       Stripe__WebhookSecret: ${STRIPE_WEBHOOK_SECRET:-}
+      # حسابات Stripe خاصة بالمتاجر (المرحلة 11، ADR-0031): مفتاح تشفير مفاتيحها. بلا SECRETS_KEY لا تُربط حسابات متاجر
+      # وتقبض كل المتاجر في حساب Stripe أعلاه. مفاتيحها التجريبية مرفوضة ما لم يُسمح بها صراحةً.
+      Secrets__ActiveKeyId: ${SECRETS_KEY:+primary}
+      Secrets__Keys__primary: ${SECRETS_KEY:-}
+      Payments__AllowTestModeStoreAccounts: ${PAYMENTS_ALLOW_TEST_MODE_STORE_ACCOUNTS:-false}
       # اختياري — ترتيب الأولوية Resend ← Brevo ← Gmail ← ConsoleEmailService
       # (بلا أي منها تُطبَع رابط إعادة التعيين في سجلّ الحاوية بدل إرسال حقيقي).
       Resend__ApiKey: ${RESEND_API_KEY:-}

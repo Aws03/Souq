@@ -140,6 +140,21 @@ Every error is RFC 7807 `application/problem+json`:
   - **Usage:** `POST /api/orders` with a coupon takes one use inside the checkout transaction. If no use is left, or the customer has reached their limit, it answers `422 InvalidCoupon` and creates no order, even under concurrency. Cancelling the order gives the use back. The basket quote reports the same outcome in `coupon` without failing.
   - **Redemptions:** `GET /api/coupons/{id}/redemptions?page=&pageSize=` (`promotions.manage`) lists the orders that used the coupon. Each entry has `orderId`, `orderNumber`, `customerId`, `customerName`, `discount`, `currency`, `status` (`Reserved`, `Confirmed` or `Released`) and `createdAt`. Another store's coupon is a 404.
   - **Delete:** `DELETE /api/coupons/{id}` answers `409 CouponInUse` once the coupon has been used. Deactivate it with `PUT` instead.
+- **Payments and refunds (Phase 11, [ADR-0031](adr/0031-payments-and-refunds.md)):**
+  - **Order detail** includes `payment` (`status`, `amount`, `refundedAmount`, `refundable`, `currency`, `refunds[]`) and `canRefund`. Customers see the status and the refunded amount only; the refund list and reasons are for staff.
+  - **Refund:** `POST /api/orders/{id}/refunds` `{ amount?, reason? }`, with `store.payments.manage`. Without `amount`, everything left is refunded.
+    - The answer is the refund's outcome: `Succeeded`; `Failed` (the gateway refused, with `failureReason`); or `Pending` (the gateway didn't answer).
+    - Errors: `422 RefundExceedsPayment`, `422 NothingToRefund`, `422 PaymentNotRefundable`. Another store's order is a 404.
+  - **Retry:** `POST /api/orders/{id}/refunds/{refundId}/retry` re-sends a pending refund with the same idempotency key (`422 RefundNotPending` otherwise).
+  - **Cancelling a paid order** (`PUT /api/orders/{id}/status` with `Cancel`) refunds the remaining amount after the cancellation commits.
+  - **Cancelling an unpaid order as staff** asks the gateway first, like the customer's cancellation. It answers `422 OrderAlreadyPaid` if the payment has just succeeded (the order is confirmed instead; cancel it again to refund it), or `422 PaymentProcessing` while a payment is in flight.
+  - **Store payment account:** `GET`, `PUT` and `DELETE /api/admin/store/payments` (`store.payments.manage`), and `/api/platform/tenants/{id}/payments` on the platform host.
+    - `PUT` takes `publishableKey`, `secretKey` and `webhookSecret`; empty secrets keep the saved ones.
+    - Responses never include a secret: only `secretKeyHint` (the last four characters) and `hasWebhookSecret`.
+    - Errors: `422 InvalidPaymentKeys`, `422 TestKeysNotAllowed`, `503 SecretsNotConfigured`.
+  - **`GET /api/payments/config`** returns the publishable key of the host store's account, or of the deployment's.
+  - **Webhook** (`POST /api/payments/webhook`): verified with the host store's webhook secret, else the deployment's. An event for another store sharing the deployment account is applied in that store.
+  - **A store account that can't be used** (its keys can't be decrypted) answers `503 PaymentsUnavailable`.
 - **Rate limits (Phase 3):** auth, refresh and coupon-preview endpoints answer `429 TooManyRequests` with `Retry-After` when a limit is exceeded.
 - **Platform area (Phase 4, [ADR-0024](adr/0024-platform-administration.md)):**
   - Endpoints are marked `[PlatformEndpoint]` and are served only on platform hosts, behind `platform.*` permissions.
@@ -167,7 +182,8 @@ Every error is RFC 7807 `application/problem+json`:
 | Operation | Guarantee |
 |---|---|
 | Payment confirmation (client and webhook) | Idempotent by order state: a second confirmation returns the current status with no side effects. A concurrent race is resolved by `rowversion` plus a re-read (1A). |
-| Webhooks | Signature-verified; idempotent by the same rule; unknown events → 200 (ignored) |
+| Webhooks | Signature-verified (the host store's secret, else the deployment's); idempotent by the same rule; routed to the store named in the intent (Phase 11); unknown events → 200 (ignored) |
+| Refunds (`POST /api/orders/{id}/refunds`, `…/retry`) | The amount is reserved on the payment under `rowversion`, so concurrent refunds can't exceed it. The gateway receives an idempotency key per refund, so a retry after a timeout returns the first refund instead of refunding twice (Phase 11) |
 | Checkout (`POST /api/orders`) | The order and its stock reservation are written in one transaction; the loser of the last unit gets `422 InsufficientStock`, because inventory conflicts are retried from a fresh read (Phase 6). Target (Phase 9): an `Idempotency-Key` header, so a network retry doesn't create a second order |
 | Coupon use at checkout | Taken in the order's transaction, on a fresh read under the coupon's `rowversion`. The loser of the last use gets `422 InvalidCoupon` and its checkout rolls back. Releasing a use is idempotent by redemption status (Phase 10) |
 | Reservation commit, release and restock | Idempotent by reservation status: committing twice, or cancelling an already cancelled order, changes nothing (Phase 6) |

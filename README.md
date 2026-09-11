@@ -305,9 +305,12 @@ Baskets never reserve stock; checkout does.
 | GET    | `/api/orders/{id}`                            | Customer  | Get order details (own orders only; others are 404) |
 | GET    | `/api/orders/mine?page=1&pageSize=20`          | Customer  | The current customer's orders (paged)         |
 | GET    | `/api/orders?status=&search=&from=&to=&customerId=` | Admin | List orders, filtered by status, number, customer or date |
-| PUT    | `/api/orders/{id}/status`                      | Admin     | Update order status                           |
-| GET    | `/api/payments/config`                         | —         | Get the Stripe publishable key                |
-| POST   | `/api/payments/webhook`                        | —         | Stripe webhook (signature-verified, idempotent) |
+| PUT    | `/api/orders/{id}/status`                      | Admin     | Update order status (cancelling a paid order refunds it) |
+| POST   | `/api/orders/{id}/refunds`                     | Admin     | Refund part or all of an order's payment (idempotent, can't exceed it) |
+| POST   | `/api/orders/{id}/refunds/{refundId}/retry`    | Admin     | Retry a refund the gateway didn't answer      |
+| GET/PUT/DELETE | `/api/admin/store/payments`            | Admin     | The store's own Stripe account (keys encrypted, never returned) |
+| GET    | `/api/payments/config`                         | —         | The publishable key of the store's account, or the platform's |
+| POST   | `/api/payments/webhook`                        | —         | Stripe webhook (signature-verified, idempotent, routed to the order's store) |
 
 ### Reviews
 | Method | Endpoint                              | Auth     | Description               |

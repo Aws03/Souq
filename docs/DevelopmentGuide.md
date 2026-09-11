@@ -23,13 +23,27 @@ dotnet user-secrets set "Seed:PlatformOwnerPassword" "<strong password>" --proje
 # Optional providers: Stripe:SecretKey / Stripe:PublishableKey / Stripe:WebhookSecret,
 # Resend:ApiKey + Resend:From, Brevo:ApiKey + Brevo:SenderEmail, Gmail:AppPassword + Gmail:Username
 
+# Optional (Phase 11): the key that encrypts stores' own payment keys (AES-256-GCM, base64 of 32 bytes).
+# Without it, stores can't connect their own Stripe account, and every store uses the account above.
+dotnet user-secrets set "Secrets:ActiveKeyId" "dev" --project src/Souq.API
+dotnet user-secrets set "Secrets:Keys:dev" "$(openssl rand -base64 32)" --project src/Souq.API
+
 dotnet run --project src/Souq.API                  # http://localhost:5200/swagger (applies migrations)
 cd frontend && npm install && npm run dev          # http://localhost:5173
 ```
 
 **Startup validation:** settings are checked before the database is touched. A missing connection string or a `Jwt:Key` shorter than 32 bytes stops the API with a message naming the key. Development uses the fake payment gateway automatically when no Stripe key is set; other environments need Stripe keys or an explicit `Payments:Provider=Fake` ([ADR-0020](adr/0020-configuration-and-secrets.md)). `Inventory:ReservationMinutes` (5–1440, default 30) is how long an unpaid checkout holds stock, and `Inventory:SweepIntervalSeconds` (0 = off, else 10–3600, default 60) is how often the expiry sweep runs. Integration tests turn the sweep off and send `ExpireStaleCheckoutsCommand` directly ([ADR-0026](adr/0026-inventory-reservations.md)). Baskets expire after `Basket:GuestLifetimeDays` (1–365, default 30) or `Basket:CustomerLifetimeDays` (1–730, default 180) without a change. Every `Basket:CleanupIntervalMinutes` (0 = off, else 5–1440, default 60) a sweep deletes them. Integration tests turn it off and send `PurgeExpiredBasketsCommand` directly ([ADR-0028](adr/0028-basket-and-pricing-pipeline.md)).
 
-**Docker (full stack):** `cp .env.example .env`, fill in the values, then `docker compose up --build`. The stack runs in Production mode: no admin exists unless `SEED_ADMIN_EMAIL`/`SEED_ADMIN_PASSWORD` are set, and the API refuses to start without Stripe keys unless `PAYMENTS_PROVIDER=Fake` is set for a demo. The default store is bound to `localhost` explicitly through `DEFAULT_TENANT_HOSTS`. Production has no fallback store for unknown hosts.
+**Store payment keys (Phase 11, [ADR-0031](adr/0031-payments-and-refunds.md)):**
+- **Encryption:** stores' own Stripe keys are encrypted with `Secrets:Keys:{id}` (base64 of exactly 32 bytes), using the key named by `Secrets:ActiveKeyId`. The setting is optional: without it, stores can't connect an account. A malformed key stops startup.
+- **Rotating the key:**
+  1. Add a new id.
+  2. Make it active.
+  3. Keep the old id until every store has saved its keys again. Removing a key its ciphertexts still need makes those stores' payments answer 503.
+- **Test-mode keys** for store accounts are accepted in Development and Testing only, unless `Payments:AllowTestModeStoreAccounts=true` (logged as a warning).
+- **Signed test webhooks:** `Payments:Fake:WebhookSecret` lets the fake gateway accept HMAC-signed test webhooks. It's for development and tests only.
+
+**Docker (full stack):** `cp .env.example .env`, fill in the values, then `docker compose up --build`. The stack runs in Production mode: no admin exists unless `SEED_ADMIN_EMAIL`/`SEED_ADMIN_PASSWORD` are set, and the API refuses to start without Stripe keys unless `PAYMENTS_PROVIDER=Fake` is set for a demo. Set `SECRETS_KEY` to let stores connect their own Stripe accounts. The default store is bound to `localhost` explicitly through `DEFAULT_TENANT_HOSTS`. Production has no fallback store for unknown hosts.
 
 **Several stores locally (Phase 2):** the store comes from the host ([ADR-0006](adr/0006-tenant-resolution.md)).
 - In Development, `localhost` is the default store (`Tenancy:LocalDefaultTenant`, `marka`).

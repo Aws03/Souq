@@ -1,0 +1,8 @@
+.loading { display: flex; justify-content: center; padding: 48px 0; }
+.card {
+  background: #fff; border: 1px solid var(--line); border-radius: 14px;
+  padding: 18px 20px; margin-bottom: 18px; max-width: 640px;
+}
+.statusRow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.hint { color: var(--muted); font-size: var(--fs-body-sm); margin: 8px 0 0; overflow-wrap: anywhere; }
+.actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; margin-top: 8px; }

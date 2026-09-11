@@ -31,6 +31,8 @@ public class CreateOrderHandlerTests
     private readonly IPaymentService _payment = Substitute.For<IPaymentService>();
     private readonly IBasketCheckout _baskets = Substitute.For<IBasketCheckout>();
     private readonly ICouponRedemptionRepository _couponUses = Substitute.For<ICouponRedemptionRepository>();
+    private readonly Souq.Application.Features.Payments.Contracts.IOrderPayments _orderPayments =
+        Substitute.For<Souq.Application.Features.Payments.Contracts.IOrderPayments>();
     private readonly Souq.Application.Features.Coupons.Contracts.ICouponRedemptions _couponRedemptions =
         Substitute.For<Souq.Application.Features.Coupons.Contracts.ICouponRedemptions>();
     private readonly IOrderNumbers _numbers = Substitute.For<IOrderNumbers>();
@@ -57,8 +59,8 @@ public class CreateOrderHandlerTests
     // التسعير الحقيقي (المرحلة 8) فوق مستودعات بديلة — الأسعار والخصم كما في السلة تماماً.
     private CreateOrderHandler CreateHandler() => new(
         _orders, _customers, new PricingService(_products, _coupons, _couponUses, TestTenant.Context(), new FixedClock()), _baskets,
-        _numbers, _couponRedemptions, _reservations, _availability, _payment,
-        new OrderPaymentConfirmation(_orders, _reservations, _customers, _couponRedemptions, _baskets, _payment,
+        _numbers, _couponRedemptions, _orderPayments, _reservations, _availability, _payment,
+        new OrderPaymentConfirmation(_orders, _reservations, _customers, _couponRedemptions, _orderPayments, _baskets, _payment,
             Substitute.For<IEmailService>(), _uow),
         TestCurrentUser.Customer(1), TestTenant.Context(), _uow, new FixedClock(), NullLogger<CreateOrderHandler>.Instance);
 
@@ -173,6 +175,9 @@ public class CreateOrderHandlerTests
         // استخدام الكوبون يُحجز في معاملة الطلب نفسها (المرحلة 10) — بقواعده على قراءة جديدة.
         await _couponRedemptions.Received(1).ReserveAsync("SAVE10", SavedOrderId, 1,
             Arg.Is<Money>(m => m.Amount == 100), Arg.Is<Money>(m => m.Amount == 10), Arg.Any<CancellationToken>());
+        // دفعة الطلب تُسجَّل بمبلغ النيّة نفسه والحساب الذي أنشأها (المرحلة 11).
+        await _orderPayments.Received(1).RecordIntentAsync(SavedOrderId, Arg.Any<PaymentIntentResult>(),
+            Arg.Is<Money>(m => m.Amount == 90), Arg.Any<CancellationToken>());
     }
 
     [Fact]

@@ -67,6 +67,9 @@ public class TenantIsolationTests
         // التتبّع العام بالرمز (المرحلة 9): رمز طلب A الحقيقي على مضيف B غير موجود. إلغاء العميل: عميل B لا يلغي طلب A.
         new("GET", "api/Orders/track/{token}", Resource.Order, Actor.Anonymous),
         new("POST", "api/Orders/{id:int}/cancel", Resource.Order, Actor.Customer),
+        // الاسترداد (المرحلة 11): طلب A لا دفعة له في B — ولا يُعاد استرداد من دفعات A.
+        new("POST", "api/orders/{id:int}/refunds", Resource.Order, Actor.Admin, () => JsonBody(new { amount = 1m })),
+        new("POST", "api/orders/{id:int}/refunds/{refundId:int}/retry", Resource.Order, Actor.Admin),
         new("POST", "api/admin/inventory/{productId:int}/adjustments", Resource.Product, Actor.Admin,
             () => JsonBody(new { delta = 50, reason = "محاولة من متجر آخر" })),
         new("PUT", "api/admin/inventory/{productId:int}/threshold", Resource.Product, Actor.Admin,

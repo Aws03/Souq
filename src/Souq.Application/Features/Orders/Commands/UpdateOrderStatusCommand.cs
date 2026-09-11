@@ -1,8 +1,10 @@
 using MediatR;
 using Souq.Application.Common.Models;
 using Souq.Application.Common.Security;
+using Souq.Application.Features.Orders;
 using Souq.Application.Features.Coupons.Contracts;
 using Souq.Application.Features.Inventory.Contracts;
+using Souq.Application.Features.Payments.Contracts;
 using Souq.Domain.Entities;
 using Souq.Domain.Enums;
 using Souq.Domain.Interfaces;
@@ -44,14 +46,17 @@ public class UpdateOrderStatusHandler : IRequestHandler<UpdateOrderStatusCommand
     private readonly IOrderRepository _orders;
     private readonly IInventoryReservations _reservations;
     private readonly ICouponRedemptions _couponRedemptions;
+    private readonly IOrderPayments _payments;
+    private readonly OrderPaymentConfirmation _confirmation;
     private readonly ICurrentUser _currentUser;
     private readonly IUnitOfWork _uow;
 
     public UpdateOrderStatusHandler(
         IOrderRepository orders, IInventoryReservations reservations, ICouponRedemptions couponRedemptions,
-        ICurrentUser currentUser, IUnitOfWork uow)
+        IOrderPayments payments, OrderPaymentConfirmation confirmation, ICurrentUser currentUser, IUnitOfWork uow)
     {
-        _orders = orders; _reservations = reservations; _couponRedemptions = couponRedemptions; _currentUser = currentUser; _uow = uow;
+        _orders = orders; _reservations = reservations; _couponRedemptions = couponRedemptions; _payments = payments;
+        _confirmation = confirmation; _currentUser = currentUser; _uow = uow;
     }
 
     public async Task<Result> Handle(UpdateOrderStatusCommand cmd, CancellationToken ct)
@@ -62,7 +67,14 @@ public class UpdateOrderStatusHandler : IRequestHandler<UpdateOrderStatusCommand
 
         // الكيان يحرس صحّة الانتقال (جدول OrderTransitions). انتقال غير صالح ⇒ InvalidOrderOperationException يرتفع قبل
         // أي تعديل مخزون أو حفظ (422 مركزياً).
-        var by = OrderActor.Staff(_currentUser.RequireUserId());
+        var staffId = _currentUser.RequireUserId();
+        var by = OrderActor.Staff(staffId);
+
+        // طلب لم يُدفع: البوّابة أولاً، بالمسار نفسه لإلغاء العميل (المرحلة 11) — لا يُلغى طلب دفعه صاحبه في اللحظة نفسها.
+        if (cmd.Action == OrderStatusAction.Cancel && order.Status == OrderStatus.Pending)
+            return await _confirmation.CancelUnpaidAsync(order, cmd.Note ?? AdminCancellationNote, by, ct);
+
+        var wasPaid = order.Status == OrderStatus.Paid;
         switch (cmd.Action)
         {
             case OrderStatusAction.Ship: order.MarkAsShipped(cmd.TrackingNumber, cmd.ShippingCarrier, cmd.Note, by); break;
@@ -84,6 +96,11 @@ public class UpdateOrderStatusHandler : IRequestHandler<UpdateOrderStatusCommand
             await _reservations.CancelAsync(OrderStockReference.For(order.Id), cmd.Note ?? AdminCancellationNote, expired: false, ct);
             await _couponRedemptions.ReleaseAsync(order.Id, ct);
         }, ct);
+
+        // طلب مدفوع أُلغي: يُردّ ماله كاملاً بعد التزام الإلغاء (المرحلة 11) — البوّابة خارج المعاملة. نتيجة الاسترداد لا
+        // تُلغي الإلغاء: رفضٌ أو انقطاع يظهر على دفعة الطلب وتعيده الإدارة من هناك.
+        if (wasPaid)
+            await _payments.RefundAsync(order.Id, amount: null, cmd.Note ?? AdminCancellationNote, staffId, ct);
         return Result.Success();
     }
 }

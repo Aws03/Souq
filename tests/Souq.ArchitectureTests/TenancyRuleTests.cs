@@ -92,7 +92,9 @@ public class TenancyRuleTests
             .Where(t => typeof(ITenantOwned).IsAssignableFrom(t.ClrType))
             .SelectMany(t => t.GetForeignKeys())
             .Where(fk => typeof(ITenantOwned).IsAssignableFrom(fk.PrincipalEntityType.ClrType) && !fk.IsOwnership)
-            .Where(fk => !(fk.PrincipalToDependent?.IsCollection == true && fk.Properties.Single().IsShadowProperty()))
+            // استثناء أبناء التجمّع بمفتاح ظلّ واحد فقط؛ ابن تجمّع بمفتاح مركّب (استردادات الدفعة، المرحلة 11) يمرّ للفحص
+            // الأخير كغيره — ويجتازه لأنه يحمل TenantId.
+            .Where(fk => !(fk.PrincipalToDependent?.IsCollection == true && fk.Properties is [var only] && only.IsShadowProperty()))
             .Where(fk => !(fk.DeclaringEntityType == fk.PrincipalEntityType))
             .Where(fk => !fk.Properties.Any(p => p.Name == nameof(ITenantOwned.TenantId)))
             .Select(fk => $"{fk.DeclaringEntityType.ClrType.Name}.{string.Join(",", fk.Properties.Select(p => p.Name))}")

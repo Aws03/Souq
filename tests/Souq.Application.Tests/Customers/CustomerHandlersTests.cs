@@ -160,9 +160,11 @@ public class CreateOrderCustomerRulesTests
         _orders, _customers,
         new PricingService(_products, Substitute.For<ICouponRepository>(), Substitute.For<ICouponRedemptionRepository>(),
             TestTenant.Context(), new FixedClock()), _baskets, _numbers,
-        Substitute.For<Souq.Application.Features.Coupons.Contracts.ICouponRedemptions>(), _reservations, _availability, _payment,
+        Substitute.For<Souq.Application.Features.Coupons.Contracts.ICouponRedemptions>(),
+        Substitute.For<Souq.Application.Features.Payments.Contracts.IOrderPayments>(), _reservations, _availability, _payment,
         new OrderPaymentConfirmation(_orders, _reservations, _customers,
-            Substitute.For<Souq.Application.Features.Coupons.Contracts.ICouponRedemptions>(), _baskets, _payment,
+            Substitute.For<Souq.Application.Features.Coupons.Contracts.ICouponRedemptions>(),
+            Substitute.For<Souq.Application.Features.Payments.Contracts.IOrderPayments>(), _baskets, _payment,
             Substitute.For<IEmailService>(), _uow),
         TestCurrentUser.Customer(1), TestTenant.Context(), _uow, new FixedClock(), NullLogger<CreateOrderHandler>.Instance);
 

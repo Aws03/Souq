@@ -40,6 +40,11 @@ public sealed class SouqApiFactory : WebApplicationFactory<Program>, IAsyncLifet
     public CapturingLoggerProvider Logs { get; } = new();
     public string UploadsRoot { get; } = Path.Combine(Path.GetTempPath(), $"souq-it-uploads-{Guid.NewGuid():N}");
 
+    // المرحلة 11: سرّ الإشعارات التجريبية الموقَّعة (FakeGateway.Sign)، ومفتاح تشفير أسرار حسابات المتاجر.
+    public const string FakeWebhookSecret = "integration-tests-fake-webhook-secret";
+    public const string SecretsKeyId = "it";
+    private static readonly string SecretsKey = Convert.ToBase64String(Enumerable.Range(1, 32).Select(i => (byte)i).ToArray());
+
     // لاختبارات تبني AppDbContext بإعدادات خاصة (معترِض بساعة ثابتة، قاعدة تجريب هجرات) فوق نفس الخادم.
     public string ConnectionString => _sql.GetConnectionString();
 
@@ -59,6 +64,9 @@ public sealed class SouqApiFactory : WebApplicationFactory<Program>, IAsyncLifet
         builder.UseSetting("Inventory:SweepIntervalSeconds", "0");
         // وكذلك منسّق حذف السلال المنتهية: BasketTests ترسل أمر الحذف مباشرة.
         builder.UseSetting("Basket:CleanupIntervalMinutes", "0");
+        builder.UseSetting("Secrets:ActiveKeyId", SecretsKeyId);
+        builder.UseSetting($"Secrets:Keys:{SecretsKeyId}", SecretsKey);
+        builder.UseSetting("Payments:Fake:WebhookSecret", FakeWebhookSecret);
         // مئات الاختبارات تدخل من العنوان نفسه: حدود الإنتاج تخنقها. اختبار حدّ المعدّل يضيّقها بمصنع مشتقّ.
         foreach (var policy in new[] { "Auth", "Refresh", "CouponPreview", "Basket" })
             builder.UseSetting($"RateLimiting:{policy}:PermitLimit", "100000");

@@ -1,6 +1,7 @@
 using AwesomeAssertions;
 using NSubstitute;
 using Souq.Application.Features.Orders.Queries;
+using Souq.Application.Features.Payments.Contracts;
 using Souq.Application.Tests.TestDoubles;
 
 namespace Souq.Application.Tests.Orders;
@@ -10,6 +11,7 @@ namespace Souq.Application.Tests.Orders;
 public class GetOrderByIdHandlerTests
 {
     private readonly IOrderQueries _orders = Substitute.For<IOrderQueries>();
+    private readonly IPaymentQueries _payments = Substitute.For<IPaymentQueries>();
 
     private void OrderOwnedBy(int customerId, string status = "Pending") =>
         _orders.FindAsync(1, Arg.Any<CancellationToken>()).Returns(new OrderDto(
@@ -22,7 +24,7 @@ public class GetOrderByIdHandlerTests
     {
         OrderOwnedBy(customerId: 3);
 
-        var result = await new GetOrderByIdHandler(_orders, TestCurrentUser.Customer(3))
+        var result = await new GetOrderByIdHandler(_orders, _payments,TestCurrentUser.Customer(3))
             .Handle(new GetOrderByIdQuery(1), CancellationToken.None);
 
         var order = result.Value!;
@@ -36,7 +38,7 @@ public class GetOrderByIdHandlerTests
     {
         OrderOwnedBy(customerId: 3, status: "Paid");
 
-        var result = await new GetOrderByIdHandler(_orders, TestCurrentUser.Customer(3))
+        var result = await new GetOrderByIdHandler(_orders, _payments,TestCurrentUser.Customer(3))
             .Handle(new GetOrderByIdQuery(1), CancellationToken.None);
 
         result.Value!.CanCancel.Should().BeFalse();
@@ -47,7 +49,7 @@ public class GetOrderByIdHandlerTests
     {
         OrderOwnedBy(customerId: 3);
 
-        var result = await new GetOrderByIdHandler(_orders, TestCurrentUser.Customer(4))
+        var result = await new GetOrderByIdHandler(_orders, _payments,TestCurrentUser.Customer(4))
             .Handle(new GetOrderByIdQuery(1), CancellationToken.None);
 
         result.ErrorCode.Should().Be("NotFound");
@@ -59,7 +61,7 @@ public class GetOrderByIdHandlerTests
     {
         OrderOwnedBy(customerId: 3, status: "Paid");
 
-        var result = await new GetOrderByIdHandler(_orders, TestCurrentUser.Admin())
+        var result = await new GetOrderByIdHandler(_orders, _payments,TestCurrentUser.Admin())
             .Handle(new GetOrderByIdQuery(1), CancellationToken.None);
 
         var order = result.Value!;
@@ -73,10 +75,43 @@ public class GetOrderByIdHandlerTests
     {
         OrderOwnedBy(customerId: 3, status: "Paid");
 
-        var staff = await new GetOrderByIdHandler(_orders, TestCurrentUser.Staff())
+        var staff = await new GetOrderByIdHandler(_orders, _payments,TestCurrentUser.Staff())
             .Handle(new GetOrderByIdQuery(1), CancellationToken.None);
 
         staff.Value!.History.Single().ChangedByName.Should().Be("موظّف");
+    }
+
+    [Fact]
+    public async Task الإدارة_ترى_استردادات_الدفعة_وصاحب_الطلب_حالتها_وما_رُدّ_له_فقط()
+    {
+        OrderOwnedBy(customerId: 3, status: "Paid");
+        _payments.ForOrderAsync(1, Arg.Any<CancellationToken>()).Returns(new OrderPaymentDto("Succeeded", 50, 20, 30, "JOD",
+            [new RefundDto(7, 20, "Succeeded", "منتج تالف", null, DateTime.UnixEpoch, DateTime.UnixEpoch)]));
+
+        var admin = (await new GetOrderByIdHandler(_orders, _payments, TestCurrentUser.Admin())
+            .Handle(new GetOrderByIdQuery(1), CancellationToken.None)).Value!;
+        var owner = (await new GetOrderByIdHandler(_orders, _payments, TestCurrentUser.Customer(3))
+            .Handle(new GetOrderByIdQuery(1), CancellationToken.None)).Value!;
+
+        (admin.Payment!.Refunds.Single().Reason, admin.Payment.Refundable, admin.CanRefund).Should().Be(("منتج تالف", 30m, true));
+        (owner.Payment!.Status, owner.Payment.RefundedAmount, owner.Payment.Refunds.Count, owner.Payment.Refundable, owner.CanRefund)
+            .Should().Be(("Succeeded", 20m, 0, 0m, false));
+    }
+
+    [Theory]
+    [InlineData("Succeeded", 0)]
+    [InlineData("Pending", 50)]
+    [InlineData("Cancelled", 50)]
+    public async Task لا_استرداد_لدفعة_غير_ناجحة_أو_مستردّة_بالكامل(string status, decimal refundable)
+    {
+        OrderOwnedBy(customerId: 3, status: "Paid");
+        _payments.ForOrderAsync(1, Arg.Any<CancellationToken>())
+            .Returns(new OrderPaymentDto(status, 50, 50 - refundable, refundable, "JOD", []));
+
+        var result = await new GetOrderByIdHandler(_orders, _payments, TestCurrentUser.Admin())
+            .Handle(new GetOrderByIdQuery(1), CancellationToken.None);
+
+        result.Value!.CanRefund.Should().BeFalse();
     }
 
     [Fact]
@@ -84,7 +119,7 @@ public class GetOrderByIdHandlerTests
     {
         _orders.FindAsync(1, Arg.Any<CancellationToken>()).Returns((OrderDto?)null);
 
-        var result = await new GetOrderByIdHandler(_orders, TestCurrentUser.Admin())
+        var result = await new GetOrderByIdHandler(_orders, _payments,TestCurrentUser.Admin())
             .Handle(new GetOrderByIdQuery(1), CancellationToken.None);
 
         result.ErrorCode.Should().Be("NotFound");

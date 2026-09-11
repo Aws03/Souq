@@ -22,9 +22,10 @@ public class CancelMyOrderHandlerTests
     private readonly IUnitOfWork _uow = TestUnitOfWork.Create();
 
     private CancelMyOrderHandler Handler(int customerId = 1) => new(
-        _orders, _payment,
+        _orders,
         new OrderPaymentConfirmation(_orders, _reservations, Substitute.For<ICustomerRepository>(),
             Substitute.For<Souq.Application.Features.Coupons.Contracts.ICouponRedemptions>(),
+            Substitute.For<Souq.Application.Features.Payments.Contracts.IOrderPayments>(),
             Substitute.For<IBasketCheckout>(), _payment, Substitute.For<IEmailService>(), _uow),
         TestCurrentUser.Customer(customerId));
 

@@ -1,7 +1,7 @@
 # Souq Platform: Product Roadmap
 
 > **Goal:** turn Souq into one **white-label, multi-tenant e-commerce platform**, sold to many clients (≈ $5,000+ each) and maintainable by a professional team.
-> **Status:** Phase 0 ✅ · Target architecture ✅ documented · Phase 1A ✅ (merged to `main`) · Phase 1B ✅ on branch `phase/1b-production-foundations` (awaiting review) · **Autonomous run on `phase/2-15-multitenant-platform`** (branched from the 1B tip): Phase 2 ✅ · Phase 3 ✅ · Phase 4 ✅ · Phase 5 ✅ · Phase 6 ✅ · Phase 7 ✅ · Phase 8 ✅ · Phase 9 ✅ · Phase 10 ✅. Next: Phase 11.
+> **Status:** Phase 0 ✅ · Target architecture ✅ documented · Phase 1A ✅ (merged to `main`) · Phase 1B ✅ on branch `phase/1b-production-foundations` (awaiting review) · **Autonomous run on `phase/2-15-multitenant-platform`** (branched from the 1B tip): Phase 2 ✅ · Phase 3 ✅ · Phase 4 ✅ · Phase 5 ✅ · Phase 6 ✅ · Phase 7 ✅ · Phase 8 ✅ · Phase 9 ✅ · Phase 10 ✅ · Phase 11 ✅. Next: Phase 12.
 > **Companion document:** [ArchitectureAssessment.md](ArchitectureAssessment.md) covers the current state, the problem register (IDs such as `B1` and `C2`), the target architecture, and the full reasoning behind every decision (`D-xx`).
 > **Last updated:** 2026-09-11
 
@@ -575,7 +575,41 @@ Status legend: ✅ done · 🟡 in progress · ⏳ planned · ⏸ awaiting appro
   - Rule-matrix tests pass.
   - A concurrent-redemption test passes.
 
-### Phase 11: Payments abstraction ⏳
+### Phase 11: Payments abstraction ✅ (autonomous run)
+- **Delivered ([ADR-0031](adr/0031-payments-and-refunds.md)):**
+  - **Payment records:** one `Payment` per order, recorded at checkout and settled at payment or cancellation. It holds the account that created the intent, the provider's id, the amount, the status, and the refunded and pending amounts. `Refund` rows are its children.
+  - **Refunds:** `POST /api/orders/{id}/refunds` (partial, or everything left) and `…/{refundId}/retry`, with `store.payments.manage`.
+    - The amount is reserved first.
+    - The gateway is called outside any transaction, with an idempotency key made from the refund id.
+    - The result is recorded in a second save.
+
+    Concurrent refunds can't exceed the payment. A gateway that doesn't answer leaves the refund pending, to be retried with the same key.
+  - **Cancelling a paid order refunds it** in full after the cancellation commits. This closes the gap Phase 9 deferred.
+  - **Cancelling an unpaid order as staff asks the gateway first,** like the customer's cancellation. An order paid at that moment is confirmed instead of being cancelled with the money kept.
+  - **Per-store gateway accounts (the D-13 mechanism):**
+    - A store admin (`/api/admin/store/payments`) or the platform (`/api/platform/tenants/{id}/payments`) connects the store's own Stripe keys.
+    - Secrets are AES-256-GCM encrypted and bound to the store, write-only, and audited without their values.
+    - Stores without an account keep using the deployment's.
+    - Test-mode keys are refused outside development unless explicitly allowed.
+  - **One router is the only `IPaymentService`.** It picks the store's or the deployment's account, and later calls for an intent use the account that created it. Swapping or adding a provider means a new adapter; Application doesn't change.
+  - **Webhooks routed to the right store:** intents carry the store id. A deployment-signed event is applied in the named store's scope; a store-signed one only in that store.
+  - **Mock gateway:** the fake gateway records refunds by idempotency key and accepts HMAC-signed test webhooks (development and tests only).
+  - **Frontend:**
+    - an admin Payments page to connect, update or disconnect the store's account, with secrets never shown;
+    - a payment and refunds section in the order drawer, with a refund form and retry;
+    - the refunded amount on the customer's order page.
+  - **Migration `Phase11Payments`:** additive and rehearsed. Each existing order with an intent gets its payment. A cancelled order whose history shows it was paid gets a succeeded payment, so it can be refunded now.
+- **Deferred, with reasons:**
+  - **Stripe Connect, or making store accounts mandatory:** D-13 is still open (see the decision log). The router and per-store configuration make either choice an adapter, not a redesign.
+  - **Refund webhooks and automatic reconciliation of pending refunds:** a manual retry covers the rare case where the gateway doesn't answer.
+  - **Partial capture, disputes, payouts:** not in scope.
+- **Exit criteria (met):**
+  - **Idempotency tests pass:**
+    - a refund retried with the same key returns the same refund (fake gateway and unit tests);
+    - five parallel refunds never exceed the payment (integration);
+    - duplicate webhooks and confirmations change nothing twice.
+  - **No card data is ever stored.** `PaymentDataRulesTests` scans the whole EF model for card-like columns and pins the payment tables' columns.
+  - **Swapping the gateway needs no Application change.** Application sees only `IPaymentService`; the adapters (`StripeGateway`, `FakeGateway`) sit behind the Infrastructure router. Architecture tests keep the Stripe SDK in Infrastructure.
 - **Scope.**
   - `IPaymentGateway`: create intent, confirm, refund (full or partial), and parse webhooks.
   - `Payment` and `Refund` entities.
@@ -727,7 +761,7 @@ Each decision is argued in full (options, recommendation, rationale) in Architec
 |---|---|---|---|
 | P-01 | Branching strategy | ✅ **Decided:** one branch per phase (`phase/1a-architecture-stabilization`), merged to `main` after your review | 1A |
 | P-02 | Assertion library license | ✅ **Decided:** AwesomeAssertions 9.6 (Apache-2.0) replaces FluentAssertions 8 (commercial license verified on NuGet) — [ADR-0015](adr/0015-testing-strategy.md) | 1A |
-| **P-05** | Stripe + JOD minor units | ⚠️ **Verify with Stripe before enabling JOD payments.** Stripe's docs describe non-listed currencies as two-decimal (×100, implemented). If your account treats JOD as three-decimal, the multiplier must be 1000. | before live payments |
+| **P-05** | Stripe + JOD minor units | ⚠️ **Verify with Stripe before enabling JOD payments.** Stripe's docs describe non-listed currencies as two-decimal (×100, implemented). Re-checked on 2026-09-11 (Phase 11): JOD is listed neither as zero-decimal nor as a special case. Two things to confirm on the real account: the multiplier (if the account treats JOD as three-decimal, it must be 1000), and rounding (three-decimal JOD totals are charged to the nearest 0.01). | before live payments |
 | D-07 | Read-side strategy | ✅ **Implemented in 1B:** repositories for writes; one projection query service per module for reads — [ADR-0008](adr/0008-cqrs-strategy.md) | 1B |
 | D-08 | Error contract | ✅ **Implemented in 1B:** RFC 7807 ProblemDetails + typed errors + stable codes — [ADR-0017](adr/0017-error-contract.md) | 1B |
 | D-09 | Money model | ✅ **Decided and implemented in 1A:** `decimal(19,4)` + minor-unit enforcement — [ADR-0014](adr/0014-money-precision.md). Explicit (non-default) currency arrives with tenants (Phase 2). | 1A / 2 |
@@ -747,7 +781,7 @@ Each decision is argued in full (options, recommendation, rationale) in Architec
 | D-18 | File storage | Tenant-prefixed keys and content validation ✅ (1A/2); the product gallery ✅ (5); cloud blob storage in production (23) | 1A / 5 / 23 |
 | D-21 | Sellable unit | ✅ **Implemented in Phases 5–6:** a default variant per product holds the SKU, price and compare-at price ([ADR-0025](adr/0025-catalog-model.md)); its stock is an `InventoryItem` with reservations ([ADR-0026](adr/0026-inventory-reservations.md)) | 5 / 6 |
 | D-15 | Background jobs | ✅ **Implemented in Phase 6:** a .NET hosted service (checkout expiry sweep per store); Hangfire only when needed — [ADR-0026](adr/0026-inventory-reservations.md) | 6 |
-| D-13 | Payment tenancy | Per-tenant gateway configuration; choose tenant-owned keys vs Stripe Connect | 11 |
+| **D-13** | Payment tenancy | 🟡 **Mechanism built in Phase 11** ([ADR-0031](adr/0031-payments-and-refunds.md)): per-store gateway resolution, AES-GCM-encrypted store keys, routing by the account that took each payment, per-store webhook secrets. A store may connect its own Stripe account; the others use the deployment account. **Still to decide:** require every store to connect its own account (merchant of record), or adopt Stripe Connect (another adapter behind the same router) | before multi-store live payments |
 | D-14 | Notifications | Outbox + background dispatcher, per-tenant templates | 14 |
 | D-19 | Frontend stack | Incremental TypeScript + TanStack Query | 15 |
 | P-03 | Source license and repository visibility | The repo is MIT-licensed and has a GitHub remote. Decide before the first sale. | before 23 |
@@ -833,3 +867,4 @@ The earlier `AUDIT.md` (Arabic, 8-phase program) and the engineering-thinking gu
 | 2026-09-11 | Phase 8 completed (server-side basket for guests and customers, merge at sign-in, one pricing pipeline shared with checkout, basket expiry, no basket reservations); ADR-0028. Tax model logged as open decision P-06 |
 | 2026-09-11 | Phase 9 completed (checkout from the basket, per-store order numbers, public tracking tokens, placement with frozen totals and a billing snapshot, one transition table, actors in the status history, customer cancellation, admin order filters); ADR-0029 |
 | 2026-09-11 | Phase 10 completed (coupon uses reserved at checkout as redemption records under `rowversion`, confirmed at payment and released on every cancellation; start dates and per-customer limits; admin redemptions list; used coupons can't be deleted); ADR-0030 |
+| 2026-09-11 | Phase 11 completed (a payment record per order, idempotent refunds with retry, a full refund when a paid order is cancelled, per-store Stripe accounts with AES-GCM-encrypted keys, one gateway router, webhooks routed to the store that created the intent, admin payments page and refund UI); ADR-0031. The D-13 mechanism is built but the choice is still open; P-05 re-checked against Stripe's docs |

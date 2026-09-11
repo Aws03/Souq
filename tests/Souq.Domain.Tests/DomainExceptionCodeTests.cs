@@ -23,6 +23,8 @@ public class DomainExceptionCodeTests
         { new InvalidTenantOperationException("x"), "InvalidTenantOperation" },
         { new InvalidIdentityOperationException("x"), "InvalidIdentityOperation" },
         { new InvalidEmailVerificationException("x"), "VerificationTokenExpired" },
+        { new InvalidPaymentOperationException("x"), "InvalidPaymentOperation" },
+        { new InvalidPaymentOperationException("x", "RefundExceedsPayment"), "RefundExceedsPayment" },
     };
 
     [Theory]

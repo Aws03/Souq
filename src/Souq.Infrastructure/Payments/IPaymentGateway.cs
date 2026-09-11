@@ -1,0 +1,40 @@
+using Souq.Application.Common.Interfaces;
+using Souq.Domain.ValueObjects;
+
+namespace Souq.Infrastructure.Payments;
+
+// ============================================================================
+// محوّل بوّابة بحساب واحد (مفاتيحه معطاة له) — لا يعرف المتاجر ولا القاعدة (المرحلة 11، ADR-0031). الموجّه
+// (PaymentGatewayRouter) يختار لكل استدعاء أيّ حساب يُستخدم، وهو وحده ما يراه Application (IPaymentService):
+// تبديل البوّابة أو إضافة مزوّد = محوّل جديد هنا، بلا تغيير في Application.
+// ============================================================================
+public interface IPaymentGateway
+{
+    // يُسجَّل على الدفعة ("stripe:store"، "stripe:deployment"، "fake") — ليمرّ ما بعد الإنشاء بالحساب نفسه.
+    string Name { get; }
+
+    string? PublishableKey { get; }
+
+    bool CanVerifyWebhooks { get; }
+
+    Task<PaymentIntentResult> CreateIntentAsync(Money amount, string orderReference, int tenantId, CancellationToken ct);
+
+    Task<PaymentConfirmationResult> ConfirmAsync(string paymentIntentId, CancellationToken ct);
+
+    Task<PaymentIntentState> CancelIntentAsync(string paymentIntentId, CancellationToken ct);
+
+    Task<PaymentRefundResult> RefundAsync(string paymentIntentId, Money amount, string idempotencyKey, CancellationToken ct);
+
+    // null ⇒ حدث لا يخصّ دفعة طلب، أو لا سرّ إشعارات لهذا الحساب. توقيع غير صالح ⇒ InvalidPaymentWebhookException.
+    GatewayWebhookEvent? ParseWebhook(string payload, string? signatureHeader);
+}
+
+// TenantId من بيانات النيّة الوصفية: المتجر الذي أنشأها (null لنيّات ما قبل المرحلة 11).
+public sealed record GatewayWebhookEvent(string PaymentIntentId, string OrderReference, int? TenantId);
+
+// حساب النشر الافتراضي (Stripe بمفاتيح الإعداد، أو التجريبية في التطوير/الاختبار) — Singleton يختاره DI عند الإقلاع.
+public sealed class DeploymentPaymentGateway
+{
+    public DeploymentPaymentGateway(IPaymentGateway gateway) => Gateway = gateway;
+    public IPaymentGateway Gateway { get; }
+}

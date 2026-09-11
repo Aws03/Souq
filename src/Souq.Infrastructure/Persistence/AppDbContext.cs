@@ -67,6 +67,9 @@ public class AppDbContext : DbContext, IUnitOfWork
     public DbSet<Basket> Baskets => Set<Basket>();
     public DbSet<OrderNumberSequence> OrderNumberSequences => Set<OrderNumberSequence>();
     public DbSet<CouponRedemption> CouponRedemptions => Set<CouponRedemption>();
+    public DbSet<Payment> Payments => Set<Payment>();
+    public DbSet<Refund> Refunds => Set<Refund>();
+    public DbSet<StorePaymentAccount> StorePaymentAccounts => Set<StorePaymentAccount>();
 
     // الهوية (Identity): حسابات المتاجر وحسابات المنصّة في جدول واحد (D-06).
     public DbSet<User> Users => Set<User>();

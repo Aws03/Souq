@@ -15,6 +15,7 @@ namespace Souq.API.Middleware;
 //   ConcurrencyConflictException (rowversion)    ⇒ 409 ConcurrencyConflict
 //   UniqueConstraintViolationException (قيد فريد) ⇒ 409 DuplicateValue
 //   ReferenceConstraintViolationException (مفتاح أجنبي) ⇒ 409 ReferenceConflict
+//   PaymentGatewayUnavailableException (حساب دفع متجر لا يعمل) ⇒ 503 PaymentsUnavailable (المرحلة 11)
 //   BadHttpRequestException (Kestrel: جسم ضخم…)  ⇒ رمزه نفسه
 //   أي شيء آخر                                    ⇒ 500 برسالة عامة؛ التفاصيل في السجل فقط
 // لا يعبر للعميل أبداً: نص استثناء غير متوقّع، مكدّس الاستدعاء، أسماء أنواع، تفاصيل SQL.
@@ -60,6 +61,8 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
         ConcurrencyConflictException conflict => Problem(StatusCodes.Status409Conflict, "ConcurrencyConflict", conflict.Message),
         UniqueConstraintViolationException duplicate => Problem(StatusCodes.Status409Conflict, "DuplicateValue", duplicate.Message),
         ReferenceConstraintViolationException reference => Problem(StatusCodes.Status409Conflict, "ReferenceConflict", reference.Message),
+        PaymentGatewayUnavailableException unavailable =>
+            Problem(StatusCodes.Status503ServiceUnavailable, "PaymentsUnavailable", unavailable.Message),
         BadHttpRequestException badRequest => Problem(badRequest.StatusCode,
             ProblemDetailsConventions.DefaultCode(badRequest.StatusCode, hasFieldErrors: false), UnreadableRequest),
         _ => Problem(StatusCodes.Status500InternalServerError, "ServerError", GenericServerError),

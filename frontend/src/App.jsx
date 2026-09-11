@@ -35,6 +35,7 @@ import Categories from './pages/admin/Categories';
 import Coupons from './pages/admin/Coupons';
 import Orders from './pages/admin/Orders';
 import Customers from './pages/admin/Customers';
+import Payments from './pages/admin/Payments';
 import './styles.css';
 
 // ============================================================================
@@ -96,6 +97,7 @@ export default function App() {
           <Route path="coupons" element={<Coupons />} />
           <Route path="orders" element={<Orders />} />
           <Route path="customers" element={<Customers />} />
+          <Route path="payments" element={<Payments />} />
         </Route>
 
         {/* ── المتجر (عميل/زائر) ── */}

@@ -100,6 +100,8 @@ public static class DependencyInjection
         services.AddScoped<IInventoryRepository, InventoryRepository>();
         services.AddScoped<IBasketRepository, BasketRepository>();
         services.AddScoped<ICouponRedemptionRepository, CouponRedemptionRepository>();
+        services.AddScoped<IPaymentRepository, PaymentRepository>();
+        services.AddScoped<IStorePaymentAccountRepository, StorePaymentAccountRepository>();
         services.AddScoped<Application.Features.Orders.IOrderNumbers, OrderNumbers>();
         services.AddScoped<ITenantRepository, TenantRepository>();
 
@@ -107,6 +109,7 @@ public static class DependencyInjection
         services.AddScoped<ICatalogQueries, CatalogQueries>();
         services.AddScoped<IOrderQueries, OrderQueries>();
         services.AddScoped<ICouponQueries, CouponQueries>();
+        services.AddScoped<Application.Features.Payments.Contracts.IPaymentQueries, PaymentQueries>();
         services.AddScoped<IReviewQueries, ReviewQueries>();
         services.AddScoped<IInventoryQueries, InventoryQueries>();
         services.AddScoped<IAccountQueries, AccountQueries>();
@@ -151,21 +154,29 @@ public static class DependencyInjection
         services.AddHostedService<BackgroundJobs.BasketCleanupService>();
     }
 
-    // بوّابة الدفع: القرار هنا فقط — لا كود آخر في النظام يعرف أيّها يعمل. البوّابة التجريبية
-    // لا تعمل ضمنياً خارج Development/Testing (PaymentProviderSelector).
+    // بوّابة الدفع: القرار هنا فقط — لا كود آخر في النظام يعرف أيّها يعمل. البوّابة التجريبية لا تعمل ضمنياً خارج
+    // Development/Testing (PaymentProviderSelector). المرحلة 11 (ADR-0031): هذا حساب النشر الافتراضي؛ متجر ربط حسابه
+    // يقبض فيه، والموجّه (PaymentGatewayRouter) — التنفيذ الوحيد لـ IPaymentService — يختار لكل استدعاء.
     private static void AddPayments(
         IServiceCollection services, IConfiguration config, IHostEnvironment environment, InfrastructureStartupReport report)
     {
         var provider = PaymentProviderSelector.Select(
             config[PaymentProviderSelector.ConfigKey], config["Stripe:SecretKey"], environment.EnvironmentName);
         report.PaymentProvider = provider;
+        var local = PaymentProviderSelector.IsLocal(environment.EnvironmentName);
 
         if (provider == PaymentProvider.Stripe)
         {
             services.AddOptions<StripeSettings>().Bind(config.GetSection("Stripe")).ValidateOnStart();
             services.AddSingleton<IValidateOptions<StripeSettings>>(
                 new StripeSettingsValidator(requirePublishableKey: !environment.IsDevelopment()));
-            services.AddScoped<IPaymentService, StripePaymentService>();
+            services.AddSingleton(sp =>
+            {
+                var stripe = sp.GetRequiredService<IOptions<StripeSettings>>().Value;
+                return new Payments.DeploymentPaymentGateway(new Payments.StripeGateway(Payments.StripeGateway.DeploymentAccount,
+                    new Payments.StripeCredentials(stripe.SecretKey, stripe.PublishableKey, stripe.WebhookSecret),
+                    sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<Payments.StripeGateway>>()));
+            });
 
             if (string.IsNullOrWhiteSpace(config["Stripe:WebhookSecret"]))
                 report.Warn("Stripe:WebhookSecret غير مضبوط — تأكيد الدفع يعتمد على متصفّح العميل وحده؛ " +
@@ -173,11 +184,28 @@ public static class DependencyInjection
         }
         else
         {
-            services.AddScoped<IPaymentService, FakePaymentService>();
-            if (!PaymentProviderSelector.IsLocal(environment.EnvironmentName))
+            services.AddSingleton<Payments.FakeGatewayLedger>();
+            services.AddSingleton(sp => new Payments.DeploymentPaymentGateway(new Payments.FakeGateway(
+                sp.GetRequiredService<Payments.FakeGatewayLedger>(), config["Payments:Fake:WebhookSecret"])));
+            if (!local)
                 report.Warn($"بوّابة الدفع التجريبية مفعّلة صراحةً ({PaymentProviderSelector.ConfigKey}=Fake): " +
                             "كل دفع يُعتبر ناجحاً بلا مال — للعرض التوضيحي فقط، لا زبائن حقيقيون.");
         }
+
+        services.AddScoped<IPaymentService, Payments.PaymentGatewayRouter>();
+
+        // أسرار حسابات المتاجر: AES-GCM بمفتاح من Secrets:* (سرّ بيئة). اختياري — بدونه لا تُربط حسابات متاجر.
+        services.AddOptions<Security.SecretsSettings>().Bind(config.GetSection("Secrets")).ValidateOnStart();
+        services.AddSingleton<IValidateOptions<Security.SecretsSettings>, Security.SecretsSettingsValidator>();
+        services.AddSingleton<ISecretProtector, Security.AesGcmSecretProtector>();
+        if (!local && string.IsNullOrWhiteSpace(config["Secrets:ActiveKeyId"]))
+            report.Warn("Secrets:ActiveKeyId غير مضبوط — لا تُربط حسابات دفع خاصة بالمتاجر؛ كل المتاجر تقبض في حساب النشر.");
+
+        // مفاتيح Stripe التجريبية لحسابات المتاجر: التطوير والاختبار وحدهما، إلا بإذن صريح مُحذَّر منه.
+        var allowTestKeys = local || config.GetValue<bool>("Payments:AllowTestModeStoreAccounts");
+        services.AddSingleton(new Application.Features.Stores.StorePaymentPolicy { AllowTestKeys = allowTestKeys });
+        if (allowTestKeys && !local)
+            report.Warn("Payments:AllowTestModeStoreAccounts مفعّل: متجر بمفاتيح Stripe تجريبية يقبل بطاقات الاختبار بلا مال حقيقي.");
     }
 
     // البريد: ترتيب الأولوية Resend ← Brevo ← Gmail SMTP ← طباعة في السجل. كل مفتاح

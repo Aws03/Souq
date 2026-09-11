@@ -96,6 +96,12 @@
     - **The per-customer limit** counts uses for the signed-in customer, never an id sent by the client.
     - **Redemptions** show order numbers and customer names, so they are listed only with `promotions.manage`, within the host's store. Another store's coupon id is a 404 (`TenantIsolationTests`).
     - **History is kept:** a used coupon can't be deleted (`409 CouponInUse`), so its redemption records keep their coupon.
+  - **Payments (Phase 11, [ADR-0031](adr/0031-payments-and-refunds.md)):**
+    - **Card data never reaches the server:** Stripe Elements sends it from the browser to Stripe, and we store intent ids only. A test pins the payment tables' columns and scans the whole model for card-like columns.
+    - **Store keys at rest:** AES-256-GCM, with a key from the environment (`Secrets:*`). The store id and the kind of secret are authenticated data, so a ciphertext copied to another store's row doesn't decrypt. Keys are write-only: never returned (only the last four characters) and never logged. The audit log records what changed, not the values.
+    - **No silent fake payments:** test-mode Stripe keys are refused outside Development and Testing unless `Payments:AllowTestModeStoreAccounts` is set, which logs a startup warning. A store account that can't be decrypted answers 503; payments never fall back to another account silently.
+    - **Refunds** require `store.payments.manage` and are audited with the staff member. They can't exceed the payment under concurrency, and an idempotency key means a retry can't refund twice. Another store's order is a 404 (`TenantIsolationTests`).
+    - **Webhooks** are verified by signature before anything is read. An event signed by a store's own account is applied only to that store; routing by metadata applies only to deployment-signed events, and applying an event re-asks the gateway.
 
 ## 4. Transport, CORS, headers, rate limiting
 

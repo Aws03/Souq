@@ -1,0 +1,121 @@
+using Microsoft.Extensions.Logging;
+using Souq.Application.Common.Exceptions;
+using Souq.Application.Common.Interfaces;
+using Souq.Application.Common.Tenancy;
+using Souq.Domain.Interfaces;
+using Souq.Domain.ValueObjects;
+
+namespace Souq.Infrastructure.Payments;
+
+// ============================================================================
+// PaymentGatewayRouter — التنفيذ الوحيد لـ IPaymentService (المرحلة 11، ADR-0031، D-13): لكل استدعاء يختار الحساب.
+//   • إنشاء نيّة وإعداد الواجهة: حساب المتجر إن رُبط، وإلا حساب النشر.
+//   • تأكيد/إلغاء/استرداد نيّة قائمة: الحساب الذي أنشأها (مسجَّل على دفعتها) — حتى لو غيّر المتجر حسابه بعدها.
+//   • الإشعار: سرّ حساب المتجر أولاً إن ضُبط، ثم سرّ حساب النشر — والنتيجة تذكر أيّهما وقّعه، فحدث وقّعه حساب متجر لا
+//     يُوجَّه لمتجر غيره.
+// سرّ متجر لا يُفكّ ⇒ PaymentGatewayUnavailableException (503) — لا رجوع صامت لحساب النشر يقبض مال المتجر في حساب غيره.
+// ============================================================================
+public sealed class PaymentGatewayRouter : IPaymentService
+{
+    private readonly DeploymentPaymentGateway _deployment;
+    private readonly IStorePaymentAccountRepository _accounts;
+    private readonly IPaymentRepository _payments;
+    private readonly ISecretProtector _secrets;
+    private readonly ITenantContext _tenant;
+    private readonly ILogger<PaymentGatewayRouter> _logger;
+    private readonly ILogger<StripeGateway> _stripeLogger;
+
+    private bool _storeResolved;
+    private IPaymentGateway? _store;
+
+    public PaymentGatewayRouter(
+        DeploymentPaymentGateway deployment, IStorePaymentAccountRepository accounts, IPaymentRepository payments,
+        ISecretProtector secrets, ITenantContext tenant, ILogger<PaymentGatewayRouter> logger, ILogger<StripeGateway> stripeLogger)
+    {
+        _deployment = deployment; _accounts = accounts; _payments = payments; _secrets = secrets; _tenant = tenant;
+        _logger = logger; _stripeLogger = stripeLogger;
+    }
+
+    public async Task<PaymentIntentResult> CreateIntentAsync(Money amount, string orderReference, CancellationToken ct = default) =>
+        await (await CurrentAsync(ct)).CreateIntentAsync(amount, orderReference, _tenant.RequireTenant().Id, ct);
+
+    public async Task<PaymentConfirmationResult> ConfirmAsync(string paymentIntentId, CancellationToken ct = default) =>
+        await (await ForIntentAsync(paymentIntentId, ct)).ConfirmAsync(paymentIntentId, ct);
+
+    public async Task<PaymentIntentState> CancelIntentAsync(string paymentIntentId, CancellationToken ct = default) =>
+        await (await ForIntentAsync(paymentIntentId, ct)).CancelIntentAsync(paymentIntentId, ct);
+
+    public async Task<PaymentRefundResult> RefundAsync(
+        string paymentIntentId, Money amount, string idempotencyKey, CancellationToken ct = default) =>
+        await (await ForIntentAsync(paymentIntentId, ct)).RefundAsync(paymentIntentId, amount, idempotencyKey, ct);
+
+    public async Task<PaymentClientConfig> GetClientConfigAsync(CancellationToken ct = default) =>
+        new((await CurrentAsync(ct)).PublishableKey);
+
+    public async Task<PaymentWebhookEvent?> ParseWebhookAsync(string payload, string? signatureHeader, CancellationToken ct = default)
+    {
+        var deployment = _deployment.Gateway;
+        if (await StoreAsync(ct) is { CanVerifyWebhooks: true } store)
+        {
+            try
+            {
+                return ToEvent(store.ParseWebhook(payload, signatureHeader), verifiedByStoreAccount: true);
+            }
+            catch (InvalidPaymentWebhookException) when (deployment.CanVerifyWebhooks)
+            {
+                // ليس توقيع حساب المتجر — قد يكون حدثاً من حساب النشر وصل على مضيف هذا المتجر.
+            }
+        }
+
+        if (!deployment.CanVerifyWebhooks)
+        {
+            _logger.LogWarning("Payment webhook received but no webhook secret is configured for this store or the deployment; ignored");
+            return null;
+        }
+        return ToEvent(deployment.ParseWebhook(payload, signatureHeader), verifiedByStoreAccount: false);
+    }
+
+    private static PaymentWebhookEvent? ToEvent(GatewayWebhookEvent? evt, bool verifiedByStoreAccount) =>
+        evt is null ? null : new PaymentWebhookEvent(evt.OrderReference, evt.PaymentIntentId, evt.TenantId, verifiedByStoreAccount);
+
+    private async Task<IPaymentGateway> CurrentAsync(CancellationToken ct) => await StoreAsync(ct) ?? _deployment.Gateway;
+
+    // الحساب الذي أنشأ النيّة. نيّة بلا دفعة مسجَّلة ⇒ الحساب الحالي.
+    private async Task<IPaymentGateway> ForIntentAsync(string paymentIntentId, CancellationToken ct)
+    {
+        var gateway = await _payments.GetGatewayAsync(paymentIntentId, ct);
+        if (gateway == StripeGateway.StoreAccount)
+            return await StoreAsync(ct) ?? throw new PaymentGatewayUnavailableException(
+                "هذه الدفعة أخذها حساب المتجر، وحساب المتجر لم يعد مربوطاً — أعد ربطه لإتمام العملية");
+        return gateway is null ? await CurrentAsync(ct) : _deployment.Gateway;
+    }
+
+    // حساب المتجر مفكوك السرّ، مرة واحدة لكل نطاق.
+    private async Task<IPaymentGateway?> StoreAsync(CancellationToken ct)
+    {
+        if (_storeResolved) return _store;
+
+        var account = await _accounts.GetAsync(ct);
+        if (account is not null)
+        {
+            var tenantId = _tenant.RequireTenant().Id;
+            try
+            {
+                var secret = _secrets.Unprotect(account.SecretKeyCipher, SecretPurposes.StripeSecretKey(tenantId));
+                var webhook = account.WebhookSecretCipher is null
+                    ? null
+                    : _secrets.Unprotect(account.WebhookSecretCipher, SecretPurposes.StripeWebhookSecret(tenantId));
+                _store = new StripeGateway(StripeGateway.StoreAccount,
+                    new StripeCredentials(secret, account.PublishableKey, webhook), _stripeLogger);
+            }
+            catch (SecretUnavailableException ex)
+            {
+                _logger.LogError(ex, "Payment account secrets of store {TenantId} can't be decrypted; its payments are unavailable", tenantId);
+                throw new PaymentGatewayUnavailableException("حساب الدفع الخاص بالمتجر غير متاح الآن", ex);
+            }
+        }
+
+        _storeResolved = true;
+        return _store;
+    }
+}

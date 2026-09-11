@@ -6,6 +6,7 @@ using Souq.Application.Common.Security;
 using Souq.Application.Common.Tenancy;
 using Souq.Application.Features.Baskets.Contracts;
 using Souq.Application.Features.Coupons.Contracts;
+using Souq.Application.Features.Payments.Contracts;
 using Souq.Application.Features.Inventory.Contracts;
 using Souq.Domain.Entities;
 using Souq.Domain.Interfaces;
@@ -35,6 +36,7 @@ public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, Result<Ord
     private readonly IBasketCheckout _baskets;
     private readonly IOrderNumbers _numbers;
     private readonly ICouponRedemptions _couponRedemptions;
+    private readonly IOrderPayments _orderPayments;
     private readonly IInventoryReservations _reservations;
     private readonly IStockAvailability _availability;
     private readonly IPaymentService _payment;
@@ -47,12 +49,13 @@ public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, Result<Ord
 
     public CreateOrderHandler(
         IOrderRepository orders, ICustomerRepository customers, IPricing pricing, IBasketCheckout baskets, IOrderNumbers numbers,
-        ICouponRedemptions couponRedemptions, IInventoryReservations reservations, IStockAvailability availability,
+        ICouponRedemptions couponRedemptions, IOrderPayments orderPayments, IInventoryReservations reservations,
+        IStockAvailability availability,
         IPaymentService payment, OrderPaymentConfirmation confirmation, ICurrentUser currentUser, ITenantContext tenant,
         IUnitOfWork uow, TimeProvider clock, ILogger<CreateOrderHandler> logger)
     {
         _orders = orders; _customers = customers; _pricing = pricing; _baskets = baskets; _numbers = numbers;
-        _couponRedemptions = couponRedemptions;
+        _couponRedemptions = couponRedemptions; _orderPayments = orderPayments;
         _reservations = reservations; _availability = availability; _payment = payment; _confirmation = confirmation;
         _currentUser = currentUser; _tenant = tenant; _uow = uow; _clock = clock; _logger = logger;
     }
@@ -151,6 +154,8 @@ public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, Result<Ord
         }
 
         order.SetPaymentIntent(intent.PaymentIntentId);
+        // دفعة الطلب (المرحلة 11) بالحساب الذي أنشأ النيّة — تُحفظ مع ربطها بالطلب في الحفظ نفسه.
+        await _orderPayments.RecordIntentAsync(order.Id, intent, order.TotalAmount, ct);
         await _uow.SaveChangesAsync(ct);
 
         return Result<OrderCreatedDto>.Success(new OrderCreatedDto(

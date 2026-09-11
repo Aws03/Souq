@@ -95,6 +95,13 @@ export default function OrderDetail() {
               </div>
             )}
             <div className={styles.grandTotal}><dt>{t('cart.total')}</dt><dd>{formatPrice(order.totalAmount, order.currency)}</dd></div>
+            {/* ما رُدّ للعميل من دفعته (المرحلة 11) — المبلغ وحده، بلا أسباب الإدارة. */}
+            {order.payment?.refundedAmount > 0 && (
+              <div className={styles.discount}>
+                <dt>{t('orders.refundedLabel')}</dt>
+                <dd>-{formatPrice(order.payment.refundedAmount, order.payment.currency)}</dd>
+              </div>
+            )}
           </dl>
 
           <div className={styles.addresses}>

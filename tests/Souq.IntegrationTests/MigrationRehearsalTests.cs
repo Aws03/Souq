@@ -114,7 +114,7 @@ public class MigrationRehearsalTests
                 WHERE ([object_id] = OBJECT_ID(N'[Products]') AND [name] IN (N'NameAr', N'NameEn', N'Description', N'Price', N'Currency', N'ImageUrl', N'IsActive'))
                    OR ([object_id] = OBJECT_ID(N'[Categories]') AND [name] = N'Name')
                 """)).Should().Be(0);
-            foreach (var table in new[] { "ProductTranslations", "ProductVariants", "CategoryTranslations", "InventoryItems", "StockReservations", "CouponRedemptions" })
+            foreach (var table in new[] { "ProductTranslations", "ProductVariants", "CategoryTranslations", "InventoryItems", "StockReservations", "CouponRedemptions", "Payments" })
                 (await ScalarAsync(db, $"SELECT COUNT(*) FROM [{table}] WHERE [TenantId] <> 1")).Should().Be(0, table);
 
             // المرحلة 6: الطلب المعلّق كان قد أنقص المخزون (5 متبقية) ⇒ الموجود 5 + 2 محجوزة له بحجز نشط؛ المدفوع غير
@@ -160,6 +160,18 @@ public class MigrationRehearsalTests
                 """)).Should().Be("معلّق:0:2.5000:KWD,مدفوع:1:1.2500:KWD");
             (await ScalarAsync(db, "SELECT [UsedCount] FROM [Coupons] WHERE [Code] = N'LEGACY10'")).Should().Be(2);
 
+            // المرحلة 11: كل طلب له نيّة دفع أخذ دفعته بمبلغه المثبَّت وعملته والحساب الذي أنشأها — المعلّق معلّقة، والمسلَّم
+            // والمدفوع ناجحتان، والملغى الذي شهد سجلّه دفعه قبل إلغائه ناجحة (فتستردّها الإدارة الآن)؛ ولا استرداد قبل المرحلة.
+            (await ScalarAsync(db, """
+                SELECT STRING_AGG(CONCAT(o.[ShippingAddress], N':', p.[Gateway], N':', p.[Status], N':', p.[Amount], N':', p.[Currency]), N',')
+                       WITHIN GROUP (ORDER BY o.[Id])
+                FROM [Payments] p
+                JOIN [Orders] o ON o.[TenantId] = p.[TenantId] AND o.[Id] = p.[OrderId] AND o.[PaymentIntentId] = p.[ProviderPaymentId]
+                """)).Should().Be(
+                "بأسطر:stripe:deployment:1:25.0000:KWD,بلا أسطر:stripe:deployment:1:0.0000:JOD," +
+                "معلّق:fake:0:22.5000:KWD,مدفوع:stripe:deployment:1:11.2500:KWD");
+            (await ScalarAsync(db, "SELECT COUNT(*) FROM [Refunds]")).Should().Be(0);
+
             // المرشّحات على البيانات المُرحَّلة: المتجر 1 يرى صفوفه، ومتجر آخر لا يرى شيئاً — والتجمّع يُقرأ كاملاً.
             await using (var asDefault = new AppDbContext(options, Context(1)))
             {
@@ -198,19 +210,23 @@ public class MigrationRehearsalTests
                                 [ImageUrl], [IsActive], [CategoryId], [CreatedAt])
             VALUES (N'منتج قديم', N'Legacy product', N'وصف', 12.500, N'KWD', 5, 5, N'legacy', 1, @category, @now);
         DECLARE @product int = SCOPE_IDENTITY();
-        INSERT INTO [Orders] ([CustomerId], [Status], [ShippingAddress], [CreatedAt]) VALUES (@customer, 3, N'بأسطر', @now);
+        INSERT INTO [Orders] ([CustomerId], [Status], [ShippingAddress], [PaymentIntentId], [CreatedAt])
+            VALUES (@customer, 3, N'بأسطر', N'pi_legacy_delivered', @now);
         DECLARE @order int = SCOPE_IDENTITY();
         INSERT INTO [OrderItems] ([OrderId], [ProductId], [ProductName], [UnitPrice], [Currency], [Quantity], [CreatedAt])
             VALUES (@order, @product, N'منتج قديم', 12.500, N'KWD', 2, @now);
         INSERT INTO [OrderStatusHistories] ([OrderId], [Status], [CreatedAt]) VALUES (@order, 0, @now);
-        INSERT INTO [Orders] ([CustomerId], [Status], [ShippingAddress], [CouponCode], [CreatedAt])
-            VALUES (@customer, 4, N'بلا أسطر', N'LEGACY10', @now);
-        INSERT INTO [Orders] ([CustomerId], [Status], [ShippingAddress], [CouponCode], [DiscountAmount], [DiscountCurrency], [CreatedAt])
-            VALUES (@customer, 0, N'معلّق', N'LEGACY10', 2.500, N'KWD', @now);
+        INSERT INTO [Orders] ([CustomerId], [Status], [ShippingAddress], [CouponCode], [PaymentIntentId], [CreatedAt])
+            VALUES (@customer, 4, N'بلا أسطر', N'LEGACY10', N'pi_legacy_paid_then_cancelled', @now);
+        INSERT INTO [OrderStatusHistories] ([OrderId], [Status], [CreatedAt]) VALUES (SCOPE_IDENTITY(), 1, @now);
+        INSERT INTO [Orders] ([CustomerId], [Status], [ShippingAddress], [CouponCode], [DiscountAmount], [DiscountCurrency],
+                              [PaymentIntentId], [CreatedAt])
+            VALUES (@customer, 0, N'معلّق', N'LEGACY10', 2.500, N'KWD', N'pi_fake_legacy', @now);
         INSERT INTO [OrderItems] ([OrderId], [ProductId], [ProductName], [UnitPrice], [Currency], [Quantity], [CreatedAt])
             VALUES (SCOPE_IDENTITY(), @product, N'منتج قديم', 12.500, N'KWD', 2, @now);
-        INSERT INTO [Orders] ([CustomerId], [Status], [ShippingAddress], [CouponCode], [DiscountAmount], [DiscountCurrency], [CreatedAt])
-            VALUES (@customer, 1, N'مدفوع', N'LEGACY10', 1.250, N'KWD', @now);
+        INSERT INTO [Orders] ([CustomerId], [Status], [ShippingAddress], [CouponCode], [DiscountAmount], [DiscountCurrency],
+                              [PaymentIntentId], [CreatedAt])
+            VALUES (@customer, 1, N'مدفوع', N'LEGACY10', 1.250, N'KWD', N'pi_legacy_paid', @now);
         INSERT INTO [OrderItems] ([OrderId], [ProductId], [ProductName], [UnitPrice], [Currency], [Quantity], [CreatedAt])
             VALUES (SCOPE_IDENTITY(), @product, N'منتج قديم', 12.500, N'KWD', 1, @now);
         INSERT INTO [Coupons] ([Code], [Type], [Value], [UsedCount], [IsActive], [CreatedAt])

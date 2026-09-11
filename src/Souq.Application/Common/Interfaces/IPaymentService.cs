@@ -3,18 +3,15 @@ using Souq.Domain.ValueObjects;
 namespace Souq.Application.Common.Interfaces;
 
 // ============================================================================
-// IPaymentService — العقد مع بوّابة الدفع. نُعرّفه هنا (في Application) لكن
-// ننفّذه في Infrastructure (StripePaymentService/FakePaymentService).
+// IPaymentService — العقد مع بوّابة الدفع. نُعرّفه هنا (في Application) ويُنفَّذ في Infrastructure بموجّه واحد يختار
+// الحساب لكل استدعاء: حساب المتجر إن رُبط، وإلا حساب النشر (المرحلة 11، ADR-0031). تبديل المزوّد لا يمسّ Application.
 //
-// الشكل بخطوتين (نيّة ثم تأكيد) لا شحن مباشر واحد: هذا هو النمط الصحيح لدفع
-// حقيقي عبر Stripe.js — تفاصيل البطاقة لا تصل خادمنا إطلاقاً (تبقى بين متصفّح
-// العميل وStripe مباشرة عبر Stripe Elements)، فيتحصّل الخادم فقط على نيّة دفع
-// (PaymentIntent) يُصادق عليها العميل بمتصفحه، ثم يتحقّق الخادم من نتيجتها هنا.
+// الشكل بخطوتين (نيّة ثم تأكيد) لا شحن مباشر واحد: تفاصيل البطاقة لا تصل خادمنا إطلاقاً (تبقى بين متصفّح العميل والبوّابة
+// عبر Stripe Elements)، فيحصل الخادم على نيّة دفع يُصادق عليها العميل بمتصفحه، ثم يتحقّق من نتيجتها هنا.
 // ============================================================================
 public interface IPaymentService
 {
-    // ينشئ نيّة دفع بمبلغ محدَّد ويعيد سرّاً (ClientSecret) تستخدمه الواجهة مع
-    // Stripe.js لإتمام الدفع مباشرة من متصفّح العميل.
+    // ينشئ نيّة دفع بمبلغ محدَّد ويعيد سرّاً (ClientSecret) تستخدمه الواجهة لإتمام الدفع من المتصفّح، والحساب الذي أنشأها.
     Task<PaymentIntentResult> CreateIntentAsync(Money amount, string orderReference, CancellationToken ct = default);
 
     // يتحقّق من حالة نيّة دفع لدى بوّابة الدفع نفسها (لا نثق بادّعاء العميل وحده).
@@ -24,18 +21,28 @@ public interface IPaymentService
     // مع دفع العميل ⇒ يُؤكَّد الطلب بدل إلغائه)، أو قيد المعالجة (لا تُلغى الآن — تُعاد المحاولة لاحقاً).
     Task<PaymentIntentState> CancelIntentAsync(string paymentIntentId, CancellationToken ct = default);
 
-    // الإعدادات العامة التي تحتاجها الواجهة لتهيئة مزوّد الدفع (مفتاح Stripe.js العلني)
-    // — لا أسرار هنا. null ⇒ لا مزوّد حقيقي مضبوط (البوّابة التجريبية).
-    PaymentClientConfig GetClientConfig();
+    // استرداد جزئي أو كامل (المرحلة 11) بمفتاح عدم تكرار: إعادة الطلب بالمفتاح نفسه لا تردّ المال مرتين. رفض البوّابة
+    // نتيجة (Succeeded = false)؛ انقطاعها استثناء — النتيجة مجهولة ويُعاد بالمفتاح نفسه.
+    Task<PaymentRefundResult> RefundAsync(string paymentIntentId, Money amount, string idempotencyKey, CancellationToken ct = default);
 
-    // يتحقّق من توقيع إشعار البوّابة (Webhook) ويستخرج مرجع الطلب إن كان الحدث عن دفعة.
-    // null ⇒ حدث لا يعنينا أو لا Webhook مضبوط. توقيع غير صالح ⇒ InvalidPaymentWebhookException.
-    // التحقّق هنا لا في الـ Controller: صيغة التوقيع تفصيل خاص بكل مزوّد (Phase 0 D1).
-    PaymentWebhookEvent? ParseWebhook(string payload, string? signatureHeader);
+    // الإعدادات العامة التي تحتاجها الواجهة لتهيئة مزوّد الدفع (المفتاح العلني لحساب المتجر أو النشر) — لا أسرار هنا.
+    // null ⇒ البوّابة التجريبية.
+    Task<PaymentClientConfig> GetClientConfigAsync(CancellationToken ct = default);
+
+    // يتحقّق من توقيع إشعار البوّابة (Webhook) ويستخرج مرجع الطلب ومتجره إن كان الحدث عن دفعة. null ⇒ حدث لا يعنينا أو
+    // لا سرّ إشعارات مضبوط. توقيع غير صالح ⇒ InvalidPaymentWebhookException. صيغة التوقيع تفصيل المزوّد (Phase 0 D1).
+    Task<PaymentWebhookEvent?> ParseWebhookAsync(string payload, string? signatureHeader, CancellationToken ct = default);
 }
 
-public record PaymentIntentResult(string PaymentIntentId, string ClientSecret);
+// Gateway: الحساب الذي أنشأ النيّة (يُسجَّل على الدفعة ولا يفسّره Application).
+public record PaymentIntentResult(string PaymentIntentId, string ClientSecret, string Gateway = "deployment");
 public record PaymentConfirmationResult(bool Succeeded, string? FailureReason);
+public record PaymentRefundResult(bool Succeeded, string? ProviderRefundId, string? FailureReason);
 public record PaymentClientConfig(string? PublishableKey);
-public record PaymentWebhookEvent(string OrderReference);
+
+// TenantId: المتجر الذي أنشأ النيّة (null لنيّات ما قبل المرحلة 11). VerifiedByStoreAccount: وقّعه سرّ حساب المتجر نفسه،
+// فلا يُوجَّه لمتجر غيره.
+public record PaymentWebhookEvent(
+    string OrderReference, string? PaymentIntentId = null, int? TenantId = null, bool VerifiedByStoreAccount = false);
+
 public enum PaymentIntentState { Cancelled, Succeeded, Processing }

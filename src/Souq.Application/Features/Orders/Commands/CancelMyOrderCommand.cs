@@ -32,14 +32,12 @@ public class CancelMyOrderHandler : IRequestHandler<CancelMyOrderCommand, Result
     private const string CustomerCancellationNote = "إلغاء من العميل";
 
     private readonly IOrderRepository _orders;
-    private readonly IPaymentService _payment;
     private readonly OrderPaymentConfirmation _confirmation;
     private readonly ICurrentUser _currentUser;
 
-    public CancelMyOrderHandler(
-        IOrderRepository orders, IPaymentService payment, OrderPaymentConfirmation confirmation, ICurrentUser currentUser)
+    public CancelMyOrderHandler(IOrderRepository orders, OrderPaymentConfirmation confirmation, ICurrentUser currentUser)
     {
-        _orders = orders; _payment = payment; _confirmation = confirmation; _currentUser = currentUser;
+        _orders = orders; _confirmation = confirmation; _currentUser = currentUser;
     }
 
     public async Task<Result> Handle(CancelMyOrderCommand cmd, CancellationToken ct)
@@ -52,20 +50,8 @@ public class CancelMyOrderHandler : IRequestHandler<CancelMyOrderCommand, Result
         if (!OrderTransitions.CustomerCanCancel(order.Status))
             return Result.Failure(Error.BusinessRule("InvalidOrderOperation", "الإلغاء متاح قبل الدفع فقط؛ تواصل مع المتجر لإلغاء طلب مدفوع"));
 
-        if (order.PaymentIntentId is { } intentId)
-        {
-            var state = await _payment.CancelIntentAsync(intentId, ct);
-            if (state == PaymentIntentState.Processing)
-                return Result.Failure(Error.BusinessRule("PaymentProcessing", "الدفع قيد المعالجة الآن؛ حاول بعد قليل"));
-            if (state == PaymentIntentState.Succeeded)
-            {
-                await _confirmation.ConfirmAsync(order, ct);
-                return Result.Failure(Error.BusinessRule("OrderAlreadyPaid", "دُفع الطلب قبل إلغائه؛ تواصل مع المتجر لإلغائه"));
-            }
-        }
-
-        await _confirmation.CancelAsync(order, string.IsNullOrWhiteSpace(cmd.Reason) ? CustomerCancellationNote : cmd.Reason.Trim(),
-            expired: false, OrderActor.Customer(_currentUser.UserId), ct);
-        return Result.Success();
+        return await _confirmation.CancelUnpaidAsync(order,
+            string.IsNullOrWhiteSpace(cmd.Reason) ? CustomerCancellationNote : cmd.Reason.Trim(),
+            OrderActor.Customer(_currentUser.UserId), ct);
     }
 }

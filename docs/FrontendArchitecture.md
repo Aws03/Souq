@@ -166,6 +166,16 @@ It displays the server's decisions and handles its errors.
 | The coupon list shows the validity window and the per-customer limit. A row action opens a redemptions drawer: order number, customer, discount and status | Admins see who used a coupon |
 | New error code translated (`CouponInUse`) | Deleting a used coupon says what to do instead |
 
+**Phase 11 (payments):**
+
+| Change | Reason |
+|---|---|
+| `/admin/payments` (sidebar and mobile tab bar, `store.payments.manage`): the store's account status; connect or update Stripe keys; disconnect. The secret fields are write-only: left empty they keep the saved key, and the page shows only its last four characters | Per-store accounts ([ADR-0031](adr/0031-payments-and-refunds.md)); secrets never reach the browser |
+| The admin order drawer has a payment section: status, refunded amount, each refund with its status and reason, a refund form (empty amount = everything left) when the server allows it (`canRefund`), and "Retry refund" for a pending one. Cancelling a paid order warns that the payment will be refunded | Refunds from the order they belong to |
+| The customer's order page shows the refunded amount | Customers see what came back |
+| `features/admin/payments/paymentView.js` (tested): key modes, the account form's first problem, the request body (empty secrets aren't sent), the refund amount check with the currency's minor units | Pure helpers |
+| New error codes translated (`RefundExceedsPayment`, `NothingToRefund`, `PaymentNotRefundable`, `RefundNotPending`, `InvalidPaymentKeys`, `TestKeysNotAllowed`, `SecretsNotConfigured`, `PaymentsUnavailable`) | Server decisions shown in both languages |
+
 ## 6. Phase 15 migration plan
 
 1. Introduce `app/`, `routes/`, `layouts/`, and `contexts/` without moving features. The app keeps working.

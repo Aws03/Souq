@@ -209,6 +209,13 @@ export const api = {
 
   // ── إدارة الطلبات (أدمن) ──
   getOrders: (params = {}) => request(`/orders${toQueryString(params)}`),
+  // استرداد دفعة طلب (المرحلة 11): بلا amount ⇒ كل المتبقّي؛ retry لاسترداد معلّق (المفتاح نفسه لدى البوّابة).
+  refundOrder: (id, payload = {}) => request(`/orders/${id}/refunds`, { method: 'POST', body: JSON.stringify(payload) }),
+  retryRefund: (id, refundId) => request(`/orders/${id}/refunds/${refundId}/retry`, { method: 'POST' }),
+  // حساب بوّابة الدفع الخاص بالمتجر (المرحلة 11): السرّان يُكتبان ولا يُقرآن.
+  getStorePayments: () => request('/admin/store/payments'),
+  updateStorePayments: (payload) => request('/admin/store/payments', { method: 'PUT', body: JSON.stringify(payload) }),
+  removeStorePayments: () => request('/admin/store/payments', { method: 'DELETE' }),
   updateOrderStatus: (id, action, extra = {}) =>
     request(`/orders/${id}/status`, { method: 'PUT', body: JSON.stringify({ action, ...extra }) }),
 };
