@@ -1,7 +1,7 @@
 # Souq Platform: Product Roadmap
 
 > **Goal:** turn Souq into one **white-label, multi-tenant e-commerce platform**, sold to many clients (≈ $5,000+ each) and maintainable by a professional team.
-> **Status:** Phase 0 ✅ complete. Awaiting approval to start Phase 1A.
+> **Status:** Phase 0 ✅ · Target architecture ✅ documented · Phase 1A 🟡 in progress on branch `phase/1a-architecture-stabilization`.
 > **Companion document:** [ArchitectureAssessment.md](ArchitectureAssessment.md) covers the current state, the problem register (IDs such as `B1` and `C2`), the target architecture, and the full reasoning behind every decision (`D-xx`).
 > **Last updated:** 2026-09-11
 
@@ -98,50 +98,74 @@ Status legend: ✅ done · 🟡 in progress · ⏳ planned · ⏸ awaiting appro
 - **Delivered.** [ArchitectureAssessment.md](ArchitectureAssessment.md), which contains the feature, entity, API, database, and frontend maps, an end-to-end trace, the problem register, the target architecture, and the migration strategy. Also this roadmap.
 - **Verified.** `dotnet build` passes with 0 warnings. `dotnet test` passes 133/133. The frontend production build passes. NuGet reports no vulnerable packages.
 
-### Phase 1A: Stabilize the single-store baseline ⏳
-- **Goal.** Fix the defects that every tenant would inherit, and tidy the repository. No architectural change.
-- **Scope.**
-  - Security fixes:
-    - Seed the default admin only in Development; production bootstraps from a secret (B1).
-    - Stop logging reset links and provider response bodies (B2).
-    - Harden uploads with an extension allowlist, a content (magic-byte) check, and `X-Content-Type-Options: nosniff` on `/uploads` (B3).
-  - Correctness fixes:
-    - Cancelling an order returns stock and writes a `Return` ledger entry (C2).
-    - The payment-failure restock is recorded in the ledger (C3).
-    - `Order.Cancel` becomes idempotent (C10).
-    - The admin product category filter works (C8).
-  - Housekeeping:
-    - Untrack `.vs/` (G1).
-    - Replace the stale `database/*.sql` with generated idempotent scripts (G2).
-    - Correct README facts (F4).
-    - Delete the unused `useProducts` hook (E7).
-    - Use a neutral default for `FRONTEND_URL` (G3).
-- **Out of scope.** Tenancy, new features, refactors.
-- **Decisions needed.** P-01 (branching), P-02 (assertion-library license).
-- **Exit criteria.**
-  - Every fix is covered by a Domain or Application test.
-  - Build and tests are green.
-  - Manual smoke test passes: register → login → browse → checkout → admin ship and cancel → stock correct.
+### Target architecture ✅ (documented before Phase 1A, 2026-09-11)
+- **Delivered:**
+  - [Architecture.md](Architecture.md) and [ArchitectureEvaluation.md](ArchitectureEvaluation.md) (ten styles evaluated);
+  - [Modules.md](Modules.md), [MultiTenancy.md](MultiTenancy.md), [DatabaseDesign.md](DatabaseDesign.md), [ApiDocumentation.md](ApiDocumentation.md);
+  - [Security.md](Security.md), [AuthenticationAndAuthorization.md](AuthenticationAndAuthorization.md);
+  - [FrontendArchitecture.md](FrontendArchitecture.md), [WhiteLabel.md](WhiteLabel.md), [DevelopmentGuide.md](DevelopmentGuide.md);
+  - ADRs 0001–0016 in [adr/](adr/).
+- **Decision:** modular monolith + Clean/Hexagonal boundaries + selective DDD + vertical slices + selective CQRS. Modules are namespaces inside the four layer projects, enforced by architecture tests.
 
-### Phase 1B: Architecture and domain foundations ⏳
-- **Goal.** Build the shared building blocks every later phase reuses, and record the decisions.
+### Phase 1A: Stabilize + foundations the fixes depend on 🟡
+- **Goal.** Fix the confirmed correctness and security defects before tenancy multiplies them. Put in place the minimum foundations those fixes need and every later phase reuses: concurrency, money precision, test harness, architecture tests.
+- **Scope change (2026-09-11).** Per the architecture brief, concurrency (C1/C4), JOD precision (C5), the payment-port cleanup (D1/D2), and the integration-test harness moved here from 1B.
 - **Scope.**
-  - ADRs for the approved decisions, in `docs/adr/`.
-  - Error contract (D-08): typed `Error` + RFC 7807 ProblemDetails, a single Result→HTTP mapping, and stable error codes the frontend can translate (D5, D6, C11, A9).
-  - An `ICurrentUser` abstraction. Controllers lose the `int.Parse(User…)` code and the ownership checks, which move to Application (B7).
-  - Reusable paging, sorting, and filtering: `PageRequest` with clamping, `PagedResult<T>`, sort allowlists, and validators for every list query (C9). The read-side query-service pattern (D-07) is implemented for the product listing as the reference (D3, D4).
-  - Money v2 (D-09): explicit currency, ISO-4217 minor units and rounding, and a migration to `decimal(19,4)` (A5, C5).
-  - Optimistic concurrency: `rowversion` on Products, Coupons, and Orders, with 409 responses (C1; mitigates C4).
-  - `TimeProvider` instead of `DateTime.UtcNow` (D12).
-  - Payment abstraction cleanup: webhook parsing moves behind the gateway, and the static Stripe configuration is removed (D1, D2).
-  - Integration-test harness (D-20): SQL Server in Docker + `WebApplicationFactory`. First tests cover concurrency, paging validation, and the error contract.
-- **Decisions needed.** D-07, D-08, D-09, D-16, D-20.
+  - Security:
+    - no default admin outside Development (B1);
+    - no reset links, tokens, or PII in logs (B2);
+    - hashed CSPRNG reset tokens (B6);
+    - content-sniffed uploads with server-chosen extensions and a locked-down `/uploads` (B3);
+    - personal email defaults removed (B12);
+    - non-breaking `npm audit fix` (B11).
+  - Correctness:
+    - `rowversion` on Products, Coupons, Orders with a 409 on conflict (C1);
+    - compare-and-set stock edits (C4);
+    - `decimal(19,4)` + `Money` minor-unit enforcement (C5);
+    - cancelling restocks with a `Cancellation` ledger entry, and payment failure is logged in the ledger (C2, C3);
+    - intent-creation failure cancels the order and releases stock (C6);
+    - `Order.Cancel` guarded against Cancelled → Cancelled (C10);
+    - admin category filter fixed (C8);
+    - paging validated (C9);
+    - Money, concurrency, and unique-violation errors → 400/409 instead of 500 (C11).
+  - Boundaries:
+    - Stripe webhook parsing and client config behind `IPaymentService`, with no static Stripe key (D1, D2);
+    - Result→HTTP mapping in one place (D5, partial);
+    - a single `IFileStorage` (the duplicate `IVideoStorage` removed).
+  - Database integrity: a `Categories.ParentId` FK; non-nullable aggregate-child FKs.
+  - Tests:
+    - `Souq.IntegrationTests` (Testcontainers SQL Server + `WebApplicationFactory`);
+    - `Souq.ArchitectureTests` (NetArchTest);
+    - AwesomeAssertions replaces FluentAssertions;
+    - Vitest for frontend pure logic.
+  - Housekeeping:
+    - untrack `.vs/` (G1);
+    - delete the stale `database/*.sql` (G2);
+    - correct README facts (F4);
+    - remove the unused `useProducts` (E7);
+    - neutral `FRONTEND_URL` (G3).
+- **Out of scope.** Tenancy, identity split, ProblemDetails, query services, new features.
+- **Decisions taken (delegated).** P-01 (branch per phase), P-02 (AwesomeAssertions), D-20 (Testcontainers).
+- **Exit criteria.**
+  - Every fix has a unit and/or integration test.
+  - `dotnet build` has 0 warnings; the full `dotnet test` suite is green (Docker).
+  - `npm test` + `npm run build` are green.
+  - Architecture tests pass.
+
+### Phase 1B: Architecture foundations (remaining) ⏳
+- **Goal.** Finish the shared building blocks, and start moving existing code into module namespaces.
+- **Scope.**
+  - Error contract (D-08): RFC 7807 ProblemDetails + typed `Error` + stable codes the frontend translates (D5, D6, A9).
+  - `ICurrentUser`. Ownership checks move from controllers into Application (B7).
+  - `PageRequest`/`PagedResult<T>` + sort allowlists. The read-side **query-service** pattern (D-07), with Products as the reference (D3, D4).
+  - `TimeProvider` (D12).
+  - Structured logging scopes (D-16).
+  - Move existing code into module namespaces (Catalog, Inventory, Ordering, Promotions, Reviews, Identity) and add per-module architecture tests.
 - **Exit criteria.**
   - Every API error is ProblemDetails.
-  - Controllers contain no business or authorization logic.
-  - Integration tests run through `dotnet test`.
-  - The frontend API client is adapted and the UI is unchanged.
-- **Docs.** `Architecture.md`, `DatabaseDesign.md` (target model v1), `DevelopmentGuide.md`, `ApiDocumentation.md` (v1).
+  - Controllers contain no ownership logic.
+  - Module dependency tests pass.
+  - The UI is unchanged.
 
 ### Phase 2: Multi-tenancy foundation ⏳
 - **Goal.** Every tenant-owned row belongs to exactly one tenant, and the backend blocks cross-tenant access by default.
@@ -449,13 +473,14 @@ Each decision is argued in full (options, recommendation, rationale) in Architec
 
 | ID | Decision | Recommendation | Needed by |
 |---|---|---|---|
-| **P-01** | Branching strategy | One branch per phase (`phase/1a-stabilize`, …), merged to `main` after your approval. Tag each milestone. | 1A |
-| **P-02** | Assertion library license | FluentAssertions 8.x uses a commercial license (Xceed) for commercial use. Move to **AwesomeAssertions** (Apache-2.0 fork, drop-in) or pin 7.x. | 1A |
-| **D-07** | Read-side strategy | Repositories for writes; per-feature query services (EF projections in Infrastructure) for reads | 1B |
-| **D-08** | Error contract | RFC 7807 ProblemDetails + typed errors + stable codes | 1B |
-| **D-09** | Money model | Explicit currency, ISO-4217 minor units, `decimal(19,4)`, snapshot totals on orders | 1B |
-| **D-16** | Logging | Built-in structured JSON logging with scopes (tenant, user, correlation id). Serilog optional. | 1B |
-| **D-20** | Integration tests | Testcontainers (SQL Server) + `WebApplicationFactory` | 1B |
+| P-01 | Branching strategy | ✅ **Decided:** one branch per phase (`phase/1a-architecture-stabilization`), merged to `main` after your review | 1A |
+| P-02 | Assertion library license | ✅ **Decided:** AwesomeAssertions 9.6 (Apache-2.0) replaces FluentAssertions 8 (commercial license verified on NuGet) — [ADR-0015](adr/0015-testing-strategy.md) | 1A |
+| **P-05** | Stripe + JOD minor units | ⚠️ **Verify with Stripe before enabling JOD payments.** Stripe's docs describe non-listed currencies as two-decimal (×100, implemented). If your account treats JOD as three-decimal, the multiplier must be 1000. | before live payments |
+| D-07 | Read-side strategy | ✅ **Decided:** repositories for writes; per-feature query services (EF projections) for reads — [ADR-0008](adr/0008-cqrs-strategy.md) | 1B |
+| D-08 | Error contract | ✅ **Decided:** RFC 7807 ProblemDetails + typed errors + stable codes (one Result→HTTP mapping already in 1A) | 1B |
+| D-09 | Money model | ✅ **Decided and implemented in 1A:** `decimal(19,4)` + minor-unit enforcement — [ADR-0014](adr/0014-money-precision.md). Explicit (non-default) currency arrives with tenants (Phase 2). | 1A / 2 |
+| D-16 | Logging | ✅ **Decided:** built-in structured logging with scopes; redaction rules applied in 1A | 1B |
+| D-20 | Integration tests | ✅ **Decided and implemented:** Testcontainers SQL Server + `WebApplicationFactory` — [ADR-0015](adr/0015-testing-strategy.md) | 1A |
 | D-01 | Tenant isolation | Shared database + `TenantId` + global query filters + write guard; a seam for a dedicated database per tenant | 2 |
 | D-02 | Tenant resolution | By host/custom domain; the token's `tid` claim must match; platform admin lives on its own host | 2 |
 | D-03 | Identifier strategy | Keep `int` keys; add per-tenant order numbers, slugs, and random public tokens where access is anonymous | 2 |
