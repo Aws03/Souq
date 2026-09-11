@@ -121,11 +121,17 @@ public class QueryServiceTests
     [Fact]
     public async Task سجلّ_الحركة_مرقّم_والأحدث_أولاً()
     {
+        // المرحلة 6: الطلب يحجز والدفع وحده يسجّل البيع — السجلّ: توريد ثم بيعان بعد الدفع، الأحدث أولاً.
         var admin = await _api.AdminAsync();
         var productId = await _api.CreateProductAsync(admin, stock: 5);          // حركة توريد
         var (customer, _) = await _api.NewCustomerAsync();
-        await _api.PlaceOrderAsync(customer, productId, 1);                       // بيع
-        await _api.PlaceOrderAsync(customer, productId, 2);                       // بيع
+        foreach (var quantity in new[] { 1, 2 })
+        {
+            var placed = await _api.PlaceOrderAsync(customer, productId, quantity);
+            var orderId = (await placed.Content.ReadFromJsonAsync<TestApi.OrderCreatedBody>(TestApi.Json))!.OrderId;
+            (await customer.PostAsync($"/api/orders/{orderId}/confirm-payment", null))
+                .StatusCode.Should().Be(HttpStatusCode.OK);                       // بيع
+        }
 
         var page = await admin.GetFromJsonAsync<TestApi.PageBody<MovementBody>>(
             $"/api/admin/inventory/{productId}/movements?pageSize=2", TestApi.Json);

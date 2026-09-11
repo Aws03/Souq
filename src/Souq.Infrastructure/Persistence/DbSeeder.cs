@@ -142,19 +142,27 @@ public static class DbSeeder
         db.Categories.AddRange(electronics, fashion, home);
         await db.SaveChangesAsync();
 
-        Product Item(string slug, string nameAr, string nameEn, string description, decimal price, int stock, int categoryId) =>
-            new(slug, categoryId, Texts(nameAr, nameEn, description), new Money(price, currency), stock);
+        var seeded = new List<(Product Product, int Stock)>();
+        void Seed(string slug, string nameAr, string nameEn, string description, decimal price, int stock, int categoryId) =>
+            seeded.Add((new Product(slug, categoryId, Texts(nameAr, nameEn, description), new Money(price, currency)), stock));
 
-        db.Products.AddRange(
-            Item("wireless-headphones", "سمّاعات لاسلكية", "Wireless Headphones", "صوت نقي وعزل ضوضاء فعّال", 59.900m, 25, electronics.Id),
-            Item("smart-watch", "ساعة ذكية", "Smart Watch", "تتبّع اللياقة والإشعارات", 120.000m, 12, electronics.Id),
-            Item("mechanical-keyboard", "لوحة مفاتيح ميكانيكية", "Mechanical Keyboard", "إضاءة خلفية ومفاتيح مريحة", 45.500m, 30, electronics.Id),
-            Item("leather-backpack", "حقيبة ظهر جلدية", "Leather Backpack", "تصميم أنيق ومتين للعمل والسفر", 35.000m, 18, fashion.Id),
-            Item("sunglasses", "نظّارة شمسية", "Sunglasses", "حماية UV وإطار خفيف", 22.000m, 40, fashion.Id),
-            Item("led-desk-lamp", "مصباح مكتب LED", "LED Desk Lamp", "إضاءة قابلة للتعديل وموفّرة للطاقة", 18.750m, 50, home.Id),
-            Item("copper-coffee-pot", "ركوة قهوة نحاسية", "Copper Coffee Pot", "صناعة يدوية لقهوة عربية أصيلة", 28.000m, 15, home.Id),
-            Item("thermal-mug", "كوب حراري", "Thermal Mug", "يحفظ الحرارة 12 ساعة", 14.500m, 60, home.Id)
-        );
+        Seed("wireless-headphones", "سمّاعات لاسلكية", "Wireless Headphones", "صوت نقي وعزل ضوضاء فعّال", 59.900m, 25, electronics.Id);
+        Seed("smart-watch", "ساعة ذكية", "Smart Watch", "تتبّع اللياقة والإشعارات", 120.000m, 12, electronics.Id);
+        Seed("mechanical-keyboard", "لوحة مفاتيح ميكانيكية", "Mechanical Keyboard", "إضاءة خلفية ومفاتيح مريحة", 45.500m, 30, electronics.Id);
+        Seed("leather-backpack", "حقيبة ظهر جلدية", "Leather Backpack", "تصميم أنيق ومتين للعمل والسفر", 35.000m, 18, fashion.Id);
+        Seed("sunglasses", "نظّارة شمسية", "Sunglasses", "حماية UV وإطار خفيف", 22.000m, 40, fashion.Id);
+        Seed("led-desk-lamp", "مصباح مكتب LED", "LED Desk Lamp", "إضاءة قابلة للتعديل وموفّرة للطاقة", 18.750m, 50, home.Id);
+        Seed("copper-coffee-pot", "ركوة قهوة نحاسية", "Copper Coffee Pot", "صناعة يدوية لقهوة عربية أصيلة", 28.000m, 15, home.Id);
+        Seed("thermal-mug", "كوب حراري", "Thermal Mug", "يحفظ الحرارة 12 ساعة", 14.500m, 60, home.Id);
+        db.Products.AddRange(seeded.Select(s => s.Product));
+        await db.SaveChangesAsync();
+
+        // مخزون كل منتج في وحدة Inventory (المرحلة 6): المخزون أولاً (معرّفه)، ثم كمّيته حركة توريد في السجلّ.
+        var stocked = seeded.Select(s => (Item: new InventoryItem(s.Product.Id, s.Product.DefaultVariant.Id), s.Stock)).ToList();
+        db.InventoryItems.AddRange(stocked.Select(s => s.Item));
+        await db.SaveChangesAsync();
+        db.StockMovements.AddRange(stocked.Select(s =>
+            s.Item.Receive(s.Stock, Souq.Domain.Enums.StockMovementType.Purchase, "المخزون الابتدائي")));
         await db.SaveChangesAsync();
     }
 

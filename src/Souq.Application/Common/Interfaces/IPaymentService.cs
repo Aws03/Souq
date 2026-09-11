@@ -20,6 +20,10 @@ public interface IPaymentService
     // يتحقّق من حالة نيّة دفع لدى بوّابة الدفع نفسها (لا نثق بادّعاء العميل وحده).
     Task<PaymentConfirmationResult> ConfirmAsync(string paymentIntentId, CancellationToken ct = default);
 
+    // يلغي نيّة دفع لم تكتمل (طلب انتهت مهلته — المرحلة 6) ويعيد حالتها الحقيقية: ملغاة، أو نجحت قبل الإلغاء (سباق
+    // مع دفع العميل ⇒ يُؤكَّد الطلب بدل إلغائه)، أو قيد المعالجة (لا تُلغى الآن — تُعاد المحاولة لاحقاً).
+    Task<PaymentIntentState> CancelIntentAsync(string paymentIntentId, CancellationToken ct = default);
+
     // الإعدادات العامة التي تحتاجها الواجهة لتهيئة مزوّد الدفع (مفتاح Stripe.js العلني)
     // — لا أسرار هنا. null ⇒ لا مزوّد حقيقي مضبوط (البوّابة التجريبية).
     PaymentClientConfig GetClientConfig();
@@ -34,3 +38,4 @@ public record PaymentIntentResult(string PaymentIntentId, string ClientSecret);
 public record PaymentConfirmationResult(bool Succeeded, string? FailureReason);
 public record PaymentClientConfig(string? PublishableKey);
 public record PaymentWebhookEvent(string OrderReference);
+public enum PaymentIntentState { Cancelled, Succeeded, Processing }

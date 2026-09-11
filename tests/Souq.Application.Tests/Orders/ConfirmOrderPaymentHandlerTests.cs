@@ -4,6 +4,7 @@ using NSubstitute.ExceptionExtensions;
 using Souq.Application.Common.Exceptions;
 using Souq.Application.Common.Interfaces;
 using Souq.Application.Common.Security;
+using Souq.Application.Features.Inventory.Contracts;
 using Souq.Application.Features.Orders;
 using Souq.Application.Features.Orders.Commands;
 using Souq.Application.Tests.TestDoubles;
@@ -14,30 +15,27 @@ using Souq.Domain.ValueObjects;
 
 namespace Souq.Application.Tests.Orders;
 
-// الخطوة الثانية من الدفع: التحقّق من النتيجة لدى البوّابة نفسها، تعويض الفشل (إعادة
-// مخزون بأثر في السجلّ + إلغاء) أو إتمام النجاح — بضمان عدم التكرار حتى تحت السباق.
-// الملكية تُفحص في حالة الاستخدام (Phase 0 B7): لا يؤكّد عميل طلب غيره ولا يُلغيه.
+// الخطوة الثانية من الدفع: التحقّق من النتيجة لدى البوّابة نفسها، ثم الالتزام بالحجز (نجاح) أو تحريره مع الإلغاء
+// (فشل) في معاملة الطلب — بضمان عدم التكرار حتى تحت السباق. الملكية تُفحص في حالة الاستخدام (Phase 0 B7).
 public class ConfirmOrderPaymentHandlerTests
 {
     private readonly IOrderRepository _orders = Substitute.For<IOrderRepository>();
-    private readonly IProductRepository _products = Substitute.For<IProductRepository>();
-    private readonly IStockMovementRepository _movements = Substitute.For<IStockMovementRepository>();
+    private readonly IInventoryReservations _reservations = Substitute.For<IInventoryReservations>();
     private readonly ICustomerRepository _customers = Substitute.For<ICustomerRepository>();
     private readonly ICouponRepository _coupons = Substitute.For<ICouponRepository>();
     private readonly IPaymentService _payment = Substitute.For<IPaymentService>();
     private readonly IEmailService _email = Substitute.For<IEmailService>();
-    private readonly IUnitOfWork _uow = Substitute.For<IUnitOfWork>();
+    private readonly IUnitOfWork _uow = TestUnitOfWork.Create();
 
     // الطلبات في هذه الاختبارات يملكها العميل 1 (انظر PendingOrderWithIntent).
     private ConfirmOrderPaymentHandler CreateHandler(ICurrentUser? user = null) => new(
         _orders,
-        new OrderPaymentConfirmation(_orders, new OrderStockRelease(_products, _movements),
-            _customers, _coupons, _payment, _email, _uow),
+        new OrderPaymentConfirmation(_orders, _reservations, _customers, _coupons, _payment, _email, _uow),
         user ?? TestCurrentUser.Customer(1));
 
     private static Order PendingOrderWithIntent(string paymentIntentId = "pi_123", int quantity = 2)
     {
-        var order = new Order(1, "عمّان", "JOD");
+        var order = TestCatalog.WithId(new Order(1, "عمّان", "JOD"), 9);
         order.AddItem(productId: 1, "سماعات", new Money(50, "JOD"), quantity);
         order.SetPaymentIntent(paymentIntentId);
         return order;
@@ -50,7 +48,6 @@ public class ConfirmOrderPaymentHandlerTests
 
         var result = await CreateHandler().Handle(new ConfirmOrderPaymentCommand(99), CancellationToken.None);
 
-        result.IsSuccess.Should().BeFalse();
         result.ErrorCode.Should().Be("NotFound");
     }
 
@@ -69,6 +66,7 @@ public class ConfirmOrderPaymentHandlerTests
         order.Status.Should().Be(OrderStatus.Pending);
         await _payment.DidNotReceive().ConfirmAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
         await _uow.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+        await _reservations.DidNotReceive().CancelAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -85,7 +83,7 @@ public class ConfirmOrderPaymentHandlerTests
     }
 
     [Fact]
-    public async Task طلب_مؤكَّد_مسبقاً_يُعيد_النجاح_بلا_استدعاء_بوّابة_الدفع_مجدداً()
+    public async Task طلب_مؤكَّد_مسبقاً_يُعيد_النجاح_بلا_استدعاء_البوّابة_ولا_التزام_ثانٍ()
     {
         var order = PendingOrderWithIntent();
         order.MarkAsPaid();
@@ -93,38 +91,31 @@ public class ConfirmOrderPaymentHandlerTests
 
         var result = await CreateHandler().Handle(new ConfirmOrderPaymentCommand(1), CancellationToken.None);
 
-        result.IsSuccess.Should().BeTrue();
         result.Value!.Status.Should().Be(nameof(OrderStatus.Paid));
         await _payment.DidNotReceive().ConfirmAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await _reservations.DidNotReceive().CommitAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
-    public async Task فشل_الدفع_يُعيد_المخزون_بأثر_في_السجلّ_ويُلغي_الطلب_ولا_يرسل_بريداً()
+    public async Task فشل_الدفع_يُلغي_الطلب_ويحرّر_حجزه_في_معاملة_واحدة_ولا_يرسل_بريداً()
     {
-        var product = Souq.Application.Tests.TestDoubles.TestCatalog.Product("سماعات لاسلكية", price: 50, stock: 8);
-        var order = PendingOrderWithIntent(quantity: 2);
+        var order = PendingOrderWithIntent();
         _orders.GetWithItemsAsync(1, Arg.Any<CancellationToken>()).Returns(order);
-        _products.GetByIdAsync(1, Arg.Any<CancellationToken>()).Returns(product);
         _payment.ConfirmAsync("pi_123", Arg.Any<CancellationToken>())
             .Returns(new PaymentConfirmationResult(false, "بطاقة مرفوضة"));
 
         var result = await CreateHandler().Handle(new ConfirmOrderPaymentCommand(1), CancellationToken.None);
 
-        result.IsSuccess.Should().BeFalse();
         result.ErrorCode.Should().Be("PaymentFailed");
-        product.StockQuantity.Should().Be(10); // 8 + 2 أُعيدت
         order.Status.Should().Be(OrderStatus.Cancelled);
-        // Phase 0 C3: الإعادة كانت بلا أثر في سجلّ الحركة فلا يطابق السجلّ المخزون.
-        await _movements.Received(1).AddAsync(
-            Arg.Is<StockMovement>(m => m.Type == StockMovementType.Cancellation && m.QuantityChange == 2),
-            Arg.Any<CancellationToken>());
-        await _uow.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
-        await _email.DidNotReceive().SendOrderConfirmationAsync(
-            Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>());
+        await _reservations.Received(1).CancelAsync(OrderStockReference.For(9), "بطاقة مرفوضة", false, Arg.Any<CancellationToken>());
+        await _reservations.DidNotReceive().CommitAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await _uow.Received(1).InTransactionAsync(Arg.Any<Func<Task>>(), Arg.Any<CancellationToken>());
+        await _email.DidNotReceive().SendOrderConfirmationAsync(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
-    public async Task نجاح_الدفع_يُعلّم_الطلب_مدفوعاً_ويستهلك_الكوبون_ويرسل_بريد_التأكيد()
+    public async Task نجاح_الدفع_يُعلّم_الطلب_مدفوعاً_ويلتزم_الحجز_ويستهلك_الكوبون_ويرسل_البريد()
     {
         var order = PendingOrderWithIntent(quantity: 2);
         var coupon = new Coupon("SAVE10", DiscountType.Percentage, 10, null, null, null);
@@ -134,24 +125,22 @@ public class ConfirmOrderPaymentHandlerTests
         _orders.GetWithItemsAsync(1, Arg.Any<CancellationToken>()).Returns(order);
         _customers.GetByIdAsync(1, Arg.Any<CancellationToken>()).Returns(customer);
         _coupons.GetByCodeAsync("SAVE10", Arg.Any<CancellationToken>()).Returns(coupon);
-        _payment.ConfirmAsync("pi_123", Arg.Any<CancellationToken>())
-            .Returns(new PaymentConfirmationResult(true, null));
+        _payment.ConfirmAsync("pi_123", Arg.Any<CancellationToken>()).Returns(new PaymentConfirmationResult(true, null));
 
         var result = await CreateHandler().Handle(new ConfirmOrderPaymentCommand(1), CancellationToken.None);
 
-        result.IsSuccess.Should().BeTrue();
         result.Value!.Status.Should().Be(nameof(OrderStatus.Paid));
         result.Value.TotalAmount.Should().Be(90); // 100 - 10% خصم
-        order.Status.Should().Be(OrderStatus.Paid);
         coupon.UsedCount.Should().Be(1);
+        await _reservations.Received(1).CommitAsync(OrderStockReference.For(9), Arg.Any<CancellationToken>());
         await _uow.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
         await _email.Received(1).SendOrderConfirmationAsync(customer.Email, order.Id, Arg.Any<CancellationToken>());
     }
 
     [Fact]
-    public async Task سباق_تأكيدين_متزامنين_الخاسر_يرى_الطلب_مدفوعاً_فينجح_بلا_بريد_ثانٍ()
+    public async Task سباق_تأكيدين_متزامنين_الخاسر_يرى_الطلب_مدفوعاً_فينجح_بلا_التزام_ولا_بريد_ثانٍ()
     {
-        // العميل والـ Webhook يؤكّدان معاً: الفائز حفظ أولاً، وrowversion رفض نسختنا.
+        // العميل والـ Webhook يؤكّدان معاً: الفائز حفظ أولاً (والتزم الحجز)، وrowversion رفض نسختنا.
         var order = PendingOrderWithIntent();
         _orders.GetWithItemsAsync(1, Arg.Any<CancellationToken>()).Returns(order);
         _payment.ConfirmAsync("pi_123", Arg.Any<CancellationToken>()).Returns(new PaymentConfirmationResult(true, null));
@@ -160,20 +149,19 @@ public class ConfirmOrderPaymentHandlerTests
 
         var result = await CreateHandler().Handle(new ConfirmOrderPaymentCommand(1), CancellationToken.None);
 
-        result.IsSuccess.Should().BeTrue();
         result.Value!.Status.Should().Be(nameof(OrderStatus.Paid));
-        await _email.DidNotReceive().SendOrderConfirmationAsync(
-            Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>());
+        await _reservations.DidNotReceive().CommitAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await _email.DidNotReceive().SendOrderConfirmationAsync(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
-    public async Task تعارض_حفظ_والطلب_ما_زال_معلّقاً_يُعاد_رميه_ليصل_409()
+    public async Task تعارض_والطلب_ما_زال_معلّقاً_يُعاد_رميه_ليصل_409()
     {
-        // التعارض لم يأتِ من تأكيد آخر (مثلاً كوبون مشترك) — لا ندّعي نجاحاً غير حقيقي.
+        // التعارض لم يأتِ من تأكيد آخر (مثلاً كوبون مشترك، أو مخزون استنفد محاولاته) — لا ندّعي نجاحاً غير حقيقي.
         var order = PendingOrderWithIntent();
         _orders.GetWithItemsAsync(1, Arg.Any<CancellationToken>()).Returns(order);
         _payment.ConfirmAsync("pi_123", Arg.Any<CancellationToken>()).Returns(new PaymentConfirmationResult(true, null));
-        _uow.SaveChangesAsync(Arg.Any<CancellationToken>()).ThrowsAsync(new ConcurrencyConflictException());
+        _reservations.CommitAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).ThrowsAsync(new ConcurrencyConflictException());
         _orders.GetStatusAsync(order.Id, Arg.Any<CancellationToken>()).Returns(OrderStatus.Pending);
 
         var act = () => CreateHandler().Handle(new ConfirmOrderPaymentCommand(1), CancellationToken.None);

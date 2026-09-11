@@ -1,17 +1,22 @@
 using System.Net;
 using System.Net.Http.Json;
 using AwesomeAssertions;
+using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Souq.Application.Common.Exceptions;
+using Souq.Application.Features.Orders.Commands;
 using Souq.Domain.Enums;
 using Souq.Infrastructure.Persistence;
 using Souq.IntegrationTests.Infrastructure;
 
 namespace Souq.IntegrationTests;
 
-// المخزون والطلبات على SQL Server الحقيقي: التزامن (rowversion)، إعادة المخزون عند
-// الإلغاء مع أثر في السجلّ، compare-and-set لتعديل الإدارة، ودقّة الدينار بثلاث خانات.
+// ============================================================================
+// المخزون والطلبات على SQL Server الحقيقي (المرحلة 6، ADR-0026): الطلب يحجز، الدفع يلتزم (هنا وحده يُسجَّل البيع)،
+// الإلغاء يحرّر أو يعيد، ومنسّق المهلة يلتقط المهجور. آخر قطعة تُباع مرّة واحدة تحت التزامن، والسجلّ يطابق الموجود
+// في كل خطوة، والتصحيح بفارق لا يمحو بيعاً (C4). ودقّة الدينار بثلاث خانات.
+// ============================================================================
 [Collection(IntegrationCollection.Name)]
 public class InventoryAndOrderTests
 {
@@ -25,30 +30,53 @@ public class InventoryAndOrderTests
     }
 
     [Fact]
-    public async Task شراءان_متزامنان_لآخر_وحدة_الثاني_يُرفض_بدل_البيع_الزائد()
+    public async Task نسختان_تحجزان_آخر_وحدة_والقاعدة_ترفض_الثانية()
     {
-        // Phase 0 C1: نسختان في الذاكرة رأتا مخزون 1 وأنقصتا معاً — بلا rowversion ينجح
-        // الحفظان فتُباع الوحدة الأخيرة مرتين. الآن يرفض المحرّك الحفظ الثاني.
+        // Phase 0 C1 على مستوى المخزون: نسختان في الذاكرة رأتا متاحاً 1 وحجزتا معاً — rowversion يرفض الحفظ الثاني،
+        // ونقطة الحفظ تُسقط حجزه معه فلا يبقى حجز يتيم.
         var productId = await _api.CreateProductAsync(await _api.AdminAsync(), price: 10m, stock: 1);
         await using var firstScope = await _factory.TenantScopeAsync();
         await using var secondScope = await _factory.TenantScopeAsync();
         var first = firstScope.ServiceProvider.GetRequiredService<AppDbContext>();
         var second = secondScope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-        var firstCopy = await first.Products.SingleAsync(p => p.Id == productId);
-        var secondCopy = await second.Products.SingleAsync(p => p.Id == productId);
-        firstCopy.DecreaseStock(1);
-        secondCopy.DecreaseStock(1);
+        var firstCopy = await first.InventoryItems.SingleAsync(i => i.ProductId == productId);
+        var secondCopy = await second.InventoryItems.SingleAsync(i => i.ProductId == productId);
+        first.StockReservations.Add(firstCopy.Reserve("it:first", 1, DateTime.UtcNow.AddMinutes(5), "x"));
+        second.StockReservations.Add(secondCopy.Reserve("it:second", 1, DateTime.UtcNow.AddMinutes(5), "x"));
 
         await first.SaveChangesAsync();
         var act = () => second.SaveChangesAsync();
 
         await act.Should().ThrowAsync<ConcurrencyConflictException>();
-        (await StockOf(productId)).Should().Be(0);
+        await AssertReconciledAsync(productId, onHand: 1, reserved: 1);
     }
 
     [Fact]
-    public async Task طلبات_متوازية_عبر_الـ_API_لا_تبيع_أكثر_من_المخزون_أبداً()
+    public async Task طلبات_متوازية_على_آخر_قطعة_تبيعها_مرّة_واحدة_والبقية_نفاد()
+    {
+        // معيار خروج المرحلة 6: خمسة عملاء على آخر قطعة معاً ⇒ طلب واحد بالضبط، والبقية 422 برمز واضح — لا 409 عابر
+        // (تعارض التزامن يُعاد من قراءة جديدة) ولا بيع زائد.
+        var productId = await _api.CreateProductAsync(await _api.AdminAsync(), price: 10m, stock: 1);
+        var customers = await Task.WhenAll(Enumerable.Range(0, 5).Select(_ => _api.NewCustomerAsync()));
+
+        var responses = await Task.WhenAll(customers.Select(c => _api.PlaceOrderAsync(c.Client, productId, 1)));
+
+        var winner = Array.FindIndex(responses, r => r.StatusCode == HttpStatusCode.Created);
+        responses.Count(r => r.StatusCode == HttpStatusCode.Created).Should().Be(1);
+        foreach (var rejected in responses.Where(r => r.StatusCode != HttpStatusCode.Created))
+            (await ProblemAsync(rejected)).Should().Be((HttpStatusCode.UnprocessableEntity, "InsufficientStock"));
+        await AssertReconciledAsync(productId, onHand: 1, reserved: 1);
+
+        // الدفع يلتزم الحجز: الآن فقط تخرج القطعة من الموجود ويُسجَّل البيع.
+        var orderId = (await responses[winner].Content.ReadFromJsonAsync<TestApi.OrderCreatedBody>(TestApi.Json))!.OrderId;
+        (await customers[winner].Client.PostAsync($"/api/orders/{orderId}/confirm-payment", null)).StatusCode.Should().Be(HttpStatusCode.OK);
+        await AssertReconciledAsync(productId, onHand: 0, reserved: 0);
+        (await LedgerOf(productId)).Count(m => m.Type == StockMovementType.Sale).Should().Be(1);
+    }
+
+    [Fact]
+    public async Task طلبات_متوازية_لا_تحجز_أكثر_من_المخزون_أبداً()
     {
         const int initialStock = 3;
         var productId = await _api.CreateProductAsync(await _api.AdminAsync(), price: 10m, stock: initialStock);
@@ -56,61 +84,112 @@ public class InventoryAndOrderTests
 
         var responses = await Task.WhenAll(customers.Select(c => _api.PlaceOrderAsync(c.Client, productId, 1)));
 
-        var sold = responses.Count(r => r.StatusCode == HttpStatusCode.Created);
-        // 201 بيع، 409 خسر سباق rowversion، 422 رأى المخزون نافداً قبل الشراء (ADR-0017).
-        responses.Should().OnlyContain(r => r.StatusCode == HttpStatusCode.Created
-                                            || r.StatusCode == HttpStatusCode.Conflict
-                                            || r.StatusCode == HttpStatusCode.UnprocessableEntity);
-        sold.Should().BeInRange(1, initialStock);
-        var finalStock = await StockOf(productId);
-        finalStock.Should().Be(initialStock - sold).And.BeGreaterThanOrEqualTo(0);
-        (await LedgerOf(productId)).Count(m => m.Type == StockMovementType.Sale).Should().Be(sold);
+        responses.Count(r => r.StatusCode == HttpStatusCode.Created).Should().Be(initialStock);
+        foreach (var rejected in responses.Where(r => r.StatusCode != HttpStatusCode.Created))
+            (await ProblemAsync(rejected)).Should().Be((HttpStatusCode.UnprocessableEntity, "InsufficientStock"));
+        await AssertReconciledAsync(productId, onHand: initialStock, reserved: initialStock);
     }
 
     [Fact]
-    public async Task إلغاء_الإدارة_يعيد_المخزون_ويسجّل_Cancellation_ولا_يتكرّر()
+    public async Task السجلّ_يطابق_الموجود_عبر_دورة_الطلب_كاملة()
     {
         var admin = await _api.AdminAsync();
         var productId = await _api.CreateProductAsync(admin, price: 10m, stock: 5);
         var (customer, _) = await _api.NewCustomerAsync();
-        var created = await _api.PlaceOrderAsync(customer, productId, 2);
-        var orderId = (await created.Content.ReadFromJsonAsync<TestApi.OrderCreatedBody>(TestApi.Json))!.OrderId;
-        (await StockOf(productId)).Should().Be(3);
+        await AssertReconciledAsync(productId, onHand: 5, reserved: 0);
 
-        var cancel = await admin.PutAsJsonAsync($"/api/orders/{orderId}/status", new { action = "Cancel" });
-        cancel.StatusCode.Should().Be(HttpStatusCode.NoContent);
-        (await StockOf(productId)).Should().Be(5);                                         // C2
-        (await LedgerOf(productId)).Should().Contain(m => m.Type == StockMovementType.Cancellation && m.QuantityChange == 2);
+        var paid = await PlaceAsync(customer, productId, 2);                       // حجز: المتاح 3، السجلّ كما هو
+        await AssertReconciledAsync(productId, onHand: 5, reserved: 2);
 
-        var again = await admin.PutAsJsonAsync($"/api/orders/{orderId}/status", new { action = "Cancel" });
-        again.StatusCode.Should().Be(HttpStatusCode.UnprocessableEntity);                  // C10 — قاعدة عمل
-        (await again.Content.ReadFromJsonAsync<TestApi.ProblemBody>(TestApi.Json))!.Code.Should().Be("InvalidOrderOperation");
-        (await StockOf(productId)).Should().Be(5);                                         // لا إعادة مزدوجة
+        (await customer.PostAsync($"/api/orders/{paid}/confirm-payment", null)).StatusCode.Should().Be(HttpStatusCode.OK);
+        await AssertReconciledAsync(productId, onHand: 3, reserved: 0);            // بيع −2
+
+        (await CancelAsync(admin, paid)).StatusCode.Should().Be(HttpStatusCode.NoContent);
+        await AssertReconciledAsync(productId, onHand: 5, reserved: 0);            // طلب مدفوع لم يُشحن: +2
+
+        var pending = await PlaceAsync(customer, productId, 1);
+        (await CancelAsync(admin, pending)).StatusCode.Should().Be(HttpStatusCode.NoContent);
+        await AssertReconciledAsync(productId, onHand: 5, reserved: 0);            // تحرير بلا سطر سجلّ
+
+        await AdjustAsync(admin, productId, -1, "جرد");
+        await AssertReconciledAsync(productId, onHand: 4, reserved: 0);
+
+        (await LedgerOf(productId)).Should().Equal(
+            (StockMovementType.Purchase, 5), (StockMovementType.Sale, -2),
+            (StockMovementType.Cancellation, 2), (StockMovementType.Adjustment, -1));
     }
 
     [Fact]
-    public async Task تعديل_مخزون_من_نموذج_قديم_يُرفض_بـ_409_وتعديل_الاسم_وحده_لا_يمسّ_المخزون()
+    public async Task إلغاء_طلب_معلّق_يحرّر_حجزه_مرّة_واحدة()
     {
+        // Phase 0 C2/C10: الإلغاء كان لا يعيد المحجوز، والإلغاء المكرّر كان يضاعف الإعادة.
         var admin = await _api.AdminAsync();
         var productId = await _api.CreateProductAsync(admin, price: 10m, stock: 5);
+        var (customer, _) = await _api.NewCustomerAsync();
+        var orderId = await PlaceAsync(customer, productId, 2);
+
+        (await CancelAsync(admin, orderId)).StatusCode.Should().Be(HttpStatusCode.NoContent);
+        await AssertReconciledAsync(productId, onHand: 5, reserved: 0);
+
+        var again = await CancelAsync(admin, orderId);
+        (await ProblemAsync(again)).Should().Be((HttpStatusCode.UnprocessableEntity, "InvalidOrderOperation"));
+        await AssertReconciledAsync(productId, onHand: 5, reserved: 0);
+        (await LedgerOf(productId)).Should().Equal((StockMovementType.Purchase, 5));
+    }
+
+    [Fact]
+    public async Task التصحيح_بفارق_لا_يمحو_بيعاً_ولا_ينزل_تحت_المحجوز_وتعديل_المنتج_لا_يمسّ_المخزون()
+    {
+        // Phase 0 C4: النموذج كان يرسل المخزون المطلق الذي رآه المدير فيمحو بيعاً حدث أثناء فتحه.
+        var admin = await _api.AdminAsync();
+        var productId = await _api.CreateProductAsync(admin, price: 10m, stock: 5);
+        var (customer, _) = await _api.NewCustomerAsync();
+        var sold = await PlaceAsync(customer, productId, 1);
+        (await customer.PostAsync($"/api/orders/{sold}/confirm-payment", null)).StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var level = await AdjustAsync(admin, productId, 10, "توريد جديد");
+        level.Should().Be(new StockLevelBody(productId, 14, 0, 14, 5, false));   // 4 بعد البيع + 10، لا 15 ولا 10
+
+        await PlaceAsync(customer, productId, 3);                                  // (14، محجوز 3)
+        var belowReserved = await admin.PostAsJsonAsync($"/api/admin/inventory/{productId}/adjustments", new { delta = -12, reason = "جرد" });
+        (await ProblemAsync(belowReserved)).Should().Be((HttpStatusCode.UnprocessableEntity, "InvalidInventoryOperation"));
+
+        // تعديل المنتج لا يحمل مخزوناً: حقل مخزون مُرسَل يُتجاهَل فلا طريق لكتابة مطلقة.
         var current = await _api.WithDbAsync(db =>
             db.Products.Where(p => p.Id == productId).Select(p => new { p.CategoryId, p.Slug }).SingleAsync());
-        var (customer, _) = await _api.NewCustomerAsync();
-        (await _api.PlaceOrderAsync(customer, productId, 1)).StatusCode.Should().Be(HttpStatusCode.Created); // 5 ⇒ 4
-
-        // المدير فتح النموذج حين كان المخزون 5 ويحفظ 10 (Phase 0 C4).
-        var stale = await admin.PutAsJsonAsync($"/api/products/{productId}", new
+        (await admin.PutAsJsonAsync($"/api/products/{productId}", new
         {
             categoryId = current.CategoryId, slug = current.Slug, translations = new { ar = new { name = "اسم" } },
-            price = 10m, stockQuantity = 10, expectedStockQuantity = 5,
-        });
-        stale.StatusCode.Should().Be(HttpStatusCode.Conflict);
-        (await StockOf(productId)).Should().Be(4);
+            price = 10m, stockQuantity = 999, expectedStockQuantity = 14,
+        })).StatusCode.Should().Be(HttpStatusCode.NoContent);
 
-        var renameOnly = await admin.PutAsJsonAsync($"/api/products/{productId}",
-            TestApi.ProductUpdateBody(current.CategoryId, current.Slug, 10m, "اسم معدّل"));
-        renameOnly.StatusCode.Should().Be(HttpStatusCode.NoContent);
-        (await StockOf(productId)).Should().Be(4);
+        await AssertReconciledAsync(productId, onHand: 14, reserved: 3);
+    }
+
+    [Fact]
+    public async Task انتهاء_المهلة_يلغي_الطلب_المهجور_ويحرّر_حجزه()
+    {
+        // Phase 0 C6: طلب هُجر كان يحجز المخزون للأبد. المنسّق يلغيه بعد المهلة — بعد أن تؤكّد البوّابة إلغاء نيّته.
+        var productId = await _api.CreateProductAsync(await _api.AdminAsync(), price: 10m, stock: 4);
+        var (customer, _) = await _api.NewCustomerAsync();
+        var orderId = await PlaceAsync(customer, productId, 3);
+        await AssertReconciledAsync(productId, onHand: 4, reserved: 3);
+
+        await using (var scope = await _factory.TenantScopeAsync())
+        {
+            var reference = $"order:{orderId}";
+            await scope.ServiceProvider.GetRequiredService<AppDbContext>().StockReservations
+                .Where(r => r.Reference == reference)
+                .ExecuteUpdateAsync(s => s.SetProperty(r => r.ExpiresAt, DateTime.UtcNow.AddMinutes(-1)));
+            (await scope.ServiceProvider.GetRequiredService<IMediator>().Send(new ExpireStaleCheckoutsCommand(Max: 500)))
+                .Should().BeGreaterThanOrEqualTo(1);
+        }
+
+        (await _api.WithDbAsync(db => db.Orders.Where(o => o.Id == orderId).Select(o => o.Status).SingleAsync()))
+            .Should().Be(OrderStatus.Cancelled);
+        (await _api.WithDbAsync(db => db.StockReservations.Where(r => r.Reference == $"order:{orderId}").Select(r => r.Status).SingleAsync()))
+            .Should().Be(ReservationStatus.Expired);
+        await AssertReconciledAsync(productId, onHand: 4, reserved: 0);
     }
 
     [Fact]
@@ -155,14 +234,52 @@ public class InventoryAndOrderTests
         (await response.Content.ReadFromJsonAsync<TestApi.ProblemBody>(TestApi.Json))!.Code.Should().Be("InvalidMoney");
     }
 
-    private Task<int> StockOf(int productId) => _api.WithDbAsync(db =>
-        db.Products.Where(p => p.Id == productId).Select(p => p.StockQuantity).SingleAsync());
+    // ── أدوات ──────────────────────────────────────────────────────────────────
+
+    private async Task<int> PlaceAsync(HttpClient customer, int productId, int quantity)
+    {
+        var response = await _api.PlaceOrderAsync(customer, productId, quantity);
+        response.StatusCode.Should().Be(HttpStatusCode.Created, await response.Content.ReadAsStringAsync());
+        return (await response.Content.ReadFromJsonAsync<TestApi.OrderCreatedBody>(TestApi.Json))!.OrderId;
+    }
+
+    private static Task<HttpResponseMessage> CancelAsync(HttpClient admin, int orderId) =>
+        admin.PutAsJsonAsync($"/api/orders/{orderId}/status", new { action = "Cancel" });
+
+    private static async Task<StockLevelBody> AdjustAsync(HttpClient admin, int productId, int delta, string reason)
+    {
+        var response = await admin.PostAsJsonAsync($"/api/admin/inventory/{productId}/adjustments", new { delta, reason });
+        response.StatusCode.Should().Be(HttpStatusCode.OK, await response.Content.ReadAsStringAsync());
+        return (await response.Content.ReadFromJsonAsync<StockLevelBody>(TestApi.Json))!;
+    }
+
+    // Σ حركات السجلّ = الموجود، وΣ الحجوزات النشطة = المحجوز — ثابتا المرحلة 6 في كل خطوة.
+    private async Task AssertReconciledAsync(int productId, int onHand, int reserved)
+    {
+        var state = await _api.WithDbAsync(async db => new
+        {
+            Item = await db.InventoryItems.Where(i => i.ProductId == productId).Select(i => new { i.OnHand, i.Reserved }).SingleAsync(),
+            Ledger = await db.StockMovements.Where(m => m.ProductId == productId).SumAsync(m => m.QuantityChange),
+            Active = await db.StockReservations
+                .Where(r => r.Status == ReservationStatus.Active
+                            && db.InventoryItems.Any(i => i.Id == r.InventoryItemId && i.ProductId == productId))
+                .SumAsync(r => r.Quantity),
+        });
+
+        (state.Item.OnHand, state.Item.Reserved).Should().Be((onHand, reserved));
+        state.Ledger.Should().Be(state.Item.OnHand, "Σ حركات السجلّ = الموجود");
+        state.Active.Should().Be(state.Item.Reserved, "Σ الحجوزات النشطة = المحجوز");
+    }
 
     private Task<List<(StockMovementType Type, int QuantityChange)>> LedgerOf(int productId) => _api.WithDbAsync(async db =>
-        (await db.StockMovements.Where(m => m.ProductId == productId)
+        (await db.StockMovements.Where(m => m.ProductId == productId).OrderBy(m => m.Id)
             .Select(m => new { m.Type, m.QuantityChange }).ToListAsync())
         .Select(m => (m.Type, m.QuantityChange)).ToList());
 
+    private static async Task<(HttpStatusCode, string?)> ProblemAsync(HttpResponseMessage response) =>
+        (response.StatusCode, (await response.Content.ReadFromJsonAsync<TestApi.ProblemBody>(TestApi.Json))?.Code);
+
+    private sealed record StockLevelBody(int ProductId, int OnHand, int Reserved, int Available, int LowStockThreshold, bool IsLowStock);
     private sealed record PriceBody(decimal Price);
-    private sealed record OrderTotalsBody(int OrderId, decimal Subtotal, decimal? DiscountAmount, decimal TotalAmount);
+    private sealed record OrderTotalsBody(int OrderId, decimal Subtotal, decimal DiscountAmount, decimal TotalAmount);
 }

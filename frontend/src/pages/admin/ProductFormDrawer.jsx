@@ -30,8 +30,9 @@ export default function ProductFormDrawer({ product, categories, onSave, onImage
   const [brand, setBrand] = useState(product?.brand ?? '');
   const [price, setPrice] = useState(product?.price ?? '');
   const [compareAtPrice, setCompareAtPrice] = useState(product?.compareAtPrice ?? '');
-  const [stockQuantity, setStockQuantity] = useState(product?.stockQuantity ?? '');
-  const [lowStockThreshold, setLowStockThreshold] = useState(product?.lowStockThreshold ?? 5);
+  // يفتحان مخزون المنتج عند الإنشاء فقط؛ بعده التصحيح من صفحة الجرد (المرحلة 6).
+  const [stockQuantity, setStockQuantity] = useState('');
+  const [lowStockThreshold, setLowStockThreshold] = useState(5);
   const [categoryId, setCategoryId] = useState(product?.categoryId ?? (categories[0]?.id ?? ''));
   const [status, setStatus] = useState('Active');
   const [images, setImages] = useState(product?.images ?? []);
@@ -220,15 +221,22 @@ export default function ProductFormDrawer({ product, categories, onSave, onImage
           </FormField>
         </div>
 
-        <div className={styles.row}>
-          <FormField label={t('admin.productForm.stockLabel')}>
-            <input className={inputClass(false)} type="number" min="0" step="1" value={stockQuantity} onChange={(e) => setStockQuantity(e.target.value)} />
-          </FormField>
-          <FormField label={t('admin.productForm.lowStockLabel')}>
-            <input className={inputClass(false)} type="number" min="0" step="1" value={lowStockThreshold}
-              onChange={(e) => setLowStockThreshold(e.target.value)} />
-          </FormField>
-        </div>
+        {isEdit ? (
+          <div className={styles.stockSummary}>
+            <div>{t('admin.productForm.stockSummary', { onHand: product.onHand ?? 0, reserved: product.reserved ?? 0, available: product.available ?? 0 })}</div>
+            <small>{t('admin.productForm.stockManagedInInventory')}</small>
+          </div>
+        ) : (
+          <div className={styles.row}>
+            <FormField label={t('admin.productForm.stockLabel')}>
+              <input className={inputClass(false)} type="number" min="0" step="1" value={stockQuantity} onChange={(e) => setStockQuantity(e.target.value)} />
+            </FormField>
+            <FormField label={t('admin.productForm.lowStockLabel')}>
+              <input className={inputClass(false)} type="number" min="0" step="1" value={lowStockThreshold}
+                onChange={(e) => setLowStockThreshold(e.target.value)} />
+            </FormField>
+          </div>
+        )}
 
         <div className={styles.row}>
           <FormField label={t('admin.productForm.categoryLabel')}>

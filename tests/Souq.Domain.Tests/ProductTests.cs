@@ -7,7 +7,7 @@ using Souq.Domain.ValueObjects;
 namespace Souq.Domain.Tests;
 
 // تجمّع المنتج (المرحلة 5): النصوص لكل لغة، البيع عبر متغيّر افتراضي واحد (السعر وسعر المقارنة وSKU)، دورة حياة
-// بلا حذف، معرض صور مرتّب محدود، والمخزون محروس كما كان.
+// بلا حذف، ومعرض صور مرتّب محدود. المخزون في وحدة Inventory منذ المرحلة 6 (InventoryItemTests).
 public class ProductTests
 {
     private static Dictionary<string, CatalogText> Texts(string ar = "سماعات لاسلكية", string? en = null)
@@ -17,8 +17,8 @@ public class ProductTests
         return texts;
     }
 
-    private static Product NewProduct(int stock = 10, ProductStatus status = ProductStatus.Active) =>
-        new("wireless-headphones", categoryId: 1, Texts(), new Money(59.9m, "JOD"), stock, status);
+    private static Product NewProduct(ProductStatus status = ProductStatus.Active) =>
+        new("wireless-headphones", categoryId: 1, Texts(), new Money(59.9m, "JOD"), status);
 
     [Fact]
     public void الجديد_نشط_افتراضياً_بمتغيّر_افتراضي_واحد_يحمل_السعر()
@@ -94,14 +94,14 @@ public class ProductTests
     public void دورة_الحياة_مسودّة_نشط_مؤرشف_واستعادة()
     {
         var product = NewProduct(status: ProductStatus.Draft);
-        product.CanFulfill(1).Should().BeFalse();       // المسودّة لا تُباع
+        product.IsActive.Should().BeFalse();       // المسودّة لا تُعرض ولا تُباع
 
         product.ChangeStatus(ProductStatus.Active);
-        product.CanFulfill(1).Should().BeTrue();
+        product.IsActive.Should().BeTrue();
 
         product.Archive();
         product.Status.Should().Be(ProductStatus.Archived);
-        product.CanFulfill(1).Should().BeFalse();
+        product.IsActive.Should().BeFalse();
 
         product.ChangeStatus(ProductStatus.Draft);        // استعادة مسودّةً
         product.Status.Should().Be(ProductStatus.Draft);
@@ -121,52 +121,6 @@ public class ProductTests
         for (var i = product.Images.Count; i < Product.MaxImages; i++) product.AddImage($"/uploads/x{i}.png");
         ((Action)(() => product.AddImage("/uploads/one-too-many.png"))).Should().Throw<InvalidProductDataException>();
         ((Action)(() => product.AddImage(" "))).Should().Throw<InvalidProductDataException>();
-    }
-
-    [Theory]
-    [InlineData(5, 3, true)]
-    [InlineData(5, 5, true)]
-    [InlineData(5, 6, false)]
-    [InlineData(5, 0, false)]
-    public void CanFulfill_يعتمد_على_المخزون_والكمية(int stock, int requested, bool expected)
-    {
-        NewProduct(stock).CanFulfill(requested).Should().Be(expected);
-    }
-
-    [Fact]
-    public void DecreaseStock_ينقص_عند_التوفّر_ويرمي_بلا_تغيير_جزئي_عند_النقص()
-    {
-        var product = NewProduct(10);
-        product.DecreaseStock(4);
-        product.StockQuantity.Should().Be(6);
-
-        var act = () => product.DecreaseStock(7);
-        act.Should().Throw<InsufficientStockException>();
-        product.StockQuantity.Should().Be(6);
-    }
-
-    [Fact]
-    public void DecreaseStock_لمنتج_مؤرشف_يرمي_حتى_مع_توفّر_المخزون()
-    {
-        var product = NewProduct(10);
-        product.Archive();
-
-        var act = () => product.DecreaseStock(1);
-
-        act.Should().Throw<InsufficientStockException>();
-    }
-
-    [Fact]
-    public void المخزون_والحدّ_لا_يقبلان_السالب()
-    {
-        var product = NewProduct();
-
-        ((Action)(() => product.SetStock(-1))).Should().Throw<InvalidProductDataException>();
-        ((Action)(() => product.SetLowStockThreshold(-1))).Should().Throw<InvalidProductDataException>();
-        product.SetStock(0);
-        product.StockQuantity.Should().Be(0);
-        product.IncreaseStock(3);
-        product.StockQuantity.Should().Be(3);
     }
 }
 

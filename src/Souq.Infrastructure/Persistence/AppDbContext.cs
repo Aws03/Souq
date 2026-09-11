@@ -62,6 +62,8 @@ public class AppDbContext : DbContext, IUnitOfWork
     public DbSet<Coupon> Coupons => Set<Coupon>();
     public DbSet<Review> Reviews => Set<Review>();
     public DbSet<StockMovement> StockMovements => Set<StockMovement>();
+    public DbSet<InventoryItem> InventoryItems => Set<InventoryItem>();
+    public DbSet<StockReservation> StockReservations => Set<StockReservation>();
 
     // الهوية (Identity): حسابات المتاجر وحسابات المنصّة في جدول واحد (D-06).
     public DbSet<User> Users => Set<User>();
@@ -154,4 +156,7 @@ public class AppDbContext : DbContext, IUnitOfWork
         await transaction.CommitAsync(ct);
         return result;
     }
+
+    public Task InTransactionAsync(Func<Task> work, CancellationToken ct = default) =>
+        InTransactionAsync(async () => { await work(); return true; }, ct);
 }

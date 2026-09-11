@@ -154,7 +154,7 @@ flowchart TB
    - In-process domain events are added only when a second consumer of the same fact exists. Until then a direct call is simpler and easier to follow.
 5. **Shared kernel (minimal).** `Money`, `Currency`, `TenantId`, `Entity` base types, error types, paging primitives. Nothing business-specific.
 
-**Today:** `CreateOrderHandler` loads `Product` entities and calls `product.DecreaseStock` directly, so Ordering is mutating Catalog/Inventory. That is acceptable for the current single module set. It becomes an `IInventoryReservations` contract in Phase 6/9, when Inventory is rebuilt around reservations.
+**Today (Phase 6):** Ordering reaches Inventory only through `Features/Inventory/Contracts` (`IInventoryReservations`: reserve, commit, cancel, find expired; `IStockAvailability`). Catalog opens stock through its own port `IVariantStockInitializer`, which Inventory implements, so no cycle exists. `ModuleAndContractRuleTests` lists the allowed contract references and rejects cycles. Ordering still reads `Product` entities for prices and names at checkout; that becomes Catalog's `ISellableItems` snapshot contract when checkout is rebuilt (Phase 9).
 
 ## 7. Domain modeling strategy (DDD where it pays)
 

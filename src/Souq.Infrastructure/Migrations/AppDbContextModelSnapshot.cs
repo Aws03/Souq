@@ -274,6 +274,58 @@ namespace Souq.Infrastructure.Migrations
                     b.ToTable("Customers", (string)null);
                 });
 
+            modelBuilder.Entity("Souq.Domain.Entities.InventoryItem", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("LowStockThreshold")
+                        .HasColumnType("int");
+
+                    b.Property<int>("OnHand")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ProductId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Reserved")
+                        .HasColumnType("int");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("VariantId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "ProductId");
+
+                    b.HasIndex("TenantId", "VariantId")
+                        .IsUnique();
+
+                    b.ToTable("InventoryItems", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_InventoryItems_Quantities", "[OnHand] >= 0 AND [Reserved] >= 0 AND [Reserved] <= [OnHand]");
+
+                            t.HasCheckConstraint("CK_InventoryItems_Threshold", "[LowStockThreshold] >= 0");
+                        });
+                });
+
             modelBuilder.Entity("Souq.Domain.Entities.Order", b =>
                 {
                     b.Property<int>("Id")
@@ -431,9 +483,6 @@ namespace Souq.Infrastructure.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<int>("LowStockThreshold")
-                        .HasColumnType("int");
-
                     b.Property<byte[]>("RowVersion")
                         .IsConcurrencyToken()
                         .ValueGeneratedOnAddOrUpdate()
@@ -445,9 +494,6 @@ namespace Souq.Infrastructure.Migrations
                         .HasColumnType("nvarchar(120)");
 
                     b.Property<int>("Status")
-                        .HasColumnType("int");
-
-                    b.Property<int>("StockQuantity")
                         .HasColumnType("int");
 
                     b.Property<int>("TenantId")
@@ -594,8 +640,6 @@ namespace Souq.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasAlternateKey("TenantId", "Id");
-
                     b.HasIndex("ProductId")
                         .IsUnique()
                         .HasDatabaseName("IX_ProductVariants_ProductId_Default")
@@ -669,6 +713,9 @@ namespace Souq.Infrastructure.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int>("InventoryItemId")
+                        .HasColumnType("int");
+
                     b.Property<int>("NewQuantity")
                         .HasColumnType("int");
 
@@ -693,11 +740,67 @@ namespace Souq.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("InventoryItemId", "CreatedAt");
+
                     b.HasIndex("ProductId", "CreatedAt");
+
+                    b.HasIndex("TenantId", "InventoryItemId");
 
                     b.HasIndex("TenantId", "ProductId");
 
                     b.ToTable("StockMovements", (string)null);
+                });
+
+            modelBuilder.Entity("Souq.Domain.Entities.StockReservation", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("ClosedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("InventoryItemId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Reference")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "ExpiresAt")
+                        .HasFilter("[Status] = 0");
+
+                    b.HasIndex("TenantId", "InventoryItemId");
+
+                    b.HasIndex("TenantId", "Reference");
+
+                    b.ToTable("StockReservations", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_StockReservations_Quantity", "[Quantity] > 0");
+                        });
                 });
 
             modelBuilder.Entity("Souq.Domain.Identity.RefreshToken", b =>
@@ -1040,6 +1143,29 @@ namespace Souq.Infrastructure.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Souq.Domain.Entities.InventoryItem", b =>
+                {
+                    b.HasOne("Souq.Domain.Platform.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Souq.Domain.Entities.Product", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "ProductId")
+                        .HasPrincipalKey("TenantId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Souq.Domain.Entities.ProductVariant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "VariantId")
+                        .HasPrincipalKey("TenantId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Souq.Domain.Entities.Order", b =>
                 {
                     b.HasOne("Souq.Domain.Platform.Tenant", null)
@@ -1271,9 +1397,32 @@ namespace Souq.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("Souq.Domain.Entities.InventoryItem", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "InventoryItemId")
+                        .HasPrincipalKey("TenantId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.HasOne("Souq.Domain.Entities.Product", null)
                         .WithMany()
                         .HasForeignKey("TenantId", "ProductId")
+                        .HasPrincipalKey("TenantId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Souq.Domain.Entities.StockReservation", b =>
+                {
+                    b.HasOne("Souq.Domain.Platform.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Souq.Domain.Entities.InventoryItem", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "InventoryItemId")
                         .HasPrincipalKey("TenantId", "Id")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();

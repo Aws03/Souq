@@ -237,6 +237,18 @@ is running. Summary of the main endpoints:
 | PUT    | `/api/categories/{id}`   | Admin | Update or move a category (no cycles, at most 5 levels) |
 | DELETE | `/api/categories/{id}`   | Admin | Delete an empty category (no products, no subcategories) |
 
+### Inventory
+| Method | Endpoint                                         | Auth  | Description                                   |
+| ------ | ------------------------------------------------- | ----- | ---------------------------------------------- |
+| GET    | `/api/admin/inventory`                            | Admin | On hand, reserved and available per product, lowest first |
+| GET    | `/api/admin/inventory/low-stock`                  | Admin | Products at or below their alert threshold    |
+| GET    | `/api/admin/inventory/{productId}/movements`      | Admin | The stock ledger, newest first                |
+| POST   | `/api/admin/inventory/{productId}/adjustments`    | Admin | Correct stock by a delta with a reason        |
+| PUT    | `/api/admin/inventory/{productId}/threshold`      | Admin | Set the low-stock alert threshold             |
+
+Placing an order reserves stock; paying commits it; cancelling releases it (or restocks a paid order).
+Unpaid checkouts expire after `Inventory:ReservationMinutes` (default 30).
+
 ### Coupons
 | Method | Endpoint                                          | Auth  | Description                              |
 | ------ | --------------------------------------------------- | ----- | ------------------------------------------ |

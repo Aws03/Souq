@@ -1,6 +1,8 @@
 using AwesomeAssertions;
 using NSubstitute;
+using NSubstitute.ExceptionExtensions;
 using Souq.Application.Features.Products.Commands;
+using Souq.Application.Features.Products.Contracts;
 using Souq.Application.Features.Products.Queries;
 using Souq.Application.Tests.TestDoubles;
 using Souq.Domain.Entities;
@@ -13,15 +15,15 @@ namespace Souq.Application.Tests.Products;
 public class CreateProductHandlerTests
 {
     private readonly IProductRepository _products = Substitute.For<IProductRepository>();
-    private readonly IStockMovementRepository _stockMovements = Substitute.For<IStockMovementRepository>();
-    private readonly IUnitOfWork _uow = Substitute.For<IUnitOfWork>();
+    private readonly IVariantStockInitializer _stock = Substitute.For<IVariantStockInitializer>();
+    private readonly IUnitOfWork _uow = TestUnitOfWork.Create();
     private readonly ICategoryRepository _categories = Substitute.For<ICategoryRepository>();
 
     public CreateProductHandlerTests() =>
         _categories.GetByIdAsync(1, Arg.Any<CancellationToken>()).Returns(Category("فئة", "cat"));
 
     private CreateProductHandler Handler(string currency = "JOD") =>
-        new(_products, _categories, _stockMovements, TestTenant.Context(currency), _uow);
+        new(_products, _categories, _stock, TestTenant.Context(currency), _uow);
 
     private static CreateProductCommand Command(int categoryId = 1, int stock = 10, string? slug = null, string? sku = null) =>
         new(categoryId, Input("سماعات", "Wireless Headphones"), 59.9m, stock, Slug: slug, Sku: sku);
@@ -33,6 +35,7 @@ public class CreateProductHandlerTests
 
         result.ErrorCode.Should().Be("CategoryNotFound");
         await _uow.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+        await _stock.DidNotReceive().InitializeAsync(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -86,26 +89,26 @@ public class CreateProductHandlerTests
     }
 
     [Fact]
-    public async Task ينشئ_المنتج_ويسجّل_مخزونه_الابتدائي_حركة_توريد()
+    public async Task ينشئ_المنتج_ويفتح_مخزونه_بكميته_وحدّه_في_معاملة_واحدة()
     {
-        var result = await Handler().Handle(Command(stock: 10), CancellationToken.None);
+        // المخزون في وحدة Inventory (المرحلة 6) عبر منفذ Catalog — المنتج ومخزونه معاً أو لا شيء.
+        var result = await Handler().Handle(Command(stock: 10) with { LowStockThreshold = 3 }, CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
-        await _stockMovements.Received(1).AddAsync(
-            Arg.Is<StockMovement>(m => m.Type == StockMovementType.Purchase && m.QuantityChange == 10),
-            Arg.Any<CancellationToken>());
-        // حفظ أول للمنتج (يولّد المعرّف)، ثم ثانٍ للحركة المرتبطة بمعرّفه.
-        await _uow.Received(2).SaveChangesAsync(Arg.Any<CancellationToken>());
+        await _stock.Received(1).InitializeAsync(0, 0, 10, 3, Arg.Any<CancellationToken>());
+        await _uow.Received(1).InTransactionAsync(Arg.Any<Func<Task>>(), Arg.Any<CancellationToken>());
+        await _uow.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
-    public async Task منتج_بمخزون_صفر_يُحفظ_مرة_واحدة_بلا_حركة()
+    public async Task فشل_فتح_المخزون_يُفشل_الإنشاء_كلّه()
     {
-        var result = await Handler().Handle(Command(stock: 0), CancellationToken.None);
+        _stock.InitializeAsync(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
+            .ThrowsAsync(new InvalidOperationException("db"));
 
-        result.IsSuccess.Should().BeTrue();
-        await _stockMovements.DidNotReceive().AddAsync(Arg.Any<StockMovement>(), Arg.Any<CancellationToken>());
-        await _uow.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+        var act = () => Handler().Handle(Command(), CancellationToken.None);
+
+        await act.Should().ThrowAsync<InvalidOperationException>();
     }
 }
 
@@ -113,14 +116,12 @@ public class UpdateProductHandlerTests
 {
     private readonly IProductRepository _products = Substitute.For<IProductRepository>();
     private readonly ICategoryRepository _categories = Substitute.For<ICategoryRepository>();
-    private readonly IStockMovementRepository _stockMovements = Substitute.For<IStockMovementRepository>();
     private readonly IUnitOfWork _uow = Substitute.For<IUnitOfWork>();
 
-    private UpdateProductHandler CreateHandler() => new(_products, _categories, _stockMovements, TestTenant.Context(), _uow);
+    private UpdateProductHandler CreateHandler() => new(_products, _categories, TestTenant.Context(), _uow);
 
-    private static UpdateProductCommand Command(
-        string name = "اسم جديد", decimal price = 75, int? stock = null, int? expected = null, int categoryId = 2) =>
-        new(1, categoryId, Input(name), price, "new-slug", StockQuantity: stock, ExpectedStockQuantity: expected);
+    private static UpdateProductCommand Command(string name = "اسم جديد", decimal price = 75, int categoryId = 2) =>
+        new(1, categoryId, Input(name), price, "new-slug");
 
     [Fact]
     public async Task منتج_غير_موجود_يُرجع_NotFound()
@@ -146,54 +147,31 @@ public class UpdateProductHandlerTests
     [Fact]
     public async Task تحديث_صالح_يعدّل_الحقول_ويحفظ_العملة_الأصلية()
     {
-        var product = Product(stock: 10);
+        var product = Product();
         _products.GetByIdAsync(1, Arg.Any<CancellationToken>()).Returns(product);
         _categories.GetByIdAsync(2, Arg.Any<CancellationToken>()).Returns(Category("أزياء", "fashion"));
 
-        // المدير رأى 10 وعدّله إلى 20 — المخزون لم يتغيّر منذ فتح النموذج ⇒ مقبول.
-        var result = await CreateHandler().Handle(Command(stock: 20, expected: 10), CancellationToken.None);
+        var result = await CreateHandler().Handle(Command(), CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
         product.NameIn("ar").Should().Be("اسم جديد");
         product.Slug.Should().Be("new-slug");
         product.Price.Amount.Should().Be(75);
         product.Price.Currency.Should().Be("JOD");
-        product.StockQuantity.Should().Be(20);
         product.CategoryId.Should().Be(2);
-        await _stockMovements.Received(1).AddAsync(
-            Arg.Is<StockMovement>(m => m.Type == StockMovementType.Adjustment && m.QuantityChange == 10),
-            Arg.Any<CancellationToken>());
+        await _uow.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
-    public async Task تعديل_الاسم_وحده_لا_يمسّ_المخزون_ولا_يسجّل_حركة()
+    public async Task معرّف_يستخدمه_منتج_آخر_يُرفض_بلا_حفظ()
     {
-        var product = Product(stock: 10);
-        _products.GetByIdAsync(1, Arg.Any<CancellationToken>()).Returns(product);
+        _products.GetByIdAsync(1, Arg.Any<CancellationToken>()).Returns(Product());
         _categories.GetByIdAsync(2, Arg.Any<CancellationToken>()).Returns(Category("أزياء", "fashion"));
+        _products.SlugExistsAsync("new-slug", Arg.Any<int?>(), Arg.Any<CancellationToken>()).Returns(true);
 
-        var result = await CreateHandler().Handle(Command(stock: null), CancellationToken.None);
+        var result = await CreateHandler().Handle(Command(), CancellationToken.None);
 
-        result.IsSuccess.Should().BeTrue();
-        product.StockQuantity.Should().Be(10);
-        await _stockMovements.DidNotReceive().AddAsync(Arg.Any<StockMovement>(), Arg.Any<CancellationToken>());
-    }
-
-    [Fact]
-    public async Task مخزون_تغيّر_منذ_فتح_النموذج_يُرفض_بتعارض_ولا_يُعدَّل_شيء()
-    {
-        // Phase 0 C4: فتح المدير النموذج والمخزون 10، بِيعت 3 (صار 7)، ثم حفظ 20 — تعارض واضح ولا تغيير جزئي.
-        var product = Product(stock: 10);
-        product.DecreaseStock(3);
-        _products.GetByIdAsync(1, Arg.Any<CancellationToken>()).Returns(product);
-        _categories.GetByIdAsync(2, Arg.Any<CancellationToken>()).Returns(Category("أزياء", "fashion"));
-
-        var result = await CreateHandler().Handle(Command(stock: 20, expected: 10), CancellationToken.None);
-
-        result.ErrorCode.Should().Be("StockChanged");
-        result.Error!.Kind.Should().Be(Souq.Application.Common.Models.ErrorKind.Conflict);
-        product.StockQuantity.Should().Be(7);
-        product.NameIn("ar").Should().Be("سماعات");
+        result.ErrorCode.Should().Be("ProductSlugTaken");
         await _uow.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 }

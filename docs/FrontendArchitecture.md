@@ -117,6 +117,14 @@ It displays the server's decisions and handles its errors.
 | The storefront shows localized product and category names, the product gallery, and a struck-through compare-at price | Offers and localization |
 | New error codes translated (`ProductSlugTaken`, `SkuTaken`, `DefaultTranslationRequired`, `InvalidCategory`) | Server decisions shown in both languages |
 
+**Phase 6 (inventory):**
+
+| Change | Reason |
+|---|---|
+| The inventory page shows on hand, reserved and available, and colours rows by available stock. Users with `inventory.manage` get an adjustment drawer: a delta with a reason, plus the threshold | Stock is corrected by deltas; a concurrent sale is never overwritten (C4) |
+| The product form sets stock and the threshold only when a product is created; on edit it shows a read-only summary pointing to the inventory page. `productPayload.js` (tested) never sends stock on edit | The product aggregate no longer owns stock ([ADR-0026](adr/0026-inventory-reservations.md)) |
+| `StockChanged` translation removed; `InvalidInventoryOperation` added | The compare-and-set path no longer exists |
+
 ## 6. Phase 15 migration plan
 
 1. Introduce `app/`, `routes/`, `layouts/`, and `contexts/` without moving features. The app keeps working.

@@ -64,6 +64,10 @@ public class TenantIsolationTests
         new("POST", "api/Orders/{id:int}/confirm-payment", Resource.Order, Actor.Admin),
         new("PUT", "api/Orders/{id:int}/status", Resource.Order, Actor.Admin, () => JsonBody(new { action = "Cancel" })),
         new("GET", "api/Orders/{id:int}/tracking", Resource.Order, Actor.Anonymous),
+        new("POST", "api/admin/inventory/{productId:int}/adjustments", Resource.Product, Actor.Admin,
+            () => JsonBody(new { delta = 50, reason = "محاولة من متجر آخر" })),
+        new("PUT", "api/admin/inventory/{productId:int}/threshold", Resource.Product, Actor.Admin,
+            () => JsonBody(new { lowStockThreshold = 99 })),
         new("POST", "api/admin/staff/{id:int}/status", Resource.StaffAccount, Actor.Admin, () => JsonBody(new { active = false })),
     ];
 
@@ -126,10 +130,13 @@ public class TenantIsolationTests
         var state = await s.StoreA.WithDbAsync(async db => (
             ProductStatus: await db.Products.Where(p => p.Id == productId).Select(p => p.Status).SingleAsync(),
             Images: await db.Products.Where(p => p.Id == productId).Select(p => p.Images.Count()).SingleAsync(),
+            Stock: await db.InventoryItems.Where(i => i.ProductId == productId)
+                .Select(i => i.OnHand * 1000 + i.LowStockThreshold).SingleAsync(),
             CategoryExists: await db.Categories.AnyAsync(c => c.Id == categoryId),
             CouponValue: await db.Coupons.Where(c => c.Id == couponId).Select(c => c.Value).SingleAsync(),
             OrderStatus: await db.Orders.Where(o => o.Id == orderId).Select(o => o.Status).SingleAsync()));
-        state.Should().Be((ProductStatus.Active, 1, true, 10m, OrderStatus.Pending));
+        // المخزون: الموجود 5 وحدّ التنبيه 5 كما أُنشئ — لم يصحّحه ولم يغيّر حدّه مدير متجر آخر.
+        state.Should().Be((ProductStatus.Active, 1, 5005, true, 10m, OrderStatus.Pending));
 
         var staffId = s.AIds[Resource.StaffAccount];
         (await s.StoreA.WithDbAsync(db => db.Users.Where(u => u.Id == staffId).Select(u => u.Status).SingleAsync()))

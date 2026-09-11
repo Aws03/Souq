@@ -4,7 +4,8 @@ using Souq.Domain.ValueObjects;
 
 namespace Souq.Application.Tests.TestDoubles;
 
-// منتجات وفئات اختبار بشكل المرحلة 5 (نصوص لكل لغة، متغيّر افتراضي) — مكان واحد بدل تكرار المُنشئ في كل ملف.
+// منتجات وفئات ومخزون اختبار بشكل المرحلتين 5 و6 (نصوص لكل لغة، متغيّر افتراضي، مخزون في وحدة Inventory) — مكان
+// واحد بدل تكرار المُنشئات في كل ملف.
 public static class TestCatalog
 {
     public static Dictionary<string, CatalogText> Texts(string ar, string? en = null)
@@ -21,11 +22,16 @@ public static class TestCatalog
         return texts;
     }
 
-    public static Product Product(string name = "سماعات", decimal price = 50, int stock = 10, int categoryId = 1,
+    // id يُعطى للمنتج ولمتغيّره الافتراضي معاً (كما بعد الحفظ فعلياً) — أسطر الحجز تحمل معرّف المتغيّر.
+    public static Product Product(string name = "سماعات", decimal price = 50, int categoryId = 1,
         string currency = "JOD", int? id = null)
     {
-        var product = new Product($"p-{Guid.NewGuid():N}"[..12], categoryId, Texts(name), new Money(price, currency), stock);
-        if (id is int value) WithId(product, value);
+        var product = new Product($"p-{Guid.NewGuid():N}"[..12], categoryId, Texts(name), new Money(price, currency));
+        if (id is int value)
+        {
+            WithId(product, value);
+            WithId(product.DefaultVariant, value);
+        }
         return product;
     }
 
@@ -34,6 +40,14 @@ public static class TestCatalog
         var category = new Category(slug, Texts(name));
         if (id is int value) WithId(category, value);
         return category;
+    }
+
+    // مخزون متغيّر بكمية موجودة (حركة التوريد تُهمَل هنا — اختبارات الكيان تغطّيها).
+    public static InventoryItem Stock(int onHand, int productId = 1, int variantId = 1, int id = 1, int threshold = 5)
+    {
+        var item = WithId(new InventoryItem(productId, variantId, threshold), id);
+        if (onHand > 0) item.Receive(onHand, Souq.Domain.Enums.StockMovementType.Purchase);
+        return item;
     }
 
     public static T WithId<T>(T entity, int id) where T : Souq.Domain.Common.Entity

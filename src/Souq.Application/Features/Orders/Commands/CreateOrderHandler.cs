@@ -4,8 +4,8 @@ using Souq.Application.Common.Interfaces;
 using Souq.Application.Common.Models;
 using Souq.Application.Common.Security;
 using Souq.Application.Common.Tenancy;
+using Souq.Application.Features.Inventory.Contracts;
 using Souq.Domain.Entities;
-using Souq.Domain.Enums;
 using Souq.Domain.Interfaces;
 using Souq.Domain.Platform;
 using Souq.Domain.ValueObjects;
@@ -15,15 +15,12 @@ namespace Souq.Application.Features.Orders.Commands;
 // ============================================================================
 // CreateOrderHandler — "منسّق" حالة الاستخدام الأهم في النظام.
 //
-// خطّتان متعاقبتان مقصودتان على أسطر الطلب: الأولى تتحقّق فقط (وجود المنتج، توفّر
-// الكمية، صلاحية الكوبون) دون أي تعديل؛ الثانية تُنقص المخزون فعلياً وتبني الطلب.
-// الفائدة: أي فشل تحقّق لا يترك أثراً جزئياً على المخزون.
-//
-// الدفع خطوتان: هذا المعالج ينشئ الطلب Pending ويحفظه أولاً، ثم ينشئ نيّة دفع
-// (بطاقة العميل لا تصل خادمنا — Stripe.js)، والتأكيد في ConfirmOrderPaymentHandler.
-//
-// التزامن (ADR-0013): منتجان يُشتريان معاً بنفس اللحظة يتعارضان عند الحفظ عبر
-// rowversion، فيُرفض الثاني بـ 409 بدل بيع ما لا يوجد (Phase 0 C1).
+// (1) تحقّق بلا أثر: المنتجات قابلة للبيع، المتاح يكفي (قراءة مبكرة لرسالة واضحة)، والكوبون صالح.
+// (2) الطلب Pending والحجز في معاملة واحدة (المرحلة 6، ADR-0026): حفظ الطلب يولّد معرّفه، ثم يحجز Inventory
+//     الأسطر بمرجعه ("order:{id}"). نقص حقيقي بعد القراءة (سباق) ⇒ InsufficientStock وتُلغى المعاملة كلها — لا
+//     طلب بلا حجز ولا حجز بلا طلب. المخزون المحجوز لا يُسجَّل بيعاً إلا عند الدفع.
+// (3) نيّة الدفع خارج أي معاملة (ADR-0021)؛ فشل البوّابة ⇒ تعويض فوري: إلغاء الطلب وتحرير الحجز (Phase 0 C6).
+//     طلب هُجر بعد ذلك يلتقطه منسّق انتهاء المهلة (ExpireStaleCheckouts).
 // ============================================================================
 public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, Result<OrderCreatedDto>>
 {
@@ -33,9 +30,10 @@ public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, Result<Ord
     private readonly IOrderRepository _orders;
     private readonly ICustomerRepository _customers;
     private readonly ICouponRepository _coupons;
-    private readonly IStockMovementRepository _stockMovements;
+    private readonly IInventoryReservations _reservations;
+    private readonly IStockAvailability _availability;
     private readonly IPaymentService _payment;
-    private readonly OrderStockRelease _stockRelease;
+    private readonly OrderPaymentConfirmation _confirmation;
     private readonly ICurrentUser _currentUser;
     private readonly ITenantContext _tenant;
     private readonly IUnitOfWork _uow;
@@ -43,15 +41,14 @@ public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, Result<Ord
     private readonly ILogger<CreateOrderHandler> _logger;
 
     public CreateOrderHandler(
-        IProductRepository products, IOrderRepository orders, ICustomerRepository customers,
-        ICouponRepository coupons, IStockMovementRepository stockMovements,
-        IPaymentService payment, OrderStockRelease stockRelease, ICurrentUser currentUser,
-        ITenantContext tenant, IUnitOfWork uow, TimeProvider clock, ILogger<CreateOrderHandler> logger)
+        IProductRepository products, IOrderRepository orders, ICustomerRepository customers, ICouponRepository coupons,
+        IInventoryReservations reservations, IStockAvailability availability, IPaymentService payment,
+        OrderPaymentConfirmation confirmation, ICurrentUser currentUser, ITenantContext tenant, IUnitOfWork uow,
+        TimeProvider clock, ILogger<CreateOrderHandler> logger)
     {
-        _products = products; _orders = orders; _customers = customers;
-        _coupons = coupons; _stockMovements = stockMovements; _payment = payment;
-        _stockRelease = stockRelease; _currentUser = currentUser; _tenant = tenant;
-        _uow = uow; _clock = clock; _logger = logger;
+        _products = products; _orders = orders; _customers = customers; _coupons = coupons;
+        _reservations = reservations; _availability = availability; _payment = payment; _confirmation = confirmation;
+        _currentUser = currentUser; _tenant = tenant; _uow = uow; _clock = clock; _logger = logger;
     }
 
     public async Task<Result<OrderCreatedDto>> Handle(CreateOrderCommand cmd, CancellationToken ct)
@@ -63,31 +60,38 @@ public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, Result<Ord
             // توكن صالح لحساب لم يعد موجوداً ⇒ الهوية نفسها لم تعد صالحة (401 ⇒ إعادة دخول).
             return Result<OrderCreatedDto>.Failure(Error.Unauthorized("CustomerNotFound", "العميل غير موجود"));
 
-        // (1) خطّة التحقّق: نتأكّد من كل سطر ونحسب الإجمالي الفرعي دون تعديل مخزون.
+        var store = _tenant.RequireTenant();
+
+        // (1) التحقّق: كل سطر لمنتج قابل للبيع في هذا المتجر (المستودع مُرشَّح بالمتجر).
         var lines = new List<(Product Product, int Quantity)>();
         foreach (var line in cmd.Items)
         {
             var product = await _products.GetByIdAsync(line.ProductId, ct);
-            if (product is null)
+            if (product is null || !product.IsActive)
                 return Result<OrderCreatedDto>.Failure(
-                    Error.Validation("ProductNotFound", $"المنتج رقم {line.ProductId} غير موجود"));
-            if (!product.CanFulfill(line.Quantity))
-                return Result<OrderCreatedDto>.Failure(Error.BusinessRule("InsufficientStock",
-                    $"الكمية المطلوبة ({line.Quantity}) من \"{product.Name}\" غير متوفرة. المتاح: {product.StockQuantity}"));
+                    Error.Validation("ProductNotFound", $"المنتج رقم {line.ProductId} غير متاح"));
             lines.Add((product, line.Quantity));
         }
 
-        // الطلب بعملة المتجر (لقطة مجمّدة على الطلب نفسه).
-        var currency = _tenant.RequireTenant().Currency;
-        var subtotal = lines.Aggregate(Money.Zero(currency), (sum, l) => sum.Add(l.Product.Price.Multiply(l.Quantity)));
+        var available = await _availability.AvailableAsync(lines.Select(l => l.Product.DefaultVariant.Id).Distinct().ToList(), ct);
+        foreach (var group in lines.GroupBy(l => l.Product.DefaultVariant.Id))
+        {
+            var requested = group.Sum(l => l.Quantity);
+            var inStock = available.GetValueOrDefault(group.Key);
+            if (requested > inStock)
+                return Result<OrderCreatedDto>.Failure(Error.BusinessRule("InsufficientStock",
+                    $"الكمية المطلوبة ({requested}) من \"{group.First().Product.NameIn(store.DefaultCulture)}\" غير متوفرة. المتاح: {Math.Max(inStock, 0)}"));
+        }
 
-        // (2) الكوبون اختياري، ويُتحقّق منه أيضاً قبل أي تعديل على المخزون. كوبون غير قابل
-        // للاستخدام ⇒ InvalidCouponException يرتفع هنا — قبل إنقاص أي مخزون وقبل أي حفظ.
+        // الطلب بعملة المتجر (لقطة مجمّدة على الطلب نفسه).
+        var subtotal = lines.Aggregate(Money.Zero(store.Currency), (sum, l) => sum.Add(l.Product.Price.Multiply(l.Quantity)));
+
+        // الكوبون اختياري، ويُتحقّق منه قبل أي كتابة. غير قابل للاستخدام ⇒ InvalidCouponException (422) هنا.
         Coupon? coupon = null;
         if (!string.IsNullOrWhiteSpace(cmd.CouponCode))
         {
             // وحدة الكوبونات معطّلة لهذا المتجر (D-11): الواجهة تُخفي الحقل، والخادم يرفض على أي حال.
-            if (!_tenant.RequireTenant().HasModule(StoreModules.Promotions))
+            if (!store.HasModule(StoreModules.Promotions))
                 return Result<OrderCreatedDto>.Failure(Error.BusinessRule("ModuleDisabled", "الكوبونات غير مفعّلة في هذا المتجر"));
             coupon = await _coupons.GetByCodeAsync(cmd.CouponCode, ct);
             if (coupon is null)
@@ -95,27 +99,24 @@ public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, Result<Ord
             coupon.EnsureUsable(subtotal, _clock.GetUtcNow().UtcDateTime);
         }
 
-        // (3) خطّة التنفيذ: كل شيء صالح الآن — ننقص المخزون فعلياً ونبني الطلب.
-        var order = new Order(customerId, cmd.ShippingAddress, currency);
+        // (2) الطلب بلقطات الأسطر (الاسم بلغة المتجر الافتراضية — الفاتورة تبقى كما كانت لحظة الشراء)، ثم الحجز.
+        var order = new Order(customerId, cmd.ShippingAddress, store.Currency);
         foreach (var (product, quantity) in lines)
-        {
-            product.DecreaseStock(quantity);
-            // لقطة الاسم بلغة المتجر الافتراضية — الفاتورة تبقى كما كانت لحظة الشراء.
-            order.AddItem(product.Id, product.NameIn(_tenant.RequireTenant().DefaultCulture), product.Price, quantity);
-            // كل بيع يُسجَّل في سجلّ حركة المخزون (كمية سالبة = نقص)، ذرّياً مع الطلب.
-            await _stockMovements.AddAsync(
-                StockMovement.For(product, StockMovementType.Sale, -quantity), ct);
-        }
+            order.AddItem(product.Id, product.NameIn(store.DefaultCulture), product.Price, quantity);
         if (coupon is not null)
             order.ApplyCoupon(coupon.Code, coupon.CalculateDiscount(subtotal));
 
-        // (4) نحفظ الطلب Pending فوراً — قبل أي محاولة دفع.
+        var reservationLines = lines
+            .Select(l => new ReservationLine(l.Product.DefaultVariant.Id, l.Quantity, l.Product.NameIn(store.DefaultCulture)))
+            .ToList();
         await _orders.AddAsync(order, ct);
-        await _uow.SaveChangesAsync(ct);
+        await _uow.InTransactionAsync(async () =>
+        {
+            await _uow.SaveChangesAsync(ct);
+            await _reservations.ReserveAsync(OrderStockReference.For(order.Id), reservationLines, ct);
+        }, ct);
 
-        // (5) ننشئ نيّة دفع لدى البوّابة ونربطها بالطلب. إن فشلت البوّابة نفسها
-        // (انقطاع، مفتاح خاطئ) نُعوّض فوراً: نلغي الطلب ونحرّر مخزونه في معاملة واحدة —
-        // وإلا بقي الطلب Pending يحجز المخزون للأبد بلا أي وسيلة دفع (Phase 0 C6).
+        // (3) نيّة دفع لدى البوّابة مربوطة بالطلب. فشل البوّابة نفسها (انقطاع، مفتاح خاطئ) ⇒ تعويض فوري.
         PaymentIntentResult intent;
         try
         {
@@ -123,10 +124,8 @@ public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, Result<Ord
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            _logger.LogError(ex, "فشل إنشاء نيّة الدفع للطلب {OrderId} — أُلغي الطلب وحُرّر مخزونه", order.Id);
-            order.Cancel(PaymentStartFailedNote);
-            await _stockRelease.ReleaseAsync(order, PaymentStartFailedNote, ct);
-            await _uow.SaveChangesAsync(ct);
+            _logger.LogError(ex, "فشل إنشاء نيّة الدفع للطلب {OrderId} — أُلغي الطلب وحُرّر حجزه", order.Id);
+            await _confirmation.CancelAsync(order, PaymentStartFailedNote, expired: false, ct);
             return Result<OrderCreatedDto>.Failure(Error.Unavailable(
                 "PaymentUnavailable", "تعذّر بدء عملية الدفع حالياً. لم يُحجز أي مخزون، يُرجى المحاولة لاحقاً."));
         }

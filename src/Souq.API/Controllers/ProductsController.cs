@@ -57,8 +57,8 @@ public class ProductsController : ControllerBase
         return CreatedAtAction(nameof(GetById), new { id = result.Value }, new { id = result.Value });
     }
 
-    // PUT /api/products/5 — معرّف المسار هو مصدر الحقيقة لا جسم الطلب. تعديل مخزون من نموذج قديم ⇒ 409
-    // StockChanged (compare-and-set عبر expectedStockQuantity).
+    // PUT /api/products/5 — معرّف المسار هو مصدر الحقيقة لا جسم الطلب. لا مخزون هنا (المرحلة 6): تصحيحاته في
+    // POST /api/admin/inventory/{id}/adjustments.
     [HttpPut("{id:int}")]
     [HasPermission(Permissions.Catalog.Manage)]
     public async Task<IActionResult> Update(int id, [FromBody] UpdateProductCommand command)

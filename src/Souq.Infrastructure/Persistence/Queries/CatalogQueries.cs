@@ -107,7 +107,9 @@ internal sealed class CatalogQueries : ICatalogQueries
             AdminProductSortBy.NameAsc => query.OrderBy(NameExpr(culture)).ThenByDescending(p => p.Id),
             AdminProductSortBy.PriceAsc => query.OrderBy(PriceExpr).ThenByDescending(p => p.Id),
             AdminProductSortBy.PriceDesc => query.OrderByDescending(PriceExpr).ThenByDescending(p => p.Id),
-            AdminProductSortBy.StockAsc => query.OrderBy(p => p.StockQuantity).ThenByDescending(p => p.Id),
+            AdminProductSortBy.StockAsc => query
+                .OrderBy(p => _db.InventoryItems.Where(s => s.ProductId == p.Id).Sum(s => (int?)(s.OnHand - s.Reserved)) ?? 0)
+                .ThenByDescending(p => p.Id),
             _ => query.OrderByDescending(p => p.CreatedAt).ThenByDescending(p => p.Id),
         };
 
@@ -120,7 +122,8 @@ internal sealed class CatalogQueries : ICatalogQueries
             p.Variants.Where(v => v.IsDefault).Select(v => v.Price.Amount).FirstOrDefault(),
             p.Variants.Where(v => v.IsDefault).Select(v => EF.Property<decimal?>(v, "_compareAtAmount")).FirstOrDefault(),
             p.Variants.Where(v => v.IsDefault).Select(v => v.Price.Currency).FirstOrDefault() ?? "",
-            p.StockQuantity, p.LowStockThreshold,
+            _db.InventoryItems.Where(s => s.ProductId == p.Id).Sum(s => (int?)(s.OnHand - s.Reserved)) ?? 0,
+            _db.InventoryItems.Where(s => s.ProductId == p.Id).Select(s => (int?)s.LowStockThreshold).Min() ?? 0,
             p.Images.OrderBy(i => i.SortOrder).ThenBy(i => i.Id).Select(i => i.Url).FirstOrDefault(),
             p.CategoryId,
             p.Category!.Translations.Where(t => t.Culture == culture).Select(t => t.Name).FirstOrDefault()
@@ -137,11 +140,18 @@ internal sealed class CatalogQueries : ICatalogQueries
             .FirstOrDefaultAsync(p => p.Id == id, ct);
         if (product is null) return null;
 
+        // المخزون للعرض فقط (يُعدَّل بتصحيحات في وحدة Inventory) — مخزون المتغيّر الافتراضي.
+        var stock = await _db.InventoryItems.AsNoTracking()
+            .Where(i => i.ProductId == id && _db.Set<ProductVariant>().Any(v => v.Id == i.VariantId && v.IsDefault))
+            .Select(i => new { i.OnHand, i.Reserved, i.LowStockThreshold })
+            .FirstOrDefaultAsync(ct);
+        int onHand = stock?.OnHand ?? 0, reserved = stock?.Reserved ?? 0;
+
         return new AdminProductDto(
             product.Id, product.Slug, product.Status.ToString(),
             product.Translations.ToDictionary(t => t.Culture, t => new CatalogTextDto(t.Name, t.Description, t.MetaTitle, t.MetaDescription)),
             product.Sku, product.Price.Amount, product.CompareAtPrice?.Amount, product.Price.Currency,
-            product.StockQuantity, product.LowStockThreshold,
+            onHand, reserved, onHand - reserved, stock?.LowStockThreshold ?? 0,
             product.Images.OrderBy(i => i.SortOrder).ThenBy(i => i.Id).Select(i => new ProductImageDto(i.Id, i.Url, i.SortOrder)).ToList(),
             product.VideoUrl, product.CategoryId, product.Brand, product.CreatedAt, product.UpdatedAt);
     }
@@ -169,13 +179,14 @@ internal sealed class CatalogQueries : ICatalogQueries
         p => p.Translations.Where(t => t.Culture == culture).Select(t => t.Name).FirstOrDefault()
              ?? p.Translations.OrderBy(t => t.Culture).Select(t => t.Name).FirstOrDefault();
 
-    private static Expression<Func<Product, ProductRow>> Row(string culture) => p => new ProductRow(
+    // المتاح للبيع من وحدة Inventory (المرحلة 6): الموجود − المحجوز، استعلام فرعي مترابط في SQL نفسه.
+    private Expression<Func<Product, ProductRow>> Row(string culture) => p => new ProductRow(
         p.Id, p.Slug,
         p.Translations.Select(t => new TextRow(t.Culture, t.Name, t.Description, t.MetaTitle, t.MetaDescription)).ToList(),
         p.Variants.Where(v => v.IsDefault).Select(v => v.Price.Amount).FirstOrDefault(),
         p.Variants.Where(v => v.IsDefault).Select(v => EF.Property<decimal?>(v, "_compareAtAmount")).FirstOrDefault(),
         p.Variants.Where(v => v.IsDefault).Select(v => v.Price.Currency).FirstOrDefault() ?? "",
-        p.StockQuantity,
+        _db.InventoryItems.Where(s => s.ProductId == p.Id).Sum(s => (int?)(s.OnHand - s.Reserved)) ?? 0,
         p.Images.OrderBy(i => i.SortOrder).ThenBy(i => i.Id).Select(i => i.Url).FirstOrDefault(),
         p.VideoUrl, p.CategoryId,
         p.Category!.Translations.Where(t => t.Culture == culture).Select(t => t.Name).FirstOrDefault()

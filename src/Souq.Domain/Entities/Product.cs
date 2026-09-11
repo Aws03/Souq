@@ -11,7 +11,7 @@ namespace Souq.Domain.Entities;
 //   • يُباع عبر متغيّره الافتراضي (ProductVariant، D-21): السعر وسعر المقارنة وSKU هناك؛ Price هنا اختصار.
 //   • دورة حياة Draft ⇄ Active ⇄ Archived (لا حذف أبداً: الطلبات والتقييمات تشير إليه).
 //   • حتى 10 صور مرتّبة؛ الأولى رئيسية. معرّف رابط (slug) فريد داخل المتجر.
-//   • المخزون هنا حتى المرحلة 6 (InventoryItem لكل متغيّر مع حجز)، وكل تغيير عبر أبواب محروسة.
+//   • المخزون ليس هنا: وحدة Inventory تملكه (InventoryItem لكل متغيّر، بحجوزات — المرحلة 6، ADR-0026).
 // ============================================================================
 public class Product : Entity, ITenantOwned
 {
@@ -19,7 +19,6 @@ public class Product : Entity, ITenantOwned
     public const int BrandMaxLength = 100;
     public const int VideoUrlMaxLength = 500;
     public const int MaxImages = 10;
-    public const int DefaultLowStockThreshold = 5;
 
     private readonly List<ProductTranslation> _translations = new();
     private readonly List<ProductImage> _images = new();
@@ -32,10 +31,6 @@ public class Product : Entity, ITenantOwned
     public string? VideoUrl { get; private set; }
     public int CategoryId { get; private set; }
     public Category? Category { get; private set; }          // علاقة تنقّل (Navigation)
-    public int StockQuantity { get; private set; }
-
-    // حدّ التنبيه للمخزون المنخفض: قاعدة عمل تعيش في المنتج نفسه، لا في الواجهة.
-    public int LowStockThreshold { get; private set; } = DefaultLowStockThreshold;
 
     public IReadOnlyCollection<ProductTranslation> Translations => _translations.AsReadOnly();
     public IReadOnlyCollection<ProductImage> Images => _images.AsReadOnly();
@@ -46,7 +41,6 @@ public class Product : Entity, ITenantOwned
     public Money? CompareAtPrice => DefaultVariant.CompareAtPrice;
     public string? Sku => DefaultVariant.Sku;
     public bool IsActive => Status == ProductStatus.Active;
-    public bool IsLowStock => StockQuantity <= LowStockThreshold;
     public string? PrimaryImageUrl => _images.OrderBy(i => i.SortOrder).ThenBy(i => i.Id).FirstOrDefault()?.Url;
 
     // اسم للرسائل والسجلات؛ اللقطات التجارية تستخدم NameIn(لغة المتجر).
@@ -55,9 +49,8 @@ public class Product : Entity, ITenantOwned
     private Product() { }
 
     public Product(
-        string slug, int categoryId, IReadOnlyDictionary<string, CatalogText> texts, Money price, int stockQuantity,
-        ProductStatus status = ProductStatus.Active, string? sku = null, Money? compareAtPrice = null,
-        string? brand = null, int lowStockThreshold = DefaultLowStockThreshold)
+        string slug, int categoryId, IReadOnlyDictionary<string, CatalogText> texts, Money price,
+        ProductStatus status = ProductStatus.Active, string? sku = null, Money? compareAtPrice = null, string? brand = null)
     {
         if (status == ProductStatus.Archived)
             throw new InvalidProductDataException("المنتج الجديد مسودّة أو نشط — لا يُنشأ مؤرشفاً");
@@ -66,8 +59,6 @@ public class Product : Entity, ITenantOwned
         MoveToCategory(categoryId);
         SetTexts(texts);
         _variants.Add(new ProductVariant(isDefault: true, price, compareAtPrice, sku));
-        SetStock(stockQuantity);
-        SetLowStockThreshold(lowStockThreshold);
         SetBrand(brand);
         Status = status;
     }
@@ -163,34 +154,6 @@ public class Product : Entity, ITenantOwned
         if (trimmed is { Length: > VideoUrlMaxLength })
             throw new InvalidProductDataException("رابط الفيديو طويل جداً");
         VideoUrl = string.IsNullOrEmpty(trimmed) ? null : trimmed;
-    }
-
-    // ── المخزون (ينتقل للمتغيّر في المرحلة 6) ─────────────────────────────────
-
-    // هل يمكن طلب هذه الكمية؟ منتج غير نشط لا يُباع مهما توفّر.
-    public bool CanFulfill(int quantity) => IsActive && quantity > 0 && quantity <= StockQuantity;
-
-    public void DecreaseStock(int quantity)
-    {
-        if (!CanFulfill(quantity))
-            throw new InsufficientStockException(Name, quantity, StockQuantity);
-        StockQuantity -= quantity;
-    }
-
-    public void IncreaseStock(int quantity) => StockQuantity += quantity;
-
-    public void SetStock(int quantity)
-    {
-        if (quantity < 0)
-            throw new InvalidProductDataException("لا يمكن أن تكون كمية المخزون سالبة");
-        StockQuantity = quantity;
-    }
-
-    public void SetLowStockThreshold(int threshold)
-    {
-        if (threshold < 0)
-            throw new InvalidProductDataException("لا يمكن أن يكون حدّ التنبيه سالباً");
-        LowStockThreshold = threshold;
     }
 
     private static Exception Invalid(string message) => new InvalidProductDataException(message);

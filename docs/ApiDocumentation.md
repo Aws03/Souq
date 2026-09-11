@@ -21,7 +21,7 @@
 | Auth | `/api/auth` | host's tenant (or platform host) | anonymous + token flows |
 | Storefront | `/api/storefront` (`/config` since Phase 4); still on shared routes: `/api/products` (with `onSale`), `/api/products/{id}`, `/api/products/by-slug/{slug}` (Phase 5), `/api/categories`, `/api/coupons/apply`, `/api/products/{id}/reviews` | required | anonymous/customer |
 | Customer account | `/api/account` *(target)*; today `/api/orders/mine`, `/api/orders/{id}` | required | customer (own data) |
-| Tenant back-office | `/api/admin`: `/api/admin/inventory`, `/api/admin/store/*` and `/api/admin/staff` (Phase 4), `/api/admin/products` (every status, full detail, `/{id}/status`, `/{id}/images/order`, `/{id}/images/{imageId}`) and `/api/admin/categories` (Phase 5), plus admin writes still on shared routes (`POST/PUT/DELETE /api/products`, `/api/categories`) | required | tenant admin/staff + permission |
+| Tenant back-office | `/api/admin`: `/api/admin/inventory` (on hand, reserved, available; Phase 6 adds `POST /{productId}/adjustments` and `PUT /{productId}/threshold`, `inventory.manage`), `/api/admin/store/*` and `/api/admin/staff` (Phase 4), `/api/admin/products` (every status, full detail, `/{id}/status`, `/{id}/images/order`, `/{id}/images/{imageId}`) and `/api/admin/categories` (Phase 5), plus admin writes still on shared routes (`POST/PUT/DELETE /api/products`, `/api/categories`) | required | tenant admin/staff + permission |
 | Platform | `/api/platform/tenants`, `/api/platform/users`, `/api/platform/stats`, `/api/platform/audit` (Phase 4) | none | platform owner/admin, platform host only, every request audited |
 | Webhooks | `/api/payments/webhook` (target `/api/webhooks/{provider}`) | from provider metadata | signature |
 | Health | `/health/live`, `/health/ready` (Phase 23) | — | infrastructure |
@@ -40,8 +40,8 @@ Routes move into these areas in the phase that rebuilds each module. The fronten
 | Authenticated but lacking the permission | 403 |
 | Resource missing **or owned by someone else** (tenant or user) | **404**. Never 403, which would leak that the resource exists. |
 | No store on this host (`StoreNotFound`); a platform endpoint on a store host or the reverse (`NotFound`); a module disabled for this store (`ModuleDisabled`) | **404** |
-| Conflict with the current state: concurrent write (`ConcurrencyConflict`), duplicate (`DuplicateValue`, `EmailTaken`, `SlugTaken`, `ProductSlugTaken`, `SkuTaken`, `TenantSlugTaken`, `DomainTaken`), stale edit (`StockChanged`), delete blocked (`CategoryInUse`, `CategoryHasChildren`), database reference rejected (`ReferenceConflict`) | **409** |
-| Business rule violated (invalid transition, insufficient stock, coupon unusable, too many decimals, unreadable colour palette, `CannotDisableSelf`, `LastAdministrator`, `TenantHasNoDomain`, `ModuleDisabled` at checkout, catalog values the entity rejects, such as a malformed slug or SKU or an unsupported language (`InvalidProductData`, `InvalidCategory`), a category cycle or a tree deeper than 5 levels (`InvalidParent`), an image order that does not list every image once) | **422** |
+| Conflict with the current state: concurrent write (`ConcurrencyConflict`), duplicate (`DuplicateValue`, `EmailTaken`, `SlugTaken`, `ProductSlugTaken`, `SkuTaken`, `TenantSlugTaken`, `DomainTaken`), delete blocked (`CategoryInUse`, `CategoryHasChildren`), database reference rejected (`ReferenceConflict`) | **409** |
+| Business rule violated (invalid transition, insufficient stock, coupon unusable, too many decimals, unreadable colour palette, `CannotDisableSelf`, `LastAdministrator`, `TenantHasNoDomain`, `ModuleDisabled` at checkout, catalog values the entity rejects, such as a malformed slug or SKU or an unsupported language (`InvalidProductData`, `InvalidCategory`), a category cycle or a tree deeper than 5 levels (`InvalidParent`), an image order that does not list every image once, a stock correction below what open orders reserve (`InvalidInventoryOperation`)) | **422** |
 | Too many requests | 429 (Phase 3) |
 | Required external provider unavailable (`PaymentUnavailable`); store suspended, archived, or still provisioning (`StoreUnavailable`) | 503 |
 | Unexpected | 500, generic message, no internals |
@@ -144,9 +144,10 @@ Every error is RFC 7807 `application/problem+json`:
 |---|---|
 | Payment confirmation (client and webhook) | Idempotent by order state: a second confirmation returns the current status with no side effects. A concurrent race is resolved by `rowversion` plus a re-read (1A). |
 | Webhooks | Signature-verified; idempotent by the same rule; unknown events → 200 (ignored) |
-| Checkout (`POST /api/orders`) | Target (Phase 9): an `Idempotency-Key` header, so a network retry doesn't create a second order |
+| Checkout (`POST /api/orders`) | The order and its stock reservation are written in one transaction; the loser of the last unit gets `422 InsufficientStock`, because inventory conflicts are retried from a fresh read (Phase 6). Target (Phase 9): an `Idempotency-Key` header, so a network retry doesn't create a second order |
+| Reservation commit, release and restock | Idempotent by reservation status: committing twice, or cancelling an already cancelled order, changes nothing (Phase 6) |
 | Updates to shared rows | Optimistic concurrency → 409 with a message to reload |
-| Product stock edits (admin form) | Compare-and-set: the client sends `stockQuantity` with `expectedStockQuantity`, and a mismatch → 409 (1A) |
+| Stock corrections (`POST /api/admin/inventory/{productId}/adjustments`) | A delta with a reason, applied to the current value, so a concurrent sale is never overwritten. Going below what open orders reserve → `422 InvalidInventoryOperation`. The product form carries no stock (Phase 6; replaces the 1A compare-and-set) |
 
 ## 9. Uploads
 

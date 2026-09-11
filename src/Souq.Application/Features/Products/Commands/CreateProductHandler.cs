@@ -1,9 +1,9 @@
 using MediatR;
 using Souq.Application.Common.Models;
 using Souq.Application.Common.Tenancy;
+using Souq.Application.Features.Products.Contracts;
 using Souq.Application.Features.Products.Queries;
 using Souq.Domain.Entities;
-using Souq.Domain.Enums;
 using Souq.Domain.Interfaces;
 using Souq.Domain.ValueObjects;
 
@@ -13,15 +13,15 @@ public class CreateProductHandler : IRequestHandler<CreateProductCommand, Result
 {
     private readonly IProductRepository _products;
     private readonly ICategoryRepository _categories;
-    private readonly IStockMovementRepository _stockMovements;
+    private readonly IVariantStockInitializer _stock;
     private readonly ITenantContext _tenant;
     private readonly IUnitOfWork _uow;
 
     public CreateProductHandler(
-        IProductRepository products, ICategoryRepository categories, IStockMovementRepository stockMovements,
+        IProductRepository products, ICategoryRepository categories, IVariantStockInitializer stock,
         ITenantContext tenant, IUnitOfWork uow)
     {
-        _products = products; _categories = categories; _stockMovements = stockMovements; _tenant = tenant; _uow = uow;
+        _products = products; _categories = categories; _stock = stock; _tenant = tenant; _uow = uow;
     }
 
     public async Task<Result<int>> Handle(CreateProductCommand cmd, CancellationToken ct)
@@ -38,9 +38,9 @@ public class CreateProductHandler : IRequestHandler<CreateProductCommand, Result
         var product = new Product(
             cmd.Slug is { Length: > 0 } slug ? slug : ProductSlugs.Suggest(cmd.Translations),
             cmd.CategoryId, CatalogTexts.ToDomain(cmd.Translations),
-            new Money(cmd.Price, store.Currency), cmd.StockQuantity, cmd.Status, cmd.Sku,
+            new Money(cmd.Price, store.Currency), cmd.Status, cmd.Sku,
             cmd.CompareAtPrice is decimal compareAt ? new Money(compareAt, store.Currency) : null,
-            cmd.Brand, cmd.LowStockThreshold);
+            cmd.Brand);
         product.SetVideoUrl(cmd.VideoUrl);
 
         // معرّف مقترَح يُفرَّد بلاحقة؛ معرّف أدخله المدير نفسه ⇒ تعارض صريح بدل تغييره بصمت.
@@ -58,17 +58,14 @@ public class CreateProductHandler : IRequestHandler<CreateProductCommand, Result
         if (product.Sku is { } sku && await _products.SkuExistsAsync(sku, null, ct))
             return Result<int>.Failure(ProductRules.SkuTaken);
 
+        // المنتج ومخزونه معاً أو لا شيء: الحفظ يولّد معرّفَي المنتج والمتغيّر، ثم تفتح وحدة المخزون مخزونه (منفذ
+        // Catalog تنفّذه Inventory) — والكمية الابتدائية حركة توريد.
         await _products.AddAsync(product, ct);
-        await _uow.SaveChangesAsync(ct);   // يولّد Id
-
-        // المخزون الابتدائي حركة توريد — سجلّ حركة المنتج يبدأ من نقطة معلومة.
-        if (product.StockQuantity > 0)
+        await _uow.InTransactionAsync(async () =>
         {
-            await _stockMovements.AddAsync(
-                StockMovement.For(product, StockMovementType.Purchase, product.StockQuantity,
-                    "المخزون الابتدائي عند إنشاء المنتج"), ct);
             await _uow.SaveChangesAsync(ct);
-        }
+            await _stock.InitializeAsync(product.Id, product.DefaultVariant.Id, cmd.StockQuantity, cmd.LowStockThreshold, ct);
+        }, ct);
 
         return Result<int>.Success(product.Id);
     }

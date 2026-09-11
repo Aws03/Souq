@@ -35,14 +35,15 @@ public sealed record ProductDto(
 
 public sealed record ProductImageDto(int Id, string Url, int SortOrder);
 
-// سطر في جدول منتجات الإدارة — كل الحالات.
+// سطر في جدول منتجات الإدارة — كل الحالات. Available = المتاح للبيع من وحدة Inventory (المرحلة 6).
 public sealed record AdminProductListItemDto(
     int Id, string Slug, string Name, string Status, string? Sku, decimal Price, decimal? CompareAtPrice, string Currency,
-    int StockQuantity, int LowStockThreshold, string? ImageUrl, int CategoryId, string? CategoryName, DateTime CreatedAt);
+    int Available, int LowStockThreshold, string? ImageUrl, int CategoryId, string? CategoryName, DateTime CreatedAt);
 
-// نموذج تعديل منتج كاملاً (كل اللغات، كل الصور بمعرّفاتها).
+// نموذج تعديل منتج كاملاً (كل اللغات، كل الصور بمعرّفاتها). المخزون للعرض فقط: تعديله تصحيحات في وحدة Inventory.
 public sealed record AdminProductDto(
     int Id, string Slug, string Status, IReadOnlyDictionary<string, CatalogTextDto> Translations,
-    string? Sku, decimal Price, decimal? CompareAtPrice, string Currency, int StockQuantity, int LowStockThreshold,
+    string? Sku, decimal Price, decimal? CompareAtPrice, string Currency,
+    int OnHand, int Reserved, int Available, int LowStockThreshold,
     IReadOnlyList<ProductImageDto> Images, string? VideoUrl, int CategoryId, string? Brand,
     DateTime CreatedAt, DateTime? UpdatedAt);

@@ -52,6 +52,35 @@ public class StripePaymentService : IPaymentService
             : new PaymentConfirmationResult(false, $"حالة الدفع لدى البوّابة: {intent.Status}");
     }
 
+    public async Task<PaymentIntentState> CancelIntentAsync(string paymentIntentId, CancellationToken ct = default)
+    {
+        var service = new PaymentIntentService(_client);
+        var intent = await service.GetAsync(paymentIntentId, cancellationToken: ct);
+        if (StateOf(intent.Status) is { } settled) return settled;
+
+        try
+        {
+            await service.CancelAsync(paymentIntentId, cancellationToken: ct);
+            return PaymentIntentState.Cancelled;
+        }
+        catch (StripeException ex)
+        {
+            // سباق: تغيّرت الحالة بين القراءة والإلغاء (دفع العميل للتوّ) — الحالة الحقيقية تحسم.
+            _logger.LogWarning(ex, "Stripe refused to cancel payment intent {PaymentIntentId}; re-reading its state", paymentIntentId);
+            intent = await service.GetAsync(paymentIntentId, cancellationToken: ct);
+            return StateOf(intent.Status) ?? PaymentIntentState.Processing;
+        }
+    }
+
+    // حالات نهائية أو غير قابلة للإلغاء الآن؛ null ⇒ قابلة للإلغاء (requires_payment_method/confirmation/action/capture).
+    private static PaymentIntentState? StateOf(string status) => status switch
+    {
+        "succeeded" => PaymentIntentState.Succeeded,
+        "canceled" => PaymentIntentState.Cancelled,
+        "processing" => PaymentIntentState.Processing,
+        _ => null,
+    };
+
     public PaymentClientConfig GetClientConfig() =>
         new(string.IsNullOrWhiteSpace(_settings.PublishableKey) ? null : _settings.PublishableKey);
 

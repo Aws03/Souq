@@ -152,7 +152,7 @@ Each entry lists:
   - `Product` (root) owns `ProductTranslation`, `ProductImage` and exactly one default `ProductVariant` (SKU, price, compare-at price).
   - `Category` owns `CategoryTranslation`. `CatalogText` is the per-language value object.
   - Use cases live in `Features/Products` and `Features/Categories`; `ICatalogQueries` serves both the storefront and the admin projections.
-  - Stock still lives on `Product` and moves to the variant in Phase 6.
+  - Stock is not in Catalog (Phase 6): creating a product calls Catalog's own port `IVariantStockInitializer`, which Inventory implements, so the dependency still points Inventory → Catalog.
   - The best-selling sort still reads `Orders` directly. It moves behind an Ordering query contract when Ordering is rebuilt (Phase 9); Phase 5 did not need to touch it.
   - Attributes and the variant option matrix are deferred.
 
@@ -173,7 +173,13 @@ Each entry lists:
 - **Depends on:** Catalog (the variant must exist).
 - **Forbidden:** creating orders; reading order internals. It knows only reservation references.
 - **Extraction:** a candidate (flash sales, multiple warehouses), which is why its contract is reserve → commit/release from the start.
-- **Today:** stock fields on `Product`, `StockMovement`, `Features/Inventory`. The cancellation restock and ledger were fixed in 1A.
+- **Today (Phase 6, [ADR-0026](adr/0026-inventory-reservations.md)):**
+  - `InventoryItem` (one per variant; on hand, reserved, `rowversion`), `StockReservation`, and `StockMovement`, which only the item creates.
+  - `Features/Inventory/Contracts` holds `IInventoryReservations` and `IStockAvailability`, both used by Ordering.
+  - `Features/Inventory/Reservations` holds the implementation, the retrying `InventoryWriter`, and `VariantStockInitializer` (Catalog's port).
+  - Adjustment and threshold commands; `InventoryQueries` for the admin screens.
+  - The expiry sweep is an Ordering use case (it decides about orders) run by an Infrastructure hosted service.
+  - `ModuleAndContractRuleTests` allows only these contract references.
 
 ### Customers (introduced Phase 7)
 - **Responsibility:** the shopper as a commercial relationship of one tenant.

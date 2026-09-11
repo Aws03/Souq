@@ -10,5 +10,9 @@ public interface ITenantDirectory
     Task<TenantInfo?> FindByHostAsync(string host, CancellationToken ct = default);
     Task<TenantInfo?> FindBySlugAsync(string slug, CancellationToken ct = default);
     Task<TenantInfo?> FindByIdAsync(int tenantId, CancellationToken ct = default);
+
+    // المتاجر النشطة، بلا ذاكرة مؤقتة — لمهام خلفية تمرّ على كل متجر في نطاقه (المرحلة 6: انتهاء مهلة الدفع).
+    Task<IReadOnlyList<TenantInfo>> ListActiveAsync(CancellationToken ct = default);
+
     void Invalidate();
 }

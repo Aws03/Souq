@@ -1,12 +1,12 @@
 // ============================================================================
-// جسم طلب حفظ منتج من نموذج الإدارة (عقد المرحلة 5) — منطق خالص مُختبَر بـ Vitest.
+// جسم طلب حفظ منتج من نموذج الإدارة — منطق خالص مُختبَر بـ Vitest.
 //
-// النصوص لكل لغة (translations)، والسعر وسعر المقارنة وSKU للمتغيّر الافتراضي. المعرّف النصّي (slug) اختياري عند
-// الإنشاء (يقترحه الخادم من الاسم) ومطلوب عند التعديل (فارغ ⇒ يبقى الحالي).
+// النصوص لكل لغة (translations)، والسعر وسعر المقارنة وSKU للمتغيّر الافتراضي (المرحلة 5). المعرّف النصّي (slug)
+// اختياري عند الإنشاء (يقترحه الخادم) ومطلوب عند التعديل (فارغ ⇒ يبقى الحالي).
 //
-// المخزون (compare-and-set، ADR-0013): عند التعديل لا نرسل المخزون إلا إن غيّره المدير فعلاً، ومعه
-// expectedStockQuantity = القيمة التي رآها حين فتح النموذج. إن بِيع شيء في الأثناء يرفض الخادم الحفظ بـ 409 بدل محو
-// البيع (Phase 0 C4)؛ وتعديل الاسم/السعر وحده لا يلمس المخزون أبداً.
+// المخزون (المرحلة 6، ADR-0026): الكمية الابتدائية وحدّ التنبيه يُرسلان عند الإنشاء فقط (يفتحان مخزون المنتج). بعدها
+// المخزون تصحيحات بفارق وسبب من صفحة الجرد — نموذج المنتج لا يرسل مخزوناً أبداً، فلا يمحو بيعاً حدث أثناء فتحه
+// (Phase 0 C4).
 // ============================================================================
 import { formToTexts } from '../../catalog/catalogText';
 
@@ -23,15 +23,15 @@ export function buildProductPayload(form, original) {
     brand: form.brand?.trim() || null,
     videoUrl: form.videoRemoved ? null : (original?.videoUrl ?? null),
   };
+
+  if (original) return { ...payload, slug: slug ?? original.slug };
+
   const threshold = optionalNumber(form.lowStockThreshold);
-  if (threshold !== null) payload.lowStockThreshold = threshold;
-
-  const stock = Number(form.stockQuantity) || 0;
-  if (!original) {                                                          // إنشاء: مخزون ابتدائي مطلق
-    return { ...payload, slug, status: form.status || 'Active', stockQuantity: stock };
-  }
-
-  const edited = { ...payload, slug: slug ?? original.slug };
-  if (stock === original.stockQuantity) return edited;                      // المدير لم يلمس المخزون
-  return { ...edited, stockQuantity: stock, expectedStockQuantity: original.stockQuantity };
+  return {
+    ...payload,
+    slug,
+    status: form.status || 'Active',
+    stockQuantity: Number(form.stockQuantity) || 0,
+    ...(threshold !== null ? { lowStockThreshold: threshold } : {}),
+  };
 }

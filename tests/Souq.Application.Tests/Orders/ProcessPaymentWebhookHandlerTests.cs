@@ -19,12 +19,13 @@ public class ProcessPaymentWebhookHandlerTests
 {
     private readonly IPaymentService _payment = Substitute.For<IPaymentService>();
     private readonly IOrderRepository _orders = Substitute.For<IOrderRepository>();
-    private readonly IUnitOfWork _uow = Substitute.For<IUnitOfWork>();
+    private readonly IUnitOfWork _uow = Souq.Application.Tests.TestDoubles.TestUnitOfWork.Create();
+    private readonly Souq.Application.Features.Inventory.Contracts.IInventoryReservations _reservations =
+        Substitute.For<Souq.Application.Features.Inventory.Contracts.IInventoryReservations>();
 
     private ProcessPaymentWebhookHandler CreateHandler() => new(
         _payment, _orders,
-        new OrderPaymentConfirmation(_orders,
-            new OrderStockRelease(Substitute.For<IProductRepository>(), Substitute.For<IStockMovementRepository>()),
+        new OrderPaymentConfirmation(_orders, _reservations,
             Substitute.For<ICustomerRepository>(), Substitute.For<ICouponRepository>(),
             _payment, Substitute.For<IEmailService>(), _uow),
         NullLogger<ProcessPaymentWebhookHandler>.Instance);
@@ -67,6 +68,7 @@ public class ProcessPaymentWebhookHandlerTests
         result.IsSuccess.Should().BeTrue();
         order.Status.Should().Be(OrderStatus.Paid);
         await _uow.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+        await _reservations.Received(1).CommitAsync(OrderStockReference.For(order.Id), Arg.Any<CancellationToken>());
     }
 
     [Fact]

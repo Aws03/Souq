@@ -26,7 +26,6 @@ public class ProductConfiguration : IEntityTypeConfiguration<Product>
         builder.Ignore(p => p.CompareAtPrice);
         builder.Ignore(p => p.Sku);
         builder.Ignore(p => p.IsActive);
-        builder.Ignore(p => p.IsLowStock);
         builder.Ignore(p => p.PrimaryImageUrl);
         builder.Ignore(p => p.DefaultVariant);
 

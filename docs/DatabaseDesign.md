@@ -63,8 +63,9 @@ Module schemas (`catalog.Products`) were considered and **postponed**. The owner
 | ProductVariant (Phase 5: exactly one default per product) | Catalog | Tenant | ✓ | `(TenantId, Sku) WHERE Sku IS NOT NULL`; `(ProductId) WHERE IsDefault = 1` | `(ProductId, IsDefault)`; AK `(TenantId, Id)` for later cart/order references | With the product (which is archived, never deleted) | Created/Updated | — (admin edits, last write wins) |
 | ProductImage | Catalog | Tenant | ✓ | — (at most 10 per product, Domain) | `(ProductId, SortOrder)` | Hard; the file stays until a cleanup job exists | Created | — |
 | ProductTranslation / CategoryTranslation (Phase 5) | Catalog | Tenant | ✓ | `(ProductId, Culture)` / `(CategoryId, Culture)` | `(TenantId)` | With the owner (replaced as a set) | Created/Updated | — |
-| InventoryItem | Inventory | Tenant | ✓ | `(TenantId, VariantId)` | — | With variant | Updated | **`rowversion` (hot)** |
-| StockMovement | Inventory | Tenant | ✓ | — | `(TenantId, ProductId, CreatedAt)` | **Never** (ledger) | Created (+ user in Phase 6) | — |
+| InventoryItem (Phase 6) | Inventory | Tenant | ✓ | `(TenantId, VariantId)` | `(TenantId, ProductId)`; AK `(TenantId, Id)` | Never (products are archived) | Created/Updated | **`rowversion` (hot)** + checks `0 ≤ Reserved ≤ OnHand` |
+| StockReservation (Phase 6) | Inventory | Tenant | ✓ | — | `(TenantId, Reference)`; `(TenantId, ExpiresAt) WHERE Status = Active` | **Never** (closed with a status: Committed, Released, Expired, Restocked) | Created/ClosedAt | via its item |
+| StockMovement | Inventory | Tenant | ✓ | — | `(ProductId, CreatedAt)`, `(InventoryItemId, CreatedAt)` | **Never** (ledger; Σ = on hand) | Created (+ user later) | — |
 | Basket / BasketLine | Shopping | User or anonymous | ✓ | `(TenantId, CustomerId)`; `(TenantId, AnonymousId)` | `(ExpiresAt)` | Hard (expiry) | Updated | last-write-wins |
 | WishlistItem | Shopping | User | ✓ | `(TenantId, CustomerId, ProductId)` | — | Hard | Created | — |
 | Order | Ordering | User (in tenant) | ✓ | `(TenantId, OrderNumber)`; `PublicTrackingToken` | `(TenantId, CreatedAt DESC)`, `(TenantId, CustomerId)`, `(TenantId, Status)` | **Never** (financial record; cancelled ≠ deleted) | Created/Updated + status history | **`rowversion`** |
@@ -100,12 +101,12 @@ Module schemas (`catalog.Products`) were considered and **postponed**. The owner
 
 | Row | Who races | Outcome without protection | With `rowversion` |
 |---|---|---|---|
-| `Products.StockQuantity` (Inventory from Phase 6) | Two checkouts for the last unit; checkout vs admin edit | Oversell; lost update | Second save fails → 409 → customer retries and sees the real stock |
+| `InventoryItems` (Phase 6) | Checkouts for the last unit; checkout vs payment vs admin correction | Oversell; lost update | Second save fails; the inventory writer re-reads the committed values and retries (up to 5 attempts), so the loser gets `422 InsufficientStock`, not a 409 ([ADR-0026](adr/0026-inventory-reservations.md)) |
 | `Coupons.UsedCount` | Two payments confirmed at once | Lost increment | Second save fails → retried by the client or webhook |
 | `Orders.Status` | Client confirmation vs Stripe webhook; admin vs payment | Double side effects | Loser re-reads: already Paid → idempotent success |
 
 **Rejected alternatives:**
-- **Atomic conditional `UPDATE … WHERE StockQuantity >= @q`.** Best under heavy contention, but it moves the rule out of the aggregate and outside the unit of work. Revisit for flash sales in Phase 6.
+- **Atomic conditional `UPDATE … WHERE OnHand - Reserved >= @q`.** Best under heavy contention, but it moves the rule out of the aggregate and outside the unit of work. Re-evaluated in Phase 6 and still rejected; revisit if one SKU's contention shows in latency (flash sales).
 - **Pessimistic locks** (`UPDLOCK`). They add deadlock risk and hold locks during payment-provider calls.
 - **Serializable transactions.** Throughput cost for every request.
 
@@ -196,6 +197,17 @@ Deferred to later phases, with the phase noted: `TenantId` (2), `Users` split (3
 | `Categories` | Added `SortOrder` and `IsActive`. Dropped `Name`. New index `(TenantId, ParentId, SortOrder)` |
 | Data copy (runs before any drop) | An Arabic translation from `NameAr` + `Description`; an English one from `NameEn` when present and different; a default variant from `Price`/`Currency`; an image row only for real `/uploads/` or http(s) URLs (the old placeholder values are dropped); `Status` from `IsActive`; slug `p-{Id}`; each category name → a translation in its store's default language. EF generated the column drops first, which would have lost every name and price; the order was rewritten by hand |
 | `Down()` | Restores the old columns from the Arabic/English translations, the default variant and the primary image. It is lossy by nature (other languages, extra images, SKUs and compare-at prices have no old column), so it is for development only |
+
+**Phase 6 (`Phase6Inventory`, data-preserving, rehearsed by `MigrationRehearsalTests`, [ADR-0026](adr/0026-inventory-reservations.md)):**
+
+| Change | Detail |
+|---|---|
+| `InventoryItems` | One row per variant: `OnHand`, `Reserved`, `LowStockThreshold`, `rowversion`, check constraints. Composite FKs to the variant and the product within the store |
+| `StockReservations` | Reference (`order:{id}`), quantity, status, `ExpiresAt`, `ClosedAt`. Composite FK to the item. A filtered index on the active rows keeps the expiry sweep cheap |
+| `StockMovements.InventoryItemId` | Added (nullable), backfilled from each movement's product, then made `NOT NULL` with a composite FK |
+| Data copy (before any drop) | On hand = the old `StockQuantity` + the quantities of Pending orders (the old checkout had already decremented them); reserved = those quantities. Active reservations for Pending orders (a fresh 30-minute window, then the sweeper settles them); Committed reservations for Paid orders not yet shipped (so cancelling them restocks as before). An opening-balance `Adjustment` wherever the history did not add up to on-hand, so Σ ledger = on hand from here on |
+| Dropped from `Products` | `StockQuantity`, `LowStockThreshold`, only **after** the copy. EF generated the drops first, which would have lost every stock level; the order was rewritten by hand |
+| `Down()` | Restores `StockQuantity` as the available quantity (on hand − reserved) and the threshold. Reservations have no place in the old schema, so it is for development only |
 
 ## 10. Migration workflow
 

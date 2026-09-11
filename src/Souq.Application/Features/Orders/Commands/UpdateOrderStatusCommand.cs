@@ -1,5 +1,6 @@
 using MediatR;
 using Souq.Application.Common.Models;
+using Souq.Application.Features.Inventory.Contracts;
 using Souq.Domain.Interfaces;
 
 namespace Souq.Application.Features.Orders.Commands;
@@ -21,12 +22,12 @@ public class UpdateOrderStatusHandler : IRequestHandler<UpdateOrderStatusCommand
     private const string AdminCancellationNote = "إلغاء من الإدارة";
 
     private readonly IOrderRepository _orders;
-    private readonly OrderStockRelease _stockRelease;
+    private readonly IInventoryReservations _reservations;
     private readonly IUnitOfWork _uow;
 
-    public UpdateOrderStatusHandler(IOrderRepository orders, OrderStockRelease stockRelease, IUnitOfWork uow)
+    public UpdateOrderStatusHandler(IOrderRepository orders, IInventoryReservations reservations, IUnitOfWork uow)
     {
-        _orders = orders; _stockRelease = stockRelease; _uow = uow;
+        _orders = orders; _reservations = reservations; _uow = uow;
     }
 
     public async Task<Result> Handle(UpdateOrderStatusCommand cmd, CancellationToken ct)
@@ -44,10 +45,18 @@ public class UpdateOrderStatusHandler : IRequestHandler<UpdateOrderStatusCommand
             case OrderStatusAction.Cancel: order.Cancel(cmd.Note); break;
         }
 
-        // الطلب الملغى لم يُشحن، فمخزونه المحجوز يعود للبيع — في نفس معاملة الإلغاء.
-        if (cmd.Action == OrderStatusAction.Cancel)
-            await _stockRelease.ReleaseAsync(order, cmd.Note ?? AdminCancellationNote, ct);
-        await _uow.SaveChangesAsync(ct);
+        if (cmd.Action != OrderStatusAction.Cancel)
+        {
+            await _uow.SaveChangesAsync(ct);
+            return Result.Success();
+        }
+
+        // الطلب الملغى لم يُشحن: حجز طلب لم يُدفع يُحرَّر، وبيع طلب مدفوع يعود للموجود بحركة إلغاء — في معاملة الإلغاء.
+        await _uow.InTransactionAsync(async () =>
+        {
+            await _uow.SaveChangesAsync(ct);
+            await _reservations.CancelAsync(OrderStockReference.For(order.Id), cmd.Note ?? AdminCancellationNote, expired: false, ct);
+        }, ct);
         return Result.Success();
     }
 }

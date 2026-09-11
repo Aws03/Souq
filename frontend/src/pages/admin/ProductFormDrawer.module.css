@@ -31,6 +31,13 @@
 .primaryTag { color: var(--saffron); font-weight: 700; }
 .galleryFull { color: var(--muted); font-size: var(--fs-body-sm); margin: 0 0 18px; }
 
+/* المخزون عند التعديل للعرض فقط — يُصحَّح من صفحة الجرد (المرحلة 6). */
+.stockSummary {
+  border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface);
+  padding: 10px 12px; margin-bottom: 18px; font-size: var(--fs-body-sm);
+}
+.stockSummary small { display: block; color: var(--muted); font-size: 11.5px; margin-top: 4px; }
+
 .row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .footActions { display: flex; justify-content: flex-end; gap: 10px; }
 

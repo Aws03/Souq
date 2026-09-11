@@ -3,45 +3,74 @@ using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 using Souq.Application.Common.Interfaces;
+using Souq.Application.Features.Inventory.Contracts;
 using Souq.Application.Features.Orders;
 using Souq.Application.Features.Orders.Commands;
 using Souq.Application.Tests.TestDoubles;
 using Souq.Domain.Entities;
 using Souq.Domain.Enums;
+using Souq.Domain.Exceptions;
 using Souq.Domain.Interfaces;
 using Souq.Domain.ValueObjects;
 
 namespace Souq.Application.Tests.Orders;
 
-// التحقّق (بلا أثر جانبي) ثم التنفيذ (إنقاص المخزون + نيّة دفع)، وتعويض فشل البوّابة.
+// التحقّق بلا أثر، ثم الطلب والحجز في معاملة واحدة، ثم نيّة الدفع خارجها — وتعويض فشل البوّابة (المرحلة 6).
 public class CreateOrderHandlerTests
 {
+    private const int SavedOrderId = 77;
+
     private readonly IProductRepository _products = Substitute.For<IProductRepository>();
     private readonly IOrderRepository _orders = Substitute.For<IOrderRepository>();
     private readonly ICustomerRepository _customers = Substitute.For<ICustomerRepository>();
     private readonly ICouponRepository _coupons = Substitute.For<ICouponRepository>();
-    private readonly IStockMovementRepository _stockMovements = Substitute.For<IStockMovementRepository>();
+    private readonly IInventoryReservations _reservations = Substitute.For<IInventoryReservations>();
+    private readonly IStockAvailability _availability = Substitute.For<IStockAvailability>();
     private readonly IPaymentService _payment = Substitute.For<IPaymentService>();
-    private readonly IUnitOfWork _uow = Substitute.For<IUnitOfWork>();
+    private readonly IUnitOfWork _uow = TestUnitOfWork.Create();
+    private readonly List<string> _steps = [];
+    private Order? _saved;
 
-    private CreateOrderHandler CreateHandler() =>
-        new(_products, _orders, _customers, _coupons, _stockMovements, _payment,
-            new OrderStockRelease(_products, _stockMovements), TestCurrentUser.Customer(1), TestTenant.Context(), _uow, new FixedClock(),
-            NullLogger<CreateOrderHandler>.Instance);
+    public CreateOrderHandlerTests()
+    {
+        // الحفظ الأول يولّد معرّف الطلب (كما تفعل القاعدة) — الحجز يحمل هذا المعرّف مرجعاً.
+        _orders.When(o => o.AddAsync(Arg.Any<Order>(), Arg.Any<CancellationToken>())).Do(call => _saved = call.Arg<Order>());
+        _uow.When(u => u.SaveChangesAsync(Arg.Any<CancellationToken>())).Do(_ =>
+        {
+            if (_saved is { Id: 0 }) TestCatalog.WithId(_saved, SavedOrderId);
+            _steps.Add("save");
+        });
+        _reservations.When(r => r.ReserveAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<ReservationLine>>(), Arg.Any<CancellationToken>()))
+            .Do(_ => _steps.Add("reserve"));
+        _payment.When(p => p.CreateIntentAsync(Arg.Any<Money>(), Arg.Any<string>(), Arg.Any<CancellationToken>()))
+            .Do(_ => _steps.Add("intent"));
+    }
+
+    private CreateOrderHandler CreateHandler() => new(
+        _products, _orders, _customers, _coupons, _reservations, _availability, _payment,
+        new OrderPaymentConfirmation(_orders, _reservations, _customers, _coupons, _payment, Substitute.For<IEmailService>(), _uow),
+        TestCurrentUser.Customer(1), TestTenant.Context(), _uow, new FixedClock(), NullLogger<CreateOrderHandler>.Instance);
 
     private static Customer NewCustomer() => new(userId: 1, "عميل", "customer@souq.com");
-    // المعرّف 1 يطابق ProductId في الأمر (كما بعد الحفظ فعلياً) — أسطر الطلب تحمل
-    // product.Id، وتحرير المخزون يعيد تحميل المنتج بهذا المعرّف.
-    private static Product NewProduct(int stock = 10)
-    {
-        return Souq.Application.Tests.TestDoubles.TestCatalog.Product("سماعات لاسلكية", price: 50, stock: stock, id: 1);
-    }
+
+    // المعرّف 1 (المنتج ومتغيّره الافتراضي) يطابق ProductId في الأمر كما بعد الحفظ فعلياً.
+    private static Product NewProduct() => TestCatalog.Product("سماعات لاسلكية", price: 50, id: 1);
 
     // العميل يأتي من ICurrentUser (العميل 1 في CreateHandler) — الأمر لا يحمل معرّفه.
     private static CreateOrderCommand NewCommand(int quantity = 1, string? couponCode = null) => new(
         ShippingAddress: "عمّان",
         Items: new List<OrderLineInput> { new(ProductId: 1, quantity) },
         CouponCode: couponCode);
+
+    private void Arrange(Product? product = null, int available = 10)
+    {
+        _customers.GetByIdAsync(1, Arg.Any<CancellationToken>()).Returns(NewCustomer());
+        _products.GetByIdAsync(1, Arg.Any<CancellationToken>()).Returns(product ?? NewProduct());
+        _availability.AvailableAsync(Arg.Any<IReadOnlyCollection<int>>(), Arg.Any<CancellationToken>())
+            .Returns(new Dictionary<int, int> { [1] = available });
+        _payment.CreateIntentAsync(Arg.Any<Money>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(new PaymentIntentResult("pi_123", "pi_123_secret"));
+    }
 
     [Fact]
     public async Task عميل_غير_موجود_يُفشل_مبكراً_بلا_أي_نيّة_دفع()
@@ -50,134 +79,117 @@ public class CreateOrderHandlerTests
 
         var result = await CreateHandler().Handle(NewCommand(), CancellationToken.None);
 
-        result.IsSuccess.Should().BeFalse();
         result.ErrorCode.Should().Be("CustomerNotFound");
         await _payment.DidNotReceive().CreateIntentAsync(Arg.Any<Money>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
-    public async Task منتج_غير_موجود_يُفشل_بلا_أي_نيّة_دفع()
+    public async Task منتج_غير_موجود_أو_غير_منشور_لا_يُطلب()
     {
-        _customers.GetByIdAsync(1, Arg.Any<CancellationToken>()).Returns(NewCustomer());
-        _products.GetByIdAsync(1, Arg.Any<CancellationToken>()).Returns((Product?)null);
+        var draft = NewProduct();
+        draft.ChangeStatus(ProductStatus.Draft);
+        Arrange(draft);
 
         var result = await CreateHandler().Handle(NewCommand(), CancellationToken.None);
 
-        result.IsSuccess.Should().BeFalse();
         result.ErrorCode.Should().Be("ProductNotFound");
-        await _payment.DidNotReceive().CreateIntentAsync(Arg.Any<Money>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await _orders.DidNotReceive().AddAsync(Arg.Any<Order>(), Arg.Any<CancellationToken>());
+        _steps.Should().BeEmpty();
     }
 
     [Fact]
-    public async Task مخزون_غير_كافٍ_يُفشل_بلا_حفظ_وبلا_نيّة_دفع()
+    public async Task متاح_غير_كافٍ_يُرفض_قبل_أي_طلب_أو_حجز()
     {
-        _customers.GetByIdAsync(1, Arg.Any<CancellationToken>()).Returns(NewCustomer());
-        _products.GetByIdAsync(1, Arg.Any<CancellationToken>()).Returns(NewProduct(stock: 0));
+        Arrange(available: 1);
 
-        var result = await CreateHandler().Handle(NewCommand(quantity: 1), CancellationToken.None);
+        var result = await CreateHandler().Handle(NewCommand(quantity: 2), CancellationToken.None);
 
-        result.IsSuccess.Should().BeFalse();
         result.ErrorCode.Should().Be("InsufficientStock");
         await _orders.DidNotReceive().AddAsync(Arg.Any<Order>(), Arg.Any<CancellationToken>());
-        await _payment.DidNotReceive().CreateIntentAsync(Arg.Any<Money>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+        _steps.Should().BeEmpty();
     }
 
     [Fact]
-    public async Task كوبون_غير_موجود_يُفشل_بلا_إنقاص_مخزون()
+    public async Task كوبون_غير_موجود_يُفشل_بلا_طلب_ولا_حجز()
     {
-        var product = NewProduct(stock: 10);
-        _customers.GetByIdAsync(1, Arg.Any<CancellationToken>()).Returns(NewCustomer());
-        _products.GetByIdAsync(1, Arg.Any<CancellationToken>()).Returns(product);
+        Arrange();
         _coupons.GetByCodeAsync("BAD", Arg.Any<CancellationToken>()).Returns((Coupon?)null);
 
         var result = await CreateHandler().Handle(NewCommand(couponCode: "BAD"), CancellationToken.None);
 
-        result.IsSuccess.Should().BeFalse();
         result.ErrorCode.Should().Be("CouponNotFound");
-        product.StockQuantity.Should().Be(10);
         await _orders.DidNotReceive().AddAsync(Arg.Any<Order>(), Arg.Any<CancellationToken>());
+        _steps.Should().BeEmpty();
     }
 
     [Fact]
-    public async Task نجاح_الإنشاء_يحفظ_الطلب_Pending_وينشئ_نيّة_دفع_مربوطة_بالطلب()
+    public async Task نجاح_الإنشاء_يحفظ_الطلب_ثم_يحجز_بمرجعه_في_معاملة_ثم_ينشئ_نيّة_الدفع()
     {
-        var product = NewProduct(stock: 10);
-        _customers.GetByIdAsync(1, Arg.Any<CancellationToken>()).Returns(NewCustomer());
-        _products.GetByIdAsync(1, Arg.Any<CancellationToken>()).Returns(product);
-        _payment.CreateIntentAsync(Arg.Any<Money>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
-            .Returns(new PaymentIntentResult("pi_123", "pi_123_secret"));
-
-        Order? savedOrder = null;
-        _orders.When(x => x.AddAsync(Arg.Any<Order>(), Arg.Any<CancellationToken>()))
-            .Do(ci => savedOrder = ci.Arg<Order>());
+        Arrange();
 
         var result = await CreateHandler().Handle(NewCommand(quantity: 2), CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
-        result.Value!.Status.Should().Be(nameof(OrderStatus.Pending));
+        result.Value!.OrderId.Should().Be(SavedOrderId);
+        result.Value.Status.Should().Be(nameof(OrderStatus.Pending));
         result.Value.TotalAmount.Should().Be(100); // 50 × 2
         result.Value.ClientSecret.Should().Be("pi_123_secret");
+        _saved!.PaymentIntentId.Should().Be("pi_123");
 
-        product.StockQuantity.Should().Be(8);
-        savedOrder!.Status.Should().Be(OrderStatus.Pending);
-        savedOrder.PaymentIntentId.Should().Be("pi_123");
-
-        // كل بيع يُسجَّل حركة مخزون Sale بكمية سالبة تساوي المطلوب.
-        await _stockMovements.Received(1).AddAsync(
-            Arg.Is<StockMovement>(m => m.Type == StockMovementType.Sale && m.QuantityChange == -2),
+        // الطلب يُحفظ (معرّفه) ثم يُحجز مخزونه في المعاملة نفسها، ونيّة الدفع بعدها خارجها، ثم حفظ ربطها.
+        _steps.Should().Equal("save", "reserve", "intent", "save");
+        await _uow.Received(1).InTransactionAsync(Arg.Any<Func<Task>>(), Arg.Any<CancellationToken>());
+        await _reservations.Received(1).ReserveAsync(OrderStockReference.For(SavedOrderId),
+            Arg.Is<IReadOnlyList<ReservationLine>>(lines => lines.Count == 1 && lines[0].VariantId == 1 && lines[0].Quantity == 2),
             Arg.Any<CancellationToken>());
-
-        // حفظ الطلب Pending أولاً، ثم حفظ ثانٍ لربط نيّة الدفع.
-        await _uow.Received(2).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
     public async Task كوبون_صالح_يُطبَّق_على_الإجمالي_قبل_إنشاء_نيّة_الدفع()
     {
-        var product = NewProduct(stock: 10);
+        Arrange();
         var coupon = new Coupon("SAVE10", DiscountType.Percentage, 10, null, null, null);
-        _customers.GetByIdAsync(1, Arg.Any<CancellationToken>()).Returns(NewCustomer());
-        _products.GetByIdAsync(1, Arg.Any<CancellationToken>()).Returns(product);
         _coupons.GetByCodeAsync("SAVE10", Arg.Any<CancellationToken>()).Returns(coupon);
-        _payment.CreateIntentAsync(Arg.Any<Money>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
-            .Returns(new PaymentIntentResult("pi_123", "pi_123_secret"));
 
         var result = await CreateHandler().Handle(NewCommand(quantity: 2, couponCode: "SAVE10"), CancellationToken.None);
 
-        result.IsSuccess.Should().BeTrue();
         result.Value!.Subtotal.Should().Be(100);
         result.Value.DiscountAmount.Should().Be(10);
         result.Value.TotalAmount.Should().Be(90);
-
-        // نيّة الدفع تُنشأ على الإجمالي بعد الخصم لا قبله.
         await _payment.Received(1).CreateIntentAsync(
             Arg.Is<Money>(m => m.Amount == 90), Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
-    public async Task فشل_بوّابة_الدفع_عند_إنشاء_النيّة_يُلغي_الطلب_ويحرّر_مخزونه_فوراً()
+    public async Task نفاد_بين_القراءة_والحجز_يرفض_ولا_تُنشأ_نيّة_دفع()
+    {
+        // سباق: المتاح كان كافياً عند القراءة، ثم سبق مشترٍ آخر — الحجز يرفض ويُلغي المعاملة كلها.
+        Arrange();
+        _reservations.ReserveAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<ReservationLine>>(), Arg.Any<CancellationToken>())
+            .ThrowsAsync(new InsufficientStockException("سماعات", 1, 0));
+
+        var act = () => CreateHandler().Handle(NewCommand(), CancellationToken.None);
+
+        await act.Should().ThrowAsync<InsufficientStockException>();
+        await _payment.DidNotReceive().CreateIntentAsync(Arg.Any<Money>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task فشل_بوّابة_الدفع_يُلغي_الطلب_ويحرّر_حجزه_فوراً()
     {
         // Phase 0 C6: كان الطلب يبقى Pending يحجز المخزون للأبد بلا أي وسيلة دفع.
-        var product = NewProduct(stock: 10);
-        _customers.GetByIdAsync(1, Arg.Any<CancellationToken>()).Returns(NewCustomer());
-        _products.GetByIdAsync(1, Arg.Any<CancellationToken>()).Returns(product);
+        Arrange();
         _payment.CreateIntentAsync(Arg.Any<Money>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
             .ThrowsAsync(new HttpRequestException("gateway down"));
 
-        Order? savedOrder = null;
-        _orders.When(x => x.AddAsync(Arg.Any<Order>(), Arg.Any<CancellationToken>()))
-            .Do(ci => savedOrder = ci.Arg<Order>());
-
         var result = await CreateHandler().Handle(NewCommand(quantity: 3), CancellationToken.None);
 
-        result.IsSuccess.Should().BeFalse();
         result.ErrorCode.Should().Be("PaymentUnavailable");
-        savedOrder!.Status.Should().Be(OrderStatus.Cancelled);
-        product.StockQuantity.Should().Be(10); // 10 − 3 ثم + 3
-        await _stockMovements.Received(1).AddAsync(
-            Arg.Is<StockMovement>(m => m.Type == StockMovementType.Cancellation && m.QuantityChange == 3),
-            Arg.Any<CancellationToken>());
-        // حفظ الطلب، ثم حفظ التعويض (إلغاء + إعادة) في معاملة واحدة.
+        _saved!.Status.Should().Be(OrderStatus.Cancelled);
+        await _reservations.Received(1).CancelAsync(
+            OrderStockReference.For(SavedOrderId), "تعذّر بدء عملية الدفع", false, Arg.Any<CancellationToken>());
+        // حفظ الطلب مع الحجز، ثم حفظ الإلغاء مع التحرير — كلٌّ في معاملته.
         await _uow.Received(2).SaveChangesAsync(Arg.Any<CancellationToken>());
+        await _uow.Received(2).InTransactionAsync(Arg.Any<Func<Task>>(), Arg.Any<CancellationToken>());
     }
 }

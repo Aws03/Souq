@@ -39,10 +39,17 @@ public static class DependencyInjection
         services.AddScoped<Common.Tenancy.TenantContext>();
         services.AddScoped<Common.Tenancy.ITenantContext>(sp => sp.GetRequiredService<Common.Tenancy.TenantContext>());
 
-        // خدمة تطبيق مشتركة بين مسارَي الإلغاء (الإدارة + تعويض الدفع) — صنف ملموس
-        // بلا واجهة: لا تنفيذ بديل له، فالواجهة ستكون تجريداً بلا سبب.
-        services.AddScoped<Features.Orders.OrderStockRelease>();
-        // منطق تأكيد الدفع الواحد لمدخلين بتفويض مختلف (العميل المالك / توقيع البوّابة).
+        // وحدة Inventory (المرحلة 6): تنفيذ واحد لعقدَي Ordering (الحجز، المتاح) ولمنفذ Catalog (فتح مخزون متغيّر
+        // جديد). الإعدادات (مهلة الحجز) يسجّلها Infrastructure من Inventory:* بعد التحقّق منها.
+        services.AddScoped<Features.Inventory.Reservations.InventoryWriter>();
+        services.AddScoped<Features.Inventory.Reservations.InventoryReservations>();
+        services.AddScoped<Features.Inventory.Contracts.IInventoryReservations>(
+            sp => sp.GetRequiredService<Features.Inventory.Reservations.InventoryReservations>());
+        services.AddScoped<Features.Inventory.Contracts.IStockAvailability>(
+            sp => sp.GetRequiredService<Features.Inventory.Reservations.InventoryReservations>());
+        services.AddScoped<Features.Products.Contracts.IVariantStockInitializer,
+            Features.Inventory.Reservations.VariantStockInitializer>();
+        // منطق تأكيد الدفع وإلغاء الطلب غير المشحون، لكل مداخله (العميل المالك، توقيع البوّابة، منسّق المهلة).
         services.AddScoped<Features.Orders.OrderPaymentConfirmation>();
         // إصدار الجلسات (رمز تجديد + توكن وصول) لكل مداخلها: دخول، تسجيل، تجديد، تغيير كلمة مرور.
         services.AddScoped<Features.Auth.AuthSessionIssuer>();

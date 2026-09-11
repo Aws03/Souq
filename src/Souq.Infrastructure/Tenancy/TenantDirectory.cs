@@ -44,6 +44,9 @@ internal sealed class TenantDirectory : ITenantDirectory
         _cache.GetOrLoadAsync($"id:{tenantId}",
             () => Project(_db.Tenants.Where(t => t.Id == tenantId)).FirstOrDefaultAsync(ct));
 
+    public async Task<IReadOnlyList<TenantInfo>> ListActiveAsync(CancellationToken ct = default) =>
+        await Project(_db.Tenants.Where(t => t.Status == TenantStatus.Active).OrderBy(t => t.Id)).ToListAsync(ct);
+
     public void Invalidate() => _cache.Invalidate();
 
     private static IQueryable<TenantInfo> Project(IQueryable<Tenant> tenants) =>

@@ -167,6 +167,11 @@ export const api = {
   getLowStock: (params = {}) => request(`/admin/inventory/low-stock${toQueryString(params)}`),
   getStockMovements: (productId, params = {}) =>
     request(`/admin/inventory/${productId}/movements${toQueryString(params)}`),
+  // تصحيح بفارق وسبب (inventory.manage) يعيد مستوى المخزون الجديد — لا تعيين مطلق (C4).
+  adjustStock: (productId, delta, reason) =>
+    request(`/admin/inventory/${productId}/adjustments`, { method: 'POST', body: JSON.stringify({ delta, reason }) }),
+  setStockThreshold: (productId, lowStockThreshold) =>
+    request(`/admin/inventory/${productId}/threshold`, { method: 'PUT', body: JSON.stringify({ lowStockThreshold }) }),
 
   // ── إدارة الطلبات (أدمن) ──
   getOrders: (params = {}) => request(`/orders${toQueryString(params)}`),

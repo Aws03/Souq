@@ -27,7 +27,7 @@ dotnet run --project src/Souq.API                  # http://localhost:5200/swagg
 cd frontend && npm install && npm run dev          # http://localhost:5173
 ```
 
-**Startup validation:** settings are checked before the database is touched. A missing connection string or a `Jwt:Key` shorter than 32 bytes stops the API with a message naming the key. Development uses the fake payment gateway automatically when no Stripe key is set; other environments need Stripe keys or an explicit `Payments:Provider=Fake` ([ADR-0020](adr/0020-configuration-and-secrets.md)).
+**Startup validation:** settings are checked before the database is touched. A missing connection string or a `Jwt:Key` shorter than 32 bytes stops the API with a message naming the key. Development uses the fake payment gateway automatically when no Stripe key is set; other environments need Stripe keys or an explicit `Payments:Provider=Fake` ([ADR-0020](adr/0020-configuration-and-secrets.md)). `Inventory:ReservationMinutes` (5–1440, default 30) is how long an unpaid checkout holds stock, and `Inventory:SweepIntervalSeconds` (0 = off, else 10–3600, default 60) is how often the expiry sweep runs. Integration tests turn the sweep off and send `ExpireStaleCheckoutsCommand` directly ([ADR-0026](adr/0026-inventory-reservations.md)).
 
 **Docker (full stack):** `cp .env.example .env`, fill in the values, then `docker compose up --build`. The stack runs in Production mode: no admin exists unless `SEED_ADMIN_EMAIL`/`SEED_ADMIN_PASSWORD` are set, and the API refuses to start without Stripe keys unless `PAYMENTS_PROVIDER=Fake` is set for a demo. The default store is bound to `localhost` explicitly through `DEFAULT_TENANT_HOSTS`. Production has no fallback store for unknown hosts.
 

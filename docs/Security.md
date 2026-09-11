@@ -67,6 +67,10 @@
     - Draft and archived products, and products in hidden categories, are invisible to anonymous callers, by id and by slug (`CatalogTests`).
     - Image ids are resolved inside a product of the caller's store. Another store's image id under your own product gives 404 on remove and 422 on reorder, and the image is untouched.
     - Slugs and SKUs are unique per store only, so one store cannot probe another store's catalog through a uniqueness conflict (`TenantIsolationTests`).
+  - **Inventory (Phase 6):**
+    - Stock corrections and thresholds require `inventory.manage` on top of `inventory.view`. Every correction is audited with its delta and reason.
+    - Store B's admin gets 404 for A's product on both endpoints, and A's stock and threshold are unchanged (`TenantIsolationTests`).
+    - Reservations and ledger rows reference the item through composite tenant-scoped foreign keys, and the expiry sweep runs inside each store's own scope.
 
 ## 4. Transport, CORS, headers, rate limiting
 

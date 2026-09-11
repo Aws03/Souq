@@ -1,6 +1,7 @@
 using Souq.Application.Common.Exceptions;
 using Souq.Application.Common.Interfaces;
 using Souq.Application.Common.Models;
+using Souq.Application.Features.Inventory.Contracts;
 using Souq.Domain.Entities;
 using Souq.Domain.Enums;
 using Souq.Domain.Interfaces;
@@ -10,21 +11,21 @@ namespace Souq.Application.Features.Orders;
 public record OrderConfirmedDto(int OrderId, string Status, decimal TotalAmount, string Currency);
 
 // ============================================================================
-// OrderPaymentConfirmation — منطق تأكيد الدفع الواحد لمدخلين بتفويض مختلف:
+// OrderPaymentConfirmation — منطق تأكيد الدفع الواحد لثلاثة مداخل بتفويض مختلف:
 //   العميل (ConfirmOrderPaymentCommand): مُصادَق بالتوكن + يجب أن يملك الطلب.
 //   البوّابة (ProcessPaymentWebhookCommand): مُصادَقة بالتوقيع، لا مستخدم خلفها.
-// كان الـ Webhook يمرّر عبر أمر العميل نفسه؛ ففحص الملكية داخله كان سيرفض البوّابة، وتركه
-// في الـ Controller كان يسمح لعميل بتأكيد (أو إلغاء بفشل الدفع!) طلب غيره لو نُسي (B7).
+//   منسّق انتهاء المهلة (ExpireStaleCheckouts): البوّابة قالت إن الدفع نجح قبل الإلغاء.
+// المستدعي يحمّل الطلب ويقرّر الوصول؛ هذا الصنف لا يعرف من المستدعي (B7).
 //
-// يحقّق من الحالة لدى البوّابة نفسها، مضمون التكرار، ويحسم سباق العميل/الـ Webhook عبر
-// rowversion (ADR-0013). المستدعي يحمّل الطلب ويقرّر الوصول؛ هذا الصنف لا يعرف من المستدعي.
+// يحقّق من الحالة لدى البوّابة نفسها، مضمون التكرار، ويحسم سباق العميل/الـ Webhook عبر rowversion (ADR-0013).
+// المخزون (المرحلة 6): نجاح الدفع يُلتزم الحجز (هنا وحده يُسجَّل البيع)، والفشل يحرّره — كلاهما في معاملة الطلب.
 // ============================================================================
 public sealed class OrderPaymentConfirmation
 {
     private const string PaymentFailedNote = "فشل الدفع";
 
     private readonly IOrderRepository _orders;
-    private readonly OrderStockRelease _stockRelease;
+    private readonly IInventoryReservations _reservations;
     private readonly ICustomerRepository _customers;
     private readonly ICouponRepository _coupons;
     private readonly IPaymentService _payment;
@@ -32,10 +33,10 @@ public sealed class OrderPaymentConfirmation
     private readonly IUnitOfWork _uow;
 
     public OrderPaymentConfirmation(
-        IOrderRepository orders, OrderStockRelease stockRelease, ICustomerRepository customers,
+        IOrderRepository orders, IInventoryReservations reservations, ICustomerRepository customers,
         ICouponRepository coupons, IPaymentService payment, IEmailService email, IUnitOfWork uow)
     {
-        _orders = orders; _stockRelease = stockRelease; _customers = customers;
+        _orders = orders; _reservations = reservations; _customers = customers;
         _coupons = coupons; _payment = payment; _email = email; _uow = uow;
     }
 
@@ -50,16 +51,12 @@ public sealed class OrderPaymentConfirmation
             return Result<OrderConfirmedDto>.Failure(
                 Error.BusinessRule("NoPaymentIntent", "لا توجد نيّة دفع مرتبطة بهذا الطلب"));
 
-        // استدعاء خارجي خارج أي معاملة قاعدة بيانات مفتوحة (DatabaseDesign.md §8).
+        // استدعاء خارجي خارج أي معاملة قاعدة بيانات مفتوحة (ADR-0021).
         var confirmation = await _payment.ConfirmAsync(order.PaymentIntentId, ct);
         if (!confirmation.Succeeded)
         {
-            // تعويض فشل الدفع: نُلغي الطلب ونعيد مخزونه مع أثر في سجلّ الحركة — معاملة واحدة.
             var reason = confirmation.FailureReason ?? PaymentFailedNote;
-            order.Cancel(reason);
-            await _stockRelease.ReleaseAsync(order, reason, ct);
-            await _uow.SaveChangesAsync(ct);
-
+            await CancelAsync(order, reason, expired: false, ct);
             return Result<OrderConfirmedDto>.Failure(Error.BusinessRule("PaymentFailed", reason));
         }
 
@@ -75,7 +72,11 @@ public sealed class OrderPaymentConfirmation
 
         try
         {
-            await _uow.SaveChangesAsync(ct);
+            await _uow.InTransactionAsync(async () =>
+            {
+                await _uow.SaveChangesAsync(ct);
+                await _reservations.CommitAsync(OrderStockReference.For(order.Id), ct);
+            }, ct);
         }
         catch (ConcurrencyConflictException)
         {
@@ -94,6 +95,17 @@ public sealed class OrderPaymentConfirmation
             await _email.SendOrderConfirmationAsync(customer.Email, order.Id, ct);
 
         return Result<OrderConfirmedDto>.Success(ToDto(order, order.Status));
+    }
+
+    // إلغاء طلب لم يُشحن مع حجوزاته في معاملة واحدة — مسار واحد لفشل الدفع، فشل بدء الدفع، وانتهاء المهلة.
+    public async Task CancelAsync(Order order, string reason, bool expired, CancellationToken ct)
+    {
+        order.Cancel(reason);
+        await _uow.InTransactionAsync(async () =>
+        {
+            await _uow.SaveChangesAsync(ct);
+            await _reservations.CancelAsync(OrderStockReference.For(order.Id), reason, expired, ct);
+        }, ct);
     }
 
     private static OrderConfirmedDto ToDto(Order order, OrderStatus status) =>

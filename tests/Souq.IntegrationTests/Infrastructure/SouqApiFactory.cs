@@ -55,6 +55,8 @@ public sealed class SouqApiFactory : WebApplicationFactory<Program>, IAsyncLifet
         builder.UseSetting("Seed:PlatformOwnerEmail", PlatformOwnerEmail);
         builder.UseSetting("Seed:PlatformOwnerPassword", PlatformOwnerPassword);
         builder.UseSetting("Storage:Local:RootPath", UploadsRoot);
+        // منسّق انتهاء الحجوزات الدوري معطّل: الاختبارات تشغّل أمر الانتهاء مباشرة ولا تسابقها دورة خلفية.
+        builder.UseSetting("Inventory:SweepIntervalSeconds", "0");
         // مئات الاختبارات تدخل من العنوان نفسه: حدود الإنتاج تخنقها. اختبار حدّ المعدّل يضيّقها بمصنع مشتقّ.
         foreach (var policy in new[] { "Auth", "Refresh", "CouponPreview" })
             builder.UseSetting($"RateLimiting:{policy}:PermitLimit", "100000");

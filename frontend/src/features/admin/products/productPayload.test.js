@@ -7,31 +7,29 @@ const form = (overrides = {}) => ({
   stockQuantity: '5', categoryId: '2', status: 'Draft', videoRemoved: false, ...overrides,
 });
 
-const original = { slug: 'wireless-headphones', videoUrl: '/uploads/videos/v.mp4', stockQuantity: 5 };
+const original = { slug: 'wireless-headphones', videoUrl: '/uploads/videos/v.mp4', onHand: 5, reserved: 1, available: 4 };
 
 describe('buildProductPayload', () => {
-  it('sends the absolute initial stock, the chosen status and lets the server suggest the slug on create', () => {
-    const payload = buildProductPayload(form({ stockQuantity: '7' }), null);
+  it('opens the stock with the initial quantity, the chosen status and a server-suggested slug on create', () => {
+    const payload = buildProductPayload(form({ stockQuantity: '7', lowStockThreshold: '2' }), null);
 
     expect(payload.stockQuantity).toBe(7);
-    expect(payload).not.toHaveProperty('expectedStockQuantity');
+    expect(payload.lowStockThreshold).toBe(2);
     expect(payload.status).toBe('Draft');
     expect(payload.slug).toBeNull();
   });
 
-  it('does not touch stock when editing other fields only', () => {
-    const payload = buildProductPayload(form({ texts: { ar: { name: 'اسم جديد' } } }), original);
+  it('omits an empty low-stock threshold on create so the server default applies', () => {
+    expect(buildProductPayload(form(), null)).not.toHaveProperty('lowStockThreshold');
+  });
+
+  it('never sends stock from the product form on edit (corrections are inventory deltas — C4)', () => {
+    const payload = buildProductPayload(form({ stockQuantity: '12', lowStockThreshold: '3' }), original);
 
     expect(payload).not.toHaveProperty('stockQuantity');
     expect(payload).not.toHaveProperty('expectedStockQuantity');
+    expect(payload).not.toHaveProperty('lowStockThreshold');
     expect(payload).not.toHaveProperty('status');
-  });
-
-  it('sends the new stock with the value the admin saw (compare-and-set)', () => {
-    const payload = buildProductPayload(form({ stockQuantity: '12' }), original);
-
-    expect(payload.stockQuantity).toBe(12);
-    expect(payload.expectedStockQuantity).toBe(5);
   });
 
   it('sends texts per language, dropping a language without a name', () => {
@@ -52,13 +50,11 @@ describe('buildProductPayload', () => {
     expect(buildProductPayload(form({ slug: ' New-Slug ' }), original).slug).toBe('new-slug');
   });
 
-  it('trims optional identifiers and omits an empty low-stock threshold', () => {
+  it('trims optional identifiers', () => {
     const payload = buildProductPayload(form(), original);
 
     expect(payload.sku).toBe('hp-01');
     expect(payload.brand).toBeNull();
-    expect(payload).not.toHaveProperty('lowStockThreshold');
-    expect(buildProductPayload(form({ lowStockThreshold: '0' }), original).lowStockThreshold).toBe(0);
   });
 
   it('clears the video only when the admin removed it', () => {

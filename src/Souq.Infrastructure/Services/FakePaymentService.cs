@@ -20,6 +20,10 @@ public class FakePaymentService : IPaymentService
     public Task<PaymentConfirmationResult> ConfirmAsync(string paymentIntentId, CancellationToken ct = default)
         => Task.FromResult(new PaymentConfirmationResult(true, null));
 
+    // لا نيّة حقيقية تُلغى: "الدفع" هنا هو زرّ الإتمام في الواجهة، فطلب هُجر قبله يُلغى محلياً عند انتهاء مهلته.
+    public Task<PaymentIntentState> CancelIntentAsync(string paymentIntentId, CancellationToken ct = default)
+        => Task.FromResult(PaymentIntentState.Cancelled);
+
     public PaymentClientConfig GetClientConfig() => new(PublishableKey: null);
 
     public PaymentWebhookEvent? ParseWebhook(string payload, string? signatureHeader) => null;

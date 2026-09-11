@@ -1,7 +1,7 @@
 # Souq Platform: Product Roadmap
 
 > **Goal:** turn Souq into one **white-label, multi-tenant e-commerce platform**, sold to many clients (≈ $5,000+ each) and maintainable by a professional team.
-> **Status:** Phase 0 ✅ · Target architecture ✅ documented · Phase 1A ✅ (merged to `main`) · Phase 1B ✅ on branch `phase/1b-production-foundations` (awaiting review) · **Autonomous run on `phase/2-15-multitenant-platform`** (branched from the 1B tip): Phase 2 ✅ · Phase 3 ✅ · Phase 4 ✅ · Phase 5 ✅. Next: Phase 6.
+> **Status:** Phase 0 ✅ · Target architecture ✅ documented · Phase 1A ✅ (merged to `main`) · Phase 1B ✅ on branch `phase/1b-production-foundations` (awaiting review) · **Autonomous run on `phase/2-15-multitenant-platform`** (branched from the 1B tip): Phase 2 ✅ · Phase 3 ✅ · Phase 4 ✅ · Phase 5 ✅ · Phase 6 ✅. Next: Phase 7.
 > **Companion document:** [ArchitectureAssessment.md](ArchitectureAssessment.md) covers the current state, the problem register (IDs such as `B1` and `C2`), the target architecture, and the full reasoning behind every decision (`D-xx`).
 > **Last updated:** 2026-09-11
 
@@ -387,7 +387,30 @@ Status legend: ✅ done · 🟡 in progress · ⏳ planned · ⏸ awaiting appro
   - The isolation suite covers the new tables.
   - List endpoints have no N+1 queries.
 
-### Phase 6: Inventory ⏳
+### Phase 6: Inventory ✅ (autonomous run)
+- **Delivered ([ADR-0026](adr/0026-inventory-reservations.md)):**
+  - **`InventoryItem` per variant:** on hand, reserved, available, low-stock threshold, `rowversion`, and database check constraints. Stock left `Product`.
+  - **Explicit `StockReservation`s:**
+    - checkout reserves, in the same transaction as the order;
+    - payment commits them — the only place a `Sale` line is written;
+    - cancelling or a failed payment releases them;
+    - cancelling a paid, unshipped order restocks it;
+    - every transition happens once.
+  - **Concurrency:** `rowversion` conflicts are retried from a fresh read (up to 5 attempts), so the last unit sells exactly once and the losers get `422 InsufficientStock`.
+  - **Ledger:** only `InventoryItem` can create a movement, so Σ movements = on hand. The migration writes opening balances.
+  - **Corrections:** `POST /api/admin/inventory/{productId}/adjustments` (a delta plus a reason, audited) and `PUT …/threshold`. The product form no longer carries stock (fixes C4).
+  - **Expiry** (D-15, a hosted service): every 60 s, each active store's expired reservations are settled. The gateway is asked to cancel the payment intent first; if it had already succeeded, the order is confirmed instead (closes the C6 residual).
+  - **Contracts:** Ordering calls `IInventoryReservations` and `IStockAvailability`; Catalog's `IVariantStockInitializer` is implemented by Inventory. The architecture test allows exactly these contract references, with no cycles.
+  - **Frontend:** the inventory page shows on hand, reserved and available, with an adjustment drawer. The product form sets stock only on create.
+  - **Migration `Phase6Inventory`:** rewritten by hand to preserve data, and rehearsed with Pending and Paid legacy orders.
+- **Deferred, with reasons:**
+  - Low-stock notification emails: they need the outbox (Phase 14). The dashboard badge and list exist.
+  - A distributed lock for the sweeper when several instances run: Phase 23. Running two instances is safe but redundant.
+  - Basket reservations: Phase 8 decides.
+  - Refunds for paid-then-cancelled orders: Phase 11.
+- **Exit criteria (met):**
+  - Parallel-checkout tests: 5 buyers on the last unit → exactly one order and four `422 InsufficientStock`; 8 buyers on 3 units → exactly 3.
+  - `InventoryAndOrderTests` assert Σ ledger = on hand and Σ active reservations = reserved after every step: reserve, pay, cancel paid, cancel pending, adjust, expire.
 - **Goal.** Correct stock under concurrency, with a complete audit trail.
 - **Scope.**
   - An `InventoryItem` per variant tracking on-hand, reserved, and available quantities.
@@ -620,8 +643,8 @@ Each decision is argued in full (options, recommendation, rationale) in Architec
 | D-17 | Auditing | ✅ **Implemented in Phase 4:** append-only `AuditEntries` written by a MediatR behavior for `IAuditable` requests, inside the handler's unit of work | 4 |
 | D-10 | Catalog localization | ✅ **Implemented in Phase 5:** translation tables in the store's languages replace `NameAr`/`NameEn` — [ADR-0025](adr/0025-catalog-model.md) | 5 |
 | D-18 | File storage | Tenant-prefixed keys and content validation ✅ (1A/2); the product gallery ✅ (5); cloud blob storage in production (23) | 1A / 5 / 23 |
-| D-21 | Sellable unit | ✅ **Implemented in Phase 5:** a default variant per product holds the SKU, price and compare-at price; stock moves to the variant in Phase 6 — [ADR-0025](adr/0025-catalog-model.md) | 5 / 6 |
-| D-15 | Background jobs | .NET hosted services; adopt Hangfire only when needed | 6 |
+| D-21 | Sellable unit | ✅ **Implemented in Phases 5–6:** a default variant per product holds the SKU, price and compare-at price ([ADR-0025](adr/0025-catalog-model.md)); its stock is an `InventoryItem` with reservations ([ADR-0026](adr/0026-inventory-reservations.md)) | 5 / 6 |
+| D-15 | Background jobs | ✅ **Implemented in Phase 6:** a .NET hosted service (checkout expiry sweep per store); Hangfire only when needed — [ADR-0026](adr/0026-inventory-reservations.md) | 6 |
 | D-13 | Payment tenancy | Per-tenant gateway configuration; choose tenant-owned keys vs Stripe Connect | 11 |
 | D-14 | Notifications | Outbox + background dispatcher, per-tenant templates | 14 |
 | D-19 | Frontend stack | Incremental TypeScript + TanStack Query | 15 |
@@ -702,3 +725,4 @@ The earlier `AUDIT.md` (Arabic, 8-phase program) and the engineering-thinking gu
 | 2026-09-11 | Phase 3 completed (identity split, sessions, roles, rate limits); ADR-0023 |
 | 2026-09-11 | Phase 4 completed (platform API, store settings and modules, storefront config, audit log, invitations, staff management); ADR-0024 |
 | 2026-09-11 | Phase 5 completed (catalog translations, default variant, product lifecycle and slugs, gallery, category tree, admin catalog API and UI); ADR-0025 |
+| 2026-09-11 | Phase 6 completed (inventory items per variant, explicit reservations, retry-on-conflict checkout, delta adjustments, checkout expiry sweep, module contracts); ADR-0026 |

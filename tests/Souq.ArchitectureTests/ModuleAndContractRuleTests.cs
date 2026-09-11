@@ -45,27 +45,53 @@ public class ModuleAndContractRuleTests
         folders.Should().BeSubsetOf(ModuleFolders.Values.SelectMany(f => f));
     }
 
+    // العقود المسموحة بين الوحدات وفق رسم الاعتماديات (Modules.md §2): الوحدة ⇒ الوحدات التي تستدعي عقودها.
+    private static readonly IReadOnlyDictionary<string, string[]> AllowedContracts = new Dictionary<string, string[]>
+    {
+        ["Ordering"] = ["Inventory"],   // IInventoryReservations، IStockAvailability (المرحلة 6)
+        ["Inventory"] = ["Catalog"],    // تنفّذ منفذ Catalog IVariantStockInitializer (عكس الاعتماد، المرحلة 6)
+    };
+
     [Theory]
     [MemberData(nameof(Modules))]
-    public void وحدات_Application_لا_تشير_لبعضها_مباشرة(string module)
+    public void وحدات_Application_لا_تشير_لبعضها_إلا_عبر_العقود_المسموحة(string module)
     {
-        // اليوم لا عقود (Contracts) بين الوحدات بعد، فالقاعدة صارمة: لا إشارة لنطاق وحدة أخرى.
-        // حين يظهر أول عقد (IInventoryReservations في المرحلة 6/9) تُوسَّع القاعدة لتسمح بـ
-        // <Module>.Contracts فقط وفق رسم الاعتماديات في Modules.md §2.
+        // لا إشارة لنطاق وحدة أخرى إلا <Module>.Contracts لوحدة يسمح بها رسم الاعتماديات. العقد ليس ثقباً: أوامر الوحدة
+        // الأخرى ومعالجاتها واستعلاماتها وأنواعها الداخلية تبقى ممنوعة.
         var own = ModuleFolders[module].Select(f => $"{Features}.{f}").ToArray();
+        var allowed = (AllowedContracts.GetValueOrDefault(module) ?? [])
+            .SelectMany(m => ModuleFolders[m]).Select(f => $"{Features}.{f}.Contracts").ToArray();
         var others = ModuleFolders.Where(m => m.Key != module)
             .SelectMany(m => m.Value).Select(f => $"{Features}.{f}").ToArray();
 
+        // أسماء الأنواع كاملةً لا بادئات النطاقات: حظر نطاق وحدة كان سيحظر عقدها المسموح معه.
+        var forbidden = Application.GetTypes()
+            .Where(t => t.Namespace is { } ns && others.Any(o => InNamespace(ns, o)) && !allowed.Any(a => InNamespace(ns, a)))
+            .Select(t => t.FullName!)
+            .ToArray();
+
         var result = Types.InAssembly(Application).That().ResideInNamespaceMatching(
                 $"^({string.Join('|', own.Select(System.Text.RegularExpressions.Regex.Escape))})(\\..*)?$")
-            .ShouldNot().HaveDependencyOnAny(others)
+            .ShouldNot().HaveDependencyOnAny(forbidden)
             .GetResult();
 
         result.IsSuccessful.Should().BeTrue(
-            $"{module} يشير إلى وحدة أخرى: " + string.Join(", ", result.FailingTypeNames ?? []));
+            $"{module} يشير إلى وحدة أخرى خارج عقودها المسموحة: " + string.Join(", ", result.FailingTypeNames ?? []));
+    }
+
+    [Fact]
+    public void العقود_المسموحة_بلا_دورات()
+    {
+        // Modules.md §2: "A cycle is never allowed" — وحدتان تستدعي كلٌّ منهما عقود الأخرى تُفشل البناء.
+        foreach (var (module, targets) in AllowedContracts)
+            foreach (var target in targets)
+                (AllowedContracts.GetValueOrDefault(target) ?? []).Should().NotContain(module, $"{module} ⇄ {target}");
     }
 
     public static TheoryData<string> Modules => new(ModuleFolders.Keys);
+
+    private static bool InNamespace(string ns, string root) =>
+        ns == root || ns.StartsWith(root + ".", StringComparison.Ordinal);
 
     [Fact]
     public void لا_طلب_من_العميل_يحمل_TenantId_خارج_منطقة_المنصّة()

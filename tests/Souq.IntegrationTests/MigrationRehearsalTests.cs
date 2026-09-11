@@ -59,7 +59,9 @@ public class MigrationRehearsalTests
                 .Should().Be(1);
             foreach (var table in TenantOwnedTables)
             {
-                (await ScalarAsync(db, $"SELECT COUNT(*) FROM [{table}]")).Should().Be(before[table], $"{table}: لا صف مفقود");
+                // المرحلة 6 تضيف سطر رصيد افتتاحي واحداً للمنتج القديم (سجلّه لم يطابق مخزونه) — ولا تحذف شيئاً.
+                var expected = table == "StockMovements" ? before[table] + 1 : before[table];
+                (await ScalarAsync(db, $"SELECT COUNT(*) FROM [{table}]")).Should().Be(expected, $"{table}: لا صف مفقود");
                 (await ScalarAsync(db, $"SELECT COUNT(*) FROM [{table}] WHERE [TenantId] <> 1")).Should().Be(0, table);
             }
 
@@ -112,8 +114,24 @@ public class MigrationRehearsalTests
                 WHERE ([object_id] = OBJECT_ID(N'[Products]') AND [name] IN (N'NameAr', N'NameEn', N'Description', N'Price', N'Currency', N'ImageUrl', N'IsActive'))
                    OR ([object_id] = OBJECT_ID(N'[Categories]') AND [name] = N'Name')
                 """)).Should().Be(0);
-            foreach (var table in new[] { "ProductTranslations", "ProductVariants", "CategoryTranslations" })
+            foreach (var table in new[] { "ProductTranslations", "ProductVariants", "CategoryTranslations", "InventoryItems", "StockReservations" })
                 (await ScalarAsync(db, $"SELECT COUNT(*) FROM [{table}] WHERE [TenantId] <> 1")).Should().Be(0, table);
+
+            // المرحلة 6: الطلب المعلّق كان قد أنقص المخزون (5 متبقية) ⇒ الموجود 5 + 2 محجوزة له بحجز نشط؛ المدفوع غير
+            // المشحون حجز ملتزم (إلغاؤه يعيد مخزونه)؛ ورصيد افتتاحي يجعل Σ السجلّ = الموجود؛ وأعمدة Products القديمة حُذفت.
+            (await ScalarAsync(db, "SELECT COUNT(*) FROM [InventoryItems]")).Should().Be(before["Products"]);
+            (await ScalarAsync(db, "SELECT CONCAT([OnHand], N'/', [Reserved], N'/', [LowStockThreshold]) FROM [InventoryItems]"))
+                .Should().Be("7/2/5");
+            (await ScalarAsync(db, """
+                SELECT STRING_AGG(CONCAT(o.[ShippingAddress], N':', r.[Quantity], N':', r.[Status]), N',') WITHIN GROUP (ORDER BY r.[Status])
+                FROM [StockReservations] r JOIN [Orders] o ON r.[Reference] = CONCAT(N'order:', o.[Id])
+                """)).Should().Be("معلّق:2:0,مدفوع:1:1");
+            (await ScalarAsync(db, "SELECT SUM([QuantityChange]) FROM [StockMovements]")).Should().Be(7);
+            (await ScalarAsync(db, "SELECT COUNT(*) FROM [StockMovements] WHERE [InventoryItemId] IS NULL")).Should().Be(0);
+            (await ScalarAsync(db, """
+                SELECT COUNT(*) FROM sys.columns
+                WHERE [object_id] = OBJECT_ID(N'[Products]') AND [name] IN (N'StockQuantity', N'LowStockThreshold')
+                """)).Should().Be(0);
 
             // المرشّحات على البيانات المُرحَّلة: المتجر 1 يرى صفوفه، ومتجر آخر لا يرى شيئاً — والتجمّع يُقرأ كاملاً.
             await using (var asDefault = new AppDbContext(options, Context(1)))
@@ -125,6 +143,7 @@ public class MigrationRehearsalTests
                 legacy.NameIn("en").Should().Be("Legacy product");
                 legacy.Price.Should().Be(new Souq.Domain.ValueObjects.Money(12.5m, "KWD"));
                 legacy.IsActive.Should().BeTrue();
+                (await asDefault.InventoryItems.SingleAsync(i => i.ProductId == legacy.Id)).Available.Should().Be(5);
             }
             await using (var asOther = new AppDbContext(options, Context(999)))
                 (await asOther.Customers.CountAsync()).Should().Be(0);
@@ -158,6 +177,12 @@ public class MigrationRehearsalTests
             VALUES (@order, @product, N'منتج قديم', 12.500, N'KWD', 2, @now);
         INSERT INTO [OrderStatusHistories] ([OrderId], [Status], [CreatedAt]) VALUES (@order, 0, @now);
         INSERT INTO [Orders] ([CustomerId], [Status], [ShippingAddress], [CreatedAt]) VALUES (@customer, 4, N'بلا أسطر', @now);
+        INSERT INTO [Orders] ([CustomerId], [Status], [ShippingAddress], [CreatedAt]) VALUES (@customer, 0, N'معلّق', @now);
+        INSERT INTO [OrderItems] ([OrderId], [ProductId], [ProductName], [UnitPrice], [Currency], [Quantity], [CreatedAt])
+            VALUES (SCOPE_IDENTITY(), @product, N'منتج قديم', 12.500, N'KWD', 2, @now);
+        INSERT INTO [Orders] ([CustomerId], [Status], [ShippingAddress], [CreatedAt]) VALUES (@customer, 1, N'مدفوع', @now);
+        INSERT INTO [OrderItems] ([OrderId], [ProductId], [ProductName], [UnitPrice], [Currency], [Quantity], [CreatedAt])
+            VALUES (SCOPE_IDENTITY(), @product, N'منتج قديم', 12.500, N'KWD', 1, @now);
         INSERT INTO [Coupons] ([Code], [Type], [Value], [UsedCount], [IsActive], [CreatedAt])
             VALUES (N'LEGACY10', 0, 10, 0, 1, @now);
         INSERT INTO [StockMovements] ([ProductId], [Type], [QuantityChange], [NewQuantity], [CreatedAt])

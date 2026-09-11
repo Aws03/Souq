@@ -11,6 +11,7 @@ using Souq.Application.Common.Security;
 using Souq.Application.Common.Tenancy;
 using Souq.Application.Features.Coupons.Queries;
 using Souq.Application.Features.Inventory.Queries;
+using Souq.Application.Features.Inventory.Reservations;
 using Souq.Application.Features.Orders.Queries;
 using Souq.Application.Features.Platform;
 using Souq.Application.Features.Products.Queries;
@@ -47,6 +48,7 @@ public static class DependencyInjection
         services.AddSingleton(report);
 
         AddPersistence(services, config);
+        AddInventory(services, config);
         AddPayments(services, config, environment, report);
         AddEmail(services, config, environment, report);
         AddStorage(services, config, environment);
@@ -93,6 +95,7 @@ public static class DependencyInjection
         services.AddScoped<ICouponRepository, CouponRepository>();
         services.AddScoped<IReviewRepository, ReviewRepository>();
         services.AddScoped<IStockMovementRepository, StockMovementRepository>();
+        services.AddScoped<IInventoryRepository, InventoryRepository>();
         services.AddScoped<ITenantRepository, TenantRepository>();
 
         // خدمات القراءة (ADR-0008): إسقاطات بلا تتبّع خلف منافذ Application، لكل وحدة منفذها.
@@ -111,6 +114,20 @@ public static class DependencyInjection
         // سجلّ التدقيق في وحدة العمل الحالية، والعمل داخل متجر بعينه من منطقة المنصّة.
         services.AddScoped<IAuditTrail, AuditTrail>();
         services.AddScoped<ITenantScopeRunner, TenantScopeRunner>();
+    }
+
+    // المخزون (المرحلة 6): مهلة الحجز ودورة منسّق الانتهاء من Inventory:* — مُتحقَّق منهما عند الإقلاع — والمنسّق
+    // خادم خلفي (D-15). SweepIntervalSeconds = 0 يعطّله (الاختبارات تشغّل أمر الانتهاء مباشرة).
+    private static void AddInventory(IServiceCollection services, IConfiguration config)
+    {
+        services.AddOptions<InventorySettings>()
+            .Bind(config.GetSection("Inventory"))
+            .Validate(s => s.ReservationMinutes is >= 5 and <= 1440, "Inventory:ReservationMinutes بين 5 و1440 دقيقة.")
+            .Validate(s => s.SweepIntervalSeconds == 0 || s.SweepIntervalSeconds is >= 10 and <= 3600,
+                "Inventory:SweepIntervalSeconds صفر (معطّل) أو بين 10 و3600 ثانية.")
+            .ValidateOnStart();
+        services.AddSingleton(sp => sp.GetRequiredService<IOptions<InventorySettings>>().Value);
+        services.AddHostedService<BackgroundJobs.ReservationExpiryService>();
     }
 
     // بوّابة الدفع: القرار هنا فقط — لا كود آخر في النظام يعرف أيّها يعمل. البوّابة التجريبية

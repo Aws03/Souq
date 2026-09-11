@@ -104,7 +104,7 @@ export default function Products() {
         </div>
       ),
     },
-    { key: 'stock', header: t('admin.products.colStock'), width: '90px', align: 'end', render: (p) => p.stockQuantity },
+    { key: 'stock', header: t('admin.products.colStock'), width: '90px', align: 'end', render: (p) => p.available },
     {
       key: 'actions', header: t('admin.products.colActions'), width: '64px', align: 'end', render: (p) => (
         <RowActionsMenu actions={[{ label: t('common.edit'), onClick: () => openEditor(p) }, ...statusActions(p)]} />
