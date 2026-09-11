@@ -20,7 +20,7 @@ public class UploadProductMediaHandlerTests
     private readonly IFileStorage _storage = Substitute.For<IFileStorage>();
     private readonly IUnitOfWork _uow = Substitute.For<IUnitOfWork>();
 
-    private static Product NewProduct() => new("سماعات", "وصف", new Money(50, "JOD"), 10, "headphones", categoryId: 1);
+    private static Product NewProduct() => Souq.Application.Tests.TestDoubles.TestCatalog.Product();
 
     private UploadProductImageHandler ImageHandler() => new(_products, _storage, _uow);
     private UploadProductVideoHandler VideoHandler() => new(_products, _storage, _uow);
@@ -37,7 +37,8 @@ public class UploadProductMediaHandlerTests
             new UploadProductImageCommand(1, new MemoryStream(PngBytes), PngBytes.Length), CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
-        product.ImageUrl.Should().Be("/uploads/images/abc.png");
+        result.Value!.Url.Should().Be("/uploads/images/abc.png");
+        product.PrimaryImageUrl.Should().Be("/uploads/images/abc.png");
         await _storage.Received(1).SaveAsync(Arg.Any<Stream>(), "images", ".png", Arg.Any<CancellationToken>());
     }
 

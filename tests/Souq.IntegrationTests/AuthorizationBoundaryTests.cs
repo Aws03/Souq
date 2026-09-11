@@ -29,7 +29,7 @@ public class AuthorizationBoundaryTests
     {
         "POST api/Auth/register", "POST api/Auth/login", "POST api/Auth/forgot-password", "POST api/Auth/reset-password",
         "POST api/Auth/refresh", "POST api/Auth/logout", "POST api/Auth/verify-email",
-        "GET api/Products", "GET api/Products/{id:int}", "GET api/Products/{id:int}/related",
+        "GET api/Products", "GET api/Products/{id:int}", "GET api/Products/by-slug/{slug}", "GET api/Products/{id:int}/related",
         "GET api/Categories",
         "GET api/Coupons/apply",
         "GET api/products/{productId:int}/reviews",

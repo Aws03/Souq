@@ -82,9 +82,9 @@ public class ErrorContractTests
     {
         var admin = await _api.AdminAsync();
         var slug = $"it-{Guid.NewGuid():N}"[..20];
-        (await admin.PostAsJsonAsync("/api/categories", new { name = "فئة", slug })).StatusCode.Should().Be(HttpStatusCode.Created);
+        (await admin.PostAsJsonAsync("/api/categories", TestApi.CategoryBody(slug, "فئة"))).StatusCode.Should().Be(HttpStatusCode.Created);
 
-        var duplicate = await admin.PostAsJsonAsync("/api/categories", new { name = "فئة ٢", slug });
+        var duplicate = await admin.PostAsJsonAsync("/api/categories", TestApi.CategoryBody(slug, "فئة ٢"));
 
         await AssertProblemAsync(duplicate, HttpStatusCode.Conflict, "SlugTaken");
     }

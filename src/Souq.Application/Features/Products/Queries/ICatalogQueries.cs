@@ -1,32 +1,51 @@
 using Souq.Application.Common.Models;
 using Souq.Application.Features.Categories.Queries;
+using Souq.Domain.Enums;
 
 namespace Souq.Application.Features.Products.Queries;
 
 // ============================================================================
-// ICatalogQueries — منفذ القراءة لوحدة Catalog (ADR-0008). التنفيذ في Infrastructure يُسقط
-// من SQL إلى DTO مباشرة (AsNoTracking + Select): لا كيانات كاملة تُحمَّل ثم تُحوَّل في الذاكرة
-// (Phase 0 D3)، ولا تعرف Application شيئاً عن EF. التصفية مطبوعة (ProductSearch)، والترتيب
-// قائمة مسموحة (ProductSortBy)، والصفحة حتمية دائماً. في المرحلة 2 يعمل مرشّح المستأجر العام
-// على هذه الاستعلامات تلقائياً — بلا تغيير في هذا العقد.
+// ICatalogQueries — منفذ القراءة لوحدة Catalog (ADR-0008). التنفيذ يُسقط من SQL إلى DTO مباشرة (AsNoTracking +
+// Select). culture: لغة المتجر الافتراضية — منها Name/Description في العقد، والترجمات كلها معه. المتجر: المنتجات
+// النشطة في فئات مفعّلة فقط؛ الإدارة: كل الحالات. مرشّح المستأجر يعمل على كل استعلام تلقائياً.
 // ============================================================================
 public interface ICatalogQueries
 {
-    Task<PaginatedList<ProductDto>> SearchProductsAsync(ProductSearch search, PageRequest page, CancellationToken ct);
+    Task<PaginatedList<ProductDto>> SearchProductsAsync(ProductSearch search, PageRequest page, string culture, CancellationToken ct);
 
-    // null ⇒ غير موجود أو معطّل (المنتج المعطّل لا يُعرض للعميل).
-    Task<ProductDto?> FindActiveProductAsync(int id, CancellationToken ct);
+    // null ⇒ غير موجود أو غير معروض (مسودّة/مؤرشف/فئته معطّلة) — العميل لا يرى إلا المعروض.
+    Task<ProductDto?> FindActiveProductAsync(int id, string culture, CancellationToken ct);
 
-    // null ⇒ المنتج نفسه غير موجود/معطّل. نفس الفئة أولاً (الأكثر مبيعاً) ثم أحدث غيرها.
-    Task<IReadOnlyList<ProductDto>?> FindRelatedProductsAsync(int productId, int count, CancellationToken ct);
+    Task<ProductDto?> FindActiveProductBySlugAsync(string slug, string culture, CancellationToken ct);
 
-    Task<IReadOnlyList<CategoryDto>> ListCategoriesAsync(CancellationToken ct);
+    // null ⇒ المنتج نفسه غير معروض. نفس الفئة أولاً (الأكثر مبيعاً) ثم أحدث غيرها.
+    Task<IReadOnlyList<ProductDto>?> FindRelatedProductsAsync(int productId, int count, string culture, CancellationToken ct);
+
+    Task<IReadOnlyList<CategoryDto>> ListCategoriesAsync(bool includeInactive, string culture, CancellationToken ct);
+
+    Task<PaginatedList<AdminProductListItemDto>> ListAdminProductsAsync(
+        AdminProductSearch search, PageRequest page, string culture, CancellationToken ct);
+
+    Task<AdminProductDto?> FindAdminProductAsync(int id, CancellationToken ct);
 }
 
-// معايير البحث — كلها اختيارية؛ null/فارغ = بلا تصفية على هذا البعد.
+// معايير بحث المتجر — كلها اختيارية؛ null/فارغ = بلا تصفية على هذا البعد. OnSaleOnly: سعر مقارنة أعلى من السعر.
 public sealed record ProductSearch(
     string? Keyword = null,
     IReadOnlyCollection<int>? CategoryIds = null,
     decimal? MinPrice = null,
     decimal? MaxPrice = null,
-    ProductSortBy SortBy = ProductSortBy.Newest);
+    ProductSortBy SortBy = ProductSortBy.Newest,
+    bool OnSaleOnly = false);
+
+// بحث الإدارة: الاسم بأي لغة أو SKU أو المعرّف، وتصفية بالحالة والفئة.
+public sealed record AdminProductSearch(string? Keyword, ProductStatus? Status, int? CategoryId, AdminProductSortBy SortBy);
+
+public enum AdminProductSortBy
+{
+    Newest = 0,
+    NameAsc = 1,
+    PriceAsc = 2,
+    PriceDesc = 3,
+    StockAsc = 4,
+}

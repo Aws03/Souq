@@ -1,17 +1,22 @@
 import { useTranslation } from 'react-i18next';
 import i18n from '../../i18n';
+import { localizedDescription, localizedName } from '../../features/catalog/catalogText';
 import styles from './ProductBadges.module.css';
 
 /**
- * اسم المنتج بلغة الواجهة الحالية. يقبل شكل الـ API الثنائي اللغة
- * (nameAr/nameEn) ويتساقط إلى name القديم دفاعاً عن عناصر سلة/مفضّلة
- * محفوظة في localStorage من قبل هذا التحديث (بلا الحقلين الجديدين).
+ * اسم المنتج (أو الفئة) بلغة الواجهة الحالية من translations، وإلا نص لغة المتجر الافتراضية
+ * (name) — ويقرأ عناصر سلة/مفضّلة قديمة محفوظة في localStorage بشكل nameAr/nameEn.
  */
 export function getProductName(product) {
-  if (!product) return '';
-  if (i18n.language === 'ar') return product.nameAr ?? product.name ?? '';
-  return product.nameEn ?? product.nameAr ?? product.name ?? '';
+  return localizedName(product, i18n.language);
 }
+
+export function getProductDescription(product) {
+  return localizedDescription(product, i18n.language);
+}
+
+// الفئات بالشكل نفسه (name + translations).
+export const getCategoryName = getProductName;
 
 /** يهيّئ السعر بصيغة الدينار الأردني (٣ خانات عشرية: فلس)، مثال: 59.900 د.أ / 59.900 JOD */
 export function formatPrice(amount, currency = 'JOD') {
@@ -22,8 +27,16 @@ export function formatPrice(amount, currency = 'JOD') {
   return `${Number(amount).toFixed(2)} ${currency}`;
 }
 
-export function PriceTag({ amount, currency }) {
-  return <span className={styles.price}>{formatPrice(amount, currency)}</span>;
+// سعر المقارنة (قبل الخصم) يظهر مشطوباً فقط حين يعلو السعر — الخادم يضمن ذلك، والشرط هنا دفاعي.
+export function PriceTag({ amount, currency, compareAt }) {
+  const price = <span className={styles.price}>{formatPrice(amount, currency)}</span>;
+  if (compareAt == null || Number(compareAt) <= Number(amount)) return price;
+  return (
+    <span className={styles.onSale}>
+      {price}
+      <s className={styles.compareAt}>{formatPrice(compareAt, currency)}</s>
+    </span>
+  );
 }
 
 export function CategoryBadge({ name }) {

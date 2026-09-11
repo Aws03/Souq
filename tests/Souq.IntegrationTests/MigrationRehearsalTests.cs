@@ -91,11 +91,40 @@ public class MigrationRehearsalTests
                 SELECT COUNT(*) FROM sys.columns WHERE [object_id] = OBJECT_ID(N'[Customers]') AND [name] IN (N'PasswordHash', N'Role')
                 """)).Should().Be(0);
 
-            // المرشّحات على البيانات المُرحَّلة: المتجر 1 يرى صفوفه، ومتجر آخر لا يرى شيئاً.
+            // المرحلة 5: النصوص والسعر والحالة نُقلت قبل حذف أعمدتها؛ مفتاح الصورة القديم لم يكن صورة فلا يُنقل.
+            (await ScalarAsync(db, """
+                SELECT COUNT(*) FROM [ProductTranslations]
+                WHERE [Culture] = N'ar' AND [Name] = N'منتج قديم' AND [Description] = N'وصف'
+                """)).Should().Be(1);
+            (await ScalarAsync(db, "SELECT COUNT(*) FROM [ProductTranslations] WHERE [Culture] = N'en' AND [Name] = N'Legacy product'"))
+                .Should().Be(1);
+            (await ScalarAsync(db, "SELECT COUNT(*) FROM [ProductVariants] WHERE [IsDefault] = 1")).Should().Be(before["Products"]);
+            (await ScalarAsync(db, """
+                SELECT v.[Price] FROM [ProductVariants] v JOIN [ProductTranslations] t ON t.[ProductId] = v.[ProductId]
+                WHERE t.[Name] = N'منتج قديم' AND v.[IsDefault] = 1 AND v.[Currency] = N'KWD'
+                """)).Should().Be(12.5m);
+            (await ScalarAsync(db, "SELECT COUNT(*) FROM [ProductImages]")).Should().Be(0);
+            (await ScalarAsync(db, "SELECT COUNT(*) FROM [Products] WHERE [Status] = 1 AND [Slug] = CONCAT(N'p-', [Id])"))
+                .Should().Be(before["Products"]);
+            (await ScalarAsync(db, "SELECT [Name] FROM [CategoryTranslations] WHERE [Culture] = N'ar'")).Should().Be("فئة قديمة");
+            (await ScalarAsync(db, """
+                SELECT COUNT(*) FROM sys.columns
+                WHERE ([object_id] = OBJECT_ID(N'[Products]') AND [name] IN (N'NameAr', N'NameEn', N'Description', N'Price', N'Currency', N'ImageUrl', N'IsActive'))
+                   OR ([object_id] = OBJECT_ID(N'[Categories]') AND [name] = N'Name')
+                """)).Should().Be(0);
+            foreach (var table in new[] { "ProductTranslations", "ProductVariants", "CategoryTranslations" })
+                (await ScalarAsync(db, $"SELECT COUNT(*) FROM [{table}] WHERE [TenantId] <> 1")).Should().Be(0, table);
+
+            // المرشّحات على البيانات المُرحَّلة: المتجر 1 يرى صفوفه، ومتجر آخر لا يرى شيئاً — والتجمّع يُقرأ كاملاً.
             await using (var asDefault = new AppDbContext(options, Context(1)))
             {
                 (await asDefault.Customers.CountAsync(c => c.Email == "legacy@souq.test")).Should().Be(1);
                 (await asDefault.Users.CountAsync(u => u.NormalizedEmail == "LEGACY@SOUQ.TEST")).Should().Be(1);
+                var legacy = await asDefault.Products.Include(p => p.Translations).Include(p => p.Variants)
+                    .SingleAsync(p => p.Translations.Any(t => t.Name == "منتج قديم"));
+                legacy.NameIn("en").Should().Be("Legacy product");
+                legacy.Price.Should().Be(new Souq.Domain.ValueObjects.Money(12.5m, "KWD"));
+                legacy.IsActive.Should().BeTrue();
             }
             await using (var asOther = new AppDbContext(options, Context(999)))
                 (await asOther.Customers.CountAsync()).Should().Be(0);

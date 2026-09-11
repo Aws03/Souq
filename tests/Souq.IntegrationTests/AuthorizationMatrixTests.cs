@@ -37,7 +37,7 @@ public class AuthorizationMatrixTests
 
         var cases = new (string Method, string Url, Func<object?> Body, string[] Allowed)[]
         {
-            ("POST", "/api/categories", () => new { name = "مصفوفة", slug = $"mx-{Guid.NewGuid():N}"[..20] },
+            ("POST", "/api/categories", () => TestApi.CategoryBody($"mx-{Guid.NewGuid():N}"[..20], "مصفوفة"),
                 [Roles.TenantAdmin, Roles.TenantStaff]),
             ("GET", "/api/orders", () => null, [Roles.TenantAdmin, Roles.TenantStaff]),
             ("GET", "/api/admin/inventory", () => null, [Roles.TenantAdmin, Roles.TenantStaff]),

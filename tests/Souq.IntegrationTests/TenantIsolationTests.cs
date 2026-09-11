@@ -31,7 +31,7 @@ namespace Souq.IntegrationTests;
 public class TenantIsolationTests
 {
     private enum Actor { Anonymous, Admin, Customer }
-    private enum Resource { Product, Category, Coupon, Order, StaffAccount }
+    private enum Resource { Product, ProductImage, Category, Coupon, Order, StaffAccount }
 
     private sealed record ForeignCase(string Method, string Route, Resource Resource, Actor Actor, Func<HttpContent>? Body = null);
 
@@ -42,14 +42,20 @@ public class TenantIsolationTests
     private static readonly ForeignCase[] ForeignResourceCases =
     [
         new("GET", "api/Products/{id:int}", Resource.Product, Actor.Anonymous),
+        new("GET", "api/Products/by-slug/{slug}", Resource.Product, Actor.Anonymous),
         new("GET", "api/Products/{id:int}/related", Resource.Product, Actor.Anonymous),
         new("PUT", "api/Products/{id:int}", Resource.Product, Actor.Admin,
-            () => JsonBody(new { nameAr = "منتج", description = "وصف", price = 5m, imageUrl = "x", categoryId = 1 })),
+            () => JsonBody(TestApi.ProductUpdateBody(categoryId: 1, slug: "foreign-edit", price: 5m))),
         new("DELETE", "api/Products/{id:int}", Resource.Product, Actor.Admin),
         new("POST", "api/Products/{id:int}/image", Resource.Product, Actor.Admin, () => FileBody(PngBytes, "a.png")),
         new("POST", "api/Products/{id:int}/video", Resource.Product, Actor.Admin, () => FileBody(Mp4Bytes, "a.mp4")),
+        new("GET", "api/admin/products/{id:int}", Resource.Product, Actor.Admin),
+        new("PUT", "api/admin/products/{id:int}/status", Resource.Product, Actor.Admin, () => JsonBody(new { status = "Archived" })),
+        new("DELETE", "api/admin/products/{id:int}/images/{imageId:int}", Resource.Product, Actor.Admin),
+        new("PUT", "api/admin/products/{id:int}/images/order", Resource.Product, Actor.Admin,
+            () => JsonBody(new { imageIds = Array.Empty<int>() })),
         new("PUT", "api/Categories/{id:int}", Resource.Category, Actor.Admin,
-            () => JsonBody(new { name = "فئة", slug = "foreign-edit" })),
+            () => JsonBody(TestApi.CategoryBody("foreign-edit", "فئة"))),
         new("DELETE", "api/Categories/{id:int}", Resource.Category, Actor.Admin),
         new("PUT", "api/Coupons/{id:int}", Resource.Coupon, Actor.Admin,
             () => JsonBody(new { type = "Percentage", value = 50m, isActive = true })),
@@ -107,22 +113,23 @@ public class TenantIsolationTests
 
         foreach (var c in ForeignResourceCases)
         {
-            var url = "/" + Regex.Replace(c.Route, @"\{[^}]+\}", s.AIds[c.Resource].ToString());
+            var url = UrlFor(s, c);
             var response = await ClientFor(s, c.Actor)
                 .SendAsync(new HttpRequestMessage(new HttpMethod(c.Method), url) { Content = c.Body?.Invoke() });
 
             response.StatusCode.Should().Be(HttpStatusCode.NotFound, $"{c.Method} {url} من متجر B يجب ألّا يرى مورد A");
         }
 
-        // لم يتغيّر شيء في A: المنتج نشط، الفئة والكوبون موجودان، والطلب ما زال بانتظار الدفع.
+        // لم يتغيّر شيء في A: المنتج نشط بصورته، الفئة والكوبون موجودان، والطلب ما زال بانتظار الدفع.
         int productId = s.AIds[Resource.Product], categoryId = s.AIds[Resource.Category];
         int couponId = s.AIds[Resource.Coupon], orderId = s.AIds[Resource.Order];
         var state = await s.StoreA.WithDbAsync(async db => (
-            ProductActive: await db.Products.Where(p => p.Id == productId).Select(p => p.IsActive).SingleAsync(),
+            ProductStatus: await db.Products.Where(p => p.Id == productId).Select(p => p.Status).SingleAsync(),
+            Images: await db.Products.Where(p => p.Id == productId).Select(p => p.Images.Count()).SingleAsync(),
             CategoryExists: await db.Categories.AnyAsync(c => c.Id == categoryId),
             CouponValue: await db.Coupons.Where(c => c.Id == couponId).Select(c => c.Value).SingleAsync(),
             OrderStatus: await db.Orders.Where(o => o.Id == orderId).Select(o => o.Status).SingleAsync()));
-        state.Should().Be((true, true, 10m, OrderStatus.Pending));
+        state.Should().Be((ProductStatus.Active, 1, true, 10m, OrderStatus.Pending));
 
         var staffId = s.AIds[Resource.StaffAccount];
         (await s.StoreA.WithDbAsync(db => db.Users.Where(u => u.Id == staffId).Select(u => u.Status).SingleAsync()))
@@ -154,10 +161,13 @@ public class TenantIsolationTests
         (await IdsAsync(s.StoreB.Anonymous(), "/api/products?pageSize=100")).Should().Equal(bProduct);
         (await IdsAsync(s.AdminB, "/api/admin/inventory?pageSize=100")).Should().Equal(bProduct);
         (await IdsAsync(s.AdminB, "/api/admin/inventory/low-stock?pageSize=100")).Should().Equal(bProduct);
+        (await IdsAsync(s.AdminB, "/api/admin/products?pageSize=100")).Should().Equal(bProduct);
         (await IdsAsync(s.AdminB, "/api/coupons?pageSize=100")).Should().BeEmpty();
         (await IdsAsync(s.AdminB, "/api/orders?pageSize=100")).Should().BeEmpty();
         var bCategories = await s.StoreB.Anonymous().GetFromJsonAsync<List<TestApi.IdBody>>("/api/categories", TestApi.Json);
         bCategories!.Select(c => c.Id).Should().ContainSingle().And.NotContain(s.AIds[Resource.Category]);
+        var bAdminCategories = await s.AdminB.GetFromJsonAsync<List<TestApi.IdBody>>("/api/admin/categories", TestApi.Json);
+        bAdminCategories!.Select(c => c.Id).Should().Equal(bCategories!.Select(c => c.Id));
 
         // A يرى صفوفه لا صفوف B.
         (await IdsAsync(s.StoreA.Anonymous(), "/api/products?pageSize=100"))
@@ -170,20 +180,26 @@ public class TenantIsolationTests
         var s = await ArrangeAsync();
         int aCategory = s.AIds[Resource.Category], aProduct = s.AIds[Resource.Product];
 
-        (await ProblemAsync(await s.AdminB.PostAsJsonAsync("/api/products", new
-            {
-                nameAr = "منتج", description = "وصف", price = 5m, stockQuantity = 1, imageUrl = "x", categoryId = aCategory,
-            })))
+        (await ProblemAsync(await s.AdminB.PostAsJsonAsync("/api/products", TestApi.ProductBody(aCategory, 5m, 1, "منتج"))))
             .Should().Be((HttpStatusCode.BadRequest, "CategoryNotFound"));
 
         (await ProblemAsync(await s.AdminB.PostAsJsonAsync("/api/categories",
-                new { name = "فرعية", slug = $"child-{Guid.NewGuid():N}"[..20], parentId = aCategory })))
+                TestApi.CategoryBody($"child-{Guid.NewGuid():N}"[..20], "فرعية", parentId: aCategory))))
             .Should().Be((HttpStatusCode.BadRequest, "ParentNotFound"));
 
         var bProduct = await s.StoreB.CreateProductAsync(s.AdminB);
         (await ProblemAsync(await s.AdminB.PutAsJsonAsync($"/api/products/{bProduct}",
-                new { nameAr = "منتج", description = "وصف", price = 5m, imageUrl = "x", categoryId = aCategory })))
+                TestApi.ProductUpdateBody(aCategory, $"b-{Guid.NewGuid():N}"[..20], 5m))))
             .Should().Be((HttpStatusCode.BadRequest, "CategoryNotFound"));
+
+        // صورة منتج A تحت منتج B: غير موجودة حذفاً، ولا تدخل ترتيب صوره — وتبقى في A كما هي.
+        var aImage = s.AIds[Resource.ProductImage];
+        (await ProblemAsync(await s.AdminB.DeleteAsync($"/api/admin/products/{bProduct}/images/{aImage}")))
+            .Should().Be((HttpStatusCode.NotFound, "NotFound"));
+        (await ProblemAsync(await s.AdminB.PutAsJsonAsync($"/api/admin/products/{bProduct}/images/order", new { imageIds = new[] { aImage } })))
+            .Should().Be((HttpStatusCode.UnprocessableEntity, "InvalidProductData"));
+        (await s.StoreA.WithDbAsync(db => db.Products.Where(p => p.Id == aProduct).Select(p => p.Images.Count()).SingleAsync()))
+            .Should().Be(1);
 
         (await ProblemAsync(await s.StoreB.PlaceOrderAsync(s.CustomerB, aProduct, 1)))
             .Should().Be((HttpStatusCode.BadRequest, "ProductNotFound"));
@@ -218,10 +234,22 @@ public class TenantIsolationTests
         var s = await ArrangeAsync();
 
         var slug = $"shared-{Guid.NewGuid():N}"[..20];
-        (await s.AdminA.PostAsJsonAsync("/api/categories", new { name = "مشتركة", slug })).StatusCode.Should().Be(HttpStatusCode.Created);
-        (await s.AdminB.PostAsJsonAsync("/api/categories", new { name = "مشتركة", slug })).StatusCode.Should().Be(HttpStatusCode.Created);
-        (await ProblemAsync(await s.AdminB.PostAsJsonAsync("/api/categories", new { name = "مكرّرة", slug })))
+        (await s.AdminA.PostAsJsonAsync("/api/categories", TestApi.CategoryBody(slug, "مشتركة"))).StatusCode.Should().Be(HttpStatusCode.Created);
+        (await s.AdminB.PostAsJsonAsync("/api/categories", TestApi.CategoryBody(slug, "مشتركة"))).StatusCode.Should().Be(HttpStatusCode.Created);
+        (await ProblemAsync(await s.AdminB.PostAsJsonAsync("/api/categories", TestApi.CategoryBody(slug, "مكرّرة"))))
             .Should().Be((HttpStatusCode.Conflict, "SlugTaken"));
+
+        // معرّف المنتج النصّي وSKU فريدان داخل المتجر فقط.
+        var bCategory = await s.StoreB.CreateCategoryAsync(s.AdminB);
+        var sku = $"SKU-{Guid.NewGuid():N}"[..16].ToUpperInvariant();
+        (await s.AdminA.PostAsJsonAsync("/api/products", TestApi.ProductBody(s.AIds[Resource.Category], slug: slug, sku: sku)))
+            .StatusCode.Should().Be(HttpStatusCode.Created);
+        (await s.AdminB.PostAsJsonAsync("/api/products", TestApi.ProductBody(bCategory, slug: slug, sku: sku)))
+            .StatusCode.Should().Be(HttpStatusCode.Created);
+        (await ProblemAsync(await s.AdminB.PostAsJsonAsync("/api/products", TestApi.ProductBody(bCategory, slug: slug))))
+            .Should().Be((HttpStatusCode.Conflict, "ProductSlugTaken"));
+        (await ProblemAsync(await s.AdminB.PostAsJsonAsync("/api/products", TestApi.ProductBody(bCategory, sku: sku.ToLowerInvariant()))))
+            .Should().Be((HttpStatusCode.Conflict, "SkuTaken"));
 
         var coupon = new { code = s.ACouponCode, type = "Percentage", value = 5m };
         (await s.AdminB.PostAsJsonAsync("/api/coupons", coupon)).StatusCode.Should().Be(HttpStatusCode.Created);
@@ -252,7 +280,7 @@ public class TenantIsolationTests
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
             // تجاوز متعمَّد للمرشّح يحاكي ثغرة قراءة — الحارس هو خط الدفاع الثاني.
             var foreign = await db.Products.IgnoreQueryFilters().SingleAsync(p => p.Id == productId);
-            foreign.Deactivate();
+            foreign.Archive();
 
             var act = () => db.SaveChangesAsync();
             await act.Should().ThrowAsync<CrossTenantWriteException>();
@@ -272,7 +300,7 @@ public class TenantIsolationTests
 
         await using var scope = await _factory.TenantScopeAsync(store.Tenant);
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        var category = new Category("مزروعة", $"planted-{Guid.NewGuid():N}"[..20]);
+        var category = new Category($"planted-{Guid.NewGuid():N}"[..20], TestApi.ArabicText("مزروعة"));
         db.Categories.Add(category);
         db.Entry(category).Property(nameof(Category.TenantId)).CurrentValue = defaultTenant.Id;
 
@@ -301,7 +329,7 @@ public class TenantIsolationTests
             var read = () => db.Orders.AnyAsync();
             Chain((await read.Should().ThrowAsync<Exception>()).Which).Should().Contain(e => e is TenantContextMissingException);
 
-            db.Categories.Add(new Category("منصّة", $"platform-{Guid.NewGuid():N}"[..20]));
+            db.Categories.Add(new Category($"platform-{Guid.NewGuid():N}"[..20], TestApi.ArabicText("منصّة")));
             var write = () => db.SaveChangesAsync();
             await write.Should().ThrowAsync<TenantContextMissingException>();
         }
@@ -324,7 +352,7 @@ public class TenantIsolationTests
     // ── الإعداد: موارد حقيقية في A عبر الـ API، ومتجر B فعلي بمديره وعميله على مضيفه ──
     private sealed record Arranged(
         TestApi StoreA, TestApi StoreB, TestStore B, HttpClient AdminA, HttpClient AdminB, HttpClient CustomerB,
-        IReadOnlyDictionary<Resource, int> AIds, string ACouponCode);
+        IReadOnlyDictionary<Resource, int> AIds, string ACouponCode, string AProductSlug);
 
     private async Task<Arranged> ArrangeAsync()
     {
@@ -332,6 +360,10 @@ public class TenantIsolationTests
         var adminA = await storeA.AdminAsync();
         var categoryId = await storeA.CreateCategoryAsync(adminA);
         var productId = await storeA.CreateProductAsync(adminA, price: 10m, stock: 5, categoryId: categoryId);
+        var upload = await adminA.PostAsync($"/api/products/{productId}/image", FileBody(PngBytes, "a.png"));
+        upload.StatusCode.Should().Be(HttpStatusCode.OK, await upload.Content.ReadAsStringAsync());
+        var imageId = (await upload.Content.ReadFromJsonAsync<TestApi.IdBody>(TestApi.Json))!.Id;
+        var productSlug = await storeA.WithDbAsync(db => db.Products.Where(p => p.Id == productId).Select(p => p.Slug).SingleAsync());
         var couponCode = $"ISO{Guid.NewGuid():N}"[..12].ToUpperInvariant();
         var couponResponse = await adminA.PostAsJsonAsync("/api/coupons", new { code = couponCode, type = "Percentage", value = 10m });
         couponResponse.StatusCode.Should().Be(HttpStatusCode.Created, await couponResponse.Content.ReadAsStringAsync());
@@ -348,11 +380,20 @@ public class TenantIsolationTests
         return new Arranged(storeA, storeB, b, adminA, await storeB.AdminAsync(), (await storeB.NewCustomerAsync()).Client,
             new Dictionary<Resource, int>
             {
-                [Resource.Product] = productId, [Resource.Category] = categoryId,
+                [Resource.Product] = productId, [Resource.ProductImage] = imageId, [Resource.Category] = categoryId,
                 [Resource.Coupon] = couponId, [Resource.Order] = orderId, [Resource.StaffAccount] = staffId,
             },
-            couponCode);
+            couponCode, productSlug);
     }
+
+    // كل معامل مسار بمعرّف A الحقيقي: الصورة بصورة منتج A، والمعرّف النصّي بمعرّف منتج A، والباقي بمورد الحالة.
+    private static string UrlFor(Arranged s, ForeignCase c) =>
+        "/" + Regex.Replace(c.Route, @"\{(\w+)[^}]*\}", m => m.Groups[1].Value switch
+        {
+            "imageId" => s.AIds[Resource.ProductImage].ToString(),
+            "slug" => s.AProductSlug,
+            _ => s.AIds[c.Resource].ToString(),
+        });
 
     private static HttpClient ClientFor(Arranged s, Actor actor) => actor switch
     {

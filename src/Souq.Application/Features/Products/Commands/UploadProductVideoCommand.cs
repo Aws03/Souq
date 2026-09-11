@@ -1,4 +1,5 @@
 using MediatR;
+using Souq.Application.Common.Auditing;
 using Souq.Application.Common.Files;
 using Souq.Application.Common.Interfaces;
 using Souq.Application.Common.Models;
@@ -9,7 +10,10 @@ namespace Souq.Application.Features.Products.Commands;
 // رفع فيديو منتج قائم — نفس منهج UploadProductImageCommand: النوع من التوقيع لا من
 // العميل، والامتداد المخزَّن مشتقّ من النوع المكتشَف.
 public record UploadProductVideoCommand(int ProductId, Stream Content, long Length)
-    : IRequest<Result<string>>;
+    : IRequest<Result<string>>, IAuditable
+{
+    public AuditRecord ToAuditRecord() => new("catalog.product.video-uploaded", "Product", ProductId.ToString());
+}
 
 public class UploadProductVideoHandler : IRequestHandler<UploadProductVideoCommand, Result<string>>
 {

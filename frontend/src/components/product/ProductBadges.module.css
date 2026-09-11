@@ -1,5 +1,8 @@
 .price { font-family: var(--font-display); font-weight: 700; font-size: 18px; color: var(--petrol); }
 
+.onSale { display: inline-flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.compareAt { font-size: 13px; font-weight: 600; color: var(--muted, #8a8f98); }
+
 .category {
   display: inline-block; font-size: var(--fs-label); color: var(--saffron); font-weight: 700;
   text-transform: uppercase; letter-spacing: .3px;

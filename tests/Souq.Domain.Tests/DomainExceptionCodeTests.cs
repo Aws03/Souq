@@ -11,6 +11,8 @@ public class DomainExceptionCodeTests
         { new InsufficientStockException("سماعات", 3, 1), "InsufficientStock" },
         { new InvalidOrderOperationException("x"), "InvalidOrderOperation" },
         { new InvalidProductDataException("x"), "InvalidProductData" },
+        { new InvalidCategoryException("x"), "InvalidCategory" },
+        { new InvalidCategoryParentException("x"), "InvalidParent" },
         { new InvalidCouponException("x"), "InvalidCoupon" },
         { new InvalidReviewException("x"), "InvalidReview" },
         { new InvalidPasswordResetException("x"), "ResetTokenExpired" },

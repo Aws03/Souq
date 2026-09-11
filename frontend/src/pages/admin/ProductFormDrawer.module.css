@@ -16,6 +16,21 @@
 }
 .removeVideoBtn:hover { text-decoration: underline; }
 
+/* معرض الصور الحالية: الأولى رئيسية؛ لكل صورة "اجعلها الرئيسية" و"إزالة". */
+.galleryBlock { margin-bottom: 18px; }
+.galleryTitle { font-weight: 600; font-size: var(--fs-body-sm); margin-bottom: 2px; }
+.galleryHint { display: block; color: var(--muted); font-size: 11.5px; margin-bottom: 8px; }
+.gallery { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 10px; }
+.galleryItem { border: 1px solid var(--line); border-radius: var(--radius-sm); overflow: hidden; background: var(--surface); display: flex; flex-direction: column; }
+.galleryImage { width: 100%; aspect-ratio: 1; object-fit: contain; background: #fff; }
+.galleryActions { display: flex; flex-direction: column; gap: 2px; padding: 6px 8px; font-size: 11.5px; }
+.galleryActions button { color: var(--petrol); font-weight: 600; text-align: start; padding: 0; }
+.galleryActions button:hover:not(:disabled) { text-decoration: underline; }
+.galleryActions button:disabled { opacity: .5; cursor: default; }
+.galleryActions .removeImageBtn { color: var(--clay); }
+.primaryTag { color: var(--saffron); font-weight: 700; }
+.galleryFull { color: var(--muted); font-size: var(--fs-body-sm); margin: 0 0 18px; }
+
 .row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .footActions { display: flex; justify-content: flex-end; gap: 10px; }
 

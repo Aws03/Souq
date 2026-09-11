@@ -60,8 +60,9 @@ Module schemas (`catalog.Products`) were considered and **postponed**. The owner
 | CustomerAddress | Customers | User | ✓ | — | `(CustomerId)` | Hard (orders keep snapshots) | Created/Updated | — |
 | Category | Catalog | Tenant | ✓ | `(TenantId, Slug)` | `(TenantId, ParentId, SortOrder)` | Hard, only when empty (no products or children) | Created/Updated | — |
 | Product | Catalog | Tenant | ✓ | `(TenantId, Slug)` | `(TenantId, Status, CategoryId)` | **Soft (Archived)**, since orders reference it | Created/Updated | `rowversion` |
-| ProductVariant | Catalog | Tenant | ✓ | `(TenantId, Sku)` | `(ProductId)` | Soft (Inactive) | Created/Updated | — |
-| ProductImage | Catalog | Tenant | ✓ | — | `(ProductId, SortOrder)` | Hard (+ storage cleanup) | Created | — |
+| ProductVariant (Phase 5: exactly one default per product) | Catalog | Tenant | ✓ | `(TenantId, Sku) WHERE Sku IS NOT NULL`; `(ProductId) WHERE IsDefault = 1` | `(ProductId, IsDefault)`; AK `(TenantId, Id)` for later cart/order references | With the product (which is archived, never deleted) | Created/Updated | — (admin edits, last write wins) |
+| ProductImage | Catalog | Tenant | ✓ | — (at most 10 per product, Domain) | `(ProductId, SortOrder)` | Hard; the file stays until a cleanup job exists | Created | — |
+| ProductTranslation / CategoryTranslation (Phase 5) | Catalog | Tenant | ✓ | `(ProductId, Culture)` / `(CategoryId, Culture)` | `(TenantId)` | With the owner (replaced as a set) | Created/Updated | — |
 | InventoryItem | Inventory | Tenant | ✓ | `(TenantId, VariantId)` | — | With variant | Updated | **`rowversion` (hot)** |
 | StockMovement | Inventory | Tenant | ✓ | — | `(TenantId, ProductId, CreatedAt)` | **Never** (ledger) | Created (+ user in Phase 6) | — |
 | Basket / BasketLine | Shopping | User or anonymous | ✓ | `(TenantId, CustomerId)`; `(TenantId, AnonymousId)` | `(ExpiresAt)` | Hard (expiry) | Updated | last-write-wins |
@@ -183,6 +184,18 @@ Deferred to later phases, with the phase noted: `TenantId` (2), `Users` split (3
 | `Tenants.Settings` | `nvarchar(max) NULL`: the store settings as one JSON document, read and written whole, never queried inside. `NULL` means the defaults, derived from the name and language; the seeder gives the default store the Marka look once. The document is mapped by an Infrastructure type (`StoreSettingsJson`), so the Domain carries no serialization attributes, and a tightened rule never breaks loading older settings |
 | `Tenants.EnabledModules` | `nvarchar(200) NOT NULL DEFAULT 'promotions,reviews,wishlist'`, so existing stores keep every module. It is carried in the cached tenant snapshot, so enforcement needs no query |
 | `AuditEntries` | `bigint` identity, UTC timestamp, area, action, affected store (nullable), actor and role, target, metadata (≤ 4000), IP, correlation id. No FK and no tenant filter. Append-only (write guard) |
+
+**Phase 5 (`Phase5Catalog`, data-preserving, rehearsed by `MigrationRehearsalTests`, [ADR-0025](adr/0025-catalog-model.md)):**
+
+| Change | Detail |
+|---|---|
+| `ProductTranslations`, `CategoryTranslations` | One row per (owner, culture): name (200), description (4000), SEO title (70) and SEO description (160). Unique `(OwnerId, Culture)`. `TenantId` on every row. Cascade with the owner (a shadow FK: aggregate children, exempt from the composite-FK rule) |
+| `ProductVariants` | SKU (64, unique per store when present), `Price` + `Currency` (`decimal(19,4)`), `CompareAtPrice` (same currency), `IsDefault`. Exactly one default per product, by a filtered unique index. Alternate key `(TenantId, Id)` so cart and order lines can reference a variant with a tenant-scoped FK later |
+| `ProductImages` | URL (500) and sort order; index `(ProductId, SortOrder)` |
+| `Products` | Added `Slug` (120, unique per store), `Status` (Draft 0 / Active 1 / Archived 2) and `Brand`. Dropped `NameAr`, `NameEn`, `Description`, `Price`, `Currency`, `ImageUrl` and `IsActive`. `(TenantId, Status, CategoryId)` replaces `(TenantId, IsActive)` |
+| `Categories` | Added `SortOrder` and `IsActive`. Dropped `Name`. New index `(TenantId, ParentId, SortOrder)` |
+| Data copy (runs before any drop) | An Arabic translation from `NameAr` + `Description`; an English one from `NameEn` when present and different; a default variant from `Price`/`Currency`; an image row only for real `/uploads/` or http(s) URLs (the old placeholder values are dropped); `Status` from `IsActive`; slug `p-{Id}`; each category name → a translation in its store's default language. EF generated the column drops first, which would have lost every name and price; the order was rewritten by hand |
+| `Down()` | Restores the old columns from the Arabic/English translations, the default variant and the primary image. It is lossy by nature (other languages, extra images, SKUs and compare-at prices have no old column), so it is for development only |
 
 ## 10. Migration workflow
 

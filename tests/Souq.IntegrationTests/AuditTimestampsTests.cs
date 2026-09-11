@@ -2,6 +2,7 @@ using AwesomeAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Souq.Domain.Entities;
+using Souq.Domain.ValueObjects;
 using Souq.Infrastructure.Persistence;
 using Souq.Infrastructure.Persistence.Interceptors;
 using Souq.IntegrationTests.Infrastructure;
@@ -35,7 +36,7 @@ public class AuditTimestampsTests
         int id;
         await using (var db = new AppDbContext(options, tenant))
         {
-            var category = new Category("تدقيق", slug);
+            var category = new Category(slug, new Dictionary<string, CatalogText> { ["ar"] = new("تدقيق") });
             db.Categories.Add(category);
             await db.SaveChangesAsync();
             id = category.Id;
@@ -45,7 +46,7 @@ public class AuditTimestampsTests
         await using (var db = new AppDbContext(options, tenant))
         {
             var category = await db.Categories.SingleAsync(c => c.Id == id);
-            category.UpdateDetails("تدقيق معدّل", slug);
+            category.SetSortOrder(7);
             await db.SaveChangesAsync();
         }
 

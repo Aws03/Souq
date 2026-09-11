@@ -1,5 +1,6 @@
 import { Link, useLocation, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { getCategoryName } from '../product/ProductBadges';
 import styles from './CategoryNav.module.css';
 
 // شريط الفئات الأفقي تحت شريط التنقّل، على كل صفحات المتجر: الرئيسية — العروض
@@ -24,7 +25,7 @@ export default function CategoryNav({ categories = [] }) {
         <Link to="/" className={cls(isHome)}>{t('nav.home')}</Link>
         <Link to="/offers" className={cls(isOffers)}>{t('nav.offers')}</Link>
         {categories.map((c) => (
-          <Link key={c.id} to={`/?cats=${c.id}`} className={cls(isCategory(c.id))}>{c.name}</Link>
+          <Link key={c.id} to={`/?cats=${c.id}`} className={cls(isCategory(c.id))}>{getCategoryName(c)}</Link>
         ))}
       </div>
     </nav>

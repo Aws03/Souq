@@ -133,22 +133,27 @@ public static class DbSeeder
     {
         if (await db.Categories.AnyAsync()) return;     // لا نكرّر بذر الكتالوج (مُرشَّح بالمتجر)
 
-        var electronics = new Category("إلكترونيات", "electronics");
-        var fashion = new Category("أزياء", "fashion");
-        var home = new Category("منزل", "home");
+        static Dictionary<string, CatalogText> Texts(string ar, string en, string? descriptionAr = null) =>
+            new() { ["ar"] = new CatalogText(ar, descriptionAr), ["en"] = new CatalogText(en) };
+
+        var electronics = new Category("electronics", Texts("إلكترونيات", "Electronics"), sortOrder: 0);
+        var fashion = new Category("fashion", Texts("أزياء", "Fashion"), sortOrder: 1);
+        var home = new Category("home", Texts("منزل", "Home"), sortOrder: 2);
         db.Categories.AddRange(electronics, fashion, home);
         await db.SaveChangesAsync();
 
-        Money Price(decimal amount) => new(amount, currency);
+        Product Item(string slug, string nameAr, string nameEn, string description, decimal price, int stock, int categoryId) =>
+            new(slug, categoryId, Texts(nameAr, nameEn, description), new Money(price, currency), stock);
+
         db.Products.AddRange(
-            new Product("سمّاعات لاسلكية", "صوت نقي وعزل ضوضاء فعّال", Price(59.900m), 25, "headphones", electronics.Id, nameEn: "Wireless Headphones"),
-            new Product("ساعة ذكية", "تتبّع اللياقة والإشعارات", Price(120.000m), 12, "watch", electronics.Id, nameEn: "Smart Watch"),
-            new Product("لوحة مفاتيح ميكانيكية", "إضاءة خلفية ومفاتيح مريحة", Price(45.500m), 30, "keyboard", electronics.Id, nameEn: "Mechanical Keyboard"),
-            new Product("حقيبة ظهر جلدية", "تصميم أنيق ومتين للعمل والسفر", Price(35.000m), 18, "backpack", fashion.Id, nameEn: "Leather Backpack"),
-            new Product("نظّارة شمسية", "حماية UV وإطار خفيف", Price(22.000m), 40, "sunglasses", fashion.Id, nameEn: "Sunglasses"),
-            new Product("مصباح مكتب LED", "إضاءة قابلة للتعديل وموفّرة للطاقة", Price(18.750m), 50, "lamp", home.Id, nameEn: "LED Desk Lamp"),
-            new Product("ركوة قهوة نحاسية", "صناعة يدوية لقهوة عربية أصيلة", Price(28.000m), 15, "coffeepot", home.Id, nameEn: "Copper Coffee Pot"),
-            new Product("كوب حراري", "يحفظ الحرارة 12 ساعة", Price(14.500m), 60, "mug", home.Id, nameEn: "Thermal Mug")
+            Item("wireless-headphones", "سمّاعات لاسلكية", "Wireless Headphones", "صوت نقي وعزل ضوضاء فعّال", 59.900m, 25, electronics.Id),
+            Item("smart-watch", "ساعة ذكية", "Smart Watch", "تتبّع اللياقة والإشعارات", 120.000m, 12, electronics.Id),
+            Item("mechanical-keyboard", "لوحة مفاتيح ميكانيكية", "Mechanical Keyboard", "إضاءة خلفية ومفاتيح مريحة", 45.500m, 30, electronics.Id),
+            Item("leather-backpack", "حقيبة ظهر جلدية", "Leather Backpack", "تصميم أنيق ومتين للعمل والسفر", 35.000m, 18, fashion.Id),
+            Item("sunglasses", "نظّارة شمسية", "Sunglasses", "حماية UV وإطار خفيف", 22.000m, 40, fashion.Id),
+            Item("led-desk-lamp", "مصباح مكتب LED", "LED Desk Lamp", "إضاءة قابلة للتعديل وموفّرة للطاقة", 18.750m, 50, home.Id),
+            Item("copper-coffee-pot", "ركوة قهوة نحاسية", "Copper Coffee Pot", "صناعة يدوية لقهوة عربية أصيلة", 28.000m, 15, home.Id),
+            Item("thermal-mug", "كوب حراري", "Thermal Mug", "يحفظ الحرارة 12 ساعة", 14.500m, 60, home.Id)
         );
         await db.SaveChangesAsync();
     }

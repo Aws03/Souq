@@ -1,21 +1,31 @@
 using MediatR;
+using Souq.Application.Common.Auditing;
 using Souq.Application.Common.Models;
+using Souq.Application.Common.Tenancy;
+using Souq.Application.Features.Products.Queries;
 using Souq.Domain.Interfaces;
 
 namespace Souq.Application.Features.Categories.Commands;
 
-// Id يفرضه الـ Controller من المسار (لا من الجسم) — نفس نمط تحديث المنتج.
-public record UpdateCategoryCommand(int Id, string Name, string Slug, int? ParentId = null)
-    : IRequest<Result>;
+// تعديل فئة ونقلها وترتيبها وتفعيلها. Id يفرضه الـ Controller من المسار (لا من الجسم). النقل تحت فرعها أو أعمق من
+// الحدّ يرفضه الكيان (InvalidParent، 422).
+public record UpdateCategoryCommand(
+    int Id, string Slug, IReadOnlyDictionary<string, CatalogTextInput> Translations,
+    int? ParentId = null, int SortOrder = 0, bool IsActive = true) : IRequest<Result>, IAuditable
+{
+    public AuditRecord ToAuditRecord() => new("catalog.category.updated", "Category", Id.ToString(),
+        Metadata: new Dictionary<string, object?> { ["parentId"] = ParentId, ["isActive"] = IsActive });
+}
 
 public class UpdateCategoryHandler : IRequestHandler<UpdateCategoryCommand, Result>
 {
     private readonly ICategoryRepository _categories;
+    private readonly ITenantContext _tenant;
     private readonly IUnitOfWork _uow;
 
-    public UpdateCategoryHandler(ICategoryRepository categories, IUnitOfWork uow)
+    public UpdateCategoryHandler(ICategoryRepository categories, ITenantContext tenant, IUnitOfWork uow)
     {
-        _categories = categories; _uow = uow;
+        _categories = categories; _tenant = tenant; _uow = uow;
     }
 
     public async Task<Result> Handle(UpdateCategoryCommand cmd, CancellationToken ct)
@@ -24,22 +34,26 @@ public class UpdateCategoryHandler : IRequestHandler<UpdateCategoryCommand, Resu
         if (category is null)
             return Result.Failure(Error.NotFound("الفئة غير موجودة"));
 
-        var slug = cmd.Slug.Trim().ToLowerInvariant();
+        var culture = _tenant.RequireTenant().DefaultCulture;
+        if (!CatalogTexts.HasCulture(cmd.Translations, culture))
+            return Result.Failure(CategoryRules.DefaultTranslationRequired(culture));
 
-        // الـ slug فريد باستثناء الفئة نفسها.
-        var bySlug = await _categories.GetBySlugAsync(slug, ct);
+        category.SetSlug(cmd.Slug);
+        var bySlug = await _categories.GetBySlugAsync(category.Slug, ct);
         if (bySlug is not null && bySlug.Id != cmd.Id)
-            return Result.Failure(Error.Conflict("SlugTaken", "المُعرّف (slug) مستخدم مسبقاً"));
+            return Result.Failure(CategoryRules.SlugTaken);
 
-        if (cmd.ParentId is not null)
-        {
-            if (cmd.ParentId == cmd.Id)
-                return Result.Failure(Error.BusinessRule("InvalidParent", "لا يمكن أن تكون الفئة أباً لنفسها"));
-            if (await _categories.GetByIdAsync(cmd.ParentId.Value, ct) is null)
-                return Result.Failure(Error.Validation("ParentNotFound", "الفئة الأب غير موجودة"));
-        }
+        var links = await _categories.ListLinksAsync(ct);
+        if (cmd.ParentId is int parentId && links.All(l => l.Id != parentId))
+            return Result.Failure(CategoryRules.ParentNotFound);
 
-        category.UpdateDetails(cmd.Name.Trim(), slug, cmd.ParentId);
+        category.SetTexts(CatalogTexts.ToDomain(cmd.Translations));
+        category.SetSortOrder(cmd.SortOrder);
+        category.MoveTo(cmd.ParentId,
+            cmd.ParentId is int parent ? CategoryTree.AncestryOf(parent, links) : [],
+            CategoryTree.SubtreeHeight(category.Id, links));
+        if (cmd.IsActive) category.Activate(); else category.Deactivate();
+
         await _uow.SaveChangesAsync(ct);
         return Result.Success();
     }

@@ -51,11 +51,11 @@ export default function Inventory() {
   const columns = [
     { key: 'img', header: t('admin.inventory.colImage'), width: '64px', render: (p) => <div className={styles.thumb}><ProductImage product={p} /></div> },
     {
-      key: 'name', header: t('admin.inventory.colName'), truncate: true, tooltip: (p) => p.nameEn ? `${p.nameAr} / ${p.nameEn}` : p.nameAr,
+      key: 'name', header: t('admin.inventory.colName'), truncate: true, tooltip: (p) => p.name,
       render: (p) => (
         <div>
-          <div>{p.nameAr}</div>
-          {p.nameEn && p.nameEn !== p.nameAr && <div className={styles.nameSecondary}>{p.nameEn}</div>}
+          <div>{p.name}</div>
+          {p.sku && <div className={styles.nameSecondary} dir="ltr">{p.sku}</div>}
         </div>
       ),
     },

@@ -34,7 +34,7 @@ public class UpdateOrderStatusHandlerTests
     }
 
     private static Product ProductWithStock(int stock) =>
-        new("سماعات", "وصف", new Money(50, "JOD"), stock, "headphones", categoryId: 1);
+        Souq.Application.Tests.TestDoubles.TestCatalog.Product(stock: stock);
 
     [Fact]
     public async Task طلب_غير_موجود_يُرجع_NotFound()

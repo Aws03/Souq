@@ -101,7 +101,7 @@ public class ConfirmOrderPaymentHandlerTests
     [Fact]
     public async Task فشل_الدفع_يُعيد_المخزون_بأثر_في_السجلّ_ويُلغي_الطلب_ولا_يرسل_بريداً()
     {
-        var product = new Product("سماعات لاسلكية", "وصف", new Money(50, "JOD"), stockQuantity: 8, "headphones", categoryId: 1);
+        var product = Souq.Application.Tests.TestDoubles.TestCatalog.Product("سماعات لاسلكية", price: 50, stock: 8);
         var order = PendingOrderWithIntent(quantity: 2);
         _orders.GetWithItemsAsync(1, Arg.Any<CancellationToken>()).Returns(order);
         _products.GetByIdAsync(1, Arg.Any<CancellationToken>()).Returns(product);

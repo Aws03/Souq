@@ -34,9 +34,7 @@ public class CreateOrderHandlerTests
     // product.Id، وتحرير المخزون يعيد تحميل المنتج بهذا المعرّف.
     private static Product NewProduct(int stock = 10)
     {
-        var product = new Product("سماعات لاسلكية", "وصف", new Money(50, "JOD"), stock, "headphones", categoryId: 1);
-        typeof(Souq.Domain.Common.Entity).GetProperty("Id")!.SetValue(product, 1);
-        return product;
+        return Souq.Application.Tests.TestDoubles.TestCatalog.Product("سماعات لاسلكية", price: 50, stock: stock, id: 1);
     }
 
     // العميل يأتي من ICurrentUser (العميل 1 في CreateHandler) — الأمر لا يحمل معرّفه.

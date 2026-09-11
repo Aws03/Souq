@@ -1,15 +1,17 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api } from '../../api/client';
 import { useToast } from '../../context/ToastContext';
 import DataTable from '../../components/common/DataTable';
 import RowActionsMenu from '../../components/common/RowActionsMenu';
 import Button from '../../components/common/Button';
+import { getCategoryName } from '../../components/product/ProductBadges';
+import { activationPayload, orderAsTree } from '../../features/admin/categories/categoryForm';
 import CategoryFormDrawer from './CategoryFormDrawer';
 import styles from './Admin.module.css';
 
-// شاشة إدارة الفئات. القائمة صغيرة عادةً (غير مرقّمة في الـ API) فنعرضها كاملة
-// كجدول مسطّح، مع اسم الفئة الأب محلولاً من القائمة نفسها.
+// شاشة إدارة الفئات (المرحلة 5): كل الفئات من /admin/categories — بما فيها المخفيّة — مرتّبة شجرياً بإزاحة للفروع.
+// الإخفاء يُبعد الفئة ومنتجاتها عن المتجر دون حذف؛ الحذف لفئة فارغة بلا فروع فقط (يحرسه الخادم).
 export default function Categories() {
   const { t } = useTranslation();
   const toast = useToast();
@@ -20,7 +22,7 @@ export default function Categories() {
 
   const load = useCallback(() => {
     setLoading(true);
-    api.getCategories()
+    api.getAdminCategories()
       .then((res) => { setCategories(res); setError(null); })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
@@ -28,7 +30,11 @@ export default function Categories() {
 
   useEffect(() => { load(); }, [load]);
 
-  const parentName = (id) => categories.find((c) => c.id === id)?.name || '—';
+  const rows = useMemo(() => orderAsTree(categories), [categories]);
+  const parentName = (id) => {
+    const parent = categories.find((c) => c.id === id);
+    return parent ? getCategoryName(parent) : '—';
+  };
 
   const save = async (payload) => {
     if (editing?.id) await api.updateCategory(editing.id, payload);
@@ -38,8 +44,16 @@ export default function Categories() {
     load();
   };
 
+  const toggleActive = async (category) => {
+    try {
+      await api.updateCategory(category.id, activationPayload(category, !category.isActive));
+      toast.success(t(category.isActive ? 'admin.categories.deactivated' : 'admin.categories.activated'));
+      load();
+    } catch (e) { toast.error(e.message); }
+  };
+
   const remove = async (category) => {
-    if (!window.confirm(t('admin.categories.confirmDelete', { name: category.name }))) return;
+    if (!window.confirm(t('admin.categories.confirmDelete', { name: getCategoryName(category) }))) return;
     try {
       await api.deleteCategory(category.id);
       toast.success(t('admin.categories.deleted'));
@@ -48,13 +62,26 @@ export default function Categories() {
   };
 
   const columns = [
-    { key: 'name', header: t('admin.categories.colName'), truncate: true, tooltip: (c) => c.name, render: (c) => c.name },
-    { key: 'slug', header: t('admin.categories.colSlug'), width: '160px', render: (c) => <span dir="ltr">{c.slug}</span> },
-    { key: 'parent', header: t('admin.categories.colParent'), width: '160px', truncate: true, render: (c) => (c.parentId ? parentName(c.parentId) : '—') },
+    {
+      key: 'name', header: t('admin.categories.colName'), truncate: true, tooltip: (c) => getCategoryName(c),
+      render: (c) => <span style={{ paddingInlineStart: `${c.depth * 18}px` }}>{getCategoryName(c)}</span>,
+    },
+    { key: 'slug', header: t('admin.categories.colSlug'), width: '150px', render: (c) => <span dir="ltr">{c.slug}</span> },
+    { key: 'parent', header: t('admin.categories.colParent'), width: '150px', truncate: true, render: (c) => (c.parentId ? parentName(c.parentId) : '—') },
+    { key: 'order', header: t('admin.categories.colSortOrder'), width: '80px', align: 'end', render: (c) => c.sortOrder },
+    {
+      key: 'status', header: t('admin.categories.colStatus'), width: '100px',
+      render: (c) => (
+        <span className={`${styles.statusBadge} ${c.isActive ? styles.delivered : styles.cancelled}`}>
+          {c.isActive ? t('admin.categories.active') : t('admin.categories.inactive')}
+        </span>
+      ),
+    },
     {
       key: 'actions', header: t('admin.categories.colActions'), width: '64px', align: 'end', render: (c) => (
         <RowActionsMenu actions={[
           { label: t('common.edit'), onClick: () => setEditing(c) },
+          { label: c.isActive ? t('admin.categories.deactivate') : t('admin.categories.activate'), onClick: () => toggleActive(c) },
           { label: t('common.delete'), variant: 'danger', onClick: () => remove(c) },
         ]} />
       ),
@@ -70,12 +97,12 @@ export default function Categories() {
         <Button variant="primary" onClick={() => setEditing({})}>{t('admin.categories.addCategory')}</Button>
       </div>
 
-      <DataTable columns={columns} rows={categories} rowKey={(c) => c.id} loading={loading} error={error}
+      <DataTable columns={columns} rows={rows} rowKey={(c) => c.id} loading={loading} error={error}
         onRetry={load} emptyTitle={t('admin.categories.emptyTitle')} emptyMessage={t('admin.categories.emptyMessage')}
-        minWidth="480px" stickyFirstColumn />
+        minWidth="640px" stickyFirstColumn />
 
       {editing !== null && (
-        <CategoryFormDrawer category={editing.id ? editing : null} categories={categories}
+        <CategoryFormDrawer category={editing.id ? editing : null} categories={rows}
           onSave={save} onClose={() => setEditing(null)} />
       )}
     </div>

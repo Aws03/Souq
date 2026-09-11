@@ -93,23 +93,22 @@ public class InventoryAndOrderTests
     {
         var admin = await _api.AdminAsync();
         var productId = await _api.CreateProductAsync(admin, price: 10m, stock: 5);
-        var categoryId = (await admin.GetFromJsonAsync<List<TestApi.IdBody>>("/api/categories", TestApi.Json))!.First().Id;
+        var current = await _api.WithDbAsync(db =>
+            db.Products.Where(p => p.Id == productId).Select(p => new { p.CategoryId, p.Slug }).SingleAsync());
         var (customer, _) = await _api.NewCustomerAsync();
         (await _api.PlaceOrderAsync(customer, productId, 1)).StatusCode.Should().Be(HttpStatusCode.Created); // 5 ⇒ 4
 
         // المدير فتح النموذج حين كان المخزون 5 ويحفظ 10 (Phase 0 C4).
         var stale = await admin.PutAsJsonAsync($"/api/products/{productId}", new
         {
-            nameAr = "اسم", description = "وصف", price = 10m, stockQuantity = 10, expectedStockQuantity = 5,
-            imageUrl = "placeholder", categoryId,
+            categoryId = current.CategoryId, slug = current.Slug, translations = new { ar = new { name = "اسم" } },
+            price = 10m, stockQuantity = 10, expectedStockQuantity = 5,
         });
         stale.StatusCode.Should().Be(HttpStatusCode.Conflict);
         (await StockOf(productId)).Should().Be(4);
 
-        var renameOnly = await admin.PutAsJsonAsync($"/api/products/{productId}", new
-        {
-            nameAr = "اسم معدّل", description = "وصف", price = 10m, imageUrl = "placeholder", categoryId,
-        });
+        var renameOnly = await admin.PutAsJsonAsync($"/api/products/{productId}",
+            TestApi.ProductUpdateBody(current.CategoryId, current.Slug, 10m, "اسم معدّل"));
         renameOnly.StatusCode.Should().Be(HttpStatusCode.NoContent);
         (await StockOf(productId)).Should().Be(4);
     }
@@ -149,11 +148,7 @@ public class InventoryAndOrderTests
         var admin = await _api.AdminAsync();
         var categoryId = (await admin.GetFromJsonAsync<List<TestApi.IdBody>>("/api/categories", TestApi.Json))!.First().Id;
 
-        var response = await admin.PostAsJsonAsync("/api/products", new
-        {
-            nameAr = "دقّة زائدة", description = "وصف", price = 12.3456m, stockQuantity = 1,
-            imageUrl = "placeholder", categoryId,
-        });
+        var response = await admin.PostAsJsonAsync("/api/products", TestApi.ProductBody(categoryId, 12.3456m, 1, "دقّة زائدة"));
 
         // قاعدة يحرسها Money (خانات العملة) ⇒ 422 برمز ثابت، لا 500 ولا نص استثناء خام.
         response.StatusCode.Should().Be(HttpStatusCode.UnprocessableEntity);

@@ -1,5 +1,6 @@
 using MediatR;
 using Souq.Application.Common.Models;
+using Souq.Application.Common.Tenancy;
 
 namespace Souq.Application.Features.Inventory.Queries;
 
@@ -11,8 +12,13 @@ public record GetLowStockQuery(int Page = 1, int PageSize = 20)
 public class GetLowStockHandler : IRequestHandler<GetLowStockQuery, PaginatedList<InventoryItemDto>>
 {
     private readonly IInventoryQueries _inventory;
-    public GetLowStockHandler(IInventoryQueries inventory) => _inventory = inventory;
+    private readonly ITenantContext _tenant;
+
+    public GetLowStockHandler(IInventoryQueries inventory, ITenantContext tenant)
+    {
+        _inventory = inventory; _tenant = tenant;
+    }
 
     public Task<PaginatedList<InventoryItemDto>> Handle(GetLowStockQuery q, CancellationToken ct) =>
-        _inventory.ListLowStockAsync(PageRequest.From(q), ct);
+        _inventory.ListLowStockAsync(PageRequest.From(q), _tenant.RequireTenant().DefaultCulture, ct);
 }

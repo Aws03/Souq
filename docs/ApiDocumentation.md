@@ -19,9 +19,9 @@
 | Area | Prefix | Tenant context | Who |
 |---|---|---|---|
 | Auth | `/api/auth` | host's tenant (or platform host) | anonymous + token flows |
-| Storefront | `/api/storefront` (`/config` since Phase 4); still on shared routes: `/api/products`, `/api/categories`, `/api/coupons/apply`, `/api/products/{id}/reviews` | required | anonymous/customer |
+| Storefront | `/api/storefront` (`/config` since Phase 4); still on shared routes: `/api/products` (with `onSale`), `/api/products/{id}`, `/api/products/by-slug/{slug}` (Phase 5), `/api/categories`, `/api/coupons/apply`, `/api/products/{id}/reviews` | required | anonymous/customer |
 | Customer account | `/api/account` *(target)*; today `/api/orders/mine`, `/api/orders/{id}` | required | customer (own data) |
-| Tenant back-office | `/api/admin`: `/api/admin/inventory`, `/api/admin/store/*` and `/api/admin/staff` (Phase 4), plus admin actions on shared routes | required | tenant admin/staff + permission |
+| Tenant back-office | `/api/admin`: `/api/admin/inventory`, `/api/admin/store/*` and `/api/admin/staff` (Phase 4), `/api/admin/products` (every status, full detail, `/{id}/status`, `/{id}/images/order`, `/{id}/images/{imageId}`) and `/api/admin/categories` (Phase 5), plus admin writes still on shared routes (`POST/PUT/DELETE /api/products`, `/api/categories`) | required | tenant admin/staff + permission |
 | Platform | `/api/platform/tenants`, `/api/platform/users`, `/api/platform/stats`, `/api/platform/audit` (Phase 4) | none | platform owner/admin, platform host only, every request audited |
 | Webhooks | `/api/payments/webhook` (target `/api/webhooks/{provider}`) | from provider metadata | signature |
 | Health | `/health/live`, `/health/ready` (Phase 23) | — | infrastructure |
@@ -35,13 +35,13 @@ Routes move into these areas in the phase that rebuilds each module. The fronten
 | Read OK | 200 |
 | Created | 201 + `Location` (or `{ id }`) |
 | Updated or deleted with no body | 204 |
-| Validation failed (shape, ranges, paging, unreadable JSON, unsupported upload type) | 400 |
+| Validation failed (shape, ranges, paging, unreadable JSON, unsupported upload type, a compare-at price not above the price, no text in the store's default language `DefaultTranslationRequired`) | 400 |
 | Not authenticated, token invalid, wrong credentials | 401 |
 | Authenticated but lacking the permission | 403 |
 | Resource missing **or owned by someone else** (tenant or user) | **404**. Never 403, which would leak that the resource exists. |
 | No store on this host (`StoreNotFound`); a platform endpoint on a store host or the reverse (`NotFound`); a module disabled for this store (`ModuleDisabled`) | **404** |
-| Conflict with the current state: concurrent write (`ConcurrencyConflict`), duplicate (`DuplicateValue`, `EmailTaken`, `SlugTaken`, `TenantSlugTaken`, `DomainTaken`), stale edit (`StockChanged`), delete blocked (`CategoryInUse`), database reference rejected (`ReferenceConflict`) | **409** |
-| Business rule violated (invalid transition, insufficient stock, coupon unusable, too many decimals, unreadable colour palette, `CannotDisableSelf`, `LastAdministrator`, `TenantHasNoDomain`, `ModuleDisabled` at checkout) | **422** |
+| Conflict with the current state: concurrent write (`ConcurrencyConflict`), duplicate (`DuplicateValue`, `EmailTaken`, `SlugTaken`, `ProductSlugTaken`, `SkuTaken`, `TenantSlugTaken`, `DomainTaken`), stale edit (`StockChanged`), delete blocked (`CategoryInUse`, `CategoryHasChildren`), database reference rejected (`ReferenceConflict`) | **409** |
+| Business rule violated (invalid transition, insufficient stock, coupon unusable, too many decimals, unreadable colour palette, `CannotDisableSelf`, `LastAdministrator`, `TenantHasNoDomain`, `ModuleDisabled` at checkout, catalog values the entity rejects, such as a malformed slug or SKU or an unsupported language (`InvalidProductData`, `InvalidCategory`), a category cycle or a tree deeper than 5 levels (`InvalidParent`), an image order that does not list every image once) | **422** |
 | Too many requests | 429 (Phase 3) |
 | Required external provider unavailable (`PaymentUnavailable`); store suspended, archived, or still provisioning (`StoreUnavailable`) | 503 |
 | Unexpected | 500, generic message, no internals |

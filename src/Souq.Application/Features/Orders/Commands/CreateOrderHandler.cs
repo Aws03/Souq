@@ -100,7 +100,8 @@ public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, Result<Ord
         foreach (var (product, quantity) in lines)
         {
             product.DecreaseStock(quantity);
-            order.AddItem(product.Id, product.Name, product.Price, quantity);
+            // لقطة الاسم بلغة المتجر الافتراضية — الفاتورة تبقى كما كانت لحظة الشراء.
+            order.AddItem(product.Id, product.NameIn(_tenant.RequireTenant().DefaultCulture), product.Price, quantity);
             // كل بيع يُسجَّل في سجلّ حركة المخزون (كمية سالبة = نقص)، ذرّياً مع الطلب.
             await _stockMovements.AddAsync(
                 StockMovement.For(product, StockMovementType.Sale, -quantity), ct);

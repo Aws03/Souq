@@ -14,7 +14,8 @@ public class RepositoryBase<T> : IRepository<T> where T : Entity
     protected readonly AppDbContext Db;
     public RepositoryBase(AppDbContext db) => Db = db;
 
-    public async Task<T?> GetByIdAsync(int id, CancellationToken ct = default)
+    // افتراضياً الجذر وحده؛ تجمّع له أبناء تحتاجهم قواعده (منتج، فئة) يحمّلهم في مستودعه.
+    public virtual async Task<T?> GetByIdAsync(int id, CancellationToken ct = default)
         => await Db.Set<T>().FindAsync(new object[] { id }, ct);
 
     public async Task AddAsync(T entity, CancellationToken ct = default)

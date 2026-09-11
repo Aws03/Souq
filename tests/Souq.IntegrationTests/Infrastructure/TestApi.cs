@@ -103,23 +103,48 @@ public sealed class TestApi
         HttpClient admin, decimal price = 10m, int stock = 5, int? categoryId = null, string? name = null)
     {
         categoryId ??= await CreateCategoryAsync(admin);
-        var response = await admin.PostAsJsonAsync("/api/products", new
-        {
-            nameAr = name ?? $"منتج {Guid.NewGuid():N}", description = "اختبار", price, stockQuantity = stock,
-            imageUrl = "placeholder", categoryId,
-        });
+        var response = await admin.PostAsJsonAsync("/api/products", ProductBody(categoryId.Value, price, stock, name));
         response.StatusCode.Should().Be(System.Net.HttpStatusCode.Created, await response.Content.ReadAsStringAsync());
         return (await response.Content.ReadFromJsonAsync<IdBody>(Json))!.Id;
     }
 
-    // فئة جديدة فريدة — تعزل قوائم اختبار عن بيانات الاختبارات الأخرى في القاعدة المشتركة.
-    public async Task<int> CreateCategoryAsync(HttpClient admin, string? slug = null)
+    // جسم إنشاء منتج بعقد المرحلة 5: نصوص لكل لغة (العربية لغة المتجر الافتراضي)، والمعرّف النصّي يقترحه الخادم.
+    public static object ProductBody(
+        int categoryId, decimal price = 10m, int stock = 5, string? name = null, string? slug = null, string? sku = null) => new
     {
-        slug ??= $"it-{Guid.NewGuid():N}"[..24];
-        var response = await admin.PostAsJsonAsync("/api/categories", new { name = $"فئة {slug}", slug });
+        categoryId,
+        translations = new Dictionary<string, object> { ["ar"] = new { name = name ?? $"منتج {Guid.NewGuid():N}", description = "اختبار" } },
+        price,
+        stockQuantity = stock,
+        slug,
+        sku,
+    };
+
+    // جسم تعديل منتج (PUT يستبدل الحقول التحريرية كلها؛ المخزون اختياري بحارس التزامن).
+    public static object ProductUpdateBody(int categoryId, string slug, decimal price = 10m, string name = "منتج معدّل") => new
+    {
+        categoryId,
+        slug,
+        translations = new Dictionary<string, object> { ["ar"] = new { name, description = "اختبار" } },
+        price,
+    };
+
+    // فئة جديدة فريدة — تعزل قوائم اختبار عن بيانات الاختبارات الأخرى في القاعدة المشتركة.
+    public async Task<int> CreateCategoryAsync(HttpClient admin, string? slug = null, int? parentId = null)
+    {
+        var response = await admin.PostAsJsonAsync("/api/categories", CategoryBody(slug, parentId: parentId));
         response.StatusCode.Should().Be(System.Net.HttpStatusCode.Created, await response.Content.ReadAsStringAsync());
         return (await response.Content.ReadFromJsonAsync<IdBody>(Json))!.Id;
     }
+
+    public static object CategoryBody(string? slug = null, string? name = null, int? parentId = null)
+    {
+        slug ??= $"it-{Guid.NewGuid():N}"[..24];
+        return new { slug, translations = new Dictionary<string, object> { ["ar"] = new { name = name ?? $"فئة {slug}" } }, parentId };
+    }
+
+    // نصوص كتالوج عربية لكيانات تُزرع مباشرة في القاعدة.
+    public static Dictionary<string, Souq.Domain.ValueObjects.CatalogText> ArabicText(string name) => new() { ["ar"] = new(name) };
 
     public async Task<HttpResponseMessage> PlaceOrderAsync(HttpClient customer, int productId, int quantity) =>
         await customer.PostAsJsonAsync("/api/orders", new

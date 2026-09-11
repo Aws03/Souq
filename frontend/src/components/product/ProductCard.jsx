@@ -46,7 +46,7 @@ export default function ProductCard({ product, onAdded, isNew = false, layout = 
           <Link to={`/products/${product.id}`} className={styles.nameLink}>{name}</Link>
         </h3>
         <div className={styles.foot}>
-          <PriceTag amount={product.price} currency={product.currency} />
+          <PriceTag amount={product.price} currency={product.currency} compareAt={product.compareAtPrice} />
           <Button variant="primary" size="sm" loading={adding} disabled={outOfStock} onClick={handleAdd}>
             {outOfStock ? t('product.outOfStock') : t('product.addToCart')}
           </Button>

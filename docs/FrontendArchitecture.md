@@ -106,6 +106,17 @@ It displays the server's decisions and handles its errors.
 | New error codes translated (`ModuleDisabled`, `DomainTaken`, `TenantSlugTaken`, `TenantHasNoDomain`, `CannotDisableSelf`, `LastAdministrator`) | Server decisions shown in both languages |
 | The SPA does not consume `/api/storefront/config` yet | That is the Phase 15 white-label runtime (TenantProvider/ThemeProvider); the platform UI is Phase 18 |
 
+**Phase 5 (catalog, adaptation to the new contract):**
+
+| Change | Reason |
+|---|---|
+| `features/catalog/catalogText.js` (tested) reads a product's or category's name and description from `translations` in the UI language. It falls back to the store's default text, and to cart items saved before Phase 5 (`nameAr`/`nameEn`) | Per-language catalog texts (D-10) |
+| The admin product form has per-language fields, SKU, compare-at price, slug, brand, low-stock threshold and, on create, the status. Gallery tiles offer "make main" and "remove". The payload comes from `productPayload.js` (tested), with stock compare-and-set unchanged | The new catalog contract ([ADR-0025](adr/0025-catalog-model.md)) |
+| The admin products table reads `/api/admin/products` (every status). It has a status filter, and publish / draft / archive / restore actions. `productQuery.js` sends `categoryId` and `status` (tested) | C7: archived products stay manageable |
+| The categories page shows the tree order with indentation, sort order, a visibility toggle and per-language names. Parent options exclude the category and its descendants (`categoryForm.js`, tested) | Tree rules (the server also rejects cycles and depth > 5) |
+| The storefront shows localized product and category names, the product gallery, and a struck-through compare-at price | Offers and localization |
+| New error codes translated (`ProductSlugTaken`, `SkuTaken`, `DefaultTranslationRequired`, `InvalidCategory`) | Server decisions shown in both languages |
+
 ## 6. Phase 15 migration plan
 
 1. Introduce `app/`, `routes/`, `layouts/`, and `contexts/` without moving features. The app keeps working.

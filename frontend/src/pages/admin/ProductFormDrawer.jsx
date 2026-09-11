@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { api } from '../../api/client';
 import Drawer from '../../components/common/Drawer';
 import FormField, { inputClass } from '../../components/common/FormField';
 import Button from '../../components/common/Button';
 import { ErrorBanner } from '../../components/common/StateViews';
 import { CameraIcon, VideoIcon, CloseIcon } from '../../components/icons/Icons';
-import { isRealImage } from '../../components/product/ProductImage';
+import { getCategoryName } from '../../components/product/ProductBadges';
+import { hasAnyName, textsToForm } from '../../features/catalog/catalogText';
 import { buildProductPayload } from '../../features/admin/products/productPayload';
 import styles from './ProductFormDrawer.module.css';
 
@@ -13,21 +15,28 @@ const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
 const ALLOWED_VIDEO_TYPES = ['video/mp4', 'video/webm'];
 const MAX_VIDEO_SIZE = 50 * 1024 * 1024;
+const MAX_IMAGES = 10;
+const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
-// درج إضافة/تعديل منتج. رفع الصورة/الفيديو مؤجَّل فعلياً لبعد حفظ المنتج (نقاط
-// الرفع تتطلّب معرّفاً موجوداً) — هنا فقط نلتقط الملفّين ونعرض معاينتهما محلياً،
-// والحفظ الفعلي يحدث في Products.jsx بعد الإنشاء/التحديث.
-export default function ProductFormDrawer({ product, categories, onSave, onClose }) {
+// درج إضافة/تعديل منتج (المرحلة 5): نصوص لكل لغة، السعر وسعر المقارنة وSKU (المتغيّر الافتراضي)، المعرّف في
+// الرابط، ومعرض الصور. الصورة الجديدة والفيديو يُرفعان بعد حفظ المنتج (نقاط الرفع تتطلّب معرّفاً موجوداً) — هنا
+// نلتقطهما ونعرض معاينتهما. إزالة صورة موجودة أو جعلها رئيسية عملية مستقلّة على المعرض تُنفَّذ فوراً.
+export default function ProductFormDrawer({ product, categories, onSave, onImagesChanged, onClose }) {
   const { t } = useTranslation();
   const isEdit = !!product;
-  const [nameAr, setNameAr] = useState(product?.nameAr ?? '');
-  const [nameEn, setNameEn] = useState(product?.nameEn ?? '');
-  const [description, setDescription] = useState(product?.description ?? '');
+  const [texts, setTexts] = useState(() => textsToForm(product?.translations));
+  const [slug, setSlug] = useState(product?.slug ?? '');
+  const [sku, setSku] = useState(product?.sku ?? '');
+  const [brand, setBrand] = useState(product?.brand ?? '');
   const [price, setPrice] = useState(product?.price ?? '');
+  const [compareAtPrice, setCompareAtPrice] = useState(product?.compareAtPrice ?? '');
   const [stockQuantity, setStockQuantity] = useState(product?.stockQuantity ?? '');
+  const [lowStockThreshold, setLowStockThreshold] = useState(product?.lowStockThreshold ?? 5);
   const [categoryId, setCategoryId] = useState(product?.categoryId ?? (categories[0]?.id ?? ''));
+  const [status, setStatus] = useState('Active');
+  const [images, setImages] = useState(product?.images ?? []);
   const [file, setFile] = useState(null);
-  const [preview, setPreview] = useState(isRealImage(product?.imageUrl) ? product.imageUrl : null);
+  const [preview, setPreview] = useState(null);
   const [dragOver, setDragOver] = useState(false);
   const [videoFile, setVideoFile] = useState(null);
   const [videoPreview, setVideoPreview] = useState(product?.videoUrl || null);
@@ -35,6 +44,10 @@ export default function ProductFormDrawer({ product, categories, onSave, onClose
   const [videoDragOver, setVideoDragOver] = useState(false);
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
+
+  const galleryFull = images.length >= MAX_IMAGES;
+  const setText = (culture, field) => (e) =>
+    setTexts((current) => ({ ...current, [culture]: { ...current[culture], [field]: e.target.value } }));
 
   const pickFile = (f) => {
     if (!f) return;
@@ -62,18 +75,42 @@ export default function ProductFormDrawer({ product, categories, onSave, onClose
     setVideoRemoved(true);
   };
 
+  const runGallery = async (action) => {
+    setBusy(true); setError(null);
+    try { await action(); onImagesChanged?.(); } catch (err) { setError(err.message); } finally { setBusy(false); }
+  };
+
+  const removeImage = (image) => {
+    if (!window.confirm(t('admin.productForm.confirmRemoveImage'))) return;
+    runGallery(async () => {
+      await api.removeProductImage(product.id, image.id);
+      setImages((list) => list.filter((i) => i.id !== image.id));
+    });
+  };
+
+  // الترتيب الجديد يشمل كل الصور (عقد الخادم): المختارة أولاً ثم البقية كما هي.
+  const makePrimary = (image) => runGallery(async () => {
+    const ordered = [image, ...images.filter((i) => i.id !== image.id)];
+    await api.reorderProductImages(product.id, ordered.map((i) => i.id));
+    setImages(ordered);
+  });
+
   const submit = async (e) => {
     e.preventDefault();
-    if (!nameAr.trim()) return setError(t('admin.productForm.nameRequired'));
+    if (!hasAnyName(texts)) return setError(t('admin.productForm.nameRequired'));
     if (!price || Number(price) <= 0) return setError(t('admin.productForm.priceInvalid'));
+    if (compareAtPrice !== '' && compareAtPrice !== null && Number(compareAtPrice) <= Number(price)) {
+      return setError(t('admin.productForm.compareAtInvalid'));
+    }
     if (!categoryId) return setError(t('admin.productForm.categoryRequired'));
+    if (slug.trim() && !SLUG_PATTERN.test(slug.trim())) return setError(t('admin.productForm.slugInvalid'));
 
     setBusy(true); setError(null);
     try {
       // المخزون يُرسَل فقط إن غيّره المدير (مع القيمة التي رآها) — تعارض ⇒ 409 تظهر رسالته هنا.
-      await onSave(buildProductPayload(
-        { nameAr, nameEn, description, price, stockQuantity, categoryId, videoRemoved }, product,
-      ), file, videoFile);
+      await onSave(buildProductPayload({
+        texts, slug, sku, brand, price, compareAtPrice, stockQuantity, lowStockThreshold, categoryId, status, videoRemoved,
+      }, product), galleryFull ? null : file, videoFile);
     } catch (err) { setError(err.message); setBusy(false); }
   };
 
@@ -88,21 +125,45 @@ export default function ProductFormDrawer({ product, categories, onSave, onClose
       <form id="product-form" onSubmit={submit}>
         {error && <ErrorBanner message={error} />}
 
-        <div className={`${styles.dropzone} ${dragOver ? styles.dragOver : ''}`}
-          onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-          onDragLeave={() => setDragOver(false)}
-          onDrop={(e) => { e.preventDefault(); setDragOver(false); pickFile(e.dataTransfer.files?.[0]); }}
-          onClick={() => document.getElementById('product-image-input').click()}>
-          {preview ? <img src={preview} alt={t('admin.productForm.previewAlt')} className={styles.preview} /> : (
-            <div className={styles.dropHint}>
-              <CameraIcon />
-              <span>{t('admin.productForm.dropHint')}</span>
-              <small>{t('admin.productForm.dropHintSub')}</small>
-            </div>
-          )}
-          <input id="product-image-input" type="file" accept="image/jpeg,image/png,image/webp,image/gif"
-            hidden onChange={(e) => pickFile(e.target.files?.[0])} />
-        </div>
+        {images.length > 0 && (
+          <section className={styles.galleryBlock} aria-label={t('admin.productForm.galleryLabel')}>
+            <div className={styles.galleryTitle}>{t('admin.productForm.galleryLabel')}</div>
+            <small className={styles.galleryHint}>{t('admin.productForm.galleryHint', { max: MAX_IMAGES })}</small>
+            <ul className={styles.gallery}>
+              {images.map((image, index) => (
+                <li key={image.id} className={styles.galleryItem}>
+                  <img src={image.url} alt="" className={styles.galleryImage} />
+                  <div className={styles.galleryActions}>
+                    {index === 0
+                      ? <span className={styles.primaryTag}>{t('admin.productForm.primaryImage')}</span>
+                      : <button type="button" onClick={() => makePrimary(image)} disabled={busy}>{t('admin.productForm.makePrimary')}</button>}
+                    <button type="button" className={styles.removeImageBtn} onClick={() => removeImage(image)} disabled={busy}>
+                      {t('admin.productForm.removeImage')}
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
+        {galleryFull ? <p className={styles.galleryFull}>{t('admin.productForm.galleryFull')}</p> : (
+          <div className={`${styles.dropzone} ${dragOver ? styles.dragOver : ''}`}
+            onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={(e) => { e.preventDefault(); setDragOver(false); pickFile(e.dataTransfer.files?.[0]); }}
+            onClick={() => document.getElementById('product-image-input').click()}>
+            {preview ? <img src={preview} alt={t('admin.productForm.previewAlt')} className={styles.preview} /> : (
+              <div className={styles.dropHint}>
+                <CameraIcon />
+                <span>{t('admin.productForm.dropHint')}</span>
+                <small>{t('admin.productForm.dropHintSub')}</small>
+              </div>
+            )}
+            <input id="product-image-input" type="file" accept="image/jpeg,image/png,image/webp,image/gif"
+              hidden onChange={(e) => pickFile(e.target.files?.[0])} />
+          </div>
+        )}
 
         <FormField label={t('admin.productForm.videoLabel')}>
           <div className={`${styles.dropzone} ${videoDragOver ? styles.dragOver : ''}`}
@@ -131,33 +192,74 @@ export default function ProductFormDrawer({ product, categories, onSave, onClose
 
         <div className={styles.row}>
           <FormField label={t('admin.productForm.nameLabel')}>
-            <input className={inputClass(false)} value={nameAr} dir="rtl"
-              onChange={(e) => setNameAr(e.target.value)} placeholder="مثال: سماعات لاسلكية" />
+            <input className={inputClass(false)} value={texts.ar.name} dir="rtl" maxLength={200}
+              onChange={setText('ar', 'name')} placeholder="مثال: سماعات لاسلكية" />
           </FormField>
           <FormField label={t('admin.productForm.nameEnLabel')} hint={t('admin.productForm.nameEnHint')}>
-            <input className={inputClass(false)} value={nameEn} dir="ltr"
-              onChange={(e) => setNameEn(e.target.value)} placeholder="e.g. Wireless Headphones" />
+            <input className={inputClass(false)} value={texts.en.name} dir="ltr" maxLength={200}
+              onChange={setText('en', 'name')} placeholder="e.g. Wireless Headphones" />
           </FormField>
         </div>
 
         <FormField label={t('admin.productForm.descriptionLabel')}>
-          <textarea className={inputClass(false)} rows={3} value={description} onChange={(e) => setDescription(e.target.value)} />
+          <textarea className={inputClass(false)} rows={3} dir="rtl" maxLength={4000}
+            value={texts.ar.description} onChange={setText('ar', 'description')} />
+        </FormField>
+        <FormField label={t('admin.productForm.descriptionEnLabel')}>
+          <textarea className={inputClass(false)} rows={3} dir="ltr" maxLength={4000}
+            value={texts.en.description} onChange={setText('en', 'description')} />
         </FormField>
 
         <div className={styles.row}>
           <FormField label={t('admin.productForm.priceLabel')}>
             <input className={inputClass(false)} type="number" min="0" step="0.001" value={price} onChange={(e) => setPrice(e.target.value)} />
           </FormField>
-          <FormField label={t('admin.productForm.stockLabel')}>
-            <input className={inputClass(false)} type="number" min="0" step="1" value={stockQuantity} onChange={(e) => setStockQuantity(e.target.value)} />
+          <FormField label={t('admin.productForm.compareAtLabel')} hint={t('admin.productForm.compareAtHint')}>
+            <input className={inputClass(false)} type="number" min="0" step="0.001" value={compareAtPrice}
+              onChange={(e) => setCompareAtPrice(e.target.value)} />
           </FormField>
         </div>
 
-        <FormField label={t('admin.productForm.categoryLabel')}>
-          <select className={inputClass(false)} value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
-            {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
-        </FormField>
+        <div className={styles.row}>
+          <FormField label={t('admin.productForm.stockLabel')}>
+            <input className={inputClass(false)} type="number" min="0" step="1" value={stockQuantity} onChange={(e) => setStockQuantity(e.target.value)} />
+          </FormField>
+          <FormField label={t('admin.productForm.lowStockLabel')}>
+            <input className={inputClass(false)} type="number" min="0" step="1" value={lowStockThreshold}
+              onChange={(e) => setLowStockThreshold(e.target.value)} />
+          </FormField>
+        </div>
+
+        <div className={styles.row}>
+          <FormField label={t('admin.productForm.categoryLabel')}>
+            <select className={inputClass(false)} value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
+              {categories.map((c) => <option key={c.id} value={c.id}>{getCategoryName(c)}</option>)}
+            </select>
+          </FormField>
+          <FormField label={t('admin.productForm.brandLabel')}>
+            <input className={inputClass(false)} value={brand} maxLength={100} onChange={(e) => setBrand(e.target.value)} />
+          </FormField>
+        </div>
+
+        <div className={styles.row}>
+          <FormField label={t('admin.productForm.skuLabel')}>
+            <input className={inputClass(false)} value={sku} dir="ltr" maxLength={64} placeholder="HP-01"
+              onChange={(e) => setSku(e.target.value)} />
+          </FormField>
+          <FormField label={t('admin.productForm.slugLabel')} hint={isEdit ? undefined : t('admin.productForm.slugHint')}>
+            <input className={inputClass(false)} value={slug} dir="ltr" maxLength={120} placeholder="wireless-headphones"
+              onChange={(e) => setSlug(e.target.value.toLowerCase())} />
+          </FormField>
+        </div>
+
+        {!isEdit && (
+          <FormField label={t('admin.productForm.statusLabel')}>
+            <select className={inputClass(false)} value={status} onChange={(e) => setStatus(e.target.value)}>
+              <option value="Active">{t('admin.products.status.Active')}</option>
+              <option value="Draft">{t('admin.products.status.Draft')}</option>
+            </select>
+          </FormField>
+        )}
       </form>
     </Drawer>
   );

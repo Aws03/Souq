@@ -1,19 +1,126 @@
 using AwesomeAssertions;
 using Souq.Domain.Entities;
+using Souq.Domain.Enums;
 using Souq.Domain.Exceptions;
 using Souq.Domain.ValueObjects;
 
 namespace Souq.Domain.Tests;
 
+// تجمّع المنتج (المرحلة 5): النصوص لكل لغة، البيع عبر متغيّر افتراضي واحد (السعر وسعر المقارنة وSKU)، دورة حياة
+// بلا حذف، معرض صور مرتّب محدود، والمخزون محروس كما كان.
 public class ProductTests
 {
-    private static Product NewProduct(int stock = 10) =>
-        new("سماعات لاسلكية", "صوت نقي", new Money(59.9m, "JOD"), stock, "headphones", categoryId: 1);
+    private static Dictionary<string, CatalogText> Texts(string ar = "سماعات لاسلكية", string? en = null)
+    {
+        var texts = new Dictionary<string, CatalogText> { ["ar"] = new(ar, "صوت نقي") };
+        if (en is not null) texts["en"] = new CatalogText(en);
+        return texts;
+    }
+
+    private static Product NewProduct(int stock = 10, ProductStatus status = ProductStatus.Active) =>
+        new("wireless-headphones", categoryId: 1, Texts(), new Money(59.9m, "JOD"), stock, status);
 
     [Fact]
-    public void جديد_يكون_نشطاً_دائماً()
+    public void الجديد_نشط_افتراضياً_بمتغيّر_افتراضي_واحد_يحمل_السعر()
     {
-        NewProduct().IsActive.Should().BeTrue();
+        var product = NewProduct();
+
+        product.IsActive.Should().BeTrue();
+        product.Variants.Should().ContainSingle().Which.IsDefault.Should().BeTrue();
+        product.Price.Should().Be(new Money(59.9m, "JOD"));
+        product.CompareAtPrice.Should().BeNull();
+        product.NameIn("ar").Should().Be("سماعات لاسلكية");
+    }
+
+    [Fact]
+    public void لا_يُنشأ_منتج_مؤرشفاً()
+    {
+        var act = () => NewProduct(status: ProductStatus.Archived);
+
+        act.Should().Throw<InvalidProductDataException>();
+    }
+
+    [Fact]
+    public void النصوص_بلغات_مدعومة_وتُستبدل_كاملة()
+    {
+        var product = NewProduct();
+
+        product.SetTexts(Texts("سماعات", en: "Headphones"));
+        product.Translations.Select(t => t.Culture).Should().BeEquivalentTo(["ar", "en"]);
+        product.NameIn("en").Should().Be("Headphones");
+        product.NameIn("fr").Should().Be("سماعات");            // لغة غير موجودة ⇒ العربية
+
+        product.SetTexts(new Dictionary<string, CatalogText> { ["en"] = new("Only English") });
+        product.Translations.Should().ContainSingle().Which.Culture.Should().Be("en");
+
+        ((Action)(() => product.SetTexts(new Dictionary<string, CatalogText> { ["fr"] = new("Casque") })))
+            .Should().Throw<InvalidProductDataException>();
+        ((Action)(() => product.SetTexts(new Dictionary<string, CatalogText>()))).Should().Throw<InvalidProductDataException>();
+        ((Action)(() => product.SetTexts(new Dictionary<string, CatalogText> { ["ar"] = new("  ") })))
+            .Should().Throw<InvalidProductDataException>();
+    }
+
+    [Theory]
+    [InlineData("Wireless Headphones")]
+    [InlineData("-bad")]
+    [InlineData("a")]
+    [InlineData("سماعات")]
+    public void معرّف_رابط_غير_صالح_يُرفض(string slug)
+    {
+        var act = () => NewProduct().SetSlug(slug);
+
+        act.Should().Throw<InvalidProductDataException>();
+    }
+
+    [Fact]
+    public void سعر_المقارنة_أعلى_من_السعر_وبعملته_وSKU_يُطبَّع()
+    {
+        var product = NewProduct();
+
+        product.SetPricing(new Money(40m, "JOD"), new Money(59.9m, "JOD"), " hp-01 ");
+
+        product.Price.Amount.Should().Be(40m);
+        product.CompareAtPrice!.Amount.Should().Be(59.9m);
+        product.DefaultVariant.IsOnSale.Should().BeTrue();
+        product.Sku.Should().Be("HP-01");
+
+        ((Action)(() => product.SetPricing(new Money(40m, "JOD"), new Money(40m, "JOD"), null))).Should().Throw<InvalidProductDataException>();
+        ((Action)(() => product.SetPricing(new Money(40m, "JOD"), new Money(50m, "USD"), null))).Should().Throw<InvalidProductDataException>();
+        ((Action)(() => product.SetPricing(new Money(0m, "JOD"), null, null))).Should().Throw<InvalidProductDataException>();
+        ((Action)(() => product.SetPricing(new Money(40m, "JOD"), null, "has space"))).Should().Throw<InvalidProductDataException>();
+    }
+
+    [Fact]
+    public void دورة_الحياة_مسودّة_نشط_مؤرشف_واستعادة()
+    {
+        var product = NewProduct(status: ProductStatus.Draft);
+        product.CanFulfill(1).Should().BeFalse();       // المسودّة لا تُباع
+
+        product.ChangeStatus(ProductStatus.Active);
+        product.CanFulfill(1).Should().BeTrue();
+
+        product.Archive();
+        product.Status.Should().Be(ProductStatus.Archived);
+        product.CanFulfill(1).Should().BeFalse();
+
+        product.ChangeStatus(ProductStatus.Draft);        // استعادة مسودّةً
+        product.Status.Should().Be(ProductStatus.Draft);
+    }
+
+    [Fact]
+    public void معرض_الصور_مرتّب_ومحدود_والترتيب_يشمل_كل_صورة_مرّة()
+    {
+        var product = NewProduct();
+        product.AddImage("/uploads/tenants/1/images/a.png");
+        product.AddImage("/uploads/tenants/1/images/b.png");
+
+        product.PrimaryImageUrl.Should().EndWith("a.png");
+        product.Images.Select(i => i.SortOrder).Should().Equal(0, 1);
+        ((Action)(() => product.ReorderImages([0]))).Should().Throw<InvalidProductDataException>();
+
+        for (var i = product.Images.Count; i < Product.MaxImages; i++) product.AddImage($"/uploads/x{i}.png");
+        ((Action)(() => product.AddImage("/uploads/one-too-many.png"))).Should().Throw<InvalidProductDataException>();
+        ((Action)(() => product.AddImage(" "))).Should().Throw<InvalidProductDataException>();
     }
 
     [Theory]
@@ -23,46 +130,26 @@ public class ProductTests
     [InlineData(5, 0, false)]
     public void CanFulfill_يعتمد_على_المخزون_والكمية(int stock, int requested, bool expected)
     {
-        var product = NewProduct(stock);
-
-        product.CanFulfill(requested).Should().Be(expected);
+        NewProduct(stock).CanFulfill(requested).Should().Be(expected);
     }
 
     [Fact]
-    public void CanFulfill_يرفض_دائماً_لمنتج_معطّل()
+    public void DecreaseStock_ينقص_عند_التوفّر_ويرمي_بلا_تغيير_جزئي_عند_النقص()
     {
         var product = NewProduct(10);
-        product.Deactivate();
-
-        product.CanFulfill(1).Should().BeFalse();
-    }
-
-    [Fact]
-    public void DecreaseStock_ينقص_المخزون_عند_توفّره()
-    {
-        var product = NewProduct(10);
-
         product.DecreaseStock(4);
+        product.StockQuantity.Should().Be(6);
 
+        var act = () => product.DecreaseStock(7);
+        act.Should().Throw<InsufficientStockException>();
         product.StockQuantity.Should().Be(6);
     }
 
     [Fact]
-    public void DecreaseStock_يرمي_عند_عدم_توفّر_الكمية()
-    {
-        var product = NewProduct(2);
-
-        var act = () => product.DecreaseStock(3);
-
-        act.Should().Throw<InsufficientStockException>();
-        product.StockQuantity.Should().Be(2); // لا تغيير جزئي عند الفشل
-    }
-
-    [Fact]
-    public void DecreaseStock_لمنتج_معطّل_يرمي_حتى_مع_توفّر_المخزون()
+    public void DecreaseStock_لمنتج_مؤرشف_يرمي_حتى_مع_توفّر_المخزون()
     {
         var product = NewProduct(10);
-        product.Deactivate();
+        product.Archive();
 
         var act = () => product.DecreaseStock(1);
 
@@ -70,64 +157,72 @@ public class ProductTests
     }
 
     [Fact]
-    public void IncreaseStock_يزيد_المخزون()
-    {
-        var product = NewProduct(5);
-
-        product.IncreaseStock(3);
-
-        product.StockQuantity.Should().Be(8);
-    }
-
-    [Fact]
-    public void SetStock_يرفض_القيمة_السالبة()
+    public void المخزون_والحدّ_لا_يقبلان_السالب()
     {
         var product = NewProduct();
 
-        var act = () => product.SetStock(-1);
-
-        act.Should().Throw<InvalidProductDataException>();
-    }
-
-    [Fact]
-    public void SetStock_يقبل_الصفر_ويعيّن_القيمة_المطلقة()
-    {
-        var product = NewProduct(10);
-
+        ((Action)(() => product.SetStock(-1))).Should().Throw<InvalidProductDataException>();
+        ((Action)(() => product.SetLowStockThreshold(-1))).Should().Throw<InvalidProductDataException>();
         product.SetStock(0);
-
         product.StockQuantity.Should().Be(0);
+        product.IncreaseStock(3);
+        product.StockQuantity.Should().Be(3);
+    }
+}
+
+// شجرة الفئات: لا نقل تحت النفس أو تحت فرع، ولا أعمق من الحدّ؛ النصوص والمعرّف بقواعد الكتالوج نفسها.
+public class CategoryTests
+{
+    private static Category NewCategory(int id = 10)
+    {
+        var category = new Category("electronics", new Dictionary<string, CatalogText> { ["ar"] = new("إلكترونيات") });
+        typeof(Souq.Domain.Common.Entity).GetProperty("Id")!.SetValue(category, id);
+        return category;
     }
 
     [Fact]
-    public void SetImageUrl_يرفض_رابطاً_فارغاً()
+    public void الجديدة_مفعّلة_بلا_أب_واسمها_من_ترجمتها()
     {
-        var product = NewProduct();
+        var category = NewCategory();
 
-        var act = () => product.SetImageUrl("   ");
-
-        act.Should().Throw<InvalidProductDataException>();
+        category.IsActive.Should().BeTrue();
+        category.ParentId.Should().BeNull();
+        category.Name.Should().Be("إلكترونيات");
     }
 
     [Fact]
-    public void SetImageUrl_يعيّن_الرابط_الصالح()
+    public void لا_تُنقل_تحت_نفسها_ولا_تحت_أحد_فروعها()
     {
-        var product = NewProduct();
+        var category = NewCategory(id: 10);
 
-        product.SetImageUrl("/uploads/abc.jpg");
+        ((Action)(() => category.MoveTo(10, [10]))).Should().Throw<InvalidCategoryParentException>();
+        // الأب المقترح 30 فرع من 10 (سلسلته: 30 ⇒ 20 ⇒ 10).
+        ((Action)(() => category.MoveTo(30, [30, 20, 10]))).Should().Throw<InvalidCategoryParentException>();
 
-        product.ImageUrl.Should().Be("/uploads/abc.jpg");
+        category.MoveTo(40, [40]);
+        category.ParentId.Should().Be(40);
+        category.MoveTo(null, []);
+        category.ParentId.Should().BeNull();
     }
 
     [Fact]
-    public void Deactivate_ثم_Activate_يعيد_المنتج_نشطاً()
+    public void الشجرة_لا_تتجاوز_الحدّ_مع_فروع_الفئة_المنقولة()
     {
-        var product = NewProduct();
+        var category = NewCategory();
 
-        product.Deactivate();
-        product.IsActive.Should().BeFalse();
+        // أب على العمق 4 + ورقة = 5 (مسموح)؛ + فرع بعمق 2 = 6 (مرفوض).
+        category.MoveTo(4, [4, 3, 2, 1], subtreeHeight: 1);
+        ((Action)(() => category.MoveTo(4, [4, 3, 2, 1], subtreeHeight: 2))).Should().Throw<InvalidCategoryParentException>();
+    }
 
-        product.Activate();
-        product.IsActive.Should().BeTrue();
+    [Fact]
+    public void الترتيب_والمعرّف_بقواعدهما()
+    {
+        var category = NewCategory();
+
+        ((Action)(() => category.SetSortOrder(-1))).Should().Throw<InvalidCategoryException>();
+        ((Action)(() => category.SetSlug("Bad Slug"))).Should().Throw<InvalidCategoryException>();
+        category.SetSlug("Home-Decor");
+        category.Slug.Should().Be("home-decor");
     }
 }

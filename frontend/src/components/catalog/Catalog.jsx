@@ -5,7 +5,7 @@ import { useCatalog } from '../../hooks/useCatalog';
 import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import ProductGrid from '../product/ProductGrid';
 import Pagination from '../common/Pagination';
-import { formatPrice } from '../product/ProductBadges';
+import { formatPrice, getCategoryName } from '../product/ProductBadges';
 import { Cols5Icon, Cols4Icon, RowsIcon, CloseIcon } from '../icons/Icons';
 import styles from './Catalog.module.css';
 
@@ -134,8 +134,8 @@ export default function Catalog({ categories = [], searchTerm = '', onAdded, ref
         <div className={styles.tags}>
           {activeCats.map((c) => (
             <button key={c.id} type="button" className={styles.tag}
-              onClick={() => removeCategory(c.id)} aria-label={t('store.filters.remove', { name: c.name })}>
-              {c.name} <CloseIcon size={12} />
+              onClick={() => removeCategory(c.id)} aria-label={t('store.filters.remove', { name: getCategoryName(c) })}>
+              {getCategoryName(c)} <CloseIcon size={12} />
             </button>
           ))}
           {hasPrice && (

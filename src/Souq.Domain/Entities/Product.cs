@@ -1,68 +1,175 @@
 using Souq.Domain.Common;
+using Souq.Domain.Enums;
 using Souq.Domain.Exceptions;
 using Souq.Domain.ValueObjects;
 
 namespace Souq.Domain.Entities;
 
 // ============================================================================
-// Product — المنتج. هذا "نموذج غنيّ" (Rich Model) لا مجرد حقول.
-// لماذا الخصائص set خاصة (private)؟ حتى لا يستطيع أي كود خارجي تغيير المخزون
-// عشوائياً (product.Stock = -5). أي تغيير يمرّ عبر دوال تحرس القواعد.
-// هذا هو "التغليف" (Encapsulation) — أهم مبدأ في حماية صحّة البيانات.
+// Product — المنتج: جذر تجمّع وحدة Catalog (المرحلة 5). "نموذج غنيّ" يحرس قواعده بنفسه:
+//   • نصوصه لكل لغة (ProductTranslation، D-10) — لا أعمدة لغات ثابتة.
+//   • يُباع عبر متغيّره الافتراضي (ProductVariant، D-21): السعر وسعر المقارنة وSKU هناك؛ Price هنا اختصار.
+//   • دورة حياة Draft ⇄ Active ⇄ Archived (لا حذف أبداً: الطلبات والتقييمات تشير إليه).
+//   • حتى 10 صور مرتّبة؛ الأولى رئيسية. معرّف رابط (slug) فريد داخل المتجر.
+//   • المخزون هنا حتى المرحلة 6 (InventoryItem لكل متغيّر مع حجز)، وكل تغيير عبر أبواب محروسة.
 // ============================================================================
 public class Product : Entity, ITenantOwned
 {
-    public int TenantId { get; private set; }
-    public string NameAr { get; private set; } = default!;
-    public string NameEn { get; private set; } = default!;
-    // توافق خلفي: أي كود قديم يقرأ Name (رسائل استثناءات، لقطة اسم سطر الطلب)
-    // يستمر بالعمل دون تعديل — يُقرأ من الاسم العربي دوماً.
-    public string Name => NameAr;
-    public string Description { get; private set; } = default!;
-    public Money Price { get; private set; } = default!;   // كائن قيمة، لا decimal عارٍ
-    public int StockQuantity { get; private set; }
-    // حدّ التنبيه للمخزون المنخفض: عند بلوغه أو النزول تحته يُعتبر المنتج "منخفض
-    // المخزون" فينبّه المدير. قاعدة عمل تعيش في المنتج نفسه، لا في الواجهة.
-    public int LowStockThreshold { get; private set; } = DefaultLowStockThreshold;
-
-    // خاصية محسوبة (لا عمود لها): هل بلغ المخزون حدّ التنبيه أو نزل تحته؟
-    // مكان واحد للحقيقة يستخدمه كل من يسأل "هل هذا المنتج منخفض؟".
-    public bool IsLowStock => StockQuantity <= LowStockThreshold;
-
+    public const int SlugMaxLength = 120;
+    public const int BrandMaxLength = 100;
+    public const int VideoUrlMaxLength = 500;
+    public const int MaxImages = 10;
     public const int DefaultLowStockThreshold = 5;
-    public string ImageUrl { get; private set; } = default!;
-    public string? VideoUrl { get; private set; }            // اختياري — لا كل منتج له فيديو
-    public bool IsActive { get; private set; }
+
+    private readonly List<ProductTranslation> _translations = new();
+    private readonly List<ProductImage> _images = new();
+    private readonly List<ProductVariant> _variants = new();
+
+    public int TenantId { get; private set; }
+    public string Slug { get; private set; } = default!;
+    public ProductStatus Status { get; private set; }
+    public string? Brand { get; private set; }
+    public string? VideoUrl { get; private set; }
     public int CategoryId { get; private set; }
     public Category? Category { get; private set; }          // علاقة تنقّل (Navigation)
+    public int StockQuantity { get; private set; }
+
+    // حدّ التنبيه للمخزون المنخفض: قاعدة عمل تعيش في المنتج نفسه، لا في الواجهة.
+    public int LowStockThreshold { get; private set; } = DefaultLowStockThreshold;
+
+    public IReadOnlyCollection<ProductTranslation> Translations => _translations.AsReadOnly();
+    public IReadOnlyCollection<ProductImage> Images => _images.AsReadOnly();
+    public IReadOnlyCollection<ProductVariant> Variants => _variants.AsReadOnly();
+
+    public ProductVariant DefaultVariant => _variants.Single(v => v.IsDefault);
+    public Money Price => DefaultVariant.Price;
+    public Money? CompareAtPrice => DefaultVariant.CompareAtPrice;
+    public string? Sku => DefaultVariant.Sku;
+    public bool IsActive => Status == ProductStatus.Active;
+    public bool IsLowStock => StockQuantity <= LowStockThreshold;
+    public string? PrimaryImageUrl => _images.OrderBy(i => i.SortOrder).ThenBy(i => i.Id).FirstOrDefault()?.Url;
+
+    // اسم للرسائل والسجلات؛ اللقطات التجارية تستخدم NameIn(لغة المتجر).
+    public string Name => NameIn(null);
 
     private Product() { }
 
-    // nameEn/videoUrl اختياريان في آخر القائمة (nameEn يتردّد إلى nameAr إن غاب،
-    // videoUrl يبقى فارغاً إن غاب) كي تستمر كل استدعاءات المُنشئ القديمة
-    // (اختبارات/كود سابق) بالعمل دون تعديل.
-    public Product(string nameAr, string description, Money price,
-                   int stockQuantity, string imageUrl, int categoryId,
-                   string? nameEn = null, string? videoUrl = null,
-                   int lowStockThreshold = DefaultLowStockThreshold)
+    public Product(
+        string slug, int categoryId, IReadOnlyDictionary<string, CatalogText> texts, Money price, int stockQuantity,
+        ProductStatus status = ProductStatus.Active, string? sku = null, Money? compareAtPrice = null,
+        string? brand = null, int lowStockThreshold = DefaultLowStockThreshold)
     {
-        NameAr = nameAr;
-        NameEn = string.IsNullOrWhiteSpace(nameEn) ? nameAr : nameEn;
-        Description = description;
-        Price = price;
-        StockQuantity = stockQuantity;
-        ImageUrl = imageUrl;
-        VideoUrl = string.IsNullOrWhiteSpace(videoUrl) ? null : videoUrl;
-        CategoryId = categoryId;
-        LowStockThreshold = lowStockThreshold < 0 ? DefaultLowStockThreshold : lowStockThreshold;
-        IsActive = true;
+        if (status == ProductStatus.Archived)
+            throw new InvalidProductDataException("المنتج الجديد مسودّة أو نشط — لا يُنشأ مؤرشفاً");
+
+        SetSlug(slug);
+        MoveToCategory(categoryId);
+        SetTexts(texts);
+        _variants.Add(new ProductVariant(isDefault: true, price, compareAtPrice, sku));
+        SetStock(stockQuantity);
+        SetLowStockThreshold(lowStockThreshold);
+        SetBrand(brand);
+        Status = status;
     }
 
-    // قاعدة عمل: هل يمكن طلب هذه الكمية؟ المنطق يعيش في المنتج نفسه،
-    // لا متناثراً في كل مكان يستدعيه. مكان واحد للحقيقة.
+    public string NameIn(string? culture) => CatalogTranslation.NameIn(_translations, culture);
+
+    // ── النصوص والتعريف ─────────────────────────────────────────────────────
+
+    public void SetTexts(IReadOnlyDictionary<string, CatalogText> texts) =>
+        CatalogTranslation.Replace(_translations, CatalogText.NormalizeAll(texts, Invalid),
+            (culture, text) => new ProductTranslation(culture, text));
+
+    public void SetSlug(string slug) =>
+        Slug = CatalogSlug.TryNormalize(slug, SlugMaxLength)
+               ?? throw new InvalidProductDataException("معرّف الرابط يقبل أحرفاً لاتينية صغيرة وأرقاماً وشرطات (2–120)");
+
+    public void SetBrand(string? brand)
+    {
+        var trimmed = brand?.Trim();
+        if (trimmed is { Length: > BrandMaxLength })
+            throw new InvalidProductDataException($"العلامة التجارية حتى {BrandMaxLength} حرفاً");
+        Brand = string.IsNullOrEmpty(trimmed) ? null : trimmed;
+    }
+
+    public void MoveToCategory(int categoryId)
+    {
+        if (categoryId <= 0) throw new InvalidProductDataException("الفئة مطلوبة");
+        CategoryId = categoryId;
+    }
+
+    // ── التسعير (المتغيّر الافتراضي) ──────────────────────────────────────────
+
+    public void SetPricing(Money price, Money? compareAtPrice, string? sku) =>
+        DefaultVariant.SetPricing(price, compareAtPrice, sku);
+
+    // ── دورة الحياة ───────────────────────────────────────────────────────────
+
+    public void ChangeStatus(ProductStatus target)
+    {
+        switch (target)
+        {
+            case ProductStatus.Active:
+                Status = ProductStatus.Active;          // نشر مسودّة أو استعادة مؤرشف مباشرةً
+                break;
+            case ProductStatus.Draft:
+                Status = ProductStatus.Draft;           // إخفاء مؤقّت، أو استعادة مؤرشف مسودّةً
+                break;
+            case ProductStatus.Archived:
+                Status = ProductStatus.Archived;
+                break;
+            default:
+                throw new InvalidProductDataException($"حالة غير معروفة: {target}");
+        }
+    }
+
+    public void Archive() => ChangeStatus(ProductStatus.Archived);
+
+    // ── الوسائط ───────────────────────────────────────────────────────────────
+
+    public ProductImage AddImage(string url)
+    {
+        if (string.IsNullOrWhiteSpace(url) || url.Length > ProductImage.UrlMaxLength)
+            throw new InvalidProductDataException("رابط الصورة مطلوب");
+        if (_images.Count >= MaxImages)
+            throw new InvalidProductDataException($"حتى {MaxImages} صور للمنتج");
+
+        var image = new ProductImage(url, _images.Count == 0 ? 0 : _images.Max(i => i.SortOrder) + 1);
+        _images.Add(image);
+        return image;
+    }
+
+    public void RemoveImage(int imageId)
+    {
+        var image = _images.FirstOrDefault(i => i.Id == imageId)
+                    ?? throw new InvalidProductDataException("الصورة غير موجودة في هذا المنتج");
+        _images.Remove(image);
+    }
+
+    // الترتيب الجديد يشمل كل صور المنتج مرّة واحدة بالضبط — لا صورة تضيع ولا تتكرّر.
+    public void ReorderImages(IReadOnlyList<int> imageIds)
+    {
+        if (imageIds.Count != _images.Count || imageIds.Distinct().Count() != imageIds.Count
+            || imageIds.Any(id => _images.All(i => i.Id != id)))
+            throw new InvalidProductDataException("الترتيب يجب أن يشمل كل صور المنتج مرّة واحدة");
+
+        for (var position = 0; position < imageIds.Count; position++)
+            _images.Single(i => i.Id == imageIds[position]).SetSortOrder(position);
+    }
+
+    public void SetVideoUrl(string? videoUrl)
+    {
+        var trimmed = videoUrl?.Trim();
+        if (trimmed is { Length: > VideoUrlMaxLength })
+            throw new InvalidProductDataException("رابط الفيديو طويل جداً");
+        VideoUrl = string.IsNullOrEmpty(trimmed) ? null : trimmed;
+    }
+
+    // ── المخزون (ينتقل للمتغيّر في المرحلة 6) ─────────────────────────────────
+
+    // هل يمكن طلب هذه الكمية؟ منتج غير نشط لا يُباع مهما توفّر.
     public bool CanFulfill(int quantity) => IsActive && quantity > 0 && quantity <= StockQuantity;
 
-    // إنقاص المخزون عند البيع — محميّ بقاعدة. لا أحد يُنقص المخزون إلا عبر هذا الباب.
     public void DecreaseStock(int quantity)
     {
         if (!CanFulfill(quantity))
@@ -72,8 +179,6 @@ public class Product : Entity, ITenantOwned
 
     public void IncreaseStock(int quantity) => StockQuantity += quantity;
 
-    // تعيين المخزون لقيمة مطلقة (تصحيح/إعادة تخزين من قبل الإدارة) — محروس بقاعدة:
-    // لا يُسمح بقيمة سالبة. التعديل يمرّ عبر هذا الباب فقط، لا عبر set عام.
     public void SetStock(int quantity)
     {
         if (quantity < 0)
@@ -81,7 +186,6 @@ public class Product : Entity, ITenantOwned
         StockQuantity = quantity;
     }
 
-    // تعديل حدّ التنبيه للمخزون المنخفض (باب محروس خاص) — لا يُقبل حدّ سالب.
     public void SetLowStockThreshold(int threshold)
     {
         if (threshold < 0)
@@ -89,36 +193,5 @@ public class Product : Entity, ITenantOwned
         LowStockThreshold = threshold;
     }
 
-    // تحديث الحقول الوصفية للمنتج دفعة واحدة. السعر يبقى ضمن كائن قيمة Money
-    // (يحرس قاعدة عدم السلبية). نُبقي IsActive/المخزون خارج هذه الدالة لأن لهما
-    // أبواباً محروسة خاصة (Deactivate/SetStock) — كل قاعدة في موضعها الصحيح.
-    public void UpdateDetails(string nameAr, string description, Money price,
-                              string imageUrl, int categoryId, string? nameEn = null, string? videoUrl = null)
-    {
-        NameAr = nameAr;
-        NameEn = string.IsNullOrWhiteSpace(nameEn) ? nameAr : nameEn;
-        Description = description;
-        Price = price;
-        ImageUrl = imageUrl;
-        VideoUrl = string.IsNullOrWhiteSpace(videoUrl) ? null : videoUrl;
-        CategoryId = categoryId;
-    }
-
-    // تعيين صورة المنتج بعد رفعها (باب محروس خاص، منفصل عن UpdateDetails لأن
-    // الرفع عملية مستقلّة لها نقطتها الخاصة). لا يُقبل رابط فارغ.
-    public void SetImageUrl(string imageUrl)
-    {
-        if (string.IsNullOrWhiteSpace(imageUrl))
-            throw new InvalidProductDataException("رابط الصورة مطلوب");
-        ImageUrl = imageUrl;
-    }
-
-    // تعيين فيديو المنتج بعد رفعه — نفس منطق SetImageUrl لكن اختياري (يُقبل
-    // مسحه بإرسال null/فارغ، بخلاف الصورة الإلزامية دوماً).
-    public void SetVideoUrl(string? videoUrl) =>
-        VideoUrl = string.IsNullOrWhiteSpace(videoUrl) ? null : videoUrl;
-
-    // حذف منطقي بدل الفعلي (مبدأ من الملف: نحافظ على السجلات التاريخية).
-    public void Deactivate() => IsActive = false;
-    public void Activate() => IsActive = true;
+    private static Exception Invalid(string message) => new InvalidProductDataException(message);
 }

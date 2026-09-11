@@ -1,4 +1,5 @@
 using MediatR;
+using Souq.Application.Common.Auditing;
 using Souq.Application.Common.Models;
 using Souq.Domain.Interfaces;
 
@@ -7,7 +8,10 @@ namespace Souq.Application.Features.Categories.Commands;
 // حذف فعلي للفئة (لا حذف منطقي — الفئة لا تحمل تاريخاً ماليّاً كالمنتج). محروس:
 // لا تُحذف فئة تحتوي منتجات أو لها فئات فرعية (يحمي التكامل المرجعي بوضوح
 // بدل ترك قاعدة البيانات ترمي خطأ مفتاح أجنبي غامضاً).
-public record DeleteCategoryCommand(int Id) : IRequest<Result>;
+public record DeleteCategoryCommand(int Id) : IRequest<Result>, IAuditable
+{
+    public AuditRecord ToAuditRecord() => new("catalog.category.deleted", "Category", Id.ToString());
+}
 
 public class DeleteCategoryHandler : IRequestHandler<DeleteCategoryCommand, Result>
 {

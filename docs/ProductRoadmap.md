@@ -1,7 +1,7 @@
 # Souq Platform: Product Roadmap
 
 > **Goal:** turn Souq into one **white-label, multi-tenant e-commerce platform**, sold to many clients (≈ $5,000+ each) and maintainable by a professional team.
-> **Status:** Phase 0 ✅ · Target architecture ✅ documented · Phase 1A ✅ (merged to `main`) · Phase 1B ✅ on branch `phase/1b-production-foundations` (awaiting review) · **Autonomous run on `phase/2-15-multitenant-platform`** (branched from the 1B tip): Phase 2 ✅ · Phase 3 ✅ · Phase 4 ✅. Next: Phase 5.
+> **Status:** Phase 0 ✅ · Target architecture ✅ documented · Phase 1A ✅ (merged to `main`) · Phase 1B ✅ on branch `phase/1b-production-foundations` (awaiting review) · **Autonomous run on `phase/2-15-multitenant-platform`** (branched from the 1B tip): Phase 2 ✅ · Phase 3 ✅ · Phase 4 ✅ · Phase 5 ✅. Next: Phase 6.
 > **Companion document:** [ArchitectureAssessment.md](ArchitectureAssessment.md) covers the current state, the problem register (IDs such as `B1` and `C2`), the target architecture, and the full reasoning behind every decision (`D-xx`).
 > **Last updated:** 2026-09-11
 
@@ -337,7 +337,35 @@ Status legend: ✅ done · 🟡 in progress · ⏳ planned · ⏸ awaiting appro
   - Audit entries are written.
   - The UI arrives in Phase 18; until then this is driven through Swagger.
 
-### Phase 5: Products and categories, complete CRUD ⏳
+### Phase 5: Products and categories, complete CRUD ✅ (autonomous run)
+- **Delivered ([ADR-0025](adr/0025-catalog-model.md)):**
+  - **Per-language texts** (D-10): `ProductTranslations` and `CategoryTranslations`, each with name, description and SEO title/description. The store's default language is required. Order lines snapshot the name in that language.
+  - **Default variant** (D-21): every product sells through exactly one default `ProductVariant`, which holds the SKU (unique per store), the price and the compare-at price. Stock stays on the product until Phase 6.
+  - **Lifecycle:** Draft / Active / Archived, with no hard delete (`DELETE` archives). The admin list covers every status and restores archived products (fixes C7). The storefront shows Active products in active categories.
+  - **Slugs, unique per store:** suggested from the Latin name, with a numeric suffix. `GET /api/products/by-slug/{slug}`.
+  - **Offers:** compare-at price, the `onSale` filter, and a struck-through price in the UI.
+  - **Gallery:** up to 10 ordered images (the first is primary); remove and reorder endpoints; files under the tenant prefix.
+  - **Category tree:** cycle and depth (5) guards, sort order, a visibility flag (a hidden category hides its products), SEO fields.
+  - **Admin API:** `/api/admin/products` (search over name, SKU and slug; status and category filters; sort; paging), full product detail, status changes, image removal and ordering, `/api/admin/categories`.
+  - **Frontend:** per-language fields, SKU, compare-at price, status and slug in the admin product form, plus gallery management. Status filter and archive/restore in the product table. Tree view and visibility toggle for categories. Localized names and offer prices on the storefront.
+  - **Migration `Phase5Catalog`:** rewritten by hand to preserve data, and rehearsed on legacy rows.
+- **Deferred, with reasons:**
+  - Attributes and the variant option matrix: no current use case; the model admits them.
+  - A sanitized rich description: needs a sanitizer dependency; rendered in Phase 16.
+  - Image resizing: dependency decision.
+  - Orphaned-file cleanup: a background job, Phase 6 or later.
+  - Storefront routes by slug: Phase 16 (the API exists).
+- **Exit criteria (met):**
+  - `CatalogTests` cover CRUD and listing:
+    - status visibility;
+    - translations round-trip;
+    - slug lookup and validation;
+    - offers;
+    - cycle and depth rejection;
+    - a hidden category;
+    - the gallery.
+  - The isolation suite covers every new endpoint, including cross-store image ids and per-store slug and SKU uniqueness.
+  - The list endpoints run the same number of SQL commands for 2 and for 10 products (no N+1).
 - **Goal.** A professional, tenant-aware catalog model.
 - **Scope.**
   - Categories:
@@ -590,9 +618,9 @@ Each decision is argued in full (options, recommendation, rationale) in Architec
 | D-11 | Feature modules | ✅ **Implemented in Phase 4:** per-tenant module flags, enforced server-side (endpoints and use cases) and exposed in the storefront config — [ADR-0024](adr/0024-platform-administration.md) | 4 |
 | D-12 | White-label runtime | ✅ **Backend implemented in Phase 4** (settings model + storefront config API with ETag); TenantProvider/ThemeProvider with semantic tokens in Phase 15 | 4 / 15 |
 | D-17 | Auditing | ✅ **Implemented in Phase 4:** append-only `AuditEntries` written by a MediatR behavior for `IAuditable` requests, inside the handler's unit of work | 4 |
-| D-10 | Catalog localization | Translation tables (tenant-selected languages) instead of `NameAr`/`NameEn` columns | 5 |
-| D-18 | File storage | Tenant-prefixed keys, content validation, cloud blob storage in production | 1A (validation) / 5 |
-| D-21 | Sellable unit | Default-variant model: SKU, price override, and stock live on the variant | 5 |
+| D-10 | Catalog localization | ✅ **Implemented in Phase 5:** translation tables in the store's languages replace `NameAr`/`NameEn` — [ADR-0025](adr/0025-catalog-model.md) | 5 |
+| D-18 | File storage | Tenant-prefixed keys and content validation ✅ (1A/2); the product gallery ✅ (5); cloud blob storage in production (23) | 1A / 5 / 23 |
+| D-21 | Sellable unit | ✅ **Implemented in Phase 5:** a default variant per product holds the SKU, price and compare-at price; stock moves to the variant in Phase 6 — [ADR-0025](adr/0025-catalog-model.md) | 5 / 6 |
 | D-15 | Background jobs | .NET hosted services; adopt Hangfire only when needed | 6 |
 | D-13 | Payment tenancy | Per-tenant gateway configuration; choose tenant-owned keys vs Stripe Connect | 11 |
 | D-14 | Notifications | Outbox + background dispatcher, per-tenant templates | 14 |
@@ -673,3 +701,4 @@ The earlier `AUDIT.md` (Arabic, 8-phase program) and the engineering-thinking gu
 | 2026-09-11 | Autonomous run of Phases 2–15 on `phase/2-15-multitenant-platform` (branched from the Phase 1B tip, because `main` does not contain 1B yet and merging it was not authorized). Phase 2 completed; ADR-0022 |
 | 2026-09-11 | Phase 3 completed (identity split, sessions, roles, rate limits); ADR-0023 |
 | 2026-09-11 | Phase 4 completed (platform API, store settings and modules, storefront config, audit log, invitations, staff management); ADR-0024 |
+| 2026-09-11 | Phase 5 completed (catalog translations, default variant, product lifecycle and slugs, gallery, category tree, admin catalog API and UI); ADR-0025 |

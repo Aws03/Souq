@@ -10,14 +10,19 @@ public class CategoryConfiguration : IEntityTypeConfiguration<Category>
     {
         builder.ToTable("Categories");
         builder.HasKey(c => c.Id);
-        builder.Property(c => c.Name).HasMaxLength(100).IsRequired();
-        builder.Property(c => c.Slug).HasMaxLength(100);
+        builder.Property(c => c.Slug).HasMaxLength(Category.SlugMaxLength).IsRequired();
+        builder.Ignore(c => c.Name);   // من الترجمات (D-10)
+
         // فريد داخل المتجر لا على المنصّة: "electronics" في متجرين فئتان مستقلّتان (ADR-0005).
         builder.HasIndex(c => new { c.TenantId, c.Slug }).IsUnique();
+        // عرض الشجرة: أبناء أب مرتّبون.
+        builder.HasIndex(c => new { c.TenantId, c.ParentId, c.SortOrder });
 
-        // علاقة ذاتية للفئة الأب — لم تكن مُعرَّفة إطلاقاً في نموذج EF، فكان ParentId رقماً
-        // بلا قيد يقبل أباً غير موجود. Restrict: لا تُحذف فئة لها أبناء (يحرسه المعالج
-        // برسالة واضحة، والقاعدة هي الحارس الأخير).
+        builder.HasMany(c => c.Translations).WithOne().HasForeignKey("CategoryId").IsRequired().OnDelete(DeleteBehavior.Cascade);
+        builder.Navigation(c => c.Translations).UsePropertyAccessMode(PropertyAccessMode.Field);
+
+        // علاقة ذاتية للفئة الأب. Restrict: لا تُحذف فئة لها أبناء (يحرسه المعالج برسالة واضحة، والقاعدة الحارس
+        // الأخير). الحلقات والعمق يحرسهما الكيان (Category.MoveTo).
         builder.HasOne<Category>()
                .WithMany()
                .HasForeignKey(c => c.ParentId)

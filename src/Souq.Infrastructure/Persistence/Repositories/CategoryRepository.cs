@@ -8,9 +8,15 @@ public class CategoryRepository : RepositoryBase<Category>, ICategoryRepository
 {
     public CategoryRepository(AppDbContext db) : base(db) { }
 
-    public async Task<Category?> GetBySlugAsync(string slug, CancellationToken ct = default)
-        => await Db.Categories.FirstOrDefaultAsync(c => c.Slug == slug, ct);
+    public override Task<Category?> GetByIdAsync(int id, CancellationToken ct = default) =>
+        Db.Categories.Include(c => c.Translations).FirstOrDefaultAsync(c => c.Id == id, ct);
 
-    public async Task<bool> HasChildrenAsync(int parentId, CancellationToken ct = default)
-        => await Db.Categories.AnyAsync(c => c.ParentId == parentId, ct);
+    public Task<Category?> GetBySlugAsync(string slug, CancellationToken ct = default)
+        => Db.Categories.Include(c => c.Translations).FirstOrDefaultAsync(c => c.Slug == slug, ct);
+
+    public Task<bool> HasChildrenAsync(int parentId, CancellationToken ct = default)
+        => Db.Categories.AnyAsync(c => c.ParentId == parentId, ct);
+
+    public async Task<IReadOnlyList<CategoryLink>> ListLinksAsync(CancellationToken ct = default)
+        => await Db.Categories.AsNoTracking().Select(c => new CategoryLink(c.Id, c.ParentId)).ToListAsync(ct);
 }

@@ -103,6 +103,7 @@ export const api = {
   // ── الكتالوج ── (سلسلة الاستعلام لكل القوائم من toQueryString: مصفوفات بمفتاح متكرّر)
   getProducts: (params = {}) => request(`/products${toQueryString(params)}`),
   getProduct: (id) => request(`/products/${id}`),
+  getProductBySlug: (slug) => request(`/products/by-slug/${encodeURIComponent(slug)}`),
   getRelatedProducts: (id, count = 6) => request(`/products/${id}/related?count=${count}`),
   getCategories: () => request('/categories'),
 
@@ -132,7 +133,14 @@ export const api = {
   createReview: (productId, payload) =>
     request(`/products/${productId}/reviews`, { method: 'POST', body: JSON.stringify(payload) }),
 
-  // ── إدارة المنتجات (أدمن) ──
+  // ── إدارة المنتجات (أدمن) ── القائمة والتفاصيل من /admin (كل الحالات وكل اللغات والصور بمعرّفاتها)
+  getAdminProducts: (params = {}) => request(`/admin/products${toQueryString(params)}`),
+  getAdminProduct: (id) => request(`/admin/products/${id}`),
+  setProductStatus: (id, status) =>
+    request(`/admin/products/${id}/status`, { method: 'PUT', body: JSON.stringify({ status }) }),
+  removeProductImage: (id, imageId) => request(`/admin/products/${id}/images/${imageId}`, { method: 'DELETE' }),
+  reorderProductImages: (id, imageIds) =>
+    request(`/admin/products/${id}/images/order`, { method: 'PUT', body: JSON.stringify({ imageIds }) }),
   createProduct: (payload) => request('/products', { method: 'POST', body: JSON.stringify(payload) }),
   updateProduct: (id, payload) => request(`/products/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
   deleteProduct: (id) => request(`/products/${id}`, { method: 'DELETE' }),
@@ -147,7 +155,8 @@ export const api = {
     return upload(`/products/${id}/video`, form);
   },
 
-  // ── إدارة الفئات (أدمن) ──
+  // ── إدارة الفئات (أدمن) ── القائمة من /admin تشمل المعطّلة
+  getAdminCategories: () => request('/admin/categories'),
   createCategory: (payload) => request('/categories', { method: 'POST', body: JSON.stringify(payload) }),
   updateCategory: (id, payload) => request(`/categories/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
   deleteCategory: (id) => request(`/categories/${id}`, { method: 'DELETE' }),

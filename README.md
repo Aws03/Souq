@@ -215,20 +215,27 @@ is running. Summary of the main endpoints:
 ### Products
 | Method | Endpoint                                                    | Auth  | Description                     |
 | ------ | ------------------------------------------------------------ | ----- | -------------------------------- |
-| GET    | `/api/products?keyword=&categoryIds=&minPrice=&maxPrice=&sortBy=&page=1&pageSize=12` | — | Search / filter / sort / paginate products |
-| GET    | `/api/products/{id}`                                          | —     | Get a single product             |
-| POST   | `/api/products`                                                | Admin | Create a product                 |
+| GET    | `/api/products?keyword=&categoryIds=&minPrice=&maxPrice=&sortBy=&onSale=&page=1&pageSize=12` | — | Search / filter / sort / paginate published products |
+| GET    | `/api/products/{id}`                                          | —     | Get a single product (every translation, gallery) |
+| GET    | `/api/products/by-slug/{slug}`                                | —     | Get a product by its store-unique slug |
+| POST   | `/api/products`                                                | Admin | Create a product (per-language texts, SKU, price, compare-at price, status) |
 | PUT    | `/api/products/{id}`                                           | Admin | Update a product                 |
-| DELETE | `/api/products/{id}`                                           | Admin | Deactivate a product (soft delete) |
-| POST   | `/api/products/{id}/image`                                     | Admin | Upload a product image           |
+| DELETE | `/api/products/{id}`                                           | Admin | Archive a product (never hard-deleted) |
+| POST   | `/api/products/{id}/image`                                     | Admin | Add an image to the gallery (up to 10) |
+| GET    | `/api/admin/products`                                          | Admin | Every status; search by name, SKU or slug |
+| GET    | `/api/admin/products/{id}`                                     | Admin | Full product for editing         |
+| PUT    | `/api/admin/products/{id}/status`                              | Admin | Publish, move to draft, archive, or restore |
+| PUT    | `/api/admin/products/{id}/images/order`                        | Admin | Reorder the gallery (the first image is the main one) |
+| DELETE | `/api/admin/products/{id}/images/{imageId}`                    | Admin | Remove a gallery image           |
 
 ### Categories
 | Method | Endpoint               | Auth  | Description       |
 | ------ | ------------------------ | ----- | ------------------- |
-| GET    | `/api/categories`        | —     | List all categories |
-| POST   | `/api/categories`        | Admin | Create a category   |
-| PUT    | `/api/categories/{id}`   | Admin | Update a category   |
-| DELETE | `/api/categories/{id}`   | Admin | Delete a category   |
+| GET    | `/api/categories`        | —     | List visible categories |
+| GET    | `/api/admin/categories`  | Admin | List every category, including hidden ones |
+| POST   | `/api/categories`        | Admin | Create a category (per-language names, parent, order, visibility) |
+| PUT    | `/api/categories/{id}`   | Admin | Update or move a category (no cycles, at most 5 levels) |
+| DELETE | `/api/categories/{id}`   | Admin | Delete an empty category (no products, no subcategories) |
 
 ### Coupons
 | Method | Endpoint                                          | Auth  | Description                              |

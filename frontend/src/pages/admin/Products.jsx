@@ -7,17 +7,19 @@ import RowActionsMenu from '../../components/common/RowActionsMenu';
 import Pagination from '../../components/common/Pagination';
 import Button from '../../components/common/Button';
 import ProductImage from '../../components/product/ProductImage';
-import { formatPrice, getProductName } from '../../components/product/ProductBadges';
+import { formatPrice, getCategoryName } from '../../components/product/ProductBadges';
 import { SearchIcon } from '../../components/icons/Icons';
 import { buildAdminProductQuery } from '../../features/admin/products/productQuery';
 import ProductFormDrawer from './ProductFormDrawer';
 import styles from './Admin.module.css';
 
 const PAGE_SIZE = 10;
+const STATUSES = ['Active', 'Draft', 'Archived'];
+const STATUS_STYLE = { Active: 'delivered', Draft: 'pending', Archived: 'cancelled' };
 
-// شاشة إدارة المنتجات: جدول ببحث/تصفية/ترقيم حقيقية من الـ API + درج
-// إضافة/تعديل بسحب وإفلات صورة. الحذف حذف منطقي (تعطيل) — يختفي المنتج من
-// القائمة فوراً لأن GET /products يعرض النشط فقط.
+// شاشة إدارة المنتجات (المرحلة 5): كل الحالات من /admin/products (مسودّة ونشط ومؤرشف — Phase 0 C7) ببحث وتصفية
+// بالفئة والحالة، ودرج إضافة/تعديل يحمّل المنتج كاملاً (كل اللغات والصور بمعرّفاتها). لا حذف نهائي: الأرشفة تُخفي
+// المنتج من المتجر وتُبقيه في الطلبات والتقارير، والاستعادة تعيده مسودّةً للمراجعة قبل النشر.
 export default function Products() {
   const { t } = useTranslation();
   const toast = useToast();
@@ -26,23 +28,29 @@ export default function Products() {
   const [page, setPage] = useState(1);
   const [keyword, setKeyword] = useState('');
   const [categoryId, setCategoryId] = useState('');
+  const [status, setStatus] = useState('');
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [editing, setEditing] = useState(null); // null=مغلق، {}=إضافة، منتج=تعديل
+  const [editing, setEditing] = useState(null); // null=مغلق، {}=إضافة، منتج كامل=تعديل
 
-  useEffect(() => { api.getCategories().then(setCategories).catch(() => {}); }, []);
+  useEffect(() => { api.getAdminCategories().then(setCategories).catch(() => {}); }, []);
 
   const load = useCallback(() => {
     setLoading(true);
-    api.getProducts(buildAdminProductQuery({ keyword, categoryId, page, pageSize: PAGE_SIZE }))
+    api.getAdminProducts(buildAdminProductQuery({ keyword, categoryId, status, page, pageSize: PAGE_SIZE }))
       .then((res) => { setItems(res.items); setTotalPages(res.totalPages); setError(null); })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
-  }, [keyword, categoryId, page]);
+  }, [keyword, categoryId, status, page]);
 
   useEffect(() => { load(); }, [load]);
-  useEffect(() => { setPage(1); }, [keyword, categoryId]);
+  useEffect(() => { setPage(1); }, [keyword, categoryId, status]);
+
+  // التعديل يحتاج المنتج كاملاً — سطر الجدول لا يحمل النصوص ولا الصور.
+  const openEditor = async (product) => {
+    try { setEditing(await api.getAdminProduct(product.id)); } catch (e) { toast.error(e.message); }
+  };
 
   const save = async (payload, file, videoFile) => {
     const id = editing?.id
@@ -55,35 +63,51 @@ export default function Products() {
     load();
   };
 
-  const remove = async (product) => {
-    if (!window.confirm(t('admin.products.confirmDisable', { name: getProductName(product) }))) return;
+  const changeStatus = async (product, target) => {
+    if (target === 'Archived' && !window.confirm(t('admin.products.confirmArchive', { name: product.name }))) return;
     try {
-      await api.deleteProduct(product.id);
-      toast.success(t('admin.products.disabled'));
+      await api.setProductStatus(product.id, target);
+      toast.success(t(`admin.products.statusChanged.${target}`));
       load();
     } catch (e) { toast.error(e.message); }
+  };
+
+  const statusActions = (p) => {
+    const archive = { label: t('admin.products.archive'), variant: 'danger', onClick: () => changeStatus(p, 'Archived') };
+    const publish = { label: t('admin.products.publish'), onClick: () => changeStatus(p, 'Active') };
+    if (p.status === 'Active') return [{ label: t('admin.products.unpublish'), onClick: () => changeStatus(p, 'Draft') }, archive];
+    if (p.status === 'Draft') return [publish, archive];
+    return [{ label: t('admin.products.restore'), onClick: () => changeStatus(p, 'Draft') }, publish];
   };
 
   const columns = [
     { key: 'img', header: t('admin.products.colImage'), width: '70px', render: (p) => <div className={styles.thumb}><ProductImage product={p} /></div> },
     {
-      key: 'name', header: t('admin.products.colName'), truncate: true, tooltip: (p) => p.nameEn ? `${p.nameAr} / ${p.nameEn}` : p.nameAr,
+      key: 'name', header: t('admin.products.colName'), truncate: true, tooltip: (p) => p.name,
       render: (p) => (
         <div>
-          <div>{p.nameAr}</div>
-          {p.nameEn && p.nameEn !== p.nameAr && <div className={styles.nameSecondary}>{p.nameEn}</div>}
+          <div>{p.name}</div>
+          {p.sku && <div className={styles.nameSecondary} dir="ltr">{p.sku}</div>}
         </div>
       ),
     },
     { key: 'cat', header: t('admin.products.colCategory'), width: '140px', truncate: true, tooltip: (p) => p.categoryName, render: (p) => p.categoryName || '—' },
-    { key: 'price', header: t('admin.products.colPrice'), width: '110px', align: 'end', render: (p) => formatPrice(p.price, p.currency) },
+    {
+      key: 'status', header: t('admin.products.colStatus'), width: '110px',
+      render: (p) => <span className={`${styles.statusBadge} ${styles[STATUS_STYLE[p.status]] ?? ''}`}>{t(`admin.products.status.${p.status}`)}</span>,
+    },
+    {
+      key: 'price', header: t('admin.products.colPrice'), width: '120px', align: 'end', render: (p) => (
+        <div>
+          <div>{formatPrice(p.price, p.currency)}</div>
+          {p.compareAtPrice != null && <div className={styles.nameSecondary}><s>{formatPrice(p.compareAtPrice, p.currency)}</s></div>}
+        </div>
+      ),
+    },
     { key: 'stock', header: t('admin.products.colStock'), width: '90px', align: 'end', render: (p) => p.stockQuantity },
     {
       key: 'actions', header: t('admin.products.colActions'), width: '64px', align: 'end', render: (p) => (
-        <RowActionsMenu actions={[
-          { label: t('common.edit'), onClick: () => setEditing(p) },
-          { label: t('common.disable'), variant: 'danger', onClick: () => remove(p) },
-        ]} />
+        <RowActionsMenu actions={[{ label: t('common.edit'), onClick: () => openEditor(p) }, ...statusActions(p)]} />
       ),
     },
   ];
@@ -98,22 +122,26 @@ export default function Products() {
           <SearchIcon size={16} />
           <input value={keyword} onChange={(e) => setKeyword(e.target.value)} placeholder={t('admin.products.searchPlaceholder')} />
         </label>
-        <select value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
+        <select value={categoryId} onChange={(e) => setCategoryId(e.target.value)} aria-label={t('admin.products.colCategory')}>
           <option value="">{t('admin.products.allCategories')}</option>
-          {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          {categories.map((c) => <option key={c.id} value={c.id}>{getCategoryName(c)}</option>)}
+        </select>
+        <select value={status} onChange={(e) => setStatus(e.target.value)} aria-label={t('admin.products.colStatus')}>
+          <option value="">{t('admin.products.allStatuses')}</option>
+          {STATUSES.map((s) => <option key={s} value={s}>{t(`admin.products.status.${s}`)}</option>)}
         </select>
         <Button variant="primary" onClick={() => setEditing({})}>{t('admin.products.addProduct')}</Button>
       </div>
 
       <DataTable columns={columns} rows={items} rowKey={(p) => p.id} loading={loading} error={error}
         onRetry={load} emptyTitle={t('admin.products.emptyTitle')} emptyMessage={t('admin.products.emptyMessage')}
-        minWidth="620px" stickyFirstColumn />
+        minWidth="760px" stickyFirstColumn />
 
       <Pagination page={page} totalPages={totalPages} onChange={setPage} />
 
       {editing !== null && (
         <ProductFormDrawer product={editing.id ? editing : null} categories={categories}
-          onSave={save} onClose={() => setEditing(null)} />
+          onSave={save} onImagesChanged={load} onClose={() => setEditing(null)} />
       )}
     </div>
   );

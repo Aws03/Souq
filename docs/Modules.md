@@ -148,7 +148,13 @@ Each entry lists:
 - **Depends on:** Platform (tenant currency and languages).
 - **Forbidden:** changing stock; reading orders (best-selling rankings come from Reporting or an Ordering query contract).
 - **Extraction:** the *search* part could be extracted (see [Architecture.md §9](Architecture.md#9-future-scaling-and-service-extraction)).
-- **Today:** `Product`, `Category`, `Features/Products`, `Features/Categories`. Stock currently lives on `Product` (moves in Phase 6). The best-selling sort reads `Orders` directly (moves behind a contract in Phase 5).
+- **Today (Phase 5, [ADR-0025](adr/0025-catalog-model.md)):**
+  - `Product` (root) owns `ProductTranslation`, `ProductImage` and exactly one default `ProductVariant` (SKU, price, compare-at price).
+  - `Category` owns `CategoryTranslation`. `CatalogText` is the per-language value object.
+  - Use cases live in `Features/Products` and `Features/Categories`; `ICatalogQueries` serves both the storefront and the admin projections.
+  - Stock still lives on `Product` and moves to the variant in Phase 6.
+  - The best-selling sort still reads `Orders` directly. It moves behind an Ordering query contract when Ordering is rebuilt (Phase 9); Phase 5 did not need to touch it.
+  - Attributes and the variant option matrix are deferred.
 
 ### Inventory
 - **Responsibility:** how many units exist, and who is holding them.

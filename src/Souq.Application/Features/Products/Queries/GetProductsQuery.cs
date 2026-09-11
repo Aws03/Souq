@@ -4,11 +4,9 @@ using Souq.Application.Common.Models;
 namespace Souq.Application.Features.Products.Queries;
 
 // ============================================================================
-// نمط CQRS: هذا "استعلام" (Query) — يقرأ ولا يُعدّل شيئاً.
-// IRequest<...> من MediatR: نُعرّف الطلب ككائن بيانات، ويتولّى MediatR توجيهه
-// تلقائياً إلى معالجه (Handler) المناسب. IPagedQuery: قواعد الترقيم الموحّدة تنطبق عليه.
+// نمط CQRS: "استعلام" يقرأ ولا يُعدّل. IPagedQuery: قواعد الترقيم الموحّدة تنطبق عليه.
+// CategoryIds فارغة أو null = كل الفئات. OnSale: المنتجات بسعر مقارنة أعلى من سعرها (صفحة العروض).
 // ============================================================================
-// CategoryIds فارغة أو null = كل الفئات.
 public record GetProductsQuery(
     string? Keyword = null,
     List<int>? CategoryIds = null,
@@ -16,5 +14,6 @@ public record GetProductsQuery(
     int PageSize = 12,
     decimal? MinPrice = null,
     decimal? MaxPrice = null,
-    ProductSortBy SortBy = ProductSortBy.Newest
+    ProductSortBy SortBy = ProductSortBy.Newest,
+    bool OnSale = false
 ) : IRequest<PaginatedList<ProductDto>>, IPagedQuery;

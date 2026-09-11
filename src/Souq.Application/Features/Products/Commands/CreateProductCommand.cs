@@ -1,16 +1,29 @@
 using MediatR;
+using Souq.Application.Common.Auditing;
 using Souq.Application.Common.Models;
+using Souq.Application.Features.Products.Queries;
+using Souq.Domain.Enums;
 
 namespace Souq.Application.Features.Products.Commands;
 
-// نمط CQRS: هذا "أمر" (Command) — يُعدّل الحالة (ينشئ منتجاً). فصلناه عن
-// الاستعلامات لأن لهما اهتمامات مختلفة: الأوامر تتحقّق وتُعدّل، الاستعلامات تقرأ بسرعة.
-// NameEn اختياري: يتردّد إلى NameAr تلقائياً في الكيان إن غاب (منتج لم يُترجم بعد).
-// VideoUrl اختياري دوماً — لا كل منتج له فيديو، ويُرفع عادة عبر نقطة رفع منفصلة
-// بعد الإنشاء (مثل الصورة تماماً).
-// LowStockThreshold اختياري: يتردّد إلى الحدّ الافتراضي (5) في الكيان إن غاب.
+// ============================================================================
+// "أمر" ينشئ منتجاً (المرحلة 5). النصوص لكل لغة ولغة المتجر الافتراضية شرط؛ السعر وسعر المقارنة وSKU للمتغيّر
+// الافتراضي (D-21) بعملة المتجر دائماً. Slug اختياري: يُشتقّ من الاسم اللاتيني إن وُجد وإلا معرّف قصير. الحالة
+// الافتراضية نشط (سلوك الإدارة السابق)؛ مسودّة لمنتج يُجهَّز قبل عرضه. الصور تُرفع بعد الإنشاء (نقطة الرفع).
+// ============================================================================
 public record CreateProductCommand(
-    string NameAr, string Description, decimal Price,
-    int StockQuantity, string ImageUrl, int CategoryId, string? NameEn = null, string? VideoUrl = null,
-    int LowStockThreshold = Souq.Domain.Entities.Product.DefaultLowStockThreshold
-) : IRequest<Result<int>>;
+    int CategoryId,
+    IReadOnlyDictionary<string, CatalogTextInput> Translations,
+    decimal Price,
+    int StockQuantity,
+    decimal? CompareAtPrice = null,
+    string? Sku = null,
+    string? Slug = null,
+    string? Brand = null,
+    ProductStatus Status = ProductStatus.Active,
+    int LowStockThreshold = Souq.Domain.Entities.Product.DefaultLowStockThreshold,
+    string? VideoUrl = null) : IRequest<Result<int>>, IAuditable
+{
+    public AuditRecord ToAuditRecord() => new("catalog.product.created", "Product", Slug,
+        Metadata: new Dictionary<string, object?> { ["sku"] = Sku, ["status"] = Status.ToString(), ["price"] = Price });
+}

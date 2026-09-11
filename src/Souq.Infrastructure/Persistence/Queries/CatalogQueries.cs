@@ -9,87 +9,207 @@ using Souq.Domain.Enums;
 namespace Souq.Infrastructure.Persistence.Queries;
 
 // ============================================================================
-// CatalogQueries — تنفيذ منفذ القراءة ICatalogQueries (ADR-0008): AsNoTracking + إسقاط
-// مباشر إلى ProductDto (اسم الفئة بـ JOIN في الاستعلام نفسه، لا Include لكيان كامل).
+// CatalogQueries — تنفيذ ICatalogQueries (ADR-0008): AsNoTracking + إسقاط مباشر إلى صفوف قراءة، ثم DTO في الذاكرة
+// (قاموس اللغات، اختيار لغة المتجر). السعر وسعر المقارنة وSKU من المتغيّر الافتراضي (D-21) باستعلامات فرعية في
+// SQL نفسه؛ الاسم بلغة مطلوبة وإلا أول لغة. المتجر: النشط في فئة مفعّلة فقط.
 // ============================================================================
 internal sealed class CatalogQueries : ICatalogQueries
 {
     private readonly AppDbContext _db;
     public CatalogQueries(AppDbContext db) => _db = db;
 
-    private static readonly Expression<Func<Product, ProductDto>> ToProductDto = p => new ProductDto(
-        p.Id, p.NameAr, p.NameEn, p.Description,
-        p.Price.Amount, p.Price.Currency,
-        p.StockQuantity, p.ImageUrl, p.VideoUrl,
-        p.CategoryId, p.Category!.Name);
-
-    public Task<PaginatedList<ProductDto>> SearchProductsAsync(ProductSearch search, PageRequest page, CancellationToken ct)
+    public async Task<PaginatedList<ProductDto>> SearchProductsAsync(
+        ProductSearch search, PageRequest page, string culture, CancellationToken ct)
     {
-        var query = ActiveProducts();
+        var query = VisibleProducts();
 
-        // Name خاصية محسوبة غير مُعيَّنة لعمود — نبحث في NameAr وNameEn المُعيَّنين فعلياً،
-        // فيطابق البحث أيّاً من اللغتين. Contains مع مُعامِل يُترجم إلى CHARINDEX (لا حقن LIKE).
+        // Contains مع مُعامِل يُترجم إلى CHARINDEX (لا حقن LIKE) — الاسم أو الوصف بأي لغة.
         if (!string.IsNullOrWhiteSpace(search.Keyword))
         {
             var keyword = search.Keyword.Trim();
-            query = query.Where(p =>
-                p.NameAr.Contains(keyword) || p.NameEn.Contains(keyword) || p.Description.Contains(keyword));
+            query = query.Where(p => p.Translations.Any(t =>
+                t.Name.Contains(keyword) || (t.Description != null && t.Description.Contains(keyword))));
         }
         if (search.CategoryIds is { Count: > 0 } categoryIds)
             query = query.Where(p => categoryIds.Contains(p.CategoryId));
         if (search.MinPrice is decimal min)
-            query = query.Where(p => p.Price.Amount >= min);
+            query = query.Where(p => p.Variants.Any(v => v.IsDefault && v.Price.Amount >= min));
         if (search.MaxPrice is decimal max)
-            query = query.Where(p => p.Price.Amount <= max);
+            query = query.Where(p => p.Variants.Any(v => v.IsDefault && v.Price.Amount <= max));
+        if (search.OnSaleOnly)
+            query = query.Where(p => p.Variants.Any(v =>
+                v.IsDefault && EF.Property<decimal?>(v, "_compareAtAmount") > v.Price.Amount));
 
-        return Sort(query, search.SortBy).ToPageAsync(ToProductDto, page, ct);
+        return (await Sort(query, search.SortBy).ToPageAsync(Row(culture), page, ct)).Map(r => ToDto(r, culture));
     }
 
-    public Task<ProductDto?> FindActiveProductAsync(int id, CancellationToken ct) =>
-        ActiveProducts().Where(p => p.Id == id).Select(ToProductDto).FirstOrDefaultAsync(ct);
+    public async Task<ProductDto?> FindActiveProductAsync(int id, string culture, CancellationToken ct) =>
+        await DetailAsync(VisibleProducts().Where(p => p.Id == id), culture, ct);
 
-    // نفس الفئة أولاً (الأكثر مبيعاً)، ثم أحدث منتجات الفئات الأخرى إن لم تكفِ — استعلامان
-    // صغيران محدودان بـ count، لا تحميل الكتالوج.
-    public async Task<IReadOnlyList<ProductDto>?> FindRelatedProductsAsync(int productId, int count, CancellationToken ct)
+    public async Task<ProductDto?> FindActiveProductBySlugAsync(string slug, string culture, CancellationToken ct) =>
+        await DetailAsync(VisibleProducts().Where(p => p.Slug == slug), culture, ct);
+
+    // نفس الفئة أولاً (الأكثر مبيعاً)، ثم أحدث منتجات الفئات الأخرى إن لم تكفِ — استعلامان صغيران محدودان بـ count.
+    public async Task<IReadOnlyList<ProductDto>?> FindRelatedProductsAsync(int productId, int count, string culture, CancellationToken ct)
     {
-        var categoryId = await ActiveProducts().Where(p => p.Id == productId)
+        var categoryId = await VisibleProducts().Where(p => p.Id == productId)
             .Select(p => (int?)p.CategoryId).FirstOrDefaultAsync(ct);
         if (categoryId is null) return null;
 
-        var sameCategory = await BestSellingFirst(ActiveProducts()
+        var sameCategory = await BestSellingFirst(VisibleProducts()
                 .Where(p => p.CategoryId == categoryId && p.Id != productId))
-            .Take(count).Select(ToProductDto).ToListAsync(ct);
-        if (sameCategory.Count >= count) return sameCategory;
+            .Take(count).Select(Row(culture)).ToListAsync(ct);
+        if (sameCategory.Count >= count) return sameCategory.Select(r => ToDto(r, culture)).ToList();
 
         var excluded = sameCategory.Select(p => p.Id).Append(productId).ToList();
-        var others = await ActiveProducts()
+        var others = await VisibleProducts()
             .Where(p => p.CategoryId != categoryId && !excluded.Contains(p.Id))
             .OrderByDescending(p => p.Id)
-            .Take(count - sameCategory.Count).Select(ToProductDto).ToListAsync(ct);
+            .Take(count - sameCategory.Count).Select(Row(culture)).ToListAsync(ct);
 
-        return sameCategory.Concat(others).ToList();
+        return sameCategory.Concat(others).Select(r => ToDto(r, culture)).ToList();
     }
 
-    public async Task<IReadOnlyList<CategoryDto>> ListCategoriesAsync(CancellationToken ct) =>
-        await _db.Categories.AsNoTracking()
-            .OrderBy(c => c.Id)
-            .Select(c => new CategoryDto(c.Id, c.Name, c.Slug, c.ParentId))
+    public async Task<IReadOnlyList<CategoryDto>> ListCategoriesAsync(bool includeInactive, string culture, CancellationToken ct)
+    {
+        var categories = _db.Categories.AsNoTracking();
+        if (!includeInactive) categories = categories.Where(c => c.IsActive);
+
+        var rows = await categories.OrderBy(c => c.SortOrder).ThenBy(c => c.Id)
+            .Select(c => new CategoryRow(c.Id, c.Slug, c.ParentId, c.SortOrder, c.IsActive,
+                c.Translations.Select(t => new TextRow(t.Culture, t.Name, t.Description, t.MetaTitle, t.MetaDescription)).ToList()))
             .ToListAsync(ct);
 
-    private IQueryable<Product> ActiveProducts() => _db.Products.AsNoTracking().Where(p => p.IsActive);
+        return rows.Select(r =>
+        {
+            var texts = Texts(r.Texts);
+            return new CategoryDto(r.Id, r.Slug, Pick(texts, culture)?.Name ?? r.Slug, texts, r.ParentId, r.SortOrder, r.IsActive);
+        }).ToList();
+    }
 
-    // كل ترتيب ينتهي بكاسر تعادل بالمعرّف: منتجان بنفس السعر (أو بلا مبيعات) لا يتبادلان
-    // موقعيهما بين طلبين، فلا يتكرّر منتج بين صفحتين ولا يختفي.
+    public async Task<PaginatedList<AdminProductListItemDto>> ListAdminProductsAsync(
+        AdminProductSearch search, PageRequest page, string culture, CancellationToken ct)
+    {
+        var query = _db.Products.AsNoTracking();
+        if (!string.IsNullOrWhiteSpace(search.Keyword))
+        {
+            var keyword = search.Keyword.Trim();
+            var sku = keyword.ToUpperInvariant();
+            query = query.Where(p => p.Slug.Contains(keyword)
+                                     || p.Translations.Any(t => t.Name.Contains(keyword))
+                                     || p.Variants.Any(v => v.Sku != null && v.Sku.Contains(sku)));
+        }
+        if (search.Status is { } status) query = query.Where(p => p.Status == status);
+        if (search.CategoryId is int categoryId) query = query.Where(p => p.CategoryId == categoryId);
+
+        IOrderedQueryable<Product> ordered = search.SortBy switch
+        {
+            AdminProductSortBy.NameAsc => query.OrderBy(NameExpr(culture)).ThenByDescending(p => p.Id),
+            AdminProductSortBy.PriceAsc => query.OrderBy(PriceExpr).ThenByDescending(p => p.Id),
+            AdminProductSortBy.PriceDesc => query.OrderByDescending(PriceExpr).ThenByDescending(p => p.Id),
+            AdminProductSortBy.StockAsc => query.OrderBy(p => p.StockQuantity).ThenByDescending(p => p.Id),
+            _ => query.OrderByDescending(p => p.CreatedAt).ThenByDescending(p => p.Id),
+        };
+
+        return await ordered.ToPageAsync(p => new AdminProductListItemDto(
+            p.Id, p.Slug,
+            p.Translations.Where(t => t.Culture == culture).Select(t => t.Name).FirstOrDefault()
+                ?? p.Translations.OrderBy(t => t.Culture).Select(t => t.Name).FirstOrDefault() ?? p.Slug,
+            p.Status.ToString(),
+            p.Variants.Where(v => v.IsDefault).Select(v => v.Sku).FirstOrDefault(),
+            p.Variants.Where(v => v.IsDefault).Select(v => v.Price.Amount).FirstOrDefault(),
+            p.Variants.Where(v => v.IsDefault).Select(v => EF.Property<decimal?>(v, "_compareAtAmount")).FirstOrDefault(),
+            p.Variants.Where(v => v.IsDefault).Select(v => v.Price.Currency).FirstOrDefault() ?? "",
+            p.StockQuantity, p.LowStockThreshold,
+            p.Images.OrderBy(i => i.SortOrder).ThenBy(i => i.Id).Select(i => i.Url).FirstOrDefault(),
+            p.CategoryId,
+            p.Category!.Translations.Where(t => t.Culture == culture).Select(t => t.Name).FirstOrDefault()
+                ?? p.Category.Translations.OrderBy(t => t.Culture).Select(t => t.Name).FirstOrDefault(),
+            p.CreatedAt), page, ct);
+    }
+
+    // نموذج التعديل: التجمّع كاملاً (صف واحد) — استعلامات منفصلة للأبناء بدل ضرب الصفوف.
+    public async Task<AdminProductDto?> FindAdminProductAsync(int id, CancellationToken ct)
+    {
+        var product = await _db.Products.AsNoTracking()
+            .Include(p => p.Translations).Include(p => p.Images).Include(p => p.Variants)
+            .AsSplitQuery()
+            .FirstOrDefaultAsync(p => p.Id == id, ct);
+        if (product is null) return null;
+
+        return new AdminProductDto(
+            product.Id, product.Slug, product.Status.ToString(),
+            product.Translations.ToDictionary(t => t.Culture, t => new CatalogTextDto(t.Name, t.Description, t.MetaTitle, t.MetaDescription)),
+            product.Sku, product.Price.Amount, product.CompareAtPrice?.Amount, product.Price.Currency,
+            product.StockQuantity, product.LowStockThreshold,
+            product.Images.OrderBy(i => i.SortOrder).ThenBy(i => i.Id).Select(i => new ProductImageDto(i.Id, i.Url, i.SortOrder)).ToList(),
+            product.VideoUrl, product.CategoryId, product.Brand, product.CreatedAt, product.UpdatedAt);
+    }
+
+    // ── داخلي ───────────────────────────────────────────────────────────────
+
+    private IQueryable<Product> VisibleProducts() =>
+        _db.Products.AsNoTracking().Where(p => p.Status == ProductStatus.Active && p.Category!.IsActive);
+
+    private async Task<ProductDto?> DetailAsync(IQueryable<Product> product, string culture, CancellationToken ct)
+    {
+        var row = await product.Select(Row(culture)).FirstOrDefaultAsync(ct);
+        if (row is null) return null;
+
+        var images = await _db.Set<ProductImage>().AsNoTracking()
+            .Where(i => EF.Property<int>(i, "ProductId") == row.Id)
+            .OrderBy(i => i.SortOrder).ThenBy(i => i.Id).Select(i => i.Url).ToListAsync(ct);
+        return ToDto(row, culture, images);
+    }
+
+    private static readonly Expression<Func<Product, decimal>> PriceExpr =
+        p => p.Variants.Where(v => v.IsDefault).Select(v => v.Price.Amount).FirstOrDefault();
+
+    private static Expression<Func<Product, string?>> NameExpr(string culture) =>
+        p => p.Translations.Where(t => t.Culture == culture).Select(t => t.Name).FirstOrDefault()
+             ?? p.Translations.OrderBy(t => t.Culture).Select(t => t.Name).FirstOrDefault();
+
+    private static Expression<Func<Product, ProductRow>> Row(string culture) => p => new ProductRow(
+        p.Id, p.Slug,
+        p.Translations.Select(t => new TextRow(t.Culture, t.Name, t.Description, t.MetaTitle, t.MetaDescription)).ToList(),
+        p.Variants.Where(v => v.IsDefault).Select(v => v.Price.Amount).FirstOrDefault(),
+        p.Variants.Where(v => v.IsDefault).Select(v => EF.Property<decimal?>(v, "_compareAtAmount")).FirstOrDefault(),
+        p.Variants.Where(v => v.IsDefault).Select(v => v.Price.Currency).FirstOrDefault() ?? "",
+        p.StockQuantity,
+        p.Images.OrderBy(i => i.SortOrder).ThenBy(i => i.Id).Select(i => i.Url).FirstOrDefault(),
+        p.VideoUrl, p.CategoryId,
+        p.Category!.Translations.Where(t => t.Culture == culture).Select(t => t.Name).FirstOrDefault()
+            ?? p.Category.Translations.OrderBy(t => t.Culture).Select(t => t.Name).FirstOrDefault(),
+        p.Brand);
+
+    private static ProductDto ToDto(ProductRow r, string culture, IReadOnlyList<string>? images = null)
+    {
+        var texts = Texts(r.Texts);
+        var main = Pick(texts, culture);
+        return new ProductDto(
+            r.Id, r.Slug, main?.Name ?? r.Slug, main?.Description, texts,
+            r.Price, r.CompareAtPrice, r.Currency, r.StockQuantity,
+            r.ImageUrl, images, r.VideoUrl, r.CategoryId, r.CategoryName, r.Brand);
+    }
+
+    private static IReadOnlyDictionary<string, CatalogTextDto> Texts(IEnumerable<TextRow> rows) =>
+        rows.ToDictionary(t => t.Culture, t => new CatalogTextDto(t.Name, t.Description, t.MetaTitle, t.MetaDescription));
+
+    private static CatalogTextDto? Pick(IReadOnlyDictionary<string, CatalogTextDto> texts, string culture) =>
+        texts.TryGetValue(culture, out var text)
+            ? text
+            : texts.OrderBy(t => t.Key, StringComparer.Ordinal).Select(t => t.Value).FirstOrDefault();
+
+    // كل ترتيب ينتهي بكاسر تعادل بالمعرّف: منتجان بنفس السعر لا يتبادلان موقعيهما بين طلبين.
     private IOrderedQueryable<Product> Sort(IQueryable<Product> query, ProductSortBy sortBy) => sortBy switch
     {
-        ProductSortBy.PriceAsc => query.OrderBy(p => p.Price.Amount).ThenByDescending(p => p.Id),
-        ProductSortBy.PriceDesc => query.OrderByDescending(p => p.Price.Amount).ThenByDescending(p => p.Id),
+        ProductSortBy.PriceAsc => query.OrderBy(PriceExpr).ThenByDescending(p => p.Id),
+        ProductSortBy.PriceDesc => query.OrderByDescending(PriceExpr).ThenByDescending(p => p.Id),
         ProductSortBy.BestSelling => BestSellingFirst(query),
         _ => query.OrderByDescending(p => p.Id),
     };
 
-    // "الأكثر مبيعاً" = مجموع الكميات عبر الطلبات المُسلَّمة فقط — استعلام فرعي مترابط واحد
-    // في SQL يستخدم الفهرس IX_OrderItems_ProductId، لا تحميل بيانات للذاكرة.
+    // "الأكثر مبيعاً" = مجموع الكميات عبر الطلبات المُسلَّمة فقط — استعلام فرعي مترابط واحد في SQL.
     private IOrderedQueryable<Product> BestSellingFirst(IQueryable<Product> query) =>
         query.OrderByDescending(p =>
                 _db.Orders.Where(o => o.Status == OrderStatus.Delivered)
@@ -97,4 +217,12 @@ internal sealed class CatalogQueries : ICatalogQueries
                     .Where(i => i.ProductId == p.Id)
                     .Sum(i => (int?)i.Quantity) ?? 0)
             .ThenByDescending(p => p.Id);
+
+    private sealed record TextRow(string Culture, string Name, string? Description, string? MetaTitle, string? MetaDescription);
+
+    private sealed record ProductRow(
+        int Id, string Slug, List<TextRow> Texts, decimal Price, decimal? CompareAtPrice, string Currency, int StockQuantity,
+        string? ImageUrl, string? VideoUrl, int CategoryId, string? CategoryName, string? Brand);
+
+    private sealed record CategoryRow(int Id, string Slug, int? ParentId, int SortOrder, bool IsActive, List<TextRow> Texts);
 }

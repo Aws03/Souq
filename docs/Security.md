@@ -62,6 +62,11 @@
     - On the platform host, it rejects anonymous callers and store tokens (401).
     - `PlatformAdministrationTests` covers the full provisioning scenario, and a platform admin without `platform.users.manage` gets 403.
     - A store admin changing settings or staff can only touch their own store: the requests carry no store id, and B's admin gets 404 for A's staff account (`TenantIsolationTests`).
+  - **Catalog (Phase 5):**
+    - Every admin catalog endpoint requires `catalog.manage`.
+    - Draft and archived products, and products in hidden categories, are invisible to anonymous callers, by id and by slug (`CatalogTests`).
+    - Image ids are resolved inside a product of the caller's store. Another store's image id under your own product gives 404 on remove and 422 on reorder, and the image is untouched.
+    - Slugs and SKUs are unique per store only, so one store cannot probe another store's catalog through a uniqueness conflict (`TenantIsolationTests`).
 
 ## 4. Transport, CORS, headers, rate limiting
 
@@ -79,7 +84,7 @@
 ## 5. Input validation, XSS, and uploads
 
 - **Validation:** FluentValidation for shape and ranges (automatic pipeline). Business invariants in the Domain. The database constraints are the final guard.
-- **XSS:** React escapes by default, and `dangerouslySetInnerHTML` is forbidden unless the content is sanitized. Rich product descriptions (Phase 5) are sanitized server-side against an allowlist before storage.
+- **XSS:** React escapes by default, and `dangerouslySetInnerHTML` is forbidden unless the content is sanitized. Since Phase 5, product and category descriptions are **plain text** (up to 4000 characters, rendered escaped). A rich (HTML) description arrives with the storefront (Phase 16); it will be sanitized server-side against an allowlist before storage.
 - **Uploads (fixed in 1A, Phase 0 finding B3):**
   1. The file type is detected from **magic bytes**: JPEG, PNG, GIF, WebP for images; MP4, WebM for videos. Anything else (HTML, SVG, scripts, disguised files) is rejected with `UnsupportedMediaType`.
   2. The stored extension is **derived from the detected type**, never from the client's filename. The stored name is a random GUID.
@@ -90,7 +95,10 @@
 - **Tenant-prefixed keys (Phase 2):**
   - Files are stored under `tenants/{id}/…`. The resolution middleware serves them only on the owning store's host.
   - Pre-Phase-2 files under `/uploads/{folder}` belong to the default store. They are public catalog media with unguessable names.
-- **Target (Phase 5):** cloud blob storage, and optional re-encoding of images (which strips metadata and neutralizes polyglots).
+- **Product gallery (Phase 5):**
+  - Up to 10 images per product, each through the same content-sniffed pipeline, into the store's prefix.
+  - Removing an image from the gallery does not delete the file yet (a cleanup job is planned). The file keeps its unguessable name and is still served only on the owning store's host.
+- **Target (Phase 23):** cloud blob storage, and optional re-encoding of images (which strips metadata and neutralizes polyglots).
 
 ## 6. Secret management
 

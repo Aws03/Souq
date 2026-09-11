@@ -9,7 +9,7 @@ import Button from '../components/common/Button';
 import Pagination from '../components/common/Pagination';
 import Skeleton from '../components/common/Skeleton';
 import { ErrorBanner } from '../components/common/StateViews';
-import { CategoryBadge, PriceTag, StockBadge, getProductName } from '../components/product/ProductBadges';
+import { CategoryBadge, PriceTag, StockBadge, getProductDescription, getProductName } from '../components/product/ProductBadges';
 import { ChevronIcon } from '../components/icons/Icons';
 import ProductZoom from '../components/product/ProductZoom';
 import StarRating from '../components/product/StarRating';
@@ -84,7 +84,9 @@ export default function ProductDetail() {
         <ChevronIcon dir="end" size={16} /> {t('product.backToStore')}
       </button>
       <div className={styles.grid}>
-        <ProductZoom images={[product.imageUrl]} videoUrl={product.videoUrl} productName={getProductName(product)} />
+        {/* معرض المنتج المرتّب (الأولى رئيسية)؛ منتج بلا صور يعرض بديل الصورة. */}
+        <ProductZoom images={product.images?.length ? product.images : [product.imageUrl]} videoUrl={product.videoUrl}
+          productName={getProductName(product)} />
         <div>
           <CategoryBadge name={product.categoryName} />
           <h1 className={styles.name}>{getProductName(product)}</h1>
@@ -94,10 +96,10 @@ export default function ProductDetail() {
               <span>{reviews.averageRating} ({t('product.ratingSummary', { count: reviews.totalCount })})</span>
             </div>
           )}
-          <p className={styles.desc}>{product.description}</p>
+          <p className={styles.desc}>{getProductDescription(product)}</p>
           <StockBadge quantity={product.stockQuantity} />
           <div className={styles.buyRow}>
-            <PriceTag amount={product.price} currency={product.currency} />
+            <PriceTag amount={product.price} currency={product.currency} compareAt={product.compareAtPrice} />
             <Button variant="primary" loading={adding} disabled={outOfStock} onClick={handleAdd}>
               {outOfStock ? t('product.outOfStock') : t('product.addToCart')}
             </Button>
