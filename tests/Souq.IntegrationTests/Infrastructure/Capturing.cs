@@ -4,21 +4,36 @@ using Souq.Application.Common.Interfaces;
 
 namespace Souq.IntegrationTests.Infrastructure;
 
-// بديل IEmailService يحفظ الرسائل في الذاكرة بدل إرسالها.
+// بديل IEmailService يحفظ الرسائل في الذاكرة بدل إرسالها — الرابط كما يصل للمستخدم تماماً (بمضيفه).
 public sealed class CapturingEmailService : IEmailService
 {
-    private readonly ConcurrentQueue<(string To, string Token)> _resets = new();
+    private readonly ConcurrentQueue<(string Kind, string To, string Link)> _links = new();
 
     public Task SendOrderConfirmationAsync(string toEmail, int orderId, CancellationToken ct = default) => Task.CompletedTask;
 
-    public Task SendPasswordResetEmailAsync(string toEmail, string resetToken, CancellationToken ct = default)
+    public Task SendPasswordResetEmailAsync(string toEmail, string resetLink, CancellationToken ct = default) =>
+        Capture("reset", toEmail, resetLink);
+
+    public Task SendEmailVerificationAsync(string toEmail, string verificationLink, CancellationToken ct = default) =>
+        Capture("verify", toEmail, verificationLink);
+
+    public string LastResetLinkFor(string email) => Last("reset", email);
+
+    public string LastResetTokenFor(string email) => TokenOf(Last("reset", email));
+
+    public string LastVerificationTokenFor(string email) => TokenOf(Last("verify", email));
+
+    private Task Capture(string kind, string to, string link)
     {
-        _resets.Enqueue((toEmail, resetToken));
+        _links.Enqueue((kind, to, link));
         return Task.CompletedTask;
     }
 
-    public string LastResetTokenFor(string email) =>
-        _resets.Reverse().First(r => r.To == email).Token;
+    private string Last(string kind, string email) =>
+        _links.Reverse().First(l => l.Kind == kind && l.To == email).Link;
+
+    private static string TokenOf(string link) =>
+        Uri.UnescapeDataString(link[(link.IndexOf("token=", StringComparison.Ordinal) + "token=".Length)..]);
 }
 
 // سجلّ واحد كما يراه أي مزوّد منظَّم: الرسالة المنسَّقة + الخصائص المسمّاة + قيم النطاق.

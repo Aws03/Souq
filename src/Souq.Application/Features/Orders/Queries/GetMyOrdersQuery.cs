@@ -20,5 +20,5 @@ public class GetMyOrdersHandler : IRequestHandler<GetMyOrdersQuery, PaginatedLis
     }
 
     public Task<PaginatedList<OrderSummaryDto>> Handle(GetMyOrdersQuery q, CancellationToken ct) =>
-        _orders.ListForCustomerAsync(_currentUser.RequireUserId(), PageRequest.From(q), ct);
+        _orders.ListForCustomerAsync(_currentUser.RequireCustomerId(), PageRequest.From(q), ct);
 }

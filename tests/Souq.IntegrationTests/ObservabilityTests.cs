@@ -57,7 +57,7 @@ public class ObservabilityTests
     public async Task الطلب_المُصادَق_ينقل_UserId_وحالة_الاستخدام_إلى_كل_سجلّ_داخله_حتى_أوامر_SQL()
     {
         var (customer, email) = await _api.NewCustomerAsync();
-        var userId = await _api.WithDbAsync(db => db.Customers.Where(c => c.Email == email).Select(c => c.Id).SingleAsync());
+        var userId = await _api.WithDbAsync(db => db.Users.Where(u => u.Email == email).Select(u => u.Id).SingleAsync());
 
         var response = await customer.GetAsync("/api/orders/mine");
         var correlationId = response.Headers.GetValues(CorrelationHeader).Single();

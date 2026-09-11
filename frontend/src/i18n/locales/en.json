@@ -195,7 +195,15 @@
     "resetPasswordSuccess": "Password updated successfully. Redirecting to sign in…",
     "newPasswordLabel": "New password",
     "invalidResetLink": "This reset link is invalid or has expired.",
-    "requestNewLink": "Request a new link"
+    "requestNewLink": "Request a new link",
+    "verifyEmailTitle": "Confirm your email",
+    "verifyEmailSubtitle": "One last step to secure your account",
+    "verifyEmailPending": "Confirming your email…",
+    "verifyEmailSuccess": "Your email is confirmed. Thank you!",
+    "invalidVerifyLink": "This verification link is incomplete. Open the full link from the email.",
+    "resendVerification": "Send a new verification link",
+    "verificationSent": "We've sent a new verification link to your email.",
+    "verifyEmailContinue": "Continue shopping"
   },
   "checkout": {
     "emptyCartTitle": "Your cart is empty",
@@ -249,7 +257,9 @@
     "adminFallback": "Admin",
     "backToStore": "← Store",
     "logout": "Log out",
-    "sidebar": { "title": "Admin" },
+    "sidebar": {
+      "title": "Admin"
+    },
     "nav": {
       "dashboard": "Dashboard",
       "home": "Home",
@@ -506,6 +516,16 @@
       "StoreUnavailable": "This store is currently unavailable. Please try again later.",
       "ReferenceConflict": "This action conflicts with related data.",
       "InvalidTenantOperation": "This action isn't allowed for this store.",
+      "AccountLocked": "This account is temporarily locked after repeated failed sign-in attempts. Try again in 15 minutes or reset your password.",
+      "AccountDisabled": "This account has been disabled. Please contact the store.",
+      "InvalidRefreshToken": "Your session has ended. Please sign in again.",
+      "RefreshTokenReused": "Your session was ended for security reasons. Please sign in again.",
+      "RegistrationNotAllowed": "Account registration isn't available here.",
+      "CustomerAccountRequired": "This action is only available to customer accounts.",
+      "CurrentPasswordIncorrect": "The current password is incorrect.",
+      "InvalidVerificationToken": "This verification link is invalid or has already been used.",
+      "VerificationTokenExpired": "This verification link has expired. Please request a new one.",
+      "InvalidIdentityOperation": "This action can't be performed on this account.",
       "ServerError": "An unexpected server error occurred."
     }
   }

@@ -13,7 +13,6 @@ public class BrevoOptions
     public string ApiKey { get; set; } = "";
     public string SenderName { get; set; } = "Marka";
     public string SenderEmail { get; set; } = "";
-    public string FrontendUrl { get; set; } = "http://localhost:5173";
 }
 
 // ============================================================================
@@ -36,11 +35,11 @@ public class BrevoEmailService : IEmailService
     public Task SendOrderConfirmationAsync(string toEmail, int orderId, CancellationToken ct = default)
         => SendAsync(toEmail, $"تأكيد الطلب #{orderId} — ماركة", EmailTemplates.OrderConfirmation(orderId), ct);
 
-    public Task SendPasswordResetEmailAsync(string toEmail, string resetToken, CancellationToken ct = default)
-    {
-        var link = $"{_opts.FrontendUrl.TrimEnd('/')}/reset-password?token={resetToken}";
-        return SendAsync(toEmail, "إعادة تعيين كلمة المرور — ماركة", EmailTemplates.PasswordReset(link), ct);
-    }
+    public Task SendPasswordResetEmailAsync(string toEmail, string resetLink, CancellationToken ct = default)
+        => SendAsync(toEmail, "إعادة تعيين كلمة المرور — ماركة", EmailTemplates.PasswordReset(resetLink), ct);
+
+    public Task SendEmailVerificationAsync(string toEmail, string verificationLink, CancellationToken ct = default)
+        => SendAsync(toEmail, "تأكيد بريدك الإلكتروني — ماركة", EmailTemplates.EmailVerification(verificationLink), ct);
 
     private async Task SendAsync(string toEmail, string subject, string htmlBody, CancellationToken ct)
     {

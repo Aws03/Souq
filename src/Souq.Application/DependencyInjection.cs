@@ -42,6 +42,8 @@ public static class DependencyInjection
         services.AddScoped<Features.Orders.OrderStockRelease>();
         // منطق تأكيد الدفع الواحد لمدخلين بتفويض مختلف (العميل المالك / توقيع البوّابة).
         services.AddScoped<Features.Orders.OrderPaymentConfirmation>();
+        // إصدار الجلسات (رمز تجديد + توكن وصول) لكل مداخلها: دخول، تسجيل، تجديد، تغيير كلمة مرور.
+        services.AddScoped<Features.Auth.AuthSessionIssuer>();
 
         return services;
     }

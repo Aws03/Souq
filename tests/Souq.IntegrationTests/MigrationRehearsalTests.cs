@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 using Souq.Application.Common.Tenancy;
 using Souq.Domain.Platform;
 using Souq.Infrastructure.Persistence;
+using Souq.Infrastructure.Services;
 using Souq.IntegrationTests.Infrastructure;
 
 namespace Souq.IntegrationTests;
@@ -21,6 +22,7 @@ namespace Souq.IntegrationTests;
 public class MigrationRehearsalTests
 {
     private const string LastPhase1Migration = "20260911061506_Phase1AIntegrityPrecisionConcurrency";
+    private const string LegacyPassword = "Legacy-Pass-1";
 
     private static readonly string[] TenantOwnedTables =
     [
@@ -46,7 +48,7 @@ public class MigrationRehearsalTests
         try
         {
             await db.GetService<IMigrator>().MigrateAsync(LastPhase1Migration);
-            await ExecuteAsync(db, LegacyRows);
+            await ExecuteAsync(db, LegacyRows.Replace("{legacy-hash}", new BcryptPasswordHasher().Hash(LegacyPassword)));
             var before = new Dictionary<string, int>();
             foreach (var table in TenantOwnedTables)
                 before[table] = Convert.ToInt32(await ScalarAsync(db, $"SELECT COUNT(*) FROM [{table}]"));
@@ -74,9 +76,27 @@ public class MigrationRehearsalTests
                 "INSERT INTO [Categories] ([Name], [Slug], [CreatedAt]) VALUES (N'بلا متجر', N'no-tenant', SYSUTCDATETIME())");
             await insertWithoutTenant.Should().ThrowAsync<SqlException>();
 
+            // المرحلة 3: كل عميل صار حساب دخول بالمعرّف والمتجر والبريد نفسه، والكلمة القديمة ما زالت تعمل،
+            // والدور القديم Admin صار TenantAdmin، ولا اعتماد متبقٍّ في Customers.
+            (await ScalarAsync(db, "SELECT COUNT(*) FROM [Users]")).Should().Be(before["Customers"]);
+            (await ScalarAsync(db, """
+                SELECT COUNT(*) FROM [Customers] c JOIN [Users] u
+                  ON u.[Id] = c.[UserId] AND u.[Id] = c.[Id] AND u.[TenantId] = c.[TenantId] AND u.[Email] = c.[Email]
+                """)).Should().Be(before["Customers"]);
+            (await ScalarAsync(db, "SELECT [Role] FROM [Users] WHERE [Email] = N'legacy-admin@souq.test'")).Should().Be("TenantAdmin");
+            (await ScalarAsync(db, "SELECT [Role] FROM [Users] WHERE [Email] = N'legacy@souq.test'")).Should().Be("Customer");
+            var migratedHash = (string)(await ScalarAsync(db, "SELECT [PasswordHash] FROM [Users] WHERE [Email] = N'legacy@souq.test'"))!;
+            new BcryptPasswordHasher().Verify(LegacyPassword, migratedHash).Should().BeTrue();
+            (await ScalarAsync(db, """
+                SELECT COUNT(*) FROM sys.columns WHERE [object_id] = OBJECT_ID(N'[Customers]') AND [name] IN (N'PasswordHash', N'Role')
+                """)).Should().Be(0);
+
             // المرشّحات على البيانات المُرحَّلة: المتجر 1 يرى صفوفه، ومتجر آخر لا يرى شيئاً.
             await using (var asDefault = new AppDbContext(options, Context(1)))
+            {
                 (await asDefault.Customers.CountAsync(c => c.Email == "legacy@souq.test")).Should().Be(1);
+                (await asDefault.Users.CountAsync(u => u.NormalizedEmail == "LEGACY@SOUQ.TEST")).Should().Be(1);
+            }
             await using (var asOther = new AppDbContext(options, Context(999)))
                 (await asOther.Customers.CountAsync()).Should().Be(0);
         }
@@ -95,8 +115,10 @@ public class MigrationRehearsalTests
         INSERT INTO [Categories] ([Name], [Slug], [CreatedAt]) VALUES (N'فئة قديمة', N'legacy-cat', @now);
         DECLARE @category int = SCOPE_IDENTITY();
         INSERT INTO [Customers] ([FullName], [Email], [PasswordHash], [Role], [CreatedAt])
-            VALUES (N'عميل قديم', N'legacy@souq.test', N'$2a$11$legacy', N'Customer', @now);
+            VALUES (N'عميل قديم', N'legacy@souq.test', N'{legacy-hash}', N'Customer', @now);
         DECLARE @customer int = SCOPE_IDENTITY();
+        INSERT INTO [Customers] ([FullName], [Email], [PasswordHash], [Role], [CreatedAt])
+            VALUES (N'مدير قديم', N'legacy-admin@souq.test', N'{legacy-hash}', N'Admin', @now);
         INSERT INTO [Products] ([NameAr], [NameEn], [Description], [Price], [Currency], [StockQuantity], [LowStockThreshold],
                                 [ImageUrl], [IsActive], [CategoryId], [CreatedAt])
             VALUES (N'منتج قديم', N'Legacy product', N'وصف', 12.500, N'KWD', 5, 5, N'legacy', 1, @category, @now);

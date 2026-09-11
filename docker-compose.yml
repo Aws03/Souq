@@ -59,6 +59,12 @@ services:
       # المضيفين في PLATFORM_HOSTS. النطاقات الحقيقية تُضاف من المنصّة (TenantDomains).
       Seed__DefaultTenantHosts: ${DEFAULT_TENANT_HOSTS:-localhost}
       Tenancy__PlatformHosts__0: ${PLATFORM_HOST:-admin.localhost}
+      # مالك المنصّة (بلا متجر، على PLATFORM_HOST): بلا هذين لا يُنشأ. 12 حرفاً على الأقل.
+      Seed__PlatformOwnerEmail: ${SEED_PLATFORM_OWNER_EMAIL:-}
+      Seed__PlatformOwnerPassword: ${SEED_PLATFORM_OWNER_PASSWORD:-}
+      # عنوان العميل الحقيقي من X-Forwarded-For يُصدَّق فقط من وكيل Nginx داخل شبكة Docker (لحدّ
+      # المعدّل وروابط البريد). نطاق شبكات Docker الافتراضي؛ اضبطه إن غيّرت شبكة الحزمة.
+      ForwardedHeaders__KnownNetworks: ${TRUSTED_PROXY_NETWORKS:-172.16.0.0/12}
       # بعض مزوّدي الإنترنت يحجبون المنفذ 587 (STARTTLS) — عندها استخدم 465
       # (TLS ضمني) عبر GMAIL_SMTP_PORT في .env؛ الافتراضي يبقى 587 القياسي.
       Gmail__Port: ${GMAIL_SMTP_PORT:-587}

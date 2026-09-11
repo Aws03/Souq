@@ -27,6 +27,7 @@ public class AuthorizationBoundaryTests
     private static readonly HashSet<string> ReviewedPublicEndpoints = new(StringComparer.OrdinalIgnoreCase)
     {
         "POST api/Auth/register", "POST api/Auth/login", "POST api/Auth/forgot-password", "POST api/Auth/reset-password",
+        "POST api/Auth/refresh", "POST api/Auth/logout", "POST api/Auth/verify-email",
         "GET api/Products", "GET api/Products/{id:int}", "GET api/Products/{id:int}/related",
         "GET api/Categories",
         "GET api/Coupons/apply",

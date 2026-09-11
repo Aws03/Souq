@@ -26,7 +26,7 @@ public class CreateReviewHandler : IRequestHandler<CreateReviewCommand, Result<i
 
     public async Task<Result<int>> Handle(CreateReviewCommand cmd, CancellationToken ct)
     {
-        var customerId = _currentUser.RequireUserId();
+        var customerId = _currentUser.RequireCustomerId();
 
         if (await _reviews.HasCustomerReviewedProductAsync(customerId, cmd.ProductId, ct))
             return Result<int>.Failure(Error.Conflict("AlreadyReviewed", "قيّمت هذا المنتج مسبقاً"));

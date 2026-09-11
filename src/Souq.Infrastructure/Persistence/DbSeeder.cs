@@ -5,6 +5,7 @@ using Souq.Application.Common.Interfaces;
 using Souq.Application.Common.Tenancy;
 using Souq.Domain.Common;
 using Souq.Domain.Entities;
+using Souq.Domain.Identity;
 using Souq.Domain.Platform;
 using Souq.Domain.ValueObjects;
 using Souq.Infrastructure.Services;
@@ -13,24 +14,27 @@ using Souq.Infrastructure.Tenancy;
 namespace Souq.Infrastructure.Persistence;
 
 // إعداد البذر عند الإقلاع — كله من إعداد صريح (متغيّرات بيئة/user-secrets):
-//   AdminEmail/AdminPassword — أول مدير للمتجر الافتراضي (بيانات تطوير افتراضية في Development فقط).
-//   DefaultTenantHosts       — مضيفون يُربطون بالمتجر الافتراضي إن لم يكونوا مربوطين (مثل localhost في
-//                              حزمة Docker التجريبية). لا متجر احتياطي ضمني في الإنتاج: الربط قرار مكتوب.
+//   AdminEmail/AdminPassword                 — أول مدير للمتجر الافتراضي (TenantAdmin).
+//   PlatformOwnerEmail/PlatformOwnerPassword — مالك المنصّة (PlatformOwner، بلا متجر) — ADR-0010.
+//   DefaultTenantHosts                       — مضيفون يُربطون بالمتجر الافتراضي إن لم يكونوا مربوطين.
+// بيانات تطوير افتراضية في Development فقط؛ خارجها لا حساب بلا إعداد صريح، ولا كلمة مرور ضعيفة.
 public sealed record SeedOptions(
-    string? AdminEmail, string? AdminPassword, bool IsDevelopment, IReadOnlyList<string> DefaultTenantHosts);
+    string? AdminEmail, string? AdminPassword, bool IsDevelopment, IReadOnlyList<string> DefaultTenantHosts,
+    string? PlatformOwnerEmail = null, string? PlatformOwnerPassword = null);
 
-// يطبّق الهجرات ثم يبذر المتجر الافتراضي — كل بيانات متجر تُكتب داخل نطاق ذلك المتجر.
+// يطبّق الهجرات ثم يبذر مالك المنصّة (نطاق المنصّة) والمتجر الافتراضي (نطاقه) — كل صف في نطاقه.
 public static class DbSeeder
 {
     // المتجر الافتراضي أنشأته الهجرة Phase2MultiTenancy (P-04: "Souq" المنصّة، "Marka" أول متجر
     // تجريبي) — كل البيانات السابقة للمرحلة 2 تنتمي إليه.
     public const string DefaultTenantSlug = "marka";
 
-    // بيانات مدير التطوير المحلي فقط — لا تُستخدم خارج Development أبداً. قبل Phase 1A
-    // كانت تُبذَر في كل البيئات بما فيها Production (Phase 0 B1): حساب مدير بكلمة مرور
-    // منشورة في المستودع = باب خلفي في كل نشر.
+    // بيانات التطوير المحلي فقط — لا تُستخدم خارج Development أبداً. قبل Phase 1A كان مدير بكلمة
+    // مرور منشورة يُبذَر في كل البيئات بما فيها Production (Phase 0 B1): باب خلفي في كل نشر.
     public const string DevelopmentAdminEmail = "admin@souq.com";
     public const string DevelopmentAdminPassword = "Admin@123";
+    public const string DevelopmentPlatformOwnerEmail = "owner@souq.com";
+    public const string DevelopmentPlatformOwnerPassword = "Owner@12345";
     public const int MinimumAdminPasswordLength = 12;
 
     public static async Task SeedAsync(IServiceProvider services, SeedOptions options, ILogger logger)
@@ -45,6 +49,8 @@ public static class DbSeeder
                 .FindBySlugAsync(DefaultTenantSlug);
         }
 
+        await SeedPlatformOwnerAsync(services, options, logger);
+
         if (defaultTenant is null)
         {
             logger.LogWarning("Default store '{Slug}' not found; store seeding skipped", DefaultTenantSlug);
@@ -55,8 +61,22 @@ public static class DbSeeder
         {
             var db = tenantServices.GetRequiredService<AppDbContext>();
             await SeedCatalogAsync(db, defaultTenant.Currency);
-            await SeedAdminAsync(db, tenantServices.GetRequiredService<IPasswordHasher>(), options, logger);
+            await SeedAccountAsync(db, tenantServices.GetRequiredService<IPasswordHasher>(), logger,
+                options.AdminEmail, options.AdminPassword, options.IsDevelopment,
+                DevelopmentAdminEmail, DevelopmentAdminPassword, "مدير المتجر", Roles.TenantAdmin, "Seed:AdminEmail/Seed:AdminPassword");
         });
+    }
+
+    // مالك المنصّة في نطاق المنصّة (TenantId = null) — لا يرى متجراً إلا عبر مسار المنصّة المُدقَّق.
+    private static async Task SeedPlatformOwnerAsync(IServiceProvider services, SeedOptions options, ILogger logger)
+    {
+        await using var scope = services.GetRequiredService<IServiceScopeFactory>().CreateAsyncScope();
+        scope.ServiceProvider.GetRequiredService<TenantContext>().UsePlatform();
+        await SeedAccountAsync(
+            scope.ServiceProvider.GetRequiredService<AppDbContext>(), scope.ServiceProvider.GetRequiredService<IPasswordHasher>(),
+            logger, options.PlatformOwnerEmail, options.PlatformOwnerPassword, options.IsDevelopment,
+            DevelopmentPlatformOwnerEmail, DevelopmentPlatformOwnerPassword, "مالك المنصّة", Roles.PlatformOwner,
+            "Seed:PlatformOwnerEmail/Seed:PlatformOwnerPassword");
     }
 
     private static async Task BindDefaultTenantHostsAsync(AppDbContext db, IReadOnlyList<string> hosts, ILogger logger)
@@ -107,36 +127,39 @@ public static class DbSeeder
         await db.SaveChangesAsync();
     }
 
-    private static async Task SeedAdminAsync(AppDbContext db, IPasswordHasher hasher, SeedOptions options, ILogger logger)
+    // حساب بذرة واحد (مدير متجر أو مالك منصّة) في نطاق مضبوط مسبقاً. لا يغيّر أبداً كلمة مرور حساب
+    // صالح موجود؛ يُصلح فقط تجزئة قديمة غير BCrypt لا تصلح للدخول إطلاقاً.
+    private static async Task SeedAccountAsync(
+        AppDbContext db, IPasswordHasher hasher, ILogger logger,
+        string? configuredEmail, string? configuredPassword, bool isDevelopment,
+        string developmentEmail, string developmentPassword, string fullName, string role, string settingNames)
     {
-        var email = FirstNonEmpty(options.AdminEmail, options.IsDevelopment ? DevelopmentAdminEmail : null)?.Trim().ToLowerInvariant();
-        var password = FirstNonEmpty(options.AdminPassword, options.IsDevelopment ? DevelopmentAdminPassword : null);
+        var email = FirstNonEmpty(configuredEmail, isDevelopment ? developmentEmail : null)?.Trim().ToLowerInvariant();
+        var password = FirstNonEmpty(configuredPassword, isDevelopment ? developmentPassword : null);
 
         if (email is null || password is null)
         {
-            logger.LogWarning(
-                "لم يُنشأ حساب مدير: اضبط Seed:AdminEmail وSeed:AdminPassword (متغيّرات بيئة/user-secrets) لإنشاء أول مدير.");
+            logger.LogWarning("No {Role} account seeded: set {Settings} (environment variables/user-secrets)", role, settingNames);
             return;
         }
 
-        // خارج التطوير: كلمة مرور مضبوطة صراحةً وقوية بما يكفي — فشل صريح عند الإقلاع
-        // أفضل من مدير بكلمة مرور ضعيفة يعمل بصمت في الإنتاج.
-        if (!options.IsDevelopment && (password.Length < MinimumAdminPasswordLength || password == DevelopmentAdminPassword))
+        // خارج التطوير: كلمة مرور مضبوطة صراحةً وقوية بما يكفي — فشل صريح عند الإقلاع أفضل من
+        // حساب بصلاحيات واسعة بكلمة مرور ضعيفة يعمل بصمت في الإنتاج.
+        if (!isDevelopment && (password.Length < MinimumAdminPasswordLength || password == developmentPassword))
             throw new InvalidOperationException(
-                $"Seed:AdminPassword ضعيفة: يلزم {MinimumAdminPasswordLength} حرفاً على الأقل ولا تساوي كلمة مرور التطوير.");
+                $"كلمة مرور البذرة ({settingNames}) ضعيفة: يلزم {MinimumAdminPasswordLength} حرفاً على الأقل ولا تساوي كلمة مرور التطوير.");
 
-        var existing = await db.Customers.FirstOrDefaultAsync(c => c.Email == email);
+        var normalized = User.NormalizeEmail(email);
+        var existing = await db.Users.FirstOrDefaultAsync(u => u.NormalizedEmail == normalized);
         if (existing is null)
         {
-            db.Customers.Add(new Customer("مدير المتجر", email, hasher.Hash(password), Roles.Admin));
+            db.Users.Add(new User(fullName, email, hasher.Hash(password), role));
             await db.SaveChangesAsync();
-            logger.LogInformation("أُنشئ حساب المدير {Email}", LogRedaction.MaskEmail(email));
+            logger.LogInformation("Seeded {Role} account {Email}", role, LogRedaction.MaskEmail(email));
         }
-        else if (!existing.PasswordHash.StartsWith("$2"))
+        else if (!existing.PasswordHash.StartsWith("$2", StringComparison.Ordinal))
         {
-            // تجزئة قديمة غير BCrypt (بذرة "HASHED_admin123" الأولى) لا تصلح للدخول إطلاقاً —
-            // نصلحها بكلمة المرور المضبوطة. لا نغيّر أبداً كلمة مرور مدير صالحة موجودة.
-            existing.ChangePasswordHash(hasher.Hash(password));
+            existing.UpgradePasswordHash(hasher.Hash(password));
             await db.SaveChangesAsync();
         }
     }

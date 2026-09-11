@@ -6,15 +6,15 @@ using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Souq.Application.Common.Interfaces;
 using Souq.Application.Common.Security;
-using Souq.Domain.Entities;
+using Souq.Domain.Identity;
 
 namespace Souq.Infrastructure.Services;
 
 // ============================================================================
-// يُصدر توكن JWT موقّعاً بـ HMAC-SHA256. المطالبات (claims) تحمل هوية المستخدم
-// ودوره — كي تفكّها طبقة الـ API وتفرض الصلاحيات دون استعلام قاعدة البيانات.
-// نستخدم أسماء مطالبات ClaimTypes الصريحة (مع تعطيل إعادة التخطيط في الـ API)
-// لتطابق مضبوط بين ما نكتبه هنا وما نقرؤه هناك.
+// يُصدر توكن الوصول (JWT) موقّعاً بـ HMAC-SHA256 — قصير العمر (15 دقيقة افتراضياً). المطالبات عقد
+// صغير يعتمد عليه باقي النظام (ADR-0010): sub، الدور، tid (متجر الحساب — تربطه الـ API بالمضيف)،
+// cid (ملف العميل إن وُجد)، وsstamp (ختم الأمان — تغيّره يُسقط التوكن فوراً). أسماء ClaimTypes
+// الصريحة مع تعطيل إعادة التخطيط في الـ API لتطابق مضبوط بين ما نكتبه هنا وما نقرؤه هناك.
 // ============================================================================
 public class JwtTokenGenerator : IJwtTokenGenerator
 {
@@ -26,22 +26,28 @@ public class JwtTokenGenerator : IJwtTokenGenerator
         _settings = settings.Value; _clock = clock;
     }
 
-    public (string Token, DateTime ExpiresAt) Generate(Customer customer)
+    public TimeSpan RefreshTokenLifetime => TimeSpan.FromDays(_settings.RefreshTokenDays);
+
+    public (string Token, DateTime ExpiresAt) Generate(User user, int? customerId)
     {
-        // حساب بلا متجر لا يُصدَر له توكن: tid هو ما يربط التوكن بمضيف متجره (TenantTokenBinding).
-        if (customer.TenantId == 0)
-            throw new InvalidOperationException("لا يُصدَر توكن لحساب غير محفوظ في متجر.");
+        // حساب غير محفوظ، أو حساب متجر بلا متجر، لا يُصدَر له توكن: tid ما يربطه بمضيف متجره.
+        if (user.Id == 0 || (!user.BelongsToPlatform && user.TenantId is null))
+            throw new InvalidOperationException("لا يُصدَر توكن لحساب غير محفوظ في متجره أو في المنصّة.");
 
         var expiresAt = _clock.GetUtcNow().UtcDateTime.AddMinutes(_settings.ExpiryMinutes);
 
-        var claims = new[]
+        var claims = new List<Claim>
         {
-            new Claim(ClaimTypes.NameIdentifier, customer.Id.ToString(CultureInfo.InvariantCulture)),
-            new Claim(SouqClaimTypes.TenantId, customer.TenantId.ToString(CultureInfo.InvariantCulture)),
-            new Claim(ClaimTypes.Email, customer.Email),
-            new Claim(ClaimTypes.Name, customer.FullName),
-            new Claim(ClaimTypes.Role, customer.Role),
+            new(ClaimTypes.NameIdentifier, user.Id.ToString(CultureInfo.InvariantCulture)),
+            new(ClaimTypes.Email, user.Email),
+            new(ClaimTypes.Name, user.FullName),
+            new(ClaimTypes.Role, user.Role),
+            new(SouqClaimTypes.SecurityStamp, user.SecurityStamp),
         };
+        if (user.TenantId is int tenantId)
+            claims.Add(new Claim(SouqClaimTypes.TenantId, tenantId.ToString(CultureInfo.InvariantCulture)));
+        if (customerId is int id)
+            claims.Add(new Claim(SouqClaimTypes.CustomerId, id.ToString(CultureInfo.InvariantCulture)));
 
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_settings.Key));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);

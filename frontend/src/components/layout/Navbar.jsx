@@ -19,7 +19,7 @@ export default function Navbar({ onCartClick, searchTerm, onSearchChange }) {
   const { t, i18n } = useTranslation();
   const { count } = useCart();
   const { count: wishlistCount } = useWishlist();
-  const { user, isAuthenticated, isAdmin, logout } = useAuth();
+  const { user, isAuthenticated, canManageStore, logout } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   const [theme, setThemeState] = useState(getTheme());
 
@@ -39,7 +39,7 @@ export default function Navbar({ onCartClick, searchTerm, onSearchChange }) {
       <SearchBar value={searchTerm} onChange={onSearchChange} className={styles.searchDesktop} />
 
       <div className={styles.actions}>
-        {isAdmin && <Link to="/admin" className={styles.linkLight}>{t('nav.adminPanel')}</Link>}
+        {canManageStore && <Link to="/admin" className={styles.linkLight}>{t('nav.adminPanel')}</Link>}
 
         {isAuthenticated ? (
           <>

@@ -27,7 +27,7 @@ public class GetOrderByIdHandler : IRequestHandler<GetOrderByIdQuery, Result<Ord
     public async Task<Result<OrderDto>> Handle(GetOrderByIdQuery q, CancellationToken ct)
     {
         var order = await _orders.FindAsync(q.Id, ct);
-        return order is null || !_currentUser.CanAccessOwnedBy(order.CustomerId, Permissions.Orders.Manage)
+        return order is null || !_currentUser.CanAccessOwnedBy(order.CustomerId, Permissions.Orders.View)
             ? Result<OrderDto>.Failure(Error.NotFound("الطلب غير موجود"))
             : Result<OrderDto>.Success(order);
     }

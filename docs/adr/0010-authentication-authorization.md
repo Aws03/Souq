@@ -1,6 +1,6 @@
 # ADR-0010: Authentication and authorization
 
-- **Status:** Accepted, 2026-09-11. Reset-token hardening implemented in 1A; the rest in Phase 3. Details: [AuthenticationAndAuthorization.md](../AuthenticationAndAuthorization.md).
+- **Status:** Accepted, 2026-09-11. Reset-token hardening was implemented in 1A and the rest in Phase 3. The implementation choices are in [ADR-0023](0023-sessions-and-credentials.md). Details: [AuthenticationAndAuthorization.md](../AuthenticationAndAuthorization.md).
 
 ## Context
 

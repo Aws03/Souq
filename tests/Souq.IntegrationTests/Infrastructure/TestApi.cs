@@ -40,6 +40,15 @@ public sealed class TestApi
     public HttpClient Client(string host) =>
         _factory.CreateClient(new WebApplicationFactoryClientOptions { BaseAddress = new Uri($"http://{host}/") });
 
+    // عميل https بحاوية ملفات تعريف ارتباط (رمز التجديد Secure لا يُرسَل على http)؛ handleCookies=false
+    // لإرسال ملف تعريف ارتباط يدوياً (إعادة رمز قديم).
+    public HttpClient SecureClient(string? host = null, bool handleCookies = true) =>
+        _factory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            BaseAddress = new Uri($"https://{host ?? Host}/"),
+            HandleCookies = handleCookies,
+        });
+
     public async Task<HttpClient> AdminAsync() => _store is null
         ? await LoginAsync(SouqApiFactory.AdminEmail, SouqApiFactory.AdminPassword)
         : await LoginAsync(_store.AdminEmail, _store.AdminPassword);
@@ -55,7 +64,7 @@ public sealed class TestApi
             new { fullName = "عميل اختبار", email, password = "Customer-Pass-1" });
         response.EnsureSuccessStatusCode();
         var auth = await response.Content.ReadFromJsonAsync<AuthBody>(Json);
-        return (Authorized(auth!.Token), email);
+        return (Authorized(auth!.AccessToken), email);
     }
 
     public async Task<HttpClient> LoginAsync(string email, string password) =>
@@ -65,7 +74,7 @@ public sealed class TestApi
     {
         var response = await Anonymous().PostAsJsonAsync("/api/auth/login", new { email, password });
         response.EnsureSuccessStatusCode();
-        return (await response.Content.ReadFromJsonAsync<AuthBody>(Json))!.Token;
+        return (await response.Content.ReadFromJsonAsync<AuthBody>(Json))!.AccessToken;
     }
 
     public async Task<int> CreateProductAsync(
@@ -118,7 +127,9 @@ public sealed class TestApi
     public sealed record PageBody<T>(
         List<T> Items, int PageNumber, int PageSize, int TotalCount, int TotalPages, bool HasNext, bool HasPrevious);
 
-    public sealed record AuthBody(string Token);
+    public sealed record AuthBody(string AccessToken, DateTime ExpiresAt, UserBody User);
+    public sealed record UserBody(
+        int Id, string Email, string Role, List<string> Permissions, bool EmailConfirmed, int? CustomerId, string Area);
     public sealed record IdBody(int Id);
     public sealed record OrderCreatedBody(int OrderId, string Status, decimal TotalAmount);
     // عقد الأخطاء (ADR-0017): RFC 7807 + code + traceId (+ errors لأخطاء التحقّق).

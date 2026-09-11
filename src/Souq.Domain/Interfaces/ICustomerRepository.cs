@@ -2,12 +2,11 @@ using Souq.Domain.Entities;
 
 namespace Souq.Domain.Interfaces;
 
+// منفذ الكتابة لملفات العملاء (مُرشَّح بالمتجر). الهوية والاعتماد في IUserRepository منذ المرحلة 3.
 public interface ICustomerRepository : IRepository<Customer>
 {
-    // البريد هو هوية الدخول — الاستعلام الأساسي في التسجيل وتسجيل الدخول.
-    Task<Customer?> GetByEmailAsync(string email, CancellationToken ct = default);
+    Task<Customer?> GetByUserIdAsync(int userId, CancellationToken ct = default);
 
-    // يبحث عن العميل عبر رمز إعادة تعيين كلمة المرور — تطابق الرمز نفسه هو
-    // التحقّق الأول (ثم صلاحية الانتهاء يحرسها Customer.ResetPassword).
-    Task<Customer?> GetByResetTokenAsync(string token, CancellationToken ct = default);
+    // معرّف ملف العميل لحساب — لمطالبة cid في التوكن (null لحساب بلا ملف شراء: موظّف، مالك).
+    Task<int?> FindIdByUserIdAsync(int userId, CancellationToken ct = default);
 }

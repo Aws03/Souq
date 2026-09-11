@@ -29,7 +29,7 @@ public class CreateOrderHandlerTests
             new OrderStockRelease(_products, _stockMovements), TestCurrentUser.Customer(1), TestTenant.Context(), _uow, new FixedClock(),
             NullLogger<CreateOrderHandler>.Instance);
 
-    private static Customer NewCustomer() => new("عميل", "customer@souq.com", "hash");
+    private static Customer NewCustomer() => new(userId: 1, "عميل", "customer@souq.com");
     // المعرّف 1 يطابق ProductId في الأمر (كما بعد الحفظ فعلياً) — أسطر الطلب تحمل
     // product.Id، وتحرير المخزون يعيد تحميل المنتج بهذا المعرّف.
     private static Product NewProduct(int stock = 10)

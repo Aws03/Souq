@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Options;
@@ -14,6 +15,7 @@ using Souq.API.Observability;
 using Souq.API.Security;
 using Souq.API.Tenancy;
 using Souq.Application;
+using Souq.Application.Common.Interfaces;
 using Souq.Application.Common.Security;
 using Souq.Infrastructure;
 using Souq.Infrastructure.Persistence;
@@ -74,7 +76,7 @@ builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationSc
             NameClaimType = ClaimTypes.NameIdentifier,
             ClockSkew = TimeSpan.FromSeconds(30),   // هامش ضيّق بدل 5 دقائق افتراضية
         };
-        options.Events = new JwtBearerEvents { OnTokenValidated = TenantTokenBinding.ValidateAsync };
+        options.Events = new JwtBearerEvents { OnTokenValidated = AccessTokenValidation.ValidateAsync };
     });
 // ── التفويض بالصلاحيات (ADR-0019): [HasPermission] ⇒ سياسة تُبنى من اسمها، والقرار من
 // RolePermissions. ICurrentUser: منفذ Application يُقرأ من مطالبات التوكن هنا فقط. ──
@@ -83,6 +85,22 @@ builder.Services.AddSingleton<IAuthorizationPolicyProvider, PermissionPolicyProv
 builder.Services.AddSingleton<IAuthorizationHandler, PermissionAuthorizationHandler>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUser, HttpCurrentUser>();
+
+// ── الجلسات (ADR-0010): روابط البريد على مضيف الطلب، ملف تعريف ارتباط رمز التجديد، وحدّ المعدّل
+// على كل ما يقبل كلمة مرور أو يرسل بريداً أو يعاين كوبوناً. ──
+builder.Services.AddScoped<IStorefrontLinks, RequestStorefrontLinks>();
+builder.Services.Configure<RefreshCookieOptions>(builder.Configuration.GetSection(RefreshCookieOptions.SectionName));
+builder.Services.AddSouqRateLimiting(builder.Configuration);
+
+// ── عنوان العميل ومخطّط الطلب الحقيقيان خلف Nginx (لحدّ المعدّل والسجلات وروابط البريد) — من
+// الشبكات الموثوقة في ForwardedHeaders:KnownNetworks فقط؛ ترويسة X-Forwarded-For من عميل مباشر
+// لا تُصدَّق (وإلا تجاوز أي مهاجم حدّ المعدّل بتزويرها). ──
+builder.Services.Configure<ForwardedHeadersOptions>(o =>
+{
+    o.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    foreach (var network in ReadList(builder.Configuration, "ForwardedHeaders:KnownNetworks"))
+        o.KnownIPNetworks.Add(System.Net.IPNetwork.Parse(network));
+});
 
 builder.Services.AddEndpointsApiExplorer();
 
@@ -136,10 +154,12 @@ foreach (var warning in startupReport.Warnings)
 await DbSeeder.SeedAsync(app.Services,
     new SeedOptions(
         app.Configuration["Seed:AdminEmail"], app.Configuration["Seed:AdminPassword"], app.Environment.IsDevelopment(),
-        ReadList(app.Configuration, "Seed:DefaultTenantHosts")),
+        ReadList(app.Configuration, "Seed:DefaultTenantHosts"),
+        app.Configuration["Seed:PlatformOwnerEmail"], app.Configuration["Seed:PlatformOwnerPassword"]),
     app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Souq.Seeding"));
 
 // ── خط أنابيب الطلب (Request Pipeline) — الترتيب مهم ──────────────────────
+app.UseForwardedHeaders();   // أولاً: عنوان العميل ومخطّطه من الوكيل الموثوق قبل أي قرار
 app.UseMiddleware<CorrelationHeaderMiddleware>(); // X-Correlation-Id على كل استجابة، حتى الأخطاء (ADR-0018)
 app.UseExceptionHandler();   // الاستثناءات ⇒ ProblemDetails (GlobalExceptionHandler)
 app.UseStatusCodePages();    // 401/403/404/405 بجسم فارغ من الإطار ⇒ ProblemDetails بنفس العقد
@@ -175,6 +195,7 @@ app.UseStaticFiles(new StaticFileOptions
 });
 app.UseRouting();
 app.UseMiddleware<TenantAvailabilityMiddleware>(); // نقطة منصّة/متجر على المضيف الصحيح؟ المتجر مفتوح؟
+app.UseRateLimiter();        // سياسات النقاط ([EnableRateLimiting]) — بعد التوجيه، لكل (مضيف، عنوان)
 app.UseCors("frontend");
 app.UseAuthentication();     // من أنت؟ (يفكّ التوكن ويطابق tid مع المضيف)
 app.UseMiddleware<RequestLoggingMiddleware>(); // سطر لكل طلب + نطاق (CorrelationId, TenantId, UserId)

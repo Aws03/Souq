@@ -16,20 +16,28 @@
 
 ## 2. Authentication (summary)
 
-- **Passwords:** BCrypt (per-password salt, adaptive cost).
-- **Access token:** HS256 JWT validated for issuer, audience, lifetime, and signing key, with a 30-second clock skew.
-- **Target (Phase 3):**
-  - 15-minute access tokens;
-  - rotating refresh tokens stored hashed, with reuse detection, in an `HttpOnly`/`Secure`/`SameSite` cookie;
-  - a security stamp for revocation;
-  - lockout;
-  - email verification;
-  - platform and tenant token audiences.
+- **Passwords:** BCrypt (per-password salt, adaptive cost). 8–128 characters with letters and digits.
+- **Access token (Phase 3):**
+  - An HS256 JWT valid for 15 minutes, held in JavaScript memory only.
+  - Validated for issuer, audience, lifetime (30-second clock skew) and signing key.
+  - Also bound to the host (`tid`) and to the account's security stamp.
+- **Refresh token (Phase 3):**
+  - 256-bit random, stored hashed.
+  - Rotated on every use, with reuse detection.
+  - Carried in an `HttpOnly`/`Secure`/`SameSite=Strict` cookie scoped to `/api/auth`.
+- **Account protection:**
+  - lockout after 5 failures (15 minutes);
+  - a timing-safe path for unknown emails;
+  - single-use hashed reset and verification tokens;
+  - rate limits.
+- Details: [AuthenticationAndAuthorization.md](AuthenticationAndAuthorization.md), [ADR-0023](adr/0023-sessions-and-credentials.md).
 
 ## 3. Authorization, tenant isolation, IDOR
 
-- **Roles today:** `Customer`, `Admin`, mapped to permissions in one table (`RolePermissions`, 1B). Endpoints declare the permission they need (`[HasPermission]`), and every endpoint must declare an explicit decision ([ADR-0019](adr/0019-authorization-foundation.md)).
-- **Target roles:** PlatformOwner, PlatformAdmin, TenantAdmin, TenantStaff, Customer, mapped to **permissions** in code ([AuthenticationAndAuthorization.md](AuthenticationAndAuthorization.md)).
+- **Roles (Phase 3):** PlatformOwner, PlatformAdmin, TenantAdmin, TenantStaff and Customer, mapped to permissions in one table (`RolePermissions`).
+  - Store roles have no platform permission, and platform roles have no store permission.
+  - Endpoints declare the permission they need (`[HasPermission]`), and every endpoint must declare an explicit decision ([ADR-0019](adr/0019-authorization-foundation.md)).
+- **Platform vs store:** platform accounts have no store and exist only on platform hosts. A platform token (no `tid`) is rejected on store hosts, and a store token is rejected on platform hosts.
 - **IDOR prevention (layers):**
   1. **Tenant isolation (Phase 2, [ADR-0022](adr/0022-tenancy-enforcement.md)):**
      - The store comes from the host only.
@@ -43,7 +51,12 @@
   - An integration test enumerates all admin endpoints (anonymous → 401, customer → 403).
   - Customer A cannot read or confirm customer B's order (404).
   - `TenantIsolationTests`: store B's admin, customer and visitors, on B's host, get 404 for every endpoint that takes a store-A resource id. Listings exclude A's rows, and writes that reference A's category, parent, product, coupon or order are rejected. A's token on B's host gets 401. The write guard and the missing-tenant filter fail loudly. A completeness test forces every new id-bearing endpoint into the table.
-  - `TenancyRuleTests` (architecture) forbid: a business entity without `ITenantOwned`; `IgnoreQueryFilters` outside the reviewed platform query type; raw SQL outside migrations; a use case that sets the tenant.
+  - `TenancyRuleTests` (architecture) forbid:
+    - a business entity without `ITenantOwned` (only identity entities may be store-or-platform);
+    - `IgnoreQueryFilters` outside the reviewed platform query type;
+    - raw SQL outside migrations;
+    - a use case that sets the tenant.
+  - `AuthorizationMatrixTests` check role × endpoint over HTTP. `AuthSessionTests` check that platform and store tokens are separated.
 
 ## 4. Transport, CORS, headers, rate limiting
 
@@ -52,7 +65,11 @@
 - **Headers:**
   - `/uploads/*` responses carry `X-Content-Type-Options: nosniff` and `Content-Security-Policy: default-src 'none'; sandbox` (1A).
   - A full header set (CSP for the SPA, `frame-ancestors`, `Referrer-Policy`) is added in Phase 20.
-- **Rate limiting (Phase 3):** the ASP.NET Core limiter on login, register, forgot-password, reset-password, and coupon preview, partitioned by IP and tenant.
+- **Rate limiting (Phase 3):** the ASP.NET Core limiter, with a fixed window per `host|client IP`.
+  - Auth endpoints: 10/min. Refresh: 30/min. Coupon preview: 30/min. All are configurable under `RateLimiting`.
+  - Exceeding a limit returns `429 TooManyRequests` with `Retry-After`.
+- **Forwarded headers (Phase 3):** `X-Forwarded-For` and `X-Forwarded-Proto` are honoured only from proxies in `ForwardedHeaders:KnownNetworks` (the Docker network by default). A client therefore can't spoof its IP to escape rate limits, or fake `https`.
+- **Host header:** the API trusts the host only after it matches `TenantDomains` (an unknown host is a 404). This is what makes host-based email links safe. nginx forwards the original `Host`.
 
 ## 5. Input validation, XSS, and uploads
 
@@ -79,6 +96,7 @@
 | Stripe secret + webhook secret | user-secrets | environment variable (per-tenant, encrypted, from Phase 11) |
 | Email provider keys | user-secrets | environment variable |
 | Admin bootstrap credentials | user-secrets (`Seed:AdminEmail`/`Seed:AdminPassword`) | environment variable, set once, removed after first start |
+| Platform owner bootstrap (Phase 3) | user-secrets (`Seed:PlatformOwnerEmail`/`Seed:PlatformOwnerPassword`) | environment variable, set once, removed after first start |
 
 - **Fail fast (1B, [ADR-0020](adr/0020-configuration-and-secrets.md)):** settings are typed options validated before the database is touched. A missing connection string, a JWT key shorter than 256 bits, missing JWT issuer/audience, a missing payment provider outside Development, or missing Stripe keys when Stripe is selected stop the startup with a message that names the key and never prints its value.
 - **Development conveniences never run implicitly elsewhere:** the fake payment gateway, reset links in the console log, and the development admin work only in Development (and Testing). Anything unsafe for real customers that is enabled explicitly is logged as a warning at every start.
@@ -96,7 +114,8 @@
   - The console email adapter prints the link **only in Development**, where no real email is sent.
   - Everywhere else it logs "reset requested" with a masked address.
   - In Production, a missing email provider is logged as a warning at startup.
-- **Phase 3:** a password change revokes existing sessions through the security stamp.
+- **Phase 3:** a successful reset or a password change rotates the security stamp and revokes every refresh token. A password change also issues a fresh session to the caller.
+- **Phase 3:** the link points at the host the request came from, so a store's customer returns to that store. An unknown host never reaches the use case (§4).
 
 ## 8. Payments
 
@@ -135,6 +154,8 @@
 - EF Core SQL text is off by default, and parameter values are never logged.
 - Integration tests prove that no password, JWT or `Authorization` value appears in any log.
 
+**Rules added in Phase 3:** refresh-token reuse is logged as a warning with the user id only. Refresh tokens appear only in the `Set-Cookie` header, never in a body or log.
+
 ## 10. Audit logging (Phase 4)
 
 `AuditLog` rows record:
@@ -154,10 +175,10 @@ They are written by a MediatR behavior for commands marked `IAuditableCommand`. 
 | B1 | Default admin `Admin@123` seeded in every environment | ✅ Fixed. **Development** falls back to the documented dev credentials when `Seed:*` isn't set, for convenience. **Every other environment** creates an admin only when `Seed:AdminEmail`/`Seed:AdminPassword` are provided and the password meets the strength policy. Otherwise no admin is created and a warning is logged. An existing admin's password is never overwritten. |
 | B2 | Reset links in logs; PII in email logs | ✅ Fixed (§7, §9) |
 | B3 | Upload stored XSS | ✅ Fixed (§5) |
-| B4 | Long-lived JWT in `localStorage`, no revocation | ⏳ Phase 3 |
-| B5 | No rate limiting | ⏳ Phase 3 |
+| B4 | Long-lived JWT in `localStorage`, no revocation | ✅ Phase 3: a 15-minute access token in memory, the refresh token in an `HttpOnly` cookie, revocation by stamp and by family |
+| B5 | No rate limiting | ✅ Phase 3: limits on auth, refresh and coupon preview per `host|IP`, behind trusted forwarded headers |
 | B6 | Plaintext reset tokens | ✅ Fixed (hash only) |
-| B7 | Ownership checks in controllers; role-only authorization | ✅ 1B: `ICurrentUser`, ownership in use cases, permission policies. Tenant/staff/platform roles in Phase 3 |
+| B7 | Ownership checks in controllers; role-only authorization | ✅ 1B: `ICurrentUser`, ownership in use cases, permission policies. ✅ Phase 3: tenant, staff and platform roles |
 | New (1B) | Fake payment gateway selected implicitly in Production | ✅ 1B: explicit selection outside Development, startup refusal otherwise |
 | B8 | Anonymous tracking by sequential id exposes notes | ⏳ Phase 9 (tracking tokens) |
 | B9 | Security headers | 🟡 Uploads fixed in 1A; the rest in Phase 20 |

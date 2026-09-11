@@ -129,7 +129,7 @@ public class ConfirmOrderPaymentHandlerTests
         var order = PendingOrderWithIntent(quantity: 2);
         var coupon = new Coupon("SAVE10", DiscountType.Percentage, 10, null, null, null);
         order.ApplyCoupon(coupon.Code, coupon.CalculateDiscount(order.Subtotal));
-        var customer = new Customer("عميل", "customer@souq.com", "hash");
+        var customer = new Customer(userId: 1, "عميل", "customer@souq.com");
 
         _orders.GetWithItemsAsync(1, Arg.Any<CancellationToken>()).Returns(order);
         _customers.GetByIdAsync(1, Arg.Any<CancellationToken>()).Returns(customer);

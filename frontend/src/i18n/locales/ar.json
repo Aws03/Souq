@@ -195,7 +195,15 @@
     "resetPasswordSuccess": "تم تحديث كلمة المرور بنجاح. سيتم تحويلك لتسجيل الدخول…",
     "newPasswordLabel": "كلمة المرور الجديدة",
     "invalidResetLink": "رابط إعادة التعيين غير صالح أو منتهي الصلاحية.",
-    "requestNewLink": "اطلب رابطاً جديداً"
+    "requestNewLink": "اطلب رابطاً جديداً",
+    "verifyEmailTitle": "تأكيد البريد الإلكتروني",
+    "verifyEmailSubtitle": "خطوة أخيرة لتأمين حسابك",
+    "verifyEmailPending": "جارٍ تأكيد بريدك…",
+    "verifyEmailSuccess": "تم تأكيد بريدك الإلكتروني. شكراً لك!",
+    "invalidVerifyLink": "رابط التأكيد ناقص. افتح الرابط كاملاً من رسالة البريد.",
+    "resendVerification": "إرسال رابط تأكيد جديد",
+    "verificationSent": "أرسلنا رابط تأكيد جديداً إلى بريدك.",
+    "verifyEmailContinue": "متابعة التسوّق"
   },
   "checkout": {
     "emptyCartTitle": "سلّتك فارغة",
@@ -249,7 +257,9 @@
     "adminFallback": "المدير",
     "backToStore": "← المتجر",
     "logout": "تسجيل الخروج",
-    "sidebar": { "title": "الإدارة" },
+    "sidebar": {
+      "title": "الإدارة"
+    },
     "nav": {
       "dashboard": "لوحة التحكم",
       "home": "الرئيسية",
@@ -506,6 +516,16 @@
       "StoreUnavailable": "المتجر غير متاح حالياً. حاول لاحقاً.",
       "ReferenceConflict": "لا يمكن تنفيذ العملية بسبب بيانات مرتبطة بها.",
       "InvalidTenantOperation": "هذا الإجراء غير مسموح لهذا المتجر.",
+      "AccountLocked": "أُقفل الحساب مؤقتاً بعد محاولات دخول فاشلة متكرّرة. حاول بعد ربع ساعة أو أعد تعيين كلمة المرور.",
+      "AccountDisabled": "هذا الحساب موقوف. تواصل مع إدارة المتجر.",
+      "InvalidRefreshToken": "انتهت جلستك. سجّل الدخول مجدداً.",
+      "RefreshTokenReused": "أُنهيت جلستك لأسباب أمنية. سجّل الدخول مجدداً.",
+      "RegistrationNotAllowed": "إنشاء الحسابات غير متاح هنا.",
+      "CustomerAccountRequired": "هذا الإجراء لحسابات العملاء فقط.",
+      "CurrentPasswordIncorrect": "كلمة المرور الحالية غير صحيحة.",
+      "InvalidVerificationToken": "رابط التأكيد غير صالح أو استُخدم مسبقاً.",
+      "VerificationTokenExpired": "انتهت صلاحية رابط التأكيد. اطلب رابطاً جديداً.",
+      "InvalidIdentityOperation": "لا يمكن تنفيذ هذا الإجراء على هذا الحساب.",
       "ServerError": "حدث خطأ غير متوقّع في الخادم."
     }
   }

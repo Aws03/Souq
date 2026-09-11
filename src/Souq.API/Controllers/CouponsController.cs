@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Souq.API.Http;
 using Souq.API.Security;
 using Souq.Application.Common.Security;
@@ -20,6 +21,7 @@ public class CouponsController : ControllerBase
     // دائماً (عملة يرسلها العميل لم تعد تُقبل — Phase 2).
     [HttpGet("apply")]
     [AllowAnonymous]
+    [EnableRateLimiting(RateLimitPolicies.CouponPreview)]   // تخمين الرموز بالقوة الغاشمة
     public async Task<IActionResult> Apply([FromQuery] string code, [FromQuery] decimal subtotal)
     {
         var result = await _mediator.Send(new ApplyCouponQuery(code, subtotal));

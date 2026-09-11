@@ -69,6 +69,7 @@ sequenceDiagram
 | Mechanism | What it does | Where |
 |---|---|---|
 | `ITenantOwned { int TenantId }` | Marks tenant-owned entities; `TenantId` is set once and never changes | Domain |
+| `ITenantOrPlatformOwned { int? TenantId }` (Phase 3) | Accounts and their refresh tokens: a store account, or a platform account (`NULL`). The same named filter shows the store's accounts in a store scope and platform accounts in the platform scope. A store host can't reach a platform account, or the reverse | Domain + `AppDbContext` |
 | **Global query filter** | `e => e.TenantId == _tenant.Id` on every `ITenantOwned` entity, applied by reflection at model build (no per-entity copy-paste) | Infrastructure (`AppDbContext`) |
 | **Write guard** (`SaveChanges` interceptor) | Added entity → stamp `TenantId`. Modified or deleted entity whose `TenantId` ≠ current → throw `CrossTenantWriteException` (a 500 **and** a security log entry, since it indicates a bug) | Infrastructure |
 | **No tenant context** | Querying an `ITenantOwned` set without a resolved tenant throws. It must not return all rows. | Infrastructure |

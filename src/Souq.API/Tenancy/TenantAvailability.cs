@@ -18,6 +18,11 @@ public sealed class AvailableDuringProvisioningAttribute : Attribute;
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method)]
 public sealed class AvailableWhenStoreClosedAttribute : Attribute;
 
+// نقطة تُخدَم على مضيف المنصّة ومضيفي المتاجر معاً (الدخول وجلساته): سلوكها يتبع النطاق —
+// حسابات المتجر على مضيفه، وحسابات المنصّة على مضيفها (المستودعات مُرشَّحة بالنطاق).
+[AttributeUsage(AttributeTargets.Class | AttributeTargets.Method)]
+public sealed class AvailableOnAllHostsAttribute : Attribute;
+
 // ============================================================================
 // TenantAvailabilityMiddleware — بعد التوجيه وتحديد المستأجر: هل هذه النقطة متاحة على هذا المضيف
 // بهذه الحالة؟ نقطة منصّة على مضيف متجر (أو العكس) ⇒ 404 (لا نكشف وجودها). متجر غير فعّال ⇒ 503
@@ -38,7 +43,7 @@ public sealed class TenantAvailabilityMiddleware
         }
 
         var isPlatformEndpoint = endpoint.Metadata.GetMetadata<PlatformEndpointAttribute>() is not null;
-        if (isPlatformEndpoint != (tenancy.Scope == TenantScope.Platform))
+        if (!Has<AvailableOnAllHostsAttribute>(endpoint) && isPlatformEndpoint != (tenancy.Scope == TenantScope.Platform))
         {
             await ProblemResponses.WriteAsync(context, StatusCodes.Status404NotFound, "NotFound", "المورد غير موجود.");
             return;

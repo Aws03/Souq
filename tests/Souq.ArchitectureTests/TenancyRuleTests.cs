@@ -5,6 +5,7 @@ using Mono.Cecil;
 using Mono.Cecil.Cil;
 using Souq.Application.Common.Tenancy;
 using Souq.Domain.Common;
+using Souq.Domain.Identity;
 using Souq.Domain.Platform;
 using Souq.Infrastructure.Persistence;
 
@@ -42,10 +43,19 @@ public class TenancyRuleTests
             .Where(t => t is { IsClass: true, IsAbstract: false } && t.IsSubclassOf(typeof(Entity)))
             .ToList();
 
-        entities.Where(t => t.Namespace != typeof(Tenant).Namespace && !typeof(ITenantOwned).IsAssignableFrom(t))
+        entities.Where(t => t.Namespace != typeof(Tenant).Namespace
+                            && !typeof(ITenantOwned).IsAssignableFrom(t) && !typeof(ITenantOrPlatformOwned).IsAssignableFrom(t))
             .Select(t => t.FullName).Should().BeEmpty("كل بيانات المتاجر تحمل TenantId؛ جداول المنصّة في Souq.Domain.Platform");
-        entities.Where(t => t.Namespace == typeof(Tenant).Namespace && typeof(ITenantOwned).IsAssignableFrom(t))
+        entities.Where(t => t.Namespace == typeof(Tenant).Namespace
+                            && (typeof(ITenantOwned).IsAssignableFrom(t) || typeof(ITenantOrPlatformOwned).IsAssignableFrom(t)))
             .Select(t => t.FullName).Should().BeEmpty("جداول المنصّة تُقرأ قبل معرفة المتجر — مرشّح المستأجر عليها يكسر التحديد");
+
+        // TenantId الاختياري (متجر أو منصّة، ADR-0010) للحسابات وجلساتها وحدها: بيانات تجارية بلا متجر
+        // إلزامي تسريب ينتظر الحدوث.
+        entities.Where(t => typeof(ITenantOrPlatformOwned).IsAssignableFrom(t) && t.Namespace != typeof(User).Namespace)
+            .Select(t => t.FullName).Should().BeEmpty("TenantId الاختياري لكيانات Souq.Domain.Identity فقط");
+        entities.Where(t => typeof(ITenantOwned).IsAssignableFrom(t) && typeof(ITenantOrPlatformOwned).IsAssignableFrom(t))
+            .Select(t => t.FullName).Should().BeEmpty("نطاق واحد لكل كيان");
     }
 
     [Fact]
@@ -56,8 +66,10 @@ public class TenancyRuleTests
             new DbContextOptionsBuilder<AppDbContext>().UseSqlServer("Server=unused;Database=unused").Options,
             new TenantContext());
 
+        // الحسابات (ITenantOrPlatformOwned) بالمرشّح نفسه: صفوف متجر السياق، أو صفوف المنصّة في نطاقها.
         var tenantOwned = db.Model.GetEntityTypes()
-            .Where(t => !t.IsOwned() && typeof(ITenantOwned).IsAssignableFrom(t.ClrType))
+            .Where(t => !t.IsOwned() && (typeof(ITenantOwned).IsAssignableFrom(t.ClrType)
+                                         || typeof(ITenantOrPlatformOwned).IsAssignableFrom(t.ClrType)))
             .ToList();
 
         tenantOwned.Should().NotBeEmpty();

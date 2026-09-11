@@ -37,7 +37,7 @@ export default function Checkout() {
   const applyCoupon = async () => {
     setCouponBusy(true); setCouponError(null);
     try {
-      const preview = await api.applyCoupon(couponCode.trim(), total, currency);
+      const preview = await api.applyCoupon(couponCode.trim(), total);
       setCouponPreview(preview);
     } catch (err) { setCouponError(err.message); setCouponPreview(null); }
     finally { setCouponBusy(false); }

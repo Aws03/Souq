@@ -12,7 +12,7 @@ export default function MobileMenu({
   currentLanguage, otherLanguage, onToggleLanguage, theme, onThemeChange,
 }) {
   const { t } = useTranslation();
-  const { user, isAuthenticated, isAdmin, logout } = useAuth();
+  const { user, isAuthenticated, canManageStore, logout } = useAuth();
   if (!open) return null;
 
   return (
@@ -22,7 +22,7 @@ export default function MobileMenu({
         <SearchBar value={searchTerm} onChange={onSearchChange} className={styles.search} />
         <nav className={styles.links}>
           <Link to="/wishlist" onClick={onClose}>{t('nav.wishlistAria')}</Link>
-          {isAdmin && <Link to="/admin" onClick={onClose}>{t('nav.adminPanel')}</Link>}
+          {canManageStore && <Link to="/admin" onClick={onClose}>{t('nav.adminPanel')}</Link>}
           {isAuthenticated ? (
             <>
               <Link to="/orders" onClick={onClose}>{t('nav.myOrders')}</Link>

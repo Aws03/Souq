@@ -1,7 +1,7 @@
 # Souq Platform: Product Roadmap
 
 > **Goal:** turn Souq into one **white-label, multi-tenant e-commerce platform**, sold to many clients (≈ $5,000+ each) and maintainable by a professional team.
-> **Status:** Phase 0 ✅ · Target architecture ✅ documented · Phase 1A ✅ (merged to `main`) · Phase 1B ✅ on branch `phase/1b-production-foundations` (awaiting review) · **Autonomous run on `phase/2-15-multitenant-platform`** (branched from the 1B tip): Phase 2 ✅. Next: Phase 3.
+> **Status:** Phase 0 ✅ · Target architecture ✅ documented · Phase 1A ✅ (merged to `main`) · Phase 1B ✅ on branch `phase/1b-production-foundations` (awaiting review) · **Autonomous run on `phase/2-15-multitenant-platform`** (branched from the 1B tip): Phase 2 ✅ · Phase 3 ✅. Next: Phase 4.
 > **Companion document:** [ArchitectureAssessment.md](ArchitectureAssessment.md) covers the current state, the problem register (IDs such as `B1` and `C2`), the target architecture, and the full reasoning behind every decision (`D-xx`).
 > **Last updated:** 2026-09-11
 
@@ -218,7 +218,39 @@ Status legend: ✅ done · 🟡 in progress · ⏳ planned · ⏸ awaiting appro
   - A seeded second tenant is fully isolated, proven by automated tests.
 - **Docs.** `MultiTenancy.md`.
 
-### Phase 3: Authentication and authorization ⏳
+### Phase 3: Authentication and authorization ✅ (autonomous run)
+- **Delivered ([ADR-0023](adr/0023-sessions-and-credentials.md), [AuthenticationAndAuthorization.md](AuthenticationAndAuthorization.md)):**
+  - A `User` aggregate (store or platform account) plus a `Customer` profile, migrated from `Customers` with ids and password hashes preserved. Migration `Phase3Identity`, rehearsed.
+  - Five roles over a store/platform permission catalog. Staff without a customer profile can't shop.
+  - Sessions:
+    - a 15-minute access JWT (`tid`, `cid`, `sstamp`);
+    - rotating, hashed refresh tokens in an `HttpOnly` cookie, with family reuse detection and a 10 s grace for several tabs;
+    - revocation on logout, password change or reset, and reuse.
+  - Host binding for both areas: store tokens work only on their store, and platform tokens only on platform hosts.
+  - Account protection:
+    - lockout and a timing-safe login;
+    - email verification, with resend;
+    - hashed single-use tokens and a password policy;
+    - rate limits per host and IP (429 + `Retry-After`) behind trusted forwarded headers;
+    - email links on the requesting host.
+  - A platform-owner bootstrap from secrets.
+  - Frontend:
+    - the access token in memory;
+    - a silent refresh on load and on 401, as a single flight;
+    - permission-based guards and admin navigation;
+    - a verify-email page.
+- **Found and fixed during the phase:**
+  - EF generated a migration that dropped every password before copying it. It was rewritten and rehearsed.
+  - `Jwt:ExpiryMinutes` accepted 120 minutes. It is now limited to 5–60.
+  - Email links used one configured frontend URL, which was wrong for every store but one.
+- **Deferred, with reasons:**
+  - Requiring email verification at checkout: it is a store setting (Phases 4 and 9).
+  - An absolute refresh-family lifetime (Phase 20 review) and "log out everywhere" (Phase 16 account page).
+  - Custom roles (YAGNI).
+- **Exit criteria (met):**
+  - `AuthorizationMatrixTests` (role × endpoint) are green.
+  - Store A's token is rejected on B's host (`TenantIsolationTests`).
+  - `AuthSessionTests` cover refresh reuse, lockout, platform/store separation and rate limiting.
 - **Goal.** Secure, tenant-aware identity with a hard separation between platform and tenant.
 - **Scope.**
   - Identity split (D-06): a `User` aggregate (tenant-scoped or platform) plus a `Customer` commerce profile, migrated from `Customers`.
@@ -508,13 +540,13 @@ Each decision is argued in full (options, recommendation, rationale) in Architec
 | D-09 | Money model | ✅ **Decided and implemented in 1A:** `decimal(19,4)` + minor-unit enforcement — [ADR-0014](adr/0014-money-precision.md). Explicit (non-default) currency arrives with tenants (Phase 2). | 1A / 2 |
 | D-16 | Logging | ✅ **Implemented in 1B:** built-in structured logging, W3C correlation id, scopes; redaction rules from 1A — [ADR-0018](adr/0018-observability.md) | 1B |
 | D-20 | Integration tests | ✅ **Decided and implemented:** Testcontainers SQL Server + `WebApplicationFactory` — [ADR-0015](adr/0015-testing-strategy.md) | 1A |
-| D-01 | Tenant isolation | Shared database + `TenantId` + global query filters + write guard; a seam for a dedicated database per tenant | 2 |
-| D-02 | Tenant resolution | By host/custom domain; the token's `tid` claim must match; platform admin lives on its own host | 2 |
-| D-03 | Identifier strategy | Keep `int` keys; add per-tenant order numbers, slugs, and random public tokens where access is anonymous | 2 |
-| D-06 | User vs customer model | One `Users` table (`TenantId NULL` = platform user) + a `Customer` profile; accounts are per tenant | 2–3 |
+| D-01 | Tenant isolation | ✅ **Implemented in Phase 2:** shared database + `TenantId` + global query filters + write guard; a seam for a dedicated database per tenant — [ADR-0022](adr/0022-tenancy-enforcement.md) | 2 |
+| D-02 | Tenant resolution | ✅ **Implemented in Phase 2:** by host/custom domain; the token's `tid` claim must match; platform admin lives on its own host | 2 |
+| D-03 | Identifier strategy | ✅ **Implemented in Phase 2** (keys, per-store slugs and codes); order numbers and tracking tokens follow in Phase 9 | 2 |
+| D-06 | User vs customer model | ✅ **Implemented in Phase 3:** one `Users` table (`TenantId NULL` = platform user) + a `Customer` profile; accounts are per tenant — [ADR-0023](adr/0023-sessions-and-credentials.md) | 2–3 |
 | P-04 | Naming | "Souq" is the platform; "Marka" becomes the first (demo) tenant | 2 |
-| D-04 | Identity implementation | Evolve the existing custom JWT + BCrypt into a `User` aggregate with refresh-token rotation | 3 |
-| D-05 | Authorization model | Permission-based policies; built-in roles mapped to permissions in code. **Mechanism implemented in 1B** ([ADR-0019](adr/0019-authorization-foundation.md)); tenant/staff/platform roles arrive in Phase 3 | 3 |
+| D-04 | Identity implementation | ✅ **Implemented in Phase 3:** the custom JWT + BCrypt evolved into a `User` aggregate with refresh-token rotation — [ADR-0010](adr/0010-authentication-authorization.md), [ADR-0023](adr/0023-sessions-and-credentials.md) | 3 |
+| D-05 | Authorization model | ✅ **Implemented:** permission-based policies with built-in roles mapped in code. The mechanism came in 1B ([ADR-0019](adr/0019-authorization-foundation.md)); tenant, staff and platform roles in Phase 3 | 3 |
 | D-11 | Feature modules | Per-tenant module flags, enforced server-side and exposed to the UI | 4 |
 | D-12 | White-label runtime | Storefront config API + TenantProvider/ThemeProvider with semantic tokens | 4 / 15 |
 | D-17 | Auditing | `AuditLog` written by a MediatR behavior for auditable commands | 4 |
@@ -599,3 +631,4 @@ The earlier `AUDIT.md` (Arabic, 8-phase program) and the engineering-thinking gu
 | 2026-09-11 | Target architecture documented (ADRs 0001–0016). Phase 1A scope expanded per the brief (concurrency, money precision, payment port, test harness) and completed |
 | 2026-09-11 | Phase 1A merged to `main`. Phase 1B scope re-derived from the repository (module namespace moves stay per phase, per ADR-0002) and completed; ADRs 0017–0021 |
 | 2026-09-11 | Autonomous run of Phases 2–15 on `phase/2-15-multitenant-platform` (branched from the Phase 1B tip, because `main` does not contain 1B yet and merging it was not authorized). Phase 2 completed; ADR-0022 |
+| 2026-09-11 | Phase 3 completed (identity split, sessions, roles, rate limits); ADR-0023 |

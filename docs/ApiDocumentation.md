@@ -91,7 +91,9 @@ Every error is RFC 7807 `application/problem+json`:
 
 ## 6. Authentication, authorization, tenant resolution
 
-- `Authorization: Bearer <access token>`. From Phase 3 the refresh token travels in an `HttpOnly` cookie.
+- `Authorization: Bearer <access token>`, valid for 15 minutes.
+  - The refresh token travels only in the `souq_refresh` cookie (`HttpOnly`, `Secure`, `SameSite=Strict`, `Path=/api/auth`). It never appears in a body.
+  - Session endpoints and their contract: [AuthenticationAndAuthorization.md §5](AuthenticationAndAuthorization.md#5-endpoints).
 - The **tenant is never a parameter.** It comes from the Host header, and for authenticated calls it must match the token's `tid` claim ([MultiTenancy.md](MultiTenancy.md), [ADR-0022](adr/0022-tenancy-enforcement.md)). Implemented in Phase 2:
   - **Resolution:**
     - `TenantResolutionMiddleware` maps the host to a store through `TenantDomains`.
@@ -105,10 +107,16 @@ Every error is RFC 7807 `application/problem+json`:
     - `Suspended`/`Archived` stores answer `503 StoreUnavailable`, except endpoints marked `[AvailableWhenStoreClosed]`.
     - `Provisioning` stores also serve auth and admin endpoints.
     - `[PlatformEndpoint]` endpoints exist only on platform hosts; every other endpoint exists only on store hosts (404 otherwise).
-  - **Tokens:** a tenant token carries `tid`. A mismatch with the host fails authentication, which is a 401 on protected endpoints.
+  - **Tokens:**
+    - A store token carries `tid` and is valid only on that store's host.
+    - A platform token has no `tid` and is valid only on platform hosts (Phase 3).
+    - A mismatch fails authentication, which is a 401 on protected endpoints. So does an outdated security stamp: password changed or reset, or refresh reuse detected.
   - **Uploads:** `/uploads/tenants/{id}/…` is served only on that store's host.
   - **Money:** amounts are in the store currency. `GET /api/coupons/apply` ignores any `currency` parameter.
-- **Customer identity comes from the token, never from the body.** Use cases read it from `ICurrentUser`; commands have no customer id field at all.
+- **Customer identity comes from the token, never from the body.**
+  - Use cases read it from `ICurrentUser` (the `cid` claim); commands have no customer id field at all.
+  - A staff account has no customer profile, so customer use cases answer `403 CustomerAccountRequired`.
+- **Rate limits (Phase 3):** auth, refresh and coupon-preview endpoints answer `429 TooManyRequests` with `Retry-After` when a limit is exceeded.
 - **Authorization (1B, [ADR-0019](adr/0019-authorization-foundation.md)):** endpoints declare `[HasPermission(Permissions.X.Y)]`, `[Authorize]` or `[AllowAnonymous]` — explicitly, every one. Resource ownership is checked inside the use case (404 for someone else's resource).
 - **Automated guards:** integration tests enumerate every endpoint and assert that each declares its decision, that the public surface equals a reviewed list, that every declared permission exists, and that permission-protected endpoints answer anonymous → 401 and customer → 403.
 

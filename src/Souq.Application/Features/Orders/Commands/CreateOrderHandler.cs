@@ -56,7 +56,7 @@ public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, Result<Ord
     public async Task<Result<OrderCreatedDto>> Handle(CreateOrderCommand cmd, CancellationToken ct)
     {
         // العميل هو المستخدم الحالي دائماً — الأمر لا يحمل معرّف عميل يمكن التلاعب به (B7).
-        var customerId = _currentUser.RequireUserId();
+        var customerId = _currentUser.RequireCustomerId();
         var customer = await _customers.GetByIdAsync(customerId, ct);
         if (customer is null)
             // توكن صالح لحساب لم يعد موجوداً ⇒ الهوية نفسها لم تعد صالحة (401 ⇒ إعادة دخول).

@@ -52,9 +52,9 @@ Module schemas (`catalog.Products`) were considered and **postponed**. The owner
 | Tenant | Platform | Platform | — (it *is* the tenant) | `Slug` | — | Soft (Archived) | Created/Updated + AuditLog | `rowversion` |
 | TenantDomain | Platform | Platform (per tenant) | FK column | `Host` globally | `(TenantId)` | Hard | AuditLog | — |
 | Tenant settings / branding | Platform | Tenant | ✓ (1:1) | `TenantId` | — | With tenant | AuditLog | `rowversion` |
-| User | Identity | Tenant **or** Platform (`TenantId NULL`) | nullable | filtered: `(TenantId, NormalizedEmail)`; `(NormalizedEmail) WHERE TenantId IS NULL` | `(TenantId, Status)` | Soft (Disabled) | Created/Updated/LastLogin | `rowversion` |
-| Role / Permission | Identity | Reference (in code) | — | — | — | — | — | — |
-| RefreshToken | Identity | User | ✓ | `TokenHash` | `(UserId)` | Hard (expired purge) | Created/Revoked | — |
+| User | Identity | Tenant **or** Platform (`TenantId NULL`) | nullable | filtered: `(TenantId, NormalizedEmail) WHERE TenantId IS NOT NULL`; `(NormalizedEmail) WHERE TenantId IS NULL` | reset and verification token hashes | Soft (Disabled) | Created/Updated/LastLogin | `rowversion` |
+| Role / Permission | Identity | Reference (in code; one `Role` column per user) | — | — | — | — | — | — |
+| RefreshToken | Identity | User (store or platform) | nullable (copied from the user) | `TokenHash` | `(UserId)`, `(FamilyId)` | Hard (an expired-token purge job is planned) | Created/Used/Revoked + reason | — |
 | Customer | Customers | User (in tenant) | ✓ | `(TenantId, UserId)` | `(TenantId, CreatedAt)` | Soft (Blocked); anonymize on erasure | Created/Updated | `rowversion` |
 | CustomerAddress | Customers | User | ✓ | — | `(CustomerId)` | Hard (orders keep snapshots) | Created/Updated | — |
 | Category | Catalog | Tenant | ✓ | `(TenantId, Slug)` | `(TenantId, ParentId, SortOrder)` | Hard, only when empty (no products or children) | Created/Updated | — |
@@ -163,6 +163,17 @@ Deferred to later phases, with the phase noted: `TenantId` (2), `Users` split (3
 | Tenant-scoped FKs | Products→Categories, OrderItems→Products, Orders→Customers, Reviews→Products/Customers/Orders, StockMovements→Products. Each became composite, with `TenantId`-leading indexes |
 | Hot-path indexes | `(TenantId, IsActive)` products; `(TenantId, CreatedAt)` orders; `(TenantId, CustomerId)` orders |
 | `Orders.Currency` | Snapshot of the store currency. Backfilled from each order's first line, or `JOD` for orders without lines |
+
+**Phase 3 (`Phase3Identity`, data-preserving, rehearsed by `MigrationRehearsalTests`):**
+
+| Change | Detail |
+|---|---|
+| `Users` | Credentials, role, status, security stamp, lockout counters, hashed reset and verification tokens, `rowversion`. `TenantId` is nullable (platform accounts), FK `Restrict`. Filtered unique indexes: `(TenantId, NormalizedEmail)` for store accounts, and `NormalizedEmail` for platform accounts |
+| `RefreshTokens` | Hash (unique), family, expiry, used and revoked timestamps, revoke reason. FK to `Users` is `Cascade` |
+| Account backfill | Every `Customers` row becomes a `Users` row **with the same id** (`IDENTITY_INSERT`), store, email, name and BCrypt hash, so every account keeps its password. Role `Admin` → `TenantAdmin`; anything else → `Customer`. Each account gets a fresh security stamp, so old tokens (which have no `sstamp`) stop working |
+| `Customers.UserId` | Added with a temporary default, set to `Id`, then the default is dropped. Unique `(TenantId, UserId)`, FK `Restrict` |
+| Dropped from `Customers` | `PasswordHash`, `Role` and the reset-token columns, **only after** the copy. EF generated the drops first, which would have lost every password; the order was rewritten by hand |
+| `Down()` | Copies credentials back to the profiles. Accounts without a profile (staff, the platform owner) have no place in the old schema and are lost, so `Down()` is for development only |
 
 ## 10. Migration workflow
 

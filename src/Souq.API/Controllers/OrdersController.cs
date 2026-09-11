@@ -62,7 +62,7 @@ public class OrdersController : ControllerBase
 
     // GET /api/orders — كل الطلبات مرقّمة لشاشة الإدارة.
     [HttpGet]
-    [HasPermission(Permissions.Orders.Manage)]
+    [HasPermission(Permissions.Orders.View)]
     public async Task<IActionResult> GetAll([FromQuery] int page = 1, [FromQuery] int pageSize = 20)
         => Ok(await _mediator.Send(new GetOrdersQuery(page, pageSize)));
 

@@ -1,77 +1,41 @@
-using System.Buffers.Text;
-using System.Security.Cryptography;
-using System.Text;
 using Souq.Domain.Common;
 using Souq.Domain.Exceptions;
 
 namespace Souq.Domain.Entities;
 
 // ============================================================================
-// Customer — العميل. نخزّن PasswordHash لا كلمة المرور نفسها أبداً.
-// (مبدأ غير وظيفي: الأمان. كلمة المرور الخام لا تُخزّن في أي نظام محترم.)
+// Customer — ملف الشراء لحساب داخل متجر واحد (وحدة Customers، D-06). منذ المرحلة 3 لا يحمل أي
+// اعتماد دخول: البريد وكلمة المرور والدور والرموز انتقلت إلى User (Identity)، وهذا الملف يشير إليه
+// بـ UserId. الطلبات والتقييمات تشير إلى Customer.Id كما كانت (المعرّفات القديمة ثابتة).
+// Email هنا بريد التواصل (رسائل الطلبات) — نسخة من بريد الحساب عند التسجيل، لا هوية دخول.
 // ============================================================================
 public class Customer : Entity, ITenantOwned
 {
-    public const int ResetTokenLifetimeHours = 2;
+    public const int FullNameMaxLength = 150;
 
-    // الحسابات لكل متجر (D-06): البريد نفسه في متجرين = حسابان مستقلّان بكلمتي مرور.
     public int TenantId { get; private set; }
-
+    public int UserId { get; private set; }
     public string FullName { get; private set; } = default!;
     public string Email { get; private set; } = default!;
-    public string PasswordHash { get; private set; } = default!;
-    public string Role { get; private set; } = "Customer";   // Customer أو Admin
-
-    // تجزئة SHA-256 لرمز إعادة التعيين — لا الرمز نفسه أبداً: من يقرأ قاعدة البيانات
-    // لا يحصل على رابط صالح. الرمز الخام يُعاد مرة واحدة فقط ليُرسَل بالبريد.
-    // NULL يعني: لا طلب إعادة تعيين قائم حالياً.
-    public string? PasswordResetTokenHash { get; private set; }
-    public DateTime? PasswordResetTokenExpiry { get; private set; }
 
     private Customer() { }
 
-    public Customer(string fullName, string email, string passwordHash, string role = "Customer")
+    public Customer(int userId, string fullName, string email)
     {
-        FullName = fullName;
-        Email = email;
-        PasswordHash = passwordHash;
-        Role = role;
+        if (userId <= 0)
+            throw new InvalidIdentityOperationException("ملف العميل يحتاج حساب دخول محفوظاً");
+        UserId = userId;
+        Rename(fullName);
+        Email = string.IsNullOrWhiteSpace(email)
+            ? throw new InvalidIdentityOperationException("بريد التواصل مطلوب")
+            : email.Trim().ToLowerInvariant();
     }
 
-    // الباب الوحيد لتغيير التجزئة (إعادة تعيين كلمة مرور، ترقية hash قديم).
-    public void ChangePasswordHash(string newPasswordHash)
+    public void Rename(string fullName)
     {
-        if (string.IsNullOrWhiteSpace(newPasswordHash))
-            throw new ArgumentException("تجزئة كلمة المرور مطلوبة", nameof(newPasswordHash));
-        PasswordHash = newPasswordHash;
-    }
-
-    // رمز من 32 بايت عشوائية آمنة تشفيرياً (CSPRNG) بترميز base64url صالح للروابط.
-    // نخزّن تجزئته فقط ونُعيد الخام للمستدعي — النسخة الوحيدة الواضحة منه.
-    // utcNow يمرّره المستدعي من TimeProvider (لا DateTime.UtcNow هنا): الكيان حتمي، وتُختبر
-    // الصلاحية بساعة ثابتة بلا انتظار ولا Reflection (Phase 0 D12).
-    public string GenerateResetToken(DateTime utcNow)
-    {
-        var token = Base64Url.EncodeToString(RandomNumberGenerator.GetBytes(32));
-        PasswordResetTokenHash = HashResetToken(token);
-        PasswordResetTokenExpiry = utcNow.AddHours(ResetTokenLifetimeHours);
-        return token;
-    }
-
-    // SHA-256 كافٍ هنا (لا ملح ولا خوارزمية بطيئة): الرمز عشوائي بعرض 256 بت، فلا
-    // قاموس ولا تخمين ممكن — بخلاف كلمات المرور التي يختارها البشر (لها BCrypt).
-    public static string HashResetToken(string token) =>
-        Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token)));
-
-    // يُستدعى بعد أن يجد المستودع العميل عبر تجزئة الرمز — مسؤولية الكيان هنا: التأكد
-    // أن الرمز لم تنتهِ صلاحيته، ثم تعيين كلمة المرور الجديدة ومسح الرمز فوراً (استخدام واحد).
-    public void ResetPassword(string newPasswordHash, DateTime utcNow)
-    {
-        if (PasswordResetTokenExpiry is null || PasswordResetTokenExpiry < utcNow)
-            throw new InvalidPasswordResetException("انتهت صلاحية رابط إعادة التعيين. اطلب رابطاً جديداً.");
-
-        PasswordHash = newPasswordHash;
-        PasswordResetTokenHash = null;
-        PasswordResetTokenExpiry = null;
+        var trimmed = fullName?.Trim() ?? "";
+        if (trimmed.Length is 0 or > FullNameMaxLength)
+            throw new InvalidIdentityOperationException($"الاسم مطلوب (حتى {FullNameMaxLength} حرفاً)");
+        FullName = trimmed;
     }
 }

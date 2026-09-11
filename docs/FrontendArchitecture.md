@@ -59,7 +59,7 @@ frontend/src/
 | **API clients** | `features/*/api.js` over `api/http.js` | One file per feature. The shared http core handles auth headers, token refresh, and error normalization. |
 | **Server state** | `features/*/hooks.js` | Target: TanStack Query (caching, deduplication, retries; decision D-19, Phase 15). Until then, the existing hooks pattern. |
 | **Client state** | contexts or local state | Auth session, tenant config, theme, toasts. The cart becomes *server* state in Phase 8. |
-| **Authentication** | `contexts/AuthProvider` | Access token in memory, refresh via cookie (Phase 3). Route guards are UX only. |
+| **Authentication** | `contexts/AuthProvider` (today `context/AuthContext.jsx` + `api/client.js`, Phase 3 ✅) | Access token in module memory; refresh through the `HttpOnly` cookie with a single-flight silent refresh. What the UI shows follows `user.permissions`. Route guards are UX only. |
 | **Tenant context** | `contexts/TenantProvider` | Populated from the config endpoint, read-only. Components never send a tenant id to the API. |
 | **Theme/branding** | `contexts/ThemeProvider` + `styles/tokens.css` | Semantic CSS variables set from tenant config ([WhiteLabel.md](WhiteLabel.md)) |
 | **Forms** | feature components + `FormField` | Client validation is for UX; server validation is authoritative and displayed as returned |
@@ -87,6 +87,16 @@ It displays the server's decisions and handles its errors.
 | Vitest added (`npm test`) | The first frontend tests, for pure logic |
 | Unused `hooks/useProducts.js` removed | Dead code (E7) |
 | `npm audit fix` (non-breaking) | B11 |
+
+**Phase 3 (authentication, minimal adaptation):**
+
+| Change | Reason |
+|---|---|
+| `api/client.js` holds the access token in memory. On a 401 it runs one shared silent refresh and retries once; a rejected refresh emits `session-expired`. Tested in `client.test.js` | B4: no token in `localStorage`; rotation makes parallel refreshes look like theft |
+| `AuthProvider` restores the session on load (`loading` state) and exposes `can()` and `canManageStore` | No stored user; permissions come from the server |
+| `AdminRoute`, the navbar and the admin navigation follow permissions, not the role name | Staff share the dashboard with admins but not every page |
+| New `/verify-email` page; new error codes translated in both languages | Email verification |
+| Coupon preview no longer sends a currency | The server uses the store currency (Phase 2) |
 
 ## 6. Phase 15 migration plan
 

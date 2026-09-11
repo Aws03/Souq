@@ -13,9 +13,12 @@
 dotnet user-secrets set "ConnectionStrings:Default" "Server=localhost,1433;Database=SouqDb;User ID=sa;Password=<pwd>;Encrypt=True;TrustServerCertificate=True;" --project src/Souq.API
 dotnet user-secrets set "Jwt:Key" "<64+ random chars>" --project src/Souq.API
 
-# Optional: your own dev admin (otherwise Development falls back to admin@souq.com / Admin@123)
+# Optional: your own dev accounts. Otherwise Development falls back to admin@souq.com / Admin@123
+# (default store admin) and owner@souq.com / Owner@12345 (platform owner, platform host only)
 dotnet user-secrets set "Seed:AdminEmail" "you@example.com" --project src/Souq.API
 dotnet user-secrets set "Seed:AdminPassword" "<strong password>" --project src/Souq.API
+dotnet user-secrets set "Seed:PlatformOwnerEmail" "owner@example.com" --project src/Souq.API
+dotnet user-secrets set "Seed:PlatformOwnerPassword" "<strong password>" --project src/Souq.API
 
 # Optional providers: Stripe:SecretKey / Stripe:PublishableKey / Stripe:WebhookSecret,
 # Resend:ApiKey + Resend:From, Brevo:ApiKey + Brevo:SenderEmail, Gmail:AppPassword + Gmail:Username
@@ -34,6 +37,11 @@ cd frontend && npm install && npm run dev          # http://localhost:5173
 - `http://admin.localhost:5173` is the platform area.
 - API tools can send `X-Tenant: <slug>` instead.
 - None of these conveniences exist outside Development/Testing.
+
+**Sessions locally (Phase 3):**
+- The refresh cookie is `Secure`. Chrome and Firefox accept it on `http://localhost` and `*.localhost`; Safari does not. When testing in Safari, set `Auth:RefreshCookie:Secure=false` in user-secrets.
+- The platform owner signs in on the platform host (`admin.localhost`), through the API until the platform UI lands.
+- Auth endpoints are rate-limited (`RateLimiting:*`). Raise the limits locally if a script hits them.
 
 ## 3. Tests
 

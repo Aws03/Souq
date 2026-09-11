@@ -59,6 +59,18 @@ public class InvalidMoneyException : DomainException
     public InvalidMoneyException(string message) : base("InvalidMoney", message) { }
 }
 
+// خطأ: بيانات حساب أو عملية هوية غير صالحة (بريد، اسم، دور، نقل حساب بين المنصّة والمتجر).
+public class InvalidIdentityOperationException : DomainException
+{
+    public InvalidIdentityOperationException(string message) : base("InvalidIdentityOperation", message) { }
+}
+
+// خطأ: رمز تأكيد البريد منتهي الصلاحية أو لا طلب تأكيد قائم.
+public class InvalidEmailVerificationException : DomainException
+{
+    public InvalidEmailVerificationException(string message) : base("VerificationTokenExpired", message) { }
+}
+
 // خطأ: عملية غير مسموحة على متجر (انتقال حالة غير صالح، نطاق/معرّف/عملة غير صالحة).
 public class InvalidTenantOperationException : DomainException
 {

@@ -1,223 +1,461 @@
 using AwesomeAssertions;
+using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using Souq.Application.Common.Interfaces;
+using Souq.Application.Common.Models;
+using Souq.Application.Common.Security;
+using Souq.Application.Common.Tenancy;
+using Souq.Application.Features.Auth;
 using Souq.Application.Features.Auth.Commands;
 using Souq.Application.Tests.TestDoubles;
 using Souq.Domain.Common;
 using Souq.Domain.Entities;
+using Souq.Domain.Exceptions;
+using Souq.Domain.Identity;
 using Souq.Domain.Interfaces;
 
 namespace Souq.Application.Tests.Auth;
 
+// عُدّة مشتركة: مستودعات ومنافذ بديلة + مُصدِر جلسات حقيقي فوقها (المنطق المختبَر، لا بديله).
+internal sealed class AuthRig
+{
+    public IUserRepository Users { get; } = Substitute.For<IUserRepository>();
+    public ICustomerRepository Customers { get; } = Substitute.For<ICustomerRepository>();
+    public IRefreshTokenRepository Tokens { get; } = Substitute.For<IRefreshTokenRepository>();
+    public IPasswordHasher Hasher { get; } = Substitute.For<IPasswordHasher>();
+    public IJwtTokenGenerator Jwt { get; } = Substitute.For<IJwtTokenGenerator>();
+    public IUnitOfWork Uow { get; } = Substitute.For<IUnitOfWork>();
+    public IEmailService Email { get; } = Substitute.For<IEmailService>();
+    public IStorefrontLinks Links { get; } = Substitute.For<IStorefrontLinks>();
+    public ISessionValidator Sessions { get; } = Substitute.For<ISessionValidator>();
+    public FixedClock Clock { get; } = new();
+    public List<RefreshToken> Issued { get; } = [];
+
+    public AuthRig()
+    {
+        Jwt.RefreshTokenLifetime.Returns(TimeSpan.FromDays(30));
+        Jwt.Generate(Arg.Any<User>(), Arg.Any<int?>()).Returns(_ => ("access-token", Clock.UtcNow.AddMinutes(15)));
+        Tokens.When(t => t.AddAsync(Arg.Any<RefreshToken>(), Arg.Any<CancellationToken>()))
+              .Do(call => Issued.Add(call.Arg<RefreshToken>()));
+        Tokens.ListActiveForUserAsync(Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns(new List<RefreshToken>());
+        Tokens.ListActiveInFamilyAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns(new List<RefreshToken>());
+        Uow.InTransactionAsync(Arg.Any<Func<Task<AuthSession>>>(), Arg.Any<CancellationToken>())
+           .Returns(call => call.Arg<Func<Task<AuthSession>>>()());
+        Links.PasswordReset(Arg.Any<string>()).Returns(call => $"https://store.test/reset-password?token={call.Arg<string>()}");
+        Links.EmailVerification(Arg.Any<string>()).Returns(call => $"https://store.test/verify-email?token={call.Arg<string>()}");
+    }
+
+    public AuthSessionIssuer Issuer() => new(Tokens, Customers, Jwt, Uow, Clock);
+
+    public static User SavedUser(int id, string role = Roles.Customer, string hash = "hashed", string? email = null)
+    {
+        var user = new User("مستخدم", email ?? $"user{id}@souq.com", hash, role);
+        typeof(Entity).GetProperty(nameof(Entity.Id))!.SetValue(user, id);
+        return user;
+    }
+
+    public static string TokenIn(string link) =>
+        Uri.UnescapeDataString(link[(link.IndexOf("token=", StringComparison.Ordinal) + "token=".Length)..]);
+}
+
 public class RegisterHandlerTests
 {
-    private readonly ICustomerRepository _customers = Substitute.For<ICustomerRepository>();
-    private readonly IPasswordHasher _hasher = Substitute.For<IPasswordHasher>();
-    private readonly IJwtTokenGenerator _jwt = Substitute.For<IJwtTokenGenerator>();
-    private readonly IUnitOfWork _uow = Substitute.For<IUnitOfWork>();
+    private readonly AuthRig _rig = new();
 
-    private RegisterHandler CreateHandler() => new(_customers, _hasher, _jwt, _uow);
+    private RegisterHandler Handler(ITenantContext? tenant = null) => new(
+        _rig.Users, _rig.Customers, _rig.Hasher, _rig.Issuer(), _rig.Email, _rig.Links,
+        tenant ?? TestTenant.Context(), _rig.Uow, _rig.Clock);
 
     [Fact]
-    public async Task بريد_مستخدم_مسبقاً_يُرفض_ولا_يُنشئ_حساباً()
+    public async Task لا_تسجيل_ذاتي_في_منطقة_المنصّة()
     {
-        _customers.GetByEmailAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
-            .Returns(new Customer("موجود", "taken@souq.com", "hash"));
+        var platform = new TenantContext();
+        platform.UsePlatform();
 
-        var result = await CreateHandler().Handle(
-            new RegisterCommand("جديد", "taken@souq.com", "Passw0rd!"), CancellationToken.None);
+        var result = await Handler(platform).Handle(new RegisterCommand("جديد", "new@souq.com", "Passw0rd!"), CancellationToken.None);
 
-        result.IsSuccess.Should().BeFalse();
-        result.ErrorCode.Should().Be("EmailTaken");
-        await _customers.DidNotReceive().AddAsync(Arg.Any<Customer>(), Arg.Any<CancellationToken>());
+        result.ErrorCode.Should().Be("RegistrationNotAllowed");
+        result.Error!.Kind.Should().Be(ErrorKind.Forbidden);
+        await _rig.Users.DidNotReceive().AddAsync(Arg.Any<User>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
-    public async Task تسجيل_صالح_يُجزّئ_كلمة_المرور_ويمنح_دور_Customer_ويصدر_توكناً()
+    public async Task بريد_مستخدم_في_المتجر_يُرفض_ولا_يُنشئ_شيئاً()
     {
-        _customers.GetByEmailAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns((Customer?)null);
-        _hasher.Hash("Passw0rd!").Returns("hashed-value");
-        _jwt.Generate(Arg.Any<Customer>()).Returns(("jwt-token", DateTime.UtcNow.AddHours(1)));
+        _rig.Users.GetByEmailAsync("taken@souq.com", Arg.Any<CancellationToken>()).Returns(AuthRig.SavedUser(1));
 
-        Customer? created = null;
-        _customers.When(x => x.AddAsync(Arg.Any<Customer>(), Arg.Any<CancellationToken>()))
-            .Do(ci => created = ci.Arg<Customer>());
+        var result = await Handler().Handle(new RegisterCommand("جديد", "taken@souq.com", "Passw0rd!"), CancellationToken.None);
 
-        var result = await CreateHandler().Handle(
-            new RegisterCommand("مستخدم جديد", "New@Souq.com", "Passw0rd!"), CancellationToken.None);
+        result.ErrorCode.Should().Be("EmailTaken");
+        await _rig.Users.DidNotReceive().AddAsync(Arg.Any<User>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task تسجيل_صالح_ينشئ_حساب_عميل_وملف_شرائه_وجلسة_ويرسل_رابط_التأكيد()
+    {
+        User? added = null;
+        Customer? profile = null;
+        string? link = null;
+        _rig.Hasher.Hash("Passw0rd!").Returns("hashed-value");
+        _rig.Users.When(u => u.AddAsync(Arg.Any<User>(), Arg.Any<CancellationToken>())).Do(call => added = call.Arg<User>());
+        _rig.Uow.When(u => u.SaveChangesAsync(Arg.Any<CancellationToken>())).Do(_ =>
+        {
+            if (added is { Id: 0 }) typeof(Entity).GetProperty(nameof(Entity.Id))!.SetValue(added, 42);
+        });
+        _rig.Customers.When(c => c.AddAsync(Arg.Any<Customer>(), Arg.Any<CancellationToken>())).Do(call => profile = call.Arg<Customer>());
+        _rig.Customers.FindIdByUserIdAsync(42, Arg.Any<CancellationToken>()).Returns(7);
+        _rig.Email.When(e => e.SendEmailVerificationAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>()))
+                  .Do(call => link = call.ArgAt<string>(1));
+
+        var result = await Handler().Handle(new RegisterCommand("مستخدم جديد", "New@Souq.com", "Passw0rd!"), CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
-        result.Value!.Token.Should().Be("jwt-token");
-        result.Value.User.Role.Should().Be(Roles.Customer);
-
-        created.Should().NotBeNull();
-        created!.PasswordHash.Should().Be("hashed-value");
-        created.Email.Should().Be("new@souq.com"); // مُطبَّع لحروف صغيرة
-        await _uow.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+        added!.Role.Should().Be(Roles.Customer);
+        added.Email.Should().Be("new@souq.com");
+        added.PasswordHash.Should().Be("hashed-value");
+        profile!.UserId.Should().Be(42);
+        result.Value!.Response.User.CustomerId.Should().Be(7);
+        result.Value.Response.AccessToken.Should().Be("access-token");
+        result.Value.RefreshToken.Should().NotBeNullOrWhiteSpace();
+        _rig.Issued.Should().ContainSingle().Which.TokenHash.Should().Be(User.HashToken(result.Value.RefreshToken));
+        link.Should().StartWith("https://store.test/verify-email?token=");
+        added.EmailVerificationTokenHash.Should().Be(User.HashToken(AuthRig.TokenIn(link!)));
     }
 }
 
 public class LoginHandlerTests
 {
-    private readonly ICustomerRepository _customers = Substitute.For<ICustomerRepository>();
-    private readonly IPasswordHasher _hasher = Substitute.For<IPasswordHasher>();
-    private readonly IJwtTokenGenerator _jwt = Substitute.For<IJwtTokenGenerator>();
+    private readonly AuthRig _rig = new();
 
-    private LoginHandler CreateHandler() => new(_customers, _hasher, _jwt);
+    private LoginHandler Handler() => new(_rig.Users, _rig.Hasher, _rig.Issuer(), _rig.Uow, _rig.Clock);
 
     [Fact]
-    public async Task بريد_غير_مسجّل_يُرجع_رسالة_موحّدة()
+    public async Task بريد_غير_مسجّل_رسالة_موحّدة_بزمن_التحقّق_نفسه()
     {
-        _customers.GetByEmailAsync("nobody@souq.com", Arg.Any<CancellationToken>()).Returns((Customer?)null);
+        var result = await Handler().Handle(new LoginCommand("nobody@souq.com", "whatever"), CancellationToken.None);
 
-        var result = await CreateHandler().Handle(
-            new LoginCommand("nobody@souq.com", "whatever"), CancellationToken.None);
-
-        result.IsSuccess.Should().BeFalse();
         result.ErrorCode.Should().Be("InvalidCredentials");
+        _rig.Hasher.Received(1).Verify("whatever", "");
+        _rig.Issued.Should().BeEmpty();
     }
 
     [Fact]
-    public async Task كلمة_مرور_خاطئة_تُرجع_نفس_الرسالة_الموحّدة()
+    public async Task كلمة_خاطئة_تُحسب_محاولة_فاشلة_وتُحفظ_بالرسالة_الموحّدة()
     {
-        var customer = new Customer("مستخدم", "user@souq.com", "hashed");
-        _customers.GetByEmailAsync("user@souq.com", Arg.Any<CancellationToken>()).Returns(customer);
-        _hasher.Verify("wrong", "hashed").Returns(false);
+        var user = AuthRig.SavedUser(5);
+        _rig.Users.GetByEmailAsync("user5@souq.com", Arg.Any<CancellationToken>()).Returns(user);
 
-        var result = await CreateHandler().Handle(
-            new LoginCommand("user@souq.com", "wrong"), CancellationToken.None);
+        var result = await Handler().Handle(new LoginCommand("user5@souq.com", "wrong"), CancellationToken.None);
 
-        result.IsSuccess.Should().BeFalse();
         result.ErrorCode.Should().Be("InvalidCredentials");
+        user.FailedLoginCount.Should().Be(1);
+        await _rig.Uow.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
-    public async Task دخول_صالح_يصدر_توكناً_ويحمل_بيانات_المستخدم()
+    public async Task الحساب_المقفل_يُرفض_حتى_بالكلمة_الصحيحة()
     {
-        var customer = new Customer("مستخدم", "user@souq.com", "hashed", Roles.Admin);
-        _customers.GetByEmailAsync("user@souq.com", Arg.Any<CancellationToken>()).Returns(customer);
-        _hasher.Verify("correct", "hashed").Returns(true);
-        _jwt.Generate(customer).Returns(("jwt-token", DateTime.UtcNow.AddHours(1)));
+        var user = AuthRig.SavedUser(5);
+        for (var i = 0; i < User.MaxFailedLogins; i++) user.RecordFailedLogin(_rig.Clock.UtcNow);
+        _rig.Users.GetByEmailAsync("user5@souq.com", Arg.Any<CancellationToken>()).Returns(user);
+        _rig.Hasher.Verify("correct", "hashed").Returns(true);
 
-        var result = await CreateHandler().Handle(
-            new LoginCommand("user@souq.com", "correct"), CancellationToken.None);
+        var result = await Handler().Handle(new LoginCommand("user5@souq.com", "correct"), CancellationToken.None);
+
+        result.ErrorCode.Should().Be("AccountLocked");
+        _rig.Issued.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task الحساب_المعطّل_يُكشف_بعد_الكلمة_الصحيحة_فقط()
+    {
+        var user = AuthRig.SavedUser(5);
+        user.Disable();
+        _rig.Users.GetByEmailAsync("user5@souq.com", Arg.Any<CancellationToken>()).Returns(user);
+        _rig.Hasher.Verify("correct", "hashed").Returns(true);
+
+        (await Handler().Handle(new LoginCommand("user5@souq.com", "wrong"), CancellationToken.None))
+            .ErrorCode.Should().Be("InvalidCredentials");
+        (await Handler().Handle(new LoginCommand("user5@souq.com", "correct"), CancellationToken.None))
+            .ErrorCode.Should().Be("AccountDisabled");
+    }
+
+    [Fact]
+    public async Task دخول_صالح_يصدر_جلسة_بصلاحيات_الدور_ويصفّر_العدّاد()
+    {
+        var user = AuthRig.SavedUser(5, Roles.TenantStaff);
+        user.RecordFailedLogin(_rig.Clock.UtcNow);
+        _rig.Users.GetByEmailAsync("user5@souq.com", Arg.Any<CancellationToken>()).Returns(user);
+        _rig.Hasher.Verify("correct", "hashed").Returns(true);
+
+        var result = await Handler().Handle(new LoginCommand("user5@souq.com", "correct"), CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
-        result.Value!.Token.Should().Be("jwt-token");
-        result.Value.User.Role.Should().Be(Roles.Admin);
+        result.Value!.Response.User.Permissions.Should().Contain(Permissions.Orders.Manage)
+            .And.NotContain(Permissions.Store.Settings);
+        result.Value.Response.User.Area.Should().Be(UserInfo.StoreArea);
+        user.FailedLoginCount.Should().Be(0);
+        user.LastLoginAt.Should().Be(_rig.Clock.UtcNow);
+        _rig.Issued.Should().ContainSingle();
+    }
+}
+
+public class RefreshSessionHandlerTests
+{
+    private readonly AuthRig _rig = new();
+
+    private RefreshSessionHandler Handler() => new(
+        _rig.Tokens, _rig.Users, _rig.Issuer(), _rig.Sessions, _rig.Uow, _rig.Clock, NullLogger<RefreshSessionHandler>.Instance);
+
+    private (User User, RefreshToken Token, string Raw) Arrange()
+    {
+        var user = AuthRig.SavedUser(9);
+        var (token, raw) = RefreshToken.Issue(user, Guid.NewGuid(), _rig.Clock.UtcNow, TimeSpan.FromDays(30));
+        _rig.Tokens.GetByTokenAsync(raw, Arg.Any<CancellationToken>()).Returns(token);
+        _rig.Users.GetByIdAsync(9, Arg.Any<CancellationToken>()).Returns(user);
+        return (user, token, raw);
+    }
+
+    [Fact]
+    public async Task بلا_رمز_أو_برمز_مجهول_انتهت_الجلسة()
+    {
+        (await Handler().Handle(new RefreshSessionCommand(null), CancellationToken.None)).ErrorCode.Should().Be("InvalidRefreshToken");
+        (await Handler().Handle(new RefreshSessionCommand("unknown"), CancellationToken.None)).ErrorCode.Should().Be("InvalidRefreshToken");
+    }
+
+    [Fact]
+    public async Task الرمز_الفعّال_يُستهلك_ويُصدر_تاليه_في_العائلة_نفسها()
+    {
+        var (_, token, raw) = Arrange();
+
+        var result = await Handler().Handle(new RefreshSessionCommand(raw), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        token.UsedAt.Should().Be(_rig.Clock.UtcNow);
+        _rig.Issued.Should().ContainSingle().Which.FamilyId.Should().Be(token.FamilyId);
+        result.Value!.RefreshToken.Should().NotBe(raw);
+    }
+
+    [Fact]
+    public async Task الرمز_نفسه_خلال_ثوانٍ_سباق_تبويبات_لا_سرقة()
+    {
+        var (_, token, raw) = Arrange();
+        token.MarkUsed(_rig.Clock.UtcNow);
+        _rig.Clock.Advance(TimeSpan.FromSeconds(5));
+
+        var result = await Handler().Handle(new RefreshSessionCommand(raw), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        token.RevokedAt.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task رمز_مستهلك_قديماً_يعود_فتسقط_العائلة_وتوكنات_الوصول()
+    {
+        var (user, token, raw) = Arrange();
+        token.MarkUsed(_rig.Clock.UtcNow);
+        var (sibling, _) = RefreshToken.Issue(user, token.FamilyId, _rig.Clock.UtcNow, TimeSpan.FromDays(30));
+        _rig.Tokens.ListActiveInFamilyAsync(token.FamilyId, Arg.Any<CancellationToken>()).Returns(new List<RefreshToken> { sibling });
+        var stamp = user.SecurityStamp;
+        _rig.Clock.Advance(TimeSpan.FromMinutes(1));
+
+        var result = await Handler().Handle(new RefreshSessionCommand(raw), CancellationToken.None);
+
+        result.ErrorCode.Should().Be("RefreshTokenReused");
+        token.RevokedAt.Should().NotBeNull();
+        sibling.RevokedAt.Should().NotBeNull();
+        user.SecurityStamp.Should().NotBe(stamp);
+        _rig.Sessions.Received(1).Forget(9);
+        _rig.Issued.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task الحساب_المعطّل_لا_يجدّد()
+    {
+        var (user, _, raw) = Arrange();
+        user.Disable();
+
+        (await Handler().Handle(new RefreshSessionCommand(raw), CancellationToken.None)).ErrorCode.Should().Be("InvalidRefreshToken");
+    }
+}
+
+public class LogoutHandlerTests
+{
+    private readonly AuthRig _rig = new();
+
+    [Fact]
+    public async Task الخروج_يُبطل_العائلة_كلها_وبلا_رمز_نجاح_بلا_حفظ()
+    {
+        var user = AuthRig.SavedUser(3);
+        var family = Guid.NewGuid();
+        var (token, raw) = RefreshToken.Issue(user, family, _rig.Clock.UtcNow, TimeSpan.FromDays(30));
+        var (sibling, _) = RefreshToken.Issue(user, family, _rig.Clock.UtcNow, TimeSpan.FromDays(30));
+        _rig.Tokens.GetByTokenAsync(raw, Arg.Any<CancellationToken>()).Returns(token);
+        _rig.Tokens.ListActiveInFamilyAsync(family, Arg.Any<CancellationToken>()).Returns(new List<RefreshToken> { token, sibling });
+        var handler = new LogoutHandler(_rig.Tokens, _rig.Uow, _rig.Clock);
+
+        (await handler.Handle(new LogoutCommand(null), CancellationToken.None)).IsSuccess.Should().BeTrue();
+        await _rig.Uow.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+
+        (await handler.Handle(new LogoutCommand(raw), CancellationToken.None)).IsSuccess.Should().BeTrue();
+        token.RevokedReason.Should().Be("Logout");
+        sibling.RevokedReason.Should().Be("Logout");
+        await _rig.Uow.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+}
+
+public class ChangePasswordHandlerTests
+{
+    private readonly AuthRig _rig = new();
+
+    private ChangePasswordHandler Handler(ICurrentUser user) =>
+        new(_rig.Users, _rig.Hasher, _rig.Issuer(), _rig.Sessions, user);
+
+    [Fact]
+    public async Task الكلمة_الحالية_الخاطئة_خطأ_إدخال_لا_انتهاء_جلسة()
+    {
+        var user = AuthRig.SavedUser(11, Roles.TenantAdmin);
+        var stamp = user.SecurityStamp;
+        _rig.Users.GetByIdAsync(11, Arg.Any<CancellationToken>()).Returns(user);
+
+        var result = await Handler(TestCurrentUser.Admin(11))
+            .Handle(new ChangePasswordCommand("wrong", "NewPassw0rd!"), CancellationToken.None);
+
+        result.ErrorCode.Should().Be("CurrentPasswordIncorrect");
+        result.Error!.Kind.Should().Be(ErrorKind.Validation);
+        user.SecurityStamp.Should().Be(stamp);
+    }
+
+    [Fact]
+    public async Task التغيير_يُسقط_كل_الجلسات_الأخرى_ويصدر_جلسة_جديدة_لهذا_الجهاز()
+    {
+        var user = AuthRig.SavedUser(11, Roles.TenantAdmin);
+        var stamp = user.SecurityStamp;
+        var (otherSession, _) = RefreshToken.Issue(user, Guid.NewGuid(), _rig.Clock.UtcNow, TimeSpan.FromDays(30));
+        _rig.Users.GetByIdAsync(11, Arg.Any<CancellationToken>()).Returns(user);
+        _rig.Tokens.ListActiveForUserAsync(11, Arg.Any<CancellationToken>()).Returns(new List<RefreshToken> { otherSession });
+        _rig.Hasher.Verify("old-pass-1", "hashed").Returns(true);
+        _rig.Hasher.Hash("NewPassw0rd!").Returns("new-hash");
+
+        var result = await Handler(TestCurrentUser.Admin(11))
+            .Handle(new ChangePasswordCommand("old-pass-1", "NewPassw0rd!"), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        user.PasswordHash.Should().Be("new-hash");
+        user.SecurityStamp.Should().NotBe(stamp);
+        otherSession.RevokedReason.Should().Be("PasswordChanged");
+        _rig.Issued.Should().ContainSingle().Which.FamilyId.Should().NotBe(otherSession.FamilyId);
+        _rig.Sessions.Received(1).Forget(11);
     }
 }
 
 public class ForgotPasswordHandlerTests
 {
-    private readonly ICustomerRepository _customers = Substitute.For<ICustomerRepository>();
-    private readonly IEmailService _email = Substitute.For<IEmailService>();
-    private readonly IUnitOfWork _uow = Substitute.For<IUnitOfWork>();
+    private readonly AuthRig _rig = new();
 
-    private readonly FixedClock _clock = new();
-
-    private ForgotPasswordHandler CreateHandler() => new(_customers, _email, _uow, _clock);
+    private ForgotPasswordHandler Handler() => new(_rig.Users, _rig.Email, _rig.Links, _rig.Uow, _rig.Clock);
 
     [Fact]
-    public async Task بريد_موجود_يرسل_الرمز_الخام_بالبريد_ويخزّن_تجزئته_فقط()
+    public async Task حساب_فعّال_يصله_رابط_على_مضيف_المتجر_والتجزئة_وحدها_مخزّنة()
     {
-        var customer = new Customer("مستخدم", "user@souq.com", "hashed");
-        _customers.GetByEmailAsync("user@souq.com", Arg.Any<CancellationToken>()).Returns(customer);
-        string? sentToken = null;
-        _email.When(x => x.SendPasswordResetEmailAsync("user@souq.com", Arg.Any<string>(), Arg.Any<CancellationToken>()))
-              .Do(ci => sentToken = ci.ArgAt<string>(1));
+        var user = AuthRig.SavedUser(4, email: "distinct.buyer@example.net");
+        _rig.Users.GetByEmailAsync("distinct.buyer@example.net", Arg.Any<CancellationToken>()).Returns(user);
+        string? link = null;
+        _rig.Email.When(e => e.SendPasswordResetEmailAsync("distinct.buyer@example.net", Arg.Any<string>(), Arg.Any<CancellationToken>()))
+                  .Do(call => link = call.ArgAt<string>(1));
 
-        var result = await CreateHandler().Handle(new ForgotPasswordCommand("user@souq.com"), CancellationToken.None);
+        var result = await Handler().Handle(new ForgotPasswordCommand("distinct.buyer@example.net"), CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
-        sentToken.Should().NotBeNullOrWhiteSpace();
-        // المخزَّن تجزئة الرمز المُرسَل لا الرمز نفسه (Phase 0 B6).
-        customer.PasswordResetTokenHash.Should().Be(Customer.HashResetToken(sentToken!));
-        customer.PasswordResetTokenHash.Should().NotBe(sentToken);
-        await _uow.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+        link.Should().StartWith("https://store.test/reset-password?token=");
+        var token = AuthRig.TokenIn(link!);
+        user.PasswordResetTokenHash.Should().Be(User.HashToken(token)).And.NotBe(token);   // Phase 0 B6
+        await _rig.Uow.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
-    public async Task يُرسَل_البريد_لعنوان_الطالب_نفسه_لا_لعنوان_ثابت()
+    public async Task بريد_غير_مسجّل_أو_حساب_معطّل_نجاح_بلا_بريد()
     {
-        // حارس انحدار: الرسالة تذهب لعنوان العميل الطالب بالضبط، مهما كان —
-        // ليس لعنوان مدير/مرسِل ثابت. نستخدم عنواناً مميّزاً يختلف عن أي افتراضي.
-        var customer = new Customer("زبون", "distinct.buyer@example.net", "hashed");
-        _customers.GetByEmailAsync("distinct.buyer@example.net", Arg.Any<CancellationToken>()).Returns(customer);
+        var disabled = AuthRig.SavedUser(4, email: "disabled@souq.com");
+        disabled.Disable();
+        _rig.Users.GetByEmailAsync("disabled@souq.com", Arg.Any<CancellationToken>()).Returns(disabled);
 
-        await CreateHandler().Handle(new ForgotPasswordCommand("distinct.buyer@example.net"), CancellationToken.None);
+        (await Handler().Handle(new ForgotPasswordCommand("nobody@souq.com"), CancellationToken.None)).IsSuccess.Should().BeTrue();
+        (await Handler().Handle(new ForgotPasswordCommand("disabled@souq.com"), CancellationToken.None)).IsSuccess.Should().BeTrue();
 
-        await _email.Received(1).SendPasswordResetEmailAsync(
-            "distinct.buyer@example.net", Arg.Any<string>(), Arg.Any<CancellationToken>());
-    }
-
-    [Fact]
-    public async Task بريد_غير_موجود_يُرجع_نجاحاً_دون_إرسال_بريد()
-    {
-        // نجاح دائماً — لا نكشف عبر رمز/زمن استجابة مختلفَين إن كان البريد مسجّلاً
-        // (Enumeration). لكن لا يجب أن يُرسَل بريد فعلياً لعنوان غير موجود أصلاً.
-        _customers.GetByEmailAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns((Customer?)null);
-
-        var result = await CreateHandler().Handle(new ForgotPasswordCommand("nobody@souq.com"), CancellationToken.None);
-
-        result.IsSuccess.Should().BeTrue();
-        await _email.DidNotReceive().SendPasswordResetEmailAsync(
-            Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
-        await _uow.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+        await _rig.Email.DidNotReceive().SendPasswordResetEmailAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await _rig.Uow.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 }
 
 public class ResetPasswordHandlerTests
 {
-    private readonly ICustomerRepository _customers = Substitute.For<ICustomerRepository>();
-    private readonly IPasswordHasher _hasher = Substitute.For<IPasswordHasher>();
-    private readonly IUnitOfWork _uow = Substitute.For<IUnitOfWork>();
+    private readonly AuthRig _rig = new();
 
-    private readonly FixedClock _clock = new();
-
-    private ResetPasswordHandler CreateHandler() => new(_customers, _hasher, _uow, _clock);
+    private ResetPasswordHandler Handler() =>
+        new(_rig.Users, _rig.Hasher, _rig.Issuer(), _rig.Sessions, _rig.Uow, _rig.Clock);
 
     [Fact]
-    public async Task رمز_غير_موجود_يُرجع_InvalidResetToken()
+    public async Task رمز_مجهول_InvalidResetToken()
     {
-        _customers.GetByResetTokenAsync("bad-token", Arg.Any<CancellationToken>()).Returns((Customer?)null);
+        var result = await Handler().Handle(new ResetPasswordCommand("bad-token", "NewPassw0rd!"), CancellationToken.None);
 
-        var result = await CreateHandler().Handle(new ResetPasswordCommand("bad-token", "NewPassw0rd!"), CancellationToken.None);
-
-        result.IsSuccess.Should().BeFalse();
         result.ErrorCode.Should().Be("InvalidResetToken");
-        result.Error!.Kind.Should().Be(Souq.Application.Common.Models.ErrorKind.BusinessRule);
+        result.Error!.Kind.Should().Be(ErrorKind.BusinessRule);
     }
 
     [Fact]
-    public async Task رمز_منتهي_الصلاحية_يرفعه_الكيان_ولا_يُحفظ_شيء()
+    public async Task رمز_منتهٍ_يرفضه_الكيان_ولا_يُحفظ_شيء()
     {
-        var customer = new Customer("مستخدم", "user@souq.com", "old-hash");
-        customer.GenerateResetToken(_clock.UtcNow);
-        _clock.Advance(TimeSpan.FromHours(Customer.ResetTokenLifetimeHours).Add(TimeSpan.FromMinutes(1)));
-        _customers.GetByResetTokenAsync("expired-token", Arg.Any<CancellationToken>()).Returns(customer);
+        var user = AuthRig.SavedUser(6, hash: "old-hash");
+        user.GenerateResetToken(_rig.Clock.UtcNow);
+        _rig.Clock.Advance(TimeSpan.FromHours(User.ResetTokenLifetimeHours).Add(TimeSpan.FromMinutes(1)));
+        _rig.Users.GetByResetTokenAsync("expired-token", Arg.Any<CancellationToken>()).Returns(user);
 
-        var act = () => CreateHandler().Handle(new ResetPasswordCommand("expired-token", "NewPassw0rd!"), CancellationToken.None);
+        var act = () => Handler().Handle(new ResetPasswordCommand("expired-token", "NewPassw0rd!"), CancellationToken.None);
 
-        (await act.Should().ThrowAsync<Souq.Domain.Exceptions.InvalidPasswordResetException>())
-            .Which.Code.Should().Be("ResetTokenExpired");
-        customer.PasswordHash.Should().Be("old-hash");
-        await _uow.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+        (await act.Should().ThrowAsync<InvalidPasswordResetException>()).Which.Code.Should().Be("ResetTokenExpired");
+        user.PasswordHash.Should().Be("old-hash");
+        await _rig.Uow.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
-    public async Task رمز_صالح_يُحدّث_كلمة_المرور_ويمسح_الرمز_ويحفظ()
+    public async Task رمز_صالح_يغيّر_الكلمة_ويُسقط_كل_الجلسات()
     {
-        var customer = new Customer("مستخدم", "user@souq.com", "old-hash");
-        var token = customer.GenerateResetToken(_clock.UtcNow);
-        _customers.GetByResetTokenAsync(token, Arg.Any<CancellationToken>()).Returns(customer);
-        _hasher.Hash("NewPassw0rd!").Returns("new-hashed-value");
+        var user = AuthRig.SavedUser(6, hash: "old-hash");
+        var token = user.GenerateResetToken(_rig.Clock.UtcNow);
+        var (session, _) = RefreshToken.Issue(user, Guid.NewGuid(), _rig.Clock.UtcNow, TimeSpan.FromDays(30));
+        _rig.Users.GetByResetTokenAsync(token, Arg.Any<CancellationToken>()).Returns(user);
+        _rig.Tokens.ListActiveForUserAsync(6, Arg.Any<CancellationToken>()).Returns(new List<RefreshToken> { session });
+        _rig.Hasher.Hash("NewPassw0rd!").Returns("new-hash");
 
-        var result = await CreateHandler().Handle(new ResetPasswordCommand(token, "NewPassw0rd!"), CancellationToken.None);
+        var result = await Handler().Handle(new ResetPasswordCommand(token, "NewPassw0rd!"), CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
-        customer.PasswordHash.Should().Be("new-hashed-value");
-        customer.PasswordResetTokenHash.Should().BeNull();
-        await _uow.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+        user.PasswordHash.Should().Be("new-hash");
+        user.PasswordResetTokenHash.Should().BeNull();
+        session.RevokedReason.Should().Be("PasswordReset");
+        _rig.Sessions.Received(1).Forget(6);
+        await _rig.Uow.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+}
+
+public class VerifyEmailHandlerTests
+{
+    private readonly AuthRig _rig = new();
+
+    [Fact]
+    public async Task رمز_مجهول_يُرفض_ورمز_صالح_يؤكّد_البريد()
+    {
+        var user = AuthRig.SavedUser(8);
+        var token = user.GenerateEmailVerificationToken(_rig.Clock.UtcNow);
+        _rig.Users.GetByVerificationTokenAsync(token, Arg.Any<CancellationToken>()).Returns(user);
+        var handler = new VerifyEmailHandler(_rig.Users, _rig.Uow, _rig.Clock);
+
+        (await handler.Handle(new VerifyEmailCommand("unknown"), CancellationToken.None))
+            .ErrorCode.Should().Be("InvalidVerificationToken");
+        (await handler.Handle(new VerifyEmailCommand(token), CancellationToken.None)).IsSuccess.Should().BeTrue();
+
+        user.EmailConfirmedAt.Should().Be(_rig.Clock.UtcNow);
     }
 }

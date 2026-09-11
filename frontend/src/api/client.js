@@ -8,18 +8,35 @@ import { toQueryString } from './query';
 // نجمعها هنا. لو تغيّر عنوان الـ API أو طريقة المصادقة، نُعدّل هذا الملف فقط.
 // ============================================================================
 const BASE = '/api';
-const TOKEN_KEY = 'souq_token';
 
-// تخزين التوكن:
-// نستخدم localStorage في التطوير لبساطته. للإنتاج، الأصحّ هو httpOnly cookie
-// لأن localStorage يمكن قراءته بأي سكربت يعمل في الصفحة — فثغرة XSS واحدة تكشف
-// التوكن. الـ httpOnly cookie لا يقرؤه JavaScript إطلاقاً. سنحوّل إليه في مرحلة
-// التقوية/النشر (المراحل 4 و7) مع ضبط SameSite/Secure على الخادم.
-export const tokenStore = {
-  get: () => localStorage.getItem(TOKEN_KEY),
-  set: (t) => localStorage.setItem(TOKEN_KEY, t),
-  clear: () => localStorage.removeItem(TOKEN_KEY),
-};
+// ============================================================================
+// الجلسة (ADR-0010): توكن الوصول (15 دقيقة) في ذاكرة هذا الملف فقط — لا localStorage، فسكربت محقون
+// لا يجد توكناً مخزّناً يسرقه، ولا يغادر التوكن هذا الملف أصلاً. رمز التجديد في ملف تعريف ارتباط
+// HttpOnly مقصور على /api/auth لا يقرؤه JavaScript. عند 401 لطلب حمل توكناً: تجديد واحد مشترك ثم
+// إعادة المحاولة مرّة؛ رفض التجديد ⇒ حدث SESSION_EXPIRED يعيد التطبيق لحالة الزائر.
+// ============================================================================
+export const SESSION_EXPIRED = 'session-expired';
+export const authEvents = new EventTarget();
+
+let accessToken = null;
+let refreshing = null;
+
+// يحفظ توكن الاستجابة ويعيد المستخدم وحده للمتصل.
+function startSession(auth) {
+  accessToken = auth?.accessToken ?? null;
+  return auth?.user ?? null;
+}
+
+// تجديد صامت: المستخدم إن بقيت جلسة، وإلا null. طلب واحد مهما تزامن المتصلون — كل تجديد يدوّر الرمز،
+// وتجديدان متوازيان بالرمز نفسه يبدوان للخادم إعادة استخدام (سرقة) خارج مهلة السباق.
+export function refreshSession() {
+  if (!refreshing) {
+    refreshing = fetch(`${BASE}/auth/refresh`, { method: 'POST', credentials: 'same-origin' })
+      .then(async (res) => startSession(res.ok ? await res.json() : null))
+      .finally(() => { refreshing = null; });
+  }
+  return refreshing;
+}
 
 // أي استجابة غير ناجحة ⇒ Error موحّد من ProblemDetails (انظر problem.js). رسائل الخادم
 // عربية، فالواجهة العربية تعرضها كما هي؛ غيرها يترجم الرمز الثابت (errors.codes.*).
@@ -32,54 +49,56 @@ async function readApiError(res, fallbackKey) {
   });
 }
 
-async function request(path, options = {}) {
-  const token = tokenStore.get();
-  const res = await fetch(BASE + path, {
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...options.headers,
-    },
-    ...options,
+async function send(path, init, { fallbackKey = 'errors.connection', anonymous = false } = {}) {
+  const attempt = () => fetch(BASE + path, {
+    ...init,
+    credentials: 'same-origin',
+    headers: { ...init.headers, ...(accessToken && !anonymous ? { Authorization: `Bearer ${accessToken}` } : {}) },
   });
 
-  // توكن منتهٍ/غير صالح: ننظّف الجلسة ونُعلم التطبيق ليعيد التوجيه للدخول.
-  if (res.status === 401) {
-    tokenStore.clear();
-    window.dispatchEvent(new Event('auth:unauthorized'));
+  const sentToken = accessToken !== null && !anonymous;
+  let res = await attempt();
+  if (res.status === 401 && sentToken) {
+    if (await refreshSession()) res = await attempt();
+    else authEvents.dispatchEvent(new Event(SESSION_EXPIRED));
   }
 
-  if (!res.ok) throw await readApiError(res, 'errors.connection');
+  if (!res.ok) throw await readApiError(res, fallbackKey);
   return res.status === 204 ? null : res.json();
+}
+
+function request(path, options = {}) {
+  return send(path, { ...options, headers: { 'Content-Type': 'application/json', ...options.headers } });
 }
 
 // رفع ملف (multipart/form-data): لا نضبط Content-Type يدوياً — المتصفح يولّد
 // حدّ الأجزاء (boundary) بنفسه، وضبطه يدوياً يكسر الطلب.
-async function upload(path, formData) {
-  const token = tokenStore.get();
-  const res = await fetch(BASE + path, {
+function upload(path, formData) {
+  return send(path, { method: 'POST', body: formData }, { fallbackKey: 'errors.upload' });
+}
+
+// نقاط المصادقة العامة: بلا توكن ولا تجديد — 401 هنا (كلمة مرور خاطئة) جواب، لا انتهاء جلسة.
+function publicAuth(path, payload) {
+  return send(path, {
     method: 'POST',
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-    body: formData,
-  });
-
-  if (res.status === 401) {
-    tokenStore.clear();
-    window.dispatchEvent(new Event('auth:unauthorized'));
-  }
-
-  if (!res.ok) throw await readApiError(res, 'errors.upload');
-  return res.json();
+    headers: { 'Content-Type': 'application/json' },
+    body: payload === undefined ? undefined : JSON.stringify(payload),
+  }, { anonymous: true });
 }
 
 // دوال معبّرة بأسماء المجال، تخفي تفاصيل HTTP عن بقية التطبيق.
 export const api = {
-  // ── المصادقة ──
-  register: (payload) => request('/auth/register', { method: 'POST', body: JSON.stringify(payload) }),
-  login: (payload) => request('/auth/login', { method: 'POST', body: JSON.stringify(payload) }),
-  forgotPassword: (email) => request('/auth/forgot-password', { method: 'POST', body: JSON.stringify({ email }) }),
-  resetPassword: (token, newPassword) =>
-    request('/auth/reset-password', { method: 'POST', body: JSON.stringify({ token, newPassword }) }),
+  // ── المصادقة ── (الدخول/التسجيل/تغيير الكلمة تبدأ جلسة: التوكن يبقى هنا والمستخدم يعود للمتصل)
+  register: async (payload) => startSession(await publicAuth('/auth/register', payload)),
+  login: async (payload) => startSession(await publicAuth('/auth/login', payload)),
+  logout: async () => { accessToken = null; await publicAuth('/auth/logout'); },
+  me: () => request('/auth/me'),
+  changePassword: async (currentPassword, newPassword) => startSession(await request('/auth/change-password',
+    { method: 'POST', body: JSON.stringify({ currentPassword, newPassword }) })),
+  forgotPassword: (email) => publicAuth('/auth/forgot-password', { email }),
+  resetPassword: (token, newPassword) => publicAuth('/auth/reset-password', { token, newPassword }),
+  verifyEmail: (token) => publicAuth('/auth/verify-email', { token }),
+  resendVerification: () => request('/auth/resend-verification', { method: 'POST' }),
 
   // ── الكتالوج ── (سلسلة الاستعلام لكل القوائم من toQueryString: مصفوفات بمفتاح متكرّر)
   getProducts: (params = {}) => request(`/products${toQueryString(params)}`),
@@ -100,9 +119,9 @@ export const api = {
   // ── الدفع (Stripe) ──
   getPaymentConfig: () => request('/payments/config'),
 
-  // ── الكوبونات ──
-  applyCoupon: (code, subtotal, currency = 'JOD') =>
-    request(`/coupons/apply?${new URLSearchParams({ code, subtotal, currency })}`),
+  // ── الكوبونات ── (العملة عملة المتجر على الخادم — لا يرسلها العميل)
+  applyCoupon: (code, subtotal) =>
+    request(`/coupons/apply?${new URLSearchParams({ code, subtotal })}`),
   getCoupons: (params = {}) => request(`/coupons${toQueryString(params)}`),
   createCoupon: (payload) => request('/coupons', { method: 'POST', body: JSON.stringify(payload) }),
   updateCoupon: (id, payload) => request(`/coupons/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),

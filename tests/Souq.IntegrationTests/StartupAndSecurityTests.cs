@@ -7,7 +7,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Souq.Application.Common.Interfaces;
-using Souq.Domain.Entities;
+using Souq.Domain.Identity;
 using Souq.Infrastructure.Persistence;
 using Souq.Infrastructure.Services;
 using Souq.IntegrationTests.Infrastructure;
@@ -35,6 +35,7 @@ public class StartupAndSecurityTests
 
         applied.Should().Contain(m => m.EndsWith("_Phase1AIntegrityPrecisionConcurrency"));
         applied.Should().Contain(m => m.EndsWith("_Phase2MultiTenancy"));
+        applied.Should().Contain(m => m.EndsWith("_Phase3Identity"));
         pending.Should().BeEmpty();
     }
 
@@ -66,7 +67,7 @@ public class StartupAndSecurityTests
             NullLogger.Instance);
 
         await act.Should().ThrowAsync<InvalidOperationException>();
-        (await _api.WithDbAsync(db => db.Customers.AnyAsync(c => c.Email == "weak-admin@souq.test"))).Should().BeFalse();
+        (await _api.WithDbAsync(db => db.Users.AnyAsync(u => u.Email == "weak-admin@souq.test"))).Should().BeFalse();
     }
 
     [Fact]
@@ -79,8 +80,8 @@ public class StartupAndSecurityTests
         var token = _factory.Emails.LastResetTokenFor(email);
 
         var storedHash = await _api.WithDbAsync(db =>
-            db.Customers.Where(c => c.Email == email).Select(c => c.PasswordResetTokenHash).SingleAsync());
-        storedHash.Should().Be(Customer.HashResetToken(token)).And.NotBe(token);          // B6
+            db.Users.Where(u => u.Email == email).Select(u => u.PasswordResetTokenHash).SingleAsync());
+        storedHash.Should().Be(User.HashToken(token)).And.NotBe(token);                   // B6
         _factory.Logs.Messages.Should().NotContain(m => m.Contains(token));               // B2
 
         var reset = await anonymous.PostAsJsonAsync("/api/auth/reset-password", new { token, newPassword = "Brand-New-Pass-9" });

@@ -14,7 +14,6 @@ public class ResendOptions
     public string ApiKey { get; set; } = "";
     // onboarding@resend.dev يعمل فوراً بلا تحقّق نطاق — مخصّص للتطوير/الاختبار.
     public string From { get; set; } = "Marka <onboarding@resend.dev>";
-    public string FrontendUrl { get; set; } = "http://localhost:5173";
 }
 
 // ============================================================================
@@ -38,10 +37,12 @@ public class ResendEmailService : IEmailService
     public Task SendOrderConfirmationAsync(string toEmail, int orderId, CancellationToken ct = default)
         => SendAsync(toEmail, $"تأكيد الطلب #{orderId} — ماركة", EmailTemplates.OrderConfirmation(orderId), ct);
 
-    public Task SendPasswordResetEmailAsync(string toEmail, string resetToken, CancellationToken ct = default)
+    public Task SendEmailVerificationAsync(string toEmail, string verificationLink, CancellationToken ct = default)
+        => SendAsync(toEmail, "تأكيد بريدك الإلكتروني — ماركة", EmailTemplates.EmailVerification(verificationLink), ct);
+
+    public Task SendPasswordResetEmailAsync(string toEmail, string resetLink, CancellationToken ct = default)
     {
-        var link = $"{_opts.FrontendUrl.TrimEnd('/')}/reset-password?token={resetToken}";
-        return SendAsync(toEmail, "إعادة تعيين كلمة المرور — ماركة", EmailTemplates.PasswordReset(link), ct);
+        return SendAsync(toEmail, "إعادة تعيين كلمة المرور — ماركة", EmailTemplates.PasswordReset(resetLink), ct);
     }
 
     private async Task SendAsync(string toEmail, string subject, string htmlBody, CancellationToken ct)

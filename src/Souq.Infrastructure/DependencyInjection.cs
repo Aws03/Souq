@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using Souq.Application.Common.Interfaces;
+using Souq.Application.Common.Security;
 using Souq.Application.Common.Tenancy;
 using Souq.Application.Features.Coupons.Queries;
 using Souq.Application.Features.Inventory.Queries;
@@ -81,6 +82,8 @@ public static class DependencyInjection
         services.AddScoped<IOrderRepository, OrderRepository>();
         services.AddScoped<ICategoryRepository, CategoryRepository>();
         services.AddScoped<ICustomerRepository, CustomerRepository>();
+        services.AddScoped<IUserRepository, UserRepository>();
+        services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
         services.AddScoped<ICouponRepository, CouponRepository>();
         services.AddScoped<IReviewRepository, ReviewRepository>();
         services.AddScoped<IStockMovementRepository, StockMovementRepository>();
@@ -128,19 +131,13 @@ public static class DependencyInjection
     private static void AddEmail(
         IServiceCollection services, IConfiguration config, IHostEnvironment environment, InfrastructureStartupReport report)
     {
-        // FRONTEND_URL (متغيّر بيئة للنشر) ثم App:FrontendUrl ثم افتراضي التطوير المحلي.
-        var frontendUrl = config["FRONTEND_URL"] ?? config["App:FrontendUrl"] ?? "http://localhost:5173";
         // عنوان المرسِل البديل المشترك بين المزوّدين (Gmail:Username أو اسمه البديل
         // Gmail:SenderEmail) — لا عنوان شخصي مكتوب في الكود أو appsettings المرفوع.
         var fallbackSender = FirstNonEmpty(config["Gmail:Username"], config["Gmail:SenderEmail"]);
 
         if (!string.IsNullOrWhiteSpace(config["Resend:ApiKey"]))
         {
-            services.Configure<ResendOptions>(o =>
-            {
-                config.GetSection("Resend").Bind(o);
-                o.FrontendUrl = frontendUrl;
-            });
+            services.Configure<ResendOptions>(config.GetSection("Resend"));
             // عميل HTTP من المصنع: مهلة، وتدوير اتصالات يحترم تغيّر DNS (لا HttpClient ساكن).
             services.AddHttpClient<IEmailService, ResendEmailService>(c => c.Timeout = ProviderTimeout);
             report.EmailProvider = "Resend";
@@ -151,7 +148,6 @@ public static class DependencyInjection
             {
                 config.GetSection("Brevo").Bind(o);
                 o.SenderEmail = FirstNonEmpty(o.SenderEmail, fallbackSender) ?? "";
-                o.FrontendUrl = frontendUrl;
             });
             services.AddHttpClient<IEmailService, BrevoEmailService>(c => c.Timeout = ProviderTimeout);
             report.EmailProvider = "Brevo";
@@ -164,7 +160,6 @@ public static class DependencyInjection
                 // كلمات مرور التطبيقات تُلصَق أحياناً بمسافات (حتى U+00A0) — ننظّفها دفاعياً.
                 o.AppPassword = string.Concat(o.AppPassword.Where(c => !char.IsWhiteSpace(c)));
                 o.Username = fallbackSender ?? "";
-                o.FrontendUrl = frontendUrl;
             });
             services.AddScoped<IEmailService, GmailEmailService>();
             report.EmailProvider = "Gmail";
@@ -174,7 +169,6 @@ public static class DependencyInjection
             services.Configure<ConsoleEmailOptions>(o =>
             {
                 o.IncludeLinksInLog = environment.IsDevelopment();
-                o.FrontendUrl = frontendUrl;
             });
             services.AddScoped<IEmailService, ConsoleEmailService>();
             report.EmailProvider = "Console";
@@ -209,6 +203,10 @@ public static class DependencyInjection
         services.AddSingleton<IValidateOptions<JwtSettings>, JwtSettingsValidator>();
         services.AddSingleton<IPasswordHasher, BcryptPasswordHasher>();
         services.AddSingleton<IJwtTokenGenerator, JwtTokenGenerator>();
+
+        // ختم الأمان لكل طلب مُصادَق: ذاكرة قصيرة (Singleton) + استعلام مُرشَّح بالنطاق (لكل طلب).
+        services.AddSingleton<SessionStampCache>();
+        services.AddScoped<ISessionValidator, SessionValidator>();
     }
 
     private static string? FirstNonEmpty(params string?[] values) =>

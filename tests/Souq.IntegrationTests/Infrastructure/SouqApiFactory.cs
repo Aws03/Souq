@@ -7,7 +7,7 @@ using Microsoft.Extensions.Logging;
 using Souq.Application.Common.Interfaces;
 using Souq.Application.Common.Tenancy;
 using Souq.Domain.Common;
-using Souq.Domain.Entities;
+using Souq.Domain.Identity;
 using Souq.Domain.Platform;
 using Souq.Infrastructure.Persistence;
 using Testcontainers.MsSql;
@@ -28,8 +28,11 @@ public sealed class SouqApiFactory : WebApplicationFactory<Program>, IAsyncLifet
 {
     public const string AdminEmail = "it-admin@souq.test";
     public const string AdminPassword = "Integration-Admin-2026!";
+    public const string PlatformOwnerEmail = "it-owner@souq.test";
+    public const string PlatformOwnerPassword = "Integration-Owner-2026!";
     public const string StoreAdminPassword = "Store-Admin-Pass-2026!";
     public const string DefaultHost = "localhost";
+    public const string PlatformHost = "admin.localhost";
 
     private readonly MsSqlContainer _sql = new MsSqlBuilder("mcr.microsoft.com/mssql/server:2022-latest").Build();
 
@@ -49,7 +52,12 @@ public sealed class SouqApiFactory : WebApplicationFactory<Program>, IAsyncLifet
         builder.UseSetting("Jwt:Key", "integration-tests-only-signing-key-0123456789abcdef0123456789");
         builder.UseSetting("Seed:AdminEmail", AdminEmail);
         builder.UseSetting("Seed:AdminPassword", AdminPassword);
+        builder.UseSetting("Seed:PlatformOwnerEmail", PlatformOwnerEmail);
+        builder.UseSetting("Seed:PlatformOwnerPassword", PlatformOwnerPassword);
         builder.UseSetting("Storage:Local:RootPath", UploadsRoot);
+        // مئات الاختبارات تدخل من العنوان نفسه: حدود الإنتاج تخنقها. اختبار حدّ المعدّل يضيّقها بمصنع مشتقّ.
+        foreach (var policy in new[] { "Auth", "Refresh", "CouponPreview" })
+            builder.UseSetting($"RateLimiting:{policy}:PermitLimit", "100000");
 
         builder.ConfigureLogging(logging =>
         {
@@ -112,15 +120,20 @@ public sealed class SouqApiFactory : WebApplicationFactory<Program>, IAsyncLifet
 
         var info = await TenantAsync(slug);
         var adminEmail = $"admin@{host}";
-        await using (var scope = await TenantScopeAsync(info))
-        {
-            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-            var hasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
-            db.Customers.Add(new Customer("مدير المتجر", adminEmail, hasher.Hash(StoreAdminPassword), Roles.Admin));
-            await db.SaveChangesAsync();
-        }
-
+        await CreateStoreUserAsync(info, Roles.TenantAdmin, adminEmail);
         return new TestStore(info, host, adminEmail, StoreAdminPassword);
+    }
+
+    // حساب داخل متجر بدور محدّد (مدير، موظّف) — داخل نطاق المتجر كي يختمه حارس الكتابة كما في الإنتاج.
+    public async Task<string> CreateStoreUserAsync(TenantInfo tenant, string role, string? email = null)
+    {
+        email ??= $"{role.ToLowerInvariant()}-{Guid.NewGuid():N}@souq.test";
+        await using var scope = await TenantScopeAsync(tenant);
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var hasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
+        db.Users.Add(new User("حساب اختبار", email, hasher.Hash(StoreAdminPassword), role));
+        await db.SaveChangesAsync();
+        return email;
     }
 
     public async Task InitializeAsync() => await _sql.StartAsync();

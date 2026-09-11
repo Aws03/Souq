@@ -5,6 +5,7 @@ using Souq.Application.Common.Exceptions;
 using Souq.Application.Common.Tenancy;
 using Souq.Domain.Common;
 using Souq.Domain.Entities;
+using Souq.Domain.Identity;
 using Souq.Domain.Interfaces;
 using Souq.Domain.Platform;
 
@@ -15,10 +16,12 @@ namespace Souq.Infrastructure.Persistence;
 // يعيش في Infrastructure، ولهذا لا يعرف Domain بوجوده إطلاقاً.
 // ينفّذ IUnitOfWork: لأن SaveChanges في EF هي بطبيعتها معاملة ذرّية واحدة.
 //
-// عزل المستأجرين مركزي هنا (ADR-0005، MultiTenancy.md §4): كل كيان ITenantOwned يحصل بالانعكاس
-// — لا نسخاً يدوياً لكل كيان قد يُنسى — على مرشّح استعلام عام مسمّى ("Tenant") ومفتاح أجنبي إلى
-// Tenants. المرشّح يقرأ CurrentTenantId عند تنفيذ كل استعلام (EF يعامل عضو السياق كمعامل)،
-// وغياب المتجر يرمي بدل أن يعيد صفوف كل المتاجر. الكتابة يحرسها TenantWriteGuardInterceptor.
+// عزل المستأجرين مركزي هنا (ADR-0005/0022، MultiTenancy.md §4): بالانعكاس — لا نسخاً يدوياً لكل
+// كيان قد يُنسى — يحصل كل كيان على مرشّح استعلام عام مسمّى ("Tenant") ومفتاح أجنبي إلى Tenants:
+//   ITenantOwned            ⇒ صفوف متجر السياق فقط؛ بلا متجر يرمي (لا "كل الصفوف" أبداً).
+//   ITenantOrPlatformOwned  ⇒ (الحسابات وجلساتها) صفوف متجر السياق، أو صفوف المنصّة في نطاقها.
+// المرشّح يقرأ النطاق عند تنفيذ كل استعلام (EF يعامل عضو السياق كمعامل). الكتابة يحرسها
+// TenantWriteGuardInterceptor.
 // ============================================================================
 public class AppDbContext : DbContext, IUnitOfWork
 {
@@ -28,6 +31,9 @@ public class AppDbContext : DbContext, IUnitOfWork
     private static readonly MethodInfo ConfigureTenantOwnedMethod =
         typeof(AppDbContext).GetMethod(nameof(ConfigureTenantOwned), BindingFlags.NonPublic | BindingFlags.Instance)!;
 
+    private static readonly MethodInfo ConfigureTenantOrPlatformOwnedMethod =
+        typeof(AppDbContext).GetMethod(nameof(ConfigureTenantOrPlatformOwned), BindingFlags.NonPublic | BindingFlags.Instance)!;
+
     private readonly ITenantContext _tenancy;
 
     public AppDbContext(DbContextOptions<AppDbContext> options, ITenantContext tenancy) : base(options)
@@ -35,8 +41,16 @@ public class AppDbContext : DbContext, IUnitOfWork
 
     internal ITenantContext Tenancy => _tenancy;
 
-    // يُقيَّم عند تنفيذ كل استعلام على كيان ITenantOwned. بلا متجر ⇒ يرمي (لا "كل الصفوف" أبداً).
+    // يُقيَّم عند تنفيذ كل استعلام على كيان ITenantOwned. بلا متجر ⇒ يرمي (حتى في نطاق المنصّة).
     private int CurrentTenantId => _tenancy.Tenant?.Id ?? throw new TenantContextMissingException();
+
+    // للحسابات: متجر السياق، أو null في نطاق المنصّة (صفوف المنصّة)، وبلا نطاق يرمي.
+    private int? CurrentScopeTenantId => _tenancy.Scope switch
+    {
+        TenantScope.Tenant => _tenancy.Tenant!.Id,
+        TenantScope.Platform => null,
+        _ => throw new TenantContextMissingException(),
+    };
 
     public DbSet<Product> Products => Set<Product>();
     public DbSet<Category> Categories => Set<Category>();
@@ -48,6 +62,10 @@ public class AppDbContext : DbContext, IUnitOfWork
     public DbSet<Review> Reviews => Set<Review>();
     public DbSet<StockMovement> StockMovements => Set<StockMovement>();
 
+    // الهوية (Identity): حسابات المتاجر وحسابات المنصّة في جدول واحد (D-06).
+    public DbSet<User> Users => Set<User>();
+    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+
     // جداول المنصّة — بلا مرشّح مستأجر (هي ما يُعرِّفه).
     public DbSet<Tenant> Tenants => Set<Tenant>();
     public DbSet<TenantDomain> TenantDomains => Set<TenantDomain>();
@@ -58,12 +76,11 @@ public class AppDbContext : DbContext, IUnitOfWork
         // فصل الإعداد عن الكيان يُبقي الكيان نقياً من تفاصيل قاعدة البيانات.
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);
 
-        var tenantOwned = modelBuilder.Model.GetEntityTypes()
-            .Where(t => !t.IsOwned() && typeof(ITenantOwned).IsAssignableFrom(t.ClrType))
-            .Select(t => t.ClrType)
-            .ToList();
-        foreach (var clrType in tenantOwned)
+        var entityTypes = modelBuilder.Model.GetEntityTypes().Where(t => !t.IsOwned()).Select(t => t.ClrType).ToList();
+        foreach (var clrType in entityTypes.Where(typeof(ITenantOwned).IsAssignableFrom))
             ConfigureTenantOwnedMethod.MakeGenericMethod(clrType).Invoke(this, [modelBuilder]);
+        foreach (var clrType in entityTypes.Where(typeof(ITenantOrPlatformOwned).IsAssignableFrom))
+            ConfigureTenantOrPlatformOwnedMethod.MakeGenericMethod(clrType).Invoke(this, [modelBuilder]);
 
         base.OnModelCreating(modelBuilder);
     }
@@ -80,6 +97,20 @@ public class AppDbContext : DbContext, IUnitOfWork
         entity.HasOne<Tenant>().WithMany().HasForeignKey(nameof(ITenantOwned.TenantId)).OnDelete(DeleteBehavior.Restrict);
 
         entity.HasQueryFilter(TenantFilter, e => EF.Property<int>(e, nameof(ITenantOwned.TenantId)) == CurrentTenantId);
+    }
+
+    private void ConfigureTenantOrPlatformOwned<T>(ModelBuilder modelBuilder) where T : class, ITenantOrPlatformOwned
+    {
+        var entity = modelBuilder.Entity<T>();
+        entity.Property<int?>(nameof(ITenantOrPlatformOwned.TenantId)).ValueGeneratedNever();
+        entity.HasOne<Tenant>().WithMany()
+              .HasForeignKey(nameof(ITenantOrPlatformOwned.TenantId))
+              .IsRequired(false)
+              .OnDelete(DeleteBehavior.Restrict);
+
+        // المقارنة بمعامل قد يكون null تُترجم بدلالات C# (IS NULL في نطاق المنصّة).
+        entity.HasQueryFilter(TenantFilter,
+            e => EF.Property<int?>(e, nameof(ITenantOrPlatformOwned.TenantId)) == CurrentScopeTenantId);
     }
 
     // ترجمة استثناءات EF/SQL Server إلى أنواع Application — لا نوع تقني يعبر حدود هذه
@@ -106,5 +137,17 @@ public class AppDbContext : DbContext, IUnitOfWork
             // 547 = قيد مفتاح أجنبي: مرجع مفقود/لمتجر آخر، أو حذف سجلّ ما زال مُشاراً إليه.
             throw new ReferenceConstraintViolationException(ex);
         }
+    }
+
+    // معاملة صريحة لعدّة حفظات متتابعة (ADR-0021). داخل معاملة قائمة ⇒ تنضمّ إليها.
+    public async Task<T> InTransactionAsync<T>(Func<Task<T>> work, CancellationToken ct = default)
+    {
+        if (Database.CurrentTransaction is not null)
+            return await work();
+
+        await using var transaction = await Database.BeginTransactionAsync(ct);
+        var result = await work();
+        await transaction.CommitAsync(ct);
+        return result;
     }
 }

@@ -10,7 +10,12 @@ public class JwtSettings
     public string Issuer { get; set; } = "";
     public string Audience { get; set; } = "";
     public string Key { get; set; } = "";
-    public int ExpiryMinutes { get; set; } = 120;
+
+    // توكن الوصول قصير العمر (ADR-0010): تسريبه يضرّ دقائق، والجلسة الطويلة في رمز التجديد.
+    public int ExpiryMinutes { get; set; } = 15;
+
+    // عمر جلسة رمز التجديد (يُدوَّر مع كل تجديد، ويسقط بتسجيل الخروج أو تغيير كلمة المرور).
+    public int RefreshTokenDays { get; set; } = 30;
 }
 
 // ============================================================================
@@ -33,8 +38,10 @@ public sealed class JwtSettingsValidator : IValidateOptions<JwtSettings>
             failures.Add("Jwt:Issuer مطلوب.");
         if (string.IsNullOrWhiteSpace(settings.Audience))
             failures.Add("Jwt:Audience مطلوب.");
-        if (settings.ExpiryMinutes is < 5 or > 1440)
-            failures.Add("Jwt:ExpiryMinutes يجب أن يكون بين 5 و1440 دقيقة.");
+        if (settings.ExpiryMinutes is < 5 or > 60)
+            failures.Add("Jwt:ExpiryMinutes (عمر توكن الوصول) يجب أن يكون بين 5 و60 دقيقة.");
+        if (settings.RefreshTokenDays is < 1 or > 90)
+            failures.Add("Jwt:RefreshTokenDays يجب أن يكون بين 1 و90 يوماً.");
 
         return failures.Count == 0 ? ValidateOptionsResult.Success : ValidateOptionsResult.Fail(failures);
     }

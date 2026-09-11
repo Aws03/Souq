@@ -1,132 +1,221 @@
 # Souq: Authentication and Authorization
 
-> **Status:** Target adopted 2026-09-11 ([ADR-0010](adr/0010-authentication-authorization.md)). Implementation: **Phase 3** (identity split, tokens, permissions). The 1A hardening is marked ✅.
+> **Status:** Implemented in **Phase 3**. The decision is [ADR-0010](adr/0010-authentication-authorization.md); the mechanisms are [ADR-0023](adr/0023-sessions-and-credentials.md). Reset-token hashing dates from 1A, and the permission mechanism from 1B ([ADR-0019](adr/0019-authorization-foundation.md)).
 
-## 1. Current state (after Phase 1A)
-
-- **Identity model:**
-  - One `Customer` entity holds credentials, a `Role` string (`Customer`/`Admin`), and the commerce profile.
-  - Register creates a Customer. Admins exist only through seeding (see [Security.md §11](Security.md#11-phase-0-findings-disposition), B1).
-- **Passwords:** BCrypt; a minimum length of 8 on register and reset.
-- **Access token:**
-  - An HS256 JWT with claims `nameidentifier`, `email`, `name`, `role`.
-  - Valid for 120 minutes. The client stores it in `localStorage`.
-  - No refresh or revocation.
-- **Password reset:** ✅ a 32-byte CSPRNG token, only its SHA-256 hash stored, 2-hour lifetime, single-use, never logged.
-- **Authorization (1B ✅, [ADR-0019](adr/0019-authorization-foundation.md)):**
-  - `ICurrentUser` (Application port, read from the token in `Souq.API.Security`) is how use cases learn who is calling. Commands carry no customer id.
-  - Permissions are code constants (`catalog.manage`, `orders.manage`, `inventory.view`, `promotions.manage`). `RolePermissions` maps `Admin` → all and `Customer` → none.
-  - Endpoints declare `[HasPermission(...)]`, `[Authorize]` or `[AllowAnonymous]` explicitly.
-  - Ownership checks (`CanAccessOwnedBy`) live in the use cases: order details and payment confirmation. Someone else's order is 404.
-  - Payment confirmation has two entry points with different authorization: the owning customer (token) and the Stripe webhook (signature).
-- **Guard tests:** ✅ `AuthorizationBoundaryTests` enumerates every endpoint: each declares a decision; the public surface equals a reviewed list; every declared permission exists; permission-protected endpoints answer anonymous → 401 and customer → 403. An architecture test forbids controllers from reading claims.
-
-## 2. Target identity model
+## 1. Identity model
 
 ```mermaid
 classDiagram
     class User {
         int Id
-        int? TenantId  "NULL = platform user"
+        int? TenantId  "NULL = platform account"
         string Email
         string NormalizedEmail
         string PasswordHash
-        UserStatus Status
-        DateTime? EmailConfirmedAt
-        int AccessFailedCount
-        DateTime? LockoutEndUtc
-        string SecurityStamp
-    }
-    class RoleAssignment {
-        int UserId
         string Role
+        UserStatus Status  "Active or Disabled"
+        string SecurityStamp
+        int FailedLoginCount
+        DateTime? LockoutEndsAt
+        DateTime? EmailConfirmedAt
+        string? PasswordResetTokenHash
+        string? EmailVerificationTokenHash
     }
     class RefreshToken {
-        string TokenHash
+        string TokenHash  "SHA-256"
         Guid FamilyId
         DateTime ExpiresAt
+        DateTime? UsedAt
         DateTime? RevokedAt
-        string? ReplacedByHash
+        string? RevokedReason
     }
     class Customer {
         int Id
         int TenantId
         int UserId
-        string Phone
-        CustomerStatus Status
+        string FullName
+        string Email  "contact copy"
     }
-    User "1" --> "*" RoleAssignment
     User "1" --> "*" RefreshToken
     User "1" --> "0..1" Customer : commerce profile
 ```
 
-**Accounts are per tenant.** The same email can register at store A and store B as two independent accounts:
-- Each store owns its customer relationship.
-- A breach or ban in one store doesn't affect the other.
-- Tenant isolation remains trivial.
+- **Accounts are per store.** The same email can hold independent accounts at store A and store B; the unique key is `(TenantId, NormalizedEmail)`.
+  - Each store owns its customer relationship.
+  - A breach or ban in one store doesn't affect the other.
+- **Platform accounts** have `TenantId NULL`, with a unique `NormalizedEmail` among platform accounts.
+  - They exist only on platform hosts.
+  - The tenant filter shows store accounts in a store scope and platform accounts in the platform scope. Signing in on the wrong host therefore finds no account.
+- **The customer profile** (`Customer`) is the commerce side: orders and reviews now, addresses and the basket later.
+  - Registration creates the account and the profile in one transaction.
+  - Staff accounts have no profile and cannot shop (`403 CustomerAccountRequired`).
+- **The `User` aggregate guards its own rules in the Domain:** lockout, stamp rotation, single-use tokens, and no role change across the platform/store line.
 
-Platform users (`TenantId NULL`) can sign in only on the platform host.
+## 2. Roles and permissions
 
-## 3. Roles and permissions
-
-| Role | Scope | Typical permissions |
+| Role | Scope | Permissions |
 |---|---|---|
-| **PlatformOwner** | Platform | Everything on the platform, including platform settings, plans, platform users, and owner-only actions (e.g. deleting a tenant) |
-| **PlatformAdmin** | Platform | Tenant provisioning and configuration, support views; not owner-only settings |
-| **TenantAdmin** | One tenant | All back-office permissions for that tenant, including staff and settings |
-| **TenantStaff** | One tenant | A configurable subset: `catalog.write`, `orders.manage`, `inventory.adjust`, `reviews.moderate` … |
-| **Customer** | One tenant | Their own account, orders, basket, wishlist, reviews |
+| **PlatformOwner** | Platform | Every platform permission: `platform.tenants.manage`, `platform.users.manage`, `platform.settings.manage`, `platform.reports.view`, `platform.audit.view` |
+| **PlatformAdmin** | Platform | `platform.tenants.manage`, `platform.reports.view`, `platform.audit.view` (not users or settings) |
+| **TenantAdmin** | One store | Every store permission |
+| **TenantStaff** | One store | `catalog.manage`, `inventory.view`, `inventory.manage`, `orders.view`, `orders.manage`, `customers.view`, `reviews.moderate`, `store.reports.view` |
+| **Customer** | One store | None. Their own data is reached through ownership checks. |
 
-**Permissions:**
-- They are **constants in code** (`Permissions.Catalog.Write = "catalog.write"`), grouped by module.
-- Built-in roles map to permission sets in one static table. Custom per-tenant roles are deferred until a client needs them (YAGNI).
-- Endpoints declare `[HasPermission(Permissions.Orders.Manage)]`. A policy provider resolves the permission from the user's roles.
-- Hard-coded role checks scattered through controllers are the anti-pattern this replaces.
+**Store permissions:**
+- `catalog.manage`;
+- `inventory.view`, `inventory.manage`;
+- `orders.view`, `orders.manage`;
+- `customers.view`, `customers.manage`;
+- `promotions.manage`;
+- `reviews.moderate`;
+- `store.settings.manage`, `store.staff.manage`, `store.reports.view`, `store.payments.manage`, `store.shipping.manage`.
 
-**Resource-based rules live in Application, not controllers:**
-- A customer may see order X only if `order.CustomerId == currentUser.CustomerId`.
-- Tenant staff may act only inside the resolved tenant, which the tenant filter guarantees.
+Permissions for later phases exist already, so roles don't change shape when those endpoints arrive.
 
-## 4. Tokens (Phase 3)
+**How permissions are applied:**
+- Permissions are constants (`Permissions.Orders.Manage`). Roles map to them in one table (`RolePermissions`).
+- Store roles never receive platform permissions, and platform roles never receive store permissions. This is unit-tested.
+- Endpoints declare `[HasPermission(...)]`, `[Authorize]` or `[AllowAnonymous]` explicitly. A 1B guard test enforces this.
+- The token carries the role, not the permissions. The server resolves permissions on each request, so a change to the table applies at once.
+- `/api/auth/me` returns the permission list for the UI.
 
-| Token | Lifetime | Storage (browser) | Contents / properties |
+**Resource rules live in use cases:**
+- A customer sees only their own orders (`cid`).
+- Staff see the store's orders (`orders.view`).
+- Someone else's resource is a 404.
+
+Custom per-store roles are deferred until a client needs them.
+
+## 3. Tokens and sessions
+
+| Token | Lifetime | Browser storage | Properties |
 |---|---|---|---|
-| Access (JWT) | 15 min | JavaScript memory only | `sub`, `tid` (absent for platform), `roles`, `stamp`, `aud` = `platform` or `tenant` |
-| Refresh | 14 days sliding, 60 days absolute | `HttpOnly; Secure; SameSite=Strict` cookie scoped to `/api/auth` | Random 256-bit value; **stored hashed**; rotated on every use; reusing an already-rotated token revokes the whole family |
+| Access (HS256 JWT) | 15 min (`Jwt:ExpiryMinutes`, 5–60) | JavaScript memory only | `sub`, `role`, `email`, `name`, `sstamp`, `tid` (store accounts), `cid` (customer profile) |
+| Refresh | 30 days, sliding (`Jwt:RefreshTokenDays`, 1–90) | Cookie `souq_refresh`: `HttpOnly`, `Secure`, `SameSite=Strict`, `Path=/api/auth` | 256-bit random; only its SHA-256 hash is stored; rotated on every use; grouped in families for reuse detection |
 
-**Validation on every request:**
-- signature, issuer, audience, lifetime;
-- `tid` equals the tenant resolved from the host;
-- the user's security stamp matches, via a cached lookup, so a password change, role change, or disable takes effect within one access-token lifetime at most.
+**Validation on every authenticated request** (`AccessTokenValidation`):
+1. signature, issuer, audience, and lifetime, with a 30 s clock skew;
+2. **host binding:** on a store host, `tid` must equal the resolved store; on a platform host, there must be no `tid`;
+3. `sstamp` must equal the account's current security stamp. The stamp is cached for 30 s per instance, and the instance that changes it drops the cached value at once.
 
-**Logout** revokes the current refresh token family. **"Log out everywhere"** rotates the security stamp.
+**Refresh** (`POST /api/auth/refresh`, cookie only):
+- **Active token:** it is marked used, and a new token in the same family plus a new access token are issued.
+- **Token used in the last 10 s:** another token in the family is issued. This covers two tabs refreshing at once.
+- **Token used earlier: reuse detected.**
+  - The family is revoked.
+  - The stamp rotates, so every access token dies.
+  - A warning is logged.
+  - The answer is `401 RefreshTokenReused`.
+- **Expired, revoked or unknown token, or a disabled account:** `401 InvalidRefreshToken`.
 
-## 5. Account security
+**Revocation:**
 
-- **Lockout:** 5 failed attempts → 15 minutes, per account. Rate limiting per IP and tenant on auth endpoints.
-- **Email verification:** required before placing an order (a tenant setting, default on).
-- **Password policy:** length ≥ 10 for staff and platform accounts, ≥ 8 for customers, plus a check against a small list of common passwords. There are no composition rules; length beats complexity.
-- **Password reset:** the 1A design, plus revocation of all sessions on success.
-- **Platform owner bootstrap:** the first platform owner is created from secrets at first start. No default credentials exist in any environment except local Development.
+| Event | Effect |
+|---|---|
+| Logout | The cookie's family is revoked, and the cookie is deleted |
+| Change password | The stamp rotates, all refresh tokens are revoked, and the caller receives a fresh session |
+| Reset password | The stamp rotates, all refresh tokens are revoked, and the lockout is cleared |
+| Reuse detected | The family is revoked, and the stamp rotates |
+| Account disabled | Refresh is refused, and the stamp rotates, so access tokens fail within the cache window |
 
-## 6. Why custom (evolved) instead of ASP.NET Core Identity or an external IdP
+## 4. Account security
+
+- **Lockout:** 5 consecutive failures lock the account for 15 minutes (`401 AccountLocked`). A successful login resets the counter.
+- **Timing:** an unknown email still runs a BCrypt comparison against a decoy hash, so response time doesn't reveal which emails exist. Forgot-password always answers 200.
+- **Rate limits:** fixed window per `host|IP`, configured under `RateLimiting:*`.
+  - 10/min: register, login, change password, forgot password, reset password, verify email, resend verification.
+  - 30/min: refresh.
+  - 30/min: coupon preview.
+  - Exceeding a limit returns `429 TooManyRequests` with `Retry-After`.
+- **Passwords:**
+  - BCrypt.
+  - 8–128 characters, with at least one letter and one digit.
+  - Accounts created from configuration outside Development need at least 12 characters.
+- **Password reset:**
+  - A 32-byte CSPRNG token. Only its hash is stored.
+  - Valid for 2 hours, single use, never logged.
+  - Success rotates the stamp and revokes every session.
+- **Email verification:**
+  - Registration sends a 48-hour, single-use, hashed token.
+  - `POST /api/auth/resend-verification` issues a new one.
+  - The result is recorded (`EmailConfirmedAt`, and `emailConfirmed` in `/me`) but **not yet required** for checkout. That requirement is a store setting (Phase 4), enforced at checkout (Phase 9).
+- **Email links point at the host the request came from.** Store B's customer returns to store B. This is safe because unknown hosts are rejected before any use case runs.
+- **Bootstrap:**
+  - `Seed:PlatformOwnerEmail`/`Seed:PlatformOwnerPassword` create the first platform owner.
+  - `Seed:AdminEmail`/`Seed:AdminPassword` create the default store's admin.
+  - Only Development falls back to documented credentials: `owner@souq.com` / `Owner@12345` and `admin@souq.com` / `Admin@123`.
+  - An existing account is never overwritten.
+
+## 5. Endpoints
+
+| Endpoint | Authentication | Notes |
+|---|---|---|
+| `POST /api/auth/register` | Public, rate-limited | Store hosts only. Creates the account and customer profile, sends the verification email, and starts a session |
+| `POST /api/auth/login` | Public, rate-limited | Starts a session. The body carries the access token and the user; the cookie carries the refresh token |
+| `POST /api/auth/refresh` | Refresh cookie | Rotates the token; the body is the same as login |
+| `POST /api/auth/logout` | Refresh cookie | 204; revokes the family |
+| `GET /api/auth/me` | Access token | The current user, with permissions and area (`Store` or `Platform`) |
+| `POST /api/auth/change-password` | Access token, rate-limited | Revokes the other sessions and returns a fresh one |
+| `POST /api/auth/forgot-password` | Public, rate-limited | Always 200 |
+| `POST /api/auth/reset-password` | Public, rate-limited | Single-use token |
+| `POST /api/auth/verify-email` | Public, rate-limited | 204 |
+| `POST /api/auth/resend-verification` | Access token, rate-limited | 204 |
+
+Auth endpoints work on store and platform hosts, and while a store is still provisioning.
+
+## 6. Frontend
+
+- **`api/client.js`** keeps the access token in module memory, never in `localStorage`.
+  - On a 401 for a request that carried a token, it refreshes once and retries once. Concurrent requests share one refresh.
+  - A rejected refresh emits `session-expired`.
+- **`AuthProvider`:**
+  - It restores the session with a silent refresh on load, and reports `loading` until the server answers.
+  - It exposes `can(permission)` and `canManageStore`.
+  - It never stores the user.
+- **Route guards and navigation** use the server's permissions.
+  - The store dashboard opens to any store account that has a permission.
+  - Staff don't see links they can't use.
+
+## 7. Why custom (evolved) instead of ASP.NET Core Identity or an external IdP
 
 Full reasoning is in [ADR-0010](adr/0010-authentication-authorization.md). In short:
 - The existing implementation works and is tested.
 - A Domain-owned `User` keeps Clean Architecture intact.
 - Tenant-scoped uniqueness is natural.
-- The missing hardening is a known, bounded list.
+- The missing hardening was a known, bounded list, now delivered.
 
-An external IdP stays possible later without touching business code, because the **claims contract** (`sub`, `tid`, `roles`) is the only thing the rest of the system depends on.
+An external IdP stays possible later without touching business code, because the **claims contract** (`sub`, `tid`, `cid`, role) is the only thing the rest of the system depends on.
 
-## 7. Platform Owner vs Tenant Admin: the separation
+## 8. Platform Owner vs Tenant Admin: the separation
 
 | Aspect | Platform Owner/Admin | Tenant Admin |
 |---|---|---|
-| Signs in on | Platform host only | Their tenant's host only |
-| Token audience | `platform` | `tenant` + `tid` |
-| API area | `/api/platform/*` | `/api/admin/*` |
-| Sees | All tenants (through audited platform use cases) | Their tenant only (query filters) |
-| Configures a tenant's identity, domain, plan, modules | ✅ | ❌ |
-| Edits their store's content, catalog, orders | Only through explicit, audited "support mode" (Phase 18) | ✅ |
+| Account | `TenantId NULL` | `TenantId` = their store |
+| Signs in on | Platform host only | Their store's host only |
+| Token | No `tid`; rejected on store hosts | `tid` = their store; rejected on other hosts |
+| API area | `/api/platform/*` (Phase 4) | `/api/admin/*` and store endpoints |
+| Sees | All stores, through audited platform use cases | Their store only (query filters) |
+| Configures a store's identity, domain, plan, modules | ✅ | ❌ |
+| Edits their store's content, catalog, orders | Only through an explicit, audited "support mode" (Phase 18) | ✅ |
 | Edits store name, contact, SEO, theme colours | ✅ at provisioning time | ✅ a limited subset after handover ([WhiteLabel.md](WhiteLabel.md)) |
+
+## 9. Tests
+
+- **Domain:** `UserTests` and `RefreshTokenTests` cover lockout, tokens, stamps and rotation state.
+- **Application:** `AuthHandlersTests` covers the handlers, and `RolePermissionsTests` the store/platform split.
+- **Integration (real HTTP, real SQL Server):**
+  - `AuthSessionTests`:
+    - cookie flags;
+    - rotation and reuse;
+    - logout;
+    - a password change ends the other devices' sessions;
+    - lockout;
+    - the platform owner can sign in only on the platform host;
+    - registration on the platform host is a 403;
+    - email verification;
+    - email links point at the store host;
+    - 429 with `Retry-After`.
+  - `AuthorizationMatrixTests`: role × endpoint, and staff can't shop.
+  - `TenantIsolationTests`: store A's token on B's host is a 401.
+  - `AuthorizationBoundaryTests`: every endpoint declares its decision.
+  - `MigrationRehearsalTests`: legacy accounts keep their id, role, and password.

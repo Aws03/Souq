@@ -38,11 +38,13 @@ public class ConfigurationTests
     }
 
     [Theory]
-    [InlineData("", "Souq", "SouqClient", 120, "Jwt:Key")]
-    [InlineData("too-short-key", "Souq", "SouqClient", 120, "Jwt:Key")]
-    [InlineData(ValidKey, "", "SouqClient", 120, "Jwt:Issuer")]
-    [InlineData(ValidKey, "Souq", "", 120, "Jwt:Audience")]
+    [InlineData("", "Souq", "SouqClient", 15, "Jwt:Key")]
+    [InlineData("too-short-key", "Souq", "SouqClient", 15, "Jwt:Key")]
+    [InlineData(ValidKey, "", "SouqClient", 15, "Jwt:Issuer")]
+    [InlineData(ValidKey, "Souq", "", 15, "Jwt:Audience")]
     [InlineData(ValidKey, "Souq", "SouqClient", 0, "Jwt:ExpiryMinutes")]
+    // ADR-0010: توكن الوصول قصير العمر — الجلسة الطويلة في رمز التجديد القابل للإبطال لا في JWT.
+    [InlineData(ValidKey, "Souq", "SouqClient", 120, "Jwt:ExpiryMinutes")]
     public void إعدادات_JWT_الناقصة_أو_الضعيفة_تُرفض_باسم_المفتاح(string key, string issuer, string audience, int expiry, string mentions)
     {
         var result = new JwtSettingsValidator().Validate(null,
@@ -57,7 +59,7 @@ public class ConfigurationTests
     public void إعدادات_JWT_السليمة_مقبولة()
     {
         new JwtSettingsValidator().Validate(null,
-                new JwtSettings { Key = ValidKey, Issuer = "Souq", Audience = "SouqClient", ExpiryMinutes = 120 })
+                new JwtSettings { Key = ValidKey, Issuer = "Souq", Audience = "SouqClient", ExpiryMinutes = 15 })
             .Succeeded.Should().BeTrue();
     }
 

@@ -10,4 +10,8 @@ namespace Souq.Domain.Interfaces;
 public interface IUnitOfWork
 {
     Task<int> SaveChangesAsync(CancellationToken ct = default);
+
+    // عدّة حفظات يحتاج بعضها معرّف بعض (حساب ⇒ ملف عميله ⇒ جلسته) كوحدة واحدة: تنجح كلها أو لا
+    // شيء. لا استدعاء شبكة داخلها أبداً (ADR-0021) — البريد والدفع بعد الالتزام.
+    Task<T> InTransactionAsync<T>(Func<Task<T>> work, CancellationToken ct = default);
 }

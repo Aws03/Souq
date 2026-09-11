@@ -16,8 +16,9 @@ public sealed class TenantContextMissingException : Exception
 // محاولة إضافة/تعديل/حذف صف يخصّ متجراً غير متجر السياق — رفضها حارس الكتابة قبل الحفظ.
 public sealed class CrossTenantWriteException : Exception
 {
-    public CrossTenantWriteException(string entityType, int entityTenantId, int? contextTenantId)
-        : base($"رُفضت كتابة {entityType} للمتجر {entityTenantId} من سياق المتجر {contextTenantId?.ToString() ?? "—"}.")
+    public CrossTenantWriteException(string entityType, int? entityTenantId, int? contextTenantId)
+        : base($"رُفضت كتابة {entityType} للمتجر {entityTenantId?.ToString() ?? "المنصّة"} " +
+               $"من سياق {contextTenantId?.ToString() ?? "المنصّة"}.")
     {
         EntityType = entityType;
         EntityTenantId = entityTenantId;
@@ -25,6 +26,6 @@ public sealed class CrossTenantWriteException : Exception
     }
 
     public string EntityType { get; }
-    public int EntityTenantId { get; }
+    public int? EntityTenantId { get; }
     public int? ContextTenantId { get; }
 }

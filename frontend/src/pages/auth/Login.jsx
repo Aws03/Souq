@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth, canManageStore } from '../../context/AuthContext';
 import FormField, { inputClass } from '../../components/common/FormField';
 import PasswordInput from '../../components/common/PasswordInput';
 import Button from '../../components/common/Button';
@@ -37,7 +37,7 @@ export default function Login() {
     setBusy(true); setServerError(null);
     try {
       const user = await login(email.trim(), password);
-      navigate(user?.role === 'Admin' ? '/admin' : (from && from !== '/login' ? from : '/'), { replace: true });
+      navigate(canManageStore(user) ? '/admin' : (from && from !== '/login' ? from : '/'), { replace: true });
     } catch (err) {
       setServerError(err.message || t('auth.loginFailed'));
     } finally { setBusy(false); }
