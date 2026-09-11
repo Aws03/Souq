@@ -15,25 +15,11 @@ public class ModuleAndContractRuleTests
     private static readonly Assembly Application = typeof(Souq.Application.DependencyInjection).Assembly;
     private static readonly Assembly Infrastructure = typeof(Souq.Infrastructure.DependencyInjection).Assembly;
 
-    private const string Features = "Souq.Application.Features";
+    private const string Features = ModuleMap.Features;
 
-    // مجلّدات Features الحالية ⇒ وحدات Modules.md (ADR-0002: الوحدات نطاقات أسماء، لا مشاريع).
-    private static readonly IReadOnlyDictionary<string, string[]> ModuleFolders = new Dictionary<string, string[]>
-    {
-        ["Catalog"] = ["Products", "Categories"],
-        ["Inventory"] = ["Inventory"],
-        ["Ordering"] = ["Orders"],
-        ["Payments"] = ["Payments"],
-        ["Promotions"] = ["Coupons"],
-        ["Reviews"] = ["Reviews"],
-        ["Identity"] = ["Auth", "Staff"],
-        ["Customers"] = ["Customers"],
-        ["Shopping"] = ["Baskets", "Wishlist"],
-        ["Shipping"] = ["Shipping"],
-        ["Notifications"] = ["Notifications"],
-        ["Platform"] = ["Platform", "Stores"],
-        ["Reporting"] = ["Reporting"],
-    };
+    // مجلّدات Features ⇒ وحدات docs/04-MODULES (ADR-0002: الوحدات نطاقات أسماء، لا مشاريع). الخريطة في ModuleMap:
+    // مصدر واحد تشاركه قواعد الحدود هنا والجرود المولَّدة في GeneratedDocsTests.
+    private static readonly IReadOnlyDictionary<string, string[]> ModuleFolders = ModuleMap.FeatureFolders;
 
     [Fact]
     public void كل_مجلّد_ميزات_ينتمي_لوحدة_معرّفة()
