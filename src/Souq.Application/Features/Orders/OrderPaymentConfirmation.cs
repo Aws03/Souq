@@ -1,10 +1,12 @@
 using Souq.Application.Common.Exceptions;
 using Souq.Application.Common.Interfaces;
 using Souq.Application.Common.Models;
+using Souq.Application.Features.Baskets.Contracts;
 using Souq.Application.Features.Inventory.Contracts;
 using Souq.Domain.Entities;
 using Souq.Domain.Enums;
 using Souq.Domain.Interfaces;
+using Souq.Domain.ValueObjects;
 
 namespace Souq.Application.Features.Orders;
 
@@ -14,11 +16,13 @@ public record OrderConfirmedDto(int OrderId, string Status, decimal TotalAmount,
 // OrderPaymentConfirmation — منطق تأكيد الدفع الواحد لثلاثة مداخل بتفويض مختلف:
 //   العميل (ConfirmOrderPaymentCommand): مُصادَق بالتوكن + يجب أن يملك الطلب.
 //   البوّابة (ProcessPaymentWebhookCommand): مُصادَقة بالتوقيع، لا مستخدم خلفها.
-//   منسّق انتهاء المهلة (ExpireStaleCheckouts): البوّابة قالت إن الدفع نجح قبل الإلغاء.
-// المستدعي يحمّل الطلب ويقرّر الوصول؛ هذا الصنف لا يعرف من المستدعي (B7).
+//   منسّق انتهاء المهلة وإلغاء العميل: البوّابة قالت إن الدفع نجح قبل الإلغاء.
+// المستدعي يحمّل الطلب ويقرّر الوصول؛ هذا الصنف لا يعرف من المستدعي (B7). الدفع في كل المداخل حكمُ البوّابة، فيُسجَّل
+// باسمها (المرحلة 9).
 //
 // يحقّق من الحالة لدى البوّابة نفسها، مضمون التكرار، ويحسم سباق العميل/الـ Webhook عبر rowversion (ADR-0013).
 // المخزون (المرحلة 6): نجاح الدفع يُلتزم الحجز (هنا وحده يُسجَّل البيع)، والفشل يحرّره — كلاهما في معاملة الطلب.
+// السلة (المرحلة 9): ما دُفع ثمنه يُستهلك من سلة العميل في المعاملة نفسها.
 // ============================================================================
 public sealed class OrderPaymentConfirmation
 {
@@ -28,16 +32,17 @@ public sealed class OrderPaymentConfirmation
     private readonly IInventoryReservations _reservations;
     private readonly ICustomerRepository _customers;
     private readonly ICouponRepository _coupons;
+    private readonly IBasketCheckout _baskets;
     private readonly IPaymentService _payment;
     private readonly IEmailService _email;
     private readonly IUnitOfWork _uow;
 
     public OrderPaymentConfirmation(
         IOrderRepository orders, IInventoryReservations reservations, ICustomerRepository customers,
-        ICouponRepository coupons, IPaymentService payment, IEmailService email, IUnitOfWork uow)
+        ICouponRepository coupons, IBasketCheckout baskets, IPaymentService payment, IEmailService email, IUnitOfWork uow)
     {
         _orders = orders; _reservations = reservations; _customers = customers;
-        _coupons = coupons; _payment = payment; _email = email; _uow = uow;
+        _coupons = coupons; _baskets = baskets; _payment = payment; _email = email; _uow = uow;
     }
 
     public async Task<Result<OrderConfirmedDto>> ConfirmAsync(Order order, CancellationToken ct)
@@ -56,11 +61,11 @@ public sealed class OrderPaymentConfirmation
         if (!confirmation.Succeeded)
         {
             var reason = confirmation.FailureReason ?? PaymentFailedNote;
-            await CancelAsync(order, reason, expired: false, ct);
+            await CancelAsync(order, reason, expired: false, OrderActor.PaymentGateway, ct);
             return Result<OrderConfirmedDto>.Failure(Error.BusinessRule("PaymentFailed", reason));
         }
 
-        order.MarkAsPaid();
+        order.MarkAsPaid(by: OrderActor.PaymentGateway);
 
         // استهلاك الكوبون يُحتسب فقط عند نجاح الدفع فعلياً — لا عند مجرّد تطبيقه
         // على طلب قد يفشل دفعه أو يُهجَر.
@@ -69,6 +74,8 @@ public sealed class OrderPaymentConfirmation
             var coupon = await _coupons.GetByCodeAsync(order.CouponCode, ct);
             coupon?.IncrementUsage();
         }
+
+        await _baskets.ConsumeAsync(order.CustomerId, order.Items.Select(i => new PricingLine(i.ProductId, i.Quantity)).ToList(), ct);
 
         try
         {
@@ -97,10 +104,10 @@ public sealed class OrderPaymentConfirmation
         return Result<OrderConfirmedDto>.Success(ToDto(order, order.Status));
     }
 
-    // إلغاء طلب لم يُشحن مع حجوزاته في معاملة واحدة — مسار واحد لفشل الدفع، فشل بدء الدفع، وانتهاء المهلة.
-    public async Task CancelAsync(Order order, string reason, bool expired, CancellationToken ct)
+    // إلغاء طلب لم يُشحن مع حجوزاته في معاملة واحدة — مسار واحد لفشل الدفع، فشل بدء الدفع، انتهاء المهلة، وإلغاء العميل.
+    public async Task CancelAsync(Order order, string reason, bool expired, OrderActor by, CancellationToken ct)
     {
-        order.Cancel(reason);
+        order.Cancel(reason, by);
         await _uow.InTransactionAsync(async () =>
         {
             await _uow.SaveChangesAsync(ct);

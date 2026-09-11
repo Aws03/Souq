@@ -33,7 +33,7 @@ public class AuthorizationBoundaryTests
         "GET api/Categories",
         "GET api/Coupons/apply",
         "GET api/products/{productId:int}/reviews",
-        "GET api/Orders/{id:int}/tracking",
+        "GET api/Orders/track/{token}",
         "GET api/payments/config", "POST api/payments/webhook",
         "GET api/storefront/config",
         // السلة (المرحلة 8): للزائر برمز ملف تعريف ارتباط وللعميل بجلسته — لا بيانات غير سلة المتصل نفسه.

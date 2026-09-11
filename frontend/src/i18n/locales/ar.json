@@ -262,7 +262,20 @@
       "Shipped": "تم الشحن",
       "Delivered": "تم التسليم",
       "Cancelled": "ملغى"
-    }
+    },
+    "backToOrders": "طلباتي",
+    "placedOn": "أُنشئ في {{date}}",
+    "shippingAddress": "عنوان الشحن",
+    "billingAddress": "عنوان الفوترة",
+    "timelineTitle": "مسار الطلب",
+    "trackingLinkTitle": "رابط التتبّع",
+    "trackingLinkHint": "من يملك هذا الرابط يرى حالة الطلب وشحنته فقط — لا بياناتك.",
+    "copyLink": "نسخ الرابط",
+    "linkCopied": "تم نسخ رابط التتبّع",
+    "cancelOrder": "إلغاء الطلب",
+    "keepOrder": "الإبقاء على الطلب",
+    "cancelConfirm": "إلغاء هذا الطلب غير المدفوع؟ ستُحرَّر الأصناف المحجوزة له.",
+    "cancelledToast": "تم إلغاء الطلب"
   },
   "admin": {
     "headerTitle": "لوحة تحكّم المتجر",
@@ -520,7 +533,25 @@
       "trackingNumberHint": "يمكن إضافته لاحقاً إن لم يتوفّر الآن",
       "carrierLabel": "شركة الشحن (اختياري)",
       "carrierPlaceholder": "أرامكس، بريد أردن...",
-      "noteLabel": "ملاحظة (اختياري)"
+      "noteLabel": "ملاحظة (اختياري)",
+      "searchPlaceholder": "رقم الطلب أو اسم العميل أو بريده…",
+      "allStatuses": "كل الحالات",
+      "colNumber": "الطلب",
+      "view": "عرض التفاصيل",
+      "detailTitle": "الطلب #{{number}}",
+      "itemsTitle": "الأصناف",
+      "addressesTitle": "العناوين",
+      "shipping": "الشحن",
+      "billing": "الفوترة",
+      "historyTitle": "سجلّ الحالة",
+      "actor": {
+        "System": "النظام",
+        "Customer": "العميل",
+        "Staff": "موظّف",
+        "PaymentGateway": "بوّابة الدفع"
+      },
+      "cancelConfirm": "إلغاء هذا الطلب؟ يعود مخزونه المحجوز أو المباع. الطلب المدفوع يُسترد خارج المنصّة حتى تتوفّر الاستردادات.",
+      "confirmCancel": "تأكيد الإلغاء"
     },
     "customers": {
       "title": "العملاء",
@@ -659,7 +690,10 @@
       "CustomerBlocked": "حسابك موقوف عن الطلب والتقييم. تواصل مع المتجر.",
       "AddressNotFound": "العنوان المختار غير موجود في دفتر عناوينك.",
       "InvalidCustomerData": "بيانات الملف أو العنوان غير صالحة.",
-      "InvalidBasketOperation": "لا يمكن تنفيذ هذا التعديل على السلة (حدّ الكمية أو عدد الأصناف)."
+      "InvalidBasketOperation": "لا يمكن تنفيذ هذا التعديل على السلة (حدّ الكمية أو عدد الأصناف).",
+      "BasketEmpty": "سلتك فارغة.",
+      "OrderAlreadyPaid": "دُفع هذا الطلب قبل إلغائه. تواصل مع المتجر لإلغائه.",
+      "PaymentProcessing": "الدفع قيد المعالجة. حاول بعد قليل."
     }
   },
   "account": {

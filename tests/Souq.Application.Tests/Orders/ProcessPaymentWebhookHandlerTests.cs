@@ -27,6 +27,7 @@ public class ProcessPaymentWebhookHandlerTests
         _payment, _orders,
         new OrderPaymentConfirmation(_orders, _reservations,
             Substitute.For<ICustomerRepository>(), Substitute.For<ICouponRepository>(),
+            Substitute.For<Souq.Application.Features.Baskets.Contracts.IBasketCheckout>(),
             _payment, Substitute.For<IEmailService>(), _uow),
         NullLogger<ProcessPaymentWebhookHandler>.Instance);
 

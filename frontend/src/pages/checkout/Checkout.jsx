@@ -22,7 +22,7 @@ import styles from './Checkout.module.css';
 //     تأكيد لدى الخادم يتحقّق من النتيجة مع Stripe نفسها قبل إتمام الطلب.
 export default function Checkout() {
   const { t, i18n } = useTranslation();
-  const { basket, items, total, loaded, clear } = useCart();
+  const { basket, items, total, loaded, reload } = useCart();
   const { refreshProducts } = useOutletContext();
   const navigate = useNavigate();
 
@@ -82,8 +82,8 @@ export default function Checkout() {
     setBusy(true); setServerError(null);
     try {
       const created = await api.createOrder({
+        // بلا أسطر: الخادم يُنشئ الطلب من السلة نفسها ويسعّرها بالخطّ نفسه (المرحلة 9).
         ...shippingPayload(shippingChoice, address),
-        items: items.map((i) => ({ productId: i.id, quantity: i.qty })),
         couponCode: couponPreview?.code ?? null,
       });
       setOrder(created);
@@ -92,11 +92,12 @@ export default function Checkout() {
     finally { setBusy(false); }
   };
 
+  // الخادم استهلك المشترى من السلة عند تأكيد الدفع (المرحلة 9) — نعيد قراءتها بدل تفريغها محلياً.
   const onPaid = () => {
-    clear();
+    reload();
     navigate('/confirmation', {
       replace: true,
-      state: { order: { orderId: order.orderId, total: order.totalAmount, currency: order.currency } },
+      state: { order: { orderId: order.orderId, orderNumber: order.orderNumber, total: order.totalAmount, currency: order.currency } },
     });
   };
 

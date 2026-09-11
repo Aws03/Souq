@@ -99,6 +99,7 @@ public static class DependencyInjection
         services.AddScoped<IStockMovementRepository, StockMovementRepository>();
         services.AddScoped<IInventoryRepository, InventoryRepository>();
         services.AddScoped<IBasketRepository, BasketRepository>();
+        services.AddScoped<Application.Features.Orders.IOrderNumbers, OrderNumbers>();
         services.AddScoped<ITenantRepository, TenantRepository>();
 
         // خدمات القراءة (ADR-0008): إسقاطات بلا تتبّع خلف منافذ Application، لكل وحدة منفذها.

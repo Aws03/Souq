@@ -25,12 +25,14 @@ public class ConfirmOrderPaymentHandlerTests
     private readonly ICouponRepository _coupons = Substitute.For<ICouponRepository>();
     private readonly IPaymentService _payment = Substitute.For<IPaymentService>();
     private readonly IEmailService _email = Substitute.For<IEmailService>();
+    private readonly Souq.Application.Features.Baskets.Contracts.IBasketCheckout _baskets =
+        Substitute.For<Souq.Application.Features.Baskets.Contracts.IBasketCheckout>();
     private readonly IUnitOfWork _uow = TestUnitOfWork.Create();
 
     // الطلبات في هذه الاختبارات يملكها العميل 1 (انظر PendingOrderWithIntent).
     private ConfirmOrderPaymentHandler CreateHandler(ICurrentUser? user = null) => new(
         _orders,
-        new OrderPaymentConfirmation(_orders, _reservations, _customers, _coupons, _payment, _email, _uow),
+        new OrderPaymentConfirmation(_orders, _reservations, _customers, _coupons, _baskets, _payment, _email, _uow),
         user ?? TestCurrentUser.Customer(1));
 
     private static Order PendingOrderWithIntent(string paymentIntentId = "pi_123", int quantity = 2)

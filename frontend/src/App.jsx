@@ -19,6 +19,7 @@ import Wishlist from './pages/Wishlist';
 import MyOrders from './pages/MyOrders';
 import Account from './pages/account/Account';
 import OrderTracking from './pages/OrderTracking';
+import OrderDetail from './pages/OrderDetail';
 import Checkout from './pages/checkout/Checkout';
 import Confirmation from './pages/Confirmation';
 import Login from './pages/auth/Login';
@@ -105,9 +106,10 @@ export default function App() {
           <Route path="/wishlist" element={<Wishlist />} />
           <Route path="/orders" element={<ProtectedRoute><MyOrders /></ProtectedRoute>} />
           <Route path="/account" element={<ProtectedRoute><Account /></ProtectedRoute>} />
-          {/* بلا حارس عمداً: نفس رابط التتبّع العام القابل للمشاركة (الخادم لا
-              يتطلّب مصادقة لهذه النقطة) — يعمل لزائر لم يُسجّل الدخول أيضاً. */}
-          <Route path="/orders/:id" element={<OrderTracking />} />
+          <Route path="/orders/:id" element={<ProtectedRoute><OrderDetail /></ProtectedRoute>} />
+          {/* بلا حارس عمداً: رابط التتبّع العام بالرمز العشوائي (المرحلة 9، الخادم لا يتطلّب مصادقة لهذه النقطة) —
+              يعمل لزائر لم يُسجّل الدخول أيضاً، ولا يُخمَّن رابط طلب آخر. */}
+          <Route path="/track/:token" element={<OrderTracking />} />
           <Route path="/checkout" element={<ProtectedRoute><Checkout /></ProtectedRoute>} />
           <Route path="/confirmation" element={<ProtectedRoute><Confirmation /></ProtectedRoute>} />
         </Route>

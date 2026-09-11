@@ -9,12 +9,11 @@ import { ChevronIcon, CopyIcon, CheckIcon } from '../components/icons/Icons';
 import { formatDateTime } from '../i18n';
 import styles from './OrderTracking.module.css';
 
-// صفحة تتبّع الطلب: خط زمني عمودي لسجلّ تغييرات حالته + رقم التتبّع (مع نسخ)
-// إن توفّر. تعمل بلا تسجيل دخول (رابط قابل للمشاركة، النقطة خلفها بلا مصادقة) —
-// لذا لا فحص ملكية هنا؛ العقد نفسه (OrderTrackingDto) لا يكشف بيانات حسّاسة.
+// صفحة التتبّع العامة (/track/:token): خط زمني لحالة الطلب + رقم تتبّع الشحنة (مع نسخ). تعمل بلا تسجيل دخول — الرابط
+// بالرمز العشوائي لا بالمعرّف (المرحلة 9، B8)، والعقد لا يكشف هوية العميل ولا عنوانه ولا ملاحظات الإدارة.
 export default function OrderTracking() {
   const { t, i18n } = useTranslation();
-  const { id } = useParams();
+  const { token } = useParams();
   const navigate = useNavigate();
   const toast = useToast();
   const [tracking, setTracking] = useState(null);
@@ -25,8 +24,8 @@ export default function OrderTracking() {
 
   useEffect(() => {
     setTracking(null); setError(null);
-    api.getOrderTracking(id).then(setTracking).catch((e) => setError(e.message));
-  }, [id]);
+    api.trackOrder(token).then(setTracking).catch((e) => setError(e.message));
+  }, [token]);
 
   const copyTracking = async () => {
     try {
@@ -63,7 +62,7 @@ export default function OrderTracking() {
 
       <div className={styles.panel}>
         <div className={styles.header}>
-          <h1 className={styles.title}>{t('orders.orderNumber', { id: tracking.orderId })}</h1>
+          <h1 className={styles.title}>{t('orders.orderNumber', { id: tracking.orderNumber })}</h1>
           <span className={`${styles.statusBadge} ${styles[tracking.status.toLowerCase()]}`}>
             {t(`orders.status.${tracking.status}`, { defaultValue: tracking.status })}
           </span>
@@ -88,11 +87,8 @@ export default function OrderTracking() {
             <li key={i} className={`${styles.step} ${i === tracking.history.length - 1 ? styles.stepCurrent : ''}`}>
               <span className={styles.dot} />
               <div className={styles.stepBody}>
-                <span className={styles.stepStatus}>
-                  {t(`orders.status.${h.status}`, { defaultValue: h.status })}
-                </span>
+                <span className={styles.stepStatus}>{t(`orders.status.${h.status}`, { defaultValue: h.status })}</span>
                 <span className={styles.stepDate}>{formatDateTime(h.changedAt)}</span>
-                {h.note && <p className={styles.stepNote}>{h.note}</p>}
               </div>
             </li>
           ))}

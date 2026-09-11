@@ -22,7 +22,7 @@ export default function Confirmation() {
       <div className={styles.panel}>
         <div className={styles.icon}><SuccessIcon size={34} /></div>
         <h2 className={styles.title}>{t('confirmation.title')}</h2>
-        <p className={styles.orderNo}>{t('confirmation.orderNumber')} <b>#{order.orderId}</b></p>
+        <p className={styles.orderNo}>{t('confirmation.orderNumber')} <b>#{order.orderNumber ?? order.orderId}</b></p>
 
         <div className={styles.delivery}>
           <TruckIcon size={18} />

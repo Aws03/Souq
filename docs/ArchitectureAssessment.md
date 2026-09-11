@@ -1039,7 +1039,7 @@ Every finding closed in Phase 1A has at least one automated test; the column say
 - A1–A11: tenancy and white-label (Phases 2–15).
 - B4/B5: token lifetime, revocation, rate limiting (Phase 3).
 - B7: ownership checks in controllers (1B).
-- B8: tracking by sequential id (9).
+- B8: ✅ tracking by a random token, and the sequential-id route removed (Phase 9, [ADR-0029](adr/0029-orders-lifecycle.md)).
 - B9: security headers beyond `/uploads` (20).
 - B10: `sa` login (23).
 - C7: reactivating products (5).
@@ -1071,7 +1071,7 @@ Same conventions as §16. Phase 1B also found and fixed three problems the Phase
 
 **Still open,** with the owning phase:
 - A1–A8, A10, A11: tenancy and white-label (Phases 2–15).
-- B4/B5: token lifetime, revocation, rate limiting (3). B8: tracking by sequential id (9). B9: security headers beyond `/uploads` (20). B10: `sa` login (23).
+- B4/B5: token lifetime, revocation, rate limiting (3). B8: tracking by sequential id (✅ Phase 9). B9: security headers beyond `/uploads` (20). B10: `sa` login (23).
 - C6 residual: abandoned Pending orders expire in Phase 6/9. C7 (5). C12 (8/12).
 - D8: email sent inside the request → outbox (14). D9: token issuance tied to `Customer` (3).
 - E1–E6: frontend structure (15).

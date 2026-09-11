@@ -262,7 +262,20 @@
       "Shipped": "Shipped",
       "Delivered": "Delivered",
       "Cancelled": "Cancelled"
-    }
+    },
+    "backToOrders": "My orders",
+    "placedOn": "Placed on {{date}}",
+    "shippingAddress": "Shipping address",
+    "billingAddress": "Billing address",
+    "timelineTitle": "Order history",
+    "trackingLinkTitle": "Tracking link",
+    "trackingLinkHint": "Anyone with this link can see the order's status and shipment — not your details.",
+    "copyLink": "Copy link",
+    "linkCopied": "Tracking link copied",
+    "cancelOrder": "Cancel order",
+    "keepOrder": "Keep order",
+    "cancelConfirm": "Cancel this unpaid order? The items reserved for it will be released.",
+    "cancelledToast": "Order cancelled"
   },
   "admin": {
     "headerTitle": "Store control panel",
@@ -520,7 +533,25 @@
       "trackingNumberHint": "Can be added later if not available yet",
       "carrierLabel": "Shipping carrier (optional)",
       "carrierPlaceholder": "Aramex, Jordan Post...",
-      "noteLabel": "Note (optional)"
+      "noteLabel": "Note (optional)",
+      "searchPlaceholder": "Order number, customer name or email…",
+      "allStatuses": "All statuses",
+      "colNumber": "Order",
+      "view": "View details",
+      "detailTitle": "Order #{{number}}",
+      "itemsTitle": "Items",
+      "addressesTitle": "Addresses",
+      "shipping": "Shipping",
+      "billing": "Billing",
+      "historyTitle": "Status history",
+      "actor": {
+        "System": "System",
+        "Customer": "Customer",
+        "Staff": "Staff",
+        "PaymentGateway": "Payment gateway"
+      },
+      "cancelConfirm": "Cancel this order? Its reserved or sold stock returns to inventory. A paid order must be refunded outside the platform until refunds are available.",
+      "confirmCancel": "Confirm cancellation"
     },
     "customers": {
       "title": "Customers",
@@ -659,7 +690,10 @@
       "CustomerBlocked": "Your account is suspended from placing orders and writing reviews. Please contact the store.",
       "AddressNotFound": "The selected address isn't in your address book.",
       "InvalidCustomerData": "The profile or address details aren't valid.",
-      "InvalidBasketOperation": "This basket change isn't allowed (quantity limit or number of items)."
+      "InvalidBasketOperation": "This basket change isn't allowed (quantity limit or number of items).",
+      "BasketEmpty": "Your basket is empty.",
+      "OrderAlreadyPaid": "This order was paid before it could be cancelled. Contact the store to cancel it.",
+      "PaymentProcessing": "The payment is still processing. Try again in a moment."
     }
   },
   "account": {

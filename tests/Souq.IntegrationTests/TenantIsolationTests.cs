@@ -63,7 +63,9 @@ public class TenantIsolationTests
         new("GET", "api/Orders/{id:int}", Resource.Order, Actor.Admin),
         new("POST", "api/Orders/{id:int}/confirm-payment", Resource.Order, Actor.Admin),
         new("PUT", "api/Orders/{id:int}/status", Resource.Order, Actor.Admin, () => JsonBody(new { action = "Cancel" })),
-        new("GET", "api/Orders/{id:int}/tracking", Resource.Order, Actor.Anonymous),
+        // التتبّع العام بالرمز (المرحلة 9): رمز طلب A الحقيقي على مضيف B غير موجود. إلغاء العميل: عميل B لا يلغي طلب A.
+        new("GET", "api/Orders/track/{token}", Resource.Order, Actor.Anonymous),
+        new("POST", "api/Orders/{id:int}/cancel", Resource.Order, Actor.Customer),
         new("POST", "api/admin/inventory/{productId:int}/adjustments", Resource.Product, Actor.Admin,
             () => JsonBody(new { delta = 50, reason = "محاولة من متجر آخر" })),
         new("PUT", "api/admin/inventory/{productId:int}/threshold", Resource.Product, Actor.Admin,
@@ -411,7 +413,7 @@ public class TenantIsolationTests
     // ── الإعداد: موارد حقيقية في A عبر الـ API، ومتجر B فعلي بمديره وعميله على مضيفه ──
     private sealed record Arranged(
         TestApi StoreA, TestApi StoreB, TestStore B, HttpClient AdminA, HttpClient AdminB, HttpClient CustomerB,
-        IReadOnlyDictionary<Resource, int> AIds, string ACouponCode, string AProductSlug);
+        IReadOnlyDictionary<Resource, int> AIds, string ACouponCode, string AProductSlug, string AOrderToken);
 
     private async Task<Arranged> ArrangeAsync()
     {
@@ -438,6 +440,7 @@ public class TenantIsolationTests
         var placed = await storeA.PlaceOrderAsync(customerA, productId, 1);
         placed.StatusCode.Should().Be(HttpStatusCode.Created, await placed.Content.ReadAsStringAsync());
         var orderId = (await placed.Content.ReadFromJsonAsync<TestApi.OrderCreatedBody>(TestApi.Json))!.OrderId;
+        var orderToken = await storeA.WithDbAsync(db => db.Orders.Where(o => o.Id == orderId).Select(o => o.TrackingToken).SingleAsync());
         var staffEmail = await _factory.CreateStoreUserAsync(await _factory.DefaultTenantAsync(), Roles.TenantStaff);
         var staffId = await storeA.WithDbAsync(db => db.Users.Where(u => u.Email == staffEmail).Select(u => u.Id).SingleAsync());
 
@@ -450,7 +453,7 @@ public class TenantIsolationTests
                 [Resource.Coupon] = couponId, [Resource.Order] = orderId, [Resource.StaffAccount] = staffId,
                 [Resource.Customer] = customerId, [Resource.CustomerAddress] = addressId,
             },
-            couponCode, productSlug);
+            couponCode, productSlug, orderToken);
     }
 
     // كل معامل مسار بمعرّف A الحقيقي: الصورة بصورة منتج A، والمعرّف النصّي بمعرّف منتج A، والباقي بمورد الحالة.
@@ -459,6 +462,7 @@ public class TenantIsolationTests
         {
             "imageId" => s.AIds[Resource.ProductImage].ToString(),
             "slug" => s.AProductSlug,
+            "token" => s.AOrderToken,
             _ => s.AIds[c.Resource].ToString(),
         });
 

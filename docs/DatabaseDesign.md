@@ -68,7 +68,7 @@ Module schemas (`catalog.Products`) were considered and **postponed**. The owner
 | StockMovement | Inventory | Tenant | ✓ | — | `(ProductId, CreatedAt)`, `(InventoryItemId, CreatedAt)` | **Never** (ledger; Σ = on hand) | Created (+ user later) | — |
 | Basket / BasketLine (Phase 8) | Shopping | Customer or guest token | ✓ | `(TenantId, CustomerId)` and `(TenantId, GuestTokenHash)`, both filtered; `(BasketId, VariantId)` | `(TenantId, ExpiresAt)` | Hard (sliding expiry; erasure) | Created/Updated | last-write-wins (no `rowversion`) + checks: exactly one owner, quantity 1–99 |
 | WishlistItem | Shopping | User | ✓ | `(TenantId, CustomerId, ProductId)` | — | Hard | Created | — |
-| Order | Ordering | User (in tenant) | ✓ | `(TenantId, OrderNumber)`; `PublicTrackingToken` | `(TenantId, CreatedAt DESC)`, `(TenantId, CustomerId)`, `(TenantId, Status)` | **Never** (financial record; cancelled ≠ deleted) | Created/Updated + status history | **`rowversion`** |
+| Order | Ordering | User (in tenant) | ✓ | `(TenantId, OrderNumber)` and `(TenantId, TrackingToken)` (Phase 9) | `(TenantId, CreatedAt)`, `(TenantId, CustomerId)`, `(TenantId, Status, CreatedAt)` | **Never** (financial record; cancelled ≠ deleted) | Created/Updated, `PlacedAt`, status history with actor | **`rowversion`** |
 | OrderItem | Ordering | User | ✓ | — | `(OrderId)` | Cascade with order (never deleted in practice) | Created | via Order |
 | OrderStatusHistory | Ordering | User | ✓ | — | `(OrderId)` | **Never** | Created (+ actor) | — |
 | Payment / Refund | Payments | Tenant | ✓ | `ProviderPaymentId` | `(TenantId, OrderId)` | **Never** | Created/Updated | `rowversion` |
@@ -225,6 +225,16 @@ Deferred to later phases, with the phase noted: `TenantId` (2), `Users` split (3
 | `Baskets` | New: `CustomerId` (nullable, composite FK to the customer within the store), `GuestTokenHash` (`char(64)`, the SHA-256 of the guest cookie; the token itself is never stored), `ExpiresAt`. Check `CK_Baskets_Owner`: exactly one of the two owners. Filtered unique indexes: one basket per customer and one per guest token in a store. `(TenantId, ExpiresAt)` for the sweep |
 | `BasketLines` | New: `ProductId` and `VariantId` (composite FKs within the store, Restrict, since products are archived, not deleted), `Quantity` (check 1–99). Unique `(BasketId, VariantId)`; cascade from the basket. No price column: prices are read live at every quote |
 | Data | None: the cart was client-side before this phase |
+
+**Phase 9 (`Phase9Orders`, additive with a data backfill, rehearsed by `MigrationRehearsalTests`, [ADR-0029](adr/0029-orders-lifecycle.md)):**
+
+| Change | Detail |
+|---|---|
+| `Orders` | New: `OrderNumber` (unique per store), `TrackingToken` (`char(32)`, unique per store), `BillingAddress`, `PlacedAt`, `PlacedSubtotal`, `PlacedTotal`. Index `(TenantId, Status, CreatedAt)` for the admin filter |
+| `OrderStatusHistories` | New: `ChangedBy` (actor kind; existing rows default to System) and `ChangedByUserId` |
+| `OrderNumberSequences` | New: one row per store holding the last issued number, incremented atomically inside the checkout transaction |
+| Backfill (runs before the unique indexes) | Numbers from 1001 per store, in creation order. A random token per order (`NEWID`). Billing = shipping. Placement at creation time, with totals from the lines and discount. Each store's counter at its highest number. The temporary column defaults are dropped afterwards. Nothing is deleted or rewritten |
+| `Down()` | Drops the columns and the table, so numbers and tokens are lost. Development only |
 
 ## 10. Migration workflow
 

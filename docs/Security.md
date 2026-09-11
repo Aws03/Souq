@@ -84,6 +84,13 @@
     - **No ids on the wire:** requests carry no basket id at all. The basket is the session's or the cookie's, so there is nothing to enumerate.
     - **Rate limits:** coupon codes are priced only through `GET /api/basket/quote`, behind the coupon-preview limit. Writes have their own limit (120 per minute per host and address), because every add from a new guest creates a row.
     - **Amounts:** checkout never trusts one from the client. Prices, discount and total come from the pipeline at order time.
+  - **Orders (Phase 9, [ADR-0029](adr/0029-orders-lifecycle.md)):**
+    - **Tracking** uses a random 128-bit token (`/api/orders/track/{token}`), not the sequential id, so orders can't be enumerated (B8). It returns status and shipment only: no notes, actors, addresses or amounts.
+    - **Bad tokens:** a malformed or unknown token is a 404, and so is a store-A token on store B's host (`TenantIsolationTests`).
+    - **Customer cancellation** is owner-only: any other customer gets 404, across stores too. It applies only to unpaid orders, and the gateway is asked first, so a customer can never cancel an order that was just paid.
+    - **Order numbers** are per store, so they reveal nothing about other stores' volume.
+    - **Visibility:** staff notes and actors are shown only to users with `orders.view`. Customers see their order's statuses and dates.
+    - **Accountability:** every status change records the acting staff member's user id on its history row.
 
 ## 4. Transport, CORS, headers, rate limiting
 

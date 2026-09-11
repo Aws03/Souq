@@ -12,5 +12,7 @@ public class OrderStatusHistoryConfiguration : IEntityTypeConfiguration<OrderSta
         builder.HasKey(h => h.Id);
         builder.Property(h => h.Status).HasConversion<int>();   // enum يُخزّن كرقم
         builder.Property(h => h.Note).HasMaxLength(300);
+        // من غيّر الحالة (المرحلة 9): النوع رقماً، ومعرّف الحساب بلا مفتاح أجنبي — سجلّ لا يُكسر بإيقاف حساب.
+        builder.Property(h => h.ChangedBy).HasConversion<int>();
     }
 }

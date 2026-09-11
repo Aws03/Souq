@@ -1,21 +1,22 @@
 using MediatR;
 using Souq.Application.Common.Models;
+using Souq.Domain.Entities;
 
 namespace Souq.Application.Features.Orders.Queries;
 
 // ============================================================================
-// GetOrderTrackingQuery — الاستعلام الوحيد بلا مصادقة في ميزة الطلبات (رابط قابل للمشاركة).
-// بما أن معرّفات الطلبات أعداد تسلسلية يسهل تخمينها، عقد هذا الاستعلام (OrderTrackingDto)
-// يكشف الحدّ الأدنى فقط لتتبّع الشحنة: الحالة وتاريخها ورقم التتبّع — لا هوية العميل ولا
-// عنوانه ولا مبلغ الطلب ولا أسطره. رموز تتبّع عشوائية بدل المعرّف في المرحلة 9 (B8).
+// GetOrderTrackingQuery — الاستعلام الوحيد بلا مصادقة في ميزة الطلبات (رابط قابل للمشاركة). منذ المرحلة 9 بالرمز
+// العشوائي (128 بت) لا بالمعرّف التسلسلي، فلا تعداد (B8). العقد يكشف الحدّ الأدنى لتتبّع الشحنة: الرقم والحالة
+// وتواريخها ورقم التتبّع — لا هوية العميل ولا عنوانه ولا مبلغه ولا أسطره، ولا ملاحظات الإدارة ولا من غيّر الحالة.
+// رمز بشكل خاطئ = غير موجود (404)، لا خطأ تحقّق يميّز الشكل من المحتوى.
 // ============================================================================
-public record OrderStatusHistoryDto(string Status, string? Note, DateTime ChangedAt);
+public record OrderTrackingStepDto(string Status, DateTime ChangedAt);
 
 public record OrderTrackingDto(
-    int OrderId, string Status, string? TrackingNumber, string? ShippingCarrier,
-    DateTime CreatedAt, List<OrderStatusHistoryDto> History);
+    int OrderNumber, string Status, string? TrackingNumber, string? ShippingCarrier,
+    DateTime CreatedAt, List<OrderTrackingStepDto> History);
 
-public record GetOrderTrackingQuery(int Id) : IRequest<Result<OrderTrackingDto>>;
+public record GetOrderTrackingQuery(string Token) : IRequest<Result<OrderTrackingDto>>;
 
 public class GetOrderTrackingHandler : IRequestHandler<GetOrderTrackingQuery, Result<OrderTrackingDto>>
 {
@@ -24,7 +25,10 @@ public class GetOrderTrackingHandler : IRequestHandler<GetOrderTrackingQuery, Re
 
     public async Task<Result<OrderTrackingDto>> Handle(GetOrderTrackingQuery q, CancellationToken ct)
     {
-        var tracking = await _orders.FindTrackingAsync(q.Id, ct);
+        var token = q.Token?.Trim().ToLowerInvariant() ?? "";
+        var tracking = token.Length == Order.TrackingTokenLength && token.All(char.IsAsciiHexDigitLower)
+            ? await _orders.FindTrackingAsync(token, ct)
+            : null;
         return tracking is null
             ? Result<OrderTrackingDto>.Failure(Error.NotFound("الطلب غير موجود"))
             : Result<OrderTrackingDto>.Success(tracking);

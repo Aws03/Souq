@@ -20,6 +20,17 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         // قائمة الإدارة: طلبات متجر واحد، الأحدث أولاً — الفهرس يبدأ بالمستأجر.
         builder.HasIndex(o => new { o.TenantId, o.CreatedAt });
 
+        // المرحلة 9: رقم الطلب فريد داخل المتجر، ورمز التتبّع العام فريد (يُبحث به بلا مصادقة)، والفوترة لقطة كالشحن،
+        // والإجماليات المثبَّتة أعمدة تقرؤها القوائم بلا جمع. مرشّح الحالة في قائمة الإدارة له فهرسه.
+        builder.Property(o => o.BillingAddress).HasMaxLength(Order.ShippingAddressMaxLength).IsRequired();
+        builder.Property(o => o.TrackingToken).HasMaxLength(Order.TrackingTokenLength).IsFixedLength().IsUnicode(false).IsRequired();
+        builder.Property(o => o.PlacedSubtotal).HasColumnType(PersistenceConventions.MoneyColumnType);
+        builder.Property(o => o.PlacedTotal).HasColumnType(PersistenceConventions.MoneyColumnType);
+        builder.Ignore(o => o.IsPlaced);
+        builder.HasIndex(o => new { o.TenantId, o.OrderNumber }).IsUnique();
+        builder.HasIndex(o => new { o.TenantId, o.TrackingToken }).IsUnique();
+        builder.HasIndex(o => new { o.TenantId, o.Status, o.CreatedAt });
+
         // الحالة يغيّرها أكثر من طرف بنفس اللحظة (تأكيد العميل ضد Webhook، الإدارة ضد
         // الدفع) ⇒ rowversion يجعل الثاني يكتشف السباق بدل آثار مكرّرة (ADR-0013).
         builder.HasRowVersion();

@@ -138,7 +138,10 @@ export const api = {
   clearBasket: () => request('/basket', { method: 'DELETE' }),
   // تتبّع بلا مصادقة (رابط قابل للمشاركة) — نفس نقطة الخادم العامة تُستخدم هنا
   // وفي صفحة تفصيل الطلب داخل التطبيق معاً (لا فرق بين الحالتين من الواجهة).
-  getOrderTracking: (id) => request(`/orders/${id}/tracking`),
+  // رابط التتبّع العام بالرمز العشوائي (المرحلة 9 — لا بالمعرّف التسلسلي، B8).
+  trackOrder: (token) => request(`/orders/track/${encodeURIComponent(token)}`),
+  // إلغاء العميل طلبه قبل الدفع (المرحلة 9).
+  cancelMyOrder: (id, reason = null) => request(`/orders/${id}/cancel`, { method: 'POST', body: JSON.stringify({ reason }) }),
 
   // ── الدفع (Stripe) ──
   getPaymentConfig: () => request('/payments/config'),

@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 using Souq.Application.Common.Interfaces;
+using Souq.Application.Features.Baskets.Contracts;
 using Souq.Application.Features.Baskets.Pricing;
 using Souq.Application.Features.Inventory.Contracts;
 using Souq.Application.Features.Orders;
@@ -28,6 +29,8 @@ public class CreateOrderHandlerTests
     private readonly IInventoryReservations _reservations = Substitute.For<IInventoryReservations>();
     private readonly IStockAvailability _availability = Substitute.For<IStockAvailability>();
     private readonly IPaymentService _payment = Substitute.For<IPaymentService>();
+    private readonly IBasketCheckout _baskets = Substitute.For<IBasketCheckout>();
+    private readonly IOrderNumbers _numbers = Substitute.For<IOrderNumbers>();
     private readonly IUnitOfWork _uow = TestUnitOfWork.Create();
     private readonly List<string> _steps = [];
     private Order? _saved;
@@ -45,14 +48,15 @@ public class CreateOrderHandlerTests
             .Do(_ => _steps.Add("reserve"));
         _payment.When(p => p.CreateIntentAsync(Arg.Any<Money>(), Arg.Any<string>(), Arg.Any<CancellationToken>()))
             .Do(_ => _steps.Add("intent"));
+        _numbers.NextAsync(Arg.Any<CancellationToken>()).Returns(1001);
     }
 
     // التسعير الحقيقي (المرحلة 8) فوق مستودعات بديلة — الأسعار والخصم كما في السلة تماماً.
     private CreateOrderHandler CreateHandler() => new(
-        _orders, _customers, new PricingService(_products, _coupons, TestTenant.Context(), new FixedClock()),
+        _orders, _customers, new PricingService(_products, _coupons, TestTenant.Context(), new FixedClock()), _baskets, _numbers,
         _reservations, _availability, _payment,
-        new OrderPaymentConfirmation(_orders, _reservations, _customers, _coupons, _payment, Substitute.For<IEmailService>(), _uow),
-        TestCurrentUser.Customer(1), TestTenant.Context(), _uow, NullLogger<CreateOrderHandler>.Instance);
+        new OrderPaymentConfirmation(_orders, _reservations, _customers, _coupons, _baskets, _payment, Substitute.For<IEmailService>(), _uow),
+        TestCurrentUser.Customer(1), TestTenant.Context(), _uow, new FixedClock(), NullLogger<CreateOrderHandler>.Instance);
 
     private static Customer NewCustomer() => new(userId: 1, "عميل", "customer@souq.com");
 
@@ -162,6 +166,35 @@ public class CreateOrderHandlerTests
         result.Value.TotalAmount.Should().Be(90);
         await _payment.Received(1).CreateIntentAsync(
             Arg.Is<Money>(m => m.Amount == 90), Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task الطلب_يأخذ_رقم_المتجر_ويُثبَّت_داخل_معاملة_الحجز()
+    {
+        Arrange();
+
+        var result = await CreateHandler().Handle(NewCommand(quantity: 2), CancellationToken.None);
+
+        result.Value!.OrderNumber.Should().Be(1001);
+        (_saved!.OrderNumber, _saved.IsPlaced, _saved.PlacedTotal).Should().Be((1001, true, 100m));
+        _saved.BillingAddress.Should().Be(_saved.ShippingAddress, "بلا عنوان فوترة في الدفتر ⇒ عنوان الشحن");
+        await _numbers.Received(1).NextAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task بلا_أسطر_يُنشأ_الطلب_من_سلة_العميل_والسلة_الفارغة_تُرفض()
+    {
+        Arrange();
+        _baskets.LinesForCustomerAsync(1, Arg.Any<CancellationToken>()).Returns(new List<PricingLine> { new(1, 3) });
+
+        var fromBasket = await CreateHandler().Handle(NewCommand() with { Items = null }, CancellationToken.None);
+
+        fromBasket.Value!.TotalAmount.Should().Be(150);
+        _saved!.Items.Single().Quantity.Should().Be(3);
+
+        _baskets.LinesForCustomerAsync(1, Arg.Any<CancellationToken>()).Returns(new List<PricingLine>());
+        (await CreateHandler().Handle(NewCommand() with { Items = [] }, CancellationToken.None))
+            .ErrorCode.Should().Be("BasketEmpty");
     }
 
     [Fact]

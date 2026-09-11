@@ -1,0 +1,80 @@
+.backLink {
+  display: inline-flex; align-items: center; gap: 6px; color: var(--muted); margin: 20px 0 8px;
+  font-size: var(--fs-body-sm); font-weight: 600;
+}
+.backLink:hover { color: var(--petrol); }
+
+.grid {
+  display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 24px; align-items: start;
+  padding-bottom: calc(40px + env(safe-area-inset-bottom, 0px));
+}
+.panel { background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); padding: 24px; min-width: 0; }
+
+.header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 18px; }
+.title { font-size: var(--fs-heading-lg); color: var(--petrol); }
+.meta { color: var(--muted); font-size: var(--fs-caption); }
+.sectionTitle { font-size: var(--fs-heading); color: var(--petrol); margin-bottom: 14px; }
+
+.statusBadge { display: inline-block; padding: 5px 14px; border-radius: 50px; font-size: 13px; font-weight: 700; white-space: nowrap; }
+.pending { background: #fdf3e2; color: #a06a12; }
+.paid { background: var(--info-soft); color: var(--petrol); }
+.shipped { background: #eaf1fb; color: var(--info); }
+.delivered { background: var(--success-soft); color: var(--success); }
+.cancelled { background: #fdf0ec; color: var(--clay); }
+
+/* ── الأسطر والإجماليات (كما ثُبّتت عند الطلب) ── */
+.items { list-style: none; border-top: 1px solid var(--line); }
+.item { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line); font-size: var(--fs-body-sm); }
+.itemName { flex: 1; min-width: 0; font-weight: 600; overflow-wrap: anywhere; }
+.itemQty { color: var(--muted); white-space: nowrap; }
+.itemTotal { font-weight: 700; color: var(--petrol); white-space: nowrap; }
+
+.totals { margin: 14px 0 20px; display: flex; flex-direction: column; gap: 6px; }
+.totals div { display: flex; justify-content: space-between; font-size: var(--fs-body-sm); color: var(--muted); }
+.totals dd { margin: 0; }
+.totals .discount { color: var(--clay); font-weight: 700; }
+.totals .grandTotal {
+  color: var(--petrol); font-weight: 700; font-size: 18px; font-family: var(--font-display);
+  padding-top: 10px; border-top: 1px dashed var(--line);
+}
+
+.addresses { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-bottom: 20px; }
+.addresses h3 { font-size: var(--fs-body-sm); color: var(--petrol); margin-bottom: 4px; }
+.addresses p { font-size: var(--fs-body-sm); overflow-wrap: anywhere; }
+
+.confirmBox { background: #fdf0ec; border-radius: var(--radius-sm); padding: 14px 16px; }
+.confirmBox p { color: var(--clay); font-size: var(--fs-body-sm); font-weight: 600; margin-bottom: 10px; }
+.actions { display: flex; gap: 10px; flex-wrap: wrap; }
+
+/* ── التتبّع والخط الزمني ── */
+.trackingRow { display: flex; flex-direction: column; gap: 2px; background: var(--soft); border-radius: 12px; padding: 12px 16px; margin-bottom: 20px; }
+.trackingValue { font-family: var(--font-display); font-weight: 700; font-size: 17px; color: var(--petrol); letter-spacing: .5px; }
+
+.timeline { list-style: none; position: relative; margin-bottom: 22px; }
+.step { position: relative; display: flex; gap: 14px; padding-bottom: 20px; }
+.step:last-child { padding-bottom: 0; }
+.step:not(:last-child)::before {
+  content: ''; position: absolute; inset-inline-start: 5px; top: 22px; bottom: -4px; width: 2px; background: var(--line);
+}
+.dot {
+  flex-shrink: 0; width: 12px; height: 12px; border-radius: 50%; margin-top: 4px;
+  background: var(--success); box-shadow: 0 0 0 3px var(--success-soft);
+}
+.stepCurrent .dot { background: var(--saffron); box-shadow: 0 0 0 3px var(--saffron-soft); }
+.stepBody { display: flex; flex-direction: column; gap: 2px; }
+.stepStatus { font-weight: 700; color: var(--petrol); }
+
+.share { border-top: 1px solid var(--line); padding-top: 16px; display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+.share h3 { font-size: var(--fs-body-sm); color: var(--petrol); }
+.copyBtn {
+  display: flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 50px; margin-top: 4px;
+  background: var(--surface); border: 1px solid var(--line); font-weight: 600; font-size: var(--fs-body-sm);
+  color: var(--petrol); transition: background var(--ease-hover);
+}
+.copyBtn:hover { background: var(--saffron-soft); }
+
+@media (max-width: 860px) {
+  .grid { grid-template-columns: 1fr; }
+  .panel { padding: 20px 16px; }
+  .addresses { grid-template-columns: 1fr; }
+}

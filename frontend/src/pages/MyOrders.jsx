@@ -56,7 +56,7 @@ export default function MyOrders() {
               <li key={o.id}>
                 <button type="button" className={styles.row} onClick={() => navigate(`/orders/${o.id}`)}>
                   <div className={styles.rowMain}>
-                    <span className={styles.orderNo}>{t('orders.orderNumber', { id: o.id })}</span>
+                    <span className={styles.orderNo}>{t('orders.orderNumber', { id: o.orderNumber })}</span>
                     <span className={styles.date}>{formatDate(o.createdAt)}</span>
                   </div>
                   <div className={styles.rowEnd}>

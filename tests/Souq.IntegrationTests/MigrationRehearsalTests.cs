@@ -133,6 +133,22 @@ public class MigrationRehearsalTests
                 WHERE [object_id] = OBJECT_ID(N'[Products]') AND [name] IN (N'StockQuantity', N'LowStockThreshold')
                 """)).Should().Be(0);
 
+            // المرحلة 9: كل طلب قديم أخذ رقماً من 1001 بترتيب إنشائه ورمز تتبّع فريداً، والفوترة = الشحن، والتثبيت بإجماليات
+            // أسطره وخصمه؛ وعدّاد المتجر عند آخر رقم — فالطلب التالي لا يصطدم بالقديم.
+            (await ScalarAsync(db, "SELECT CONCAT(MIN([OrderNumber]), N'-', MAX([OrderNumber]), N'-', COUNT(DISTINCT [OrderNumber])) FROM [Orders]"))
+                .Should().Be($"1001-{1000 + before["Orders"]}-{before["Orders"]}");
+            (await ScalarAsync(db, """
+                SELECT COUNT(DISTINCT [TrackingToken]) FROM [Orders]
+                WHERE LEN([TrackingToken]) = 32 AND [TrackingToken] NOT LIKE N'%[^0-9a-f]%'
+                """)).Should().Be(before["Orders"]);
+            (await ScalarAsync(db, """
+                SELECT COUNT(*) FROM [Orders] o
+                WHERE o.[BillingAddress] = o.[ShippingAddress] AND o.[PlacedAt] = o.[CreatedAt]
+                  AND o.[PlacedSubtotal] = ISNULL((SELECT SUM(i.[UnitPrice] * i.[Quantity]) FROM [OrderItems] i WHERE i.[OrderId] = o.[Id]), 0)
+                  AND o.[PlacedTotal] = o.[PlacedSubtotal] - ISNULL(o.[DiscountAmount], 0)
+                """)).Should().Be(before["Orders"]);
+            (await ScalarAsync(db, "SELECT [LastNumber] FROM [OrderNumberSequences] WHERE [TenantId] = 1")).Should().Be(1000 + before["Orders"]);
+
             // المرشّحات على البيانات المُرحَّلة: المتجر 1 يرى صفوفه، ومتجر آخر لا يرى شيئاً — والتجمّع يُقرأ كاملاً.
             await using (var asDefault = new AppDbContext(options, Context(1)))
             {

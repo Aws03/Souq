@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using Souq.Domain.Common;
 using Souq.Domain.Enums;
 using Souq.Domain.Exceptions;
@@ -16,10 +17,14 @@ namespace Souq.Domain.Entities;
 // لو سمحنا بتعديل الأسطر من الخارج، قد ينسى أحدهم تحديث الإجمالي → بيانات فاسدة.
 // بجعل القائمة للقراءة فقط (IReadOnlyCollection) والإضافة عبر دالة واحدة،
 // نجعل الحالة الفاسدة مستحيلة هندسياً، لا مجرد "ممنوعة بالاتفاق".
+//
+// المرحلة 9: رقم متسلسل داخل المتجر، رمز تتبّع عشوائي للرابط العام (بدل المعرّف — B8)، لقطة عنوان الفوترة، وتثبيت
+// (Place) يجمّد الأسطر والخصم والإجماليات. كل انتقال حالة يمرّ بجدول OrderTransitions ويُسجَّل معه من فعله.
 // ============================================================================
 public class Order : Entity, ITenantOwned
 {
     public const int ShippingAddressMaxLength = 500;
+    public const int TrackingTokenLength = 32;   // 128 بت بالست عشري
 
     private readonly List<OrderItem> _items = new();
     // سجلّ انتقالات الحالة — جزء من التجمّع مثل _items تماماً. RecordStatusChange
@@ -30,16 +35,30 @@ public class Order : Entity, ITenantOwned
     public int TenantId { get; private set; }
     public int CustomerId { get; private set; }
 
+    // رقم الطلب داخل المتجر (يراه العميل والإدارة)؛ 0 حتى يُعيَّن من عدّاد المتجر قبل الحفظ الأول.
+    public int OrderNumber { get; private set; }
+
+    // رمز رابط التتبّع العام: عشوائي لا يُخمَّن ولا يُعدَّد (المعرّف التسلسلي كان يكشف كل الطلبات — B8).
+    public string TrackingToken { get; private set; } = default!;
+
     // عملة الطلب لقطة من عملة المتجر لحظة الإنشاء: كل سطر وخصم بها، والإجمالي يُجمع بها حتى
     // لطلب فارغ (كان Money.Zero() يفترض JOD لكل المتاجر — Phase 2).
     public string Currency { get; private set; } = default!;
     public OrderStatus Status { get; private set; }
     public string ShippingAddress { get; private set; } = default!;
+    public string BillingAddress { get; private set; } = default!;
     public string? CouponCode { get; private set; }
     public Money? DiscountAmount { get; private set; }
     public string? PaymentIntentId { get; private set; }
     public string? TrackingNumber { get; private set; }
     public string? ShippingCarrier { get; private set; }
+
+    // التثبيت (المرحلة 9): لحظته، والإجماليات كما صدرت بها الفاتورة — أعمدة تقرؤها القوائم بلا جمع.
+    public DateTime? PlacedAt { get; private set; }
+    public decimal PlacedSubtotal { get; private set; }
+    public decimal PlacedTotal { get; private set; }
+
+    public bool IsPlaced => PlacedAt is not null;
 
     // نكشف الأسطر للقراءة فقط — لا يستطيع الخارج الإضافة/الحذف مباشرة.
     public IReadOnlyCollection<OrderItem> Items => _items.AsReadOnly();
@@ -54,27 +73,36 @@ public class Order : Entity, ITenantOwned
 
     private Order() { }
 
-    public Order(int customerId, string shippingAddress, string currency)
+    // عنوان الفوترة لقطة مثل الشحن؛ بلا عنوان فوترة ⇒ عنوان الشحن نفسه.
+    public Order(int customerId, string shippingAddress, string currency, string? billingAddress = null)
     {
-        var address = shippingAddress?.Trim() ?? "";
-        if (address.Length is 0 or > ShippingAddressMaxLength)
-            throw new InvalidOrderOperationException($"عنوان الشحن مطلوب (حتى {ShippingAddressMaxLength} حرف)");
+        ShippingAddress = Address(shippingAddress, "عنوان الشحن");
+        BillingAddress = billingAddress is null ? ShippingAddress : Address(billingAddress, "عنوان الفوترة");
         CustomerId = customerId;
-        ShippingAddress = address;
         Currency = Money.Zero(currency).Currency;   // يتحقّق من الرمز ويوحّد صيغته
+        TrackingToken = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(TrackingTokenLength / 2));
         Status = OrderStatus.Pending;   // كل طلب يبدأ "بانتظار الدفع"
-        RecordStatusChange(null);       // سطر تاريخ أول يوثّق لحظة إنشاء الطلب
+        RecordStatusChange(null, OrderActor.Customer());   // سطر تاريخ أول يوثّق لحظة إنشاء الطلب
     }
 
     // الباب الوحيد لتسجيل سطر تاريخ — private لا internal حتى: لا يُستدعى إلا
     // من داخل Order نفسه، مباشرة بعد كل تغيير فعلي لـ Status.
-    private void RecordStatusChange(string? note) => _statusHistory.Add(new OrderStatusHistory(Status, note));
+    private void RecordStatusChange(string? note, OrderActor by) => _statusHistory.Add(new OrderStatusHistory(Status, note, by));
 
-    // الباب الوحيد لإضافة منتج للطلب. القاعدة محمية: لا إضافة بعد بدء المعالجة.
+    // الرقم يُعيَّن مرة واحدة من عدّاد المتجر داخل معاملة الإنشاء.
+    public void AssignNumber(int number)
+    {
+        if (OrderNumber != 0)
+            throw new InvalidOrderOperationException("رقم الطلب معيَّن مسبقاً");
+        if (number <= 0)
+            throw new InvalidOrderOperationException("رقم الطلب غير صالح");
+        OrderNumber = number;
+    }
+
+    // الباب الوحيد لإضافة منتج للطلب. القاعدة محمية: لا إضافة بعد التثبيت ولا بعد بدء المعالجة.
     public void AddItem(int productId, string productName, Money unitPrice, int quantity)
     {
-        if (Status != OrderStatus.Pending)
-            throw new InvalidOrderOperationException("لا يمكن تعديل طلب بدأت معالجته");
+        EnsureOpen("لا يمكن تعديل طلب بدأت معالجته");
         if (quantity <= 0)
             throw new InvalidOrderOperationException("الكمية يجب أن تكون أكبر من صفر");
         if (unitPrice.Currency != Currency)
@@ -88,13 +116,11 @@ public class Order : Entity, ITenantOwned
             _items.Add(new OrderItem(productId, productName, unitPrice, quantity));
     }
 
-    // تطبيق كوبون خصم — قبل الدفع فقط. القيمة تصل جاهزة (Coupon.CalculateDiscount
-    // في Application حسبها فعلاً)؛ هنا نحرس فقط أن الحالة والعملة والحد منطقيان،
-    // كي يستحيل تطبيق خصم فاسد حتى لو أخطأ المستدعي.
+    // تطبيق كوبون خصم — قبل التثبيت فقط. القيمة تصل جاهزة (خطّ التسعير في Application حسبها)؛ هنا نحرس فقط أن الحالة
+    // والعملة والحد منطقية، كي يستحيل تطبيق خصم فاسد حتى لو أخطأ المستدعي.
     public void ApplyCoupon(string code, Money discountAmount)
     {
-        if (Status != OrderStatus.Pending)
-            throw new InvalidOrderOperationException("لا يمكن تطبيق كوبون على طلب بدأت معالجته");
+        EnsureOpen("لا يمكن تطبيق كوبون على طلب بدأت معالجته");
         if (discountAmount.Currency != Subtotal.Currency)
             throw new InvalidOrderOperationException("عملة الخصم لا تطابق عملة الطلب");
         if (discountAmount.Amount > Subtotal.Amount)
@@ -102,6 +128,21 @@ public class Order : Entity, ITenantOwned
 
         CouponCode = code;
         DiscountAmount = discountAmount;
+    }
+
+    // تثبيت الطلب عند إنشائه: بعده لا سطر يُضاف ولا خصم يتغيّر، والإجماليات تُحفظ كما هي — الفاتورة لا تتغيّر.
+    public void Place(DateTime placedAt)
+    {
+        if (IsPlaced)
+            throw new InvalidOrderOperationException("الطلب مثبَّت مسبقاً");
+        if (!_items.Any())
+            throw new InvalidOrderOperationException("لا يمكن تثبيت طلب فارغ");
+        if (OrderNumber == 0)
+            throw new InvalidOrderOperationException("الطلب بلا رقم");
+
+        PlacedAt = placedAt;
+        PlacedSubtotal = Subtotal.Amount;
+        PlacedTotal = TotalAmount.Amount;
     }
 
     // ربط الطلب بنيّة دفع لدى بوّابة الدفع (Stripe PaymentIntent) — قبل الدفع فقط.
@@ -114,50 +155,61 @@ public class Order : Entity, ITenantOwned
         PaymentIntentId = paymentIntentId;
     }
 
-    // انتقالات الحالة (State Machine). كل انتقال محروس: لا يمكن شحن طلب لم يُدفع.
-    // note اختياري في كل انتقال — يوثّق سبب/تفصيل الانتقال في سجلّ التاريخ
-    // (مثال: سبب الإلغاء، أو ملاحظة الإدارة عند الشحن).
-    public void MarkAsPaid(string? note = null)
+    // انتقالات الحالة عبر جدول OrderTransitions. note اختياري في كل انتقال — يوثّق سبب/تفصيل الانتقال في سجلّ التاريخ
+    // (سبب الإلغاء، ملاحظة الشحن). by: من فعله (افتراضياً النظام).
+    public void MarkAsPaid(string? note = null, OrderActor? by = null)
     {
-        if (Status != OrderStatus.Pending)
-            throw new InvalidOrderOperationException("لا يمكن دفع طلب ليس بانتظار الدفع");
-        if (!_items.Any())
+        if (Status == OrderStatus.Pending && !_items.Any())
             throw new InvalidOrderOperationException("لا يمكن دفع طلب فارغ");
-        Status = OrderStatus.Paid;
-        RecordStatusChange(note);
+        MoveTo(OrderStatus.Paid, by, note, "لا يمكن دفع طلب ليس بانتظار الدفع");
     }
 
-    // trackingNumber/shippingCarrier اختياريان أيضاً — قد تُشحن الشحنة قبل توفّر
-    // رقم التتبّع من شركة الشحن. يُقبلان الآن فقط (لحظة الشحن) لا لاحقاً بشكل
-    // مستقلّ، تماشياً مع سير عمل الإدارة الفعلي (تُدخلان معاً عند الشحن).
-    public void MarkAsShipped(string? trackingNumber = null, string? shippingCarrier = null, string? note = null)
+    // trackingNumber/shippingCarrier اختياريان — قد تُشحن الشحنة قبل توفّر رقم التتبّع من شركة الشحن. يُقبلان لحظة
+    // الشحن فقط، تماشياً مع سير عمل الإدارة الفعلي.
+    public void MarkAsShipped(string? trackingNumber = null, string? shippingCarrier = null, string? note = null, OrderActor? by = null)
     {
-        if (Status != OrderStatus.Paid)
-            throw new InvalidOrderOperationException("لا يمكن شحن طلب لم يُدفع");
-        Status = OrderStatus.Shipped;
+        MoveTo(OrderStatus.Shipped, by, note, "لا يمكن شحن طلب لم يُدفع");
         TrackingNumber = string.IsNullOrWhiteSpace(trackingNumber) ? null : trackingNumber;
         ShippingCarrier = string.IsNullOrWhiteSpace(shippingCarrier) ? null : shippingCarrier;
-        RecordStatusChange(note);
     }
 
-    public void MarkAsDelivered(string? note = null)
-    {
-        if (Status != OrderStatus.Shipped)
-            throw new InvalidOrderOperationException("لا يمكن تسليم طلب لم يُشحن");
-        Status = OrderStatus.Delivered;
-        RecordStatusChange(note);
-    }
+    public void MarkAsDelivered(string? note = null, OrderActor? by = null) =>
+        MoveTo(OrderStatus.Delivered, by, note, "لا يمكن تسليم طلب لم يُشحن");
 
-    // الإلغاء مسموح فقط من Pending/Paid — وهما بالضبط الحالتان اللتان يحجز فيهما
-    // الطلب مخزوناً لم يُشحن بعد. لذا كل إلغاء ناجح يعني "حرّر المخزون مرة واحدة":
-    // رفض Cancelled ⇒ Cancelled يمنع إعادة المخزون مرتين (تضخيم وهمي للمخزون).
-    public void Cancel(string? note = null)
+    // الإلغاء من Pending/Paid فقط — الحالتان اللتان يحجز فيهما الطلب مخزوناً لم يُشحن. رفض Cancelled ⇒ Cancelled يمنع
+    // إعادة المخزون مرتين. العميل يلغي قبل الدفع فقط.
+    public void Cancel(string? note = null, OrderActor? by = null)
     {
-        if (Status is OrderStatus.Shipped or OrderStatus.Delivered)
-            throw new InvalidOrderOperationException("لا يمكن إلغاء طلب تم شحنه أو تسليمه");
         if (Status == OrderStatus.Cancelled)
             throw new InvalidOrderOperationException("الطلب ملغى مسبقاً");
-        Status = OrderStatus.Cancelled;
-        RecordStatusChange(note);
+        var refusal = by?.Kind == OrderActorKind.Customer && Status == OrderStatus.Paid
+            ? "الطلب مدفوع: إلغاؤه يتمّ عبر المتجر"
+            : "لا يمكن إلغاء طلب تم شحنه أو تسليمه";
+        MoveTo(OrderStatus.Cancelled, by, note, refusal);
+    }
+
+    private void MoveTo(OrderStatus target, OrderActor? by, string? note, string refusal)
+    {
+        var actor = by ?? OrderActor.System;
+        if (!OrderTransitions.CanMove(Status, target, actor))
+            throw new InvalidOrderOperationException(refusal);
+        Status = target;
+        RecordStatusChange(note, actor);
+    }
+
+    private void EnsureOpen(string refusal)
+    {
+        if (Status != OrderStatus.Pending)
+            throw new InvalidOrderOperationException(refusal);
+        if (IsPlaced)
+            throw new InvalidOrderOperationException("الطلب مثبَّت: أسطره وخصمه وإجمالياته لا تتغيّر");
+    }
+
+    private static string Address(string? value, string label)
+    {
+        var address = value?.Trim() ?? "";
+        if (address.Length is 0 or > ShippingAddressMaxLength)
+            throw new InvalidOrderOperationException($"{label} مطلوب (حتى {ShippingAddressMaxLength} حرف)");
+        return address;
     }
 }

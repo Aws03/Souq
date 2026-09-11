@@ -146,6 +146,18 @@ It displays the server's decisions and handles its errors.
 | Add-to-cart waits for the server: the "added" toast appears only on success, and failures (for example, not enough stock) show once from the cart context | The server decides availability |
 | `api.applyCoupon` removed (its only caller was checkout); `InvalidBasketOperation` translated | No second pricing path |
 
+**Phase 9 (orders):**
+
+| Change | Reason |
+|---|---|
+| `/orders/:id` is now the customer's order page (protected): lines and totals as placed, both addresses, the timeline, a copyable tracking link, and "Cancel order" while unpaid | Customer order detail and self-service cancellation ([ADR-0029](adr/0029-orders-lifecycle.md)) |
+| `/track/:token` is the public tracking page; it shows status and shipment only | Tracking by random token instead of the sequential id (B8) |
+| Order numbers replace database ids wherever a customer or admin reads them: My orders, confirmation, the admin list and drawers | Per-store numbers from 1001 |
+| The admin order list has status and search filters (order number, customer name or email). Its detail drawer shows lines, addresses and the status history with who acted and the notes. The drawer's action buttons come from the server's `allowedActions`, so the JavaScript copy of the transition rules is gone | One transition table |
+| Checkout sends no lines (the server reads the basket), and after payment it reloads the basket instead of clearing it locally | Checkout from the basket; the server removes what was bought |
+| `features/orders/orderView.js` (tested): tracking URL, actor labels, admin filter query | Pure helpers |
+| New error codes translated (`BasketEmpty`, `OrderAlreadyPaid`, `PaymentProcessing`) | Server decisions shown in both languages |
+
 ## 6. Phase 15 migration plan
 
 1. Introduce `app/`, `routes/`, `layouts/`, and `contexts/` without moving features. The app keeps working.

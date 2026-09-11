@@ -297,11 +297,13 @@ Baskets never reserve stock; checkout does.
 ### Orders & Payments
 | Method | Endpoint                                | Auth      | Description                                 |
 | ------ | ------------------------------------------ | --------- | --------------------------------------------- |
-| POST   | `/api/orders`                                | Customer  | Place an order (a saved `shippingAddressId` or a typed address) and start payment |
+| POST   | `/api/orders`                                | Customer  | Place an order from the basket (or explicit lines) and start payment |
+| POST   | `/api/orders/{id}/cancel`                    | Customer  | Cancel an unpaid order (own orders only)      |
+| GET    | `/api/orders/track/{token}`                  | —         | Public tracking by random token (status and shipment only) |
 | POST   | `/api/orders/{id}/confirm-payment`           | Customer  | Confirm payment client-side after Stripe Elements |
 | GET    | `/api/orders/{id}`                            | Customer  | Get order details (own orders only; others are 404) |
 | GET    | `/api/orders/mine?page=1&pageSize=20`          | Customer  | The current customer's orders (paged)         |
-| GET    | `/api/orders?page=1&pageSize=20&customerId=`   | Admin     | List all orders, optionally for one customer  |
+| GET    | `/api/orders?status=&search=&from=&to=&customerId=` | Admin | List orders, filtered by status, number, customer or date |
 | PUT    | `/api/orders/{id}/status`                      | Admin     | Update order status                           |
 | GET    | `/api/payments/config`                         | —         | Get the Stripe publishable key                |
 | POST   | `/api/payments/webhook`                        | —         | Stripe webhook (signature-verified, idempotent) |

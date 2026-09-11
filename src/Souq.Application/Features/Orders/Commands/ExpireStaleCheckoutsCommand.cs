@@ -4,6 +4,7 @@ using Souq.Application.Common.Interfaces;
 using Souq.Application.Features.Inventory.Contracts;
 using Souq.Domain.Enums;
 using Souq.Domain.Interfaces;
+using Souq.Domain.ValueObjects;
 
 namespace Souq.Application.Features.Orders.Commands;
 
@@ -81,7 +82,7 @@ public class ExpireStaleCheckoutsHandler : IRequestHandler<ExpireStaleCheckoutsC
             }
         }
 
-        await _confirmation.CancelAsync(order, ExpiredNote, expired: true, ct);
+        await _confirmation.CancelAsync(order, ExpiredNote, expired: true, OrderActor.System, ct);
         _logger.LogInformation("Order {OrderId} expired unpaid; its reservation was released", order.Id);
         return true;
     }

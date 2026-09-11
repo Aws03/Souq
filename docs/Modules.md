@@ -230,7 +230,14 @@ Each entry lists:
 - **Depends on:** Catalog, Inventory, Promotions, Payments, Shipping, Customers, Shopping.
 - **Forbidden:** mutating other modules' entities directly (the target state; today it calls `Product.DecreaseStock`, fixed in Phase 6/9).
 - **Extraction:** unlikely. It is the core, and the other modules are extracted around it.
-- **Today:** `Order` aggregate + `Features/Orders`.
+- **Today (Phase 9, [ADR-0029](adr/0029-orders-lifecycle.md)):**
+  - `Order` holds a number, a tracking token, the placement data and a billing snapshot. `OrderTransitions` is its one transition table, and every history row records an `OrderActor`.
+  - `Features/Orders` covers:
+    - checkout: lines come from the request, or from the customer's basket through Shopping's `IBasketCheckout`, and are priced by `IPricing`;
+    - `CancelMyOrderCommand`, status updates, and tracking by token;
+    - `IOrderNumbers`, a per-store counter implemented in Infrastructure.
+  - Contracts used: `Inventory.Contracts` and `Baskets.Contracts` only, enforced by the architecture test.
+  - Reviews still ask the order repository whether a product was delivered; `IOrderHistory` is not a separate contract yet.
 
 ### Payments (module from Phase 11)
 - **Responsibility:** collecting money through providers without ever touching card data.

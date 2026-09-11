@@ -1,7 +1,7 @@
 # Souq Platform: Product Roadmap
 
 > **Goal:** turn Souq into one **white-label, multi-tenant e-commerce platform**, sold to many clients (≈ $5,000+ each) and maintainable by a professional team.
-> **Status:** Phase 0 ✅ · Target architecture ✅ documented · Phase 1A ✅ (merged to `main`) · Phase 1B ✅ on branch `phase/1b-production-foundations` (awaiting review) · **Autonomous run on `phase/2-15-multitenant-platform`** (branched from the 1B tip): Phase 2 ✅ · Phase 3 ✅ · Phase 4 ✅ · Phase 5 ✅ · Phase 6 ✅ · Phase 7 ✅ · Phase 8 ✅. Next: Phase 9.
+> **Status:** Phase 0 ✅ · Target architecture ✅ documented · Phase 1A ✅ (merged to `main`) · Phase 1B ✅ on branch `phase/1b-production-foundations` (awaiting review) · **Autonomous run on `phase/2-15-multitenant-platform`** (branched from the 1B tip): Phase 2 ✅ · Phase 3 ✅ · Phase 4 ✅ · Phase 5 ✅ · Phase 6 ✅ · Phase 7 ✅ · Phase 8 ✅ · Phase 9 ✅. Next: Phase 10.
 > **Companion document:** [ArchitectureAssessment.md](ArchitectureAssessment.md) covers the current state, the problem register (IDs such as `B1` and `C2`), the target architecture, and the full reasoning behind every decision (`D-xx`).
 > **Last updated:** 2026-09-11
 
@@ -444,7 +444,7 @@ Status legend: ✅ done · 🟡 in progress · ⏳ planned · ⏸ awaiting appro
   - **Migration `Phase7Customers`:** additive only.
 - **Deferred, with reasons:**
   - The narrower `ICustomerDirectory` contract: Ordering and Reviews still read the `Customer` aggregate through the domain repository (block check, address snapshot). It will be added when a second consumer or an extraction needs it.
-  - Structured order addresses and a billing address on the order: Phase 12, because shipping rates need the structured shape.
+  - Structured order addresses: Phase 12, because shipping rates need the structured shape. (A single-line billing-address snapshot arrived in Phase 9.)
   - Self-service email change needs a verification flow. Marketing preferences come with Phase 14.
   - A retention policy that purges the shipping snapshots of erased customers' old orders: Phase 20 (compliance).
 - **Exit criteria (met):**
@@ -498,7 +498,29 @@ Status legend: ✅ done · 🟡 in progress · ⏳ planned · ⏸ awaiting appro
   - Basket totals always equal checkout totals.
   - The cart survives a refresh or a device switch (fixes C12).
 
-### Phase 9: Orders ⏳
+### Phase 9: Orders ✅ (autonomous run)
+- **Delivered ([ADR-0029](adr/0029-orders-lifecycle.md)):**
+  - **Checkout from the basket:** `POST /api/orders` without items reads the customer's basket (Shopping's `IBasketCheckout`). The purchased quantities leave the basket when payment is confirmed, in the same transaction.
+  - **Per-store order numbers** from 1001, issued inside the checkout transaction by a counter row per store that is incremented atomically.
+  - **Placement:** `Order.Place` freezes lines, discount and totals (`PlacedSubtotal`, `PlacedTotal`). A billing-address snapshot now sits next to the shipping one.
+  - **One transition table** (`OrderTransitions`) used by every transition method. The admin UI receives `allowedActions` from it.
+  - **Status history records who made each change:** the system, the customer, a staff member (shown by name) or the payment gateway.
+  - **Customer cancellation** of an unpaid order (`POST /api/orders/{id}/cancel`), for the owner only. The gateway is asked first, so an order paid a moment earlier is confirmed, not cancelled.
+  - **Admin search and filters:** status, order number, customer name or email, and date range.
+  - **Public tracking by a random token** (`GET /api/orders/track/{token}`): status and shipment only. The sequential-id route is gone (fixes B8).
+  - **Frontend:**
+    - a customer order page: lines, totals, addresses, timeline, a shareable tracking link, and cancellation;
+    - the token tracking page;
+    - the admin order list with filters, and a detail drawer whose actions come from the server;
+    - checkout from the basket.
+  - **Migration `Phase9Orders`:** additive, with a hand-written backfill of existing orders (numbers, tokens, billing, placement totals, counters) that runs before the unique indexes are created. Rehearsed.
+- **Deferred, with reasons:**
+  - Shipping-method snapshot and structured addresses: Phase 12 (shipping).
+  - Refunds when a paid order is cancelled: Phase 11 (payments).
+  - Expiry of abandoned orders was already delivered in Phase 6 (C6).
+- **Exit criteria (met):**
+  - **Every state transition is tested.** Domain `OrderLifecycleTests` runs all 25 status pairs through the real methods, plus the customer rule. Integration tests drive payment, shipping and both kinds of cancellation over HTTP.
+  - **Totals are immutable once placed.** Placing freezes lines and discount (domain tests), and the stored totals don't change when the product price does (integration).
 - **Scope.**
   - Checkout from the basket.
   - Per-tenant order numbers.
@@ -783,3 +805,4 @@ The earlier `AUDIT.md` (Arabic, 8-phase program) and the engineering-thinking gu
 | 2026-09-11 | Phase 6 completed (inventory items per variant, explicit reservations, retry-on-conflict checkout, delta adjustments, checkout expiry sweep, module contracts); ADR-0026 |
 | 2026-09-11 | Phase 7 completed (customer profile, address book with defaults, saved-address checkout, account status, admin customer list and detail with order history, data export and erasure); ADR-0027 |
 | 2026-09-11 | Phase 8 completed (server-side basket for guests and customers, merge at sign-in, one pricing pipeline shared with checkout, basket expiry, no basket reservations); ADR-0028. Tax model logged as open decision P-06 |
+| 2026-09-11 | Phase 9 completed (checkout from the basket, per-store order numbers, public tracking tokens, placement with frozen totals and a billing snapshot, one transition table, actors in the status history, customer cancellation, admin order filters); ADR-0029 |
