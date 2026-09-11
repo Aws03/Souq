@@ -7,9 +7,12 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Souq.Application.Common.Exceptions;
+using Souq.API.Tenancy;
 using Souq.Application.Common.Tenancy;
+using Souq.Domain.Common;
 using Souq.Domain.Entities;
 using Souq.Domain.Enums;
+using Souq.Domain.Identity;
 using Souq.Infrastructure.Persistence;
 using Souq.IntegrationTests.Infrastructure;
 
@@ -28,7 +31,7 @@ namespace Souq.IntegrationTests;
 public class TenantIsolationTests
 {
     private enum Actor { Anonymous, Admin, Customer }
-    private enum Resource { Product, Category, Coupon, Order }
+    private enum Resource { Product, Category, Coupon, Order, StaffAccount }
 
     private sealed record ForeignCase(string Method, string Route, Resource Resource, Actor Actor, Func<HttpContent>? Body = null);
 
@@ -55,6 +58,7 @@ public class TenantIsolationTests
         new("POST", "api/Orders/{id:int}/confirm-payment", Resource.Order, Actor.Admin),
         new("PUT", "api/Orders/{id:int}/status", Resource.Order, Actor.Admin, () => JsonBody(new { action = "Cancel" })),
         new("GET", "api/Orders/{id:int}/tracking", Resource.Order, Actor.Anonymous),
+        new("POST", "api/admin/staff/{id:int}/status", Resource.StaffAccount, Actor.Admin, () => JsonBody(new { active = false })),
     ];
 
     // قوائم تحت منتج لـ A: 200 بلا أي صف (القائمة موجودة؛ المنتج "لا صفوف له" من منظور B).
@@ -83,8 +87,11 @@ public class TenantIsolationTests
             .Concat(WritesUnderForeignParent.Select(w => $"{w.Method} {w.Route}"))
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
+        // نقاط المنصّة (معرّف متجر في المسار عمداً) خارج هذا الجدول: لا وجود لها على مضيف متجر أصلاً
+        // (AuthorizationBoundaryTests) وصلاحياتها منصّة فقط (PlatformAdministrationTests).
         var missing = _factory.Services.GetRequiredService<EndpointDataSource>().Endpoints.OfType<RouteEndpoint>()
             .Where(e => e.RoutePattern.Parameters.Count > 0)
+            .Where(e => e.Metadata.GetMetadata<PlatformEndpointAttribute>() is null)
             .SelectMany(e => (e.Metadata.GetMetadata<Microsoft.AspNetCore.Routing.HttpMethodMetadata>()?.HttpMethods ?? ["GET"])
                 .Select(method => $"{method} {e.RoutePattern.RawText}"))
             .Where(endpoint => !covered.Contains(endpoint))
@@ -116,6 +123,10 @@ public class TenantIsolationTests
             CouponValue: await db.Coupons.Where(c => c.Id == couponId).Select(c => c.Value).SingleAsync(),
             OrderStatus: await db.Orders.Where(o => o.Id == orderId).Select(o => o.Status).SingleAsync()));
         state.Should().Be((true, true, 10m, OrderStatus.Pending));
+
+        var staffId = s.AIds[Resource.StaffAccount];
+        (await s.StoreA.WithDbAsync(db => db.Users.Where(u => u.Id == staffId).Select(u => u.Status).SingleAsync()))
+            .Should().Be(UserStatus.Active, "مدير متجر B لا يوقف موظّف متجر A");
     }
 
     [Fact]
@@ -329,6 +340,8 @@ public class TenantIsolationTests
         var placed = await storeA.PlaceOrderAsync(customerA, productId, 1);
         placed.StatusCode.Should().Be(HttpStatusCode.Created, await placed.Content.ReadAsStringAsync());
         var orderId = (await placed.Content.ReadFromJsonAsync<TestApi.OrderCreatedBody>(TestApi.Json))!.OrderId;
+        var staffEmail = await _factory.CreateStoreUserAsync(await _factory.DefaultTenantAsync(), Roles.TenantStaff);
+        var staffId = await storeA.WithDbAsync(db => db.Users.Where(u => u.Email == staffEmail).Select(u => u.Id).SingleAsync());
 
         var b = await _factory.CreateStoreAsync();
         var storeB = storeA.ForStore(b);
@@ -336,7 +349,7 @@ public class TenantIsolationTests
             new Dictionary<Resource, int>
             {
                 [Resource.Product] = productId, [Resource.Category] = categoryId,
-                [Resource.Coupon] = couponId, [Resource.Order] = orderId,
+                [Resource.Coupon] = couponId, [Resource.Order] = orderId, [Resource.StaffAccount] = staffId,
             },
             couponCode);
     }

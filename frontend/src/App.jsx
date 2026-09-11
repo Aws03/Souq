@@ -82,6 +82,7 @@ export default function App() {
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/verify-email" element={<VerifyEmail />} />
+        <Route path="/accept-invitation" element={<ResetPassword mode="invitation" />} />
 
         {/* ── لوحة المتجر (مدير/موظّف) — تخطيط منفصل ── */}
         <Route path="/admin" element={<AdminRoute><AdminLayout /></AdminRoute>}>

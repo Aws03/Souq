@@ -19,10 +19,10 @@
 | Area | Prefix | Tenant context | Who |
 |---|---|---|---|
 | Auth | `/api/auth` | host's tenant (or platform host) | anonymous + token flows |
-| Storefront | `/api/storefront` *(target)*; today `/api/products`, `/api/categories`, `/api/coupons/apply`, `/api/products/{id}/reviews` | required | anonymous/customer |
+| Storefront | `/api/storefront` (`/config` since Phase 4); still on shared routes: `/api/products`, `/api/categories`, `/api/coupons/apply`, `/api/products/{id}/reviews` | required | anonymous/customer |
 | Customer account | `/api/account` *(target)*; today `/api/orders/mine`, `/api/orders/{id}` | required | customer (own data) |
-| Tenant back-office | `/api/admin` (today: `/api/admin/inventory` + admin actions on shared routes) | required | tenant admin/staff + permission |
-| Platform | `/api/platform` | none | platform owner/admin, platform host only |
+| Tenant back-office | `/api/admin`: `/api/admin/inventory`, `/api/admin/store/*` and `/api/admin/staff` (Phase 4), plus admin actions on shared routes | required | tenant admin/staff + permission |
+| Platform | `/api/platform/tenants`, `/api/platform/users`, `/api/platform/stats`, `/api/platform/audit` (Phase 4) | none | platform owner/admin, platform host only, every request audited |
 | Webhooks | `/api/payments/webhook` (target `/api/webhooks/{provider}`) | from provider metadata | signature |
 | Health | `/health/live`, `/health/ready` (Phase 23) | — | infrastructure |
 
@@ -39,9 +39,9 @@ Routes move into these areas in the phase that rebuilds each module. The fronten
 | Not authenticated, token invalid, wrong credentials | 401 |
 | Authenticated but lacking the permission | 403 |
 | Resource missing **or owned by someone else** (tenant or user) | **404**. Never 403, which would leak that the resource exists. |
-| No store on this host (`StoreNotFound`); a platform endpoint on a store host or the reverse (`NotFound`) | **404** |
-| Conflict with the current state: concurrent write (`ConcurrencyConflict`), duplicate (`DuplicateValue`, `EmailTaken`, `SlugTaken`), stale edit (`StockChanged`), delete blocked (`CategoryInUse`), database reference rejected (`ReferenceConflict`) | **409** |
-| Business rule violated (invalid transition, insufficient stock, coupon unusable, too many decimals) | **422** |
+| No store on this host (`StoreNotFound`); a platform endpoint on a store host or the reverse (`NotFound`); a module disabled for this store (`ModuleDisabled`) | **404** |
+| Conflict with the current state: concurrent write (`ConcurrencyConflict`), duplicate (`DuplicateValue`, `EmailTaken`, `SlugTaken`, `TenantSlugTaken`, `DomainTaken`), stale edit (`StockChanged`), delete blocked (`CategoryInUse`), database reference rejected (`ReferenceConflict`) | **409** |
+| Business rule violated (invalid transition, insufficient stock, coupon unusable, too many decimals, unreadable colour palette, `CannotDisableSelf`, `LastAdministrator`, `TenantHasNoDomain`, `ModuleDisabled` at checkout) | **422** |
 | Too many requests | 429 (Phase 3) |
 | Required external provider unavailable (`PaymentUnavailable`); store suspended, archived, or still provisioning (`StoreUnavailable`) | 503 |
 | Unexpected | 500, generic message, no internals |
@@ -117,6 +117,18 @@ Every error is RFC 7807 `application/problem+json`:
   - Use cases read it from `ICurrentUser` (the `cid` claim); commands have no customer id field at all.
   - A staff account has no customer profile, so customer use cases answer `403 CustomerAccountRequired`.
 - **Rate limits (Phase 3):** auth, refresh and coupon-preview endpoints answer `429 TooManyRequests` with `Retry-After` when a limit is exceeded.
+- **Platform area (Phase 4, [ADR-0024](adr/0024-platform-administration.md)):**
+  - Endpoints are marked `[PlatformEndpoint]` and are served only on platform hosts, behind `platform.*` permissions.
+  - These are the only requests that carry a store id (`/api/platform/tenants/{id}/…`), enforced by an architecture test.
+  - Every platform request writes an audit entry.
+- **Optional modules (Phase 4):**
+  - Endpoints of a module disabled for the host's store answer `404 ModuleDisabled` before authentication. Examples: `[RequiresModule("promotions")]` on coupons, `"reviews"` on reviews.
+  - Use cases that touch a module check it too.
+- **Store configuration (Phase 4):**
+  - `GET /api/storefront/config` is public and serves presentation data only: branding, locale, currency decimals, contact, SEO, modules.
+  - It sends a content-hash `ETag` with `Cache-Control: no-cache`, so a revalidation answers 304.
+  - A suspended or provisioning store answers `503 StoreUnavailable`, like every storefront endpoint.
+  - Settings are edited through `PUT /api/admin/store/settings` (store admin) or `PUT /api/platform/tenants/{id}/settings` (platform), with the same body and the same validation.
 - **Authorization (1B, [ADR-0019](adr/0019-authorization-foundation.md)):** endpoints declare `[HasPermission(Permissions.X.Y)]`, `[Authorize]` or `[AllowAnonymous]` — explicitly, every one. Resource ownership is checked inside the use case (404 for someone else's resource).
 - **Automated guards:** integration tests enumerate every endpoint and assert that each declares its decision, that the public surface equals a reviewed list, that every declared permission exists, and that permission-protected endpoints answer anonymous → 401 and customer → 403.
 

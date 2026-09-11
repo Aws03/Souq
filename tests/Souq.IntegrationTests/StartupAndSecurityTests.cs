@@ -36,6 +36,7 @@ public class StartupAndSecurityTests
         applied.Should().Contain(m => m.EndsWith("_Phase1AIntegrityPrecisionConcurrency"));
         applied.Should().Contain(m => m.EndsWith("_Phase2MultiTenancy"));
         applied.Should().Contain(m => m.EndsWith("_Phase3Identity"));
+        applied.Should().Contain(m => m.EndsWith("_Phase4PlatformAdministration"));
         pending.Should().BeEmpty();
     }
 

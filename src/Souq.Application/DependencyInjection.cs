@@ -24,9 +24,11 @@ public static class DependencyInjection
         services.AddValidatorsFromAssembly(assembly);
 
         // خط أنابيب MediatR — ترتيب التسجيل هو ترتيب التنفيذ (الأول هو الأبعد):
-        // نطاق سجلّ حالة الاستخدام وزمنها أولاً (يشمل التحقّق)، ثم التحقّق.
+        // نطاق سجلّ حالة الاستخدام وزمنها أولاً (يشمل التحقّق)، ثم التحقّق، ثم التدقيق (مدخل صالح فقط يُسجَّل،
+        // وسطره يُحفظ في معاملة المعالج نفسها — D-17).
         services.AddTransient(typeof(IPipelineBehavior<,>), typeof(UseCaseLoggingBehavior<,>));
         services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
+        services.AddTransient(typeof(IPipelineBehavior<,>), typeof(AuditBehavior<,>));
 
         // الساعة: كل قراءة "الآن" في حالات الاستخدام تمرّ عبر TimeProvider (مدمج في .NET)
         // لا DateTime.UtcNow — فتُختبر الصلاحيات والانتهاء بساعة ثابتة (Phase 0 D12).
@@ -44,6 +46,9 @@ public static class DependencyInjection
         services.AddScoped<Features.Orders.OrderPaymentConfirmation>();
         // إصدار الجلسات (رمز تجديد + توكن وصول) لكل مداخلها: دخول، تسجيل، تجديد، تغيير كلمة مرور.
         services.AddScoped<Features.Auth.AuthSessionIssuer>();
+        // حسابات الإدارة (دعوة، تفعيل/إيقاف) مشتركة بين منطقة المنصّة وإدارة موظّفي المتجر.
+        services.AddScoped<Common.Accounts.AccountInvitations>();
+        services.AddScoped<Common.Accounts.AccountStatusChanger>();
 
         return services;
     }

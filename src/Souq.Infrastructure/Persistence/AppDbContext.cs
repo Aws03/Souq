@@ -3,6 +3,7 @@ using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Souq.Application.Common.Exceptions;
 using Souq.Application.Common.Tenancy;
+using Souq.Domain.Auditing;
 using Souq.Domain.Common;
 using Souq.Domain.Entities;
 using Souq.Domain.Identity;
@@ -69,6 +70,9 @@ public class AppDbContext : DbContext, IUnitOfWork
     // جداول المنصّة — بلا مرشّح مستأجر (هي ما يُعرِّفه).
     public DbSet<Tenant> Tenants => Set<Tenant>();
     public DbSet<TenantDomain> TenantDomains => Set<TenantDomain>();
+
+    // سجلّ التدقيق (D-17): للإضافة فقط، بلا مرشّح (يُقرأ من المنصّة بشرط صريح).
+    public DbSet<AuditEntry> AuditEntries => Set<AuditEntry>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

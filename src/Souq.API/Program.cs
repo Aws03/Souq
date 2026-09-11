@@ -15,6 +15,7 @@ using Souq.API.Observability;
 using Souq.API.Security;
 using Souq.API.Tenancy;
 using Souq.Application;
+using Souq.Application.Common.Auditing;
 using Souq.Application.Common.Interfaces;
 using Souq.Application.Common.Security;
 using Souq.Infrastructure;
@@ -89,6 +90,7 @@ builder.Services.AddScoped<ICurrentUser, HttpCurrentUser>();
 // ── الجلسات (ADR-0010): روابط البريد على مضيف الطلب، ملف تعريف ارتباط رمز التجديد، وحدّ المعدّل
 // على كل ما يقبل كلمة مرور أو يرسل بريداً أو يعاين كوبوناً. ──
 builder.Services.AddScoped<IStorefrontLinks, RequestStorefrontLinks>();
+builder.Services.AddScoped<IClientInfo, RequestClientInfo>();   // عنوان العميل لسطر التدقيق (D-17)
 builder.Services.Configure<RefreshCookieOptions>(builder.Configuration.GetSection(RefreshCookieOptions.SectionName));
 builder.Services.AddSouqRateLimiting(builder.Configuration);
 
@@ -179,7 +181,7 @@ Directory.CreateDirectory(uploadsPath);
 var mediaContentTypes = new FileExtensionContentTypeProvider(new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
 {
     [".jpg"] = "image/jpeg", [".jpeg"] = "image/jpeg", [".png"] = "image/png", [".gif"] = "image/gif",
-    [".webp"] = "image/webp", [".mp4"] = "video/mp4", [".webm"] = "video/webm",
+    [".webp"] = "image/webp", [".mp4"] = "video/mp4", [".webm"] = "video/webm", [".ico"] = "image/x-icon",
 });
 app.UseStaticFiles(new StaticFileOptions
 {

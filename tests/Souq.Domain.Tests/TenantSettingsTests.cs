@@ -1,0 +1,108 @@
+using AwesomeAssertions;
+using Souq.Domain.Exceptions;
+using Souq.Domain.Platform;
+
+namespace Souq.Domain.Tests;
+
+// التجمّع يحرس إعداداته (المرحلة 4): افتراضي صالح لمتجر جديد، لغة افتراضية مفعّلة دائماً، خطوط وقوالب معتمدة،
+// ملفات هوية تحت بادئته فقط، وحدات معروفة، وروابط تواصل محدودة.
+public class TenantSettingsTests
+{
+    private static Tenant NewTenant() => new("متجر تجريبي", "demo-store", "JOD", "ar", "Asia/Amman");
+
+    [Fact]
+    public void المتجر_الجديد_بإعدادات_افتراضية_وكل_الوحدات()
+    {
+        var tenant = NewTenant();
+
+        tenant.HasCustomSettings.Should().BeTrue();
+        tenant.Settings.DisplayName.Should().Equal(new Dictionary<string, string> { ["ar"] = "متجر تجريبي" });
+        tenant.Settings.EnabledCultures.Should().Equal("ar");
+        tenant.Settings.Branding.Colors.Should().BeSameAs(BrandColors.Neutral);
+        tenant.Modules.Should().BeEquivalentTo(StoreModules.All);
+    }
+
+    [Fact]
+    public void اللغة_الافتراضية_مفعّلة_دائماً()
+    {
+        var tenant = NewTenant();
+
+        ((Action)(() => tenant.SetEnabledCultures(["en"]))).Should().Throw<InvalidTenantOperationException>();
+        ((Action)(() => tenant.SetEnabledCultures(["ar", "fr"]))).Should().Throw<InvalidTenantOperationException>();
+
+        tenant.SetEnabledCultures(["EN", "ar"]);
+        tenant.Settings.EnabledCultures.Should().Equal("ar", "en");     // بترتيب اللغات المدعومة
+
+        var arabicOnly = NewTenant();
+        arabicOnly.SetLocale("en", "UTC");
+        arabicOnly.Settings.EnabledCultures.Should().Contain("en");
+    }
+
+    [Fact]
+    public void الخط_والقالب_من_القائمة_المعتمدة_فقط()
+    {
+        var tenant = NewTenant();
+
+        ((Action)(() => tenant.UpdateBranding(BrandColors.Neutral, "comic-sans", "classic"))).Should().Throw<InvalidTenantOperationException>();
+        ((Action)(() => tenant.UpdateBranding(BrandColors.Neutral, "cairo", "neon"))).Should().Throw<InvalidTenantOperationException>();
+
+        tenant.UpdateBranding(BrandColors.Neutral, "Cairo", "Minimal");
+        tenant.Settings.Branding.Typography.Should().Be("cairo");
+        tenant.Settings.Branding.ThemePreset.Should().Be("minimal");
+    }
+
+    [Theory]
+    [InlineData("https://cdn.evil.example/logo.png")]
+    [InlineData("/uploads/tenants/99/branding/logo.png")]
+    [InlineData("/uploads/tenants/0/../99/branding/logo.png")]
+    [InlineData("")]
+    public void ملف_هوية_خارج_بادئة_المتجر_يُرفض(string url)
+    {
+        var act = () => NewTenant().SetBrandingAsset(BrandingAsset.Logo, url);
+
+        act.Should().Throw<InvalidTenantOperationException>();
+    }
+
+    [Fact]
+    public void ملف_الهوية_يُحفظ_ولا_يمسّه_تعديل_الألوان()
+    {
+        var tenant = NewTenant();
+
+        tenant.SetBrandingAsset(BrandingAsset.Favicon, "/uploads/tenants/0/branding/icon.png");
+        tenant.UpdateBranding(BrandColors.Neutral, "almarai", "bold");
+
+        tenant.Settings.Branding.FaviconUrl.Should().Be("/uploads/tenants/0/branding/icon.png");
+        tenant.Settings.Branding.LogoUrl.Should().BeNull();
+    }
+
+    [Fact]
+    public void الوحدات_تستبدل_كاملة_والمجهول_يُرفض()
+    {
+        var tenant = NewTenant();
+
+        tenant.SetModules(["reviews"]);
+        tenant.Modules.Should().BeEquivalentTo(["reviews"]);
+        tenant.SetModules([]);
+        tenant.Modules.Should().BeEmpty();
+        ((Action)(() => tenant.SetModules(["marketplace"]))).Should().Throw<InvalidTenantOperationException>();
+    }
+
+    [Fact]
+    public void روابط_التواصل_محدودة_ورابط_واحد_لكل_شبكة()
+    {
+        var tenant = NewTenant();
+        var instagram = SocialLink.Create("instagram", "https://instagram.com/a");
+
+        var duplicate = () => tenant.UpdateStorefront(null, StoreContact.Empty, [instagram, instagram], SeoSettings.Empty, null);
+
+        duplicate.Should().Throw<InvalidTenantOperationException>();
+    }
+
+    [Fact]
+    public void اسم_المتجر_بلا_محارف_تحكّم()
+    {
+        var act = () => NewTenant().Rename("متجر\r\nBcc: victim@example.com");
+
+        act.Should().Throw<InvalidTenantOperationException>();
+    }
+}

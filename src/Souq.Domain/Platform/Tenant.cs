@@ -28,6 +28,12 @@ public partial class Tenant : Entity
 
     private readonly List<TenantDomain> _domains = new();
 
+    // إعدادات الواجهة (المرحلة 4) — null لمتجر سابق لها ⇒ الافتراضي المشتقّ من الاسم واللغة.
+    private StoreSettings? _settings;
+
+    // الوحدات الاختيارية المفعّلة بصيغة التخزين (StoreModules.Format).
+    private string _modules = "";
+
     public string Name { get; private set; } = default!;
     public string Slug { get; private set; } = default!;
     public TenantStatus Status { get; private set; }
@@ -36,6 +42,11 @@ public partial class Tenant : Entity
     public string TimeZone { get; private set; } = default!;
 
     public IReadOnlyCollection<TenantDomain> Domains => _domains.AsReadOnly();
+
+    public StoreSettings Settings => _settings ?? StoreSettings.Default(Name, DefaultCulture);
+    public bool HasCustomSettings => _settings is not null;
+    public IReadOnlySet<string> Modules => StoreModules.Parse(_modules);
+    public TenantDomain? PrimaryDomain => _domains.FirstOrDefault(d => d.IsPrimary);
 
     private Tenant() { }
 
@@ -46,6 +57,8 @@ public partial class Tenant : Entity
         Currency = NormalizeCurrency(currency);
         SetLocale(defaultCulture, timeZone);
         Status = TenantStatus.Provisioning;
+        _settings = StoreSettings.Default(Name, DefaultCulture);
+        _modules = StoreModules.Format(StoreModules.All);
     }
 
     public void Rename(string name)
@@ -53,6 +66,9 @@ public partial class Tenant : Entity
         var trimmed = name?.Trim() ?? "";
         if (trimmed.Length is < 2 or > NameMaxLength)
             throw new InvalidTenantOperationException($"اسم المتجر يجب أن يكون بين 2 و{NameMaxLength} حرفاً");
+        // الاسم يصل لعناوين الرسائل وترويساتها: لا محارف تحكّم (سطر جديد) مهما كان المصدر.
+        if (trimmed.Any(char.IsControl))
+            throw new InvalidTenantOperationException("اسم المتجر يحتوي محارف غير مسموحة");
         Name = trimmed;
     }
 
@@ -66,7 +82,52 @@ public partial class Tenant : Entity
             throw new InvalidTenantOperationException($"منطقة زمنية غير صالحة: {timeZone}");
         DefaultCulture = culture;
         TimeZone = zone;
+
+        // اللغة الافتراضية مفعّلة دائماً.
+        if (_settings is not null && !_settings.EnabledCultures.Contains(culture))
+            _settings = _settings.With(enabledCultures: [.. _settings.EnabledCultures, culture]);
     }
+
+    public void SetEnabledCultures(IEnumerable<string> cultures)
+    {
+        var normalized = cultures.Select(c => c?.Trim().ToLowerInvariant() ?? "").Distinct(StringComparer.Ordinal).ToList();
+        var unsupported = normalized.FirstOrDefault(c => !SupportedCultures.Contains(c));
+        if (unsupported is not null)
+            throw new InvalidTenantOperationException($"لغة غير مدعومة: {unsupported}");
+        if (!normalized.Contains(DefaultCulture))
+            throw new InvalidTenantOperationException("اللغة الافتراضية يجب أن تكون ضمن اللغات المفعّلة");
+        _settings = Settings.With(enabledCultures: SupportedCultures.Where(normalized.Contains).ToList());
+    }
+
+    // محتوى الواجهة: اسم العرض لكل لغة، التواصل، الشبكات، SEO، شريط الإعلان — تستبدل الحالي كاملاً.
+    public void UpdateStorefront(
+        IReadOnlyDictionary<string, string?>? displayName, StoreContact contact, IReadOnlyList<SocialLink> social,
+        SeoSettings seo, IReadOnlyDictionary<string, string?>? announcement)
+    {
+        if (social.Count > StoreSettings.MaxSocialLinks)
+            throw new InvalidTenantOperationException($"حتى {StoreSettings.MaxSocialLinks} روابط تواصل");
+        if (social.Select(s => s.Network).Distinct(StringComparer.Ordinal).Count() != social.Count)
+            throw new InvalidTenantOperationException("رابط واحد لكل شبكة تواصل");
+
+        _settings = Settings.With(
+            displayName: LocalizedText.Normalize(displayName, StoreSettings.DisplayNameMaxLength, "اسم العرض"),
+            contact: contact, social: social.ToList(), seo: seo,
+            announcement: LocalizedText.Normalize(announcement, StoreSettings.AnnouncementMaxLength, "شريط الإعلان"));
+    }
+
+    public void UpdateBranding(BrandColors colors, string typography, string themePreset) =>
+        _settings = Settings.With(branding: Settings.Branding.WithStyle(colors, typography, themePreset));
+
+    // مسار الملف يولّده الخادم بعد فحص محتواه — دفاعياً: لا يُقبل إلا تحت بادئة ملفات هذا المتجر.
+    public void SetBrandingAsset(BrandingAsset asset, string url)
+    {
+        var prefix = $"/uploads/tenants/{Id}/";
+        if (string.IsNullOrWhiteSpace(url) || !url.StartsWith(prefix, StringComparison.Ordinal) || url.Contains("..", StringComparison.Ordinal))
+            throw new InvalidTenantOperationException("ملفات الهوية تُرفع عبر المنصّة — لا روابط خارجية");
+        _settings = Settings.With(branding: Settings.Branding.WithAsset(asset, url));
+    }
+
+    public void SetModules(IEnumerable<string> modules) => _modules = StoreModules.Format(modules);
 
     // تغيير العملة يكسر التاريخ المالي (أسعار وطلبات بعملة سابقة) — مسموح فقط قبل أي نشاط
     // تجاري. "هل يوجد نشاط؟" سؤال قاعدة بيانات يجيب عنه المستدعي (WhiteLabel.md §2).
@@ -127,6 +188,9 @@ public partial class Tenant : Entity
             throw new InvalidTenantOperationException("عيّن نطاقاً أساسياً آخر قبل حذف النطاق الأساسي");
         _domains.Remove(target);
     }
+
+    // تأكيد ملكية النطاق (يدوياً من المنصّة اليوم؛ فحص DNS تلقائي في المرحلة 23).
+    public void VerifyDomain(string host, DateTime utcNow) => FindDomain(host).MarkVerified(utcNow);
 
     private TenantDomain FindDomain(string host)
     {

@@ -17,6 +17,13 @@ public sealed class CapturingEmailService : IEmailService
     public Task SendEmailVerificationAsync(string toEmail, string verificationLink, CancellationToken ct = default) =>
         Capture("verify", toEmail, verificationLink);
 
+    public Task SendInvitationAsync(string toEmail, string storeName, string invitationLink, CancellationToken ct = default) =>
+        Capture("invite", toEmail, invitationLink);
+
+    public string LastInvitationLinkFor(string email) => Last("invite", email);
+
+    public string LastInvitationTokenFor(string email) => TokenOf(Last("invite", email));
+
     public string LastResetLinkFor(string email) => Last("reset", email);
 
     public string LastResetTokenFor(string email) => TokenOf(Last("reset", email));

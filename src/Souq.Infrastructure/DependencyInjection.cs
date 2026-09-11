@@ -4,15 +4,21 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
+using Souq.Application.Common.Accounts;
+using Souq.Application.Common.Auditing;
 using Souq.Application.Common.Interfaces;
 using Souq.Application.Common.Security;
 using Souq.Application.Common.Tenancy;
 using Souq.Application.Features.Coupons.Queries;
 using Souq.Application.Features.Inventory.Queries;
 using Souq.Application.Features.Orders.Queries;
+using Souq.Application.Features.Platform;
 using Souq.Application.Features.Products.Queries;
+using Souq.Application.Features.Reporting;
 using Souq.Application.Features.Reviews.Queries;
+using Souq.Application.Features.Stores;
 using Souq.Domain.Interfaces;
+using Souq.Infrastructure.Auditing;
 using Souq.Infrastructure.Persistence;
 using Souq.Infrastructure.Persistence.Interceptors;
 using Souq.Infrastructure.Persistence.Queries;
@@ -87,6 +93,7 @@ public static class DependencyInjection
         services.AddScoped<ICouponRepository, CouponRepository>();
         services.AddScoped<IReviewRepository, ReviewRepository>();
         services.AddScoped<IStockMovementRepository, StockMovementRepository>();
+        services.AddScoped<ITenantRepository, TenantRepository>();
 
         // خدمات القراءة (ADR-0008): إسقاطات بلا تتبّع خلف منافذ Application، لكل وحدة منفذها.
         services.AddScoped<ICatalogQueries, CatalogQueries>();
@@ -94,6 +101,16 @@ public static class DependencyInjection
         services.AddScoped<ICouponQueries, CouponQueries>();
         services.AddScoped<IReviewQueries, ReviewQueries>();
         services.AddScoped<IInventoryQueries, InventoryQueries>();
+        services.AddScoped<IAccountQueries, AccountQueries>();
+        // منطقة المنصّة والإحصاءات: الصنف المُراجَع الوحيد لتجاوز مرشّح المستأجر يخدم منفذيهما.
+        services.AddScoped<PlatformQueries>();
+        services.AddScoped<IPlatformQueries>(sp => sp.GetRequiredService<PlatformQueries>());
+        services.AddScoped<IPlatformReports>(sp => sp.GetRequiredService<PlatformQueries>());
+        services.AddScoped<IStoreConfiguration, StoreConfiguration>();
+
+        // سجلّ التدقيق في وحدة العمل الحالية، والعمل داخل متجر بعينه من منطقة المنصّة.
+        services.AddScoped<IAuditTrail, AuditTrail>();
+        services.AddScoped<ITenantScopeRunner, TenantScopeRunner>();
     }
 
     // بوّابة الدفع: القرار هنا فقط — لا كود آخر في النظام يعرف أيّها يعمل. البوّابة التجريبية

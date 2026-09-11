@@ -203,7 +203,12 @@
     "invalidVerifyLink": "رابط التأكيد ناقص. افتح الرابط كاملاً من رسالة البريد.",
     "resendVerification": "إرسال رابط تأكيد جديد",
     "verificationSent": "أرسلنا رابط تأكيد جديداً إلى بريدك.",
-    "verifyEmailContinue": "متابعة التسوّق"
+    "verifyEmailContinue": "متابعة التسوّق",
+    "acceptInvitationTitle": "قبول الدعوة",
+    "acceptInvitationSubtitle": "اختر كلمة مرور لتفعيل حسابك",
+    "acceptInvitationSubmit": "تفعيل الحساب",
+    "acceptInvitationSuccess": "تم تفعيل حسابك. سيتم تحويلك لتسجيل الدخول…",
+    "invalidInvitationLink": "رابط الدعوة ناقص. افتح الرابط كاملاً من رسالة البريد، أو اطلب دعوة جديدة من مدير المتجر."
   },
   "checkout": {
     "emptyCartTitle": "سلّتك فارغة",
@@ -526,6 +531,12 @@
       "InvalidVerificationToken": "رابط التأكيد غير صالح أو استُخدم مسبقاً.",
       "VerificationTokenExpired": "انتهت صلاحية رابط التأكيد. اطلب رابطاً جديداً.",
       "InvalidIdentityOperation": "لا يمكن تنفيذ هذا الإجراء على هذا الحساب.",
+      "ModuleDisabled": "هذه الميزة غير مفعّلة في هذا المتجر.",
+      "TenantHasNoDomain": "أضف نطاقاً للمتجر قبل دعوة مديره.",
+      "TenantSlugTaken": "هذا المعرّف مستخدم لمتجر آخر.",
+      "DomainTaken": "هذا النطاق مربوط بمتجر آخر على المنصّة.",
+      "CannotDisableSelf": "لا يمكنك إيقاف حسابك بنفسك.",
+      "LastAdministrator": "لا يمكن إيقاف آخر حساب إداري فعّال.",
       "ServerError": "حدث خطأ غير متوقّع في الخادم."
     }
   }

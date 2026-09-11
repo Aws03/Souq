@@ -23,6 +23,14 @@ public sealed class AvailableWhenStoreClosedAttribute : Attribute;
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method)]
 public sealed class AvailableOnAllHostsAttribute : Attribute;
 
+// نقطة من وحدة اختيارية (D-11): معطّلة لمتجر المضيف ⇒ 404 ModuleDisabled قبل المصادقة وأي منطق. الواجهة
+// تُخفي الوحدة من إعدادها، وهذا هو الفرض الفعلي (وحالات الاستخدام التي تمسّ الوحدة تفحص أيضاً).
+[AttributeUsage(AttributeTargets.Class | AttributeTargets.Method)]
+public sealed class RequiresModuleAttribute(string module) : Attribute
+{
+    public string Module { get; } = module;
+}
+
 // ============================================================================
 // TenantAvailabilityMiddleware — بعد التوجيه وتحديد المستأجر: هل هذه النقطة متاحة على هذا المضيف
 // بهذه الحالة؟ نقطة منصّة على مضيف متجر (أو العكس) ⇒ 404 (لا نكشف وجودها). متجر غير فعّال ⇒ 503
@@ -53,6 +61,14 @@ public sealed class TenantAvailabilityMiddleware
         {
             await ProblemResponses.WriteAsync(context, StatusCodes.Status503ServiceUnavailable, "StoreUnavailable",
                 "المتجر غير متاح حالياً.");
+            return;
+        }
+
+        if (tenancy.Tenant is { } store && endpoint.Metadata.GetMetadata<RequiresModuleAttribute>() is { } required
+            && !store.HasModule(required.Module))
+        {
+            await ProblemResponses.WriteAsync(context, StatusCodes.Status404NotFound, "ModuleDisabled",
+                "هذه الميزة غير مفعّلة في هذا المتجر.");
             return;
         }
 

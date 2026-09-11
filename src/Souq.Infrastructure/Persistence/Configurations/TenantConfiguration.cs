@@ -20,7 +20,25 @@ public class TenantConfiguration : IEntityTypeConfiguration<Tenant>
         builder.Property(t => t.Currency).HasMaxLength(3).IsRequired();
         builder.Property(t => t.TimeZone).HasMaxLength(Tenant.TimeZoneMaxLength).IsRequired();
 
-        // مالك المنصّة وأكثر من مدير قد يعدّلون المتجر نفسه معاً (حالة، نطاقات، عملة).
+        // إعدادات الواجهة (D-12): مستند JSON يُقرأ ويُكتب كاملاً مع المتجر ولا يُستعلم بداخله. NULL = متجر سابق
+        // للمرحلة 4 (يُعرض الافتراضي حتى يُضبط — البذر يضبط المتجر الافتراضي بمظهر ماركة).
+        builder.Property<StoreSettings?>("_settings")
+               .HasColumnName("Settings")
+               .HasConversion(StoreSettingsJson.Converter, StoreSettingsJson.Comparer);
+
+        // الوحدات المفعّلة (D-11). الافتراضي للصفوف القائمة: كل الوحدات — الترقية لا تُفقد متجراً كوبوناته.
+        builder.Property<string>("_modules")
+               .HasColumnName("EnabledModules")
+               .HasMaxLength(200)
+               .IsRequired()
+               .HasDefaultValue(StoreModules.Format(StoreModules.All));
+
+        builder.Ignore(t => t.Settings);
+        builder.Ignore(t => t.HasCustomSettings);
+        builder.Ignore(t => t.Modules);
+        builder.Ignore(t => t.PrimaryDomain);
+
+        // مالك المنصّة وأكثر من مدير قد يعدّلون المتجر نفسه معاً (حالة، نطاقات، عملة، إعدادات).
         builder.HasRowVersion();
 
         builder.HasMany(t => t.Domains)

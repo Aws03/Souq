@@ -26,6 +26,13 @@ public static class ResultHttpExtensions
     public static IActionResult Failure<T>(this ControllerBase controller, Result<T> result)
         => controller.Failure(result.Error ?? throw NotAFailure());
 
+    // الشكل الشائع: نجاح بلا جسم ⇒ 204، نجاح بقيمة ⇒ 200 بها، فشل ⇒ ProblemDetails.
+    public static IActionResult ToHttp(this ControllerBase controller, Result result)
+        => result.IsSuccess ? controller.NoContent() : controller.Failure(result);
+
+    public static IActionResult ToHttp<T>(this ControllerBase controller, Result<T> result)
+        => result.IsSuccess ? controller.Ok(result.Value) : controller.Failure(result);
+
     private static InvalidOperationException NotAFailure() =>
         new("Failure() يُستدعى لنتيجة فاشلة فقط — النتيجة ناجحة.");
 }

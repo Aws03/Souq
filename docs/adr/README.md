@@ -26,6 +26,7 @@ An ADR captures **one** significant decision: the context, the options considere
 | [0020](0020-configuration-and-secrets.md) | Typed validated options, fail-fast startup, no implicit dev fallbacks outside Development | Accepted (implemented 1B) |
 | [0021](0021-transaction-boundaries.md) | Use case owns the unit of work; no transaction spans a network call; compensation and outbox | Accepted (1B) |
 | [0022](0022-tenancy-enforcement.md) | Tenancy enforcement details: set-once context, named filter that throws without a tenant, write guard, tenant-scoped composite FKs, dev-only resolution, status gating | Accepted (implemented Phase 2) |
+| [0024](0024-platform-administration.md) | Platform administration: settings as a validated JSON document (WCAG contrast), module flags in the cached tenant snapshot, audit staged into the handler's unit of work (append-only), platform writes through the target store's scope, one reviewed cross-tenant query class, invitations on the store domain | Accepted (implemented Phase 4) |
 | [0023](0023-sessions-and-credentials.md) | Session and credential mechanics: host-bound `tid` (none on platform hosts), `cid` claim, one role per account, 10 s refresh grace, 30-day sliding refresh, cached stamp check, email links on the request host, `host|IP` rate limits, id-preserving identity migration | Accepted (implemented Phase 3) |
 
 **Template:** Context · Problem · Options considered · Decision · Why · Consequences · Revisit when.

@@ -42,6 +42,10 @@ public class GmailEmailService : IEmailService
     public Task SendEmailVerificationAsync(string toEmail, string verificationLink, CancellationToken ct = default)
         => SendAsync(toEmail, "تأكيد بريدك الإلكتروني — ماركة", EmailTemplates.EmailVerification(verificationLink), ct);
 
+    public Task SendInvitationAsync(string toEmail, string storeName, string invitationLink, CancellationToken ct = default)
+        => SendAsync(toEmail, EmailTemplates.Subject($"دعوة للانضمام إلى {storeName}"),
+            EmailTemplates.Invitation(storeName, invitationLink), ct);
+
     private async Task SendAsync(string toEmail, string subject, string htmlBody, CancellationToken ct)
     {
         var recipient = LogRedaction.MaskEmail(toEmail);

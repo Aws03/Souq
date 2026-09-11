@@ -40,6 +40,10 @@ public class ResendEmailService : IEmailService
     public Task SendEmailVerificationAsync(string toEmail, string verificationLink, CancellationToken ct = default)
         => SendAsync(toEmail, "تأكيد بريدك الإلكتروني — ماركة", EmailTemplates.EmailVerification(verificationLink), ct);
 
+    public Task SendInvitationAsync(string toEmail, string storeName, string invitationLink, CancellationToken ct = default)
+        => SendAsync(toEmail, EmailTemplates.Subject($"دعوة للانضمام إلى {storeName}"),
+            EmailTemplates.Invitation(storeName, invitationLink), ct);
+
     public Task SendPasswordResetEmailAsync(string toEmail, string resetLink, CancellationToken ct = default)
     {
         return SendAsync(toEmail, "إعادة تعيين كلمة المرور — ماركة", EmailTemplates.PasswordReset(resetLink), ct);

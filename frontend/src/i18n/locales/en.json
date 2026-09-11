@@ -203,7 +203,12 @@
     "invalidVerifyLink": "This verification link is incomplete. Open the full link from the email.",
     "resendVerification": "Send a new verification link",
     "verificationSent": "We've sent a new verification link to your email.",
-    "verifyEmailContinue": "Continue shopping"
+    "verifyEmailContinue": "Continue shopping",
+    "acceptInvitationTitle": "Accept invitation",
+    "acceptInvitationSubtitle": "Choose a password to activate your account",
+    "acceptInvitationSubmit": "Activate account",
+    "acceptInvitationSuccess": "Your account is active. Redirecting you to sign in…",
+    "invalidInvitationLink": "This invitation link is incomplete. Open the full link from the email, or ask the store administrator for a new invitation."
   },
   "checkout": {
     "emptyCartTitle": "Your cart is empty",
@@ -526,6 +531,12 @@
       "InvalidVerificationToken": "This verification link is invalid or has already been used.",
       "VerificationTokenExpired": "This verification link has expired. Please request a new one.",
       "InvalidIdentityOperation": "This action can't be performed on this account.",
+      "ModuleDisabled": "This feature isn't enabled for this store.",
+      "TenantHasNoDomain": "Add a domain to the store before inviting its administrator.",
+      "TenantSlugTaken": "This identifier is already used by another store.",
+      "DomainTaken": "This domain is already connected to another store.",
+      "CannotDisableSelf": "You can't disable your own account.",
+      "LastAdministrator": "The last active administrator can't be disabled.",
       "ServerError": "An unexpected server error occurred."
     }
   }

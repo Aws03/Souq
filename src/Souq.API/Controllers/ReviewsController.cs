@@ -2,13 +2,17 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Souq.API.Http;
+using Souq.API.Tenancy;
+using Souq.Domain.Platform;
 using Souq.Application.Features.Reviews.Commands;
 using Souq.Application.Features.Reviews.Queries;
 
 namespace Souq.API.Controllers;
 
+// وحدة Reviews اختيارية (D-11): معطّلة للمتجر ⇒ القائمة والإنشاء 404 ModuleDisabled.
 [ApiController]
 [Route("api/products/{productId:int}/reviews")]
+[RequiresModule(StoreModules.Reviews)]
 public class ReviewsController : ControllerBase
 {
     private readonly IMediator _mediator;

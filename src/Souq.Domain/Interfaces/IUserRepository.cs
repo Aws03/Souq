@@ -12,6 +12,9 @@ public interface IUserRepository : IRepository<User>
     Task<User?> GetByResetTokenAsync(string token, CancellationToken ct = default);
 
     Task<User?> GetByVerificationTokenAsync(string token, CancellationToken ct = default);
+
+    // الحسابات القادرة فعلاً على الدخول بهذا الدور في النطاق (فعّالة وقبلت دعوتها) — حارس "آخر مدير".
+    Task<int> CountActiveByRoleAsync(string role, CancellationToken ct = default);
 }
 
 // منفذ رموز التجديد: بحث بالتجزئة، وإبطال عائلة أو كل جلسات مستخدم (تغيير كلمة المرور، سرقة).

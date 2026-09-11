@@ -84,7 +84,7 @@ Each entry lists:
 
 ### Platform (introduced Phase 2/4)
 - **Responsibility:** the tenant lifecycle and the configuration of each store.
-- **Owns:** `Tenants`, `TenantDomains`, `TenantModules`, tenant settings (branding, contact, SEO, locale, currency, time zone); plans later.
+- **Owns:** `Tenants` (including the settings document and the module flags, [ADR-0024](adr/0024-platform-administration.md)), `TenantDomains`, tenant settings (branding, contact, SEO, locale, currency, time zone); plans later.
 - **Must not own:** users (Identity); any catalog, order, or customer data.
 - **Contracts:**
   - `ITenantDirectory` (resolve a host to a tenant; tenant status);
@@ -99,11 +99,12 @@ Each entry lists:
 - **Depends on:** nothing (root).
 - **Forbidden:** reading tenant-owned business tables. Platform statistics come from Reporting.
 - **Extraction:** unlikely (small and central). It could become a "control plane" if the platform ever runs per-region stacks.
-- **Today (Phase 2):**
-  - `Tenant` + `TenantDomain` (`Souq.Domain.Platform`).
-  - `ITenantDirectory` (cached host/slug lookup) and `ITenantContext`.
-  - The resolution and availability middleware.
-  - The settings, module flags and platform API arrive in Phase 4.
+- **Today (Phase 4):**
+  - `Tenant` + `TenantDomain` + `StoreSettings` value objects + `StoreModules` (`Souq.Domain.Platform`).
+  - `ITenantDirectory` (a cached snapshot that includes the modules), `ITenantContext`, and `IStoreConfiguration` (the cached storefront config).
+  - The resolution and availability middleware; `[RequiresModule]` enforcement.
+  - `Features/Platform`: the platform area (stores, domains, settings, modules, invitations, platform accounts, audit log).
+  - `Features/Stores`: store-side settings, branding and the public config.
 
 ### Identity
 - **Responsibility:** who can sign in, and what they are allowed to do.
@@ -123,7 +124,10 @@ Each entry lists:
 - **Depends on:** Platform (tenant active).
 - **Forbidden:** issuing a token whose tenant differs from the one resolved from the host; storing plaintext secrets.
 - **Extraction:** medium. It could be replaced by an external identity provider (the claims contract stays the same).
-- **Today:** `Customer` entity + `Features/Auth` (identity and profile mixed). Split in Phase 3.
+- **Today:**
+  - `User` + `RefreshToken` (`Souq.Domain.Identity`, Phase 3) and `Features/Auth`.
+  - `Features/Staff` (Phase 4): invite, list, enable and disable store staff.
+  - Account invitations and status rules are shared building blocks with the platform area (`Common/Accounts`).
 
 ### Catalog
 - **Responsibility:** what the store sells and how it is presented.
@@ -266,7 +270,9 @@ Each entry lists:
 - **Depends on:** read-only access to other modules' tables through dedicated query services. This is a **documented exception**: it only reads, never writes. Event-fed read models replace it when volume demands.
 - **Forbidden:** any write to business tables.
 - **Extraction:** a candidate (separate reporting store).
-- **Today:** the admin dashboard counts via public endpoints.
+- **Today:**
+  - `Features/Reporting` (Phase 4): platform statistics (tenants by status, accounts, customers, products, orders), counted across stores by the reviewed `PlatformQueries` and audited.
+  - The store dashboard still counts via public endpoints (Phase 17).
 
 ## 4. How to add a new module (checklist)
 

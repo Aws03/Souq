@@ -57,6 +57,11 @@
     - raw SQL outside migrations;
     - a use case that sets the tenant.
   - `AuthorizationMatrixTests` check role × endpoint over HTTP. `AuthSessionTests` check that platform and store tokens are separated.
+  - **Platform area (Phase 4):**
+    - `AuthorizationBoundaryTests` proves that every platform endpoint is missing (404) on a store host, even for the store's admin.
+    - On the platform host, it rejects anonymous callers and store tokens (401).
+    - `PlatformAdministrationTests` covers the full provisioning scenario, and a platform admin without `platform.users.manage` gets 403.
+    - A store admin changing settings or staff can only touch their own store: the requests carry no store id, and B's admin gets 404 for A's staff account (`TenantIsolationTests`).
 
 ## 4. Transport, CORS, headers, rate limiting
 
@@ -156,17 +161,29 @@
 
 **Rules added in Phase 3:** refresh-token reuse is logged as a warning with the user id only. Refresh tokens appear only in the `Set-Cookie` header, never in a body or log.
 
-## 10. Audit logging (Phase 4)
+## 10. Audit logging (implemented in Phase 4, [ADR-0024](adr/0024-platform-administration.md))
 
-`AuditLog` rows record:
-- who (user id, role, platform or tenant);
-- which tenant;
-- the action;
-- the target type and id;
-- metadata as JSON (changed fields, without secrets);
-- IP and timestamp.
+`AuditEntries` rows record:
+- who: the user id and role, and the area (`Platform`, `Store` or `System`);
+- which store is affected;
+- the action (`tenant.suspended`, `store.staff.invited`, …);
+- the target type and id (the natural key for creates);
+- metadata as JSON, with the fields the request chose itself;
+- the client IP (only from trusted proxies) and the correlation id.
 
-They are written by a MediatR behavior for commands marked `IAuditableCommand`. Platform actions, permission changes, refunds, stock adjustments, and tenant configuration changes are always audited. The table is append-only.
+**How rows are written:**
+- `AuditBehavior` handles every request that implements `IAuditable`.
+- The entry is staged into the current unit of work before the handler runs, so it commits atomically with the change.
+- If the handler saved nothing (a query), the entry is flushed after success. On failure it is discarded.
+- The request body is never copied, so passwords, tokens and file contents never reach the log.
+
+**What is audited:**
+- **Every platform request, reads included.** This is how the Platform Owner's access stays "explicit and audited", and an architecture test enforces it.
+- **Store administration:** settings, branding and staff.
+
+Refunds, stock adjustments and catalog commands join as their phases rebuild them.
+
+The write guard rejects any update or delete of an `AuditEntry`. The platform reads the log through `GET /api/platform/audit`, with `platform.audit.view`.
 
 ## 11. Phase 0 findings: disposition
 

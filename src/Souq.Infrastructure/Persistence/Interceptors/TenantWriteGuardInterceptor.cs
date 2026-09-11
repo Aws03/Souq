@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Logging;
 using Souq.Application.Common.Exceptions;
 using Souq.Application.Common.Tenancy;
+using Souq.Domain.Auditing;
 using Souq.Domain.Common;
 
 namespace Souq.Infrastructure.Persistence.Interceptors;
@@ -18,6 +19,7 @@ namespace Souq.Infrastructure.Persistence.Interceptors;
 //   حساب أو جلسة (ITenantOrPlatformOwned):
 //     حساب منصّة يُكتب في نطاق المنصّة فقط (بلا متجر)، وحساب متجر في نطاق متجره فقط (يُختم).
 // الرفض قبل أي SQL، مع سجلّ أمني حرج: وصول صف غريب إلى هنا يعني ثغرة تجاوزت مرشّح القراءة.
+//   سطر تدقيق (AuditEntry): إضافة فقط — أي تعديل أو حذف يُرفض (D-17).
 // ============================================================================
 public sealed class TenantWriteGuardInterceptor : SaveChangesInterceptor
 {
@@ -43,6 +45,17 @@ public sealed class TenantWriteGuardInterceptor : SaveChangesInterceptor
         if (context is not AppDbContext db) return;
         GuardTenantOwned(db);
         GuardTenantOrPlatformOwned(db);
+        GuardAuditAppendOnly(db);
+    }
+
+    private void GuardAuditAppendOnly(AppDbContext db)
+    {
+        foreach (var entry in db.ChangeTracker.Entries<AuditEntry>())
+        {
+            if (entry.State is not (EntityState.Modified or EntityState.Deleted)) continue;
+            _logger.LogCritical("Blocked {Operation} of audit entry {AuditEntryId}", entry.State, entry.Entity.Id);
+            throw new InvalidOperationException("سجلّ التدقيق للإضافة فقط — لا تعديل ولا حذف.");
+        }
     }
 
     private void GuardTenantOwned(AppDbContext db)

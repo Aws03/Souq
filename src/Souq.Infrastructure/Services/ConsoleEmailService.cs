@@ -42,6 +42,9 @@ public class ConsoleEmailService : IEmailService
     public Task SendEmailVerificationAsync(string toEmail, string verificationLink, CancellationToken ct = default) =>
         LogLink("تأكيد البريد", toEmail, verificationLink);
 
+    public Task SendInvitationAsync(string toEmail, string storeName, string invitationLink, CancellationToken ct = default) =>
+        LogLink("دعوة حساب", toEmail, invitationLink);
+
     private Task LogLink(string purpose, string toEmail, string link)
     {
         if (_opts.IncludeLinksInLog)

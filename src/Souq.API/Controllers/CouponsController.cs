@@ -4,14 +4,18 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Souq.API.Http;
 using Souq.API.Security;
+using Souq.API.Tenancy;
+using Souq.Domain.Platform;
 using Souq.Application.Common.Security;
 using Souq.Application.Features.Coupons.Commands;
 using Souq.Application.Features.Coupons.Queries;
 
 namespace Souq.API.Controllers;
 
+// وحدة Promotions اختيارية (D-11): معطّلة للمتجر ⇒ كل نقاطها 404 ModuleDisabled (المعاينة والإدارة معاً).
 [ApiController]
 [Route("api/[controller]")]
+[RequiresModule(StoreModules.Promotions)]
 public class CouponsController : ControllerBase
 {
     private readonly IMediator _mediator;

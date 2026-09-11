@@ -26,7 +26,9 @@ public class ModuleAndContractRuleTests
         ["Payments"] = ["Payments"],
         ["Promotions"] = ["Coupons"],
         ["Reviews"] = ["Reviews"],
-        ["Identity"] = ["Auth"],
+        ["Identity"] = ["Auth", "Staff"],
+        ["Platform"] = ["Platform", "Stores"],
+        ["Reporting"] = ["Reporting"],
     };
 
     [Fact]
@@ -77,6 +79,21 @@ public class ModuleAndContractRuleTests
                 .SelectMany(r => r.GetProperties(BindingFlags.Public | BindingFlags.Instance))
                 .Where(p => p.Name.Equals("TenantId", StringComparison.OrdinalIgnoreCase))
                 .Select(p => $"{t.Name} → {p.DeclaringType!.Name}.{p.Name}"))
+            .ToList();
+
+        offenders.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void كل_طلب_في_منطقة_المنصّة_مُدقَّق()
+    {
+        // "وصول المنصّة صريح ومُدقَّق": كل أمر أو استعلام من منطقة المنصّة، وكل قراءة مجمَّعة عبر المتاجر
+        // (Reporting)، يكتب سطر تدقيق (IAuditable ⇒ AuditBehavior). طلب منصّة جديد بلا تدقيق يُفشل البناء.
+        var offenders = RequestTypes()
+            .Where(t => (t.Namespace ?? "").StartsWith($"{Features}.Platform", StringComparison.Ordinal)
+                        || (t.Namespace ?? "").StartsWith($"{Features}.Reporting", StringComparison.Ordinal))
+            .Where(t => !typeof(Souq.Application.Common.Auditing.IAuditable).IsAssignableFrom(t))
+            .Select(t => t.FullName)
             .ToList();
 
         offenders.Should().BeEmpty();

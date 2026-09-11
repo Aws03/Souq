@@ -77,6 +77,28 @@ public sealed class TestApi
         return (await response.Content.ReadFromJsonAsync<AuthBody>(Json))!.AccessToken;
     }
 
+    // دخول على مضيف بعينه (مضيف المنصّة، أو نطاق متجر أنشأته المنصّة للتوّ).
+    public async Task<string> TokenOnAsync(string host, string email, string password)
+    {
+        var response = await Client(host).PostAsJsonAsync("/api/auth/login", new { email, password });
+        response.StatusCode.Should().Be(System.Net.HttpStatusCode.OK, await response.Content.ReadAsStringAsync());
+        return (await response.Content.ReadFromJsonAsync<AuthBody>(Json))!.AccessToken;
+    }
+
+    // مالك المنصّة (مبذور من الإعداد الصريح) على مضيف المنصّة — مدخل منطقة المنصّة.
+    public async Task<HttpClient> PlatformOwnerAsync() => Authorized(
+        await TokenOnAsync(SouqApiFactory.PlatformHost, SouqApiFactory.PlatformOwnerEmail, SouqApiFactory.PlatformOwnerPassword),
+        SouqApiFactory.PlatformHost);
+
+    // قبول دعوة كما يفعل المتصفّح: الرمز من الرابط، والطلب على مضيف الرابط نفسه.
+    public async Task AcceptInvitationAsync(string invitationLink, string password)
+    {
+        var link = new Uri(invitationLink);
+        var token = Uri.UnescapeDataString(link.Query[(link.Query.IndexOf("token=", StringComparison.Ordinal) + "token=".Length)..]);
+        var response = await Client(link.Host).PostAsJsonAsync("/api/auth/reset-password", new { token, newPassword = password });
+        response.StatusCode.Should().Be(System.Net.HttpStatusCode.OK, await response.Content.ReadAsStringAsync());
+    }
+
     public async Task<int> CreateProductAsync(
         HttpClient admin, decimal price = 10m, int stock = 5, int? categoryId = null, string? name = null)
     {

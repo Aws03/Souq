@@ -43,6 +43,17 @@ cd frontend && npm install && npm run dev          # http://localhost:5173
 - The platform owner signs in on the platform host (`admin.localhost`), through the API until the platform UI lands.
 - Auth endpoints are rate-limited (`RateLimiting:*`). Raise the limits locally if a script hits them.
 
+**Provisioning a store locally (Phase 4, API only until the platform UI in Phase 18):**
+1. Sign in as the platform owner on the platform host: `POST http://admin.localhost:5200/api/auth/login`.
+2. Create the store: `POST /api/platform/tenants` with `{ "name", "slug", "currency", "defaultCulture", "timeZone" }`. It starts in Provisioning.
+3. Add a domain, then invite its admin:
+   - `POST /api/platform/tenants/{id}/domains` with `{ "host": "{slug}.localhost" }`. `*.localhost` resolves to your machine, and the invitation link needs a domain.
+   - `POST /api/platform/tenants/{id}/admins`. In Development, the console email adapter logs the link.
+4. Activate the store: `POST /api/platform/tenants/{id}/status` with `{ "action": "Activate" }`.
+5. Open `http://{slug}.localhost:5173`.
+
+Every step appears in `GET /api/platform/audit`.
+
 ## 3. Tests
 
 | Suite | Command | Needs |

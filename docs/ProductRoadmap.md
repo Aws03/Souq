@@ -1,7 +1,7 @@
 # Souq Platform: Product Roadmap
 
 > **Goal:** turn Souq into one **white-label, multi-tenant e-commerce platform**, sold to many clients (≈ $5,000+ each) and maintainable by a professional team.
-> **Status:** Phase 0 ✅ · Target architecture ✅ documented · Phase 1A ✅ (merged to `main`) · Phase 1B ✅ on branch `phase/1b-production-foundations` (awaiting review) · **Autonomous run on `phase/2-15-multitenant-platform`** (branched from the 1B tip): Phase 2 ✅ · Phase 3 ✅. Next: Phase 4.
+> **Status:** Phase 0 ✅ · Target architecture ✅ documented · Phase 1A ✅ (merged to `main`) · Phase 1B ✅ on branch `phase/1b-production-foundations` (awaiting review) · **Autonomous run on `phase/2-15-multitenant-platform`** (branched from the 1B tip): Phase 2 ✅ · Phase 3 ✅ · Phase 4 ✅. Next: Phase 5.
 > **Companion document:** [ArchitectureAssessment.md](ArchitectureAssessment.md) covers the current state, the problem register (IDs such as `B1` and `C2`), the target architecture, and the full reasoning behind every decision (`D-xx`).
 > **Last updated:** 2026-09-11
 
@@ -275,7 +275,47 @@ Status legend: ✅ done · 🟡 in progress · ⏳ planned · ⏸ awaiting appro
   - Refresh-reuse detection and lockout are tested.
 - **Docs.** `AuthenticationAndAuthorization.md`.
 
-### Phase 4: Tenant and platform administration (backend) ⏳
+### Phase 4: Tenant and platform administration (backend) ✅ (autonomous run)
+- **Delivered ([ADR-0024](adr/0024-platform-administration.md)):**
+  - **Platform API** (`/api/platform/*`, platform host only, `platform.*` permissions, every request audited):
+    - stores: create, edit name and currency, activate, suspend, archive;
+    - domains: add, remove, set primary, verify manually;
+    - settings and branding uploads;
+    - modules;
+    - inviting store administrators;
+    - listing a store's administrative accounts;
+    - platform accounts: invite, list, enable, disable;
+    - statistics and the audit log.
+  - **Store settings** as a validated document:
+    - per-language texts;
+    - WCAG-checked colours;
+    - curated typography and theme presets;
+    - contact details and allowlisted social links;
+    - SEO;
+    - logo, favicon and social image uploads (content-sniffed, ICO for favicons).
+  - The **default store is seeded with today's Marka look**.
+  - **Store-side administration:** `/api/admin/store/*` for settings and branding, and `/api/admin/staff` to invite, list, enable and disable staff.
+  - **Public `GET /api/storefront/config`:** cached, ETag + 304.
+  - **Module enforcement:**
+    - endpoints answer `404 ModuleDisabled`;
+    - checkout rejects a coupon when promotions are disabled.
+  - **Append-only audit log:** a MediatR behavior writes it in the handler's transaction.
+  - **Invitations:** hashed 72-hour tokens, with the link on the store's own domain, and an `/accept-invitation` page.
+  - Migration `Phase4PlatformAdministration`: additive; existing stores keep every module.
+- **Found and fixed during the phase:**
+  - A store name could carry control characters into email subjects.
+  - Password reset now confirms the email address, because the token proves the user received the email.
+- **Deferred, with reasons:**
+  - The platform UI (Phase 18; the API is complete).
+  - DNS or TLS domain verification (Phase 23).
+  - Plans and subscriptions (after launch).
+  - Per-store email templates (Phase 14).
+  - An audit viewer for store admins (Phase 17).
+- **Exit criteria (met):** `PlatformAdministrationTests` runs the scripted scenario:
+  - create a store → add a domain and branding → set modules → invite the admin → the admin signs in on the store's host;
+  - the store is activated, its storefront config reflects the settings, and a disabled module answers 404;
+  - after suspension, the storefront reports 503;
+  - audit entries carry the actor, area and store.
 - **Goal.** The platform owner can provision and configure a tenant end-to-end through the API.
 - **Scope.**
   - Platform API:
@@ -547,9 +587,9 @@ Each decision is argued in full (options, recommendation, rationale) in Architec
 | P-04 | Naming | "Souq" is the platform; "Marka" becomes the first (demo) tenant | 2 |
 | D-04 | Identity implementation | ✅ **Implemented in Phase 3:** the custom JWT + BCrypt evolved into a `User` aggregate with refresh-token rotation — [ADR-0010](adr/0010-authentication-authorization.md), [ADR-0023](adr/0023-sessions-and-credentials.md) | 3 |
 | D-05 | Authorization model | ✅ **Implemented:** permission-based policies with built-in roles mapped in code. The mechanism came in 1B ([ADR-0019](adr/0019-authorization-foundation.md)); tenant, staff and platform roles in Phase 3 | 3 |
-| D-11 | Feature modules | Per-tenant module flags, enforced server-side and exposed to the UI | 4 |
-| D-12 | White-label runtime | Storefront config API + TenantProvider/ThemeProvider with semantic tokens | 4 / 15 |
-| D-17 | Auditing | `AuditLog` written by a MediatR behavior for auditable commands | 4 |
+| D-11 | Feature modules | ✅ **Implemented in Phase 4:** per-tenant module flags, enforced server-side (endpoints and use cases) and exposed in the storefront config — [ADR-0024](adr/0024-platform-administration.md) | 4 |
+| D-12 | White-label runtime | ✅ **Backend implemented in Phase 4** (settings model + storefront config API with ETag); TenantProvider/ThemeProvider with semantic tokens in Phase 15 | 4 / 15 |
+| D-17 | Auditing | ✅ **Implemented in Phase 4:** append-only `AuditEntries` written by a MediatR behavior for `IAuditable` requests, inside the handler's unit of work | 4 |
 | D-10 | Catalog localization | Translation tables (tenant-selected languages) instead of `NameAr`/`NameEn` columns | 5 |
 | D-18 | File storage | Tenant-prefixed keys, content validation, cloud blob storage in production | 1A (validation) / 5 |
 | D-21 | Sellable unit | Default-variant model: SKU, price override, and stock live on the variant | 5 |
@@ -632,3 +672,4 @@ The earlier `AUDIT.md` (Arabic, 8-phase program) and the engineering-thinking gu
 | 2026-09-11 | Phase 1A merged to `main`. Phase 1B scope re-derived from the repository (module namespace moves stay per phase, per ADR-0002) and completed; ADRs 0017–0021 |
 | 2026-09-11 | Autonomous run of Phases 2–15 on `phase/2-15-multitenant-platform` (branched from the Phase 1B tip, because `main` does not contain 1B yet and merging it was not authorized). Phase 2 completed; ADR-0022 |
 | 2026-09-11 | Phase 3 completed (identity split, sessions, roles, rate limits); ADR-0023 |
+| 2026-09-11 | Phase 4 completed (platform API, store settings and modules, storefront config, audit log, invitations, staff management); ADR-0024 |

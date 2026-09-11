@@ -98,6 +98,14 @@ It displays the server's decisions and handles its errors.
 | New `/verify-email` page; new error codes translated in both languages | Email verification |
 | Coupon preview no longer sends a currency | The server uses the store currency (Phase 2) |
 
+**Phase 4 (administration API, minimal adaptation):**
+
+| Change | Reason |
+|---|---|
+| `/accept-invitation` reuses the reset-password page in "invitation" mode (same API, different text) | Invited administrators set their password on their store's host |
+| New error codes translated (`ModuleDisabled`, `DomainTaken`, `TenantSlugTaken`, `TenantHasNoDomain`, `CannotDisableSelf`, `LastAdministrator`) | Server decisions shown in both languages |
+| The SPA does not consume `/api/storefront/config` yet | That is the Phase 15 white-label runtime (TenantProvider/ThemeProvider); the platform UI is Phase 18 |
+
 ## 6. Phase 15 migration plan
 
 1. Introduce `app/`, `routes/`, `layouts/`, and `contexts/` without moving features. The app keeps working.

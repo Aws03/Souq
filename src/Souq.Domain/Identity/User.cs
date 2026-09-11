@@ -20,6 +20,7 @@ public class User : Entity, ITenantOrPlatformOwned
     public const int MaxFailedLogins = 5;
     public const int ResetTokenLifetimeHours = 2;
     public const int VerificationTokenLifetimeHours = 48;
+    public const int InvitationTokenLifetimeHours = 72;
     public const int FullNameMaxLength = 150;
     public const int EmailMaxLength = 256;
     public static readonly TimeSpan LockoutDuration = TimeSpan.FromMinutes(15);
@@ -54,6 +55,34 @@ public class User : Entity, ITenantOrPlatformOwned
         Role = ValidRole(role);
         Status = UserStatus.Active;
         RotateSecurityStamp();
+    }
+
+    // دعوة حساب إدارة (مدير/موظّف متجر، حساب منصّة): بلا كلمة مرور حتى يختارها صاحب البريد عبر رابط الدعوة —
+    // الآلية نفسها لإعادة التعيين (رمز عشوائي، تجزئته فقط، مرّة واحدة) بصلاحية 72 ساعة. العملاء يسجّلون بأنفسهم.
+    public static (User User, string Token) Invite(string fullName, string email, string role, DateTime utcNow)
+    {
+        var valid = ValidRole(role);
+        if (valid == Roles.Customer)
+            throw new InvalidIdentityOperationException("العملاء يسجّلون بأنفسهم — لا دعوات لحسابات العملاء");
+
+        var user = new User();
+        user.Rename(fullName);
+        user.SetEmail(email);
+        user.Role = valid;
+        user.PasswordHash = "";
+        user.Status = UserStatus.Active;
+        user.RotateSecurityStamp();
+        return (user, user.IssueInvitationToken(utcNow));
+    }
+
+    // لم يقبل الدعوة بعد: لا كلمة مرور ⇒ الدخول مستحيل (التحقّق من تجزئة فارغة يفشل دائماً).
+    public bool IsInvitationPending => PasswordHash.Length == 0;
+
+    public string RenewInvitation(DateTime utcNow)
+    {
+        if (!IsInvitationPending)
+            throw new InvalidIdentityOperationException("الحساب مفعّل مسبقاً — لا دعوة لتجديدها");
+        return IssueInvitationToken(utcNow);
     }
 
     public static string NormalizeEmail(string email) => email.Trim().ToUpperInvariant();
@@ -96,7 +125,8 @@ public class User : Entity, ITenantOrPlatformOwned
     }
 
     // صلاحية الرمز يحرسها الكيان؛ المطابقة نفسها بحث المستودع بالتجزئة. نجاحها يفكّ القفل أيضاً
-    // (من يملك بريده يستعيد حسابه) ويُبطل كل الجلسات القائمة.
+    // (من يملك بريده يستعيد حسابه) ويُبطل كل الجلسات القائمة، ويؤكّد البريد: الرمز وصل إليه فعلاً
+    // (قبول الدعوة يمرّ من هنا أيضاً).
     public void ResetPassword(string newPasswordHash, DateTime utcNow)
     {
         if (PasswordResetTokenExpiry is null || PasswordResetTokenExpiry < utcNow)
@@ -106,6 +136,7 @@ public class User : Entity, ITenantOrPlatformOwned
         ClearResetToken();
         FailedLoginCount = 0;
         LockoutEndsAt = null;
+        EmailConfirmedAt ??= utcNow;
         RotateSecurityStamp();
     }
 
@@ -162,6 +193,14 @@ public class User : Entity, ITenantOrPlatformOwned
         Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token)));
 
     internal static string NewToken() => Base64Url.EncodeToString(RandomNumberGenerator.GetBytes(32));
+
+    private string IssueInvitationToken(DateTime utcNow)
+    {
+        var token = NewToken();
+        PasswordResetTokenHash = HashToken(token);
+        PasswordResetTokenExpiry = utcNow.AddHours(InvitationTokenLifetimeHours);
+        return token;
+    }
 
     private void SetEmail(string email)
     {

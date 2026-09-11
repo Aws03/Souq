@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Http.Metadata;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Souq.API.Security;
+using Souq.API.Tenancy;
 using Souq.Application.Common.Security;
 using Souq.IntegrationTests.Infrastructure;
 
@@ -34,6 +35,7 @@ public class AuthorizationBoundaryTests
         "GET api/products/{productId:int}/reviews",
         "GET api/Orders/{id:int}/tracking",
         "GET api/payments/config", "POST api/payments/webhook",
+        "GET api/storefront/config",
     };
 
     private readonly SouqApiFactory _factory;
@@ -46,13 +48,13 @@ public class AuthorizationBoundaryTests
     }
 
     [Fact]
-    public async Task كل_نقطة_محمية_بصلاحية_ترفض_الزائر_بـ_401_والعميل_بـ_403()
+    public async Task كل_نقطة_متجر_محمية_بصلاحية_ترفض_الزائر_بـ_401_والعميل_بـ_403()
     {
         var anonymous = _api.Anonymous(); // يُقلع الخادم ليُبنى جدول التوجيه
         var (customer, _) = await _api.NewCustomerAsync();
 
         var protectedEndpoints = Endpoints()
-            .Where(e => !e.AllowsAnonymous && e.Policies.Any(IsPermissionPolicy))
+            .Where(e => !e.IsPlatform && !e.AllowsAnonymous && e.Policies.Any(IsPermissionPolicy))
             .SelectMany(e => e.Methods.Select(method => (Method: method, Url: SampleUrl(e.Route), e.ContentType)))
             .ToList();
         protectedEndpoints.Should().HaveCountGreaterThanOrEqualTo(15, "يجب ألّا ينجح الاختبار فارغاً");
@@ -63,6 +65,34 @@ public class AuthorizationBoundaryTests
                 .Should().Be(HttpStatusCode.Unauthorized, $"{method} {url} للزائر");
             (await Send(customer, method, url, contentType)).StatusCode
                 .Should().Be(HttpStatusCode.Forbidden, $"{method} {url} للعميل");
+        }
+    }
+
+    [Fact]
+    public async Task نقاط_المنصّة_لا_توجد_على_مضيف_متجر_وترفض_كل_ما_ليس_حساب_منصّة()
+    {
+        // منطقة المنصّة: على مضيف متجر "غير موجودة" حتى لمدير المتجر (لا نكشف وجودها)، وعلى مضيف المنصّة
+        // الزائر 401 وتوكن المتجر 401 (لا tid على مضيف المنصّة) — قبل أي معالج.
+        var storeAdmin = await _api.AdminAsync();
+        var storeAdminOnPlatform = _api.Authorized(await _api.AdminTokenAsync(), SouqApiFactory.PlatformHost);
+        var anonymousOnPlatform = _api.Client(SouqApiFactory.PlatformHost);
+
+        var platformEndpoints = Endpoints()
+            .Where(e => e.IsPlatform)
+            .SelectMany(e => e.Methods.Select(method => (Method: method, Url: SampleUrl(e.Route), e.ContentType)))
+            .ToList();
+        platformEndpoints.Should().HaveCountGreaterThanOrEqualTo(15, "يجب ألّا ينجح الاختبار فارغاً");
+        Endpoints().Where(e => e.IsPlatform).Should().OnlyContain(e => !e.AllowsAnonymous && e.Policies.Any(IsPermissionPolicy),
+            "كل نقطة منصّة خلف صلاحية منصّة");
+
+        foreach (var (method, url, contentType) in platformEndpoints)
+        {
+            (await Send(storeAdmin, method, url, contentType)).StatusCode
+                .Should().Be(HttpStatusCode.NotFound, $"{method} {url} على مضيف متجر");
+            (await Send(anonymousOnPlatform, method, url, contentType)).StatusCode
+                .Should().Be(HttpStatusCode.Unauthorized, $"{method} {url} للزائر على مضيف المنصّة");
+            (await Send(storeAdminOnPlatform, method, url, contentType)).StatusCode
+                .Should().Be(HttpStatusCode.Unauthorized, $"{method} {url} بتوكن متجر على مضيف المنصّة");
         }
     }
 
@@ -143,7 +173,7 @@ public class AuthorizationBoundaryTests
 
     private sealed record EndpointInfo(
         string Route, IReadOnlyList<string> Methods, bool AllowsAnonymous, bool HasAuthorizeData,
-        IReadOnlyList<string> Policies, string? ContentType);
+        IReadOnlyList<string> Policies, string? ContentType, bool IsPlatform);
 
     private IEnumerable<EndpointInfo> Endpoints() =>
         _factory.Services.GetRequiredService<EndpointDataSource>().Endpoints.OfType<RouteEndpoint>()
@@ -158,7 +188,8 @@ public class AuthorizationBoundaryTests
                     authorizeData.Select(a => a.Policy).OfType<string>().ToList(),
                     // نقاط الرفع تقبل multipart فقط: نرسل النوع الذي تعلنه كي يصل الطلب لطبقة
                     // الصلاحيات نفسها — وإلا رُفض بـ 415 أثناء اختيار النقطة قبل أي فحص صلاحية.
-                    e.Metadata.GetMetadata<IAcceptsMetadata>()?.ContentTypes.FirstOrDefault());
+                    e.Metadata.GetMetadata<IAcceptsMetadata>()?.ContentTypes.FirstOrDefault(),
+                    e.Metadata.GetMetadata<PlatformEndpointAttribute>() is not null);
             });
 
     private static bool IsPermissionPolicy(string policy) =>

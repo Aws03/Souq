@@ -45,6 +45,7 @@ public static class DbSeeder
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
             await db.Database.MigrateAsync();               // يطبّق الهجرات تلقائياً
             await BindDefaultTenantHostsAsync(db, options.DefaultTenantHosts, logger);
+            await ApplyDefaultStoreLookAsync(db, logger);
             defaultTenant = await scope.ServiceProvider.GetRequiredService<ITenantDirectory>()
                 .FindBySlugAsync(DefaultTenantSlug);
         }
@@ -101,6 +102,31 @@ public static class DbSeeder
             logger.LogInformation("Bound host {Host} to the default store", host);
         }
         await db.SaveChangesAsync();
+    }
+
+    // المتجر الافتراضي يحتفظ بمظهر ماركة الحالي تماماً (WhiteLabel.md §6): تُضبط إعداداته مرّة واحدة إن لم يضبطها
+    // أحد — بعدها هي بيانات يعدّلها مديره كأي متجر، والبذر لا يلمسها ثانيةً. القيم تمرّ بقواعد Domain نفسها.
+    private static async Task ApplyDefaultStoreLookAsync(AppDbContext db, ILogger logger)
+    {
+        var tenant = await db.Tenants.FirstOrDefaultAsync(t => t.Slug == DefaultTenantSlug);
+        if (tenant is null || tenant.HasCustomSettings) return;
+
+        static Dictionary<string, string?> Text(string ar, string en) => new() { ["ar"] = ar, ["en"] = en };
+
+        tenant.SetEnabledCultures(["ar", "en"]);
+        tenant.UpdateBranding(BrandColors.Create("#0F3B3A", "#F0EBE1", "#E8A33D", "#FAF7F1", "#1A2421"), "kufi-tajawal", "classic");
+        tenant.UpdateStorefront(
+            Text("ماركة", "Marka"),
+            StoreContact.Create("support@marka.example", "+962 6 000 0000", Text("عمّان، الأردن", "Amman, Jordan")),
+            [],
+            SeoSettings.Create(
+                Text("ماركة — متجر إلكتروني بهوية عربية", "Marka — an online store with an Arabian identity"),
+                Text("ماركة — متجر إلكتروني عصري بهوية عربية أصيلة، منتجات مختارة بعناية وتوصيل سريع.",
+                     "Marka — a modern online store with an authentic Arabian identity, carefully curated products and fast delivery.")),
+            Text("شحن مجاني للطلبات فوق 50 دينار — توصيل لجميع أنحاء الأردن — ماركة",
+                 "Free shipping on orders over 50 JOD — delivery across Jordan — Marka"));
+        await db.SaveChangesAsync();
+        logger.LogInformation("Applied the Marka look to the default store settings");
     }
 
     private static async Task SeedCatalogAsync(AppDbContext db, string currency)

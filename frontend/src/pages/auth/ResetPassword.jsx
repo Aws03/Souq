@@ -8,13 +8,26 @@ import Button from '../../components/common/Button';
 import AuthLayout from './AuthLayout';
 import styles from './Auth.module.css';
 
-// صفحة إعادة تعيين كلمة المرور — تُفتح من رابط البريد (?token=...). بلا رمز
-// في الرابط أصلاً (وصول مباشر) نعرض دعوة لطلب رابط جديد بدل نموذج لا معنى له.
-export default function ResetPassword() {
+// صفحة إعادة تعيين كلمة المرور — تُفتح من رابط البريد (?token=...). وهي نفسها صفحة قبول الدعوة
+// (mode="invitation"، المرحلة 4): الخادم واحد (رمز مجزَّأ للاستخدام مرّة) والنصوص وحدها تختلف. بلا رمز
+// في الرابط (وصول مباشر) نعرض دعوة لطلب رابط جديد بدل نموذج لا معنى له.
+const TEXT = {
+  reset: {
+    title: 'auth.resetPasswordTitle', subtitle: 'auth.resetPasswordSubtitle', submit: 'auth.resetPasswordSubmit',
+    success: 'auth.resetPasswordSuccess', invalid: 'auth.invalidResetLink',
+  },
+  invitation: {
+    title: 'auth.acceptInvitationTitle', subtitle: 'auth.acceptInvitationSubtitle', submit: 'auth.acceptInvitationSubmit',
+    success: 'auth.acceptInvitationSuccess', invalid: 'auth.invalidInvitationLink',
+  },
+};
+
+export default function ResetPassword({ mode = 'reset' }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const token = searchParams.get('token');
+  const text = TEXT[mode] ?? TEXT.reset;
 
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -46,17 +59,19 @@ export default function ResetPassword() {
 
   if (!token) {
     return (
-      <AuthLayout title={t('auth.resetPasswordTitle')} subtitle={t('auth.resetPasswordSubtitle')}>
-        <p className={styles.successBox}>{t('auth.invalidResetLink')}</p>
-        <p className={styles.switch}><Link to="/forgot-password">{t('auth.requestNewLink')}</Link></p>
+      <AuthLayout title={t(text.title)} subtitle={t(text.subtitle)}>
+        <p className={styles.successBox}>{t(text.invalid)}</p>
+        {mode === 'reset' && (
+          <p className={styles.switch}><Link to="/forgot-password">{t('auth.requestNewLink')}</Link></p>
+        )}
       </AuthLayout>
     );
   }
 
   return (
-    <AuthLayout title={t('auth.resetPasswordTitle')} subtitle={t('auth.resetPasswordSubtitle')} serverError={serverError}>
+    <AuthLayout title={t(text.title)} subtitle={t(text.subtitle)} serverError={serverError}>
       {done ? (
-        <p className={styles.successBox}>{t('auth.resetPasswordSuccess')}</p>
+        <p className={styles.successBox}>{t(text.success)}</p>
       ) : (
         <form onSubmit={submit} noValidate>
           <FormField label={t('auth.newPasswordLabel')} error={touched.password && errors.password}>
@@ -76,7 +91,7 @@ export default function ResetPassword() {
           </FormField>
 
           <Button type="submit" variant="saffron" size="lg" loading={busy} className={styles.submit}>
-            {t('auth.resetPasswordSubmit')}
+            {t(text.submit)}
           </Button>
         </form>
       )}

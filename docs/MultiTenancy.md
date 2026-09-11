@@ -73,7 +73,8 @@ sequenceDiagram
 | **Global query filter** | `e => e.TenantId == _tenant.Id` on every `ITenantOwned` entity, applied by reflection at model build (no per-entity copy-paste) | Infrastructure (`AppDbContext`) |
 | **Write guard** (`SaveChanges` interceptor) | Added entity → stamp `TenantId`. Modified or deleted entity whose `TenantId` ≠ current → throw `CrossTenantWriteException` (a 500 **and** a security log entry, since it indicates a bug) | Infrastructure |
 | **No tenant context** | Querying an `ITenantOwned` set without a resolved tenant throws. It must not return all rows. | Infrastructure |
-| **Platform access** | Platform read use cases run through `IPlatformQueries`, which calls `IgnoreQueryFilters()` in one reviewed place; every call is audited | Infrastructure + Audit |
+| **Platform access** (Phase 4 ✅) | Cross-store reads run through `PlatformQueries`, the only `IgnoreQueryFilters` caller (architecture test), with an explicit `TenantId` predicate or aggregate counts. Every platform request is audited (architecture test). Platform *writes* into a store run in that store's own scope (`ITenantScopeRunner`), so the write guard and the storage prefix still apply. | Infrastructure + Audit |
+| **Optional modules** (Phase 4) | The enabled modules travel in the cached `TenantInfo`. `[RequiresModule]` endpoints answer `404 ModuleDisabled`, and use cases that touch a module check it | API middleware + use cases |
 | **Raw SQL** | Forbidden in feature code. Allowed only inside Infrastructure query services, which must include `TenantId` and be covered by an isolation test | Code review + tests |
 | **Uniqueness** | `(TenantId, Slug)`, `(TenantId, Code)`, `(TenantId, NormalizedEmail)`, `(TenantId, Sku)`, `(TenantId, OrderNumber)` | Database |
 | **Indexes** | Hot-path indexes lead with `TenantId` | Database |
@@ -160,8 +161,8 @@ The harness exists since Phase 1A. It already proves **user-level** isolation: c
 | Explicit store currency (`Money` has no default); `Order.Currency` snapshot | Domain + handlers | `ApplyCouponHandlerTests`, `CreateProductHandlerTests` |
 
 **Left for later phases, by design:**
-- Platform read use cases through a reviewed and audited `PlatformQueries` (Phase 4). The allowlist entry already exists in `TenancyRuleTests`.
-- Identity split, so that platform users have `TenantId NULL` (Phase 3).
+- ✅ Platform read use cases through a reviewed and audited `PlatformQueries` (done in Phase 4, [ADR-0024](adr/0024-platform-administration.md)).
+- ✅ Identity split, so that platform users have `TenantId NULL` (done in Phase 3, [ADR-0023](adr/0023-sessions-and-credentials.md)).
 - Distributed cache invalidation when the app scales out (ADR-0022 §8).
 - Optional SQL Server Row-Level Security (Phase 20).
 

@@ -1,6 +1,13 @@
 # Souq: White-Label Architecture
 
-> **Status:** Target adopted 2026-09-11 ([ADR-0011](adr/0011-white-label-architecture.md)). Backend configuration arrives in Phase 4, the frontend runtime in Phase 15. Today the "Marka" brand, JOD currency, and four visitor-selectable palettes are hard-coded.
+> **Status:** Target adopted 2026-09-11 ([ADR-0011](adr/0011-white-label-architecture.md)).
+> - **Backend configuration: ✅ Phase 4** ([ADR-0024](adr/0024-platform-administration.md)).
+>   - A validated settings model: per-language texts, WCAG-checked colours, preset fonts and themes, allowlisted social links.
+>   - Branding uploads.
+>   - Module flags.
+>   - `GET /api/storefront/config` with an ETag.
+>   - The default store seeded with today's Marka look.
+> - **The frontend runtime arrives in Phase 15.** Until then the SPA still hard-codes the Marka brand, JOD and the four visitor-selectable palettes.
 
 ## 1. Principle
 
@@ -82,7 +89,7 @@ sequenceDiagram
 
 ## 6. Migration from today
 
-1. **Phase 4:** create the settings model and seed tenant #1 "Marka Demo" with today's exact look (petrol/saffron, Reem Kufi/Tajawal/Inter, footer contact, announcement text). Marka stops being the product and becomes a tenant.
+1. ✅ **Phase 4:** create the settings model and seed tenant #1 "Marka Demo" with today's exact look (petrol/saffron, Reem Kufi/Tajawal/Inter as preset `kufi-tajawal`, footer contact, announcement text). Marka stops being the product and becomes a tenant.
 2. **Phase 15:** remove the 17 brand references and the hard-coded `JOD`. Replace the visitor theme switcher with tenant branding. The four existing palettes become selectable colour presets.
 3. **Phase 16:** per-host `index.html` head injection for SEO.
 4. **Done when:** the same build shows two differently branded stores, and a search of the source finds no brand or currency literals. A CI check enforces it.

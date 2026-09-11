@@ -146,6 +146,25 @@ Custom per-store roles are deferred until a client needs them.
   - Only Development falls back to documented credentials: `owner@souq.com` / `Owner@12345` and `admin@souq.com` / `Admin@123`.
   - An existing account is never overwritten.
 
+### Administrative accounts (Phase 4, [ADR-0024](adr/0024-platform-administration.md))
+
+- **Invitations.**
+  - Store staff and admins, platform admins and owners are *invited*, never self-registered.
+  - The account is created without a password, with a hashed, single-use 72-hour token (the reset mechanism).
+  - The email links to `/accept-invitation` on the right host:
+    - the store's primary domain when the platform invites a store admin (a domain is required first);
+    - the request's own host otherwise.
+  - Accepting sets the password and confirms the email.
+  - Inviting the same email again renews a pending invitation. It is rejected with `EmailTaken` when the account is already active, including a customer account with that email in the store.
+- **Enable and disable.**
+  - Nobody can disable their own account (`CannotDisableSelf`).
+  - The last active TenantAdmin, or PlatformOwner, can't be disabled (`LastAdministrator`).
+  - Disabling rotates the security stamp and revokes every refresh token, so the session ends immediately on this instance.
+- **Who manages whom.**
+  - The store admin manages store staff (`store.staff.manage`), inside their store only.
+  - The platform owner manages platform accounts (`platform.users.manage`).
+  - Platform admins invite store admins (`platform.tenants.manage`), and every such action is audited.
+
 ## 5. Endpoints
 
 | Endpoint | Authentication | Notes |
@@ -162,6 +181,14 @@ Custom per-store roles are deferred until a client needs them.
 | `POST /api/auth/resend-verification` | Access token, rate-limited | 204 |
 
 Auth endpoints work on store and platform hosts, and while a store is still provisioning.
+
+**Account administration (Phase 4):**
+
+| Endpoint | Permission |
+|---|---|
+| `GET` and `POST /api/admin/staff`, `POST /api/admin/staff/{id}/status` | `store.staff.manage` |
+| `GET` and `POST /api/platform/users`, `POST /api/platform/users/{id}/status` | `platform.users.manage` |
+| `POST /api/platform/tenants/{id}/admins`, `GET /api/platform/tenants/{id}/accounts` | `platform.tenants.manage` |
 
 ## 6. Frontend
 

@@ -51,7 +51,8 @@ Module schemas (`catalog.Products`) were considered and **postponed**. The owner
 |---|---|---|---|---|---|---|---|---|
 | Tenant | Platform | Platform | — (it *is* the tenant) | `Slug` | — | Soft (Archived) | Created/Updated + AuditLog | `rowversion` |
 | TenantDomain | Platform | Platform (per tenant) | FK column | `Host` globally | `(TenantId)` | Hard | AuditLog | — |
-| Tenant settings / branding | Platform | Tenant | ✓ (1:1) | `TenantId` | — | With tenant | AuditLog | `rowversion` |
+| Tenant settings / branding | Platform | Tenant | on the tenant row (JSON document `Tenants.Settings`, Phase 4) | — | — | With tenant | AuditEntries | the tenant's `rowversion` |
+| Module flags | Platform | Tenant | on the tenant row (`Tenants.EnabledModules`, Phase 4) | — | — | With tenant | AuditEntries | the tenant's `rowversion` |
 | User | Identity | Tenant **or** Platform (`TenantId NULL`) | nullable | filtered: `(TenantId, NormalizedEmail) WHERE TenantId IS NOT NULL`; `(NormalizedEmail) WHERE TenantId IS NULL` | reset and verification token hashes | Soft (Disabled) | Created/Updated/LastLogin | `rowversion` |
 | Role / Permission | Identity | Reference (in code; one `Role` column per user) | — | — | — | — | — | — |
 | RefreshToken | Identity | User (store or platform) | nullable (copied from the user) | `TokenHash` | `(UserId)`, `(FamilyId)` | Hard (an expired-token purge job is planned) | Created/Used/Revoked + reason | — |
@@ -73,7 +74,7 @@ Module schemas (`catalog.Products`) were considered and **postponed**. The owner
 | CouponRedemption | Promotions | Tenant | ✓ | `(CouponId, OrderId)` | `(TenantId, CustomerId)` | Never | Created | — |
 | ShippingMethod | Shipping | Tenant | ✓ | `(TenantId, Code)` | — | Soft (Inactive) | Created/Updated | — |
 | Review | Reviews | User | ✓ | `(TenantId, CustomerId, ProductId)` | `(TenantId, ProductId, Status)` | Soft (Rejected/Hidden) | Created/Moderated | — |
-| AuditLog | building block | Tenant or Platform | nullable | — | `(TenantId, OccurredAt)` | Never (retention policy) | — | — |
+| AuditEntries (Phase 4) | building block | Tenant or Platform | nullable, no FK, no filter | — | `(OccurredAt)`, `(TenantId, OccurredAt)`, `(ActorUserId, OccurredAt)` | **Never** (append-only guard; a retention policy later) | — | — |
 | OutboxMessage | building block | Tenant or Platform | nullable | — | `(ProcessedAt, OccurredAt)` | Hard after processing + retention | — | — |
 | Currency / Country | shared kernel | Reference | — | ISO code | — | — | — | — |
 
@@ -174,6 +175,14 @@ Deferred to later phases, with the phase noted: `TenantId` (2), `Users` split (3
 | `Customers.UserId` | Added with a temporary default, set to `Id`, then the default is dropped. Unique `(TenantId, UserId)`, FK `Restrict` |
 | Dropped from `Customers` | `PasswordHash`, `Role` and the reset-token columns, **only after** the copy. EF generated the drops first, which would have lost every password; the order was rewritten by hand |
 | `Down()` | Copies credentials back to the profiles. Accounts without a profile (staff, the platform owner) have no place in the old schema and are lost, so `Down()` is for development only |
+
+**Phase 4 (`Phase4PlatformAdministration`, additive only, [ADR-0024](adr/0024-platform-administration.md)):**
+
+| Change | Detail |
+|---|---|
+| `Tenants.Settings` | `nvarchar(max) NULL`: the store settings as one JSON document, read and written whole, never queried inside. `NULL` means the defaults, derived from the name and language; the seeder gives the default store the Marka look once. The document is mapped by an Infrastructure type (`StoreSettingsJson`), so the Domain carries no serialization attributes, and a tightened rule never breaks loading older settings |
+| `Tenants.EnabledModules` | `nvarchar(200) NOT NULL DEFAULT 'promotions,reviews,wishlist'`, so existing stores keep every module. It is carried in the cached tenant snapshot, so enforcement needs no query |
+| `AuditEntries` | `bigint` identity, UTC timestamp, area, action, affected store (nullable), actor and role, target, metadata (≤ 4000), IP, correlation id. No FK and no tenant filter. Append-only (write guard) |
 
 ## 10. Migration workflow
 

@@ -7,6 +7,7 @@ using Souq.Application.Common.Tenancy;
 using Souq.Domain.Entities;
 using Souq.Domain.Enums;
 using Souq.Domain.Interfaces;
+using Souq.Domain.Platform;
 using Souq.Domain.ValueObjects;
 
 namespace Souq.Application.Features.Orders.Commands;
@@ -85,6 +86,9 @@ public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, Result<Ord
         Coupon? coupon = null;
         if (!string.IsNullOrWhiteSpace(cmd.CouponCode))
         {
+            // وحدة الكوبونات معطّلة لهذا المتجر (D-11): الواجهة تُخفي الحقل، والخادم يرفض على أي حال.
+            if (!_tenant.RequireTenant().HasModule(StoreModules.Promotions))
+                return Result<OrderCreatedDto>.Failure(Error.BusinessRule("ModuleDisabled", "الكوبونات غير مفعّلة في هذا المتجر"));
             coupon = await _coupons.GetByCodeAsync(cmd.CouponCode, ct);
             if (coupon is null)
                 return Result<OrderCreatedDto>.Failure(Error.BusinessRule("CouponNotFound", "رمز الكوبون غير صحيح"));

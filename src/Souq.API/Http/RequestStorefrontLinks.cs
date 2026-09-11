@@ -23,10 +23,17 @@ public sealed class RequestStorefrontLinks : IStorefrontLinks
 
     public string EmailVerification(string token) => Build("/verify-email", token);
 
-    private string Build(string path, string token)
+    // host صريح (نطاق متجر من TenantDomains، لا من الطلب) حين تدعو المنصّة مديره: المخطّط والمنفذ من الطلب نفسه
+    // (http://admin.localhost:5173 ⇒ http://acme.localhost:5173 في التطوير، و https بلا منفذ في الإنتاج).
+    public string Invitation(string token, string? host = null) => Build("/accept-invitation", token, host);
+
+    private string Build(string path, string token, string? host = null)
     {
         var request = _accessor.HttpContext?.Request;
-        var origin = request is null ? _fallbackBase : $"{request.Scheme}://{request.Host}";
+        string origin;
+        if (request is null) origin = host is null ? _fallbackBase : $"https://{host}";
+        else if (host is null) origin = $"{request.Scheme}://{request.Host}";
+        else origin = $"{request.Scheme}://{host}{(request.Host.Port is int port ? $":{port}" : "")}";
         return $"{origin.TrimEnd('/')}{path}?token={Uri.EscapeDataString(token)}";
     }
 }

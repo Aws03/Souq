@@ -22,6 +22,15 @@ internal static class EmailTemplates
         "تأكيد البريد", verificationLink,
         "إن لم تنشئ حساباً، تجاهل هذه الرسالة.");
 
+    public static string Invitation(string storeName, string invitationLink) => ActionEmail(
+        $"دعوة للانضمام إلى {storeName}",
+        $"دُعيت لإدارة «{storeName}». اضغط الزر أدناه لاختيار كلمة المرور وتفعيل حسابك. الرابط صالح لمدة 72 ساعة.",
+        "قبول الدعوة", invitationLink,
+        "إن لم تتوقّع هذه الدعوة، تجاهل هذه الرسالة — لن يُفعَّل أي حساب.");
+
+    // عنوان رسالة من اسم يضبطه مستخدم (اسم المتجر): بلا محارف تحكّم — لا حقن ترويسات بسطر جديد.
+    public static string Subject(string text) => new(text.Where(c => !char.IsControl(c)).ToArray());
+
     // الرابط يُرمَّز لسمة HTML (يحمل & في سلسلة الاستعلام) — لا حقن في القالب من أي قيمة.
     private static string ActionEmail(string title, string body, string action, string link, string footer) => $@"
 <!DOCTYPE html>
