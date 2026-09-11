@@ -13,6 +13,7 @@ import { CategoryBadge, PriceTag, StockBadge, getProductDescription, getProductN
 import { ChevronIcon } from '../components/icons/Icons';
 import ProductZoom from '../components/product/ProductZoom';
 import StarRating from '../components/product/StarRating';
+import RatingSummary from '../components/reviews/RatingSummary';
 import ReviewForm from '../components/reviews/ReviewForm';
 import ReviewList from '../components/reviews/ReviewList';
 import ProductSection from '../components/store/ProductSection';
@@ -114,6 +115,9 @@ export default function ProductDetail() {
 
       <section className={styles.reviewsSection}>
         <h2 className={styles.sectionTitle}>{t('product.reviewsTitle')}</h2>
+        {reviews && (
+          <RatingSummary average={reviews.averageRating} total={reviews.totalCount} distribution={reviews.distribution} />
+        )}
 
         {isAuthenticated ? (
           <ReviewForm productId={id} onSubmitted={() => { setPage(1); loadReviews(); }} />

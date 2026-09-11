@@ -103,6 +103,7 @@ public static class DependencyInjection
         services.AddScoped<IPaymentRepository, PaymentRepository>();
         services.AddScoped<IStorePaymentAccountRepository, StorePaymentAccountRepository>();
         services.AddScoped<IShippingMethodRepository, ShippingMethodRepository>();
+        services.AddScoped<IWishlistRepository, WishlistRepository>();
         services.AddScoped<Application.Features.Orders.IOrderNumbers, OrderNumbers>();
         services.AddScoped<ITenantRepository, TenantRepository>();
 
@@ -112,6 +113,7 @@ public static class DependencyInjection
         services.AddScoped<ICouponQueries, CouponQueries>();
         services.AddScoped<Application.Features.Payments.Contracts.IPaymentQueries, PaymentQueries>();
         services.AddScoped<IReviewQueries, ReviewQueries>();
+        services.AddScoped<Application.Features.Wishlist.IWishlistQueries, WishlistQueries>();
         services.AddScoped<IInventoryQueries, InventoryQueries>();
         services.AddScoped<IAccountQueries, AccountQueries>();
         services.AddScoped<ICustomerQueries, CustomerQueries>();

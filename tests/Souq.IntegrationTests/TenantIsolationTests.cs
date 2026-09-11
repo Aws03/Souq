@@ -31,7 +31,7 @@ namespace Souq.IntegrationTests;
 public class TenantIsolationTests
 {
     private enum Actor { Anonymous, Admin, Customer }
-    private enum Resource { Product, ProductImage, Category, Coupon, Order, StaffAccount, Customer, CustomerAddress, ShippingMethod }
+    private enum Resource { Product, ProductImage, Category, Coupon, Order, StaffAccount, Customer, CustomerAddress, ShippingMethod, Review }
 
     private sealed record ForeignCase(string Method, string Route, Resource Resource, Actor Actor, Func<HttpContent>? Body = null);
 
@@ -74,6 +74,11 @@ public class TenantIsolationTests
         new("PUT", "api/admin/shipping-methods/{id:int}", Resource.ShippingMethod, Actor.Admin,
             () => JsonBody(new { name = "من B", price = 1m })),
         new("DELETE", "api/admin/shipping-methods/{id:int}", Resource.ShippingMethod, Actor.Admin),
+        // الإشراف والمفضّلة (المرحلة 13): تقييم A لا يُعتمد ولا يُرفض من B؛ منتج A لا يدخل مفضّلة عميل B ولا يُحذف منها.
+        new("POST", "api/admin/reviews/{id:int}/approve", Resource.Review, Actor.Admin),
+        new("POST", "api/admin/reviews/{id:int}/reject", Resource.Review, Actor.Admin, () => JsonBody(new { note = "من B" })),
+        new("PUT", "api/wishlist/{productId:int}", Resource.Product, Actor.Customer),
+        new("DELETE", "api/wishlist/{productId:int}", Resource.Product, Actor.Customer),
         new("POST", "api/admin/inventory/{productId:int}/adjustments", Resource.Product, Actor.Admin,
             () => JsonBody(new { delta = 50, reason = "محاولة من متجر آخر" })),
         new("PUT", "api/admin/inventory/{productId:int}/threshold", Resource.Product, Actor.Admin,
@@ -170,6 +175,12 @@ public class TenantIsolationTests
         (await s.StoreA.WithDbAsync(db => db.Customers.Where(c => c.Id == customerId)
                 .Select(c => new { c.Status, Erased = c.ErasedAt != null, Addresses = c.Addresses.Count() }).SingleAsync()))
             .Should().BeEquivalentTo(new { Status = CustomerStatus.Active, Erased = false, Addresses = 1 });
+
+        // تقييم A ما زال معتمداً بلا قرار مشرف من B.
+        var reviewId = s.AIds[Resource.Review];
+        (await s.StoreA.WithDbAsync(db => db.Reviews.Where(r => r.Id == reviewId)
+                .Select(r => new { r.Status, r.ModeratedByUserId }).SingleAsync()))
+            .Should().BeEquivalentTo(new { Status = ReviewStatus.Approved, ModeratedByUserId = (int?)null });
     }
 
     [Fact]
@@ -202,6 +213,8 @@ public class TenantIsolationTests
         (await IdsAsync(s.AdminB, $"/api/orders?customerId={s.AIds[Resource.Customer]}&pageSize=100")).Should().BeEmpty();
         (await IdsAsync(s.AdminB, "/api/coupons?pageSize=100")).Should().BeEmpty();
         (await IdsAsync(s.AdminB, "/api/orders?pageSize=100")).Should().BeEmpty();
+        (await IdsAsync(s.AdminB, "/api/admin/reviews?pageSize=100")).Should().BeEmpty();
+        (await IdsAsync(s.AdminB, $"/api/admin/reviews?productId={s.AIds[Resource.Product]}&pageSize=100")).Should().BeEmpty();
         var bCategories = await s.StoreB.Anonymous().GetFromJsonAsync<List<TestApi.IdBody>>("/api/categories", TestApi.Json);
         bCategories!.Select(c => c.Id).Should().ContainSingle().And.NotContain(s.AIds[Resource.Category]);
         var bAdminCategories = await s.AdminB.GetFromJsonAsync<List<TestApi.IdBody>>("/api/admin/categories", TestApi.Json);
@@ -254,6 +267,11 @@ public class TenantIsolationTests
         (await ProblemAsync(await s.CustomerB.PostAsJsonAsync($"/api/products/{aProduct}/reviews",
                 new { rating = 5, comment = "رائع" })))
             .Should().Be((HttpStatusCode.UnprocessableEntity, "NotEligible"));
+
+        // منتج A لا يدخل مفضّلة عميل B بالدمج أيضاً — يُتجاهل كمنتج مجهول.
+        (await s.CustomerB.PostAsJsonAsync("/api/wishlist/merge", new { productIds = new[] { aProduct } }))
+            .StatusCode.Should().Be(HttpStatusCode.OK);
+        (await s.StoreB.WithDbAsync(db => db.WishlistItems.CountAsync())).Should().Be(0);
     }
 
     [Fact]
@@ -453,6 +471,17 @@ public class TenantIsolationTests
         placed.StatusCode.Should().Be(HttpStatusCode.Created, await placed.Content.ReadAsStringAsync());
         var orderId = (await placed.Content.ReadFromJsonAsync<TestApi.OrderCreatedBody>(TestApi.Json))!.OrderId;
         var orderToken = await storeA.WithDbAsync(db => db.Orders.Where(o => o.Id == orderId).Select(o => o.TrackingToken).SingleAsync());
+        // تقييم معتمد في A (المتجر الافتراضي ينشر فوراً) على منتج مستقل: طلبه المُسلَّم يغيّر مخزون منتجه، لا المنتج المفحوص أدناه.
+        var reviewedProductId = await storeA.CreateProductAsync(adminA, price: 10m, stock: 5, categoryId: categoryId);
+        var delivered = await storeA.PlaceOrderAsync(customerA, reviewedProductId, 1);
+        delivered.StatusCode.Should().Be(HttpStatusCode.Created, await delivered.Content.ReadAsStringAsync());
+        var deliveredId = (await delivered.Content.ReadFromJsonAsync<TestApi.OrderCreatedBody>(TestApi.Json))!.OrderId;
+        (await customerA.PostAsync($"/api/orders/{deliveredId}/confirm-payment", null)).EnsureSuccessStatusCode();
+        (await adminA.PutAsJsonAsync($"/api/orders/{deliveredId}/status", new { action = "Ship" })).EnsureSuccessStatusCode();
+        (await adminA.PutAsJsonAsync($"/api/orders/{deliveredId}/status", new { action = "Deliver" })).EnsureSuccessStatusCode();
+        var reviewResponse = await customerA.PostAsJsonAsync($"/api/products/{reviewedProductId}/reviews", new { rating = 4, comment = "من A" });
+        reviewResponse.StatusCode.Should().Be(HttpStatusCode.Created, await reviewResponse.Content.ReadAsStringAsync());
+        var reviewId = (await reviewResponse.Content.ReadFromJsonAsync<TestApi.IdBody>(TestApi.Json))!.Id;
         var staffEmail = await _factory.CreateStoreUserAsync(await _factory.DefaultTenantAsync(), Roles.TenantStaff);
         var staffId = await storeA.WithDbAsync(db => db.Users.Where(u => u.Email == staffEmail).Select(u => u.Id).SingleAsync());
 
@@ -464,6 +493,7 @@ public class TenantIsolationTests
                 [Resource.Product] = productId, [Resource.ProductImage] = imageId, [Resource.Category] = categoryId,
                 [Resource.Coupon] = couponId, [Resource.Order] = orderId, [Resource.StaffAccount] = staffId,
                 [Resource.Customer] = customerId, [Resource.CustomerAddress] = addressId, [Resource.ShippingMethod] = shippingMethodId,
+                [Resource.Review] = reviewId,
             },
             couponCode, productSlug, orderToken);
     }

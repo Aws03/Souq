@@ -22,6 +22,18 @@ public class TenantTests
         tenant.Domains.Should().BeEmpty();
     }
 
+    [Fact]
+    public void تقييمات_المتجر_الجديد_تنتظر_الإشراف_حتى_يفعّل_النشر_الفوري()
+    {
+        // المرحلة 13 (ADR-0033): الأسلم افتراضياً؛ المتاجر القائمة أبقتها الهجرة على النشر الفوري.
+        var tenant = NewTenant();
+        tenant.ReviewsAutoApprove.Should().BeFalse();
+
+        tenant.SetReviewsAutoApprove(true);
+
+        tenant.ReviewsAutoApprove.Should().BeTrue();
+    }
+
     [Theory]
     [InlineData("a")]
     [InlineData("has space")]

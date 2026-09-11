@@ -45,7 +45,10 @@ public class CustomerAccountHandlersTests
     private static AddressInput Input(string line1 = "شارع الجامعة 12", string? label = "المنزل") =>
         new("سارة", "0790000000", "JO", "عمّان", line1, Label: label);
 
-    private CustomerErasure Erasure() => new(_users, _tokens, Substitute.For<IBasketRepository>(), _uow, _sessions, new FixedClock());
+    private readonly IWishlistRepository _wishlist = Substitute.For<IWishlistRepository>();
+
+    private CustomerErasure Erasure() =>
+        new(_users, _tokens, Substitute.For<IBasketRepository>(), _wishlist, _uow, _sessions, new FixedClock());
 
     [Fact]
     public async Task تحديث_الملف_يعدّل_الملف_واسم_الحساب_معاً()

@@ -2,7 +2,7 @@ import { NavLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../context/AuthContext';
 import {
-  GridIcon, PackageIcon, InventoryIcon, TagIcon, ReceiptIcon, PercentIcon, UserIcon, CardIcon, TruckIcon,
+  GridIcon, PackageIcon, InventoryIcon, TagIcon, ReceiptIcon, PercentIcon, UserIcon, CardIcon, TruckIcon, StarIcon,
 } from '../../components/icons/Icons';
 import styles from './AdminLayout.module.css';
 
@@ -20,6 +20,7 @@ export default function AdminMobileTabBar() {
     { to: '/admin/coupons', label: t('admin.nav.coupons'), icon: PercentIcon, permission: 'promotions.manage' },
     { to: '/admin/orders', label: t('admin.nav.orders'), icon: ReceiptIcon, permission: 'orders.view' },
     { to: '/admin/customers', label: t('admin.nav.customers'), icon: UserIcon, permission: 'customers.view' },
+    { to: '/admin/reviews', label: t('admin.nav.reviews'), icon: StarIcon, permission: 'reviews.moderate' },
     { to: '/admin/shipping', label: t('admin.nav.shipping'), icon: TruckIcon, permission: 'store.shipping.manage' },
     { to: '/admin/payments', label: t('admin.nav.payments'), icon: CardIcon, permission: 'store.payments.manage' },
   ].filter((tab) => !tab.permission || can(tab.permission));

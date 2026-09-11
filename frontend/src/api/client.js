@@ -156,10 +156,24 @@ export const api = {
   updateCoupon: (id, payload) => request(`/coupons/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
   deleteCoupon: (id) => request(`/coupons/${id}`, { method: 'DELETE' }),
 
-  // ── التقييمات ──
+  // ── التقييمات ── العامة: المعتمد وحده مع المتوسط والتوزيع؛ الإنشاء يعيد { id, status } (Pending ⇒ بانتظار مراجعة المتجر).
   getProductReviews: (productId, params = {}) => request(`/products/${productId}/reviews${toQueryString(params)}`),
   createReview: (productId, payload) =>
     request(`/products/${productId}/reviews`, { method: 'POST', body: JSON.stringify(payload) }),
+  // الإشراف (المرحلة 13، reviews.moderate): الطابور بالحالة، والاعتماد، والرفض بملاحظة للإدارة؛ سياسة النشر إعداد متجر.
+  getAdminReviews: (params = {}) => request(`/admin/reviews${toQueryString(params)}`),
+  approveReview: (id) => request(`/admin/reviews/${id}/approve`, { method: 'POST' }),
+  rejectReview: (id, note = null) =>
+    request(`/admin/reviews/${id}/reject`, { method: 'POST', body: JSON.stringify({ note }) }),
+  getReviewSettings: () => request('/admin/reviews/settings'),
+  updateReviewSettings: (autoApprove) =>
+    request('/admin/reviews/settings', { method: 'PUT', body: JSON.stringify({ autoApprove }) }),
+
+  // ── المفضّلة (المرحلة 13) ── للعميل المسجّل، وكل عملية تعيد المفضّلة كاملة. الزائر يحفظها في متصفّحه (WishlistContext).
+  getWishlist: () => request('/wishlist'),
+  addToWishlist: (productId) => request(`/wishlist/${productId}`, { method: 'PUT' }),
+  removeFromWishlist: (productId) => request(`/wishlist/${productId}`, { method: 'DELETE' }),
+  mergeWishlist: (productIds) => request('/wishlist/merge', { method: 'POST', body: JSON.stringify({ productIds }) }),
 
   // ── إدارة المنتجات (أدمن) ── القائمة والتفاصيل من /admin (كل الحالات وكل اللغات والصور بمعرّفاتها)
   getAdminProducts: (params = {}) => request(`/admin/products${toQueryString(params)}`),

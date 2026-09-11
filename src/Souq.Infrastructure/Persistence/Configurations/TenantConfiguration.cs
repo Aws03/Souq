@@ -33,6 +33,9 @@ public class TenantConfiguration : IEntityTypeConfiguration<Tenant>
                .IsRequired()
                .HasDefaultValue(StoreModules.Format(StoreModules.All));
 
+        // سياسة نشر التقييمات (المرحلة 13): العمود يُضاف false، ثم تعيده هجرة Phase13 true للمتاجر القائمة (كانت تنشر فوراً).
+        builder.Property(t => t.ReviewsAutoApprove);
+
         builder.Ignore(t => t.Settings);
         builder.Ignore(t => t.HasCustomSettings);
         builder.Ignore(t => t.Modules);

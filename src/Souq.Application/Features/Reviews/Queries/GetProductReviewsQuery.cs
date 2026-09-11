@@ -4,8 +4,12 @@ using Souq.Application.Common.Models;
 namespace Souq.Application.Features.Reviews.Queries;
 
 public record ReviewDto(int Id, string CustomerName, int Rating, string Comment, DateTime CreatedAt);
+
+// الإجماليات (المرحلة 13) من التقييمات المعتمدة وحدها: العدد والمتوسط والتوزيع على النجوم (5 ⇒ 1، كل نجمة حاضرة ولو صفراً).
+public record RatingCountDto(int Rating, int Count);
 public record ProductReviewsDto(
-    IReadOnlyList<ReviewDto> Items, int TotalCount, int Page, int PageSize, double AverageRating);
+    IReadOnlyList<ReviewDto> Items, int TotalCount, int Page, int PageSize, double AverageRating,
+    IReadOnlyList<RatingCountDto> Distribution);
 
 public record GetProductReviewsQuery(int ProductId, int Page = 1, int PageSize = 10)
     : IRequest<ProductReviewsDto>, IPagedQuery;

@@ -1,0 +1,7 @@
+.footActions { display: flex; gap: 10px; justify-content: flex-end; }
+.quote {
+  margin: 0 0 18px; padding: 12px 14px; border-radius: var(--radius); background: var(--soft);
+  display: flex; flex-direction: column; gap: 6px;
+}
+.quote blockquote { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.quote figcaption { color: var(--muted); font-size: var(--fs-caption); }

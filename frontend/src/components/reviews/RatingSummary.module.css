@@ -1,0 +1,12 @@
+.summary { display: flex; flex-wrap: wrap; gap: 24px; align-items: center; margin-bottom: 24px; }
+.score { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 120px; }
+.average { font-size: 36px; line-height: 1; color: var(--petrol); }
+.count { color: var(--muted); font-size: var(--fs-caption); }
+.bars { list-style: none; margin: 0; padding: 0; flex: 1 1 240px; display: flex; flex-direction: column; gap: 6px; }
+.row {
+  display: grid; grid-template-columns: 48px minmax(0, 1fr) 32px; align-items: center; gap: 10px;
+  color: var(--muted); font-size: var(--fs-caption);
+}
+.track { height: 8px; border-radius: 50px; background: var(--soft); overflow: hidden; }
+.fill { display: block; height: 100%; border-radius: inherit; background: var(--petrol); }
+.value { text-align: end; }

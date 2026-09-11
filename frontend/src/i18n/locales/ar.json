@@ -95,7 +95,10 @@
     "commentPlaceholder": "شاركنا رأيك في المنتج…",
     "submit": "إرسال التقييم",
     "emptyTitle": "لا تقييمات بعد",
-    "emptyMessage": "كن أول من يقيّم هذا المنتج."
+    "emptyMessage": "كن أول من يقيّم هذا المنتج.",
+    "submittedPending": "وصل تقييمك — يظهر في المتجر بعد مراجعته. شكراً لك",
+    "starsLabel": "{{n}} ★",
+    "distributionAria": "توزيع التقييمات على النجوم"
   },
   "store": {
     "heroCta": "تسوّق الآن",
@@ -306,7 +309,8 @@
       "orders": "الطلبات",
       "customers": "العملاء",
       "payments": "المدفوعات",
-      "shipping": "الشحن"
+      "shipping": "الشحن",
+      "reviews": "التقييمات"
     },
     "dashboard": {
       "greeting": "أهلاً، {{name}}",
@@ -732,6 +736,39 @@
         "trackingUrlInvalid": "رابط التتبّع يبدأ بـ https:// وفيه {number}.",
         "countriesInvalid": "الدول رموز من حرفين مثل JO."
       }
+    },
+    "reviews": {
+      "title": "التقييمات",
+      "subtitle": "راجع تقييمات المشترين قبل نشرها، وأخفِ ما يخالف سياسة المتجر.",
+      "autoApprove": "انشر تقييمات المشترين الموثَّقين فوراً",
+      "autoApproveOnHint": "التقييم الجديد يظهر فوراً، ويمكنك رفضه لاحقاً.",
+      "autoApproveOffHint": "التقييم الجديد ينتظر اعتمادك قبل أن يظهر في المتجر.",
+      "policyLocked": "يغيّر هذه السياسة من يدير إعدادات المتجر.",
+      "policySaved": "حُفظت سياسة نشر التقييمات",
+      "allStatuses": "كل الحالات",
+      "status": {
+        "Pending": "بانتظار المراجعة",
+        "Approved": "منشور",
+        "Rejected": "مرفوض"
+      },
+      "colProduct": "المنتج",
+      "colCustomer": "العميل",
+      "colRating": "التقييم",
+      "colComment": "التعليق",
+      "colStatus": "الحالة",
+      "colDate": "التاريخ",
+      "colActions": "إجراءات",
+      "approve": "اعتماد ونشر",
+      "reject": "رفض وإخفاء",
+      "approvedToast": "نُشر التقييم في المتجر",
+      "rejectedToast": "رُفض التقييم وأُخفي من المتجر",
+      "noteShort": "ملاحظة الإدارة: {{note}}",
+      "rejectTitle": "رفض التقييم",
+      "noteLabel": "ملاحظة للإدارة (اختيارية)",
+      "noteHint": "لا تظهر للعميل — حتى {{max}} حرف.",
+      "confirmReject": "رفض التقييم",
+      "emptyTitle": "لا تقييمات هنا",
+      "emptyMessage": "لا توجد تقييمات بهذه الحالة الآن."
     }
   },
   "wishlist": {
@@ -841,7 +878,8 @@
       "ShippingMethodRequired": "اختر طريقة التوصيل.",
       "ShippingMethodUnavailable": "طريقة التوصيل المختارة لا تخدم هذا العنوان.",
       "ShippingNotAvailable": "لا طريقة توصيل تخدم هذا العنوان.",
-      "InvalidShippingMethod": "طريقة الشحن غير صالحة."
+      "InvalidShippingMethod": "طريقة الشحن غير صالحة.",
+      "WishlistFull": "المفضّلة ممتلئة — احذف بعض المنتجات أولاً."
     }
   },
   "account": {

@@ -95,7 +95,10 @@
     "commentPlaceholder": "Share your opinion about the product…",
     "submit": "Submit review",
     "emptyTitle": "No reviews yet",
-    "emptyMessage": "Be the first to review this product."
+    "emptyMessage": "Be the first to review this product.",
+    "submittedPending": "Thanks — your review will appear once the store has checked it",
+    "starsLabel": "{{n}} ★",
+    "distributionAria": "Rating distribution by stars"
   },
   "store": {
     "heroCta": "Shop now",
@@ -306,7 +309,8 @@
       "orders": "Orders",
       "customers": "Customers",
       "payments": "Payments",
-      "shipping": "Shipping"
+      "shipping": "Shipping",
+      "reviews": "Reviews"
     },
     "dashboard": {
       "greeting": "Welcome, {{name}}",
@@ -732,6 +736,39 @@
         "trackingUrlInvalid": "The tracking link starts with https:// and contains {number}.",
         "countriesInvalid": "Countries are two-letter codes such as JO."
       }
+    },
+    "reviews": {
+      "title": "Reviews",
+      "subtitle": "Check buyers' reviews before they go live, and hide any that break the store's policy.",
+      "autoApprove": "Publish verified buyers' reviews immediately",
+      "autoApproveOnHint": "New reviews appear right away; you can still reject them later.",
+      "autoApproveOffHint": "New reviews wait for your approval before they appear in the store.",
+      "policyLocked": "Only someone who manages the store settings can change this policy.",
+      "policySaved": "Review publishing policy saved",
+      "allStatuses": "All statuses",
+      "status": {
+        "Pending": "Awaiting review",
+        "Approved": "Published",
+        "Rejected": "Rejected"
+      },
+      "colProduct": "Product",
+      "colCustomer": "Customer",
+      "colRating": "Rating",
+      "colComment": "Comment",
+      "colStatus": "Status",
+      "colDate": "Date",
+      "colActions": "Actions",
+      "approve": "Approve and publish",
+      "reject": "Reject and hide",
+      "approvedToast": "Review published in the store",
+      "rejectedToast": "Review rejected and hidden from the store",
+      "noteShort": "Staff note: {{note}}",
+      "rejectTitle": "Reject review",
+      "noteLabel": "Note for staff (optional)",
+      "noteHint": "Not shown to the customer — up to {{max}} characters.",
+      "confirmReject": "Reject review",
+      "emptyTitle": "No reviews here",
+      "emptyMessage": "There are no reviews with this status right now."
     }
   },
   "wishlist": {
@@ -841,7 +878,8 @@
       "ShippingMethodRequired": "Choose a delivery method.",
       "ShippingMethodUnavailable": "The chosen delivery method doesn't serve this address.",
       "ShippingNotAvailable": "No delivery method serves this address.",
-      "InvalidShippingMethod": "The shipping method isn't valid."
+      "InvalidShippingMethod": "The shipping method isn't valid.",
+      "WishlistFull": "Your wishlist is full — remove some products first."
     }
   },
   "account": {

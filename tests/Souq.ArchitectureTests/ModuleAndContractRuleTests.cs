@@ -28,7 +28,7 @@ public class ModuleAndContractRuleTests
         ["Reviews"] = ["Reviews"],
         ["Identity"] = ["Auth", "Staff"],
         ["Customers"] = ["Customers"],
-        ["Shopping"] = ["Baskets"],
+        ["Shopping"] = ["Baskets", "Wishlist"],
         ["Shipping"] = ["Shipping"],
         ["Platform"] = ["Platform", "Stores"],
         ["Reporting"] = ["Reporting"],

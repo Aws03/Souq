@@ -210,8 +210,11 @@ Each entry lists:
   - `Features/Baskets/Contracts` holds `IPricing` (subtotal → discount → shipping → tax → total), used by the basket view and by Ordering's `CreateOrderHandler`.
   - `Features/Baskets` holds the use cases, `BasketResolver` (guest or customer, and the merge at sign-in) and `BasketViews` (quote plus Inventory's `IStockAvailability`, read-only; baskets never reserve).
   - `IBasketReader` (checkout from the basket) arrives with Phase 9.
-  - The wishlist is still in `localStorage` until Phase 13.
-  - `ModuleAndContractRuleTests` allows Ordering → Shopping and Shopping → Inventory contracts only.
+  - **Wishlist (Phase 13, [ADR-0033](adr/0033-review-moderation-and-wishlist.md)):**
+    - `WishlistItem` (customer plus product, unique, at most 200 per customer) lives in `Features/Wishlist`, behind the `wishlist` module flag.
+    - It shows live catalog prices through `IWishlistQueries` and hides products that are no longer published.
+    - Guests keep their list in the browser; it merges into the account at sign-in. Customer erasure deletes it.
+  - `ModuleAndContractRuleTests` maps Shopping to `Baskets` and `Wishlist`, and allows the contracts Ordering → Shopping and Shopping → Inventory and Shipping.
 
 ### Ordering
 - **Responsibility:** turning a purchase decision into an immutable commercial record and moving it through its lifecycle.
@@ -290,7 +293,12 @@ Each entry lists:
 - **Depends on:** Ordering (`IOrderHistory`), Catalog, Customers (display name).
 - **Forbidden:** writing to Catalog (aggregates are computed or cached, never pushed into Product).
 - **Extraction:** unlikely.
-- **Today:** `Review` + `Features/Reviews`. It currently queries orders through `IOrderRepository` (moves to `IOrderHistory`).
+- **Today (Phase 13, [ADR-0033](adr/0033-review-moderation-and-wishlist.md)):**
+  - `Review` has a status (Pending, Approved, Rejected). It records who moderated it and when, plus a note for staff only.
+  - The store's `ReviewsAutoApprove` policy decides whether a verified buyer's review starts approved or pending. New stores start with moderation; stores that existed before Phase 13 kept immediate publishing.
+  - The public list and the aggregates (count, average, per-star distribution) use approved reviews only. They are computed in the query and never pushed into `Product`.
+  - The moderation API (`/api/admin/reviews`, `reviews.moderate`) is audited. Changing the policy also needs `store.settings.manage`.
+  - Eligibility still asks `IOrderRepository` whether the product was delivered; the move to `IOrderHistory` is deferred.
 
 ### Notifications (module from Phase 14)
 - **Responsibility:** telling people what happened, through the right channel, in the tenant's voice.

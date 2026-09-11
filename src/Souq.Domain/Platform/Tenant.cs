@@ -41,6 +41,10 @@ public partial class Tenant : Entity
     public string Currency { get; private set; } = default!;
     public string TimeZone { get; private set; } = default!;
 
+    // التقييمات (المرحلة 13، ADR-0033): true ⇒ تقييم المشتري الموثَّق يُنشر فوراً، false ⇒ ينتظر المشرف. المتجر الجديد يبدأ
+    // بالإشراف (الأسلم قبل أن يراجع صاحبه سياسته)، والمتاجر السابقة للمرحلة 13 أبقتها الهجرة على النشر الفوري كما كانت.
+    public bool ReviewsAutoApprove { get; private set; }
+
     public IReadOnlyCollection<TenantDomain> Domains => _domains.AsReadOnly();
 
     public StoreSettings Settings => _settings ?? StoreSettings.Default(Name, DefaultCulture);
@@ -128,6 +132,9 @@ public partial class Tenant : Entity
     }
 
     public void SetModules(IEnumerable<string> modules) => _modules = StoreModules.Format(modules);
+
+    // لا يمسّ التقييمات القائمة: تفعيل النشر الفوري لا يعتمد المعلّق — قرار المشرف لكل تقييم ينتظره.
+    public void SetReviewsAutoApprove(bool enabled) => ReviewsAutoApprove = enabled;
 
     // تغيير العملة يكسر التاريخ المالي (أسعار وطلبات بعملة سابقة) — مسموح فقط قبل أي نشاط
     // تجاري. "هل يوجد نشاط؟" سؤال قاعدة بيانات يجيب عنه المستدعي (WhiteLabel.md §2).

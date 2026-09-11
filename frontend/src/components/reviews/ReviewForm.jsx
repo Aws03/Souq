@@ -6,10 +6,12 @@ import Button from '../common/Button';
 import { ErrorBanner } from '../common/StateViews';
 import { inputClass } from '../common/FormField';
 import StarRating from '../product/StarRating';
+import { submittedMessageKey } from '../../features/reviews/ratingSummary';
 import styles from './ReviewForm.module.css';
 
 // نموذج إضافة تقييم. الخادم هو الحكم الفعلي في الأحقّية (اشترى واستلم المنتج،
 // ولم يقيّمه من قبل) — نعرض رسالة الخطأ التي يُعيدها كما هي، لا نخمّنها هنا.
+// متجر بالإشراف (المرحلة 13) يعيد status=Pending: نخبر العميل أن تقييمه ينتظر المراجعة بدل أن يبحث عنه في القائمة.
 export default function ReviewForm({ productId, onSubmitted }) {
   const { t } = useTranslation();
   const toast = useToast();
@@ -25,8 +27,8 @@ export default function ReviewForm({ productId, onSubmitted }) {
 
     setBusy(true); setError(null);
     try {
-      await api.createReview(productId, { rating, comment: comment.trim() });
-      toast.success(t('reviews.submitted'));
+      const created = await api.createReview(productId, { rating, comment: comment.trim() });
+      toast.success(t(submittedMessageKey(created?.status)));
       setRating(0); setComment('');
       onSubmitted?.();
     } catch (err) { setError(err.message); }

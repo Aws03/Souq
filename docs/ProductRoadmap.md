@@ -1,7 +1,7 @@
 # Souq Platform: Product Roadmap
 
 > **Goal:** turn Souq into one **white-label, multi-tenant e-commerce platform**, sold to many clients (≈ $5,000+ each) and maintainable by a professional team.
-> **Status:** Phase 0 ✅ · Target architecture ✅ documented · Phase 1A ✅ (merged to `main`) · Phase 1B ✅ on branch `phase/1b-production-foundations` (awaiting review) · **Autonomous run on `phase/2-15-multitenant-platform`** (branched from the 1B tip): Phase 2 ✅ · Phase 3 ✅ · Phase 4 ✅ · Phase 5 ✅ · Phase 6 ✅ · Phase 7 ✅ · Phase 8 ✅ · Phase 9 ✅ · Phase 10 ✅ · Phase 11 ✅ · Phase 12 ✅. Next: Phase 13.
+> **Status:** Phase 0 ✅ · Target architecture ✅ documented · Phase 1A ✅ (merged to `main`) · Phase 1B ✅ on branch `phase/1b-production-foundations` (awaiting review) · **Autonomous run on `phase/2-15-multitenant-platform`** (branched from the 1B tip): Phase 2 ✅ · Phase 3 ✅ · Phase 4 ✅ · Phase 5 ✅ · Phase 6 ✅ · Phase 7 ✅ · Phase 8 ✅ · Phase 9 ✅ · Phase 10 ✅ · Phase 11 ✅ · Phase 12 ✅ · Phase 13 ✅. Next: Phase 14.
 > **Companion document:** [ArchitectureAssessment.md](ArchitectureAssessment.md) covers the current state, the problem register (IDs such as `B1` and `C2`), the target architecture, and the full reasoning behind every decision (`D-xx`).
 > **Last updated:** 2026-09-11
 
@@ -656,7 +656,31 @@ Status legend: ✅ done · 🟡 in progress · ⏳ planned · ⏸ awaiting appro
   - Carriers and tracking numbers.
 - **Exit criteria.** Checkout quotes shipping methods, and the order total includes shipping.
 
-### Phase 13: Reviews and wishlist ⏳
+### Phase 13: Reviews and wishlist ✅ (autonomous run)
+- **Delivered ([ADR-0033](adr/0033-review-moderation-and-wishlist.md)):**
+  - **Moderation:** a review is Pending, Approved or Rejected. The transitions are guarded in the entity. The review records the moderator, the time and a note for staff only, and every decision is audited.
+  - **A per-store publishing policy** (`ReviewsAutoApprove`). New stores start with moderation; existing stores were migrated to keep publishing at once. Moderators read the policy; changing it also needs `store.settings.manage`.
+  - **Rating aggregates:** count, average and a per-star distribution over approved reviews only, computed in the read query and never stored on `Product`.
+  - **The moderation API** (`/api/admin/reviews`, `reviews.moderate`): a queue filtered by status and product, approve, and reject with a note.
+  - **A server-side wishlist** in the Shopping module:
+    - an idempotent add, removal, and live catalog prices;
+    - products that are no longer published are hidden;
+    - at most 200 items per customer;
+    - the guest's browser list merges at sign-in; erasure deletes the wishlist.
+  - **Module flags:** a disabled `reviews` or `wishlist` module returns `404 ModuleDisabled` on every route of the feature.
+  - **Frontend:**
+    - an admin reviews page with the policy switch;
+    - a rating distribution and an "awaiting review" message on the product page;
+    - the wishlist follows a signed-in customer and absorbs the guest list at sign-in.
+  - **Migration `Phase13ReviewsWishlist`:** additive, with a hand-written backfill (existing reviews approved, existing stores keep publishing at once).
+- **Deferred, with reasons:**
+  - **Moderation notifications** (pending reviews for staff, decisions for customers): they need Phase 14's outbox.
+  - **Ratings on product cards:** listings would need a cached or materialised aggregate. The storefront (Phase 16) decides.
+  - **Editing reviews, store replies, and resubmitting after a rejection:** each needs an edit history.
+  - **The `IOrderHistory` contract:** there is still one consumer.
+- **Exit criteria (met):**
+  - **Moderation workflow tests pass:** unit tests for the entity and handlers. The integration test takes reviews from pending to approved or rejected, and back to approved, with the aggregates following each step.
+  - **A disabled module returns 404:** in the integration test, every reviews and wishlist route returns `404 ModuleDisabled` and reopens when the module is re-enabled.
 - **Scope.**
   - Review moderation (pending/approved/rejected), with a per-tenant auto-approve setting.
   - Rating aggregates.
@@ -893,3 +917,4 @@ The earlier `AUDIT.md` (Arabic, 8-phase program) and the engineering-thinking gu
 | 2026-09-11 | Phase 10 completed (coupon uses reserved at checkout as redemption records under `rowversion`, confirmed at payment and released on every cancellation; start dates and per-customer limits; admin redemptions list; used coupons can't be deleted); ADR-0030 |
 | 2026-09-11 | Phase 11 completed (a payment record per order, idempotent refunds with retry, a full refund when a paid order is cancelled, per-store Stripe accounts with AES-GCM-encrypted keys, one gateway router, webhooks routed to the store that created the intent, admin payments page and refund UI); ADR-0031. The D-13 mechanism is built but the choice is still open; P-05 re-checked against Stripe's docs |
 | 2026-09-11 | Phase 12 completed (store-defined shipping methods behind an `IShippingRateProvider` strategy, the pipeline's shipping stage, a method required at checkout when the store has methods, the destination country from the address book, a shipping snapshot and totals including shipping, carrier tracking links); ADR-0032 |
+| 2026-09-11 | Phase 13 completed (review moderation under a per-store auto-approve policy, approved-only aggregates with a per-star distribution, an audited moderation API, a server-side wishlist that absorbs the guest list at sign-in, both features behind their module flags); ADR-0033 |

@@ -37,6 +37,7 @@ import Orders from './pages/admin/Orders';
 import Customers from './pages/admin/Customers';
 import Payments from './pages/admin/Payments';
 import ShippingMethods from './pages/admin/ShippingMethods';
+import ReviewModeration from './pages/admin/ReviewModeration';
 import './styles.css';
 
 // ============================================================================
@@ -100,6 +101,7 @@ export default function App() {
           <Route path="customers" element={<Customers />} />
           <Route path="shipping" element={<ShippingMethods />} />
           <Route path="payments" element={<Payments />} />
+          <Route path="reviews" element={<ReviewModeration />} />
         </Route>
 
         {/* ── المتجر (عميل/زائر) ── */}
