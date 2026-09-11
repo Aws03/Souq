@@ -1,7 +1,7 @@
 # Souq Platform: Product Roadmap
 
 > **Goal:** turn Souq into one **white-label, multi-tenant e-commerce platform**, sold to many clients (≈ $5,000+ each) and maintainable by a professional team.
-> **Status:** Phase 0 ✅ · Target architecture ✅ documented · Phase 1A 🟡 in progress on branch `phase/1a-architecture-stabilization`.
+> **Status:** Phase 0 ✅ · Target architecture ✅ documented · Phase 1A ✅ complete on branch `phase/1a-architecture-stabilization` (awaiting your review and merge). Next: Phase 1B.
 > **Companion document:** [ArchitectureAssessment.md](ArchitectureAssessment.md) covers the current state, the problem register (IDs such as `B1` and `C2`), the target architecture, and the full reasoning behind every decision (`D-xx`).
 > **Last updated:** 2026-09-11
 
@@ -84,7 +84,7 @@ The original ordering is sound. I recommend five adjustments:
 | # | Change | Why |
 |---|---|---|
 | 1 | **Split Phase 1** into **1A Stabilize** and **1B Architecture foundations** | The audit found live defects: overselling race, cancelled orders never restock, a default admin password seeded in production, reset links written to logs, and an upload path that allows stored XSS. Multi-tenancy would multiply each of them by N tenants. Two small gates are easier to review than one large one. |
-| 2 | **Testing becomes continuous.** The integration-test harness is built in 1B, and Phase 19 becomes gap closure + E2E + load | Tenant-isolation tests must exist from the first day of Phase 2. A tenancy bug found in Phase 19 would mean re-auditing 17 phases of work. |
+| 2 | **Testing becomes continuous.** The integration-test harness was built in 1A (moved forward from 1B), and Phase 19 becomes gap closure + E2E + load | Tenant-isolation tests must exist from the first day of Phase 2. A tenancy bug found in Phase 19 would mean re-auditing 17 phases of work. |
 | 3 | **The white-label/theme runtime moves from 18 to 15** and merges with the frontend foundation. The old 15/16/17 become 16/17/18 | Storefront, tenant admin, and platform admin all build on the theme and tenant-config runtime. Doing it last means restyling every screen twice. |
 | 4 | **Security quick wins are pulled forward** into 1A and 3 | Phase 20 becomes verification and hardening, not the first time security is considered. |
 | 5 | **The storefront config API lands in Phase 4 (backend)** | Tenant configuration must exist and be testable before the frontend consumes it in Phase 15. |
@@ -93,7 +93,7 @@ The original ordering is sound. I recommend five adjustments:
 
 Status legend: ✅ done · 🟡 in progress · ⏳ planned · ⏸ awaiting approval
 
-### Phase 0: Complete system audit ✅ (⏸ awaiting approval)
+### Phase 0: Complete system audit ✅
 - **Goal.** Understand the system completely before changing it.
 - **Delivered.** [ArchitectureAssessment.md](ArchitectureAssessment.md), which contains the feature, entity, API, database, and frontend maps, an end-to-end trace, the problem register, the target architecture, and the migration strategy. Also this roadmap.
 - **Verified.** `dotnet build` passes with 0 warnings. `dotnet test` passes 133/133. The frontend production build passes. NuGet reports no vulnerable packages.
@@ -107,7 +107,7 @@ Status legend: ✅ done · 🟡 in progress · ⏳ planned · ⏸ awaiting appro
   - ADRs 0001–0016 in [adr/](adr/).
 - **Decision:** modular monolith + Clean/Hexagonal boundaries + selective DDD + vertical slices + selective CQRS. Modules are namespaces inside the four layer projects, enforced by architecture tests.
 
-### Phase 1A: Stabilize + foundations the fixes depend on 🟡
+### Phase 1A: Stabilize + foundations the fixes depend on ✅ (⏸ awaiting review)
 - **Goal.** Fix the confirmed correctness and security defects before tenancy multiplies them. Put in place the minimum foundations those fixes need and every later phase reuses: concurrency, money precision, test harness, architecture tests.
 - **Scope change (2026-09-11).** Per the architecture brief, concurrency (C1/C4), JOD precision (C5), the payment-port cleanup (D1/D2), and the integration-test harness moved here from 1B.
 - **Scope.**
@@ -146,6 +146,7 @@ Status legend: ✅ done · 🟡 in progress · ⏳ planned · ⏸ awaiting appro
     - neutral `FRONTEND_URL` (G3).
 - **Out of scope.** Tenancy, identity split, ProblemDetails, query services, new features.
 - **Decisions taken (delegated).** P-01 (branch per phase), P-02 (AwesomeAssertions), D-20 (Testcontainers).
+- **Result (2026-09-11).** 233 tests green: Domain 87 · Application 102 · Architecture 7 · Integration 29 (real SQL Server via Testcontainers) · Frontend 8. `dotnet build` 0 warnings; `npm run build` clean. Status per finding: [ArchitectureAssessment §16](ArchitectureAssessment.md#16-status-after-phase-1a-2026-09-11).
 - **Exit criteria.**
   - Every fix has a unit and/or integration test.
   - `dotnet build` has 0 warnings; the full `dotnet test` suite is green (Docker).
@@ -569,3 +570,4 @@ The earlier `AUDIT.md` (Arabic, 8-phase program) and the engineering-thinking gu
 | Date | Change |
 |---|---|
 | 2026-09-11 | Initial roadmap produced in Phase 0 |
+| 2026-09-11 | Target architecture documented (ADRs 0001–0016). Phase 1A scope expanded per the brief (concurrency, money precision, payment port, test harness) and completed |

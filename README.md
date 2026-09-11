@@ -3,7 +3,7 @@
 <p>
   <img alt="Build" src="https://img.shields.io/badge/build-passing-brightgreen?style=flat-square" />
   <img alt="License" src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" />
-  <img alt="Tests" src="https://img.shields.io/badge/tests-111%20passing-brightgreen?style=flat-square" />
+  <img alt="Tests" src="https://img.shields.io/badge/tests-233%20passing-brightgreen?style=flat-square" />
   <img alt="PRs Welcome" src="https://img.shields.io/badge/PRs-welcome-orange?style=flat-square" />
 </p>
 
@@ -49,7 +49,7 @@ management.
 | **Auth**       | JWT Bearer tokens · BCrypt password hashing                                 |
 | **Payments**   | Stripe.js + Stripe.NET (real Elements-based checkout, with a fake gateway fallback for local dev) |
 | **Frontend**   | React 18 · Vite 5 · React Router 6 · RTL, Arabic-first UI                   |
-| **Testing**    | xUnit · FluentAssertions · NSubstitute (111 unit tests across Domain/Application) |
+| **Testing**    | xUnit · AwesomeAssertions · NSubstitute · Testcontainers (SQL Server) · NetArchTest · Vitest — 233 tests |
 | **DevOps**     | Docker · Docker Compose (fully isolated 3-container stack)                  |
 | **API Docs**   | Swagger / OpenAPI                                                            |
 
@@ -132,7 +132,7 @@ Key patterns applied throughout:
 - Centralized validation, error handling, and Result-based error contracts
 - Auto-applied EF Core migrations and idempotent seed data on startup
 - Fully containerized, isolated Docker stack
-- 111 unit tests covering Domain and Application layers
+- 233 automated tests: domain rules, use cases, architecture rules, real SQL Server integration, frontend logic
 
 ---
 
@@ -144,7 +144,7 @@ Spins up an isolated SQL Server, the API, and the frontend — nothing touches
 your host's existing services.
 
 ```bash
-cp .env.example .env   # fill in DB_SA_PASSWORD and JWT_KEY
+cp .env.example .env   # fill in DB_SA_PASSWORD, JWT_KEY, SEED_ADMIN_EMAIL, SEED_ADMIN_PASSWORD
 docker compose up --build
 ```
 
@@ -166,6 +166,7 @@ dotnet user-secrets set "ConnectionStrings:Default" \
   --project src/Souq.API
 
 # 2) Run the API — applies migrations & seeds data automatically
+#    (Development admin: admin@souq.com / Admin@123, or set Seed:AdminEmail / Seed:AdminPassword)
 dotnet run --project src/Souq.API
 # → http://localhost:5200/swagger
 
@@ -186,10 +187,11 @@ Marka/
 │   ├── Souq.Infrastructure/  # EF Core, repositories, Stripe integration, file storage.
 │   └── Souq.API/             # ASP.NET Core entry point: controllers, middleware, JWT config.
 ├── frontend/                 # React + Vite storefront and admin UI (Marka brand).
-├── database/                 # Raw SQL schema/seed scripts (for manual DB setup).
 ├── tests/
-│   ├── Souq.Domain.Tests/       # Entity and Value Object unit tests.
-│   └── Souq.Application.Tests/  # Command/query handler unit tests.
+│   ├── Souq.Domain.Tests/        # Entity and Value Object unit tests.
+│   ├── Souq.Application.Tests/   # Command/query handler unit tests.
+│   ├── Souq.ArchitectureTests/   # Dependency rules enforced as tests (NetArchTest).
+│   └── Souq.IntegrationTests/    # Real API + SQL Server in Docker (Testcontainers).
 ├── docs/                      # Architecture notes and the project's original design log.
 ├── docker-compose.yml         # Isolated 3-container stack (db, api, web).
 └── .env.example                # Template for Docker Compose secrets.
@@ -267,6 +269,9 @@ Used by `docker-compose.yml` (copy `.env.example` to `.env` and fill in real val
 | `STRIPE_SECRET_KEY`       | No       | Stripe secret key. Omit to fall back to a built-in fake payment gateway that always succeeds. |
 | `STRIPE_PUBLISHABLE_KEY`  | No       | Stripe publishable key, exposed to the frontend via `/api/payments/config`.  |
 | `STRIPE_WEBHOOK_SECRET`   | No       | Stripe webhook signing secret, used to verify incoming webhook events.       |
+| `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` | First start | Creates the first admin outside Development (password ≥ 12 chars). **No default admin exists outside Development.** Remove after the first start. |
+| `RESEND_API_KEY` / `BREVO_API_KEY` (+ `BREVO_SENDER_EMAIL`) / `GMAIL_APP_PASSWORD` (+ `GMAIL_USERNAME`) | No | Email provider, in priority order. Without one, emails are not sent: a warning is logged, and reset links are never logged outside Development. |
+| `FRONTEND_URL`            | No       | Base URL used in email links (default `http://localhost:8081`). |
 
 For local (non-Docker) development, the connection string and JWT key are
 configured via [.NET user-secrets](https://learn.microsoft.com/aspnet/core/security/app-secrets)
@@ -280,9 +285,16 @@ instead of environment variables — **never commit secrets to `appsettings.json
 dotnet test
 ```
 
-111 unit tests cover the Domain layer (entity invariants, value objects) and
-the Application layer (command/query handlers), using xUnit, FluentAssertions,
-and NSubstitute for mocking.
+| Suite | What it proves | Needs |
+| --- | --- | --- |
+| `Souq.Domain.Tests` (87) | Entity invariants, money precision, state machines | — |
+| `Souq.Application.Tests` (102) | Use-case orchestration, validation, upload sniffing | — |
+| `Souq.ArchitectureTests` (7) | Clean Architecture dependency rules, thin controllers | — |
+| `Souq.IntegrationTests` (29) | Migrations, concurrency (rowversion), JOD precision, authorization boundaries, uploads, password reset — on real SQL Server | **Docker** |
+| `frontend` — `npm test` (8) | Admin query/payload logic | — |
+
+The integration suite starts `mcr.microsoft.com/mssql/server:2022-latest` through Testcontainers;
+the first run pulls the image. See [docs/DevelopmentGuide.md](docs/DevelopmentGuide.md).
 
 ---
 

@@ -21,7 +21,6 @@ Souq/
 │   ├── Souq.Infrastructure/   ← التقنيات (EF Core, SQL, الدفع). يعتمد على Application.
 │   └── Souq.API/              ← الواجهة (Controllers). نقطة التجميع.
 ├── frontend/                 ← واجهة React (Vite) بهوية "سوق".
-├── database/                 ← سكربتات SQL Server لـ Azure Data Studio.
 └── docs/                     ← هذا الدليل وشرح أعمق.
 ```
 
@@ -63,7 +62,7 @@ API ──► Infrastructure ──► Application ──► Domain
 
 ### 1) قاعدة البيانات (Azure Data Studio)
 الطريقة الأسهل: شغّل المشروع و EF Core سيُنشئ الجداول ويبذرها تلقائياً.
-أو يدوياً لفهم البنية: شغّل `database/01_schema.sql` ثم `database/02_seed.sql`.
+لعرض SQL المكافئ للهجرات (مصدر المخطّط الوحيد): `dotnet ef migrations script --idempotent --project src/Souq.Infrastructure --startup-project src/Souq.API`.
 
 ### 2) الـ Backend (.NET 10)
 أولاً (مرة واحدة): اضبط سلسلة الاتصال كسرّ محلي — لا تُكتب في `appsettings.json` أبداً:

@@ -1003,3 +1003,48 @@ To **start Phase 1B**:
 - 404 instead of 403 for resources you don't own.
 - Anti-enumeration responses.
 - A payment intent + server-side confirmation, with idempotency by state.
+
+---
+
+## 16. Status after Phase 1A (2026-09-11)
+
+Every finding closed in Phase 1A has at least one automated test; the column says where. "Unit" means Domain or Application tests, "Integration" means real SQL Server through the API, and "Arch" means architecture tests.
+
+| ID | Finding | Status | Proof |
+|---|---|---|---|
+| B1 | Default admin seeded in every environment | ✅ Dev-only fallback. Elsewhere only from `Seed:*`, with a strong-password check. | Integration: dev credentials rejected; weak password fails startup |
+| B2 | Reset links and PII in logs | ✅ Console adapter logs links only in Development; providers log masked recipients and truncated errors | Integration: token never in logs; console adapter test |
+| B3 | Upload stored XSS | ✅ Magic-byte detection, server-chosen extension, locked-down `/uploads` (types allowlist, `nosniff`, CSP sandbox) | Unit + Integration: disguised HTML rejected, planted HTML not served |
+| B6 | Plaintext reset tokens | ✅ 256-bit CSPRNG token; only its SHA-256 hash stored; existing tokens cleared by the migration | Unit + Integration |
+| B11 | npm advisories | 🟡 Non-breaking fixes applied. React Router 7, Vite 8, and Vitest 5 are majors, deferred to Phase 15 (router exposure is low: navigation targets come from router state) | `npm audit` |
+| B12 | Personal email defaults | ✅ Removed from code, `appsettings.json`, compose, and `.env.example` | grep |
+| C1 | Oversell / lost updates | ✅ `rowversion` on Products, Coupons, Orders; conflicts become 409 | Integration: two contexts selling the last unit; 8 parallel checkouts never oversell |
+| C2 | Cancel doesn't restock | ✅ `OrderStockRelease` + `Cancellation` ledger entries | Unit + Integration |
+| C3 | Payment-failure restock unlogged | ✅ Same release service | Unit |
+| C4 | Stale stock overwrite from the product form | ✅ Compare-and-set (`expectedStockQuantity`); name/price edits don't touch stock | Unit + Integration + Vitest |
+| C5 | Money precision (JOD) | ✅ `decimal(19,4)`; `Money` enforces minor units; `FromCalculation` rounds once | Unit + Integration (12.345 round-trip, 15% coupon = 1.852) |
+| C6 | Orphan Pending order when intent creation fails | ✅ Compensation cancels the order and releases stock atomically. Abandoned checkouts still expire in Phase 6/9. | Unit |
+| C8 | Admin category filter ignored | ✅ Sends `categoryIds` | Vitest |
+| C9 | Unvalidated paging | ✅ Validators on every list query (page ≥ 1, size 1–100) | Unit + Integration (400 not 500) |
+| C10 | Cancelled → Cancelled | ✅ Rejected, so stock can't be released twice | Unit + Integration |
+| C11 | 500 for money, concurrency, unique errors | ✅ `InvalidMoneyException` is a `DomainException` (400); conflicts and unique violations are 409 | Unit + Integration |
+| D1 / D2 | Stripe SDK in controller; static API key | ✅ Webhook parsing and client config behind `IPaymentService`; `StripeClient` instance | Arch: controllers have no Stripe dependency |
+| D5 | Duplicated error mapping | 🟡 One Result→HTTP helper; ProblemDetails in 1B | — |
+| DB #4 / #5 | No `ParentId` FK; nullable aggregate FKs | ✅ FK added (orphans cleaned); FKs required (orphans removed) | Integration: migrations apply to a fresh database |
+| E7, F4, G1, G2, G3 | Dead hook, stale README, tracked `.vs`, stale SQL, LAN-IP default | ✅ | — |
+| F1 | No integration or architecture tests | ✅ Harness in place: 29 integration + 7 architecture tests | — |
+| G5 | FluentAssertions commercial license | ✅ AwesomeAssertions (Apache-2.0) | — |
+
+**Still open,** with the phase that owns each:
+- A1–A11: tenancy and white-label (Phases 2–15).
+- B4/B5: token lifetime, revocation, rate limiting (Phase 3).
+- B7: ownership checks in controllers (1B).
+- B8: tracking by sequential id (9).
+- B9: security headers beyond `/uploads` (20).
+- B10: `sa` login (23).
+- C7: reactivating products (5).
+- C12: persisted cart and shipping (8/12).
+- C13: review N+1 (13).
+- D3/D4/D6/D12: read-side query services, `ProductSortBy`, error strategy, `TimeProvider` (1B).
+- E1–E6: frontend structure (15).
+- The Stripe JOD multiplier needs verification before live payments (P-05).
