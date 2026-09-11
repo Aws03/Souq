@@ -30,6 +30,9 @@ public class CreateOrderHandlerTests
     private readonly IStockAvailability _availability = Substitute.For<IStockAvailability>();
     private readonly IPaymentService _payment = Substitute.For<IPaymentService>();
     private readonly IBasketCheckout _baskets = Substitute.For<IBasketCheckout>();
+    private readonly ICouponRedemptionRepository _couponUses = Substitute.For<ICouponRedemptionRepository>();
+    private readonly Souq.Application.Features.Coupons.Contracts.ICouponRedemptions _couponRedemptions =
+        Substitute.For<Souq.Application.Features.Coupons.Contracts.ICouponRedemptions>();
     private readonly IOrderNumbers _numbers = Substitute.For<IOrderNumbers>();
     private readonly IUnitOfWork _uow = TestUnitOfWork.Create();
     private readonly List<string> _steps = [];
@@ -53,9 +56,10 @@ public class CreateOrderHandlerTests
 
     // التسعير الحقيقي (المرحلة 8) فوق مستودعات بديلة — الأسعار والخصم كما في السلة تماماً.
     private CreateOrderHandler CreateHandler() => new(
-        _orders, _customers, new PricingService(_products, _coupons, TestTenant.Context(), new FixedClock()), _baskets, _numbers,
-        _reservations, _availability, _payment,
-        new OrderPaymentConfirmation(_orders, _reservations, _customers, _coupons, _baskets, _payment, Substitute.For<IEmailService>(), _uow),
+        _orders, _customers, new PricingService(_products, _coupons, _couponUses, TestTenant.Context(), new FixedClock()), _baskets,
+        _numbers, _couponRedemptions, _reservations, _availability, _payment,
+        new OrderPaymentConfirmation(_orders, _reservations, _customers, _couponRedemptions, _baskets, _payment,
+            Substitute.For<IEmailService>(), _uow),
         TestCurrentUser.Customer(1), TestTenant.Context(), _uow, new FixedClock(), NullLogger<CreateOrderHandler>.Instance);
 
     private static Customer NewCustomer() => new(userId: 1, "عميل", "customer@souq.com");
@@ -166,6 +170,9 @@ public class CreateOrderHandlerTests
         result.Value.TotalAmount.Should().Be(90);
         await _payment.Received(1).CreateIntentAsync(
             Arg.Is<Money>(m => m.Amount == 90), Arg.Any<string>(), Arg.Any<CancellationToken>());
+        // استخدام الكوبون يُحجز في معاملة الطلب نفسها (المرحلة 10) — بقواعده على قراءة جديدة.
+        await _couponRedemptions.Received(1).ReserveAsync("SAVE10", SavedOrderId, 1,
+            Arg.Is<Money>(m => m.Amount == 100), Arg.Is<Money>(m => m.Amount == 10), Arg.Any<CancellationToken>());
     }
 
     [Fact]

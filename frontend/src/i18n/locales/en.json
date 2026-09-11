@@ -484,7 +484,20 @@
       "confirmDelete": "Delete coupon \"{{code}}\"?",
       "deleted": "Coupon deleted",
       "updated": "Coupon updated",
-      "created": "Coupon added"
+      "created": "Coupon added",
+      "colWindow": "Valid",
+      "windowFrom": "From {{date}}",
+      "windowUntil": "Until {{date}}",
+      "windowAlways": "Always",
+      "perCustomer": "{{count}} per customer",
+      "viewRedemptions": "Redemptions",
+      "redemptionsTitle": "Redemptions of {{code}}",
+      "redemptionsEmpty": "No orders have used this coupon yet.",
+      "redemptionStatus": {
+        "Reserved": "Unpaid order",
+        "Confirmed": "Paid",
+        "Released": "Cancelled — use returned"
+      }
     },
     "couponForm": {
       "editTitle": "Edit coupon",
@@ -501,7 +514,12 @@
       "maxUsesLabel": "Maximum uses (optional)",
       "activeLabel": "Active",
       "codeRequired": "Coupon code is required",
-      "valueInvalid": "Discount value must be greater than zero"
+      "valueInvalid": "Discount value must be greater than zero",
+      "startsLabel": "Starts (optional)",
+      "perCustomerLabel": "Uses per customer (optional)",
+      "perCustomerHint": "Unpaid and paid orders count; a cancelled order gives the use back.",
+      "windowInvalid": "The end date must be after the start date.",
+      "perCustomerTooHigh": "Uses per customer can't exceed the total uses."
     },
     "orders": {
       "title": "Orders",
@@ -693,7 +711,8 @@
       "InvalidBasketOperation": "This basket change isn't allowed (quantity limit or number of items).",
       "BasketEmpty": "Your basket is empty.",
       "OrderAlreadyPaid": "This order was paid before it could be cancelled. Contact the store to cancel it.",
-      "PaymentProcessing": "The payment is still processing. Try again in a moment."
+      "PaymentProcessing": "The payment is still processing. Try again in a moment.",
+      "CouponInUse": "This coupon has been used in orders — deactivate it instead of deleting it."
     }
   },
   "account": {

@@ -56,7 +56,16 @@ public class CouponsController : ControllerBase
         return result.IsSuccess ? NoContent() : this.Failure(result);
     }
 
-    // DELETE /api/coupons/5 — حذف فعلي (الطلبات تحمل لقطة نصّية من الرمز فقط).
+    // GET /api/coupons/5/redemptions — من استخدم الكوبون ولأيّ طلب وبأيّ حالة (المرحلة 10). كوبون متجر آخر ⇒ 404.
+    [HttpGet("{id:int}/redemptions")]
+    [HasPermission(Permissions.Promotions.Manage)]
+    public async Task<IActionResult> Redemptions(int id, [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
+    {
+        var result = await _mediator.Send(new GetCouponRedemptionsQuery(id, page, pageSize));
+        return result.IsSuccess ? Ok(result.Value) : this.Failure(result);
+    }
+
+    // DELETE /api/coupons/5 — حذف فعلي قبل أي استخدام فقط؛ بعده 409 CouponInUse (يُعطَّل بدلاً من ذلك).
     [HttpDelete("{id:int}")]
     [HasPermission(Permissions.Promotions.Manage)]
     public async Task<IActionResult> Delete(int id)

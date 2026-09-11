@@ -7,10 +7,11 @@ using Souq.Domain.ValueObjects;
 
 namespace Souq.Application.Features.Coupons.Commands;
 
-// لا يُعدَّل الرمز نفسه هنا عمداً (انظر تعليق Coupon.UpdateDetails).
+// لا يُعدَّل الرمز نفسه هنا عمداً (انظر تعليق Coupon.UpdateDetails). PUT يستبدل المعطيات كلها، ومنها النافذة وحدّ العميل.
 public record UpdateCouponCommand(
     int Id, DiscountType Type, decimal Value,
-    decimal? MinOrderAmount, DateTime? ExpiresAt, int? MaxUses, bool IsActive
+    decimal? MinOrderAmount, DateTime? ExpiresAt, int? MaxUses, bool IsActive,
+    DateTime? StartsAt = null, int? MaxUsesPerCustomer = null
 ) : IRequest<Result>;
 
 public class UpdateCouponHandler : IRequestHandler<UpdateCouponCommand, Result>
@@ -32,7 +33,7 @@ public class UpdateCouponHandler : IRequestHandler<UpdateCouponCommand, Result>
 
         coupon.UpdateDetails(cmd.Type, cmd.Value,
             cmd.MinOrderAmount.HasValue ? new Money(cmd.MinOrderAmount.Value, _tenant.RequireTenant().Currency) : null,
-            cmd.ExpiresAt, cmd.MaxUses);
+            cmd.ExpiresAt, cmd.MaxUses, cmd.StartsAt, cmd.MaxUsesPerCustomer);
 
         if (cmd.IsActive) coupon.Activate(); else coupon.Deactivate();
         await _uow.SaveChangesAsync(ct);

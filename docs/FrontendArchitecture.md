@@ -158,6 +158,14 @@ It displays the server's decisions and handles its errors.
 | `features/orders/orderView.js` (tested): tracking URL, actor labels, admin filter query | Pure helpers |
 | New error codes translated (`BasketEmpty`, `OrderAlreadyPaid`, `PaymentProcessing`) | Server decisions shown in both languages |
 
+**Phase 10 (coupons):**
+
+| Change | Reason |
+|---|---|
+| The coupon form has a start date and a per-customer limit. `features/admin/coupons/couponForm.js` (tested) turns a coupon into form state, builds the request body, and names the first problem that blocks saving (the window's order, a per-customer limit above the total) | Rules shown before the server rejects them ([ADR-0030](adr/0030-coupon-redemptions.md)) |
+| The coupon list shows the validity window and the per-customer limit. A row action opens a redemptions drawer: order number, customer, discount and status | Admins see who used a coupon |
+| New error code translated (`CouponInUse`) | Deleting a used coupon says what to do instead |
+
 ## 6. Phase 15 migration plan
 
 1. Introduce `app/`, `routes/`, `layouts/`, and `contexts/` without moving features. The app keeps working.

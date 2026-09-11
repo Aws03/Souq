@@ -2,6 +2,7 @@ using Souq.Application.Common.Exceptions;
 using Souq.Application.Common.Interfaces;
 using Souq.Application.Common.Models;
 using Souq.Application.Features.Baskets.Contracts;
+using Souq.Application.Features.Coupons.Contracts;
 using Souq.Application.Features.Inventory.Contracts;
 using Souq.Domain.Entities;
 using Souq.Domain.Enums;
@@ -31,7 +32,7 @@ public sealed class OrderPaymentConfirmation
     private readonly IOrderRepository _orders;
     private readonly IInventoryReservations _reservations;
     private readonly ICustomerRepository _customers;
-    private readonly ICouponRepository _coupons;
+    private readonly ICouponRedemptions _couponRedemptions;
     private readonly IBasketCheckout _baskets;
     private readonly IPaymentService _payment;
     private readonly IEmailService _email;
@@ -39,10 +40,10 @@ public sealed class OrderPaymentConfirmation
 
     public OrderPaymentConfirmation(
         IOrderRepository orders, IInventoryReservations reservations, ICustomerRepository customers,
-        ICouponRepository coupons, IBasketCheckout baskets, IPaymentService payment, IEmailService email, IUnitOfWork uow)
+        ICouponRedemptions couponRedemptions, IBasketCheckout baskets, IPaymentService payment, IEmailService email, IUnitOfWork uow)
     {
         _orders = orders; _reservations = reservations; _customers = customers;
-        _coupons = coupons; _baskets = baskets; _payment = payment; _email = email; _uow = uow;
+        _couponRedemptions = couponRedemptions; _baskets = baskets; _payment = payment; _email = email; _uow = uow;
     }
 
     public async Task<Result<OrderConfirmedDto>> ConfirmAsync(Order order, CancellationToken ct)
@@ -67,13 +68,8 @@ public sealed class OrderPaymentConfirmation
 
         order.MarkAsPaid(by: OrderActor.PaymentGateway);
 
-        // استهلاك الكوبون يُحتسب فقط عند نجاح الدفع فعلياً — لا عند مجرّد تطبيقه
-        // على طلب قد يفشل دفعه أو يُهجَر.
-        if (order.CouponCode is not null)
-        {
-            var coupon = await _coupons.GetByCodeAsync(order.CouponCode, ct);
-            coupon?.IncrementUsage();
-        }
+        // استخدام الكوبون حُجز عند إنشاء الطلب (المرحلة 10)؛ الدفع يؤكّده في المعاملة نفسها.
+        await _couponRedemptions.ConfirmAsync(order.Id, ct);
 
         await _baskets.ConsumeAsync(order.CustomerId, order.Items.Select(i => new PricingLine(i.ProductId, i.Quantity)).ToList(), ct);
 
@@ -105,6 +101,7 @@ public sealed class OrderPaymentConfirmation
     }
 
     // إلغاء طلب لم يُشحن مع حجوزاته في معاملة واحدة — مسار واحد لفشل الدفع، فشل بدء الدفع، انتهاء المهلة، وإلغاء العميل.
+    // استخدام الكوبون يعود للكوبون معه (المرحلة 10).
     public async Task CancelAsync(Order order, string reason, bool expired, OrderActor by, CancellationToken ct)
     {
         order.Cancel(reason, by);
@@ -112,6 +109,7 @@ public sealed class OrderPaymentConfirmation
         {
             await _uow.SaveChangesAsync(ct);
             await _reservations.CancelAsync(OrderStockReference.For(order.Id), reason, expired, ct);
+            await _couponRedemptions.ReleaseAsync(order.Id, ct);
         }, ct);
     }
 

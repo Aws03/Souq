@@ -11,21 +11,25 @@ namespace Souq.Application.Features.Baskets.Pricing;
 // ============================================================================
 // تنفيذ IPricing. المنتجات تُحمَّل دفعة واحدة (لا استعلام لكل سطر)، والمستودع مُرشَّح بالمتجر: منتج متجر آخر "غير
 // موجود" هنا كما في أي مكان. مرحلتا الشحن والضريبة صفر صريح اليوم — المتجر لا يتقاضى شحناً قبل المرحلة 12، ولا نموذج
-// ضريبة (قرار منتج مفتوح P-06) — ومكانهما في الخطّ ثابت كي لا يتغيّر العقد حين يُضافان.
+// ضريبة (قرار منتج مفتوح P-06) — ومكانهما في الخطّ ثابت كي لا يتغيّر العقد حين يُضافان. قواعد الكوبون كلها من الكيان،
+// وحدّ العميل (المرحلة 10) من استخداماته الفعّالة.
 // ============================================================================
 public sealed class PricingService : IPricing
 {
     private readonly IProductRepository _products;
     private readonly ICouponRepository _coupons;
+    private readonly ICouponRedemptionRepository _redemptions;
     private readonly ITenantContext _tenant;
     private readonly TimeProvider _clock;
 
-    public PricingService(IProductRepository products, ICouponRepository coupons, ITenantContext tenant, TimeProvider clock)
+    public PricingService(
+        IProductRepository products, ICouponRepository coupons, ICouponRedemptionRepository redemptions,
+        ITenantContext tenant, TimeProvider clock)
     {
-        _products = products; _coupons = coupons; _tenant = tenant; _clock = clock;
+        _products = products; _coupons = coupons; _redemptions = redemptions; _tenant = tenant; _clock = clock;
     }
 
-    public async Task<PriceQuote> QuoteAsync(IReadOnlyList<PricingLine> lines, string? couponCode, CancellationToken ct)
+    public async Task<PriceQuote> QuoteAsync(IReadOnlyList<PricingLine> lines, string? couponCode, int? customerId, CancellationToken ct)
     {
         var store = _tenant.RequireTenant();
         var zero = Money.Zero(store.Currency);
@@ -43,7 +47,7 @@ public sealed class PricingService : IPricing
         var subtotal = priced.Where(l => l.Sellable).Aggregate(zero, (sum, l) => sum.Add(l.LineTotal));
 
         // (3) الخصم.
-        var (coupon, discount) = await DiscountAsync(couponCode, subtotal, store, ct);
+        var (coupon, discount) = await DiscountAsync(couponCode, subtotal, customerId, store, ct);
 
         // (4) الشحن و(5) الضريبة: صفر صريح (انظر أعلاه).
         var shipping = zero;
@@ -54,7 +58,8 @@ public sealed class PricingService : IPricing
         return new PriceQuote(store.Currency, priced, subtotal, coupon, discount, shipping, tax, total);
     }
 
-    private async Task<(CouponOutcome?, Money)> DiscountAsync(string? code, Money subtotal, TenantInfo store, CancellationToken ct)
+    private async Task<(CouponOutcome?, Money)> DiscountAsync(
+        string? code, Money subtotal, int? customerId, TenantInfo store, CancellationToken ct)
     {
         var none = Money.Zero(subtotal.Currency);
         if (string.IsNullOrWhiteSpace(code)) return (null, none);
@@ -68,9 +73,10 @@ public sealed class PricingService : IPricing
         if (coupon is null)
             return (new CouponOutcome(code, false, "CouponNotFound", "رمز الكوبون غير صحيح"), none);
 
+        var customerUses = customerId is int id ? await _redemptions.CountActiveAsync(coupon.Id, id, ct) : 0;
         try
         {
-            coupon.EnsureUsable(subtotal, _clock.GetUtcNow().UtcDateTime);
+            coupon.EnsureUsable(subtotal, _clock.GetUtcNow().UtcDateTime, customerUses);
         }
         catch (InvalidCouponException ex)
         {

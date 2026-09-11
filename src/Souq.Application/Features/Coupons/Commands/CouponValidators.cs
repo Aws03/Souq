@@ -12,7 +12,10 @@ public class CreateCouponValidator : AbstractValidator<CreateCouponCommand>
         RuleFor(x => x.Value).LessThanOrEqualTo(100).When(x => x.Type == DiscountType.Percentage)
             .WithMessage("نسبة الخصم لا يجب أن تتجاوز 100");
         RuleFor(x => x.MaxUses).GreaterThan(0).When(x => x.MaxUses.HasValue);
+        RuleFor(x => x.MaxUsesPerCustomer).GreaterThan(0).When(x => x.MaxUsesPerCustomer.HasValue);
         RuleFor(x => x.MinOrderAmount).GreaterThanOrEqualTo(0).When(x => x.MinOrderAmount.HasValue);
+        RuleFor(x => x.ExpiresAt).GreaterThan(x => x.StartsAt).When(x => x.StartsAt.HasValue && x.ExpiresAt.HasValue)
+            .WithMessage("تاريخ الانتهاء بعد تاريخ البدء");
     }
 }
 
@@ -25,7 +28,10 @@ public class UpdateCouponValidator : AbstractValidator<UpdateCouponCommand>
         RuleFor(x => x.Value).LessThanOrEqualTo(100).When(x => x.Type == DiscountType.Percentage)
             .WithMessage("نسبة الخصم لا يجب أن تتجاوز 100");
         RuleFor(x => x.MaxUses).GreaterThan(0).When(x => x.MaxUses.HasValue);
+        RuleFor(x => x.MaxUsesPerCustomer).GreaterThan(0).When(x => x.MaxUsesPerCustomer.HasValue);
         RuleFor(x => x.MinOrderAmount).GreaterThanOrEqualTo(0).When(x => x.MinOrderAmount.HasValue);
+        RuleFor(x => x.ExpiresAt).GreaterThan(x => x.StartsAt).When(x => x.StartsAt.HasValue && x.ExpiresAt.HasValue)
+            .WithMessage("تاريخ الانتهاء بعد تاريخ البدء");
     }
 }
 

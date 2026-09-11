@@ -89,7 +89,7 @@ public class CouponTests
     public void EnsureUsable_استُنفد_عدد_الاستخدامات_يُرفض()
     {
         var coupon = new Coupon("ONE10", DiscountType.Percentage, 10, null, null, maxUses: 1);
-        coupon.IncrementUsage();
+        coupon.Redeem(new Money(100, "JOD"), DateTime.UtcNow, customerUses: 0);
 
         var act = () => coupon.EnsureUsable(new Money(100, "JOD"), DateTime.UtcNow);
         act.Should().Throw<InvalidCouponException>();

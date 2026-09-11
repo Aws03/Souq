@@ -91,6 +91,11 @@
     - **Order numbers** are per store, so they reveal nothing about other stores' volume.
     - **Visibility:** staff notes and actors are shown only to users with `orders.view`. Customers see their order's statuses and dates.
     - **Accountability:** every status change records the acting staff member's user id on its history row.
+  - **Coupons (Phase 10, [ADR-0030](adr/0030-coupon-redemptions.md)):**
+    - **Limits hold under concurrency:** a use is taken inside the checkout transaction on a fresh read under the coupon's `rowversion`, so parallel checkouts can't exceed a global or per-customer limit. This closes C1 for coupons and is tested with five concurrent checkouts.
+    - **The per-customer limit** counts uses for the signed-in customer, never an id sent by the client.
+    - **Redemptions** show order numbers and customer names, so they are listed only with `promotions.manage`, within the host's store. Another store's coupon id is a 404 (`TenantIsolationTests`).
+    - **History is kept:** a used coupon can't be deleted (`409 CouponInUse`), so its redemption records keep their coupon.
 
 ## 4. Transport, CORS, headers, rate limiting
 
@@ -229,7 +234,7 @@ The write guard rejects any update or delete of an `AuditEntry`. The platform re
 | B6 | Plaintext reset tokens | ✅ Fixed (hash only) |
 | B7 | Ownership checks in controllers; role-only authorization | ✅ 1B: `ICurrentUser`, ownership in use cases, permission policies. ✅ Phase 3: tenant, staff and platform roles |
 | New (1B) | Fake payment gateway selected implicitly in Production | ✅ 1B: explicit selection outside Development, startup refusal otherwise |
-| B8 | Anonymous tracking by sequential id exposes notes | ⏳ Phase 9 (tracking tokens) |
+| B8 | Anonymous tracking by sequential id exposes notes | ✅ Phase 9: tracking by a random token that returns status and shipment only; the id route is removed |
 | B9 | Security headers | 🟡 Uploads fixed in 1A; the rest in Phase 20 |
 | B10 | App connects as `sa` | ⏳ Phase 23 (least-privilege login) |
 | B11 | npm advisories | ✅ Non-breaking fixes applied; the Vite major upgrade (dev server only) is deferred to Phase 15 |

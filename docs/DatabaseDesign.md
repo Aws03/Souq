@@ -73,7 +73,7 @@ Module schemas (`catalog.Products`) were considered and **postponed**. The owner
 | OrderStatusHistory | Ordering | User | ✓ | — | `(OrderId)` | **Never** | Created (+ actor) | — |
 | Payment / Refund | Payments | Tenant | ✓ | `ProviderPaymentId` | `(TenantId, OrderId)` | **Never** | Created/Updated | `rowversion` |
 | Coupon | Promotions | Tenant | ✓ | `(TenantId, Code)` | `(TenantId, IsActive)` | Soft (Inactive) once redeemed; hard before | Created/Updated | **`rowversion`** |
-| CouponRedemption | Promotions | Tenant | ✓ | `(CouponId, OrderId)` | `(TenantId, CustomerId)` | Never | Created | — |
+| CouponRedemption (Phase 10) | Promotions | User (in tenant) | ✓ | `(TenantId, OrderId)`: one per order | `(TenantId, CouponId, CustomerId, Status)` for the per-customer count, `(TenantId, CustomerId)` | **Never** (status Reserved → Confirmed or Released) | Created/Updated | via the coupon's `rowversion` |
 | ShippingMethod | Shipping | Tenant | ✓ | `(TenantId, Code)` | — | Soft (Inactive) | Created/Updated | — |
 | Review | Reviews | User | ✓ | `(TenantId, CustomerId, ProductId)` | `(TenantId, ProductId, Status)` | Soft (Rejected/Hidden) | Created/Moderated | — |
 | AuditEntries (Phase 4) | building block | Tenant or Platform | nullable, no FK, no filter | — | `(OccurredAt)`, `(TenantId, OccurredAt)`, `(ActorUserId, OccurredAt)` | **Never** (append-only guard; a retention policy later) | — | — |
@@ -102,7 +102,7 @@ Module schemas (`catalog.Products`) were considered and **postponed**. The owner
 | Row | Who races | Outcome without protection | With `rowversion` |
 |---|---|---|---|
 | `InventoryItems` (Phase 6) | Checkouts for the last unit; checkout vs payment vs admin correction | Oversell; lost update | Second save fails; the inventory writer re-reads the committed values and retries (up to 5 attempts), so the loser gets `422 InsufficientStock`, not a 409 ([ADR-0026](adr/0026-inventory-reservations.md)) |
-| `Coupons.UsedCount` | Two payments confirmed at once | Lost increment | Second save fails → retried by the client or webhook |
+| `Coupons.UsedCount` (Phase 10) | Checkouts taking the last use; a cancellation racing a checkout | Limit exceeded; lost update | The use is taken at checkout inside the order transaction. The loser re-reads (up to 5 attempts) and gets `422 InvalidCoupon` if no use is left ([ADR-0030](adr/0030-coupon-redemptions.md)) |
 | `Orders.Status` | Client confirmation vs Stripe webhook; admin vs payment | Double side effects | Loser re-reads: already Paid → idempotent success |
 
 **Rejected alternatives:**
@@ -235,6 +235,15 @@ Deferred to later phases, with the phase noted: `TenantId` (2), `Users` split (3
 | `OrderNumberSequences` | New: one row per store holding the last issued number, incremented atomically inside the checkout transaction |
 | Backfill (runs before the unique indexes) | Numbers from 1001 per store, in creation order. A random token per order (`NEWID`). Billing = shipping. Placement at creation time, with totals from the lines and discount. Each store's counter at its highest number. The temporary column defaults are dropped afterwards. Nothing is deleted or rewritten |
 | `Down()` | Drops the columns and the table, so numbers and tokens are lost. Development only |
+
+**Phase 10 (`Phase10Coupons`, additive with a data backfill, rehearsed by `MigrationRehearsalTests`, [ADR-0030](adr/0030-coupon-redemptions.md)):**
+
+| Change | Detail |
+|---|---|
+| `Coupons` | New: `StartsAt` and `MaxUsesPerCustomer`, both nullable. Alternate key `(TenantId, Id)` for composite foreign keys |
+| `CouponRedemptions` | New: `CouponId`, `OrderId` and `CustomerId` (composite FKs within the store, Restrict), `DiscountAmount` and `Currency`, `Status` (Reserved, Confirmed, Released). Unique `(TenantId, OrderId)`; `(TenantId, CouponId, CustomerId, Status)` for the per-customer count |
+| Backfill | Each existing order that used a coupon still present gets a redemption: Pending → Reserved; Paid, Shipped or Delivered → Confirmed; Cancelled → none. Counters keep their value and gain the pending orders, which now hold their use. Nothing is deleted or rewritten |
+| `Down()` | Subtracts the reserved uses from the counters, then drops the table and the columns. Development only |
 
 ## 10. Migration workflow
 

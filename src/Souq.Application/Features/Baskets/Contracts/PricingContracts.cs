@@ -6,10 +6,11 @@ namespace Souq.Application.Features.Baskets.Contracts;
 // خطّ التسعير الواحد (المرحلة 8، Modules.md: Shopping يملك IPricing ويشاركه الدفع): الفرعي ← الخصم ← الشحن ← الضريبة
 // ← الإجمالي، من أسعار الكتالوج الحيّة بعملة المتجر. السلة تُعرض به والطلب يُنشأ به، فإجمالي السلة هو إجمالي الدفع
 // بالبناء لا بالمصادفة. مشكلة الكوبون نتيجة في العرض لا فشل له: السلة تبقى معروضة، والدفع يرفضها برمزها.
+// customerId (المرحلة 10): عميل معروف ⇒ حدّ استخدامه للكوبون يُحتسب؛ زائر ⇒ لا (الدفع للعملاء وحدهم ويعيد التحقّق).
 // ============================================================================
 public interface IPricing
 {
-    Task<PriceQuote> QuoteAsync(IReadOnlyList<PricingLine> lines, string? couponCode, CancellationToken ct);
+    Task<PriceQuote> QuoteAsync(IReadOnlyList<PricingLine> lines, string? couponCode, int? customerId, CancellationToken ct);
 }
 
 public sealed record PricingLine(int ProductId, int Quantity);

@@ -5,6 +5,7 @@ using Souq.Application.Common.Models;
 using Souq.Application.Common.Security;
 using Souq.Application.Common.Tenancy;
 using Souq.Application.Features.Baskets.Contracts;
+using Souq.Application.Features.Coupons.Contracts;
 using Souq.Application.Features.Inventory.Contracts;
 using Souq.Domain.Entities;
 using Souq.Domain.Interfaces;
@@ -33,6 +34,7 @@ public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, Result<Ord
     private readonly IPricing _pricing;
     private readonly IBasketCheckout _baskets;
     private readonly IOrderNumbers _numbers;
+    private readonly ICouponRedemptions _couponRedemptions;
     private readonly IInventoryReservations _reservations;
     private readonly IStockAvailability _availability;
     private readonly IPaymentService _payment;
@@ -45,11 +47,12 @@ public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, Result<Ord
 
     public CreateOrderHandler(
         IOrderRepository orders, ICustomerRepository customers, IPricing pricing, IBasketCheckout baskets, IOrderNumbers numbers,
-        IInventoryReservations reservations, IStockAvailability availability, IPaymentService payment,
-        OrderPaymentConfirmation confirmation, ICurrentUser currentUser, ITenantContext tenant, IUnitOfWork uow,
-        TimeProvider clock, ILogger<CreateOrderHandler> logger)
+        ICouponRedemptions couponRedemptions, IInventoryReservations reservations, IStockAvailability availability,
+        IPaymentService payment, OrderPaymentConfirmation confirmation, ICurrentUser currentUser, ITenantContext tenant,
+        IUnitOfWork uow, TimeProvider clock, ILogger<CreateOrderHandler> logger)
     {
         _orders = orders; _customers = customers; _pricing = pricing; _baskets = baskets; _numbers = numbers;
+        _couponRedemptions = couponRedemptions;
         _reservations = reservations; _availability = availability; _payment = payment; _confirmation = confirmation;
         _currentUser = currentUser; _tenant = tenant; _uow = uow; _clock = clock; _logger = logger;
     }
@@ -94,7 +97,7 @@ public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, Result<Ord
         if (lines.Count == 0)
             return Result<OrderCreatedDto>.Failure(Error.Validation("BasketEmpty", "السلة فارغة — أضف منتجات قبل إتمام الطلب"));
 
-        var quote = await _pricing.QuoteAsync(lines, cmd.CouponCode, ct);
+        var quote = await _pricing.QuoteAsync(lines, cmd.CouponCode, customerId, ct);
         if (quote.Lines.FirstOrDefault(l => !l.Sellable) is { } unsellable)
             return Result<OrderCreatedDto>.Failure(Error.Validation("ProductNotFound", $"المنتج رقم {unsellable.ProductId} غير متاح"));
 
@@ -126,6 +129,10 @@ public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, Result<Ord
             order.Place(_clock.GetUtcNow().UtcDateTime);
             await _orders.AddAsync(order, ct);
             await _uow.SaveChangesAsync(ct);
+            // استخدام الكوبون يُحجز في المعاملة نفسها (المرحلة 10): قواعده تُعاد على قراءة جديدة، فطلبان متزامنان على آخر
+            // استخدام لا يأخذانه معاً — الخاسر يُرفض InvalidCoupon وتُلغى معاملته كلها.
+            if (quote.Coupon is { Applied: true } redeemed)
+                await _couponRedemptions.ReserveAsync(redeemed.Code, order.Id, customerId, quote.Subtotal, quote.Discount, ct);
             await _reservations.ReserveAsync(OrderStockReference.For(order.Id), reservationLines, ct);
         }, ct);
 

@@ -6,10 +6,13 @@ using Souq.Domain.ValueObjects;
 namespace Souq.Domain.Entities;
 
 // ============================================================================
-// Coupon — كوبون خصم. الكيان يحرس قواعده الخاصة (نسبة منطقية، خصم لا يتجاوز
-// الطلب) لكنه لا يعرف شيئاً عن Order — التطبيق الفعلي على طلب معيّن يمرّ عبر
-// Order.ApplyCoupon، فالقاعدة "لا خصم يتجاوز الإجمالي" محروسة في مكانين مستقلّين
-// (دفاع في العمق)، لا لأن أحدهما لا يكفي، بل لأن كل كيان يحمي حدوده الخاصة.
+// Coupon — كوبون خصم. الكيان يحرس قواعده الخاصة (نسبة منطقية، نافذة زمنية، حدود الاستخدام، خصم لا يتجاوز الطلب) لكنه
+// لا يعرف شيئاً عن Order — التطبيق الفعلي على طلب يمرّ عبر Order.ApplyCoupon، فالقاعدة "لا خصم يتجاوز الإجمالي" محروسة
+// في مكانين مستقلّين (دفاع في العمق)، لا لأن أحدهما لا يكفي، بل لأن كل كيان يحمي حدوده الخاصة.
+//
+// الاستخدام (المرحلة 10، ADR-0030): UsedCount يعدّ الاستخدامات المحجوزة لطلبات قائمة والمؤكَّدة بالدفع. يُؤخذ عند إنشاء
+// الطلب (Redeem، داخل معاملته — تعارض rowversion يُعاد من قراءة جديدة) ويُعاد عند إلغائه (ReleaseUse)، كالمخزون تماماً:
+// لا يتجاوز كوبون حدّه بطلبين متزامنين، ولا يستهلكه طلب لم يكتمل.
 // ============================================================================
 public class Coupon : Entity, ITenantOwned
 {
@@ -18,61 +21,50 @@ public class Coupon : Entity, ITenantOwned
     public DiscountType Type { get; private set; }
     public decimal Value { get; private set; }              // نسبة 0-100 أو مبلغ ثابت حسب Type
     public Money? MinOrderAmount { get; private set; }
+    public DateTime? StartsAt { get; private set; }
     public DateTime? ExpiresAt { get; private set; }
     public int? MaxUses { get; private set; }
+    public int? MaxUsesPerCustomer { get; private set; }
     public int UsedCount { get; private set; }
     public bool IsActive { get; private set; }
 
     private Coupon() { }
 
-    public Coupon(string code, DiscountType type, decimal value,
-                  Money? minOrderAmount, DateTime? expiresAt, int? maxUses)
+    public Coupon(string code, DiscountType type, decimal value, Money? minOrderAmount, DateTime? expiresAt, int? maxUses,
+                  DateTime? startsAt = null, int? maxUsesPerCustomer = null)
     {
         if (string.IsNullOrWhiteSpace(code))
             throw new InvalidCouponException("رمز الكوبون مطلوب");
 
-        ValidateValue(type, value);
-
+        Validate(type, value, startsAt, expiresAt, maxUses, maxUsesPerCustomer);
         Code = code.Trim().ToUpperInvariant();
-        Type = type;
-        Value = value;
-        MinOrderAmount = minOrderAmount;
-        ExpiresAt = expiresAt;
-        MaxUses = maxUses;
+        Apply(type, value, minOrderAmount, startsAt, expiresAt, maxUses, maxUsesPerCustomer);
         IsActive = true;
     }
 
-    private static void ValidateValue(DiscountType type, decimal value)
+    // تحديث معطيات الخصم (لا الرمز نفسه — يبقى ثابتاً بعد الإنشاء لأنه معرّف عام يتداوله العملاء؛ لتغييره فعلياً يُنشأ
+    // كوبون جديد ويُعطَّل القديم). قيمة مرفوضة لا تغيّر شيئاً.
+    public void UpdateDetails(DiscountType type, decimal value, Money? minOrderAmount, DateTime? expiresAt, int? maxUses,
+                              DateTime? startsAt = null, int? maxUsesPerCustomer = null)
     {
-        if (type == DiscountType.Percentage && (value <= 0 || value > 100))
-            throw new InvalidCouponException("نسبة الخصم يجب أن تكون بين 1 و100");
-        if (type == DiscountType.FixedAmount && value <= 0)
-            throw new InvalidCouponException("قيمة الخصم يجب أن تكون أكبر من صفر");
+        Validate(type, value, startsAt, expiresAt, maxUses, maxUsesPerCustomer);
+        Apply(type, value, minOrderAmount, startsAt, expiresAt, maxUses, maxUsesPerCustomer);
     }
 
-    // تحديث معطيات الخصم (لا الرمز نفسه — يبقى ثابتاً بعد الإنشاء لأنه معرّف عام
-    // يتداوله العملاء؛ لتغييره فعلياً يُنشأ كوبون جديد ويُعطَّل القديم).
-    public void UpdateDetails(DiscountType type, decimal value, Money? minOrderAmount, DateTime? expiresAt, int? maxUses)
-    {
-        ValidateValue(type, value);
-        Type = type;
-        Value = value;
-        MinOrderAmount = minOrderAmount;
-        ExpiresAt = expiresAt;
-        MaxUses = maxUses;
-    }
-
-    // يتحقّق أن الكوبون صالح للاستخدام الآن على طلب بهذا الإجمالي الفرعي.
-    // يرمي استثناءً برسالة واضحة بدل bool صامت — المستدعي (Application) يترجمه
-    // مباشرة لرسالة خطأ يعرضها للعميل.
-    public void EnsureUsable(Money subtotal, DateTime now)
+    // يتحقّق أن الكوبون صالح للاستخدام الآن على طلب بهذا الإجمالي الفرعي، لعميل له customerUses استخداماً فعّالاً منه.
+    // يرمي استثناءً برسالة واضحة بدل bool صامت — المستدعي يعرضه للعميل.
+    public void EnsureUsable(Money subtotal, DateTime now, int customerUses = 0)
     {
         if (!IsActive)
             throw new InvalidCouponException("الكوبون غير مُفعّل");
+        if (StartsAt is not null && now < StartsAt)
+            throw new InvalidCouponException("لم يبدأ العمل بهذا الكوبون بعد");
         if (ExpiresAt is not null && now > ExpiresAt)
             throw new InvalidCouponException("انتهت صلاحية الكوبون");
         if (MaxUses is not null && UsedCount >= MaxUses)
             throw new InvalidCouponException("استُنفد عدد مرات استخدام الكوبون");
+        if (MaxUsesPerCustomer is not null && customerUses >= MaxUsesPerCustomer)
+            throw new InvalidCouponException("استخدمت هذا الكوبون الحدّ المسموح لكل عميل");
         if (MinOrderAmount is not null && subtotal.Amount < MinOrderAmount.Amount)
             throw new InvalidCouponException($"الحد الأدنى للطلب لاستخدام هذا الكوبون {MinOrderAmount}");
     }
@@ -90,7 +82,48 @@ public class Coupon : Entity, ITenantOwned
         return Money.FromCalculation(clamped, subtotal.Currency);
     }
 
-    public void IncrementUsage() => UsedCount++;
+    // يأخذ استخداماً لطلب، بعد القواعد كلها على القيم الحالية (عدّاد الكوبون واستخدامات العميل الفعّالة).
+    public void Redeem(Money subtotal, DateTime now, int customerUses)
+    {
+        EnsureUsable(subtotal, now, customerUses);
+        UsedCount++;
+    }
+
+    // يعيد استخدام طلب أُلغي. لا ينزل تحت الصفر (عدّادات قديمة لم تُسجَّل استخداماتها).
+    public void ReleaseUse()
+    {
+        if (UsedCount > 0) UsedCount--;
+    }
+
     public void Activate() => IsActive = true;
     public void Deactivate() => IsActive = false;
+
+    private void Apply(DiscountType type, decimal value, Money? minOrderAmount, DateTime? startsAt, DateTime? expiresAt,
+                       int? maxUses, int? maxUsesPerCustomer)
+    {
+        Type = type;
+        Value = value;
+        MinOrderAmount = minOrderAmount;
+        StartsAt = startsAt;
+        ExpiresAt = expiresAt;
+        MaxUses = maxUses;
+        MaxUsesPerCustomer = maxUsesPerCustomer;
+    }
+
+    private static void Validate(DiscountType type, decimal value, DateTime? startsAt, DateTime? expiresAt,
+                                 int? maxUses, int? maxUsesPerCustomer)
+    {
+        if (type == DiscountType.Percentage && (value <= 0 || value > 100))
+            throw new InvalidCouponException("نسبة الخصم يجب أن تكون بين 1 و100");
+        if (type == DiscountType.FixedAmount && value <= 0)
+            throw new InvalidCouponException("قيمة الخصم يجب أن تكون أكبر من صفر");
+        if (maxUses is <= 0)
+            throw new InvalidCouponException("عدد مرات الاستخدام يجب أن يكون أكبر من صفر");
+        if (maxUsesPerCustomer is <= 0)
+            throw new InvalidCouponException("حدّ استخدام العميل يجب أن يكون أكبر من صفر");
+        if (maxUses is not null && maxUsesPerCustomer > maxUses)
+            throw new InvalidCouponException("حدّ العميل لا يتجاوز الحدّ العام للكوبون");
+        if (startsAt is not null && expiresAt is not null && startsAt >= expiresAt)
+            throw new InvalidCouponException("تاريخ البدء يجب أن يسبق تاريخ الانتهاء");
+    }
 }

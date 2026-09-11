@@ -29,15 +29,15 @@ public class BasketHandlersTests
         _baskets.When(b => b.AddAsync(Arg.Any<Basket>(), Arg.Any<CancellationToken>())).Do(call => _added = call.Arg<Basket>());
         _availability.AvailableAsync(Arg.Any<IReadOnlyCollection<int>>(), Arg.Any<CancellationToken>())
             .Returns(call => call.Arg<IReadOnlyCollection<int>>().ToDictionary(id => id, _ => 10));
-        _pricing.QuoteAsync(Arg.Any<IReadOnlyList<PricingLine>>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
+        _pricing.QuoteAsync(Arg.Any<IReadOnlyList<PricingLine>>(), Arg.Any<string?>(), Arg.Any<int?>(), Arg.Any<CancellationToken>())
             .Returns(call => Quote(call.Arg<IReadOnlyList<PricingLine>>()));
     }
 
     private BasketResolver Resolver(ICurrentUser user) => new(_baskets, user, _settings, _clock);
-    private BasketViews Views() => new(_pricing, _availability);
-    private AddBasketItemHandler AddHandler(ICurrentUser user) => new(_products, _availability, Resolver(user), Views(), _uow);
-    private GetBasketHandler GetHandler(ICurrentUser user) => new(Resolver(user), Views(), _uow);
-    private SetBasketItemQuantityHandler SetHandler(ICurrentUser user) => new(_availability, Resolver(user), Views(), _uow);
+    private BasketViews Views(ICurrentUser user) => new(_pricing, _availability, user);
+    private AddBasketItemHandler AddHandler(ICurrentUser user) => new(_products, _availability, Resolver(user), Views(user), _uow);
+    private GetBasketHandler GetHandler(ICurrentUser user) => new(Resolver(user), Views(user), _uow);
+    private SetBasketItemQuantityHandler SetHandler(ICurrentUser user) => new(_availability, Resolver(user), Views(user), _uow);
 
     private DateTime Tomorrow => _clock.UtcNow.AddDays(1);
 

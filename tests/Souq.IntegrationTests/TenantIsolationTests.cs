@@ -60,6 +60,7 @@ public class TenantIsolationTests
         new("PUT", "api/Coupons/{id:int}", Resource.Coupon, Actor.Admin,
             () => JsonBody(new { type = "Percentage", value = 50m, isActive = true })),
         new("DELETE", "api/Coupons/{id:int}", Resource.Coupon, Actor.Admin),
+        new("GET", "api/Coupons/{id:int}/redemptions", Resource.Coupon, Actor.Admin),
         new("GET", "api/Orders/{id:int}", Resource.Order, Actor.Admin),
         new("POST", "api/Orders/{id:int}/confirm-payment", Resource.Order, Actor.Admin),
         new("PUT", "api/Orders/{id:int}/status", Resource.Order, Actor.Admin, () => JsonBody(new { action = "Cancel" })),

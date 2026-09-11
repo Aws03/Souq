@@ -1,6 +1,7 @@
 using MediatR;
 using Souq.Application.Common.Models;
 using Souq.Application.Common.Security;
+using Souq.Application.Features.Coupons.Contracts;
 using Souq.Application.Features.Inventory.Contracts;
 using Souq.Domain.Entities;
 using Souq.Domain.Enums;
@@ -42,12 +43,15 @@ public class UpdateOrderStatusHandler : IRequestHandler<UpdateOrderStatusCommand
 
     private readonly IOrderRepository _orders;
     private readonly IInventoryReservations _reservations;
+    private readonly ICouponRedemptions _couponRedemptions;
     private readonly ICurrentUser _currentUser;
     private readonly IUnitOfWork _uow;
 
-    public UpdateOrderStatusHandler(IOrderRepository orders, IInventoryReservations reservations, ICurrentUser currentUser, IUnitOfWork uow)
+    public UpdateOrderStatusHandler(
+        IOrderRepository orders, IInventoryReservations reservations, ICouponRedemptions couponRedemptions,
+        ICurrentUser currentUser, IUnitOfWork uow)
     {
-        _orders = orders; _reservations = reservations; _currentUser = currentUser; _uow = uow;
+        _orders = orders; _reservations = reservations; _couponRedemptions = couponRedemptions; _currentUser = currentUser; _uow = uow;
     }
 
     public async Task<Result> Handle(UpdateOrderStatusCommand cmd, CancellationToken ct)
@@ -72,11 +76,13 @@ public class UpdateOrderStatusHandler : IRequestHandler<UpdateOrderStatusCommand
             return Result.Success();
         }
 
-        // الطلب الملغى لم يُشحن: حجز طلب لم يُدفع يُحرَّر، وبيع طلب مدفوع يعود للموجود بحركة إلغاء — في معاملة الإلغاء.
+        // الطلب الملغى لم يُشحن: حجز طلب لم يُدفع يُحرَّر، وبيع طلب مدفوع يعود للموجود بحركة إلغاء، واستخدام كوبونه يعود
+        // للكوبون (المرحلة 10) — في معاملة الإلغاء.
         await _uow.InTransactionAsync(async () =>
         {
             await _uow.SaveChangesAsync(ct);
             await _reservations.CancelAsync(OrderStockReference.For(order.Id), cmd.Note ?? AdminCancellationNote, expired: false, ct);
+            await _couponRedemptions.ReleaseAsync(order.Id, ct);
         }, ct);
         return Result.Success();
     }

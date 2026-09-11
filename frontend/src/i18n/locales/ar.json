@@ -484,7 +484,20 @@
       "confirmDelete": "حذف الكوبون \"{{code}}\"؟",
       "deleted": "تم حذف الكوبون",
       "updated": "تم تحديث الكوبون",
-      "created": "تمت إضافة الكوبون"
+      "created": "تمت إضافة الكوبون",
+      "colWindow": "الصلاحية",
+      "windowFrom": "من {{date}}",
+      "windowUntil": "حتى {{date}}",
+      "windowAlways": "دائماً",
+      "perCustomer": "{{count}} لكل عميل",
+      "viewRedemptions": "الاستخدامات",
+      "redemptionsTitle": "استخدامات {{code}}",
+      "redemptionsEmpty": "لم يُستخدم هذا الكوبون في أي طلب بعد.",
+      "redemptionStatus": {
+        "Reserved": "طلب غير مدفوع",
+        "Confirmed": "مدفوع",
+        "Released": "ملغى — عاد الاستخدام"
+      }
     },
     "couponForm": {
       "editTitle": "تعديل كوبون",
@@ -501,7 +514,12 @@
       "maxUsesLabel": "أقصى عدد استخدامات (اختياري)",
       "activeLabel": "مُفعّل",
       "codeRequired": "رمز الكوبون مطلوب",
-      "valueInvalid": "قيمة الخصم يجب أن تكون أكبر من صفر"
+      "valueInvalid": "قيمة الخصم يجب أن تكون أكبر من صفر",
+      "startsLabel": "يبدأ في (اختياري)",
+      "perCustomerLabel": "مرات الاستخدام لكل عميل (اختياري)",
+      "perCustomerHint": "تُحتسب الطلبات غير المدفوعة والمدفوعة؛ الطلب الملغى يعيد الاستخدام.",
+      "windowInvalid": "تاريخ الانتهاء بعد تاريخ البدء.",
+      "perCustomerTooHigh": "حدّ العميل لا يتجاوز العدد الكلّي للاستخدام."
     },
     "orders": {
       "title": "الطلبات",
@@ -693,7 +711,8 @@
       "InvalidBasketOperation": "لا يمكن تنفيذ هذا التعديل على السلة (حدّ الكمية أو عدد الأصناف).",
       "BasketEmpty": "سلتك فارغة.",
       "OrderAlreadyPaid": "دُفع هذا الطلب قبل إلغائه. تواصل مع المتجر لإلغائه.",
-      "PaymentProcessing": "الدفع قيد المعالجة. حاول بعد قليل."
+      "PaymentProcessing": "الدفع قيد المعالجة. حاول بعد قليل.",
+      "CouponInUse": "استُخدم هذا الكوبون في طلبات — عطّله بدل حذفه."
     }
   },
   "account": {

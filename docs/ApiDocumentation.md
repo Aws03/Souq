@@ -135,6 +135,11 @@ Every error is RFC 7807 `application/problem+json`:
   - **Customer cancellation:** `POST /api/orders/{id}/cancel`, owner only, unpaid orders only. The gateway is asked first. The errors are `422 InvalidOrderOperation` for a paid order, `422 OrderAlreadyPaid` if the gateway reports the payment succeeded first, and `422 PaymentProcessing` while a payment is in flight.
   - **Tracking:** `GET /api/orders/track/{token}` is the only anonymous order endpoint. It returns status, dates, tracking number and carrier. `GET /api/orders/{id}/tracking` is removed.
   - **Admin filters on `GET /api/orders`:** `status`, `search` (an order number such as `1042` or `#1042`, or part of a customer's name or email), and `from` and `to` on creation time (`to` is exclusive).
+- **Coupons (Phase 10, [ADR-0030](adr/0030-coupon-redemptions.md)):**
+  - **Create and update** accept `startsAt` and `maxUsesPerCustomer`, both optional. `startsAt` must be before `expiresAt`, and the per-customer limit can't exceed `maxUses`.
+  - **Usage:** `POST /api/orders` with a coupon takes one use inside the checkout transaction. If no use is left, or the customer has reached their limit, it answers `422 InvalidCoupon` and creates no order, even under concurrency. Cancelling the order gives the use back. The basket quote reports the same outcome in `coupon` without failing.
+  - **Redemptions:** `GET /api/coupons/{id}/redemptions?page=&pageSize=` (`promotions.manage`) lists the orders that used the coupon. Each entry has `orderId`, `orderNumber`, `customerId`, `customerName`, `discount`, `currency`, `status` (`Reserved`, `Confirmed` or `Released`) and `createdAt`. Another store's coupon is a 404.
+  - **Delete:** `DELETE /api/coupons/{id}` answers `409 CouponInUse` once the coupon has been used. Deactivate it with `PUT` instead.
 - **Rate limits (Phase 3):** auth, refresh and coupon-preview endpoints answer `429 TooManyRequests` with `Retry-After` when a limit is exceeded.
 - **Platform area (Phase 4, [ADR-0024](adr/0024-platform-administration.md)):**
   - Endpoints are marked `[PlatformEndpoint]` and are served only on platform hosts, behind `platform.*` permissions.
@@ -164,6 +169,7 @@ Every error is RFC 7807 `application/problem+json`:
 | Payment confirmation (client and webhook) | Idempotent by order state: a second confirmation returns the current status with no side effects. A concurrent race is resolved by `rowversion` plus a re-read (1A). |
 | Webhooks | Signature-verified; idempotent by the same rule; unknown events → 200 (ignored) |
 | Checkout (`POST /api/orders`) | The order and its stock reservation are written in one transaction; the loser of the last unit gets `422 InsufficientStock`, because inventory conflicts are retried from a fresh read (Phase 6). Target (Phase 9): an `Idempotency-Key` header, so a network retry doesn't create a second order |
+| Coupon use at checkout | Taken in the order's transaction, on a fresh read under the coupon's `rowversion`. The loser of the last use gets `422 InvalidCoupon` and its checkout rolls back. Releasing a use is idempotent by redemption status (Phase 10) |
 | Reservation commit, release and restock | Idempotent by reservation status: committing twice, or cancelling an already cancelled order, changes nothing (Phase 6) |
 | Updates to shared rows | Optimistic concurrency → 409 with a message to reload |
 | Stock corrections (`POST /api/admin/inventory/{productId}/adjustments`) | A delta with a reason, applied to the current value, so a concurrent sale is never overwritten. Going below what open orders reserve → `422 InvalidInventoryOperation`. The product form carries no stock (Phase 6; replaces the 1A compare-and-set) |

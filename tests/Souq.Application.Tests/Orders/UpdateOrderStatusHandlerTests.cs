@@ -20,7 +20,9 @@ public class UpdateOrderStatusHandlerTests
     private readonly IInventoryReservations _reservations = Substitute.For<IInventoryReservations>();
     private readonly IUnitOfWork _uow = TestUnitOfWork.Create();
 
-    private UpdateOrderStatusHandler CreateHandler() => new(_orders, _reservations, TestCurrentUser.Admin(), _uow);
+    private UpdateOrderStatusHandler CreateHandler() => new(
+        _orders, _reservations, Substitute.For<Souq.Application.Features.Coupons.Contracts.ICouponRedemptions>(),
+        TestCurrentUser.Admin(), _uow);
 
     private static Order OrderInStatus(OrderStatus status)
     {

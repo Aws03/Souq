@@ -255,12 +255,15 @@ Each entry lists:
 - **Responsibility:** discount rules.
 - **Owns:** `Coupons`, `CouponRedemptions` (Phase 10).
 - **Must not own:** order totals.
-- **Contracts:** `ICouponEvaluator` (preview/validate + compute the discount); redemption Reserve / Commit / Release.
+- **Contracts:** `ICouponRedemptions` (Phase 10): reserve at checkout, confirm at payment, release on cancel. The discount itself is computed by Shopping's pricing pipeline from the `Coupon` entity's rules; the planned `ICouponEvaluator` wasn't needed, because the pipeline is the only evaluator.
 - **Domain:** value ranges; validity window; global and per-customer limits; currency-aware rounding.
 - **Depends on:** Catalog (for product or category scoped coupons, if added).
 - **Forbidden:** reading orders directly (redemptions carry the order reference).
 - **Extraction:** unlikely.
-- **Today:** `Coupon` + `Features/Coupons`. Usage is counted at payment time, which allows a MaxUses overshoot race (fixed with redemptions in Phase 10).
+- **Today (Phase 10, [ADR-0030](adr/0030-coupon-redemptions.md)):**
+  - `Coupon` has start and end dates, global and per-customer limits, and a minimum order. There is one `CouponRedemption` per order.
+  - A use is reserved inside the checkout transaction under the coupon's `rowversion`, confirmed at payment and released on every cancellation, so limits hold under concurrency.
+  - Ordering calls it only through `ICouponRedemptions`. The contract Ordering → Promotions is allowed and enforced by `ModuleAndContractRuleTests`.
 
 ### Shipping (introduced Phase 12)
 - **Responsibility:** how an order gets delivered, and what that costs.

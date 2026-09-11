@@ -4,40 +4,27 @@ import Drawer from '../../components/common/Drawer';
 import FormField, { inputClass } from '../../components/common/FormField';
 import Button from '../../components/common/Button';
 import { ErrorBanner } from '../../components/common/StateViews';
+import { buildCouponPayload, couponFormProblem, couponToForm } from '../../features/admin/coupons/couponForm';
 import styles from './CategoryFormDrawer.module.css';
 
-// تاريخ HTML (yyyy-MM-dd) ⇄ ISO — تحويل بسيط ذهاباً وإياباً لحقل <input type="date">.
-const toDateInput = (iso) => (iso ? iso.slice(0, 10) : '');
-
+// درج إضافة/تعديل كوبون (المرحلة 10: نافذة بدء وانتهاء، وحدّ لكل عميل). الرمز لا يتغيّر بعد الإنشاء.
 export default function CouponFormDrawer({ coupon, onSave, onClose }) {
   const { t } = useTranslation();
   const isEdit = !!coupon;
-  const [code, setCode] = useState(coupon?.code ?? '');
-  const [type, setType] = useState(coupon?.type ?? 'Percentage');
-  const [value, setValue] = useState(coupon?.value ?? '');
-  const [minOrderAmount, setMinOrderAmount] = useState(coupon?.minOrderAmount ?? '');
-  const [expiresAt, setExpiresAt] = useState(toDateInput(coupon?.expiresAt));
-  const [maxUses, setMaxUses] = useState(coupon?.maxUses ?? '');
-  const [isActive, setIsActive] = useState(coupon?.isActive ?? true);
+  const [form, setForm] = useState(() => couponToForm(coupon));
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
 
+  const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.type === 'checkbox' ? e.target.checked : e.target.value }));
+
   const submit = async (e) => {
     e.preventDefault();
-    if (!isEdit && !code.trim()) return setError(t('admin.couponForm.codeRequired'));
-    if (!value || Number(value) <= 0) return setError(t('admin.couponForm.valueInvalid'));
+    const problem = couponFormProblem(form, isEdit);
+    if (problem) return setError(t(`admin.couponForm.${problem}`));
 
     setBusy(true); setError(null);
-    try {
-      await onSave({
-        ...(isEdit ? {} : { code: code.trim().toUpperCase() }),
-        type, value: Number(value),
-        minOrderAmount: minOrderAmount ? Number(minOrderAmount) : null,
-        expiresAt: expiresAt ? new Date(expiresAt).toISOString() : null,
-        maxUses: maxUses ? Number(maxUses) : null,
-        isActive,
-      });
-    } catch (err) { setError(err.message); setBusy(false); }
+    try { await onSave(buildCouponPayload(form, isEdit)); }
+    catch (err) { setError(err.message); setBusy(false); }
   };
 
   return (
@@ -52,40 +39,45 @@ export default function CouponFormDrawer({ coupon, onSave, onClose }) {
         {error && <ErrorBanner message={error} />}
 
         <FormField label={t('admin.couponForm.codeLabel')} hint={isEdit ? t('admin.couponForm.codeHint') : undefined}>
-          <input className={inputClass(false)} value={code} disabled={isEdit} dir="ltr"
-            onChange={(e) => setCode(e.target.value.toUpperCase())} placeholder="SAVE10" />
+          <input className={inputClass(false)} value={form.code} disabled={isEdit} dir="ltr"
+            onChange={(e) => setForm((f) => ({ ...f, code: e.target.value.toUpperCase() }))} placeholder="SAVE10" />
         </FormField>
 
         <FormField label={t('admin.couponForm.typeLabel')}>
-          <select className={inputClass(false)} value={type} onChange={(e) => setType(e.target.value)}>
+          <select className={inputClass(false)} value={form.type} onChange={set('type')}>
             <option value="Percentage">{t('admin.couponForm.typePercentage')}</option>
             <option value="FixedAmount">{t('admin.couponForm.typeFixed')}</option>
           </select>
         </FormField>
 
-        <FormField label={type === 'Percentage' ? t('admin.couponForm.percentageLabel') : t('admin.couponForm.amountLabel')}>
-          <input className={inputClass(false)} type="number" min="0" step="0.01" value={value}
-            onChange={(e) => setValue(e.target.value)} />
+        <FormField label={form.type === 'Percentage' ? t('admin.couponForm.percentageLabel') : t('admin.couponForm.amountLabel')}>
+          <input className={inputClass(false)} type="number" min="0" step="0.01" value={form.value} onChange={set('value')} />
         </FormField>
 
         <FormField label={t('admin.couponForm.minOrderLabel')}>
-          <input className={inputClass(false)} type="number" min="0" step="0.01" value={minOrderAmount}
-            onChange={(e) => setMinOrderAmount(e.target.value)} />
+          <input className={inputClass(false)} type="number" min="0" step="0.01" value={form.minOrderAmount} onChange={set('minOrderAmount')} />
+        </FormField>
+
+        <FormField label={t('admin.couponForm.startsLabel')}>
+          <input className={inputClass(false)} type="date" value={form.startsAt} onChange={set('startsAt')} />
         </FormField>
 
         <FormField label={t('admin.couponForm.expiresLabel')}>
-          <input className={inputClass(false)} type="date" value={expiresAt} onChange={(e) => setExpiresAt(e.target.value)} />
+          <input className={inputClass(false)} type="date" value={form.expiresAt} onChange={set('expiresAt')} />
         </FormField>
 
         <FormField label={t('admin.couponForm.maxUsesLabel')}>
-          <input className={inputClass(false)} type="number" min="1" step="1" value={maxUses}
-            onChange={(e) => setMaxUses(e.target.value)} />
+          <input className={inputClass(false)} type="number" min="1" step="1" value={form.maxUses} onChange={set('maxUses')} />
+        </FormField>
+
+        <FormField label={t('admin.couponForm.perCustomerLabel')} hint={t('admin.couponForm.perCustomerHint')}>
+          <input className={inputClass(false)} type="number" min="1" step="1" value={form.maxUsesPerCustomer} onChange={set('maxUsesPerCustomer')} />
         </FormField>
 
         {isEdit && (
           <FormField label="">
             <label className={styles.checkboxRow}>
-              <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
+              <input type="checkbox" checked={form.isActive} onChange={set('isActive')} />
               {t('admin.couponForm.activeLabel')}
             </label>
           </FormField>

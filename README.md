@@ -117,7 +117,7 @@ Key patterns applied throughout:
 **Storefront**
 - Product catalog with search, category filters, and pagination
 - Shopping cart and checkout flow
-- Coupon codes (percentage or fixed-amount discounts, with usage limits and expiry)
+- Coupon codes (percentage or fixed-amount discounts, start and end dates, and total and per-customer usage limits that hold under concurrent checkouts)
 - Real payments via Stripe Elements, with idempotent webhook-based order confirmation
 - Product reviews and ratings
 - Fully RTL, Arabic-first UI (Marka brand identity)
@@ -292,7 +292,8 @@ Baskets never reserve stock; checkout does.
 | GET    | `/api/coupons?page=1&pageSize=20`                    | Admin | List all coupons                          |
 | POST   | `/api/coupons`                                        | Admin | Create a coupon                           |
 | PUT    | `/api/coupons/{id}`                                   | Admin | Update a coupon                           |
-| DELETE | `/api/coupons/{id}`                                   | Admin | Delete a coupon                           |
+| GET    | `/api/coupons/{id}/redemptions?page=1&pageSize=20`    | Admin | Orders that used a coupon, with their status |
+| DELETE | `/api/coupons/{id}`                                   | Admin | Delete an unused coupon (a used one answers `409 CouponInUse`) |
 
 ### Orders & Payments
 | Method | Endpoint                                | Auth      | Description                                 |

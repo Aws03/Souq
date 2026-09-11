@@ -148,6 +148,8 @@ export const api = {
 
   // ── الكوبونات (إدارة) ── معاينة الخصم للعميل من /basket/quote (المرحلة 8): الخطّ نفسه الذي يُنشئ الطلب.
   getCoupons: (params = {}) => request(`/coupons${toQueryString(params)}`),
+  // استخدامات كوبون (المرحلة 10): أيّ طلب ولأيّ عميل وحالته.
+  getCouponRedemptions: (id, params = {}) => request(`/coupons/${id}/redemptions${toQueryString(params)}`),
   createCoupon: (payload) => request('/coupons', { method: 'POST', body: JSON.stringify(payload) }),
   updateCoupon: (id, payload) => request(`/coupons/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
   deleteCoupon: (id) => request(`/coupons/${id}`, { method: 'DELETE' }),

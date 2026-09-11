@@ -27,12 +27,14 @@ public class ConfirmOrderPaymentHandlerTests
     private readonly IEmailService _email = Substitute.For<IEmailService>();
     private readonly Souq.Application.Features.Baskets.Contracts.IBasketCheckout _baskets =
         Substitute.For<Souq.Application.Features.Baskets.Contracts.IBasketCheckout>();
+    private readonly Souq.Application.Features.Coupons.Contracts.ICouponRedemptions _couponRedemptions =
+        Substitute.For<Souq.Application.Features.Coupons.Contracts.ICouponRedemptions>();
     private readonly IUnitOfWork _uow = TestUnitOfWork.Create();
 
     // الطلبات في هذه الاختبارات يملكها العميل 1 (انظر PendingOrderWithIntent).
     private ConfirmOrderPaymentHandler CreateHandler(ICurrentUser? user = null) => new(
         _orders,
-        new OrderPaymentConfirmation(_orders, _reservations, _customers, _coupons, _baskets, _payment, _email, _uow),
+        new OrderPaymentConfirmation(_orders, _reservations, _customers, _couponRedemptions, _baskets, _payment, _email, _uow),
         user ?? TestCurrentUser.Customer(1));
 
     private static Order PendingOrderWithIntent(string paymentIntentId = "pi_123", int quantity = 2)
@@ -114,10 +116,12 @@ public class ConfirmOrderPaymentHandlerTests
         await _reservations.DidNotReceive().CommitAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
         await _uow.Received(1).InTransactionAsync(Arg.Any<Func<Task>>(), Arg.Any<CancellationToken>());
         await _email.DidNotReceive().SendOrderConfirmationAsync(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>());
+        // فشل الدفع يلغي الطلب فيعود استخدام كوبونه (المرحلة 10).
+        await _couponRedemptions.Received(1).ReleaseAsync(order.Id, Arg.Any<CancellationToken>());
     }
 
     [Fact]
-    public async Task نجاح_الدفع_يُعلّم_الطلب_مدفوعاً_ويلتزم_الحجز_ويستهلك_الكوبون_ويرسل_البريد()
+    public async Task نجاح_الدفع_يُعلّم_الطلب_مدفوعاً_ويلتزم_الحجز_ويؤكّد_استخدام_الكوبون_ويرسل_البريد()
     {
         var order = PendingOrderWithIntent(quantity: 2);
         var coupon = new Coupon("SAVE10", DiscountType.Percentage, 10, null, null, null);
@@ -126,14 +130,16 @@ public class ConfirmOrderPaymentHandlerTests
 
         _orders.GetWithItemsAsync(1, Arg.Any<CancellationToken>()).Returns(order);
         _customers.GetByIdAsync(1, Arg.Any<CancellationToken>()).Returns(customer);
-        _coupons.GetByCodeAsync("SAVE10", Arg.Any<CancellationToken>()).Returns(coupon);
         _payment.ConfirmAsync("pi_123", Arg.Any<CancellationToken>()).Returns(new PaymentConfirmationResult(true, null));
 
         var result = await CreateHandler().Handle(new ConfirmOrderPaymentCommand(1), CancellationToken.None);
 
         result.Value!.Status.Should().Be(nameof(OrderStatus.Paid));
         result.Value.TotalAmount.Should().Be(90); // 100 - 10% خصم
-        coupon.UsedCount.Should().Be(1);
+        // الاستخدام حُجز عند إنشاء الطلب (المرحلة 10)؛ الدفع يؤكّده في معاملته، ولا يأخذ استخداماً ثانياً.
+        await _couponRedemptions.Received(1).ConfirmAsync(order.Id, Arg.Any<CancellationToken>());
+        await _couponRedemptions.DidNotReceive().ReserveAsync(
+            Arg.Any<string>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<Money>(), Arg.Any<Money>(), Arg.Any<CancellationToken>());
         await _reservations.Received(1).CommitAsync(OrderStockReference.For(9), Arg.Any<CancellationToken>());
         await _uow.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
         await _email.Received(1).SendOrderConfirmationAsync(customer.Email, order.Id, Arg.Any<CancellationToken>());

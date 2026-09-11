@@ -9,12 +9,13 @@ import Button from '../../components/common/Button';
 import { formatPrice } from '../../components/product/ProductBadges';
 import { formatDate } from '../../i18n';
 import CouponFormDrawer from './CouponFormDrawer';
+import CouponRedemptionsDrawer from './CouponRedemptionsDrawer';
 import styles from './Admin.module.css';
 
 const PAGE_SIZE = 20;
 
-// شاشة إدارة الكوبونات: جدول مرقّم + درج إضافة/تعديل. الحذف فعلي (لا مرجع
-// أجنبي من الطلبات — انظر تعليق DeleteCouponCommand في الخادم).
+// شاشة إدارة الكوبونات: جدول مرقّم + درج إضافة/تعديل + درج الاستخدامات (المرحلة 10). الاستخدام يعدّ الطلبات غير المدفوعة
+// والمدفوعة، والإلغاء يعيده. الحذف قبل أي استخدام فقط — بعده يرفضه الخادم (CouponInUse) ويُعطَّل الكوبون بدلاً منه.
 export default function Coupons() {
   const { t } = useTranslation();
   const toast = useToast();
@@ -24,6 +25,14 @@ export default function Coupons() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [editing, setEditing] = useState(null);
+  const [viewing, setViewing] = useState(null);
+
+  const windowLabel = (c) => {
+    if (c.startsAt && c.expiresAt) return `${formatDate(c.startsAt)} – ${formatDate(c.expiresAt)}`;
+    if (c.startsAt) return t('admin.coupons.windowFrom', { date: formatDate(c.startsAt) });
+    if (c.expiresAt) return t('admin.coupons.windowUntil', { date: formatDate(c.expiresAt) });
+    return t('admin.coupons.windowAlways');
+  };
 
   const load = useCallback(() => {
     setLoading(true);
@@ -68,8 +77,12 @@ export default function Coupons() {
       key: 'minOrder', header: t('admin.coupons.colMinOrder'), width: '110px', align: 'end',
       render: (c) => (c.minOrderAmount ? formatPrice(c.minOrderAmount, 'JOD') : '—'),
     },
-    { key: 'expires', header: t('admin.coupons.colExpires'), width: '110px', render: (c) => (c.expiresAt ? formatDate(c.expiresAt) : '—') },
-    { key: 'uses', header: t('admin.coupons.colUsage'), width: '90px', align: 'end', render: (c) => `${c.usedCount}${c.maxUses ? ` / ${c.maxUses}` : ''}` },
+    { key: 'window', header: t('admin.coupons.colWindow'), width: '170px', truncate: true, tooltip: windowLabel, render: windowLabel },
+    {
+      key: 'uses', header: t('admin.coupons.colUsage'), width: '110px', align: 'end',
+      tooltip: (c) => (c.maxUsesPerCustomer ? t('admin.coupons.perCustomer', { count: c.maxUsesPerCustomer }) : ''),
+      render: (c) => `${c.usedCount}${c.maxUses ? ` / ${c.maxUses}` : ''}${c.maxUsesPerCustomer ? ` · ${c.maxUsesPerCustomer}/👤` : ''}`,
+    },
     {
       key: 'status', header: t('admin.coupons.colStatus'), width: '90px',
       render: (c) => <span className={`${styles.statusBadge} ${c.isActive ? styles.paid : styles.cancelled}`}>{c.isActive ? t('admin.coupons.active') : t('admin.coupons.inactive')}</span>,
@@ -78,6 +91,7 @@ export default function Coupons() {
       key: 'actions', header: t('admin.coupons.colActions'), width: '64px', align: 'end', render: (c) => (
         <RowActionsMenu actions={[
           { label: t('common.edit'), onClick: () => setEditing(c) },
+          { label: t('admin.coupons.viewRedemptions'), onClick: () => setViewing(c) },
           { label: t('common.delete'), variant: 'danger', onClick: () => remove(c) },
         ]} />
       ),
@@ -102,6 +116,7 @@ export default function Coupons() {
       {editing !== null && (
         <CouponFormDrawer coupon={editing.id ? editing : null} onSave={save} onClose={() => setEditing(null)} />
       )}
+      {viewing && <CouponRedemptionsDrawer coupon={viewing} onClose={() => setViewing(null)} />}
     </div>
   );
 }

@@ -1,7 +1,7 @@
 # Souq Platform: Product Roadmap
 
 > **Goal:** turn Souq into one **white-label, multi-tenant e-commerce platform**, sold to many clients (≈ $5,000+ each) and maintainable by a professional team.
-> **Status:** Phase 0 ✅ · Target architecture ✅ documented · Phase 1A ✅ (merged to `main`) · Phase 1B ✅ on branch `phase/1b-production-foundations` (awaiting review) · **Autonomous run on `phase/2-15-multitenant-platform`** (branched from the 1B tip): Phase 2 ✅ · Phase 3 ✅ · Phase 4 ✅ · Phase 5 ✅ · Phase 6 ✅ · Phase 7 ✅ · Phase 8 ✅ · Phase 9 ✅. Next: Phase 10.
+> **Status:** Phase 0 ✅ · Target architecture ✅ documented · Phase 1A ✅ (merged to `main`) · Phase 1B ✅ on branch `phase/1b-production-foundations` (awaiting review) · **Autonomous run on `phase/2-15-multitenant-platform`** (branched from the 1B tip): Phase 2 ✅ · Phase 3 ✅ · Phase 4 ✅ · Phase 5 ✅ · Phase 6 ✅ · Phase 7 ✅ · Phase 8 ✅ · Phase 9 ✅ · Phase 10 ✅. Next: Phase 11.
 > **Companion document:** [ArchitectureAssessment.md](ArchitectureAssessment.md) covers the current state, the problem register (IDs such as `B1` and `C2`), the target architecture, and the full reasoning behind every decision (`D-xx`).
 > **Last updated:** 2026-09-11
 
@@ -535,7 +535,33 @@ Status legend: ✅ done · 🟡 in progress · ⏳ planned · ⏸ awaiting appro
   - Every state transition is tested.
   - Totals are immutable once the order is placed.
 
-### Phase 10: Coupons and discounts ⏳
+### Phase 10: Coupons and discounts ✅ (autonomous run)
+- **Delivered ([ADR-0030](adr/0030-coupon-redemptions.md)):**
+  - **Uses are reserved at checkout,** inside the order transaction, as one `CouponRedemption` per order (coupon, order, customer, discount given, status). The coupon's `rowversion` serializes concurrent redemptions. The loser re-reads; if no use is left it gets `422 InvalidCoupon` and its checkout rolls back. Payment confirms the redemption, and every cancellation path releases it and gives the use back (closes C1 for coupons).
+  - **New rules:**
+    - an optional start date;
+    - a per-customer limit that counts the customer's open and paid orders.
+
+    Both are checked in the basket quote when the customer is known, and again at checkout on a fresh read.
+  - **Admin:**
+    - a redemptions list per coupon (`GET /api/coupons/{id}/redemptions`: order number, customer, discount, status);
+    - a coupon that has been used can't be deleted (`409 CouponInUse`); it is deactivated instead.
+  - **Frontend:** the coupon form gains the start date and per-customer limit, validated by a tested pure module. The list shows the validity window and limits, and opens a redemptions drawer.
+  - **Migration `Phase10Coupons`:** additive, rehearsed.
+    - Existing orders that used a coupon get a redemption: pending → reserved; paid, shipped or delivered → confirmed; cancelled → none.
+    - Counters gain the pending orders.
+  - **Already in place and kept:**
+    - codes unique per tenant (Phase 2);
+    - minimum order;
+    - fixed or percentage discounts;
+    - currency-aware rounding, applied once per discount (1A, ADR-0014).
+- **Deferred, with reasons:**
+  - **Category or product scope:** the scope says "if needed". There is no requirement yet, and it would need a rule for mixed baskets. Not built.
+  - **Whether a refund gives the use back:** Phase 11 (refunds).
+  - **Automatic promotions and stacking:** not planned.
+- **Exit criteria (met):**
+  - **Rule-matrix tests pass.** `CouponRuleMatrixTests` runs every combination of active, window, global limit, per-customer limit and minimum order (64 cases) through the real entity, plus rounding and the redemption lifecycle.
+  - **A concurrent-redemption test passes.** Five customers check out at once with a single-use coupon: exactly one order is created, and the other four get `422 InvalidCoupon` (`CouponRedemptionTests`, SQL Server).
 - **Scope.**
   - Codes scoped to a tenant.
   - Start and end dates.
@@ -806,3 +832,4 @@ The earlier `AUDIT.md` (Arabic, 8-phase program) and the engineering-thinking gu
 | 2026-09-11 | Phase 7 completed (customer profile, address book with defaults, saved-address checkout, account status, admin customer list and detail with order history, data export and erasure); ADR-0027 |
 | 2026-09-11 | Phase 8 completed (server-side basket for guests and customers, merge at sign-in, one pricing pipeline shared with checkout, basket expiry, no basket reservations); ADR-0028. Tax model logged as open decision P-06 |
 | 2026-09-11 | Phase 9 completed (checkout from the basket, per-store order numbers, public tracking tokens, placement with frozen totals and a billing snapshot, one transition table, actors in the status history, customer cancellation, admin order filters); ADR-0029 |
+| 2026-09-11 | Phase 10 completed (coupon uses reserved at checkout as redemption records under `rowversion`, confirmed at payment and released on every cancellation; start dates and per-customer limits; admin redemptions list; used coupons can't be deleted); ADR-0030 |

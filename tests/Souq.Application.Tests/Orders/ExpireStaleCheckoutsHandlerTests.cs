@@ -26,7 +26,8 @@ public class ExpireStaleCheckoutsHandlerTests
     private ExpireStaleCheckoutsHandler CreateHandler() => new(
         _reservations, _orders, _payment,
         new OrderPaymentConfirmation(_orders, _reservations, Substitute.For<ICustomerRepository>(),
-            Substitute.For<ICouponRepository>(), Substitute.For<Souq.Application.Features.Baskets.Contracts.IBasketCheckout>(),
+            Substitute.For<Souq.Application.Features.Coupons.Contracts.ICouponRedemptions>(),
+            Substitute.For<Souq.Application.Features.Baskets.Contracts.IBasketCheckout>(),
             _payment, Substitute.For<IEmailService>(), _uow),
         NullLogger<ExpireStaleCheckoutsHandler>.Instance);
 
