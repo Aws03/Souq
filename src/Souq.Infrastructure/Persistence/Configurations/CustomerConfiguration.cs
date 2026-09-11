@@ -21,8 +21,8 @@ public class CustomerConfiguration : IEntityTypeConfiguration<Customer>
         // التعيين — بلا فهرس يصبح فحصاً كاملاً للجدول عند كل محاولة.
         builder.HasIndex(c => c.PasswordResetTokenHash);
 
-        // البريد هو هوية الدخول — يجب أن يكون فريداً على مستوى قاعدة البيانات
-        // (القاعدة النهائية للحقيقة)، لا في الكود فقط حيث تتسابق الطلبات المتزامنة.
-        builder.HasIndex(c => c.Email).IsUnique();
+        // البريد هو هوية الدخول — فريد داخل المتجر على مستوى قاعدة البيانات (القاعدة النهائية
+        // للحقيقة ضد الطلبات المتزامنة). الحسابات لكل متجر (D-06): البريد نفسه في متجرين مسموح.
+        builder.HasIndex(c => new { c.TenantId, c.Email }).IsUnique();
     }
 }

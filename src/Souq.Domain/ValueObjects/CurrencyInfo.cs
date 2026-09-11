@@ -20,4 +20,8 @@ public static class CurrencyInfo
 
     public static int MinorUnits(string currencyCode) =>
         Exceptions.TryGetValue(currencyCode.ToUpperInvariant(), out var units) ? units : DefaultMinorUnits;
+
+    // شكل رمز ISO-4217: ثلاثة أحرف لاتينية كبيرة (المرجع الوحيد لصيغة الرمز — Money وTenant).
+    public static bool IsValidCode(string? code) =>
+        code is { Length: 3 } && code.All(char.IsAsciiLetterUpper);
 }

@@ -54,6 +54,11 @@ services:
       # افتراضية منشورة). كلمة المرور 12 حرفاً على الأقل. احذفهما من .env بعد أول إقلاع.
       Seed__AdminEmail: ${SEED_ADMIN_EMAIL:-}
       Seed__AdminPassword: ${SEED_ADMIN_PASSWORD:-}
+      # تعدّد المتاجر (ADR-0006): المتجر يُحدَّد من المضيف فقط، ولا متجر احتياطي في Production. هذه
+      # الحزمة تخدم المتجر الافتراضي على localhost صراحةً (قائمة مفصولة بفواصل)، ومنطقة المنصّة على
+      # المضيفين في PLATFORM_HOSTS. النطاقات الحقيقية تُضاف من المنصّة (TenantDomains).
+      Seed__DefaultTenantHosts: ${DEFAULT_TENANT_HOSTS:-localhost}
+      Tenancy__PlatformHosts__0: ${PLATFORM_HOST:-admin.localhost}
       # بعض مزوّدي الإنترنت يحجبون المنفذ 587 (STARTTLS) — عندها استخدم 465
       # (TLS ضمني) عبر GMAIL_SMTP_PORT في .env؛ الافتراضي يبقى 587 القياسي.
       Gmail__Port: ${GMAIL_SMTP_PORT:-587}

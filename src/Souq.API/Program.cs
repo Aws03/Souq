@@ -12,8 +12,8 @@ using Souq.API.Http;
 using Souq.API.Middleware;
 using Souq.API.Observability;
 using Souq.API.Security;
+using Souq.API.Tenancy;
 using Souq.Application;
-using Souq.Application.Common.Interfaces;
 using Souq.Application.Common.Security;
 using Souq.Infrastructure;
 using Souq.Infrastructure.Persistence;
@@ -38,9 +38,23 @@ builder.Services.AddControllers()
 builder.Services.AddProblemDetails(o => o.CustomizeProblemDetails = ProblemDetailsConventions.Customize);
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 
+// ── تحديد المستأجر (ADR-0006): من المضيف فقط. وسائل التطوير (localhost، {slug}.localhost،
+// ترويسة X-Tenant، ومضيف منصّة admin.localhost) تُحسب من البيئة وتطغى على أي إعداد — لا تعمل
+// خارج Development/Testing مهما كُتب في appsettings. ──
+var allowDevelopmentTenancy = builder.Environment.IsDevelopment() || builder.Environment.IsEnvironment("Testing");
+builder.Services.AddOptions<TenancyOptions>()
+    .Bind(builder.Configuration.GetSection(TenancyOptions.SectionName))
+    .PostConfigure(o =>
+    {
+        o.AllowDevelopmentResolution = allowDevelopmentTenancy;
+        if (allowDevelopmentTenancy && !o.PlatformHosts.Contains(TenancyOptions.DevelopmentPlatformHost))
+            o.PlatformHosts = [.. o.PlatformHosts, TenancyOptions.DevelopmentPlatformHost];
+    });
+
 // ── المصادقة: التحقّق من توكن JWT الوارد، من إعدادات JwtSettings نفسها التي يُصدِر بها
 // JwtTokenGenerator (مُتحقَّق منها عند الإقلاع: مفتاح ≥ 256 بت، مُصدِر وجمهور). المفتاح سرّ من
-// user-secrets/البيئة. MapInboundClaims=false كي تصل المطالبات بالأسماء التي كتبها المُصدِر. ──
+// user-secrets/البيئة. MapInboundClaims=false كي تصل المطالبات بالأسماء التي كتبها المُصدِر.
+// توكن متجر آخر (مطالبة tid لا تطابق المضيف) ⇒ فشل المصادقة (TenantTokenBinding). ──
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer();
 builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
     .Configure<IOptions<JwtSettings>>((options, jwtSettings) =>
@@ -60,6 +74,7 @@ builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationSc
             NameClaimType = ClaimTypes.NameIdentifier,
             ClockSkew = TimeSpan.FromSeconds(30),   // هامش ضيّق بدل 5 دقائق افتراضية
         };
+        options.Events = new JwtBearerEvents { OnTokenValidated = TenantTokenBinding.ValidateAsync };
     });
 // ── التفويض بالصلاحيات (ADR-0019): [HasPermission] ⇒ سياسة تُبنى من اسمها، والقرار من
 // RolePermissions. ICurrentUser: منفذ Application يُقرأ من مطالبات التوكن هنا فقط. ──
@@ -115,19 +130,14 @@ startupLog.LogInformation("Adapters selected: payments {PaymentProvider}, email 
 foreach (var warning in startupReport.Warnings)
     startupLog.LogWarning("Configuration warning: {ConfigurationWarning}", warning);
 
-// ── الهجرات + البذر عند الإقلاع. المدير الافتراضي في Development فقط؛ خارجها يُنشأ
-// أول مدير من Seed:AdminEmail/Seed:AdminPassword إن ضُبطا (Phase 0 B1). ──
-using (var scope = app.Services.CreateScope())
-{
-    var services = scope.ServiceProvider;
-    var adminSeed = new AdminSeedOptions(
-        app.Configuration["Seed:AdminEmail"], app.Configuration["Seed:AdminPassword"], app.Environment.IsDevelopment());
-    await DbSeeder.SeedAsync(
-        services.GetRequiredService<AppDbContext>(),
-        services.GetRequiredService<IPasswordHasher>(),
-        adminSeed,
-        services.GetRequiredService<ILoggerFactory>().CreateLogger("Souq.Seeding"));
-}
+// ── الهجرات + البذر عند الإقلاع. المدير الافتراضي في Development فقط؛ خارجها يُنشأ أول مدير
+// من Seed:AdminEmail/Seed:AdminPassword إن ضُبطا (Phase 0 B1). Seed:DefaultTenantHosts يربط
+// مضيفين بالمتجر الافتراضي صراحةً (حزمة Docker التجريبية: localhost). ──
+await DbSeeder.SeedAsync(app.Services,
+    new SeedOptions(
+        app.Configuration["Seed:AdminEmail"], app.Configuration["Seed:AdminPassword"], app.Environment.IsDevelopment(),
+        ReadList(app.Configuration, "Seed:DefaultTenantHosts")),
+    app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Souq.Seeding"));
 
 // ── خط أنابيب الطلب (Request Pipeline) — الترتيب مهم ──────────────────────
 app.UseMiddleware<CorrelationHeaderMiddleware>(); // X-Correlation-Id على كل استجابة، حتى الأخطاء (ADR-0018)
@@ -138,6 +148,9 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
+
+// المستأجر أولاً (قبل الملفات والمصادقة): المضيف ⇒ المتجر؛ مضيف مجهول ⇒ 404 قبل أي منطق.
+app.UseMiddleware<TenantResolutionMiddleware>();
 
 // مجلد الرفع يُخدَم بأنواع وسائط مسموحة فقط + nosniff + CSP معزول (ADR-0016): حتى
 // لو وصل ملف غير متوقّع إلى المجلّد بطريقة ما، لا يُخدَم كصفحة تُنفَّذ على أصل الموقع.
@@ -160,13 +173,21 @@ app.UseStaticFiles(new StaticFileOptions
         ctx.Context.Response.Headers["Content-Security-Policy"] = "default-src 'none'; sandbox";
     },
 });
+app.UseRouting();
+app.UseMiddleware<TenantAvailabilityMiddleware>(); // نقطة منصّة/متجر على المضيف الصحيح؟ المتجر مفتوح؟
 app.UseCors("frontend");
-app.UseAuthentication();     // من أنت؟ (يفكّ التوكن)
-app.UseMiddleware<RequestLoggingMiddleware>(); // سطر لكل طلب + نطاق (CorrelationId, UserId) — يرى 401/403 أيضاً
+app.UseAuthentication();     // من أنت؟ (يفكّ التوكن ويطابق tid مع المضيف)
+app.UseMiddleware<RequestLoggingMiddleware>(); // سطر لكل طلب + نطاق (CorrelationId, TenantId, UserId)
 app.UseAuthorization();      // هل يُسمح لك؟ (يفرض [Authorize])
 app.MapControllers();
 
 app.Run();
+
+// قائمة من الإعداد بصيغتيها: مصفوفة (Seed:DefaultTenantHosts:0) أو نص مفصول بفواصل (متغيّر بيئة واحد).
+static string[] ReadList(IConfiguration configuration, string key) =>
+    configuration.GetSection(key).Get<string[]>() is { Length: > 0 } list
+        ? list
+        : (configuration[key] ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
 // يُتاح لمشروع اختبارات التكامل (WebApplicationFactory<Program>).
 public partial class Program { }

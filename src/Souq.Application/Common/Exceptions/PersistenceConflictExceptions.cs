@@ -19,3 +19,11 @@ public sealed class UniqueConstraintViolationException : Exception
     public UniqueConstraintViolationException(Exception? inner = null)
         : base("القيمة مستخدمة مسبقاً.", inner) { }
 }
+
+// مفتاح أجنبي رفض الكتابة: مرجع لسجلّ غير موجود (أو لسجلّ متجر آخر — المفاتيح داخل المتجر)، أو حذف
+// سجلّ ما زال مُشاراً إليه. الفحوص المبكرة في المعالجات تسبقه عادةً؛ هذا الحارس الأخير في القاعدة.
+public sealed class ReferenceConstraintViolationException : Exception
+{
+    public ReferenceConstraintViolationException(Exception? inner = null)
+        : base("العملية تتعارض مع بيانات مرتبطة.", inner) { }
+}

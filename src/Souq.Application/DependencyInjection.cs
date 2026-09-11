@@ -32,6 +32,11 @@ public static class DependencyInjection
         // لا DateTime.UtcNow — فتُختبر الصلاحيات والانتهاء بساعة ثابتة (Phase 0 D12).
         services.TryAddSingleton(TimeProvider.System);
 
+        // سياق المستأجر لكل نطاق خدمات (طلب HTTP أو تكرار مهمة خلفية): من يحدّد المتجر يطلب
+        // TenantContext لضبطه مرة واحدة، وكل ما عداه يرى ITenantContext للقراءة فقط (ADR-0006).
+        services.AddScoped<Common.Tenancy.TenantContext>();
+        services.AddScoped<Common.Tenancy.ITenantContext>(sp => sp.GetRequiredService<Common.Tenancy.TenantContext>());
+
         // خدمة تطبيق مشتركة بين مسارَي الإلغاء (الإدارة + تعويض الدفع) — صنف ملموس
         // بلا واجهة: لا تنفيذ بديل له، فالواجهة ستكون تجريداً بلا سبب.
         services.AddScoped<Features.Orders.OrderStockRelease>();

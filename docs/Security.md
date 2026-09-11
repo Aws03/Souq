@@ -30,14 +30,20 @@
 
 - **Roles today:** `Customer`, `Admin`, mapped to permissions in one table (`RolePermissions`, 1B). Endpoints declare the permission they need (`[HasPermission]`), and every endpoint must declare an explicit decision ([ADR-0019](adr/0019-authorization-foundation.md)).
 - **Target roles:** PlatformOwner, PlatformAdmin, TenantAdmin, TenantStaff, Customer, mapped to **permissions** in code ([AuthenticationAndAuthorization.md](AuthenticationAndAuthorization.md)).
-- **IDOR prevention (three layers):**
-  1. The tenant filter, so another tenant's rows are invisible.
+- **IDOR prevention (layers):**
+  1. **Tenant isolation (Phase 2, [ADR-0022](adr/0022-tenancy-enforcement.md)):**
+     - The store comes from the host only.
+     - A named EF filter hides other stores' rows. It **throws** when no store is resolved; it never returns every store's rows.
+     - A write guard stamps and verifies `TenantId`.
+     - Tenant-scoped composite FKs make a cross-store reference impossible in the database itself.
+     - A token's `tid` must match the host.
   2. Ownership checks **inside the use case**, so a customer only sees and confirms their own orders (a 404 otherwise).
-  3. Identity always taken from the token through `ICurrentUser`; commands have no customer id field to tamper with.
+  3. Identity always taken from the token through `ICurrentUser`; commands have no customer id or tenant id field to tamper with.
 - **Automated proof:**
   - An integration test enumerates all admin endpoints (anonymous → 401, customer → 403).
   - Customer A cannot read or confirm customer B's order (404).
-  - Tenant isolation tests are added in Phase 2.
+  - `TenantIsolationTests`: store B's admin, customer and visitors, on B's host, get 404 for every endpoint that takes a store-A resource id. Listings exclude A's rows, and writes that reference A's category, parent, product, coupon or order are rejected. A's token on B's host gets 401. The write guard and the missing-tenant filter fail loudly. A completeness test forces every new id-bearing endpoint into the table.
+  - `TenancyRuleTests` (architecture) forbid: a business entity without `ITenantOwned`; `IgnoreQueryFilters` outside the reviewed platform query type; raw SQL outside migrations; a use case that sets the tenant.
 
 ## 4. Transport, CORS, headers, rate limiting
 
@@ -59,7 +65,10 @@
   4. Size limits: 5 MB for images, 50 MB for video (HTTP ceiling plus an Application check).
   5. The static file server serves only the allowlisted media types from the uploads folder, with `nosniff` and a sandboxing CSP, so an unexpected file can never execute as a page on our origin.
   6. SVG is not accepted, because it can carry script.
-- **Target (Phase 5):** tenant-prefixed storage keys, cloud blob storage, optional re-encoding of images (which strips metadata and neutralizes polyglots).
+- **Tenant-prefixed keys (Phase 2):**
+  - Files are stored under `tenants/{id}/…`. The resolution middleware serves them only on the owning store's host.
+  - Pre-Phase-2 files under `/uploads/{folder}` belong to the default store. They are public catalog media with unguessable names.
+- **Target (Phase 5):** cloud blob storage, and optional re-encoding of images (which strips metadata and neutralizes polyglots).
 
 ## 6. Secret management
 
@@ -121,7 +130,7 @@
 
 **Rules added in 1B ([ADR-0018](adr/0018-observability.md)):**
 - One line per request with method, path **without the query string**, route template, status and duration. Headers (including `Authorization`) and bodies are never logged.
-- Every log inside a request carries `CorrelationId` (the W3C trace id, also returned as `X-Correlation-Id` and as `traceId` in errors) and `UserId`; use-case logs add `UseCase`. `TenantId` joins in Phase 2.
+- Every log inside a request carries `CorrelationId` (the W3C trace id, also returned as `X-Correlation-Id` and as `traceId` in errors), `TenantId` (or `Area=Platform` on the platform host, Phase 2) and `UserId`; use-case logs add `UseCase`. A blocked cross-tenant write is logged at **Critical**.
 - Use-case logging records name and duration only — never the request payload.
 - EF Core SQL text is off by default, and parameter values are never logged.
 - Integration tests prove that no password, JWT or `Authorization` value appears in any log.

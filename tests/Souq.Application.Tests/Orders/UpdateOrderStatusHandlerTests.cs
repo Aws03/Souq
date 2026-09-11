@@ -24,8 +24,8 @@ public class UpdateOrderStatusHandlerTests
 
     private static Order OrderInStatus(OrderStatus status, int quantity = 1)
     {
-        var order = new Order(customerId: 1, "عمّان");
-        order.AddItem(1, "سماعات", new Money(50), quantity);
+        var order = new Order(customerId: 1, "عمّان", "JOD");
+        order.AddItem(1, "سماعات", new Money(50, "JOD"), quantity);
         if (status is OrderStatus.Paid or OrderStatus.Shipped or OrderStatus.Delivered) order.MarkAsPaid();
         if (status is OrderStatus.Shipped or OrderStatus.Delivered) order.MarkAsShipped();
         if (status is OrderStatus.Delivered) order.MarkAsDelivered();
@@ -34,7 +34,7 @@ public class UpdateOrderStatusHandlerTests
     }
 
     private static Product ProductWithStock(int stock) =>
-        new("سماعات", "وصف", new Money(50), stock, "headphones", categoryId: 1);
+        new("سماعات", "وصف", new Money(50, "JOD"), stock, "headphones", categoryId: 1);
 
     [Fact]
     public async Task طلب_غير_موجود_يُرجع_NotFound()

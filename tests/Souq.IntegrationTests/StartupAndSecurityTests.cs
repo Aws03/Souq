@@ -34,6 +34,7 @@ public class StartupAndSecurityTests
             (await db.Database.GetAppliedMigrationsAsync(), await db.Database.GetPendingMigrationsAsync()));
 
         applied.Should().Contain(m => m.EndsWith("_Phase1AIntegrityPrecisionConcurrency"));
+        applied.Should().Contain(m => m.EndsWith("_Phase2MultiTenancy"));
         pending.Should().BeEmpty();
     }
 
@@ -59,15 +60,13 @@ public class StartupAndSecurityTests
     public async Task كلمة_مرور_مدير_ضعيفة_خارج_التطوير_تُفشل_الإقلاع_صراحةً()
     {
         _api.Anonymous();
-        using var scope = _factory.Services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        var hasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
 
-        var act = () => DbSeeder.SeedAsync(db, hasher,
-            new AdminSeedOptions("weak-admin@souq.test", "short", IsDevelopment: false), NullLogger.Instance);
+        var act = () => DbSeeder.SeedAsync(_factory.Services,
+            new SeedOptions("weak-admin@souq.test", "short", IsDevelopment: false, DefaultTenantHosts: []),
+            NullLogger.Instance);
 
         await act.Should().ThrowAsync<InvalidOperationException>();
-        (await db.Customers.AnyAsync(c => c.Email == "weak-admin@souq.test")).Should().BeFalse();
+        (await _api.WithDbAsync(db => db.Customers.AnyAsync(c => c.Email == "weak-admin@souq.test"))).Should().BeFalse();
     }
 
     [Fact]

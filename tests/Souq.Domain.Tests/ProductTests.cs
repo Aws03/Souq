@@ -8,7 +8,7 @@ namespace Souq.Domain.Tests;
 public class ProductTests
 {
     private static Product NewProduct(int stock = 10) =>
-        new("سماعات لاسلكية", "صوت نقي", new Money(59.9m), stock, "headphones", categoryId: 1);
+        new("سماعات لاسلكية", "صوت نقي", new Money(59.9m, "JOD"), stock, "headphones", categoryId: 1);
 
     [Fact]
     public void جديد_يكون_نشطاً_دائماً()

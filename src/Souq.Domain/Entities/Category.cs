@@ -7,8 +7,9 @@ namespace Souq.Domain.Entities;
 // ParentId اختياري (?) ليدعم فئات متفرّعة (إلكترونيات > هواتف) إن احتجنا لاحقاً.
 // لاحظ التصميم لاحتمال التوسّع دون تعقيد الحاضر (مبدأ: صمّم للتغيير).
 // ============================================================================
-public class Category : Entity
+public class Category : Entity, ITenantOwned
 {
+    public int TenantId { get; private set; }
     public string Name { get; private set; } = default!;
     public string Slug { get; private set; } = default!;  // معرّف نصّي للرابط: /category/electronics
     public int? ParentId { get; private set; }

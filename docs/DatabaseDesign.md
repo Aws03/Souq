@@ -118,13 +118,18 @@ There is no global `IsDeleted` flag with a global filter. Each aggregate has an 
 ## 8. Audit fields, time, relationships, transactions
 
 - **Timestamps:**
-  - `CreatedAt` / `UpdatedAt` are stamped by `AuditTimestampsInterceptor` (a SaveChanges interceptor) from `TimeProvider`, and stored as `datetime2` in UTC. Phase 2's tenant write guard is a second interceptor next to it.
+  - `CreatedAt` / `UpdatedAt` are stamped by `AuditTimestampsInterceptor` (a SaveChanges interceptor) from `TimeProvider`, and stored as `datetime2` in UTC. `TenantWriteGuardInterceptor` runs next to it (Phase 2): it stamps `TenantId` on insert and rejects any write to another tenant's row ([ADR-0022](adr/0022-tenancy-enforcement.md)).
   - Actor columns (`CreatedBy`) are added only where the business asks "who?" (status history, ledger, audit log). Everything else goes to the `AuditLog`.
 - **Relationships:**
   - FKs are declared for every relationship **inside** a module.
   - Delete behaviour is `Restrict` by default, and `Cascade` only for aggregate children (order → lines).
   - Across modules: an id plus a snapshot, no FK (the only exception is `TenantId`).
   - Aggregate-child FKs are `NOT NULL`.
+  - **References between tenant-owned rows carry the tenant (Phase 2).**
+    - The FK is `(TenantId, XId) → (TenantId, Id)` through an alternate key on the principal (`AK_Categories_TenantId_Id`, `AK_Products_…`, `AK_Customers_…`, `AK_Orders_…`).
+    - The database itself therefore rejects a row that points at another tenant's row, whatever a handler forgot.
+    - The exceptions are aggregate children (shadow key to their root, always created together) and the optional category parent (checked in the handler).
+    - An FK violation surfaces as `409 ReferenceConflict`.
 - **Transactions ([ADR-0021](adr/0021-transaction-boundaries.md)):**
   - The command handler owns the boundary; each `SaveChangesAsync` is one atomic transaction. Work across modules in one step uses the same unit of work.
   - No transaction is open during a network call: save → call the provider → save. A provider failure is compensated in a new step (checkout); races are resolved by `rowversion` and an idempotent re-read (payment confirmation).
@@ -146,6 +151,18 @@ There is no global `IsDeleted` flag with a global filter. Each aggregate has an 
 Deferred to later phases, with the phase noted: `TenantId` (2), `Users` split (3), variants, slugs, and translations (5), inventory items and reservations (6), order snapshot totals and numbers (9).
 
 **Phase 1B:** no schema change and no migration. The existing indexes cover the new read paths (`IX_OrderItems_ProductId` for the best-selling sort, `IX_StockMovements_ProductId_CreatedAt` for the paged ledger, `IX_Orders_CustomerId` for "my orders"). The admin order list sorts by `CreatedAt` without a dedicated index; Phase 2 adds `(TenantId, CreatedAt DESC)`, so no interim index was added.
+
+**Phase 2 (`Phase2MultiTenancy`, additive, rehearsed on Phase 1 data by `MigrationRehearsalTests`):**
+
+| Change | Detail |
+|---|---|
+| Platform tables | `Tenants` (slug unique, status, culture, currency, time zone, `rowversion`) and `TenantDomains` (`Host` unique across the platform) |
+| Default tenant | id 1, "Marka Demo" / `marka`, JOD, `ar`, Asia/Amman. Every pre-existing row belongs to it |
+| `TenantId` | `int NOT NULL` on all nine tenant-owned tables. Added with default 1 as an atomic backfill, then the default constraint is dropped, so a later insert without a tenant fails. FK to `Tenants` is `Restrict` |
+| Uniqueness per tenant | `(TenantId, Slug)` categories, `(TenantId, Code)` coupons, `(TenantId, Email)` customers. These replace the global indexes, and are looser, so they cannot fail on existing data |
+| Tenant-scoped FKs | Products→Categories, OrderItems→Products, Orders→Customers, Reviews→Products/Customers/Orders, StockMovements→Products. Each became composite, with `TenantId`-leading indexes |
+| Hot-path indexes | `(TenantId, IsActive)` products; `(TenantId, CreatedAt)` orders; `(TenantId, CustomerId)` orders |
+| `Orders.Currency` | Snapshot of the store currency. Backfilled from each order's first line, or `JOD` for orders without lines |
 
 ## 10. Migration workflow
 

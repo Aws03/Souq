@@ -9,8 +9,9 @@ namespace Souq.Domain.Entities;
 // OrderId يُخزَّن كدليل أن التقييم من عميل اشترى المنتج فعلاً واستلمه (تُفرض
 // هذه القاعدة في Application عند الإنشاء، لا هنا — الكيان لا يعرف Order إطلاقاً).
 // ============================================================================
-public class Review : Entity
+public class Review : Entity, ITenantOwned
 {
+    public int TenantId { get; private set; }
     public int ProductId { get; private set; }
     public int CustomerId { get; private set; }
     public int OrderId { get; private set; }

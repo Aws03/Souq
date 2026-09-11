@@ -32,12 +32,15 @@ public class ProductConfiguration : IEntityTypeConfiguration<Product>
             money.Property(m => m.Currency).HasColumnName("Currency").HasMaxLength(3);
         });
 
-        // Restrict لا Cascade: حذف فئة لا يجوز أن يمحو منتجاتها.
+        // Restrict لا Cascade: حذف فئة لا يجوز أن يمحو منتجاتها. المفتاح داخل المتجر
+        // (TenantId, CategoryId) ⇒ (TenantId, Id): يستحيل حتى على مستوى القاعدة أن يشير منتج
+        // لفئة متجر آخر، مهما نسي معالج أن يتحقّق (دفاع في العمق فوق المرشّحات — MultiTenancy.md §6).
         builder.HasOne(p => p.Category)
                .WithMany()
-               .HasForeignKey(p => p.CategoryId)
+               .HasForeignKey(p => new { p.TenantId, p.CategoryId })
+               .HasPrincipalKey(c => new { c.TenantId, c.Id })
                .OnDelete(DeleteBehavior.Restrict);
-
-        builder.HasIndex(p => p.CategoryId);
+        // الكتالوج العام: منتجات متجر واحد النشطة فقط — الفهرس يبدأ بالمستأجر.
+        builder.HasIndex(p => new { p.TenantId, p.IsActive });
     }
 }

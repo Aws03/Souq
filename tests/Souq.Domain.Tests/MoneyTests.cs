@@ -11,7 +11,7 @@ public class MoneyTests
     [Fact]
     public void مبلغ_سالب_يُرفض()
     {
-        var act = () => new Money(-1);
+        var act = () => new Money(-1, "JOD");
 
         act.Should().Throw<InvalidMoneyException>();
     }
@@ -114,7 +114,7 @@ public class MoneyTests
     [Fact]
     public void Multiply_يضرب_المبلغ_بالكمية()
     {
-        var result = new Money(10).Multiply(3);
+        var result = new Money(10, "JOD").Multiply(3);
 
         result.Amount.Should().Be(30);
     }

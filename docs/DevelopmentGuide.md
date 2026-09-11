@@ -26,7 +26,14 @@ cd frontend && npm install && npm run dev          # http://localhost:5173
 
 **Startup validation:** settings are checked before the database is touched. A missing connection string or a `Jwt:Key` shorter than 32 bytes stops the API with a message naming the key. Development uses the fake payment gateway automatically when no Stripe key is set; other environments need Stripe keys or an explicit `Payments:Provider=Fake` ([ADR-0020](adr/0020-configuration-and-secrets.md)).
 
-**Docker (full stack):** `cp .env.example .env`, fill in the values, then `docker compose up --build`. The stack runs in Production mode: no admin exists unless `SEED_ADMIN_EMAIL`/`SEED_ADMIN_PASSWORD` are set, and the API refuses to start without Stripe keys unless `PAYMENTS_PROVIDER=Fake` is set for a demo.
+**Docker (full stack):** `cp .env.example .env`, fill in the values, then `docker compose up --build`. The stack runs in Production mode: no admin exists unless `SEED_ADMIN_EMAIL`/`SEED_ADMIN_PASSWORD` are set, and the API refuses to start without Stripe keys unless `PAYMENTS_PROVIDER=Fake` is set for a demo. The default store is bound to `localhost` explicitly through `DEFAULT_TENANT_HOSTS`. Production has no fallback store for unknown hosts.
+
+**Several stores locally (Phase 2):** the store comes from the host ([ADR-0006](adr/0006-tenant-resolution.md)).
+- In Development, `localhost` is the default store (`Tenancy:LocalDefaultTenant`, `marka`).
+- `http://{slug}.localhost:5173` is any other store; browsers resolve `*.localhost` to 127.0.0.1 with no setup.
+- `http://admin.localhost:5173` is the platform area.
+- API tools can send `X-Tenant: <slug>` instead.
+- None of these conveniences exist outside Development/Testing.
 
 ## 3. Tests
 
@@ -45,7 +52,12 @@ cd frontend && npm install && npm run dev          # http://localhost:5173
 - New endpoint → declare `[AllowAnonymous]`, `[Authorize]` or `[HasPermission]` (the boundary tests fail otherwise; a new public endpoint also goes into their reviewed list), plus an integration test if it has non-trivial SQL, authorization, or concurrency behaviour.
 - New list → paged: the query implements `IPagedQuery`, its validator inherits `PagedQueryValidator`, and the query service ends with `ToPageAsync` and an `Id` tiebreaker. Prove ordering and filters against SQL Server.
 - New error code → add its translation to both `frontend/src/i18n/locales/*.json` files (a test keeps the keys identical).
-- From Phase 2: new tenant-owned data → isolation tests.
+- **New tenant-owned data (Phase 2):**
+  - The entity implements `ITenantOwned`, with no setter for `TenantId`.
+  - References to other tenant rows use composite `(TenantId, XId)` keys.
+  - Handlers check referenced ids through the (filtered) repositories.
+  - Every id-bearing endpoint goes into the `TenantIsolationTests` table (its completeness test fails otherwise).
+  - Integration tests reach other stores with `_factory.CreateStoreAsync()` and `new TestApi(factory).ForStore(store)`.
 
 ## 4. Git workflow
 

@@ -1,5 +1,6 @@
 using MediatR;
 using Souq.Application.Common.Models;
+using Souq.Application.Common.Tenancy;
 using Souq.Domain.Enums;
 using Souq.Domain.Interfaces;
 using Souq.Domain.ValueObjects;
@@ -15,11 +16,12 @@ public record UpdateCouponCommand(
 public class UpdateCouponHandler : IRequestHandler<UpdateCouponCommand, Result>
 {
     private readonly ICouponRepository _coupons;
+    private readonly ITenantContext _tenant;
     private readonly IUnitOfWork _uow;
 
-    public UpdateCouponHandler(ICouponRepository coupons, IUnitOfWork uow)
+    public UpdateCouponHandler(ICouponRepository coupons, ITenantContext tenant, IUnitOfWork uow)
     {
-        _coupons = coupons; _uow = uow;
+        _coupons = coupons; _tenant = tenant; _uow = uow;
     }
 
     public async Task<Result> Handle(UpdateCouponCommand cmd, CancellationToken ct)
@@ -29,7 +31,7 @@ public class UpdateCouponHandler : IRequestHandler<UpdateCouponCommand, Result>
             return Result.Failure(Error.NotFound("الكوبون غير موجود"));
 
         coupon.UpdateDetails(cmd.Type, cmd.Value,
-            cmd.MinOrderAmount.HasValue ? new Money(cmd.MinOrderAmount.Value) : null,
+            cmd.MinOrderAmount.HasValue ? new Money(cmd.MinOrderAmount.Value, _tenant.RequireTenant().Currency) : null,
             cmd.ExpiresAt, cmd.MaxUses);
 
         if (cmd.IsActive) coupon.Activate(); else coupon.Deactivate();

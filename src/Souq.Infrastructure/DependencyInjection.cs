@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using Souq.Application.Common.Interfaces;
+using Souq.Application.Common.Tenancy;
 using Souq.Application.Features.Coupons.Queries;
 using Souq.Application.Features.Inventory.Queries;
 using Souq.Application.Features.Orders.Queries;
@@ -16,6 +17,7 @@ using Souq.Infrastructure.Persistence.Interceptors;
 using Souq.Infrastructure.Persistence.Queries;
 using Souq.Infrastructure.Persistence.Repositories;
 using Souq.Infrastructure.Services;
+using Souq.Infrastructure.Tenancy;
 
 namespace Souq.Infrastructure;
 
@@ -59,11 +61,19 @@ public static class DependencyInjection
         // الساعة الوحيدة في النظام (Phase 0 D12) — TryAdd: قد تكون Application سجّلتها أولاً.
         services.TryAddSingleton(TimeProvider.System);
 
-        // المعترِضات تعمل داخل كل SaveChanges بلا استثناء (المرحلة 2: حارس المستأجر بجانبها).
+        // المعترِضات تعمل داخل كل SaveChanges بلا استثناء: ختم التواريخ، وحارس المستأجر (ختم TenantId
+        // عند الإضافة ورفض الكتابة عبر المتاجر — MultiTenancy.md §4).
         services.AddSingleton<AuditTimestampsInterceptor>();
+        services.AddSingleton<TenantWriteGuardInterceptor>();
         services.AddDbContext<AppDbContext>((sp, options) =>
             options.UseSqlServer(connectionString)
-                   .AddInterceptors(sp.GetRequiredService<AuditTimestampsInterceptor>()));
+                   .AddInterceptors(
+                       sp.GetRequiredService<AuditTimestampsInterceptor>(),
+                       sp.GetRequiredService<TenantWriteGuardInterceptor>()));
+
+        // دليل المتاجر (المضيف ⇒ المتجر) مخزَّن مؤقتاً في العملية؛ الذاكرة Singleton والاستعلام لكل نطاق.
+        services.AddSingleton<TenantDirectoryCache>();
+        services.AddScoped<ITenantDirectory, TenantDirectory>();
 
         // منافذ الكتابة (مستودعات التجمّعات) + وحدة العمل.
         services.AddScoped<IUnitOfWork>(sp => sp.GetRequiredService<AppDbContext>());

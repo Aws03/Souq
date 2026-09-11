@@ -502,6 +502,10 @@
       "PayloadTooLarge": "حجم الطلب كبير جداً.",
       "TooManyRequests": "محاولات كثيرة. انتظر قليلاً ثم حاول مجدداً.",
       "ServiceUnavailable": "الخدمة غير متاحة مؤقتاً.",
+      "StoreNotFound": "لا يوجد متجر على هذا العنوان.",
+      "StoreUnavailable": "المتجر غير متاح حالياً. حاول لاحقاً.",
+      "ReferenceConflict": "لا يمكن تنفيذ العملية بسبب بيانات مرتبطة بها.",
+      "InvalidTenantOperation": "هذا الإجراء غير مسموح لهذا المتجر.",
       "ServerError": "حدث خطأ غير متوقّع في الخادم."
     }
   }

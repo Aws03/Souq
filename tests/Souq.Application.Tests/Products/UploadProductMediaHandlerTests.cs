@@ -20,7 +20,7 @@ public class UploadProductMediaHandlerTests
     private readonly IFileStorage _storage = Substitute.For<IFileStorage>();
     private readonly IUnitOfWork _uow = Substitute.For<IUnitOfWork>();
 
-    private static Product NewProduct() => new("سماعات", "وصف", new Money(50), 10, "headphones", categoryId: 1);
+    private static Product NewProduct() => new("سماعات", "وصف", new Money(50, "JOD"), 10, "headphones", categoryId: 1);
 
     private UploadProductImageHandler ImageHandler() => new(_products, _storage, _uow);
     private UploadProductVideoHandler VideoHandler() => new(_products, _storage, _uow);

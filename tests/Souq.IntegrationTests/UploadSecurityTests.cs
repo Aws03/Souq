@@ -54,7 +54,7 @@ public class UploadSecurityTests
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var imageUrl = (await response.Content.ReadFromJsonAsync<ImageBody>(TestApi.Json))!.ImageUrl;
-        imageUrl.Should().StartWith("/uploads/images/").And.EndWith(".png");
+        imageUrl.Should().StartWith($"/uploads/tenants/{(await _api.TenantAsync()).Id}/images/").And.EndWith(".png");
 
         var served = await _api.Anonymous().GetAsync(imageUrl);
         served.StatusCode.Should().Be(HttpStatusCode.OK);

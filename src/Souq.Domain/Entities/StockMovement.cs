@@ -13,8 +13,9 @@ namespace Souq.Domain.Entities;
 // لمستوى المخزون بعد هذه الحركة — تتيح عرض تسلسل المخزون في السجلّ دون إعادة
 // حسابه، وتكشف أي تعارض مستقبلي بين السجلّ والمخزون الفعلي.
 // ============================================================================
-public class StockMovement : Entity
+public class StockMovement : Entity, ITenantOwned
 {
+    public int TenantId { get; private set; }
     public int ProductId { get; private set; }
     public StockMovementType Type { get; private set; }
     public int QuantityChange { get; private set; }   // مُوقَّع: سالب نقص، موجب زيادة

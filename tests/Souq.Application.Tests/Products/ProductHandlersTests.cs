@@ -2,6 +2,7 @@ using AwesomeAssertions;
 using NSubstitute;
 using Souq.Application.Features.Products.Commands;
 using Souq.Application.Features.Products.Queries;
+using Souq.Application.Tests.TestDoubles;
 using Souq.Domain.Entities;
 using Souq.Domain.Enums;
 using Souq.Domain.Interfaces;
@@ -14,11 +15,40 @@ public class CreateProductHandlerTests
     private readonly IProductRepository _products = Substitute.For<IProductRepository>();
     private readonly IStockMovementRepository _stockMovements = Substitute.For<IStockMovementRepository>();
     private readonly IUnitOfWork _uow = Substitute.For<IUnitOfWork>();
+    private readonly ICategoryRepository _categories = Substitute.For<ICategoryRepository>();
+
+    public CreateProductHandlerTests() =>
+        _categories.GetByIdAsync(1, Arg.Any<CancellationToken>()).Returns(new Category("فئة", "cat"));
+
+    [Fact]
+    public async Task فئة_ليست_في_المتجر_تُرفض_قبل_أي_حفظ()
+    {
+        var handler = new CreateProductHandler(_products, _categories, _stockMovements, TestTenant.Context(), _uow);
+        var cmd = new CreateProductCommand("سماعات", "وصف", 59.9m, 10, "headphones", CategoryId: 99);
+
+        var result = await handler.Handle(cmd, CancellationToken.None);
+
+        result.ErrorCode.Should().Be("CategoryNotFound");
+        await _uow.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task السعر_بعملة_المتجر_لا_بعملة_ثابتة()
+    {
+        Product? added = null;
+        _products.When(p => p.AddAsync(Arg.Any<Product>(), Arg.Any<CancellationToken>()))
+                 .Do(call => added = call.Arg<Product>());
+        var handler = new CreateProductHandler(_products, _categories, _stockMovements, TestTenant.Context("USD"), _uow);
+
+        await handler.Handle(new CreateProductCommand("سماعات", "وصف", 59.99m, 0, "headphones", CategoryId: 1), CancellationToken.None);
+
+        added!.Price.Currency.Should().Be("USD");
+    }
 
     [Fact]
     public async Task ينشئ_المنتج_ويسجّل_مخزونه_الابتدائي_حركة_توريد()
     {
-        var handler = new CreateProductHandler(_products, _stockMovements, _uow);
+        var handler = new CreateProductHandler(_products, _categories, _stockMovements, TestTenant.Context(), _uow);
         var cmd = new CreateProductCommand("سماعات", "وصف", 59.9m, 10, "headphones", CategoryId: 1);
 
         var result = await handler.Handle(cmd, CancellationToken.None);
@@ -36,7 +66,7 @@ public class CreateProductHandlerTests
     [Fact]
     public async Task منتج_بمخزون_صفر_يُحفظ_مرة_واحدة_بلا_حركة()
     {
-        var handler = new CreateProductHandler(_products, _stockMovements, _uow);
+        var handler = new CreateProductHandler(_products, _categories, _stockMovements, TestTenant.Context(), _uow);
         var cmd = new CreateProductCommand("سماعات", "وصف", 59.9m, 0, "headphones", CategoryId: 1);
 
         var result = await handler.Handle(cmd, CancellationToken.None);
@@ -57,7 +87,7 @@ public class UpdateProductHandlerTests
     private UpdateProductHandler CreateHandler() => new(_products, _categories, _stockMovements, _uow);
 
     private static Product NewProduct() =>
-        new("سماعات", "وصف", new Money(50), 10, "headphones", categoryId: 1);
+        new("سماعات", "وصف", new Money(50, "JOD"), 10, "headphones", categoryId: 1);
 
     [Fact]
     public async Task منتج_غير_موجود_يُرجع_NotFound()
@@ -171,7 +201,7 @@ public class DeleteProductHandlerTests
     [Fact]
     public async Task حذف_صالح_يعطّل_المنتج_منطقياً()
     {
-        var product = new Product("سماعات", "وصف", new Money(50), 10, "headphones", categoryId: 1);
+        var product = new Product("سماعات", "وصف", new Money(50, "JOD"), 10, "headphones", categoryId: 1);
         _products.GetByIdAsync(1, Arg.Any<CancellationToken>()).Returns(product);
 
         var result = await CreateHandler().Handle(new DeleteProductCommand(1), CancellationToken.None);

@@ -12,7 +12,8 @@ public class CategoryConfiguration : IEntityTypeConfiguration<Category>
         builder.HasKey(c => c.Id);
         builder.Property(c => c.Name).HasMaxLength(100).IsRequired();
         builder.Property(c => c.Slug).HasMaxLength(100);
-        builder.HasIndex(c => c.Slug).IsUnique();
+        // فريد داخل المتجر لا على المنصّة: "electronics" في متجرين فئتان مستقلّتان (ADR-0005).
+        builder.HasIndex(c => new { c.TenantId, c.Slug }).IsUnique();
 
         // علاقة ذاتية للفئة الأب — لم تكن مُعرَّفة إطلاقاً في نموذج EF، فكان ParentId رقماً
         // بلا قيد يقبل أباً غير موجود. Restrict: لا تُحذف فئة لها أبناء (يحرسه المعالج

@@ -13,8 +13,9 @@ namespace Souq.Domain.Entities;
 // انظر AppDbContext.SaveChangesAsync) يمثّلها تماماً — نفس المبدأ المتّبع مع
 // StockMovement، فلا تكرار لمنطق الطابع الزمني.
 // ============================================================================
-public class OrderStatusHistory : Entity
+public class OrderStatusHistory : Entity, ITenantOwned
 {
+    public int TenantId { get; private set; }
     public OrderStatus Status { get; private set; }
     public string? Note { get; private set; }
 

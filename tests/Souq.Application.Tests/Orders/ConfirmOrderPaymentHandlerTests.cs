@@ -37,8 +37,8 @@ public class ConfirmOrderPaymentHandlerTests
 
     private static Order PendingOrderWithIntent(string paymentIntentId = "pi_123", int quantity = 2)
     {
-        var order = new Order(1, "عمّان");
-        order.AddItem(productId: 1, "سماعات", new Money(50), quantity);
+        var order = new Order(1, "عمّان", "JOD");
+        order.AddItem(productId: 1, "سماعات", new Money(50, "JOD"), quantity);
         order.SetPaymentIntent(paymentIntentId);
         return order;
     }
@@ -101,7 +101,7 @@ public class ConfirmOrderPaymentHandlerTests
     [Fact]
     public async Task فشل_الدفع_يُعيد_المخزون_بأثر_في_السجلّ_ويُلغي_الطلب_ولا_يرسل_بريداً()
     {
-        var product = new Product("سماعات لاسلكية", "وصف", new Money(50), stockQuantity: 8, "headphones", categoryId: 1);
+        var product = new Product("سماعات لاسلكية", "وصف", new Money(50, "JOD"), stockQuantity: 8, "headphones", categoryId: 1);
         var order = PendingOrderWithIntent(quantity: 2);
         _orders.GetWithItemsAsync(1, Arg.Any<CancellationToken>()).Returns(order);
         _products.GetByIdAsync(1, Arg.Any<CancellationToken>()).Returns(product);

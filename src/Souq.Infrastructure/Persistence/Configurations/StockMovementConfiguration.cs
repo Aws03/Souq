@@ -15,10 +15,11 @@ public class StockMovementConfiguration : IEntityTypeConfiguration<StockMovement
         builder.Property(m => m.Type).HasConversion<int>();   // enum يُخزّن كرقم
         builder.Property(m => m.Note).HasMaxLength(300);
 
-        // مرجع للمنتج. Restrict: لا يُحذف منتج له سجلّ حركة (والمنتجات تُعطَّل لا تُحذف).
+        // مرجع للمنتج داخل المتجر. Restrict: لا يُحذف منتج له سجلّ حركة (والمنتجات تُعطَّل لا تُحذف).
         builder.HasOne<Product>()
                .WithMany()
-               .HasForeignKey(m => m.ProductId)
+               .HasForeignKey(m => new { m.TenantId, m.ProductId })
+               .HasPrincipalKey(p => new { p.TenantId, p.Id })
                .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasIndex(m => new { m.ProductId, m.CreatedAt });

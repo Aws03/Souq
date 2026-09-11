@@ -11,7 +11,8 @@ public class CouponConfiguration : IEntityTypeConfiguration<Coupon>
         builder.ToTable("Coupons");
         builder.HasKey(c => c.Id);
         builder.Property(c => c.Code).HasMaxLength(50).IsRequired();
-        builder.HasIndex(c => c.Code).IsUnique();
+        // الرمز فريد داخل المتجر: SAVE10 في متجرين كوبونان مستقلّان.
+        builder.HasIndex(c => new { c.TenantId, c.Code }).IsUnique();
         builder.Property(c => c.Type).HasConversion<int>();
         // نسبة مئوية أو مبلغ ثابت — نفس دقّة المال كي لا يُقتطع مبلغ خصم ثابت بالفلس.
         builder.Property(c => c.Value).HasColumnType(PersistenceConventions.MoneyColumnType);

@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using Souq.API.Http;
 using Souq.Application.Common.Security;
+using Souq.Application.Common.Tenancy;
 
 namespace Souq.API.Observability;
 
@@ -11,7 +12,7 @@ namespace Souq.API.Observability;
 //
 // لا يُسجَّل أبداً: سلسلة الاستعلام، الترويسات (Authorization)، الأجسام (كلمات مرور، رموز).
 // مكانه بعد UseAuthentication كي يعرف المستخدم، وقبل UseAuthorization كي يُسجَّل 401/403 أيضاً.
-// المرحلة 2 تضيف TenantId إلى هذا النطاق نفسه — كل سجلّ يُعرف مستأجره بلا جهد في الميزات.
+// النطاق يحمل TenantId أيضاً (المرحلة 2) — كل سجلّ يُعرف متجره بلا جهد في الميزات.
 // ============================================================================
 public sealed class RequestLoggingMiddleware
 {
@@ -25,9 +26,9 @@ public sealed class RequestLoggingMiddleware
         _next = next; _logger = logger;
     }
 
-    public async Task InvokeAsync(HttpContext context, ICurrentUser currentUser)
+    public async Task InvokeAsync(HttpContext context, ICurrentUser currentUser, ITenantContext tenancy)
     {
-        using var scope = _logger.BeginScope(ScopeFor(context, currentUser));
+        using var scope = _logger.BeginScope(ScopeFor(context, currentUser, tenancy));
         var started = Stopwatch.GetTimestamp();
         int? statusOverride = null;
         try
@@ -55,9 +56,13 @@ public sealed class RequestLoggingMiddleware
         }
     }
 
-    private static Dictionary<string, object?> ScopeFor(HttpContext context, ICurrentUser currentUser)
+    private static Dictionary<string, object?> ScopeFor(HttpContext context, ICurrentUser currentUser, ITenantContext tenancy)
     {
         var scope = new Dictionary<string, object?> { ["CorrelationId"] = RequestCorrelation.GetId(context) };
+        if (tenancy.Tenant is { } tenant)
+            scope["TenantId"] = tenant.Id;
+        else if (tenancy.Scope == TenantScope.Platform)
+            scope["Area"] = "Platform";
         if (currentUser.UserId is int userId)
             scope["UserId"] = userId;
         return scope;

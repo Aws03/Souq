@@ -8,7 +8,7 @@ namespace Souq.Domain.Tests;
 
 public class OrderTests
 {
-    private static Order NewOrder() => new(customerId: 1, shippingAddress: "عمّان، شارع الملكة رانيا");
+    private static Order NewOrder() => new(customerId: 1, shippingAddress: "عمّان، شارع الملكة رانيا", currency: "JOD");
 
     [Fact]
     public void جديد_يبدأ_بحالة_Pending_وبلا_أسطر()
@@ -33,7 +33,7 @@ public class OrderTests
     public void كل_انتقال_حالة_يضيف_سطر_تاريخ_جديد()
     {
         var order = NewOrder();
-        order.AddItem(1, "سماعات", new Money(50), 1);
+        order.AddItem(1, "سماعات", new Money(50, "JOD"), 1);
 
         order.MarkAsPaid();
         order.MarkAsShipped();
@@ -48,7 +48,7 @@ public class OrderTests
     public void MarkAsShipped_يخزّن_رقم_التتبّع_وشركة_الشحن_والملاحظة()
     {
         var order = NewOrder();
-        order.AddItem(1, "سماعات", new Money(50), 1);
+        order.AddItem(1, "سماعات", new Money(50, "JOD"), 1);
         order.MarkAsPaid();
 
         order.MarkAsShipped("TRK-123", "أرامكس", "سلّم للمندوب");
@@ -62,7 +62,7 @@ public class OrderTests
     public void MarkAsShipped_بلا_رقم_تتبّع_يترك_الحقل_فارغاً()
     {
         var order = NewOrder();
-        order.AddItem(1, "سماعات", new Money(50), 1);
+        order.AddItem(1, "سماعات", new Money(50, "JOD"), 1);
         order.MarkAsPaid();
 
         order.MarkAsShipped();
@@ -75,7 +75,7 @@ public class OrderTests
     public void Cancel_بملاحظة_يسجّلها_في_سطر_التاريخ()
     {
         var order = NewOrder();
-        order.AddItem(1, "سماعات", new Money(50), 1);
+        order.AddItem(1, "سماعات", new Money(50, "JOD"), 1);
 
         order.Cancel("فشل الدفع");
 
@@ -87,7 +87,7 @@ public class OrderTests
     {
         var order = NewOrder();
 
-        order.AddItem(productId: 1, productName: "سماعات", new Money(50), quantity: 2);
+        order.AddItem(productId: 1, productName: "سماعات", new Money(50, "JOD"), quantity: 2);
 
         order.Items.Should().ContainSingle();
         order.TotalAmount.Amount.Should().Be(100);
@@ -98,8 +98,8 @@ public class OrderTests
     {
         var order = NewOrder();
 
-        order.AddItem(productId: 1, "سماعات", new Money(50), quantity: 1);
-        order.AddItem(productId: 1, "سماعات", new Money(50), quantity: 2);
+        order.AddItem(productId: 1, "سماعات", new Money(50, "JOD"), quantity: 1);
+        order.AddItem(productId: 1, "سماعات", new Money(50, "JOD"), quantity: 2);
 
         order.Items.Should().ContainSingle();
         order.Items.Single().Quantity.Should().Be(3);
@@ -111,7 +111,7 @@ public class OrderTests
     {
         var order = NewOrder();
 
-        var act = () => order.AddItem(1, "سماعات", new Money(50), quantity: 0);
+        var act = () => order.AddItem(1, "سماعات", new Money(50, "JOD"), quantity: 0);
 
         act.Should().Throw<InvalidOrderOperationException>();
     }
@@ -120,10 +120,10 @@ public class OrderTests
     public void AddItem_بعد_الدفع_يُرفض()
     {
         var order = NewOrder();
-        order.AddItem(1, "سماعات", new Money(50), 1);
+        order.AddItem(1, "سماعات", new Money(50, "JOD"), 1);
         order.MarkAsPaid();
 
-        var act = () => order.AddItem(2, "ساعة", new Money(30), 1);
+        var act = () => order.AddItem(2, "ساعة", new Money(30, "JOD"), 1);
 
         act.Should().Throw<InvalidOrderOperationException>();
     }
@@ -142,7 +142,7 @@ public class OrderTests
     public void MarkAsPaid_لطلب_مدفوع_مسبقاً_يُرفض()
     {
         var order = NewOrder();
-        order.AddItem(1, "سماعات", new Money(50), 1);
+        order.AddItem(1, "سماعات", new Money(50, "JOD"), 1);
         order.MarkAsPaid();
 
         var act = () => order.MarkAsPaid();
@@ -154,7 +154,7 @@ public class OrderTests
     public void دورة_الحياة_الكاملة_Pending_Paid_Shipped_Delivered()
     {
         var order = NewOrder();
-        order.AddItem(1, "سماعات", new Money(50), 1);
+        order.AddItem(1, "سماعات", new Money(50, "JOD"), 1);
 
         order.MarkAsPaid();
         order.Status.Should().Be(OrderStatus.Paid);
@@ -170,7 +170,7 @@ public class OrderTests
     public void MarkAsShipped_لطلب_لم_يُدفع_يُرفض()
     {
         var order = NewOrder();
-        order.AddItem(1, "سماعات", new Money(50), 1);
+        order.AddItem(1, "سماعات", new Money(50, "JOD"), 1);
 
         var act = () => order.MarkAsShipped();
 
@@ -181,7 +181,7 @@ public class OrderTests
     public void MarkAsDelivered_لطلب_لم_يُشحن_يُرفض()
     {
         var order = NewOrder();
-        order.AddItem(1, "سماعات", new Money(50), 1);
+        order.AddItem(1, "سماعات", new Money(50, "JOD"), 1);
         order.MarkAsPaid();
 
         var act = () => order.MarkAsDelivered();
@@ -195,7 +195,7 @@ public class OrderTests
     public void Cancel_مسموح_من_Pending_أو_Paid(OrderStatus status)
     {
         var order = NewOrder();
-        order.AddItem(1, "سماعات", new Money(50), 1);
+        order.AddItem(1, "سماعات", new Money(50, "JOD"), 1);
         if (status == OrderStatus.Paid) order.MarkAsPaid();
 
         order.Cancel();
@@ -207,7 +207,7 @@ public class OrderTests
     public void Cancel_لطلب_مشحون_يُرفض()
     {
         var order = NewOrder();
-        order.AddItem(1, "سماعات", new Money(50), 1);
+        order.AddItem(1, "سماعات", new Money(50, "JOD"), 1);
         order.MarkAsPaid();
         order.MarkAsShipped();
 
@@ -220,7 +220,7 @@ public class OrderTests
     public void Cancel_لطلب_مُسلَّم_يُرفض()
     {
         var order = NewOrder();
-        order.AddItem(1, "سماعات", new Money(50), 1);
+        order.AddItem(1, "سماعات", new Money(50, "JOD"), 1);
         order.MarkAsPaid();
         order.MarkAsShipped();
         order.MarkAsDelivered();
@@ -236,7 +236,7 @@ public class OrderTests
         // كل إلغاء ناجح يعني "حرّر المخزون المحجوز مرة واحدة" — إلغاء ثانٍ كان يمرّ
         // ويُكرّر سطر التاريخ (Phase 0 C10)، ومع إعادة المخزون الآن سيضخّم المخزون.
         var order = NewOrder();
-        order.AddItem(1, "سماعات", new Money(50), 1);
+        order.AddItem(1, "سماعات", new Money(50, "JOD"), 1);
         order.Cancel();
 
         var act = () => order.Cancel();
@@ -249,9 +249,9 @@ public class OrderTests
     public void ApplyCoupon_يخصم_من_الإجمالي_النهائي_دون_مسّ_الفرعي()
     {
         var order = NewOrder();
-        order.AddItem(1, "سماعات", new Money(50), 2); // فرعي = 100
+        order.AddItem(1, "سماعات", new Money(50, "JOD"), 2); // فرعي = 100
 
-        order.ApplyCoupon("SAVE10", new Money(10));
+        order.ApplyCoupon("SAVE10", new Money(10, "JOD"));
 
         order.Subtotal.Amount.Should().Be(100);
         order.TotalAmount.Amount.Should().Be(90);
@@ -262,9 +262,9 @@ public class OrderTests
     public void ApplyCoupon_بخصم_أكبر_من_الفرعي_يُرفض()
     {
         var order = NewOrder();
-        order.AddItem(1, "سماعات", new Money(50), 1); // فرعي = 50
+        order.AddItem(1, "سماعات", new Money(50, "JOD"), 1); // فرعي = 50
 
-        var act = () => order.ApplyCoupon("BIG", new Money(100));
+        var act = () => order.ApplyCoupon("BIG", new Money(100, "JOD"));
 
         act.Should().Throw<InvalidOrderOperationException>();
     }
@@ -273,10 +273,10 @@ public class OrderTests
     public void ApplyCoupon_بعد_الدفع_يُرفض()
     {
         var order = NewOrder();
-        order.AddItem(1, "سماعات", new Money(50), 1);
+        order.AddItem(1, "سماعات", new Money(50, "JOD"), 1);
         order.MarkAsPaid();
 
-        var act = () => order.ApplyCoupon("LATE", new Money(5));
+        var act = () => order.ApplyCoupon("LATE", new Money(5, "JOD"));
 
         act.Should().Throw<InvalidOrderOperationException>();
     }
@@ -285,7 +285,7 @@ public class OrderTests
     public void SetPaymentIntent_يخزّن_المعرّف_قبل_الدفع()
     {
         var order = NewOrder();
-        order.AddItem(1, "سماعات", new Money(50), 1);
+        order.AddItem(1, "سماعات", new Money(50, "JOD"), 1);
 
         order.SetPaymentIntent("pi_123");
 
@@ -296,7 +296,7 @@ public class OrderTests
     public void SetPaymentIntent_بعد_الدفع_يُرفض()
     {
         var order = NewOrder();
-        order.AddItem(1, "سماعات", new Money(50), 1);
+        order.AddItem(1, "سماعات", new Money(50, "JOD"), 1);
         order.MarkAsPaid();
 
         var act = () => order.SetPaymentIntent("pi_late");

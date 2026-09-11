@@ -39,10 +39,11 @@ Routes move into these areas in the phase that rebuilds each module. The fronten
 | Not authenticated, token invalid, wrong credentials | 401 |
 | Authenticated but lacking the permission | 403 |
 | Resource missing **or owned by someone else** (tenant or user) | **404**. Never 403, which would leak that the resource exists. |
-| Conflict with the current state: concurrent write (`ConcurrencyConflict`), duplicate (`DuplicateValue`, `EmailTaken`, `SlugTaken`), stale edit (`StockChanged`), delete blocked (`CategoryInUse`) | **409** |
+| No store on this host (`StoreNotFound`); a platform endpoint on a store host or the reverse (`NotFound`) | **404** |
+| Conflict with the current state: concurrent write (`ConcurrencyConflict`), duplicate (`DuplicateValue`, `EmailTaken`, `SlugTaken`), stale edit (`StockChanged`), delete blocked (`CategoryInUse`), database reference rejected (`ReferenceConflict`) | **409** |
 | Business rule violated (invalid transition, insufficient stock, coupon unusable, too many decimals) | **422** |
 | Too many requests | 429 (Phase 3) |
-| Required external provider unavailable (`PaymentUnavailable`) | 503 |
+| Required external provider unavailable (`PaymentUnavailable`); store suspended, archived, or still provisioning (`StoreUnavailable`) | 503 |
 | Unexpected | 500, generic message, no internals |
 
 ## 4. Errors ([ADR-0017](adr/0017-error-contract.md))
@@ -91,7 +92,22 @@ Every error is RFC 7807 `application/problem+json`:
 ## 6. Authentication, authorization, tenant resolution
 
 - `Authorization: Bearer <access token>`. From Phase 3 the refresh token travels in an `HttpOnly` cookie.
-- The **tenant is never a parameter.** It comes from the Host header, and for authenticated calls it must match the token's `tid` claim ([MultiTenancy.md](MultiTenancy.md)).
+- The **tenant is never a parameter.** It comes from the Host header, and for authenticated calls it must match the token's `tid` claim ([MultiTenancy.md](MultiTenancy.md), [ADR-0022](adr/0022-tenancy-enforcement.md)). Implemented in Phase 2:
+  - **Resolution:**
+    - `TenantResolutionMiddleware` maps the host to a store through `TenantDomains`.
+    - An unknown host gets `404 StoreNotFound`. There is no fallback store in Production.
+    - Platform hosts (`Tenancy:PlatformHosts`) have no store.
+  - **Development/Testing only:**
+    - `localhost` serves `Tenancy:LocalDefaultTenant`, and `{slug}.localhost` serves that store.
+    - The `X-Tenant: <slug>` header overrides both.
+    - `admin.localhost` is the platform host.
+  - **Availability:**
+    - `Suspended`/`Archived` stores answer `503 StoreUnavailable`, except endpoints marked `[AvailableWhenStoreClosed]`.
+    - `Provisioning` stores also serve auth and admin endpoints.
+    - `[PlatformEndpoint]` endpoints exist only on platform hosts; every other endpoint exists only on store hosts (404 otherwise).
+  - **Tokens:** a tenant token carries `tid`. A mismatch with the host fails authentication, which is a 401 on protected endpoints.
+  - **Uploads:** `/uploads/tenants/{id}/…` is served only on that store's host.
+  - **Money:** amounts are in the store currency. `GET /api/coupons/apply` ignores any `currency` parameter.
 - **Customer identity comes from the token, never from the body.** Use cases read it from `ICurrentUser`; commands have no customer id field at all.
 - **Authorization (1B, [ADR-0019](adr/0019-authorization-foundation.md)):** endpoints declare `[HasPermission(Permissions.X.Y)]`, `[Authorize]` or `[AllowAnonymous]` — explicitly, every one. Resource ownership is checked inside the use case (404 for someone else's resource).
 - **Automated guards:** integration tests enumerate every endpoint and assert that each declares its decision, that the public surface equals a reviewed list, that every declared permission exists, and that permission-protected endpoints answer anonymous → 401 and customer → 403.

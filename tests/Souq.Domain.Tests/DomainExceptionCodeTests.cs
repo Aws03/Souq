@@ -15,6 +15,7 @@ public class DomainExceptionCodeTests
         { new InvalidReviewException("x"), "InvalidReview" },
         { new InvalidPasswordResetException("x"), "ResetTokenExpired" },
         { new InvalidMoneyException("x"), "InvalidMoney" },
+        { new InvalidTenantOperationException("x"), "InvalidTenantOperation" },
     };
 
     [Theory]

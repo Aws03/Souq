@@ -1,4 +1,5 @@
 using AwesomeAssertions;
+using Souq.Application.Tests.TestDoubles;
 using NSubstitute;
 using Souq.Application.Features.Coupons.Commands;
 using Souq.Domain.Entities;
@@ -18,7 +19,7 @@ public class CouponHandlersTests
         _coupons.GetByCodeAsync("SAVE10", Arg.Any<CancellationToken>())
             .Returns(new Coupon("SAVE10", DiscountType.Percentage, 10, null, null, null));
 
-        var handler = new CreateCouponHandler(_coupons, _uow);
+        var handler = new CreateCouponHandler(_coupons, TestTenant.Context(), _uow);
         var result = await handler.Handle(
             new CreateCouponCommand("SAVE10", DiscountType.Percentage, 15, null, null, null), CancellationToken.None);
 
@@ -32,7 +33,7 @@ public class CouponHandlersTests
     {
         _coupons.GetByCodeAsync("NEW10", Arg.Any<CancellationToken>()).Returns((Coupon?)null);
 
-        var handler = new CreateCouponHandler(_coupons, _uow);
+        var handler = new CreateCouponHandler(_coupons, TestTenant.Context(), _uow);
         var result = await handler.Handle(
             new CreateCouponCommand("NEW10", DiscountType.Percentage, 10, null, null, null), CancellationToken.None);
 
@@ -46,7 +47,7 @@ public class CouponHandlersTests
     {
         _coupons.GetByIdAsync(99, Arg.Any<CancellationToken>()).Returns((Coupon?)null);
 
-        var handler = new UpdateCouponHandler(_coupons, _uow);
+        var handler = new UpdateCouponHandler(_coupons, TestTenant.Context(), _uow);
         var result = await handler.Handle(
             new UpdateCouponCommand(99, DiscountType.Percentage, 10, null, null, null, true), CancellationToken.None);
 
@@ -60,7 +61,7 @@ public class CouponHandlersTests
         var coupon = new Coupon("SAVE10", DiscountType.Percentage, 10, null, null, null);
         _coupons.GetByIdAsync(1, Arg.Any<CancellationToken>()).Returns(coupon);
 
-        var handler = new UpdateCouponHandler(_coupons, _uow);
+        var handler = new UpdateCouponHandler(_coupons, TestTenant.Context(), _uow);
         var result = await handler.Handle(
             new UpdateCouponCommand(1, DiscountType.Percentage, 20, null, null, null, IsActive: false), CancellationToken.None);
 

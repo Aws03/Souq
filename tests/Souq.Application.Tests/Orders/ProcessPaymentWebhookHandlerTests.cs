@@ -55,8 +55,8 @@ public class ProcessPaymentWebhookHandlerTests
     [Fact]
     public async Task حدث_دفعة_يؤكّد_الطلب_بعد_التحقّق_لدى_البوّابة_بلا_أي_مستخدم()
     {
-        var order = new Order(customerId: 7, "عمّان");
-        order.AddItem(1, "سماعات", new Money(50), 1);
+        var order = new Order(customerId: 7, "عمّان", "JOD");
+        order.AddItem(1, "سماعات", new Money(50, "JOD"), 1);
         order.SetPaymentIntent("pi_42");
         _payment.ParseWebhook("{}", "sig").Returns(new PaymentWebhookEvent("42"));
         _orders.GetWithItemsAsync(42, Arg.Any<CancellationToken>()).Returns(order);

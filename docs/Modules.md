@@ -99,7 +99,11 @@ Each entry lists:
 - **Depends on:** nothing (root).
 - **Forbidden:** reading tenant-owned business tables. Platform statistics come from Reporting.
 - **Extraction:** unlikely (small and central). It could become a "control plane" if the platform ever runs per-region stacks.
-- **Today:** does not exist.
+- **Today (Phase 2):**
+  - `Tenant` + `TenantDomain` (`Souq.Domain.Platform`).
+  - `ITenantDirectory` (cached host/slug lookup) and `ITenantContext`.
+  - The resolution and availability middleware.
+  - The settings, module flags and platform API arrive in Phase 4.
 
 ### Identity
 - **Responsibility:** who can sign in, and what they are allowed to do.

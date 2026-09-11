@@ -231,7 +231,7 @@ Scale in this order, stopping as soon as the problem is solved:
 | Concurrency | `rowversion` + `ConcurrencyConflictException` → 409 | ✅ 1A |
 | Transactions | Use case owns the unit of work; no transaction spans a network call; compensation; outbox later ([ADR-0021](adr/0021-transaction-boundaries.md)) | ✅ 1B (documented) / 14 (outbox) |
 | Current user and authorization | `ICurrentUser`, permission policies, ownership in use cases, explicit auth on every endpoint ([ADR-0019](adr/0019-authorization-foundation.md)) | ✅ 1B / 3 (roles) |
-| Tenant context | `ITenantContext` + EF global query filters + write guard ([MultiTenancy.md §8](MultiTenancy.md#8-phase-2-readiness-after-phase-1b)) | 2 |
+| Tenant context | `ITenantContext` from the host + named EF query filter (throws without a tenant) + write guard + tenant-scoped composite FKs + `tid` binding ([MultiTenancy.md §8](MultiTenancy.md#8-implementation-phase-2), [ADR-0022](adr/0022-tenancy-enforcement.md)) | ✅ 2 |
 | Time | `TimeProvider`; audit timestamps in a SaveChanges interceptor | ✅ 1B |
 | Logging and correlation | Request line, W3C correlation id, scopes (`CorrelationId`, `UserId`, `UseCase`; `TenantId` in 2), redaction ([ADR-0018](adr/0018-observability.md)) | ✅ 1A redaction / 1B |
 | Configuration | Typed options validated at startup, fail-fast, no implicit dev fallbacks outside Development ([ADR-0020](adr/0020-configuration-and-secrets.md)) | ✅ 1B |

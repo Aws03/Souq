@@ -16,12 +16,13 @@ public class CouponsController : ControllerBase
     private readonly IMediator _mediator;
     public CouponsController(IMediator mediator) => _mediator = mediator;
 
-    // GET /api/coupons/apply?code=SAVE10&subtotal=59.9 — عام: معاينة خصم قبل الدفع.
+    // GET /api/coupons/apply?code=SAVE10&subtotal=59.9 — عام: معاينة خصم قبل الدفع، بعملة المتجر
+    // دائماً (عملة يرسلها العميل لم تعد تُقبل — Phase 2).
     [HttpGet("apply")]
     [AllowAnonymous]
-    public async Task<IActionResult> Apply([FromQuery] string code, [FromQuery] decimal subtotal, [FromQuery] string currency = "JOD")
+    public async Task<IActionResult> Apply([FromQuery] string code, [FromQuery] decimal subtotal)
     {
-        var result = await _mediator.Send(new ApplyCouponQuery(code, subtotal, currency));
+        var result = await _mediator.Send(new ApplyCouponQuery(code, subtotal));
         return result.IsSuccess ? Ok(result.Value) : this.Failure(result);
     }
 

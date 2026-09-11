@@ -8,8 +8,8 @@ An ADR captures **one** significant decision: the context, the options considere
 | [0002](0002-modular-monolith-structure.md) | Modules as namespaces across the four layer projects, enforced by architecture tests | Accepted |
 | [0003](0003-clean-hexagonal-boundaries.md) | Clean dependency rule + ports and adapters only at real variation points | Accepted |
 | [0004](0004-module-boundaries.md) | 13 business modules; contracts, IDs, and a shared transaction for cross-module work | Accepted |
-| [0005](0005-multi-tenancy-model.md) | Shared database + `TenantId` + central enforcement; hybrid path kept open | Accepted (implementation Phase 2) |
-| [0006](0006-tenant-resolution.md) | Tenant resolved from the host; token `tid` must match; platform on its own host | Accepted (implementation Phase 2) |
+| [0005](0005-multi-tenancy-model.md) | Shared database + `TenantId` + central enforcement; hybrid path kept open | Accepted (implemented Phase 2) |
+| [0006](0006-tenant-resolution.md) | Tenant resolved from the host; token `tid` must match; platform on its own host | Accepted (implemented Phase 2) |
 | [0007](0007-database-strategy.md) | SQL Server + EF Core, one DbContext, int keys, per-tenant uniqueness, explicit soft-delete policy | Accepted |
 | [0008](0008-cqrs-strategy.md) | CQRS level 1 + projection query services; read models only for reporting | Accepted |
 | [0009](0009-ddd-usage.md) | Tactical DDD only where invariants are rich; small aggregates | Accepted |
@@ -25,5 +25,6 @@ An ADR captures **one** significant decision: the context, the options considere
 | [0019](0019-authorization-foundation.md) | `ICurrentUser`, permission policies, ownership in use cases, explicit auth on every endpoint | Accepted (implemented 1B) |
 | [0020](0020-configuration-and-secrets.md) | Typed validated options, fail-fast startup, no implicit dev fallbacks outside Development | Accepted (implemented 1B) |
 | [0021](0021-transaction-boundaries.md) | Use case owns the unit of work; no transaction spans a network call; compensation and outbox | Accepted (1B) |
+| [0022](0022-tenancy-enforcement.md) | Tenancy enforcement details: set-once context, named filter that throws without a tenant, write guard, tenant-scoped composite FKs, dev-only resolution, status gating | Accepted (implemented Phase 2) |
 
 **Template:** Context · Problem · Options considered · Decision · Why · Consequences · Revisit when.

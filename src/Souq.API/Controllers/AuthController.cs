@@ -2,6 +2,7 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Souq.API.Http;
+using Souq.API.Tenancy;
 using Souq.Application.Features.Auth.Commands;
 
 namespace Souq.API.Controllers;
@@ -12,6 +13,7 @@ namespace Souq.API.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [AllowAnonymous] // مقصود: من لم يسجّل الدخول بعد لا يملك توكناً.
+[AvailableDuringProvisioning] // إدارة متجر قيد التجهيز تسجّل الدخول لتجهيزه قبل الافتتاح.
 public class AuthController : ControllerBase
 {
     private readonly IMediator _mediator;

@@ -1,7 +1,7 @@
 # Souq Platform: Product Roadmap
 
 > **Goal:** turn Souq into one **white-label, multi-tenant e-commerce platform**, sold to many clients (≈ $5,000+ each) and maintainable by a professional team.
-> **Status:** Phase 0 ✅ · Target architecture ✅ documented · Phase 1A ✅ (merged to `main`) · Phase 1B ✅ complete on branch `phase/1b-production-foundations` (awaiting your review and merge). Next: Phase 2.
+> **Status:** Phase 0 ✅ · Target architecture ✅ documented · Phase 1A ✅ (merged to `main`) · Phase 1B ✅ on branch `phase/1b-production-foundations` (awaiting review) · **Autonomous run on `phase/2-15-multitenant-platform`** (branched from the 1B tip): Phase 2 ✅. Next: Phase 3.
 > **Companion document:** [ArchitectureAssessment.md](ArchitectureAssessment.md) covers the current state, the problem register (IDs such as `B1` and `C2`), the target architecture, and the full reasoning behind every decision (`D-xx`).
 > **Last updated:** 2026-09-11
 
@@ -175,7 +175,25 @@ Status legend: ✅ done · 🟡 in progress · ⏳ planned · ⏸ awaiting appro
   - Module dependency tests pass.
   - The UI is unchanged apart from paging on four lists.
 
-### Phase 2: Multi-tenancy foundation ⏳
+### Phase 2: Multi-tenancy foundation ✅ (autonomous run, branch `phase/2-15-multitenant-platform`)
+- **Delivered ([ADR-0022](adr/0022-tenancy-enforcement.md), [MultiTenancy.md §8](MultiTenancy.md#8-implementation-phase-2)):**
+  - The `Tenant`/`TenantDomain` aggregate and `ITenantOwned` on all nine business entities.
+  - Host resolution with platform hosts and conveniences that exist only in Development/Testing, and store-status gating (`StoreNotFound` 404, `StoreUnavailable` 503).
+  - `tid` token binding.
+  - A named EF filter that throws without a tenant, and a write guard.
+  - **Tenant-scoped composite FKs**, so a cross-store reference is impossible in the database.
+  - Per-store uniqueness and `TenantId`-leading indexes.
+  - Tenant-prefixed uploads served only on the owning host, and a bounded directory cache.
+  - Explicit store currency, with no default in `Money` and an `Order.Currency` snapshot.
+  - `TenantId` in log scopes.
+  - Migration `Phase2MultiTenancy`, rehearsed on Phase 1 data.
+- **Found and fixed during the phase:**
+  - Product creation accepted any category id on the platform. It now checks within the store, backed by the composite FK.
+  - Coupon preview trusted a client-sent currency.
+- **Decisions implemented:** D-01, D-02, D-03 (int keys kept; slugs and codes per store), P-04 ("Marka Demo" = tenant 1). The rehearsal used a Phase 1-shaped copy on Testcontainers SQL Server, because the developer database was offline; the migration is additive.
+- **Exit criteria (met):**
+  - Every existing feature works under the default store (the full pre-existing suite is green).
+  - A second store is isolated: `TenantIsolationTests` has an explicit endpoint table plus a completeness check, and covers listings, references, tokens, the write guard, missing context, uploads and uniqueness.
 - **Goal.** Every tenant-owned row belongs to exactly one tenant, and the backend blocks cross-tenant access by default.
 - **Foundations already in place (1B).** `ICurrentUser` ready for a `tid` claim; one request log scope with a `TenantId` slot; the SaveChanges interceptor seam for the write guard; reads only through query services (one place for filters); the `TenantId` tripwire test; explicit endpoint authorization; 404 for foreign resources. Checklist and exact prerequisites: [MultiTenancy.md §8](MultiTenancy.md#8-phase-2-readiness-after-phase-1b).
 - **Scope.**
@@ -580,3 +598,4 @@ The earlier `AUDIT.md` (Arabic, 8-phase program) and the engineering-thinking gu
 | 2026-09-11 | Initial roadmap produced in Phase 0 |
 | 2026-09-11 | Target architecture documented (ADRs 0001–0016). Phase 1A scope expanded per the brief (concurrency, money precision, payment port, test harness) and completed |
 | 2026-09-11 | Phase 1A merged to `main`. Phase 1B scope re-derived from the repository (module namespace moves stay per phase, per ADR-0002) and completed; ADRs 0017–0021 |
+| 2026-09-11 | Autonomous run of Phases 2–15 on `phase/2-15-multitenant-platform` (branched from the Phase 1B tip, because `main` does not contain 1B yet and merging it was not authorized). Phase 2 completed; ADR-0022 |

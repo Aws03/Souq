@@ -17,7 +17,7 @@ namespace Souq.Domain.Entities;
 // بجعل القائمة للقراءة فقط (IReadOnlyCollection) والإضافة عبر دالة واحدة،
 // نجعل الحالة الفاسدة مستحيلة هندسياً، لا مجرد "ممنوعة بالاتفاق".
 // ============================================================================
-public class Order : Entity
+public class Order : Entity, ITenantOwned
 {
     private readonly List<OrderItem> _items = new();
     // سجلّ انتقالات الحالة — جزء من التجمّع مثل _items تماماً. RecordStatusChange
@@ -25,7 +25,12 @@ public class Order : Entity
     // فيستحيل هندسياً أن ينتقل الطلب لحالة جديدة دون أن يُسجَّل ذلك.
     private readonly List<OrderStatusHistory> _statusHistory = new();
 
+    public int TenantId { get; private set; }
     public int CustomerId { get; private set; }
+
+    // عملة الطلب لقطة من عملة المتجر لحظة الإنشاء: كل سطر وخصم بها، والإجمالي يُجمع بها حتى
+    // لطلب فارغ (كان Money.Zero() يفترض JOD لكل المتاجر — Phase 2).
+    public string Currency { get; private set; } = default!;
     public OrderStatus Status { get; private set; }
     public string ShippingAddress { get; private set; } = default!;
     public string? CouponCode { get; private set; }
@@ -40,17 +45,18 @@ public class Order : Entity
 
     // الإجمالي الفرعي محسوب من الأسطر، فيستحيل أن يتعارض معها.
     public Money Subtotal =>
-        _items.Aggregate(Money.Zero(), (sum, item) => sum.Add(item.LineTotal));
+        _items.Aggregate(Money.Zero(Currency), (sum, item) => sum.Add(item.LineTotal));
 
     // الإجمالي النهائي = الفرعي ناقص الخصم (إن وُجد كوبون مطبَّق).
     public Money TotalAmount => DiscountAmount is null ? Subtotal : Subtotal.Subtract(DiscountAmount);
 
     private Order() { }
 
-    public Order(int customerId, string shippingAddress)
+    public Order(int customerId, string shippingAddress, string currency)
     {
         CustomerId = customerId;
         ShippingAddress = shippingAddress;
+        Currency = Money.Zero(currency).Currency;   // يتحقّق من الرمز ويوحّد صيغته
         Status = OrderStatus.Pending;   // كل طلب يبدأ "بانتظار الدفع"
         RecordStatusChange(null);       // سطر تاريخ أول يوثّق لحظة إنشاء الطلب
     }
@@ -66,6 +72,8 @@ public class Order : Entity
             throw new InvalidOrderOperationException("لا يمكن تعديل طلب بدأت معالجته");
         if (quantity <= 0)
             throw new InvalidOrderOperationException("الكمية يجب أن تكون أكبر من صفر");
+        if (unitPrice.Currency != Currency)
+            throw new InvalidOrderOperationException("عملة السعر لا تطابق عملة الطلب");
 
         // إن كان المنتج موجوداً مسبقاً، نزيد كميته بدل تكرار السطر (قاعدة من معايير القبول).
         var existing = _items.FirstOrDefault(i => i.ProductId == productId);

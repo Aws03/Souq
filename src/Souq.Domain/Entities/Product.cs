@@ -10,8 +10,9 @@ namespace Souq.Domain.Entities;
 // عشوائياً (product.Stock = -5). أي تغيير يمرّ عبر دوال تحرس القواعد.
 // هذا هو "التغليف" (Encapsulation) — أهم مبدأ في حماية صحّة البيانات.
 // ============================================================================
-public class Product : Entity
+public class Product : Entity, ITenantOwned
 {
+    public int TenantId { get; private set; }
     public string NameAr { get; private set; } = default!;
     public string NameEn { get; private set; } = default!;
     // توافق خلفي: أي كود قديم يقرأ Name (رسائل استثناءات، لقطة اسم سطر الطلب)

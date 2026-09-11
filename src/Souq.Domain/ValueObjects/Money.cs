@@ -17,13 +17,12 @@ namespace Souq.Domain.ValueObjects;
 // ============================================================================
 public record Money
 {
-    // العملة الافتراضية مؤقتة حتى تحمل كل متجر عملته (المرحلة 2 — تعدّد المستأجرين).
-    public const string DefaultCurrency = "JOD";
-
     public decimal Amount { get; }
     public string Currency { get; }
 
-    public Money(decimal amount, string currency = DefaultCurrency)
+    // العملة إلزامية دائماً (Phase 2, D-09): كانت JOD افتراضياً فيصبح سعر متجر بالدولار ديناراً
+    // بصمت. المصدر الطبيعي لها عملة المتجر (Tenant.Currency) أو عملة مبلغ قائم.
+    public Money(decimal amount, string currency)
     {
         var code = NormalizeCurrency(currency);
         if (amount < 0)
@@ -64,7 +63,7 @@ public record Money
     }
 
     // قيمة جاهزة للصفر — تُستخدم كنقطة بداية عند جمع عناصر الطلب.
-    public static Money Zero(string currency = DefaultCurrency) => new(0, currency);
+    public static Money Zero(string currency) => new(0, currency);
 
     public override string ToString() =>
         $"{Amount.ToString($"F{CurrencyInfo.MinorUnits(Currency)}", System.Globalization.CultureInfo.InvariantCulture)} {Currency}";
@@ -80,7 +79,7 @@ public record Money
         if (string.IsNullOrWhiteSpace(currency))
             throw new InvalidMoneyException("العملة مطلوبة");
         var code = currency.Trim().ToUpperInvariant();
-        if (code.Length != 3 || !code.All(char.IsAsciiLetterUpper))
+        if (!CurrencyInfo.IsValidCode(code))
             throw new InvalidMoneyException($"رمز العملة غير صالح: {currency}");
         return code;
     }

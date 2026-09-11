@@ -3,7 +3,6 @@ using Souq.Application.Common.Models;
 using Souq.Application.Features.Orders.Queries;
 using Souq.Domain.Entities;
 using Souq.Domain.Enums;
-using Souq.Domain.ValueObjects;
 
 namespace Souq.Infrastructure.Persistence.Queries;
 
@@ -68,16 +67,16 @@ internal sealed class OrderQueries : IOrderQueries
                 o.Id, o.CustomerId, o.Status, o.CreatedAt,
                 o.Items.Sum(i => i.UnitPrice.Amount * i.Quantity),
                 (decimal?)o.DiscountAmount!.Amount,
-                o.Items.Select(i => i.UnitPrice.Currency).FirstOrDefault(),
+                o.Currency,
                 o.Items.Count()), page, ct);
 
         return rows.Map(r => new OrderSummaryDto(
             r.Id, r.CustomerId, r.Status.ToString(),
-            r.Subtotal - (r.Discount ?? 0m), r.Currency ?? Money.DefaultCurrency,
+            r.Subtotal - (r.Discount ?? 0m), r.Currency,
             r.CreatedAt, r.ItemCount));
     }
 
     private sealed record SummaryRow(
         int Id, int CustomerId, OrderStatus Status, DateTime CreatedAt,
-        decimal Subtotal, decimal? Discount, string? Currency, int ItemCount);
+        decimal Subtotal, decimal? Discount, string Currency, int ItemCount);
 }

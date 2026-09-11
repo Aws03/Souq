@@ -1,5 +1,6 @@
 using MediatR;
 using Souq.Application.Common.Models;
+using Souq.Application.Common.Tenancy;
 using Souq.Domain.Entities;
 using Souq.Domain.Interfaces;
 using Souq.Domain.ValueObjects;
@@ -9,11 +10,12 @@ namespace Souq.Application.Features.Coupons.Commands;
 public class CreateCouponHandler : IRequestHandler<CreateCouponCommand, Result<int>>
 {
     private readonly ICouponRepository _coupons;
+    private readonly ITenantContext _tenant;
     private readonly IUnitOfWork _uow;
 
-    public CreateCouponHandler(ICouponRepository coupons, IUnitOfWork uow)
+    public CreateCouponHandler(ICouponRepository coupons, ITenantContext tenant, IUnitOfWork uow)
     {
-        _coupons = coupons; _uow = uow;
+        _coupons = coupons; _tenant = tenant; _uow = uow;
     }
 
     public async Task<Result<int>> Handle(CreateCouponCommand cmd, CancellationToken ct)
@@ -23,7 +25,7 @@ public class CreateCouponHandler : IRequestHandler<CreateCouponCommand, Result<i
 
         // قيم غير منطقية (نسبة خارج 1-100) ⇒ الكيان يرمي InvalidCouponException (422 مركزياً).
         var coupon = new Coupon(cmd.Code, cmd.Type, cmd.Value,
-            cmd.MinOrderAmount.HasValue ? new Money(cmd.MinOrderAmount.Value) : null,
+            cmd.MinOrderAmount.HasValue ? new Money(cmd.MinOrderAmount.Value, _tenant.RequireTenant().Currency) : null,
             cmd.ExpiresAt, cmd.MaxUses);
 
         await _coupons.AddAsync(coupon, ct);

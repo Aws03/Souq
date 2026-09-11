@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using Souq.Application.Common.Interfaces;
 using Souq.Application.Common.Models;
 using Souq.Application.Common.Security;
+using Souq.Application.Common.Tenancy;
 using Souq.Domain.Entities;
 using Souq.Domain.Enums;
 using Souq.Domain.Interfaces;
@@ -35,6 +36,7 @@ public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, Result<Ord
     private readonly IPaymentService _payment;
     private readonly OrderStockRelease _stockRelease;
     private readonly ICurrentUser _currentUser;
+    private readonly ITenantContext _tenant;
     private readonly IUnitOfWork _uow;
     private readonly TimeProvider _clock;
     private readonly ILogger<CreateOrderHandler> _logger;
@@ -43,11 +45,12 @@ public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, Result<Ord
         IProductRepository products, IOrderRepository orders, ICustomerRepository customers,
         ICouponRepository coupons, IStockMovementRepository stockMovements,
         IPaymentService payment, OrderStockRelease stockRelease, ICurrentUser currentUser,
-        IUnitOfWork uow, TimeProvider clock, ILogger<CreateOrderHandler> logger)
+        ITenantContext tenant, IUnitOfWork uow, TimeProvider clock, ILogger<CreateOrderHandler> logger)
     {
         _products = products; _orders = orders; _customers = customers;
         _coupons = coupons; _stockMovements = stockMovements; _payment = payment;
-        _stockRelease = stockRelease; _currentUser = currentUser; _uow = uow; _clock = clock; _logger = logger;
+        _stockRelease = stockRelease; _currentUser = currentUser; _tenant = tenant;
+        _uow = uow; _clock = clock; _logger = logger;
     }
 
     public async Task<Result<OrderCreatedDto>> Handle(CreateOrderCommand cmd, CancellationToken ct)
@@ -73,7 +76,9 @@ public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, Result<Ord
             lines.Add((product, line.Quantity));
         }
 
-        var subtotal = lines.Aggregate(Money.Zero(), (sum, l) => sum.Add(l.Product.Price.Multiply(l.Quantity)));
+        // الطلب بعملة المتجر (لقطة مجمّدة على الطلب نفسه).
+        var currency = _tenant.RequireTenant().Currency;
+        var subtotal = lines.Aggregate(Money.Zero(currency), (sum, l) => sum.Add(l.Product.Price.Multiply(l.Quantity)));
 
         // (2) الكوبون اختياري، ويُتحقّق منه أيضاً قبل أي تعديل على المخزون. كوبون غير قابل
         // للاستخدام ⇒ InvalidCouponException يرتفع هنا — قبل إنقاص أي مخزون وقبل أي حفظ.
@@ -87,7 +92,7 @@ public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, Result<Ord
         }
 
         // (3) خطّة التنفيذ: كل شيء صالح الآن — ننقص المخزون فعلياً ونبني الطلب.
-        var order = new Order(customerId, cmd.ShippingAddress);
+        var order = new Order(customerId, cmd.ShippingAddress, currency);
         foreach (var (product, quantity) in lines)
         {
             product.DecreaseStock(quantity);

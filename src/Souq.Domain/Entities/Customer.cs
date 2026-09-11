@@ -10,9 +10,12 @@ namespace Souq.Domain.Entities;
 // Customer — العميل. نخزّن PasswordHash لا كلمة المرور نفسها أبداً.
 // (مبدأ غير وظيفي: الأمان. كلمة المرور الخام لا تُخزّن في أي نظام محترم.)
 // ============================================================================
-public class Customer : Entity
+public class Customer : Entity, ITenantOwned
 {
     public const int ResetTokenLifetimeHours = 2;
+
+    // الحسابات لكل متجر (D-06): البريد نفسه في متجرين = حسابان مستقلّان بكلمتي مرور.
+    public int TenantId { get; private set; }
 
     public string FullName { get; private set; } = default!;
     public string Email { get; private set; } = default!;

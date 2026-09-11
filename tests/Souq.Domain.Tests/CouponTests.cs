@@ -37,7 +37,7 @@ public class CouponTests
     {
         var coupon = new Coupon("SAVE10", DiscountType.Percentage, 10, null, null, null);
 
-        var discount = coupon.CalculateDiscount(new Money(100));
+        var discount = coupon.CalculateDiscount(new Money(100, "JOD"));
 
         discount.Amount.Should().Be(10);
     }
@@ -60,7 +60,7 @@ public class CouponTests
     {
         var coupon = new Coupon("BIG20", DiscountType.FixedAmount, 20, null, null, null);
 
-        var discount = coupon.CalculateDiscount(new Money(15));
+        var discount = coupon.CalculateDiscount(new Money(15, "JOD"));
 
         discount.Amount.Should().Be(15); // لا خصم سالب على الإجمالي المتبقّي
     }
@@ -71,7 +71,7 @@ public class CouponTests
         var coupon = new Coupon("SAVE10", DiscountType.Percentage, 10, null, null, null);
         coupon.Deactivate();
 
-        var act = () => coupon.EnsureUsable(new Money(100), DateTime.UtcNow);
+        var act = () => coupon.EnsureUsable(new Money(100, "JOD"), DateTime.UtcNow);
         act.Should().Throw<InvalidCouponException>();
     }
 
@@ -81,7 +81,7 @@ public class CouponTests
         var coupon = new Coupon("OLD10", DiscountType.Percentage, 10, null,
             expiresAt: DateTime.UtcNow.AddDays(-1), maxUses: null);
 
-        var act = () => coupon.EnsureUsable(new Money(100), DateTime.UtcNow);
+        var act = () => coupon.EnsureUsable(new Money(100, "JOD"), DateTime.UtcNow);
         act.Should().Throw<InvalidCouponException>();
     }
 
@@ -91,25 +91,25 @@ public class CouponTests
         var coupon = new Coupon("ONE10", DiscountType.Percentage, 10, null, null, maxUses: 1);
         coupon.IncrementUsage();
 
-        var act = () => coupon.EnsureUsable(new Money(100), DateTime.UtcNow);
+        var act = () => coupon.EnsureUsable(new Money(100, "JOD"), DateTime.UtcNow);
         act.Should().Throw<InvalidCouponException>();
     }
 
     [Fact]
     public void EnsureUsable_دون_الحد_الأدنى_للطلب_يُرفض()
     {
-        var coupon = new Coupon("MIN50", DiscountType.Percentage, 10, new Money(50), null, null);
+        var coupon = new Coupon("MIN50", DiscountType.Percentage, 10, new Money(50, "JOD"), null, null);
 
-        var act = () => coupon.EnsureUsable(new Money(30), DateTime.UtcNow);
+        var act = () => coupon.EnsureUsable(new Money(30, "JOD"), DateTime.UtcNow);
         act.Should().Throw<InvalidCouponException>();
     }
 
     [Fact]
     public void EnsureUsable_كوبون_صالح_لا_يرمي()
     {
-        var coupon = new Coupon("SAVE10", DiscountType.Percentage, 10, new Money(20), DateTime.UtcNow.AddDays(1), 5);
+        var coupon = new Coupon("SAVE10", DiscountType.Percentage, 10, new Money(20, "JOD"), DateTime.UtcNow.AddDays(1), 5);
 
-        var act = () => coupon.EnsureUsable(new Money(100), DateTime.UtcNow);
+        var act = () => coupon.EnsureUsable(new Money(100, "JOD"), DateTime.UtcNow);
         act.Should().NotThrow();
     }
 

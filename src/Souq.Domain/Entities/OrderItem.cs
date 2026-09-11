@@ -10,8 +10,11 @@ namespace Souq.Domain.Entities;
 // مجمّدة كما كانت لحظة الشراء. هذا ليس تكراراً خاطئاً — بل قرار تجاري مقصود.
 // (نفس المبدأ الذي شرحناه في ملف الـ Roadmap تحت "التحرّر الواعي من التطبيع".)
 // ============================================================================
-public class OrderItem : Entity
+public class OrderItem : Entity, ITenantOwned
 {
+    // المستأجر على الأبناء أيضاً (لا على الجذر فقط): تصدير متجر أو نقله بـ WHERE TenantId واحد،
+    // وأي استعلام مباشر على الأسطر مُرشَّح هو الآخر (MultiTenancy.md §6).
+    public int TenantId { get; private set; }
     public int ProductId { get; private set; }
     public string ProductName { get; private set; } = default!;   // لقطة مجمّدة للاسم
     public Money UnitPrice { get; private set; } = default!;        // لقطة مجمّدة للسعر

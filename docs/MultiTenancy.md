@@ -1,6 +1,6 @@
 # Souq: Multi-Tenancy Architecture
 
-> **Status:** Design adopted 2026-09-11 ([ADR-0005](adr/0005-multi-tenancy-model.md), [ADR-0006](adr/0006-tenant-resolution.md)). Implementation: **Phase 2**. Today no table carries a tenant.
+> **Status:** Design adopted 2026-09-11 ([ADR-0005](adr/0005-multi-tenancy-model.md), [ADR-0006](adr/0006-tenant-resolution.md)). **Implemented in Phase 2** (2026-09-11). The implementation details are in [ADR-0022](adr/0022-tenancy-enforcement.md), and the component map is in §8.
 
 ## 1. Decision
 
@@ -137,7 +137,34 @@ The harness exists since Phase 1A. It already proves **user-level** isolation: c
 | A URL to another tenant's upload is shared | Storage keys are unguessable; storefronts reference only their own tenant prefix |
 | The platform owner acts inside a tenant | Explicit "support mode" use cases, audited (Phase 18) |
 
-## 8. Phase 2 readiness (after Phase 1B)
+## 8. Implementation (Phase 2)
+
+| Mechanism | Code | Proof |
+|---|---|---|
+| `Tenant` aggregate (status transitions, one primary domain, host normalization, reserved slugs, currency locked after activity) | `Souq.Domain.Platform.Tenant` / `TenantDomain` | `TenantTests` |
+| `ITenantOwned` on all nine business entities, including aggregate children | `Souq.Domain.Common.ITenantOwned` | `TenancyRuleTests` (every business entity; platform entities excluded) |
+| Request context, set once per scope; features read `ITenantContext` only | `Application/Common/Tenancy` (`TenantContext`, `TenantScope`, `RequireTenant`) | `TenantContextTests`, `TenancyRuleTests` |
+| Host resolution, dev conveniences, platform hosts, upload host check | `API/Tenancy/TenantResolutionMiddleware` + `TenancyOptions` | `TenantResolutionMiddlewareTests` (Production vs Development), `TenantResolutionTests` |
+| Store status and endpoint-area gating | `API/Tenancy/TenantAvailabilityMiddleware` + `[PlatformEndpoint]`, `[AvailableDuringProvisioning]`, `[AvailableWhenStoreClosed]` | `TenantResolutionTests` (suspended, provisioning, platform host) |
+| Token ↔ host binding (`tid`) | `API/Security/TenantTokenBinding` (JWT `OnTokenValidated`) | `TenantIsolationTests` (A's token on B's host → 401, both ways) |
+| Named query filter `"Tenant"` that throws without a tenant | `AppDbContext.ConfigureTenantOwned` (reflection) | `TenancyRuleTests` (every entity has it), `TenantIsolationTests` (no-tenant and platform scope throw) |
+| Write guard: stamp, reject cross-tenant writes, Critical log | `Persistence/Interceptors/TenantWriteGuardInterceptor` | `TenantIsolationTests` (modify foreign row; add with an explicit foreign tenant) |
+| Tenant-scoped composite FKs `(TenantId, XId) → (TenantId, Id)` | Entity configurations + migration | `TenancyRuleTests`; `TenantIsolationTests` (foreign category, parent, product, coupon, review rejected) |
+| Per-tenant uniqueness, `TenantId`-leading indexes | Configurations + `Phase2MultiTenancy` | `TenantIsolationTests` (same slug, code and email in two stores) |
+| Backfill to the default store "Marka Demo" (id 1) | `Phase2MultiTenancy` | `MigrationRehearsalTests` (Phase 1 data, no loss, no leftover default) |
+| Cached tenant directory (bounded, 60 s, generation invalidation) | `Infrastructure/Tenancy/TenantDirectory` | exercised by every integration test |
+| Background and seeding work inside one store | `Infrastructure/Tenancy/TenantScopes.RunAsync` | `DbSeeder` (default store) |
+| Tenant-prefixed storage `tenants/{id}/…` | `LocalFileStorage` | `LocalFileStorageTests`, `TenantIsolationTests` (A's file on B's host → 404) |
+| `TenantId` in every request log scope | `RequestLoggingMiddleware` | `TenantResolutionTests` |
+| Explicit store currency (`Money` has no default); `Order.Currency` snapshot | Domain + handlers | `ApplyCouponHandlerTests`, `CreateProductHandlerTests` |
+
+**Left for later phases, by design:**
+- Platform read use cases through a reviewed and audited `PlatformQueries` (Phase 4). The allowlist entry already exists in `TenancyRuleTests`.
+- Identity split, so that platform users have `TenantId NULL` (Phase 3).
+- Distributed cache invalidation when the app scales out (ADR-0022 §8).
+- Optional SQL Server Row-Level Security (Phase 20).
+
+### Phase 2 readiness (historical, written after Phase 1B)
 
 **Already in place — Phase 2 builds on these instead of inventing them:**
 

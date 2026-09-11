@@ -3,13 +3,16 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using AwesomeAssertions;
+using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
+using Souq.Application.Common.Tenancy;
 using Souq.Infrastructure.Persistence;
 
 namespace Souq.IntegrationTests.Infrastructure;
 
 // أدوات مشتركة لسيناريوهات HTTP: عملاء مصادَقون، إنشاء منتجات/طلبات، ووصول مباشر
-// للقاعدة للتحقّق مما خُزِّن فعلاً (لا ما أعلنه الـ API فقط).
+// للقاعدة للتحقّق مما خُزِّن فعلاً (لا ما أعلنه الـ API فقط). كل مثيل مربوط بمضيف متجر
+// واحد (المتجر الافتراضي على localhost ما لم يُستخدم ForStore) — كما يصل المتصفّح تماماً.
 public sealed class TestApi
 {
     public static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web)
@@ -18,16 +21,36 @@ public sealed class TestApi
     };
 
     private readonly SouqApiFactory _factory;
+    private readonly TestStore? _store;
+
     public TestApi(SouqApiFactory factory) => _factory = factory;
 
-    public HttpClient Anonymous() => _factory.CreateClient();
-
-    public async Task<HttpClient> AdminAsync() =>
-        await LoginAsync(SouqApiFactory.AdminEmail, SouqApiFactory.AdminPassword);
-
-    public async Task<(HttpClient Client, string Email)> NewCustomerAsync()
+    private TestApi(SouqApiFactory factory, TestStore store)
     {
-        var email = $"customer-{Guid.NewGuid():N}@souq.test";
+        _factory = factory; _store = store;
+    }
+
+    public string Host => _store?.Host ?? SouqApiFactory.DefaultHost;
+
+    public TestApi ForStore(TestStore store) => new(_factory, store);
+
+    public HttpClient Anonymous() => Client(Host);
+
+    // عميل على مضيف آخر بلا تغيير في المتجر المربوط — لاختبارات "توكن متجر على مضيف غيره".
+    public HttpClient Client(string host) =>
+        _factory.CreateClient(new WebApplicationFactoryClientOptions { BaseAddress = new Uri($"http://{host}/") });
+
+    public async Task<HttpClient> AdminAsync() => _store is null
+        ? await LoginAsync(SouqApiFactory.AdminEmail, SouqApiFactory.AdminPassword)
+        : await LoginAsync(_store.AdminEmail, _store.AdminPassword);
+
+    public async Task<string> AdminTokenAsync() => _store is null
+        ? await TokenAsync(SouqApiFactory.AdminEmail, SouqApiFactory.AdminPassword)
+        : await TokenAsync(_store.AdminEmail, _store.AdminPassword);
+
+    public async Task<(HttpClient Client, string Email)> NewCustomerAsync(string? email = null)
+    {
+        email ??= $"customer-{Guid.NewGuid():N}@souq.test";
         var response = await Anonymous().PostAsJsonAsync("/api/auth/register",
             new { fullName = "عميل اختبار", email, password = "Customer-Pass-1" });
         response.EnsureSuccessStatusCode();
@@ -35,18 +58,20 @@ public sealed class TestApi
         return (Authorized(auth!.Token), email);
     }
 
-    public async Task<HttpClient> LoginAsync(string email, string password)
+    public async Task<HttpClient> LoginAsync(string email, string password) =>
+        Authorized(await TokenAsync(email, password));
+
+    public async Task<string> TokenAsync(string email, string password)
     {
         var response = await Anonymous().PostAsJsonAsync("/api/auth/login", new { email, password });
         response.EnsureSuccessStatusCode();
-        var auth = await response.Content.ReadFromJsonAsync<AuthBody>(Json);
-        return Authorized(auth!.Token);
+        return (await response.Content.ReadFromJsonAsync<AuthBody>(Json))!.Token;
     }
 
     public async Task<int> CreateProductAsync(
         HttpClient admin, decimal price = 10m, int stock = 5, int? categoryId = null, string? name = null)
     {
-        categoryId ??= (await admin.GetFromJsonAsync<List<IdBody>>("/api/categories", Json))!.First().Id;
+        categoryId ??= await CreateCategoryAsync(admin);
         var response = await admin.PostAsJsonAsync("/api/products", new
         {
             nameAr = name ?? $"منتج {Guid.NewGuid():N}", description = "اختبار", price, stockQuantity = stock,
@@ -57,9 +82,9 @@ public sealed class TestApi
     }
 
     // فئة جديدة فريدة — تعزل قوائم اختبار عن بيانات الاختبارات الأخرى في القاعدة المشتركة.
-    public async Task<int> CreateCategoryAsync(HttpClient admin)
+    public async Task<int> CreateCategoryAsync(HttpClient admin, string? slug = null)
     {
-        var slug = $"it-{Guid.NewGuid():N}"[..24];
+        slug ??= $"it-{Guid.NewGuid():N}"[..24];
         var response = await admin.PostAsJsonAsync("/api/categories", new { name = $"فئة {slug}", slug });
         response.StatusCode.Should().Be(System.Net.HttpStatusCode.Created, await response.Content.ReadAsStringAsync());
         return (await response.Content.ReadFromJsonAsync<IdBody>(Json))!.Id;
@@ -72,15 +97,19 @@ public sealed class TestApi
             items = new[] { new { productId, quantity } },
         });
 
+    // وصول مباشر للقاعدة داخل متجر هذا المضيف (كما يراه طلب HTTP عليه).
     public async Task<T> WithDbAsync<T>(Func<AppDbContext, Task<T>> query)
     {
-        using var scope = _factory.Services.CreateScope();
+        await using var scope = await _factory.TenantScopeAsync(_store?.Tenant);
         return await query(scope.ServiceProvider.GetRequiredService<AppDbContext>());
     }
 
-    private HttpClient Authorized(string token)
+    public Task<TenantInfo> TenantAsync() =>
+        _store is null ? _factory.DefaultTenantAsync() : Task.FromResult(_store.Tenant);
+
+    public HttpClient Authorized(string token, string? host = null)
     {
-        var client = _factory.CreateClient();
+        var client = Client(host ?? Host);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
         return client;
     }

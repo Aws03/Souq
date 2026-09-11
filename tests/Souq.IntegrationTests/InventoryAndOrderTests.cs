@@ -30,8 +30,8 @@ public class InventoryAndOrderTests
         // Phase 0 C1: نسختان في الذاكرة رأتا مخزون 1 وأنقصتا معاً — بلا rowversion ينجح
         // الحفظان فتُباع الوحدة الأخيرة مرتين. الآن يرفض المحرّك الحفظ الثاني.
         var productId = await _api.CreateProductAsync(await _api.AdminAsync(), price: 10m, stock: 1);
-        using var firstScope = _factory.Services.CreateScope();
-        using var secondScope = _factory.Services.CreateScope();
+        await using var firstScope = await _factory.TenantScopeAsync();
+        await using var secondScope = await _factory.TenantScopeAsync();
         var first = firstScope.ServiceProvider.GetRequiredService<AppDbContext>();
         var second = secondScope.ServiceProvider.GetRequiredService<AppDbContext>();
 

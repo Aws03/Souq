@@ -502,6 +502,10 @@
       "PayloadTooLarge": "The request is too large.",
       "TooManyRequests": "Too many attempts. Please wait a moment and try again.",
       "ServiceUnavailable": "The service is temporarily unavailable.",
+      "StoreNotFound": "There is no store at this address.",
+      "StoreUnavailable": "This store is currently unavailable. Please try again later.",
+      "ReferenceConflict": "This action conflicts with related data.",
+      "InvalidTenantOperation": "This action isn't allowed for this store.",
       "ServerError": "An unexpected server error occurred."
     }
   }

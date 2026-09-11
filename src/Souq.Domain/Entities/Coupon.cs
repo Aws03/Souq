@@ -11,8 +11,9 @@ namespace Souq.Domain.Entities;
 // Order.ApplyCoupon، فالقاعدة "لا خصم يتجاوز الإجمالي" محروسة في مكانين مستقلّين
 // (دفاع في العمق)، لا لأن أحدهما لا يكفي، بل لأن كل كيان يحمي حدوده الخاصة.
 // ============================================================================
-public class Coupon : Entity
+public class Coupon : Entity, ITenantOwned
 {
+    public int TenantId { get; private set; }
     public string Code { get; private set; } = default!;
     public DiscountType Type { get; private set; }
     public decimal Value { get; private set; }              // نسبة 0-100 أو مبلغ ثابت حسب Type

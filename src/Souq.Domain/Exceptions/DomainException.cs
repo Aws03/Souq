@@ -58,3 +58,9 @@ public class InvalidMoneyException : DomainException
 {
     public InvalidMoneyException(string message) : base("InvalidMoney", message) { }
 }
+
+// خطأ: عملية غير مسموحة على متجر (انتقال حالة غير صالح، نطاق/معرّف/عملة غير صالحة).
+public class InvalidTenantOperationException : DomainException
+{
+    public InvalidTenantOperationException(string message) : base("InvalidTenantOperation", message) { }
+}

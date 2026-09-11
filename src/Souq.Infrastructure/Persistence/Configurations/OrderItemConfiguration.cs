@@ -19,10 +19,11 @@ public class OrderItemConfiguration : IEntityTypeConfiguration<OrderItem>
         builder.Ignore(i => i.LineTotal);   // محسوبة، لا تُخزّن
 
         // مرجع للمنتج الأصلي (رغم تجميد الاسم والسعر هنا). Restrict يمنع حذف منتج
-        // له مبيعات تاريخية — وهذا سبب إضافي لاعتماد الحذف المنطقي في Product.
+        // له مبيعات تاريخية — وهذا سبب إضافي لاعتماد الحذف المنطقي في Product. داخل المتجر فقط.
         builder.HasOne<Product>()
                .WithMany()
-               .HasForeignKey(i => i.ProductId)
+               .HasForeignKey(i => new { i.TenantId, i.ProductId })
+               .HasPrincipalKey(p => new { p.TenantId, p.Id })
                .OnDelete(DeleteBehavior.Restrict);
     }
 }

@@ -26,7 +26,7 @@ public class CreateOrderHandlerTests
 
     private CreateOrderHandler CreateHandler() =>
         new(_products, _orders, _customers, _coupons, _stockMovements, _payment,
-            new OrderStockRelease(_products, _stockMovements), TestCurrentUser.Customer(1), _uow, new FixedClock(),
+            new OrderStockRelease(_products, _stockMovements), TestCurrentUser.Customer(1), TestTenant.Context(), _uow, new FixedClock(),
             NullLogger<CreateOrderHandler>.Instance);
 
     private static Customer NewCustomer() => new("عميل", "customer@souq.com", "hash");
@@ -34,7 +34,7 @@ public class CreateOrderHandlerTests
     // product.Id، وتحرير المخزون يعيد تحميل المنتج بهذا المعرّف.
     private static Product NewProduct(int stock = 10)
     {
-        var product = new Product("سماعات لاسلكية", "وصف", new Money(50), stock, "headphones", categoryId: 1);
+        var product = new Product("سماعات لاسلكية", "وصف", new Money(50, "JOD"), stock, "headphones", categoryId: 1);
         typeof(Souq.Domain.Common.Entity).GetProperty("Id")!.SetValue(product, 1);
         return product;
     }

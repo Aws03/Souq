@@ -16,9 +16,15 @@ public class ReviewConfiguration : IEntityTypeConfiguration<Review>
         // أيضاً، لا فقط في Application — دفاع في العمق).
         builder.HasIndex(r => new { r.CustomerId, r.ProductId }).IsUnique();
 
-        // Restrict على الجميع: تقييم يبقى سجلّاً تاريخياً، لا يُحذف بحذف مرجعه.
-        builder.HasOne<Product>().WithMany().HasForeignKey(r => r.ProductId).OnDelete(DeleteBehavior.Restrict);
-        builder.HasOne<Customer>().WithMany().HasForeignKey(r => r.CustomerId).OnDelete(DeleteBehavior.Restrict);
-        builder.HasOne<Order>().WithMany().HasForeignKey(r => r.OrderId).OnDelete(DeleteBehavior.Restrict);
+        // Restrict على الجميع: تقييم يبقى سجلّاً تاريخياً، لا يُحذف بحذف مرجعه. كل مرجع داخل المتجر.
+        builder.HasOne<Product>().WithMany()
+               .HasForeignKey(r => new { r.TenantId, r.ProductId }).HasPrincipalKey(p => new { p.TenantId, p.Id })
+               .OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<Customer>().WithMany()
+               .HasForeignKey(r => new { r.TenantId, r.CustomerId }).HasPrincipalKey(c => new { c.TenantId, c.Id })
+               .OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<Order>().WithMany()
+               .HasForeignKey(r => new { r.TenantId, r.OrderId }).HasPrincipalKey(o => new { o.TenantId, o.Id })
+               .OnDelete(DeleteBehavior.Restrict);
     }
 }
