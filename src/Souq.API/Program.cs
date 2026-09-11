@@ -2,14 +2,17 @@ using System.Security.Claims;
 using System.Text;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Souq.API.Http;
 using Souq.API.Middleware;
+using Souq.API.Security;
 using Souq.Application;
 using Souq.Application.Common.Interfaces;
+using Souq.Application.Common.Security;
 using Souq.Infrastructure;
 using Souq.Infrastructure.Persistence;
 using Souq.Infrastructure.Services;
@@ -73,7 +76,13 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ClockSkew = TimeSpan.FromSeconds(30),   // هامش ضيّق بدل 5 دقائق افتراضية
         };
     });
+// ── التفويض بالصلاحيات (ADR-0019): [HasPermission] ⇒ سياسة تُبنى من اسمها، والقرار من
+// RolePermissions. ICurrentUser: منفذ Application يُقرأ من مطالبات التوكن هنا فقط. ──
 builder.Services.AddAuthorization();
+builder.Services.AddSingleton<IAuthorizationPolicyProvider, PermissionPolicyProvider>();
+builder.Services.AddSingleton<IAuthorizationHandler, PermissionAuthorizationHandler>();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<ICurrentUser, HttpCurrentUser>();
 
 builder.Services.AddEndpointsApiExplorer();
 

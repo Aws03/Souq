@@ -7,20 +7,34 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http.Metadata;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
-using Souq.Domain.Common;
+using Souq.API.Security;
+using Souq.Application.Common.Security;
 using Souq.IntegrationTests.Infrastructure;
 
 namespace Souq.IntegrationTests;
 
 // ============================================================================
 // حدود الصلاحيات تُثبَت بالـ HTTP الحقيقي (المصادقة + الوسطاء + السمات) لا بالافتراض.
-// الاختبار الأول يكتشف كل نقطة إدارية من بيانات التوجيه نفسها — أي نقطة جديدة تُضاف
-// لاحقاً تُغطّى تلقائياً، فلا يُنسى حماية نقطة إدارية جديدة. في المرحلة 2 يُضاف
-// لنفس النمط عزل المستأجرين (مستأجر B يطلب موارد A ⇒ 404).
+// النقاط تُكتشف من بيانات التوجيه نفسها — أي نقطة جديدة تُغطّى تلقائياً:
+//   • كل نقطة تعلن قرارها صراحةً (عامة / مُصادَقة / صلاحية) — لا نقطة عامة بالنسيان.
+//   • النقاط العامة قائمة مراجَعة هنا؛ جعل نقطة عامة قرار واعٍ يعدّل هذه القائمة.
+//   • كل نقطة بصلاحية: زائر ⇒ 401، عميل ⇒ 403.
+// في المرحلة 2 يُضاف لنفس النمط عزل المستأجرين (مستأجر B يطلب موارد A ⇒ 404).
 // ============================================================================
 [Collection(IntegrationCollection.Name)]
 public class AuthorizationBoundaryTests
 {
+    private static readonly HashSet<string> ReviewedPublicEndpoints = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "POST api/Auth/register", "POST api/Auth/login", "POST api/Auth/forgot-password", "POST api/Auth/reset-password",
+        "GET api/Products", "GET api/Products/{id:int}", "GET api/Products/{id:int}/related",
+        "GET api/Categories",
+        "GET api/Coupons/apply",
+        "GET api/products/{productId:int}/reviews",
+        "GET api/Orders/{id:int}/tracking",
+        "GET api/payments/config", "POST api/payments/webhook",
+    };
+
     private readonly SouqApiFactory _factory;
     private readonly TestApi _api;
 
@@ -31,21 +45,65 @@ public class AuthorizationBoundaryTests
     }
 
     [Fact]
-    public async Task كل_نقطة_إدارية_ترفض_الزائر_بـ_401_والعميل_بـ_403()
+    public async Task كل_نقطة_محمية_بصلاحية_ترفض_الزائر_بـ_401_والعميل_بـ_403()
     {
         var anonymous = _api.Anonymous(); // يُقلع الخادم ليُبنى جدول التوجيه
         var (customer, _) = await _api.NewCustomerAsync();
 
-        var adminEndpoints = AdminOnlyEndpoints().ToList();
-        adminEndpoints.Should().HaveCountGreaterThanOrEqualTo(15, "يجب ألّا ينجح الاختبار فارغاً");
+        var protectedEndpoints = Endpoints()
+            .Where(e => !e.AllowsAnonymous && e.Policies.Any(IsPermissionPolicy))
+            .SelectMany(e => e.Methods.Select(method => (Method: method, Url: SampleUrl(e.Route), e.ContentType)))
+            .ToList();
+        protectedEndpoints.Should().HaveCountGreaterThanOrEqualTo(15, "يجب ألّا ينجح الاختبار فارغاً");
 
-        foreach (var (method, url, contentType) in adminEndpoints)
+        foreach (var (method, url, contentType) in protectedEndpoints)
         {
             (await Send(anonymous, method, url, contentType)).StatusCode
                 .Should().Be(HttpStatusCode.Unauthorized, $"{method} {url} للزائر");
             (await Send(customer, method, url, contentType)).StatusCode
                 .Should().Be(HttpStatusCode.Forbidden, $"{method} {url} للعميل");
         }
+    }
+
+    [Fact]
+    public void كل_نقطة_تعلن_قرار_صلاحيتها_صراحةً()
+    {
+        _api.Anonymous();
+
+        var undecided = Endpoints()
+            .Where(e => !e.AllowsAnonymous && !e.HasAuthorizeData)
+            .SelectMany(e => e.Methods.Select(m => $"{m} {e.Route}"))
+            .ToList();
+
+        undecided.Should().BeEmpty("كل نقطة إمّا [AllowAnonymous] أو [Authorize]/[HasPermission]");
+    }
+
+    [Fact]
+    public void النقاط_العامة_هي_القائمة_المراجَعة_فقط()
+    {
+        _api.Anonymous();
+
+        var publicEndpoints = Endpoints()
+            .Where(e => e.AllowsAnonymous)
+            .SelectMany(e => e.Methods.Select(m => $"{m} {e.Route}"))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        publicEndpoints.Should().BeEquivalentTo(ReviewedPublicEndpoints);
+    }
+
+    [Fact]
+    public void كل_صلاحية_معلنة_على_نقطة_معرّفة_في_جدول_الصلاحيات()
+    {
+        _api.Anonymous();
+
+        var declared = _factory.Services.GetRequiredService<EndpointDataSource>().Endpoints
+            .SelectMany(e => e.Metadata.GetOrderedMetadata<HasPermissionAttribute>())
+            .Select(a => a.Permission)
+            .Distinct()
+            .ToList();
+
+        declared.Should().NotBeEmpty();
+        declared.Should().OnlyContain(p => Permissions.All.Contains(p));
     }
 
     [Fact]
@@ -64,6 +122,7 @@ public class AuthorizationBoundaryTests
         (await intruder.PostAsync($"/api/orders/{orderId}/confirm-payment", null)).StatusCode
             .Should().Be(HttpStatusCode.NotFound);
         (await owner.GetAsync($"/api/orders/{orderId}")).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await admin.GetAsync($"/api/orders/{orderId}")).StatusCode.Should().Be(HttpStatusCode.OK);
     }
 
     [Fact]
@@ -80,24 +139,30 @@ public class AuthorizationBoundaryTests
         secondOrders.Should().BeEmpty();
     }
 
-    private IEnumerable<(string Method, string Url, string? ContentType)> AdminOnlyEndpoints()
-    {
-        var endpoints = _factory.Services.GetRequiredService<EndpointDataSource>().Endpoints.OfType<RouteEndpoint>();
-        foreach (var endpoint in endpoints)
-        {
-            var requiresAdmin = endpoint.Metadata.GetOrderedMetadata<IAuthorizeData>()
-                .Any(a => a.Roles?.Split(',').Contains(Roles.Admin) == true);
-            var allowsAnonymous = endpoint.Metadata.GetMetadata<IAllowAnonymous>() is not null;
-            if (!requiresAdmin || allowsAnonymous) continue;
+    private sealed record EndpointInfo(
+        string Route, IReadOnlyList<string> Methods, bool AllowsAnonymous, bool HasAuthorizeData,
+        IReadOnlyList<string> Policies, string? ContentType);
 
-            var url = "/" + Regex.Replace(endpoint.RoutePattern.RawText!, @"\{[^}]+\}", "1");
-            // نقاط الرفع تقبل multipart فقط: نرسل النوع الذي تعلنه كي يصل الطلب لطبقة
-            // الصلاحيات نفسها — وإلا رُفض بـ 415 أثناء اختيار النقطة قبل أي فحص صلاحية.
-            var contentType = endpoint.Metadata.GetMetadata<IAcceptsMetadata>()?.ContentTypes.FirstOrDefault();
-            foreach (var method in endpoint.Metadata.GetMetadata<HttpMethodMetadata>()?.HttpMethods ?? ["GET"])
-                yield return (method, url, contentType);
-        }
-    }
+    private IEnumerable<EndpointInfo> Endpoints() =>
+        _factory.Services.GetRequiredService<EndpointDataSource>().Endpoints.OfType<RouteEndpoint>()
+            .Select(e =>
+            {
+                var authorizeData = e.Metadata.GetOrderedMetadata<IAuthorizeData>();
+                return new EndpointInfo(
+                    e.RoutePattern.RawText!,
+                    e.Metadata.GetMetadata<HttpMethodMetadata>()?.HttpMethods.ToList() ?? ["GET"],
+                    e.Metadata.GetMetadata<IAllowAnonymous>() is not null,
+                    authorizeData.Count > 0,
+                    authorizeData.Select(a => a.Policy).OfType<string>().ToList(),
+                    // نقاط الرفع تقبل multipart فقط: نرسل النوع الذي تعلنه كي يصل الطلب لطبقة
+                    // الصلاحيات نفسها — وإلا رُفض بـ 415 أثناء اختيار النقطة قبل أي فحص صلاحية.
+                    e.Metadata.GetMetadata<IAcceptsMetadata>()?.ContentTypes.FirstOrDefault());
+            });
+
+    private static bool IsPermissionPolicy(string policy) =>
+        policy.StartsWith(HasPermissionAttribute.PolicyPrefix, StringComparison.Ordinal);
+
+    private static string SampleUrl(string route) => "/" + Regex.Replace(route, @"\{[^}]+\}", "1");
 
     private static Task<HttpResponseMessage> Send(HttpClient client, string method, string url, string? contentType)
     {

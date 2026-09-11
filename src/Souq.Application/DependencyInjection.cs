@@ -33,6 +33,8 @@ public static class DependencyInjection
         // خدمة تطبيق مشتركة بين مسارَي الإلغاء (الإدارة + تعويض الدفع) — صنف ملموس
         // بلا واجهة: لا تنفيذ بديل له، فالواجهة ستكون تجريداً بلا سبب.
         services.AddScoped<Features.Orders.OrderStockRelease>();
+        // منطق تأكيد الدفع الواحد لمدخلين بتفويض مختلف (العميل المالك / توقيع البوّابة).
+        services.AddScoped<Features.Orders.OrderPaymentConfirmation>();
 
         return services;
     }

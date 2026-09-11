@@ -3,11 +3,11 @@ using Souq.Application.Common.Models;
 
 namespace Souq.Application.Features.Orders.Commands;
 
-// الأمر يحمل ما يحتاجه إنشاء الطلب: العميل، العنوان، الأسطر المطلوبة، وكوبون
-// اختياري. لا رمز دفع هنا — Stripe.js يتولّى تفاصيل البطاقة مباشرة من المتصفّح؛
-// هذا الأمر ينشئ الطلب Pending فقط ويعيد نيّة دفع (ClientSecret) للواجهة.
+// الأمر يحمل ما يحتاجه إنشاء الطلب: العنوان، الأسطر المطلوبة، وكوبون اختياري. لا معرّف
+// عميل: العميل هو المستخدم الحالي (ICurrentUser) دائماً — حقل في الجسم كان يمكن التلاعب به
+// لو نسي Controller استبداله. لا رمز دفع هنا — Stripe.js يتولّى تفاصيل البطاقة مباشرة من
+// المتصفّح؛ هذا الأمر ينشئ الطلب Pending فقط ويعيد نيّة دفع (ClientSecret) للواجهة.
 public record CreateOrderCommand(
-    int CustomerId,
     string ShippingAddress,
     List<OrderLineInput> Items,
     string? CouponCode

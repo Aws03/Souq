@@ -26,7 +26,8 @@ public class CreateOrderHandlerTests
 
     private CreateOrderHandler CreateHandler() =>
         new(_products, _orders, _customers, _coupons, _stockMovements, _payment,
-            new OrderStockRelease(_products, _stockMovements), _uow, new FixedClock(), NullLogger<CreateOrderHandler>.Instance);
+            new OrderStockRelease(_products, _stockMovements), TestCurrentUser.Customer(1), _uow, new FixedClock(),
+            NullLogger<CreateOrderHandler>.Instance);
 
     private static Customer NewCustomer() => new("عميل", "customer@souq.com", "hash");
     // المعرّف 1 يطابق ProductId في الأمر (كما بعد الحفظ فعلياً) — أسطر الطلب تحمل
@@ -38,8 +39,8 @@ public class CreateOrderHandlerTests
         return product;
     }
 
+    // العميل يأتي من ICurrentUser (العميل 1 في CreateHandler) — الأمر لا يحمل معرّفه.
     private static CreateOrderCommand NewCommand(int quantity = 1, string? couponCode = null) => new(
-        CustomerId: 1,
         ShippingAddress: "عمّان",
         Items: new List<OrderLineInput> { new(ProductId: 1, quantity) },
         CouponCode: couponCode);

@@ -2,17 +2,19 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Souq.API.Http;
+using Souq.API.Security;
 using Souq.Application.Common.Models;
+using Souq.Application.Common.Security;
 using Souq.Application.Features.Products.Commands;
 using Souq.Application.Features.Products.Queries;
-using Souq.Domain.Common;
 using Souq.Domain.Enums;
 
 namespace Souq.API.Controllers;
 
 // ============================================================================
 // ProductsController — "Thin Controller". لا منطق أعمال هنا إطلاقاً. مهمته الوحيدة:
-// ترجمة طلب HTTP → رسالة MediatR، ثم ترجمة النتيجة → استجابة HTTP.
+// ترجمة طلب HTTP → رسالة MediatR، ثم ترجمة النتيجة → استجابة HTTP. قرار الصلاحية معلن
+// صراحةً على كل نقطة: عامة ([AllowAnonymous]) أو صلاحية (HasPermission) — اختبار يرفض غير ذلك.
 // ============================================================================
 [ApiController]
 [Route("api/[controller]")]
@@ -25,6 +27,7 @@ public class ProductsController : ControllerBase
     // categoryIds تتكرّر كمفتاح لكل فئة (الربط القياسي لـ List<int>). المدخلات تُتحقَّق
     // في GetProductsQueryValidator (صفحة ≥ 1، حجم 1–100) ⇒ 400 بدل خطأ SQL.
     [HttpGet]
+    [AllowAnonymous]
     public async Task<IActionResult> GetAll(
         [FromQuery] string? keyword, [FromQuery] List<int>? categoryIds,
         [FromQuery] decimal? minPrice, [FromQuery] decimal? maxPrice,
@@ -35,23 +38,25 @@ public class ProductsController : ControllerBase
 
     // GET /api/products/5
     [HttpGet("{id:int}")]
+    [AllowAnonymous]
     public async Task<IActionResult> GetById(int id)
     {
         var result = await _mediator.Send(new GetProductByIdQuery(id));
         return result.IsSuccess ? Ok(result.Value) : this.Failure(result);
     }
 
-    // GET /api/products/5/related — منتجات ذات صلة. عامة بلا مصادقة مثل GetById.
+    // GET /api/products/5/related — منتجات ذات صلة.
     [HttpGet("{id:int}/related")]
+    [AllowAnonymous]
     public async Task<IActionResult> GetRelated(int id, [FromQuery] int count = 6)
     {
         var result = await _mediator.Send(new GetRelatedProductsQuery(id, count));
         return result.IsSuccess ? Ok(result.Value) : this.Failure(result);
     }
 
-    // POST /api/products  (للمدير) — ينشئ منتجاً.
+    // POST /api/products — ينشئ منتجاً.
     [HttpPost]
-    [Authorize(Roles = Roles.Admin)]
+    [HasPermission(Permissions.Catalog.Manage)]
     public async Task<IActionResult> Create([FromBody] CreateProductCommand command)
     {
         var result = await _mediator.Send(command);
@@ -60,30 +65,30 @@ public class ProductsController : ControllerBase
         return CreatedAtAction(nameof(GetById), new { id = result.Value }, new { id = result.Value });
     }
 
-    // PUT /api/products/5  (للمدير). معرّف المسار هو مصدر الحقيقة لا جسم الطلب. تعديل
-    // مخزون من نموذج قديم ⇒ 409 (compare-and-set عبر expectedStockQuantity).
+    // PUT /api/products/5 — معرّف المسار هو مصدر الحقيقة لا جسم الطلب. تعديل مخزون من
+    // نموذج قديم ⇒ 409 StockChanged (compare-and-set عبر expectedStockQuantity).
     [HttpPut("{id:int}")]
-    [Authorize(Roles = Roles.Admin)]
+    [HasPermission(Permissions.Catalog.Manage)]
     public async Task<IActionResult> Update(int id, [FromBody] UpdateProductCommand command)
     {
         var result = await _mediator.Send(command with { Id = id });
         return result.IsSuccess ? NoContent() : this.Failure(result);
     }
 
-    // DELETE /api/products/5  (للمدير) — حذف منطقي (تعطيل) للمنتج.
+    // DELETE /api/products/5 — حذف منطقي (تعطيل) للمنتج.
     [HttpDelete("{id:int}")]
-    [Authorize(Roles = Roles.Admin)]
+    [HasPermission(Permissions.Catalog.Manage)]
     public async Task<IActionResult> Delete(int id)
     {
         var result = await _mediator.Send(new DeleteProductCommand(id));
         return result.IsSuccess ? NoContent() : this.Failure(result);
     }
 
-    // POST /api/products/5/image  (للمدير) — multipart/form-data. هنا اهتمامات HTTP فقط
-    // (وجود الملف + سقف حجم الطلب)؛ نوع الملف الحقيقي يُكشف من محتواه في حالة
-    // الاستخدام — Content-Type واسم الملف القادمان من العميل لا يُستخدمان (ADR-0016).
+    // POST /api/products/5/image — multipart/form-data. هنا اهتمامات HTTP فقط (وجود الملف +
+    // سقف حجم الطلب)؛ نوع الملف الحقيقي يُكشف من محتواه في حالة الاستخدام — Content-Type
+    // واسم الملف القادمان من العميل لا يُستخدمان (ADR-0016).
     [HttpPost("{id:int}/image")]
-    [Authorize(Roles = Roles.Admin)]
+    [HasPermission(Permissions.Catalog.Manage)]
     [RequestSizeLimit(6 * 1024 * 1024)]
     public async Task<IActionResult> UploadImage(int id, IFormFile file)
     {
@@ -95,9 +100,9 @@ public class ProductsController : ControllerBase
         return result.IsSuccess ? Ok(new { imageUrl = result.Value }) : this.Failure(result);
     }
 
-    // POST /api/products/5/video  (للمدير) — نفس منهج UploadImage تماماً.
+    // POST /api/products/5/video — نفس منهج UploadImage تماماً.
     [HttpPost("{id:int}/video")]
-    [Authorize(Roles = Roles.Admin)]
+    [HasPermission(Permissions.Catalog.Manage)]
     [RequestSizeLimit(55 * 1024 * 1024)]
     public async Task<IActionResult> UploadVideo(int id, IFormFile file)
     {

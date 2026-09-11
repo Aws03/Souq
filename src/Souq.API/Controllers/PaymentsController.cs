@@ -1,4 +1,5 @@
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Souq.API.Http;
 using Souq.Application.Features.Orders.Commands;
@@ -15,6 +16,7 @@ namespace Souq.API.Controllers;
 // ============================================================================
 [ApiController]
 [Route("api/payments")]
+[AllowAnonymous] // مقصود: المفتاح العلني ليس سرّاً، والـ Webhook مُصادَق بتوقيع البوّابة لا بتوكن.
 public class PaymentsController : ControllerBase
 {
     private readonly IMediator _mediator;

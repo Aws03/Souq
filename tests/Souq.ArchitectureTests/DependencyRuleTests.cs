@@ -62,6 +62,18 @@ public class DependencyRuleTests
     }
 
     [Fact]
+    public void Controllers_لا_تقرأ_مطالبات_التوكن_ولا_تقرّر_الملكية()
+    {
+        // Phase 0 B7: كان OrdersController يحلّل المطالبات ويقارن CustomerId بنفسه. الهوية الآن
+        // عبر ICurrentUser (محوّل واحد في Souq.API.Security) والملكية في حالات الاستخدام.
+        var result = Types.InAssembly(Api).That().ResideInNamespace("Souq.API.Controllers")
+            .ShouldNot().HaveDependencyOnAny("System.Security.Claims", "Souq.Domain.Common")
+            .GetResult();
+
+        result.IsSuccessful.Should().BeTrue(Describe(result));
+    }
+
+    [Fact]
     public void Controllers_لا_تستقبل_كيانات_المجال_مباشرة()
     {
         // الكيانات ليست عقود API: تستقبل الـ Controllers أوامر/طلبات (DTOs) فقط.

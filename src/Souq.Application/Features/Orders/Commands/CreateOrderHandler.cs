@@ -2,6 +2,7 @@ using MediatR;
 using Microsoft.Extensions.Logging;
 using Souq.Application.Common.Interfaces;
 using Souq.Application.Common.Models;
+using Souq.Application.Common.Security;
 using Souq.Domain.Entities;
 using Souq.Domain.Enums;
 using Souq.Domain.Interfaces;
@@ -33,6 +34,7 @@ public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, Result<Ord
     private readonly IStockMovementRepository _stockMovements;
     private readonly IPaymentService _payment;
     private readonly OrderStockRelease _stockRelease;
+    private readonly ICurrentUser _currentUser;
     private readonly IUnitOfWork _uow;
     private readonly TimeProvider _clock;
     private readonly ILogger<CreateOrderHandler> _logger;
@@ -40,17 +42,19 @@ public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, Result<Ord
     public CreateOrderHandler(
         IProductRepository products, IOrderRepository orders, ICustomerRepository customers,
         ICouponRepository coupons, IStockMovementRepository stockMovements,
-        IPaymentService payment, OrderStockRelease stockRelease, IUnitOfWork uow,
-        TimeProvider clock, ILogger<CreateOrderHandler> logger)
+        IPaymentService payment, OrderStockRelease stockRelease, ICurrentUser currentUser,
+        IUnitOfWork uow, TimeProvider clock, ILogger<CreateOrderHandler> logger)
     {
         _products = products; _orders = orders; _customers = customers;
         _coupons = coupons; _stockMovements = stockMovements; _payment = payment;
-        _stockRelease = stockRelease; _uow = uow; _clock = clock; _logger = logger;
+        _stockRelease = stockRelease; _currentUser = currentUser; _uow = uow; _clock = clock; _logger = logger;
     }
 
     public async Task<Result<OrderCreatedDto>> Handle(CreateOrderCommand cmd, CancellationToken ct)
     {
-        var customer = await _customers.GetByIdAsync(cmd.CustomerId, ct);
+        // العميل هو المستخدم الحالي دائماً — الأمر لا يحمل معرّف عميل يمكن التلاعب به (B7).
+        var customerId = _currentUser.RequireUserId();
+        var customer = await _customers.GetByIdAsync(customerId, ct);
         if (customer is null)
             // توكن صالح لحساب لم يعد موجوداً ⇒ الهوية نفسها لم تعد صالحة (401 ⇒ إعادة دخول).
             return Result<OrderCreatedDto>.Failure(Error.Unauthorized("CustomerNotFound", "العميل غير موجود"));
@@ -83,7 +87,7 @@ public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, Result<Ord
         }
 
         // (3) خطّة التنفيذ: كل شيء صالح الآن — ننقص المخزون فعلياً ونبني الطلب.
-        var order = new Order(cmd.CustomerId, cmd.ShippingAddress);
+        var order = new Order(customerId, cmd.ShippingAddress);
         foreach (var (product, quantity) in lines)
         {
             product.DecreaseStock(quantity);

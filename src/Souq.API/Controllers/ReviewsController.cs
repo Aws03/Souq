@@ -1,4 +1,3 @@
-using System.Security.Claims;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -17,22 +16,21 @@ public class ReviewsController : ControllerBase
 
     // GET /api/products/5/reviews — عام: قائمة التقييمات + المتوسط.
     [HttpGet]
+    [AllowAnonymous]
     public async Task<IActionResult> GetAll(int productId, [FromQuery] int page = 1, [FromQuery] int pageSize = 10)
         => Ok(await _mediator.Send(new GetProductReviewsQuery(productId, page, pageSize)));
 
-    // POST /api/products/5/reviews — يتطلّب تسجيل الدخول. هويّة العميل من التوكن،
-    // لا من الجسم (نفس مبدأ الطلبات: لا انتحال تقييمات باسم عميل آخر).
+    // POST /api/products/5/reviews — يتطلّب تسجيل الدخول. المقيِّم هو المستخدم الحالي في
+    // حالة الاستخدام (ICurrentUser) — لا انتحال تقييمات باسم عميل آخر.
     [HttpPost]
     [Authorize]
     public async Task<IActionResult> Create(int productId, [FromBody] CreateReviewRequest body)
     {
-        var result = await _mediator.Send(new CreateReviewCommand(productId, CurrentUserId(), body.Rating, body.Comment));
+        var result = await _mediator.Send(new CreateReviewCommand(productId, body.Rating, body.Comment));
         if (!result.IsSuccess)
             return this.Failure(result);
         return StatusCode(StatusCodes.Status201Created, new { id = result.Value });
     }
-
-    private int CurrentUserId() => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 }
 
 public record CreateReviewRequest(int Rating, string Comment);

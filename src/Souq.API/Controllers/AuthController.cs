@@ -1,4 +1,5 @@
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Souq.API.Http;
 using Souq.Application.Features.Auth.Commands;
@@ -10,6 +11,7 @@ namespace Souq.API.Controllers;
 // بريد مكرّر ⇒ 409، بيانات دخول خاطئة ⇒ 401 (نوع الخطأ يقرّر، لا هذا الـ Controller).
 [ApiController]
 [Route("api/[controller]")]
+[AllowAnonymous] // مقصود: من لم يسجّل الدخول بعد لا يملك توكناً.
 public class AuthController : ControllerBase
 {
     private readonly IMediator _mediator;

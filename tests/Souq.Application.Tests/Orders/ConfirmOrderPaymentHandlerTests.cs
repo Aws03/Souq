@@ -3,8 +3,10 @@ using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 using Souq.Application.Common.Exceptions;
 using Souq.Application.Common.Interfaces;
+using Souq.Application.Common.Security;
 using Souq.Application.Features.Orders;
 using Souq.Application.Features.Orders.Commands;
+using Souq.Application.Tests.TestDoubles;
 using Souq.Domain.Entities;
 using Souq.Domain.Enums;
 using Souq.Domain.Interfaces;
@@ -14,6 +16,7 @@ namespace Souq.Application.Tests.Orders;
 
 // الخطوة الثانية من الدفع: التحقّق من النتيجة لدى البوّابة نفسها، تعويض الفشل (إعادة
 // مخزون بأثر في السجلّ + إلغاء) أو إتمام النجاح — بضمان عدم التكرار حتى تحت السباق.
+// الملكية تُفحص في حالة الاستخدام (Phase 0 B7): لا يؤكّد عميل طلب غيره ولا يُلغيه.
 public class ConfirmOrderPaymentHandlerTests
 {
     private readonly IOrderRepository _orders = Substitute.For<IOrderRepository>();
@@ -25,8 +28,12 @@ public class ConfirmOrderPaymentHandlerTests
     private readonly IEmailService _email = Substitute.For<IEmailService>();
     private readonly IUnitOfWork _uow = Substitute.For<IUnitOfWork>();
 
-    private ConfirmOrderPaymentHandler CreateHandler() =>
-        new(_orders, new OrderStockRelease(_products, _movements), _customers, _coupons, _payment, _email, _uow);
+    // الطلبات في هذه الاختبارات يملكها العميل 1 (انظر PendingOrderWithIntent).
+    private ConfirmOrderPaymentHandler CreateHandler(ICurrentUser? user = null) => new(
+        _orders,
+        new OrderPaymentConfirmation(_orders, new OrderStockRelease(_products, _movements),
+            _customers, _coupons, _payment, _email, _uow),
+        user ?? TestCurrentUser.Customer(1));
 
     private static Order PendingOrderWithIntent(string paymentIntentId = "pi_123", int quantity = 2)
     {
@@ -45,6 +52,36 @@ public class ConfirmOrderPaymentHandlerTests
 
         result.IsSuccess.Should().BeFalse();
         result.ErrorCode.Should().Be("NotFound");
+    }
+
+    [Fact]
+    public async Task عميل_آخر_لا_يؤكّد_ولا_يُلغي_طلباً_لا_يملكه_ويرى_404()
+    {
+        // بلا هذا الفحص كان يكفي عميلاً آخر استدعاء التأكيد قبل اكتمال دفع صاحب الطلب:
+        // البوّابة تقول "لم يكتمل" ⇒ يُلغى الطلب ويُحرَّر مخزونه. الآن لا يُلمس شيء.
+        var order = PendingOrderWithIntent();
+        _orders.GetWithItemsAsync(1, Arg.Any<CancellationToken>()).Returns(order);
+
+        var result = await CreateHandler(TestCurrentUser.Customer(2))
+            .Handle(new ConfirmOrderPaymentCommand(1), CancellationToken.None);
+
+        result.ErrorCode.Should().Be("NotFound");
+        order.Status.Should().Be(OrderStatus.Pending);
+        await _payment.DidNotReceive().ConfirmAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await _uow.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task مدير_الطلبات_يستطيع_تأكيد_أي_طلب()
+    {
+        var order = PendingOrderWithIntent();
+        _orders.GetWithItemsAsync(1, Arg.Any<CancellationToken>()).Returns(order);
+        _payment.ConfirmAsync("pi_123", Arg.Any<CancellationToken>()).Returns(new PaymentConfirmationResult(true, null));
+
+        var result = await CreateHandler(TestCurrentUser.Admin()).Handle(new ConfirmOrderPaymentCommand(1), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        order.Status.Should().Be(OrderStatus.Paid);
     }
 
     [Fact]

@@ -3,9 +3,10 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Souq.API.Http;
+using Souq.API.Security;
+using Souq.Application.Common.Security;
 using Souq.Application.Features.Categories.Commands;
 using Souq.Application.Features.Categories.Queries;
-using Souq.Domain.Common;
 
 namespace Souq.API.Controllers;
 
@@ -18,30 +19,31 @@ public class CategoriesController : ControllerBase
 
     // GET /api/categories — عام (يحتاجه المتجر لعرض الفئات).
     [HttpGet]
+    [AllowAnonymous]
     public async Task<IActionResult> GetAll()
         => Ok(await _mediator.Send(new GetCategoriesQuery()));
 
-    // POST /api/categories  (مدير) — ينشئ فئة.
+    // POST /api/categories — ينشئ فئة.
     [HttpPost]
-    [Authorize(Roles = Roles.Admin)]
+    [HasPermission(Permissions.Catalog.Manage)]
     public async Task<IActionResult> Create([FromBody] CreateCategoryCommand command)
     {
         var result = await _mediator.Send(command);
         return result.IsSuccess ? StatusCode(StatusCodes.Status201Created, new { id = result.Value }) : this.Failure(result);
     }
 
-    // PUT /api/categories/5  (مدير) — يفرض معرّف المسار على الأمر.
+    // PUT /api/categories/5 — يفرض معرّف المسار على الأمر.
     [HttpPut("{id:int}")]
-    [Authorize(Roles = Roles.Admin)]
+    [HasPermission(Permissions.Catalog.Manage)]
     public async Task<IActionResult> Update(int id, [FromBody] UpdateCategoryCommand command)
     {
         var result = await _mediator.Send(command with { Id = id });
         return result.IsSuccess ? NoContent() : this.Failure(result);
     }
 
-    // DELETE /api/categories/5  (مدير) — حذف محروس (لا فئة مستخدمة/لها أبناء).
+    // DELETE /api/categories/5 — حذف محروس (لا فئة مستخدمة/لها أبناء ⇒ 409).
     [HttpDelete("{id:int}")]
-    [Authorize(Roles = Roles.Admin)]
+    [HasPermission(Permissions.Catalog.Manage)]
     public async Task<IActionResult> Delete(int id)
     {
         var result = await _mediator.Send(new DeleteCategoryCommand(id));

@@ -1,8 +1,8 @@
 using MediatR;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Souq.API.Security;
+using Souq.Application.Common.Security;
 using Souq.Application.Features.Inventory.Queries;
-using Souq.Domain.Common;
 
 namespace Souq.API.Controllers;
 
@@ -13,7 +13,7 @@ namespace Souq.API.Controllers;
 // ============================================================================
 [ApiController]
 [Route("api/admin/inventory")]
-[Authorize(Roles = Roles.Admin)]
+[HasPermission(Permissions.Inventory.View)]
 public class AdminInventoryController : ControllerBase
 {
     private readonly IMediator _mediator;

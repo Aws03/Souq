@@ -1,20 +1,24 @@
 using AwesomeAssertions;
 using NSubstitute;
+using Souq.Application.Common.Exceptions;
 using Souq.Application.Features.Reviews.Commands;
+using Souq.Application.Tests.TestDoubles;
 using Souq.Domain.Entities;
 using Souq.Domain.Interfaces;
 using Souq.Domain.ValueObjects;
 
 namespace Souq.Application.Tests.Reviews;
 
-// يغطّي القاعدة الأهم في هذه الميزة: لا تقييم بلا طلب مُسلَّم فعلياً يحوي المنتج.
+// يغطّي القاعدة الأهم في هذه الميزة: لا تقييم بلا طلب مُسلَّم فعلياً يحوي المنتج. المقيِّم هو
+// المستخدم الحالي دائماً (ICurrentUser) — الأمر لا يحمل معرّف عميل.
 public class CreateReviewHandlerTests
 {
     private readonly IReviewRepository _reviews = Substitute.For<IReviewRepository>();
     private readonly IOrderRepository _orders = Substitute.For<IOrderRepository>();
     private readonly IUnitOfWork _uow = Substitute.For<IUnitOfWork>();
 
-    private CreateReviewHandler CreateHandler() => new(_reviews, _orders, _uow);
+    private CreateReviewHandler CreateHandler(TestCurrentUser? user = null) =>
+        new(_reviews, _orders, user ?? TestCurrentUser.Customer(1), _uow);
 
     [Fact]
     public async Task عميل_بلا_طلب_مُسلَّم_يحوي_المنتج_يُرفض()
@@ -23,7 +27,7 @@ public class CreateReviewHandlerTests
         _orders.GetByCustomerAsync(1, Arg.Any<CancellationToken>()).Returns(new List<Order>());
 
         var result = await CreateHandler().Handle(
-            new CreateReviewCommand(ProductId: 5, CustomerId: 1, Rating: 5, Comment: "ممتاز"), CancellationToken.None);
+            new CreateReviewCommand(ProductId: 5, Rating: 5, Comment: "ممتاز"), CancellationToken.None);
 
         result.IsSuccess.Should().BeFalse();
         result.ErrorCode.Should().Be("NotEligible");
@@ -40,8 +44,7 @@ public class CreateReviewHandlerTests
         _reviews.HasCustomerReviewedProductAsync(1, 5, Arg.Any<CancellationToken>()).Returns(false);
         _orders.GetByCustomerAsync(1, Arg.Any<CancellationToken>()).Returns(new List<Order> { order });
 
-        var result = await CreateHandler().Handle(
-            new CreateReviewCommand(5, 1, 4, "جيد"), CancellationToken.None);
+        var result = await CreateHandler().Handle(new CreateReviewCommand(5, 4, "جيد"), CancellationToken.None);
 
         result.IsSuccess.Should().BeFalse();
         result.ErrorCode.Should().Be("NotEligible");
@@ -52,8 +55,7 @@ public class CreateReviewHandlerTests
     {
         _reviews.HasCustomerReviewedProductAsync(1, 5, Arg.Any<CancellationToken>()).Returns(true);
 
-        var result = await CreateHandler().Handle(
-            new CreateReviewCommand(5, 1, 5, "ممتاز"), CancellationToken.None);
+        var result = await CreateHandler().Handle(new CreateReviewCommand(5, 5, "ممتاز"), CancellationToken.None);
 
         result.IsSuccess.Should().BeFalse();
         result.ErrorCode.Should().Be("AlreadyReviewed");
@@ -61,7 +63,7 @@ public class CreateReviewHandlerTests
     }
 
     [Fact]
-    public async Task طلب_مُسلَّم_يحوي_المنتج_يُتيح_التقييم()
+    public async Task طلب_مُسلَّم_يحوي_المنتج_يُتيح_التقييم_باسم_المستخدم_الحالي()
     {
         var order = new Order(1, "عمّان");
         order.AddItem(5, "سماعات", new Money(50), 1);
@@ -72,12 +74,20 @@ public class CreateReviewHandlerTests
         _reviews.HasCustomerReviewedProductAsync(1, 5, Arg.Any<CancellationToken>()).Returns(false);
         _orders.GetByCustomerAsync(1, Arg.Any<CancellationToken>()).Returns(new List<Order> { order });
 
-        var result = await CreateHandler().Handle(
-            new CreateReviewCommand(5, 1, 5, "منتج رائع"), CancellationToken.None);
+        var result = await CreateHandler().Handle(new CreateReviewCommand(5, 5, "منتج رائع"), CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
         await _reviews.Received(1).AddAsync(
             Arg.Is<Review>(r => r.ProductId == 5 && r.CustomerId == 1 && r.OrderId == order.Id && r.Rating == 5),
             Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task بلا_مستخدم_مُصادَق_لا_يُكتب_تقييم()
+    {
+        var act = () => CreateHandler(TestCurrentUser.Anonymous()).Handle(new CreateReviewCommand(5, 5, "x"), CancellationToken.None);
+
+        await act.Should().ThrowAsync<AuthenticationRequiredException>();
+        await _reviews.DidNotReceive().AddAsync(Arg.Any<Review>(), Arg.Any<CancellationToken>());
     }
 }

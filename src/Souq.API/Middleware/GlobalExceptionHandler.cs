@@ -53,6 +53,7 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
     internal static ProblemDetails ToProblem(Exception exception) => exception switch
     {
         ValidationException validation => ValidationProblem(validation),
+        AuthenticationRequiredException auth => Problem(StatusCodes.Status401Unauthorized, "Unauthenticated", auth.Message),
         DomainException domain => Problem(StatusCodes.Status422UnprocessableEntity, domain.Code, domain.Message),
         ConcurrencyConflictException conflict => Problem(StatusCodes.Status409Conflict, "ConcurrencyConflict", conflict.Message),
         UniqueConstraintViolationException duplicate => Problem(StatusCodes.Status409Conflict, "DuplicateValue", duplicate.Message),
