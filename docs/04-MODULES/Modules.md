@@ -1,342 +1,69 @@
-# Souq: Module Boundaries
+# Module catalog
 
-> **Status:** Adopted 2026-09-11 ([ADR-0004](../11-ADR/0004-module-boundaries.md)). A module is a **business capability that owns its rules and its data**. It is not a folder created for appearance.
-> **Structure and communication rules:** [Architecture.md §4–§6](../02-ARCHITECTURE/Architecture.md#4-physical-structure-of-modules).
+> **A module is a business capability that owns its rules and its data.** It is not a folder created for appearance. Souq has thirteen.
+> **This page is the index:** what each module owns, where its code lives, and where its documentation is. The rules about who may call whom are in [ModuleBoundaries.md](../02-ARCHITECTURE/ModuleBoundaries.md); the physical structure is in [Architecture.md](../02-ARCHITECTURE/Architecture.md) and [ADR-0002](../11-ADR/0002-modular-monolith-structure.md); the decision to split this way is [ADR-0004](../11-ADR/0004-module-boundaries.md).
 
-## 1. The module map
+## 1. The catalog
 
-The brief listed 16 candidate areas. I evaluated each and **merged or reclassified** the ones that are not independent capabilities:
+| Module | Owns | Application code | Document |
+|---|---|---|---|
+| **Platform** | Stores, their domains, settings and branding, module flags, platform administration, the audit log | `src/Souq.Application/Features/Platform`, `src/Souq.Application/Features/Stores` | [Platform/README.md](Platform/README.md) · [change guide](Platform/ChangeGuide.md) |
+| **Identity** | Accounts, credentials, sessions, roles and permissions, staff and invitations | `src/Souq.Application/Features/Auth`, `src/Souq.Application/Features/Staff` | [Identity/README.md](Identity/README.md) · [change guide](Identity/ChangeGuide.md) |
+| **Catalog** | Products, variants, images, translations, categories | `src/Souq.Application/Features/Products`, `src/Souq.Application/Features/Categories` | [Catalog/README.md](Catalog/README.md) · [change guide](Catalog/ChangeGuide.md) |
+| **Inventory** | Stock levels, reservations, the movement ledger, low-stock thresholds | `src/Souq.Application/Features/Inventory` | [Inventory/README.md](Inventory/README.md) · [change guide](Inventory/ChangeGuide.md) |
+| **Customers** | The shopper as a commercial relationship: profile, addresses, status, export and erasure | `src/Souq.Application/Features/Customers` | [Customers/README.md](Customers/README.md) · [change guide](Customers/ChangeGuide.md) |
+| **Shopping** | Baskets, the pricing pipeline, wishlists | `src/Souq.Application/Features/Baskets`, `src/Souq.Application/Features/Wishlist` | [Shopping/README.md](Shopping/README.md) · [change guide](Shopping/ChangeGuide.md) |
+| **Ordering** | Orders, order numbers, tracking tokens, the status machine | `src/Souq.Application/Features/Orders` | [Ordering/README.md](Ordering/README.md) · [change guide](Ordering/ChangeGuide.md) |
+| **Payments** | Payments, refunds, per-store gateway accounts | `src/Souq.Application/Features/Payments` | [Payments/README.md](Payments/README.md) · [change guide](Payments/ChangeGuide.md) |
+| **Promotions** | Coupons and their redemptions | `src/Souq.Application/Features/Coupons` | [Promotions/README.md](Promotions/README.md) · [change guide](Promotions/ChangeGuide.md) |
+| **Shipping** | Shipping methods and their rates | `src/Souq.Application/Features/Shipping` | [Shipping/README.md](Shipping/README.md) · [change guide](Shipping/ChangeGuide.md) |
+| **Reviews** | Reviews and their moderation | `src/Souq.Application/Features/Reviews` | [Reviews/README.md](Reviews/README.md) · [change guide](Reviews/ChangeGuide.md) |
+| **Notifications** | The outbox, in-app notifications, email delivery | `src/Souq.Application/Features/Notifications` | [Notifications/README.md](Notifications/README.md) · [change guide](Notifications/ChangeGuide.md) |
+| **Reporting** | Read-only statistics across modules | `src/Souq.Application/Features/Reporting` | [Reporting/README.md](Reporting/README.md) |
 
-| Candidate from the brief | Decision | Reason |
+Generated companions: [UseCases.md](UseCases.md) (every command, query, handler, validator and endpoint per module) · [Endpoints.md](../05-API/Endpoints.md) · [ModuleDomainDependencies.md](../02-ARCHITECTURE/ModuleDomainDependencies.md).
+
+## 2. Module names versus folder names
+
+A module is a capability; the folder is where its use cases happened to be created. They differ in six places, and the mapping lives in exactly one machine-readable spot: the `ModuleFolders` map in `tests/Souq.ArchitectureTests/ModuleMap.cs`.
+
+| Module | Folder(s) | Why the names differ |
 |---|---|---|
-| Identity / Authentication | **Module: Identity** | Owns credentials, tokens, roles. A distinct security boundary. |
-| Tenants | **Module: Platform** | The tenant lifecycle, domains, and module flags are one capability |
-| Platform Administration | **API/UI area**, not a module | It owns no data of its own. It is the platform owner's *entry point* into Platform, Identity, and Reporting use cases. |
-| Storefront / Store Configuration | Configuration → **Platform** (tenant settings). Storefront → **API/UI area** | Branding, SEO, and contact details are tenant settings. "Storefront" is a public *view* composed of Catalog, Platform config, and Shopping. |
-| Catalog | **Module: Catalog** | |
-| Categories | Merged into **Catalog** | Categories exist only to organize products. They are the same language and the same team of rules. |
-| Inventory | **Module: Inventory** | Different invariants (reservations, ledger, concurrency) and a different change rate from product descriptions. It is an extraction candidate. |
-| Customers | **Module: Customers** | Commerce profile, addresses, account status. Distinct from login identity. |
-| Basket | **Module: Shopping** (with Wishlist) | Both are pre-purchase intent owned by a shopper, with similar lifecycles (guest → merge on login). Two tiny modules would be ceremony. |
-| Wishlist | Merged into **Shopping** | As above |
-| Orders | **Module: Ordering** | |
-| Payments | **Module: Payments** | Provider integration, PCI scope, refunds. A clear extraction candidate. |
-| Coupons | **Module: Promotions** | Named for the capability, so that future discount types (automatic promotions, bundles) have a home |
-| Reviews | **Module: Reviews** | |
-| Notifications | **Module: Notifications** | |
-| Shipping | **Module: Shipping** | |
-| Reporting | **Module: Reporting** (read-only) | Cross-module read models and dashboards; it never writes business data |
-| *(Audit, tenancy enforcement, errors, paging)* | **Building blocks**, not modules | Cross-cutting mechanisms with no business capability of their own |
+| Ordering | `Orders` | The capability is the ordering process; the folder is named after the entity |
+| Promotions | `Coupons` | Named for the capability, so future discount types have a home |
+| Shopping | `Baskets`, `Wishlist` | Both are pre-purchase intent. `Baskets` is plural because a `Basket` namespace would shadow the entity ([ADR-0028](../11-ADR/0028-basket-and-pricing-pipeline.md)) |
+| Identity | `Auth`, `Staff` | Sign-in and staff administration are one capability: who exists and what they may do |
+| Catalog | `Products`, `Categories` | Categories exist only to organize products |
+| Platform | `Platform`, `Stores` | `Platform` is the platform owner's side; `Stores` is a store administering **its own** settings |
 
-**Result: 13 modules.**
-- **Already present in some form (8):** Identity, Catalog, Inventory, Ordering, Payments (port), Promotions, Reviews, Notifications (port).
-- **Introduced later (5):** Platform (Phase 2/4), Customers (7), Shopping (8/13), Shipping (12), Reporting (17).
+**`Stores` carries a known inconsistency:** it also holds the store-side payment-account and review-settings use cases, which belong to Payments and Reviews by ownership. Recorded in [TechnicalDebt.md](../12-ROADMAP/TechnicalDebt.md); until it moves, the architecture test treats those files as Platform's.
 
-## 2. Allowed module dependencies
+## 3. How these thirteen were chosen
 
-Arrows mean "may call the **Contracts** of". A cycle is never allowed. Everything may use the shared kernel (Money, TenantId, error and paging types).
+Sixteen candidate areas were evaluated; the ones that were not independent capabilities were merged or reclassified ([ADR-0004](../11-ADR/0004-module-boundaries.md)):
 
-```mermaid
-flowchart LR
-    Platform
-    Identity --> Platform
-    Customers --> Identity
-    Catalog --> Platform
-    Inventory --> Catalog
-    Promotions --> Catalog
-    Shipping --> Platform
-    Shopping --> Catalog
-    Shopping --> Inventory
-    Shopping --> Promotions
-    Shopping --> Shipping
-    Ordering --> Catalog
-    Ordering --> Inventory
-    Ordering --> Promotions
-    Ordering --> Payments
-    Ordering --> Shipping
-    Ordering --> Customers
-    Ordering --> Shopping
-    Reviews --> Ordering
-    Reviews --> Catalog
-    Reviews --> Customers
-    Notifications -.->|"consumes events only"| Ordering
-    Reporting -.->|"read-only projections"| Ordering
-```
+| Candidate | Outcome | Reason |
+|---|---|---|
+| Categories | Merged into **Catalog** | Categories exist to organize products; same language, same rules |
+| Wishlist | Merged into **Shopping** | Same lifecycle as the basket (guest → merge at sign-in); two tiny modules would be ceremony |
+| Tenants | Became **Platform** | The store lifecycle, domains and module flags are one capability |
+| Platform administration | **An area, not a module** | It owns no data; it is the platform owner's entry point into Platform, Identity and Reporting use cases |
+| Storefront | **An area, not a module** | A public view composed of Catalog, Platform configuration and Shopping |
+| Store configuration | Into **Platform** | Branding, SEO, contact and locale are store settings |
+| Audit, tenancy, errors, paging | **Building blocks** | Cross-cutting mechanisms with no business capability of their own |
 
-**Payments → Ordering is forbidden,** because Ordering already depends on Payments. A payment result reaches Ordering in one of two ways:
-- *pull*: Ordering calls `IPaymentService.ConfirmAsync`, as today;
-- *push*: an event, once the outbox exists.
+## 4. What a module document contains
 
-A webhook is received by an **Ordering** use case, which parses it through the Payments port.
+Every `<Module>/README.md` follows the same shape, so you can jump straight to the section you need: purpose · responsibilities · what it must *not* own · business concepts · domain model · use cases · public contracts · dependencies · data ownership · API · security · tenant behaviour · events · integrations · tests · failure modes · common changes · known limitations · future evolution.
 
-## 3. Module catalog
+Where a module has a `ChangeGuide.md`, it lists the changes people actually make ("add an order status", "add a payment provider", "change reservation expiry") with the files to inspect, the invariants to respect, the tests to update, and whether the change needs a migration or an ADR.
 
-Each entry lists:
-- **Responsibility**
-- **Owns** (data)
-- **Must not own**
-- **Contracts** (public, in-process)
-- **Domain** (key rules)
-- **Infrastructure** (adapters)
-- **Depends on** / **Forbidden**
-- **Extraction**
-- **Today**
-
-### Platform (introduced Phase 2/4)
-- **Responsibility:** the tenant lifecycle and the configuration of each store.
-- **Owns:** `Tenants` (including the settings document and the module flags, [ADR-0024](../11-ADR/0024-platform-administration.md)), `TenantDomains`, tenant settings (branding, contact, SEO, locale, currency, time zone); plans later.
-- **Must not own:** users (Identity); any catalog, order, or customer data.
-- **Contracts:**
-  - `ITenantDirectory` (resolve a host to a tenant; tenant status);
-  - `IStoreConfiguration` (read the settings a storefront needs);
-  - `ITenantModules` (is module X enabled?).
-- **Domain:**
-  - Tenant status transitions.
-  - Exactly one primary domain per tenant.
-  - A host is unique across the whole platform.
-  - The module set is valid for the plan.
-- **Infrastructure:** cached domain map; branding asset storage.
-- **Depends on:** nothing (root).
-- **Forbidden:** reading tenant-owned business tables. Platform statistics come from Reporting.
-- **Extraction:** unlikely (small and central). It could become a "control plane" if the platform ever runs per-region stacks.
-- **Today (Phase 4):**
-  - `Tenant` + `TenantDomain` + `StoreSettings` value objects + `StoreModules` (`Souq.Domain.Platform`).
-  - `ITenantDirectory` (a cached snapshot that includes the modules), `ITenantContext`, and `IStoreConfiguration` (the cached storefront config).
-  - The resolution and availability middleware; `[RequiresModule]` enforcement.
-  - `Features/Platform`: the platform area (stores, domains, settings, modules, invitations, platform accounts, audit log).
-  - `Features/Stores`: store-side settings, branding and the public config.
-
-### Identity
-- **Responsibility:** who can sign in, and what they are allowed to do.
-- **Owns:** `Users` (credentials, status, lockout, security stamp), refresh tokens, role assignments; the permission catalog, which lives in code.
-- **Must not own:** commerce profile data (addresses, phone, marketing preferences) → Customers.
-- **Contracts:**
-  - `IUserDirectory` (look up a user; create a tenant admin);
-  - the authentication use cases (register, login, refresh, logout, reset);
-  - `ICurrentUser` (Application port, implemented from claims).
-- **Domain:**
-  - Normalized email unique per tenant.
-  - Platform users have no tenant.
-  - Lockout after repeated failures.
-  - Single-use, hashed reset tokens.
-  - Refresh-token rotation with reuse detection.
-- **Infrastructure:** BCrypt, JWT issuance, rate limiting.
-- **Depends on:** Platform (tenant active).
-- **Forbidden:** issuing a token whose tenant differs from the one resolved from the host; storing plaintext secrets.
-- **Extraction:** medium. It could be replaced by an external identity provider (the claims contract stays the same).
-- **Today:**
-  - `User` + `RefreshToken` (`Souq.Domain.Identity`, Phase 3) and `Features/Auth`.
-  - `Features/Staff` (Phase 4): invite, list, enable and disable store staff.
-  - Account invitations and status rules are shared building blocks with the platform area (`Common/Accounts`).
-
-### Catalog
-- **Responsibility:** what the store sells and how it is presented.
-- **Owns:** `Categories`, `Products`, variants, images, translations, attributes.
-- **Must not own:**
-  - stock quantities and reservations → Inventory;
-  - prices of past orders → Ordering snapshots;
-  - reviews → Reviews.
-- **Contracts:**
-  - `ICatalogQueries` (storefront listing, search, detail, related);
-  - `ISellableItems.GetForCheckout(ids)` → snapshots of name, SKU, unit price, and active flag.
-- **Domain:**
-  - Slug and SKU unique per tenant.
-  - Status lifecycle (Draft / Active / Archived).
-  - The category tree has no cycles.
-  - A price is `Money` in the tenant currency.
-- **Infrastructure:** EF, image storage (via `IFileStorage`), search (SQL now).
-- **Depends on:** Platform (tenant currency and languages).
-- **Forbidden:** changing stock; reading orders (best-selling rankings come from Reporting or an Ordering query contract).
-- **Extraction:** the *search* part could be extracted (see [Architecture.md §9](../02-ARCHITECTURE/Architecture.md#9-future-scaling-and-service-extraction)).
-- **Today (Phase 5, [ADR-0025](../11-ADR/0025-catalog-model.md)):**
-  - `Product` (root) owns `ProductTranslation`, `ProductImage` and exactly one default `ProductVariant` (SKU, price, compare-at price).
-  - `Category` owns `CategoryTranslation`. `CatalogText` is the per-language value object.
-  - Use cases live in `Features/Products` and `Features/Categories`; `ICatalogQueries` serves both the storefront and the admin projections.
-  - Stock is not in Catalog (Phase 6): creating a product calls Catalog's own port `IVariantStockInitializer`, which Inventory implements, so the dependency still points Inventory → Catalog.
-  - The best-selling sort still reads `Orders` directly. It moves behind an Ordering query contract when Ordering is rebuilt (Phase 9); Phase 5 did not need to touch it.
-  - Attributes and the variant option matrix are deferred.
-
-### Inventory
-- **Responsibility:** how many units exist, and who is holding them.
-- **Owns:** stock levels (on hand, reserved), reservations, the stock ledger (`StockMovements`), low-stock thresholds.
-- **Must not own:** product descriptions or prices.
-- **Contracts:**
-  - `IInventoryReservations` (Reserve, Commit, Release);
-  - `IStockAvailability` (read);
-  - adjustment use cases.
-- **Domain:**
-  - `available ≥ 0`.
-  - Every change produces exactly one ledger entry.
-  - A reservation expires.
-  - Releases are idempotent.
-- **Infrastructure:** `rowversion` concurrency, the reservation-expiry background service.
-- **Depends on:** Catalog (the variant must exist).
-- **Forbidden:** creating orders; reading order internals. It knows only reservation references.
-- **Extraction:** a candidate (flash sales, multiple warehouses), which is why its contract is reserve → commit/release from the start.
-- **Today (Phase 6, [ADR-0026](../11-ADR/0026-inventory-reservations.md)):**
-  - `InventoryItem` (one per variant; on hand, reserved, `rowversion`), `StockReservation`, and `StockMovement`, which only the item creates.
-  - `Features/Inventory/Contracts` holds `IInventoryReservations` and `IStockAvailability`, both used by Ordering.
-  - `Features/Inventory/Reservations` holds the implementation, the retrying `InventoryWriter`, and `VariantStockInitializer` (Catalog's port).
-  - Adjustment and threshold commands; `InventoryQueries` for the admin screens.
-  - The expiry sweep is an Ordering use case (it decides about orders) run by an Infrastructure hosted service.
-  - `ModuleAndContractRuleTests` allows only these contract references.
-
-### Customers (introduced Phase 7)
-- **Responsibility:** the shopper as a commercial relationship of one tenant.
-- **Owns:** `Customers` (profile, phone, status), `CustomerAddresses`.
-- **Must not own:** credentials → Identity; orders → Ordering.
-- **Contracts:** `ICustomerDirectory` (profile, status, default addresses); profile and address use cases.
-- **Domain:** a blocked customer cannot place orders; at most one default shipping address and one default billing address.
-- **Depends on:** Identity (UserId).
-- **Forbidden:** authentication logic.
-- **Extraction:** unlikely.
-- **Today (Phase 7, [ADR-0027](../11-ADR/0027-customer-profile-and-erasure.md)):**
-  - `Customer` (profile, phone, status, erasure) owns its `CustomerAddress`es. `PostalAddress` is the address value object.
-  - `Features/Customers/Account` covers the caller's own profile, addresses, export and erasure. `Features/Customers/Admin` covers list, detail, status, export and erasure. `CustomerErasure` is the single erasure path for both.
-  - Read projections (`ICustomerQueries`: the list with order count, spend and last order; the detail; the export) live in Infrastructure, so the Application layer has no Customers → Ordering dependency. Order history comes from Ordering (`GET /api/orders?customerId=`).
-  - Ordering and Reviews still load the `Customer` aggregate through `ICustomerRepository` (block check, address snapshot). The narrower `ICustomerDirectory` contract above is deferred until a second consumer or an extraction needs it.
-
-### Shopping (Basket Phase 8, Wishlist Phase 13)
-- **Responsibility:** what a shopper intends to buy or remember.
-- **Owns:** `Baskets` + lines; `WishlistItems`.
-- **Must not own:** prices as truth (it re-reads them from Catalog); stock (it asks Inventory).
-- **Contracts:** `IBasketReader` (Ordering converts a basket at checkout); basket and wishlist use cases; `IPricing` (subtotal → discounts → shipping → tax → total), shared with checkout.
-- **Domain:** quantity > 0; guest-to-customer merge rules; basket expiry.
-- **Depends on:** Catalog, Inventory, Promotions, Shipping.
-- **Forbidden:** reserving stock (only checkout reserves).
-- **Extraction:** unlikely.
-- **Today (Phase 8, [ADR-0028](../11-ADR/0028-basket-and-pricing-pipeline.md)):**
-  - `Basket` owns its `BasketLine`s (variant plus quantity, never a price). Its owner is a customer or a hashed guest token; expiry is sliding.
-  - `Features/Baskets/Contracts` holds `IPricing` (subtotal → discount → shipping → tax → total), used by the basket view and by Ordering's `CreateOrderHandler`.
-  - `Features/Baskets` holds the use cases, `BasketResolver` (guest or customer, and the merge at sign-in) and `BasketViews` (quote plus Inventory's `IStockAvailability`, read-only; baskets never reserve).
-  - `IBasketReader` (checkout from the basket) arrives with Phase 9.
-  - **Wishlist (Phase 13, [ADR-0033](../11-ADR/0033-review-moderation-and-wishlist.md)):**
-    - `WishlistItem` (customer plus product, unique, at most 200 per customer) lives in `Features/Wishlist`, behind the `wishlist` module flag.
-    - It shows live catalog prices through `IWishlistQueries` and hides products that are no longer published.
-    - Guests keep their list in the browser; it merges into the account at sign-in. Customer erasure deletes it.
-  - `ModuleAndContractRuleTests` maps Shopping to `Baskets` and `Wishlist`, and allows the contracts Ordering → Shopping and Shopping → Inventory and Shipping.
-
-### Ordering
-- **Responsibility:** turning a purchase decision into an immutable commercial record and moving it through its lifecycle.
-- **Owns:** `Orders`, `OrderItems`, `OrderStatusHistories`; order numbers; tracking tokens.
-- **Must not own:** payment provider state → Payments; stock → Inventory; coupon rules → Promotions.
-- **Contracts:**
-  - `IOrderHistory` (e.g. has this customer received product X? Used by Reviews);
-  - order queries;
-  - the checkout and status use cases.
-- **Domain:**
-  - The transition table.
-  - Lines only while Pending.
-  - Snapshots immutable after placement.
-  - Discount ≤ subtotal.
-  - Cancelling releases stock exactly once.
-- **Depends on:** Catalog, Inventory, Promotions, Payments, Shipping, Customers, Shopping.
-- **Forbidden:** mutating other modules' entities directly (the target state; today it calls `Product.DecreaseStock`, fixed in Phase 6/9).
-- **Extraction:** unlikely. It is the core, and the other modules are extracted around it.
-- **Today (Phase 9, [ADR-0029](../11-ADR/0029-orders-lifecycle.md)):**
-  - `Order` holds a number, a tracking token, the placement data and a billing snapshot. `OrderTransitions` is its one transition table, and every history row records an `OrderActor`.
-  - `Features/Orders` covers:
-    - checkout: lines come from the request, or from the customer's basket through Shopping's `IBasketCheckout`, and are priced by `IPricing`;
-    - `CancelMyOrderCommand`, status updates, and tracking by token;
-    - `IOrderNumbers`, a per-store counter implemented in Infrastructure.
-  - Contracts used: `Inventory.Contracts` and `Baskets.Contracts` only, enforced by the architecture test.
-  - Reviews still ask the order repository whether a product was delivered; `IOrderHistory` is not a separate contract yet.
-
-### Payments (module from Phase 11)
-- **Responsibility:** collecting money through providers without ever touching card data.
-- **Owns:** `Payments`, `Refunds`, per-tenant provider configuration (encrypted).
-- **Must not own:** order state.
-- **Contracts:** `IPaymentService`, the gateway port (create intent, confirm, cancel, refund, parse webhook, client config), implemented by one router; `IOrderPayments` (Ordering records, settles and refunds an order's payment) and `IPaymentQueries` (Phase 11).
-- **Domain:** refunded ≤ captured; idempotency keys; conversion to the provider's minor units.
-- **Infrastructure:** Stripe (and future providers), the fake gateway.
-- **Depends on:** Platform (tenant gateway configuration).
-- **Forbidden:** calling Ordering; storing a PAN, CVV, or raw card data.
-- **Extraction:** a strong candidate (PCI isolation).
-- **Today (Phase 11, [ADR-0031](../11-ADR/0031-payments-and-refunds.md)):**
-  - `Payment` and `Refund`. Refunds run as reserve–call–record with idempotency keys.
-  - A router picks, per call, the store's own Stripe account (encrypted keys) or the deployment account. Webhooks are routed to the store that created the intent.
-  - Ordering calls it through `IOrderPayments`. The contract Ordering → Payments is enforced by `ModuleAndContractRuleTests`.
-
-### Promotions
-- **Responsibility:** discount rules.
-- **Owns:** `Coupons`, `CouponRedemptions` (Phase 10).
-- **Must not own:** order totals.
-- **Contracts:** `ICouponRedemptions` (Phase 10): reserve at checkout, confirm at payment, release on cancel. The discount itself is computed by Shopping's pricing pipeline from the `Coupon` entity's rules; the planned `ICouponEvaluator` wasn't needed, because the pipeline is the only evaluator.
-- **Domain:** value ranges; validity window; global and per-customer limits; currency-aware rounding.
-- **Depends on:** Catalog (for product or category scoped coupons, if added).
-- **Forbidden:** reading orders directly (redemptions carry the order reference).
-- **Extraction:** unlikely.
-- **Today (Phase 10, [ADR-0030](../11-ADR/0030-coupon-redemptions.md)):**
-  - `Coupon` has start and end dates, global and per-customer limits, and a minimum order. There is one `CouponRedemption` per order.
-  - A use is reserved inside the checkout transaction under the coupon's `rowversion`, confirmed at payment and released on every cancellation, so limits hold under concurrency.
-  - Ordering calls it only through `ICouponRedemptions`. The contract Ordering → Promotions is allowed and enforced by `ModuleAndContractRuleTests`.
-
-### Shipping (introduced Phase 12)
-- **Responsibility:** how an order gets delivered, and what that costs.
-- **Owns:** `ShippingMethods`, rate configuration, carriers.
-- **Contracts:** `IShippingRateProvider` (Phase 12): the priced shipping options for a goods total and a country. `StoreShippingRates` implements it today, over the store's methods.
-- **Domain:** eligibility (country, threshold); rate strategies.
-- **Depends on:** Platform.
-- **Forbidden:** order state.
-- **Extraction:** carrier integrations sit behind the port. Extraction is unlikely.
-- **Today (Phase 12, [ADR-0032](../11-ADR/0032-shipping-methods.md)):**
-  - `ShippingMethod`: a flat price, a free-shipping threshold, countries, an estimate, and a carrier tracking link.
-  - Admin CRUD.
-  - The rate provider, used by Shopping's pricing pipeline. The order keeps a snapshot of the chosen method.
-  - The contracts Shopping → Shipping and Ordering → Shipping are enforced by `ModuleAndContractRuleTests`.
-
-### Reviews
-- **Responsibility:** customer opinions about products.
-- **Owns:** `Reviews` and their moderation state.
-- **Contracts:** review queries (list, average); create and moderate use cases.
-- **Domain:** rating 1–5; verified purchase; one review per customer per product; moderation workflow (Phase 13).
-- **Depends on:** Ordering (`IOrderHistory`), Catalog, Customers (display name).
-- **Forbidden:** writing to Catalog (aggregates are computed or cached, never pushed into Product).
-- **Extraction:** unlikely.
-- **Today (Phase 13, [ADR-0033](../11-ADR/0033-review-moderation-and-wishlist.md)):**
-  - `Review` has a status (Pending, Approved, Rejected). It records who moderated it and when, plus a note for staff only.
-  - The store's `ReviewsAutoApprove` policy decides whether a verified buyer's review starts approved or pending. New stores start with moderation; stores that existed before Phase 13 kept immediate publishing.
-  - The public list and the aggregates (count, average, per-star distribution) use approved reviews only. They are computed in the query and never pushed into `Product`.
-  - The moderation API (`/api/admin/reviews`, `reviews.moderate`) is audited. Changing the policy also needs `store.settings.manage`.
-  - Eligibility still asks `IOrderRepository` whether the product was delivered; the move to `IOrderHistory` is deferred.
-
-### Notifications (module from Phase 14)
-- **Responsibility:** telling people what happened, through the right channel, in the tenant's voice.
-- **Owns:** templates (per tenant, per language), the delivery log, in-app notifications, the outbox dispatch state.
-- **Contracts:**
-  - `INotificationOutbox`: use cases enqueue references in their own unit of work;
-  - domain events from the aggregates (`OrderStatusChanged`, `StockBecameLow`);
-  - `IEmailSender`, for the dispatch handlers only;
-  - in-app notification queries and commands.
-- **Domain:** idempotent delivery; retries; opt-outs (later).
-- **Depends on:** events and outbox messages only. It never calls business modules synchronously; handlers read state through repositories.
-- **Forbidden:** business decisions; logging secrets or links.
-- **Extraction:** the strongest candidate.
-- **Today (Phase 14, [ADR-0034](../11-ADR/0034-notifications-outbox.md)):**
-  - **The outbox:** a hosted dispatcher processes it under a lease with bounded retries. Reset, verification and invitation tokens are issued at dispatch, and domain events are written in the same save as their change.
-  - **`Features/Notifications`:**
-    - identity email handlers;
-    - order and stock handlers (in-app fan-out and customer emails);
-    - the in-app use cases.
-  - **`IEmailSender`** has four adapters (Resend, Brevo, Gmail, log). The templates are localized and branded (`EmailComposer` in Infrastructure).
-  - **Enforcement:** `ModuleAndContractRuleTests` maps the module and confines `IEmailSender` to it, so no request waits on a provider.
-
-### Reporting (introduced Phase 17)
-- **Responsibility:** dashboards and reports for tenants and the platform.
-- **Owns:** read models or aggregates only (derived data, rebuildable).
-- **Contracts:** dashboard and report queries.
-- **Depends on:** read-only access to other modules' tables through dedicated query services. This is a **documented exception**: it only reads, never writes. Event-fed read models replace it when volume demands.
-- **Forbidden:** any write to business tables.
-- **Extraction:** a candidate (separate reporting store).
-- **Today:**
-  - `Features/Reporting` (Phase 4): platform statistics (tenants by status, accounts, customers, products, orders), counted across stores by the reviewed `PlatformQueries` and audited.
-  - The store dashboard still counts via public endpoints (Phase 17).
-
-## 4. How to add a new module (checklist)
+## 5. Adding a module
 
 1. Name it after a **capability**, not an entity. Write down what it owns and what it must not own.
-2. Create `Souq.Domain/<Module>`, `Souq.Application/Features/<Module>` (including `Contracts/`), and the Infrastructure configurations under the module's folder.
-3. Add the module to the dependency graph above. Refuse any cycle.
-4. Add an architecture test stating which other modules it may reference.
-5. Tenant-owned tables implement `ITenantOwned` (from Phase 2) and get isolation tests.
-6. Document its contracts here and in [ApiDocumentation.md](../05-API/ApiDocumentation.md).
+2. Add it to this catalog and to the graph in [ModuleBoundaries.md](../02-ARCHITECTURE/ModuleBoundaries.md). Refuse any cycle.
+3. Create the feature folder and register it in `ModuleFolders` (`tests/Souq.ArchitectureTests/ModuleMap.cs`) — an unmapped folder fails the build.
+4. Declare which other modules' contracts it may call, in `AllowedContracts` in `tests/Souq.ArchitectureTests/ModuleAndContractRuleTests.cs`.
+5. If it owns Domain types, add them to the `DomainOwners` map so cross-module use of them is counted.
+6. Tenant-owned tables implement `ITenantOwned`; the tenancy tests then require the filter and the composite keys.
+7. Write `docs/04-MODULES/<Module>/README.md` from the shape above, and record the new tables in [OwnershipMap.md](../06-DATABASE/OwnershipMap.md).
