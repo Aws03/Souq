@@ -1,250 +1,204 @@
 # Souq: Security Architecture
 
-> **Status:** Adopted 2026-09-11. Identity and permissions are detailed in [AuthenticationAndAuthorization.md](AuthenticationAndAuthorization.md); tenant isolation in [MultiTenancy.md](../02-ARCHITECTURE/MultiTenancy.md).
+> **Scope:** why the system is built this way, and what it does and does not protect against. The control-by-control catalog — with implementation paths, tests and gaps — is [SecurityControls.md](SecurityControls.md). Identity and permissions: [AuthenticationAndAuthorization.md](AuthenticationAndAuthorization.md). Tenant isolation design: [MultiTenancy.md](../02-ARCHITECTURE/MultiTenancy.md).
 > **Principles:** least privilege · secure by default · the server is authoritative · defence in depth · no secrets in git · no sensitive data in logs.
+> **Labels:** unlabelled statements describe the code today. **PLANNED** items are scheduled in [ProductRoadmap.md](../12-ROADMAP/ProductRoadmap.md); **DEFERRED** and **FUTURE** items are not.
 
 ## 1. Assets and threats
 
 | Asset | Main threats | Primary controls |
 |---|---|---|
-| Tenant data (catalog, customers, orders) | Cross-tenant access, IDOR | Server-side tenant resolution, global query filters + write guard, 404-for-foreign ([MultiTenancy.md](../02-ARCHITECTURE/MultiTenancy.md)) |
-| Customer accounts | Credential stuffing, reset-link theft, token theft | BCrypt, hashed single-use reset tokens, no secrets in logs, short-lived tokens + rotation (Phase 3), rate limits (Phase 3) |
-| Platform control plane | A tenant admin escalating to platform | A separate platform host and audience, platform-only policies, audited platform actions |
-| Money flows | Tampered totals, double charge, card data exposure | Server-side pricing, idempotent confirmation, Stripe Elements (card data never reaches us) |
-| Storefront visitors | XSS via uploads or content | Content-sniffed uploads with safe extensions, `nosniff` + CSP on uploads, React escaping, no `dangerouslySetInnerHTML` |
-| Secrets | Leakage through the repo, logs, or images | user-secrets / environment variables, redacted logging, `.env` git-ignored |
+| Tenant data (catalog, customers, orders) | Cross-tenant access, IDOR | Host-only tenant resolution, a named query filter plus a write guard, composite foreign keys, 404 for a foreign resource ([MultiTenancy.md](../02-ARCHITECTURE/MultiTenancy.md), SEC-TEN-01…11) |
+| Customer accounts | Credential stuffing, reset-link theft, token theft | BCrypt, hashed single-use tokens, short access tokens with rotation and reuse detection, rate limits, no secrets in logs (SEC-AUTHN-01…14) |
+| Platform control plane | A store admin escalating to the platform | A separate platform host, `tid`-to-host binding, platform-only permissions, every platform request audited (SEC-AUTHZ-07, SEC-AUTHZ-09) |
+| Money flows | Tampered totals, double charge, card-data exposure | Server-side pricing, idempotent confirmation and refunds, signature-verified webhooks, Stripe Elements so card data never reaches us (SEC-PAY-01…12) |
+| Storefront visitors | XSS through uploads or content | Content-sniffed uploads with server-chosen extensions, `nosniff` and a sandboxing CSP on `/uploads`, plain-text catalog descriptions, React escaping (SEC-UP-01…07) |
+| Secrets | Leakage through the repo, logs or images | user-secrets and environment variables, validated at startup, redacted logging, `.env` git-ignored, store payment keys encrypted at rest (SEC-CFG-01…08) |
 
 ## 2. Authentication (summary)
 
-- **Passwords:** BCrypt (per-password salt, adaptive cost). 8–128 characters with letters and digits.
-- **Access token (Phase 3):**
-  - An HS256 JWT valid for 15 minutes, held in JavaScript memory only.
+- **Passwords:** BCrypt with a per-password salt. 8–128 characters with letters and digits.
+- **Access token:**
+  - An HS256 JWT valid for 15 minutes (`Jwt:ExpiryMinutes`, accepted range 5–60), held in JavaScript memory only.
   - Validated for issuer, audience, lifetime (30-second clock skew) and signing key.
-  - Also bound to the host (`tid`) and to the account's security stamp.
-- **Refresh token (Phase 3):**
-  - 256-bit random, stored hashed.
-  - Rotated on every use, with reuse detection.
-  - Carried in an `HttpOnly`/`Secure`/`SameSite=Strict` cookie scoped to `/api/auth`.
+  - Also bound to the host through `tid`, and to the account's security stamp.
+- **Refresh token:**
+  - 256-bit random, stored only as a SHA-256 hash.
+  - Rotated on every use, with family reuse detection and a 10-second grace for parallel tabs.
+  - Carried in an `HttpOnly` / `Secure` / `SameSite=Strict` cookie scoped to `/api/auth`.
 - **Account protection:**
-  - lockout after 5 failures (15 minutes);
-  - a timing-safe path for unknown emails;
-  - single-use hashed reset and verification tokens;
-  - rate limits.
+  - lockout after 5 failures for 15 minutes;
+  - a timing-safe path for unknown emails, and a forgot-password answer that never differs;
+  - single-use hashed reset, verification and invitation tokens;
+  - rate limits per host and client address.
+- **Known limits:** logout revokes the refresh family but does not rotate the security stamp, so an access token captured before logout works until it expires; the lockout response reveals that an account exists. See SEC-AUTHN-03 and SEC-AUTHN-11.
 - Details: [AuthenticationAndAuthorization.md](AuthenticationAndAuthorization.md), [ADR-0023](../11-ADR/0023-sessions-and-credentials.md).
 
 ## 3. Authorization, tenant isolation, IDOR
 
-- **Roles (Phase 3):** PlatformOwner, PlatformAdmin, TenantAdmin, TenantStaff and Customer, mapped to permissions in one table (`RolePermissions`).
-  - Store roles have no platform permission, and platform roles have no store permission.
+- **Roles:** PlatformOwner, PlatformAdmin, TenantAdmin, TenantStaff and Customer, mapped to permissions in one table (`RolePermissions`).
+  - Store roles hold no platform permission and platform roles no store permission; this is unit-tested.
   - Endpoints declare the permission they need (`[HasPermission]`), and every endpoint must declare an explicit decision ([ADR-0019](../11-ADR/0019-authorization-foundation.md)).
-- **Platform vs store:** platform accounts have no store and exist only on platform hosts. A platform token (no `tid`) is rejected on store hosts, and a store token is rejected on platform hosts.
-- **IDOR prevention (layers):**
-  1. **Tenant isolation (Phase 2, [ADR-0022](../11-ADR/0022-tenancy-enforcement.md)):**
-     - The store comes from the host only.
-     - A named EF filter hides other stores' rows. It **throws** when no store is resolved; it never returns every store's rows.
-     - A write guard stamps and verifies `TenantId`.
-     - Tenant-scoped composite FKs make a cross-store reference impossible in the database itself.
-     - A token's `tid` must match the host.
-  2. Ownership checks **inside the use case**, so a customer only sees and confirms their own orders (a 404 otherwise).
-  3. Identity always taken from the token through `ICurrentUser`; commands have no customer id or tenant id field to tamper with.
-- **Automated proof:**
-  - An integration test enumerates all admin endpoints (anonymous → 401, customer → 403).
-  - Customer A cannot read or confirm customer B's order (404).
-  - `TenantIsolationTests`: store B's admin, customer and visitors, on B's host, get 404 for every endpoint that takes a store-A resource id. Listings exclude A's rows, and writes that reference A's category, parent, product, coupon or order are rejected. A's token on B's host gets 401. The write guard and the missing-tenant filter fail loudly. A completeness test forces every new id-bearing endpoint into the table.
-  - `TenancyRuleTests` (architecture) forbid:
-    - a business entity without `ITenantOwned` (only identity entities may be store-or-platform);
-    - `IgnoreQueryFilters` outside the reviewed platform query type;
-    - raw SQL outside migrations;
-    - a use case that sets the tenant.
-  - `AuthorizationMatrixTests` check role × endpoint over HTTP. `AuthSessionTests` check that platform and store tokens are separated.
-  - **Platform area (Phase 4):**
-    - `AuthorizationBoundaryTests` proves that every platform endpoint is missing (404) on a store host, even for the store's admin.
-    - On the platform host, it rejects anonymous callers and store tokens (401).
-    - `PlatformAdministrationTests` covers the full provisioning scenario, and a platform admin without `platform.users.manage` gets 403.
-    - A store admin changing settings or staff can only touch their own store: the requests carry no store id, and B's admin gets 404 for A's staff account (`TenantIsolationTests`).
-  - **Catalog (Phase 5):**
-    - Every admin catalog endpoint requires `catalog.manage`.
-    - Draft and archived products, and products in hidden categories, are invisible to anonymous callers, by id and by slug (`CatalogTests`).
-    - Image ids are resolved inside a product of the caller's store. Another store's image id under your own product gives 404 on remove and 422 on reorder, and the image is untouched.
-    - Slugs and SKUs are unique per store only, so one store cannot probe another store's catalog through a uniqueness conflict (`TenantIsolationTests`).
-  - **Inventory (Phase 6):**
-    - Stock corrections and thresholds require `inventory.manage` on top of `inventory.view`. Every correction is audited with its delta and reason.
-    - Store B's admin gets 404 for A's product on both endpoints, and A's stock and threshold are unchanged (`TenantIsolationTests`).
-    - Reservations and ledger rows reference the item through composite tenant-scoped foreign keys, and the expiry sweep runs inside each store's own scope.
-  - **Customers (Phase 7, [ADR-0027](../11-ADR/0027-customer-profile-and-erasure.md)):**
-    - `/api/account` carries no customer id: the profile is always the caller's (`cid`).
-    - An address id outside the caller's own book is a 404 on update, delete and both default endpoints, and a checkout with one is `400 AddressNotFound`. A guessed id never reveals or uses someone else's address.
-    - Store B's admin gets 404 on every admin customer route for A's customer. B's list and `orders?customerId=` exclude A's customer, and A's customer is unchanged afterwards (`TenantIsolationTests`).
-    - Blocking, exporting and erasing need `customers.manage` on top of `customers.view`. They are audited, and so are a customer's own export and erasure.
-    - Self-erasure needs the current password. Erasure anonymizes the profile and the login in one save, revokes refresh tokens and forgets the cached security stamp, so existing access tokens stop working immediately.
-    - Exports contain no credential material (no password hash, tokens or security stamp).
-  - **Basket (Phase 8, [ADR-0028](../11-ADR/0028-basket-and-pricing-pipeline.md)):**
-    - **The guest cookie** is HttpOnly, Secure, `SameSite=Strict` and scoped to `/api/basket`, so scripts can't read it and cross-site requests don't carry it. It holds 256 random bits; only its SHA-256 is stored, so a database leak doesn't open live guest baskets.
-    - **Store isolation:** lookups are filtered by store. A store-A guest token on store B's host opens nothing: an empty basket, the cookie is cleared, and updates and deletes get 404. Store A's product can't be added on store B's host (404). A's basket is unchanged (`TenantIsolationTests`).
-    - **No ids on the wire:** requests carry no basket id at all. The basket is the session's or the cookie's, so there is nothing to enumerate.
-    - **Rate limits:** coupon codes are priced only through `GET /api/basket/quote`, behind the coupon-preview limit. Writes have their own limit (120 per minute per host and address), because every add from a new guest creates a row.
-    - **Amounts:** checkout never trusts one from the client. Prices, discount and total come from the pipeline at order time.
-  - **Orders (Phase 9, [ADR-0029](../11-ADR/0029-orders-lifecycle.md)):**
-    - **Tracking** uses a random 128-bit token (`/api/orders/track/{token}`), not the sequential id, so orders can't be enumerated (B8). It returns status and shipment only: no notes, actors, addresses or amounts.
-    - **Bad tokens:** a malformed or unknown token is a 404, and so is a store-A token on store B's host (`TenantIsolationTests`).
-    - **Customer cancellation** is owner-only: any other customer gets 404, across stores too. It applies only to unpaid orders, and the gateway is asked first, so a customer can never cancel an order that was just paid.
-    - **Order numbers** are per store, so they reveal nothing about other stores' volume.
-    - **Visibility:** staff notes and actors are shown only to users with `orders.view`. Customers see their order's statuses and dates.
-    - **Accountability:** every status change records the acting staff member's user id on its history row.
-  - **Coupons (Phase 10, [ADR-0030](../11-ADR/0030-coupon-redemptions.md)):**
-    - **Limits hold under concurrency:** a use is taken inside the checkout transaction on a fresh read under the coupon's `rowversion`, so parallel checkouts can't exceed a global or per-customer limit. This closes C1 for coupons and is tested with five concurrent checkouts.
-    - **The per-customer limit** counts uses for the signed-in customer, never an id sent by the client.
-    - **Redemptions** show order numbers and customer names, so they are listed only with `promotions.manage`, within the host's store. Another store's coupon id is a 404 (`TenantIsolationTests`).
-    - **History is kept:** a used coupon can't be deleted (`409 CouponInUse`), so its redemption records keep their coupon.
-  - **Payments (Phase 11, [ADR-0031](../11-ADR/0031-payments-and-refunds.md)):**
-    - **Card data never reaches the server:** Stripe Elements sends it from the browser to Stripe, and we store intent ids only. A test pins the payment tables' columns and scans the whole model for card-like columns.
-    - **Store keys at rest:** AES-256-GCM, with a key from the environment (`Secrets:*`). The store id and the kind of secret are authenticated data, so a ciphertext copied to another store's row doesn't decrypt. Keys are write-only: never returned (only the last four characters) and never logged. The audit log records what changed, not the values.
-    - **No silent fake payments:** test-mode Stripe keys are refused outside Development and Testing unless `Payments:AllowTestModeStoreAccounts` is set, which logs a startup warning. A store account that can't be decrypted answers 503; payments never fall back to another account silently.
-    - **Refunds** require `store.payments.manage` and are audited with the staff member. They can't exceed the payment under concurrency, and an idempotency key means a retry can't refund twice. Another store's order is a 404 (`TenantIsolationTests`).
-    - **Webhooks** are verified by signature before anything is read. An event signed by a store's own account is applied only to that store; routing by metadata applies only to deployment-signed events, and applying an event re-asks the gateway.
-  - **Shipping (Phase 12, [ADR-0032](../11-ADR/0032-shipping-methods.md)):**
-    - **Tracking links** shown to customers come only from https templates set by staff, with the tracking number URL-encoded into them. No `javascript:` or plain-http link can reach a customer.
-    - **The destination country** that decides which methods apply is read from the customer's own address book on the server, never from the request.
+- **Platform vs store:** platform accounts have no store and exist only on platform hosts. A platform token (no `tid`) is rejected on store hosts, and a store token on platform hosts.
+- **IDOR prevention, in layers:**
+  1. **Tenant isolation** ([ADR-0022](../11-ADR/0022-tenancy-enforcement.md)):
+     - the store comes from the host only, with no fallback store in production;
+     - a named EF filter hides other stores' rows and **throws** when no store is in scope — it never returns every store's rows;
+     - a write guard stamps and verifies `TenantId` on every save;
+     - tenant-scoped composite foreign keys make a cross-store reference impossible in the database itself;
+     - a token's `tid` must match the host.
+  2. **Ownership checks inside the use case**, so a customer only sees and confirms their own orders — a 404 otherwise.
+  3. **Identity always from the token** through `ICurrentUser`; commands carry no customer id or tenant id to tamper with.
+- **Automated proof** (details and test classes in [SecurityControls.md](SecurityControls.md) §2–§4):
+  - `AuthorizationBoundaryTests` enumerates the routing table: every endpoint declares a decision, the anonymous set equals a reviewed list, every declared permission exists, anonymous callers get 401 and customers 403 on every permission-protected endpoint, and every platform endpoint is absent (404) on a store host.
+  - `AuthorizationMatrixTests` checks role × endpoint over HTTP, and that staff without a customer profile cannot shop.
+  - `TenantIsolationTests` puts store B's admin, customer and visitors on B's host and asks for store A's resources by their real ids: 404 everywhere, empty listings, refused writes that reference A's rows, A's data unchanged afterwards, A's token rejected with 401, the write guard and the missing-tenant filter failing loudly, and A's guest basket token opening nothing. A completeness test forces every new id-bearing endpoint into that table.
+  - `TenancyRuleTests` (architecture) forbid a business entity without `ITenantOwned`, `IgnoreQueryFilters` outside the one reviewed platform query type, raw SQL outside migrations, a tenant-owned entity without the filter or the foreign key, a cross-tenant foreign key that omits `TenantId`, and a use case that sets the tenant.
+  - `AuthSessionTests` prove platform and store sessions stay apart.
+- **What this does not cover:** the architecture tests police the Application layer's module boundaries, not the Domain layer, so a handler that reaches another module's domain repository or entity is not caught by any test.
+
+### Area notes
+
+- **Platform area:** `PlatformAdministrationTests` covers provisioning end to end, and a platform admin without `platform.users.manage` gets 403. A store admin changing settings or staff can only touch their own store: those requests carry no store id, and B's admin gets 404 for A's staff account.
+- **Catalog:** every admin catalog endpoint requires `catalog.manage`. Draft and archived products, and products in hidden categories, are invisible to anonymous callers by id and by slug. Image ids are resolved inside a product of the caller's store: an unknown image is 404 on remove, and a foreign id in a reorder is 422, with the image untouched. Slugs and SKUs are unique per store only, so one store cannot probe another's catalog through a uniqueness conflict.
+- **Inventory:** corrections and thresholds need `inventory.manage` on top of `inventory.view`, and every correction is audited with its delta and reason. Store B's admin gets 404 for A's product on both endpoints. Reservations and ledger rows reference the item through composite tenant-scoped foreign keys, and the expiry sweep runs inside each store's own scope.
+- **Customers** ([ADR-0027](../11-ADR/0027-customer-profile-and-erasure.md)): `/api/account` carries no customer id — the profile is always the caller's (`cid`). An address id outside the caller's own book is 404 on update, delete and both default routes, and `400 AddressNotFound` at checkout. Blocking, exporting and erasing need `customers.manage` on top of `customers.view`, and they are audited, as are a customer's own export and erasure. Self-erasure requires the current password. Erasure anonymizes the profile and the login in one save, revokes refresh tokens and forgets the cached security stamp, so existing access tokens stop working immediately on that instance. Exports contain no credential material.
+- **Basket** ([ADR-0028](../11-ADR/0028-basket-and-pricing-pipeline.md)): the guest cookie is `HttpOnly`, `Secure`, `SameSite=Strict` and scoped to `/api/basket`; it holds 256 random bits and only its SHA-256 is stored. Requests carry no basket id at all, so there is nothing to enumerate. A store-A guest token on store B's host opens an empty basket, the cookie is cleared, and updates and deletes are 404. Coupon codes can only be priced through `GET /api/basket/quote` and `GET /api/coupons/apply`, both behind the coupon-preview limit; basket writes have their own limit, because every add from a new guest creates a row. Checkout never trusts a client amount.
+- **Orders** ([ADR-0029](../11-ADR/0029-orders-lifecycle.md)): tracking uses a random 128-bit token (`GET /api/orders/track/{token}`), not the sequential id, so orders cannot be enumerated (finding B8). It returns the order number, status, history, carrier and tracking number — no identity, address, amounts, lines, notes or actors. A malformed or unknown token is 404, and so is store A's token on store B's host. Customer cancellation is owner-only and applies only to unpaid orders, and the gateway is asked first, so a customer can never cancel an order that was just paid. Order numbers are per store. Staff notes and actors are shown only to callers with `orders.view`. Every status change records the acting user on its history row.
+- **Coupons** ([ADR-0030](../11-ADR/0030-coupon-redemptions.md)): a use is taken inside the checkout transaction on a fresh read under the coupon's `rowversion`, so parallel checkouts cannot exceed a global or per-customer limit; this is tested with concurrent checkouts. The per-customer limit counts uses for the signed-in customer, never an id sent by the client. Redemptions show order numbers and customer names, so they are listed only with `promotions.manage`, within the host's store. A used coupon cannot be deleted (`409 CouponInUse`).
+- **Payments** ([ADR-0031](../11-ADR/0031-payments-and-refunds.md)): see §8.
+- **Shipping** ([ADR-0032](../11-ADR/0032-shipping-methods.md)): tracking links come only from https templates set by staff, with the tracking number URL-encoded into them, so no `javascript:` or plain-http link can reach a customer. The destination country that decides which methods apply is read from the customer's own address book on the server, never from the request.
 
 ## 4. Transport, CORS, headers, rate limiting
 
-- **HTTPS** is terminated at the reverse proxy in production. HSTS is set there (Phase 23 checklist).
-- **CORS:** an explicit allowlist from `Cors:AllowedOrigins`. The Docker/nginx deployment is same-origin and needs none.
-- **Headers:**
-  - `/uploads/*` responses carry `X-Content-Type-Options: nosniff` and `Content-Security-Policy: default-src 'none'; sandbox` (1A).
-  - A full header set (CSP for the SPA, `frame-ancestors`, `Referrer-Policy`) is added in Phase 20.
-- **Rate limiting (Phase 3):** the ASP.NET Core limiter, with a fixed window per `host|client IP`.
-  - Auth endpoints: 10/min. Refresh: 30/min. Coupon preview: 30/min. All are configurable under `RateLimiting`.
-  - Exceeding a limit returns `429 TooManyRequests` with `Retry-After`.
-- **Forwarded headers (Phase 3):** `X-Forwarded-For` and `X-Forwarded-Proto` are honoured only from proxies in `ForwardedHeaders:KnownNetworks` (the Docker network by default). A client therefore can't spoof its IP to escape rate limits, or fake `https`.
-- **Host header:** the API trusts the host only after it matches `TenantDomains` (an unknown host is a 404). This is what makes host-based email links safe. nginx forwards the original `Host`.
+- **HTTPS and HSTS:** **not provided by this repository.** The compose stack's nginx listens on port 80, and the API calls neither *UseHttpsRedirection* nor *UseHsts*. A deployment must terminate TLS in front of the stack; the refresh and basket cookies are `Secure` and will not be sent over plain http. HSTS and a full header set are **PLANNED** for Phase 20, automated TLS for custom domains for Phase 23.
+- **CORS:** an allowlist from `Cors:AllowedOrigins`, falling back to `http://localhost:5173` when the key is unset — in every environment. The policy does not allow credentials, so a cross-origin session is impossible in any case. The Docker/nginx deployment is same-origin and needs no CORS.
+- **Headers:** `/uploads/*` responses carry `X-Content-Type-Options: nosniff` and `Content-Security-Policy: default-src 'none'; sandbox`. **No other security header is set anywhere** — no CSP for the SPA, no *frame-ancestors*, no *Referrer-Policy* (**PLANNED**, Phase 20).
+- **Rate limiting:** the ASP.NET Core limiter with a fixed window per `host|client IP`.
+  - Auth endpoints 10/min; refresh 30/min; coupon preview 30/min; basket writes 120/min. All configurable under `RateLimiting`.
+  - Exceeding a limit returns `429 TooManyRequests` with `Retry-After`, in the standard error contract.
+  - The limiter is in-process: with several instances the effective limit multiplies. Checkout, review posting, the webhook and all other authenticated endpoints have no limit.
+- **Forwarded headers:** `X-Forwarded-For` and `X-Forwarded-Proto` are honoured only from proxies in `ForwardedHeaders:KnownNetworks` (the compose stack sets the Docker network), so a direct client cannot spoof its address to escape a rate limit or fake `https`. The compose file also publishes the API on port 5201 for diagnosis; a request that bypasses nginx that way may appear to come from inside the trusted range (SEC-HTTP-06).
+- **Host header:** the API serves `/api` and `/uploads` only after the host matches `TenantDomains` (or a platform host); an unknown host is 404. That is what makes host-based email links safe. nginx forwards the original `Host`.
 
 ## 5. Input validation, XSS, and uploads
 
-- **Validation:** FluentValidation for shape and ranges (automatic pipeline). Business invariants in the Domain. The database constraints are the final guard.
-- **XSS:** React escapes by default, and `dangerouslySetInnerHTML` is forbidden unless the content is sanitized. Since Phase 5, product and category descriptions are **plain text** (up to 4000 characters, rendered escaped). A rich (HTML) description arrives with the storefront (Phase 16); it will be sanitized server-side against an allowlist before storage.
-- **Uploads (fixed in 1A, Phase 0 finding B3):**
-  1. The file type is detected from **magic bytes**: JPEG, PNG, GIF, WebP for images; MP4, WebM for videos. Anything else (HTML, SVG, scripts, disguised files) is rejected with `UnsupportedMediaType`.
-  2. The stored extension is **derived from the detected type**, never from the client's filename. The stored name is a random GUID.
-  3. The client `Content-Type` header is ignored for security decisions.
-  4. Size limits: 5 MB for images, 50 MB for video (HTTP ceiling plus an Application check).
+- **Validation:** FluentValidation for shape and ranges through the MediatR pipeline; business invariants in the Domain; database constraints as the final guard.
+- **XSS:** React escapes by default, and `dangerouslySetInnerHTML` appears nowhere in `frontend/src` — by convention, not by an automated check. Product and category descriptions are **plain text** (up to 4000 characters, rendered escaped). A rich HTML description is **PLANNED** with the storefront (Phase 16) and needs a server-side sanitizer before storage.
+- **Uploads** (Phase 0 finding B3, [ADR-0016](../11-ADR/0016-upload-validation.md)):
+  1. The type is detected from **magic bytes**: JPEG, PNG, GIF, WebP for images; MP4, WebM for video; ICO for store favicons only. Anything else — HTML, SVG, scripts, disguised files — is rejected with `UnsupportedMediaType`.
+  2. The stored extension is **derived from the detected type**, never from the client's filename, and the stored name is a random GUID.
+  3. The client's `Content-Type` header is ignored for every security decision.
+  4. Size limits: 5 MB images, 50 MB video, 2 MB branding assets in the use case, with HTTP ceilings of 6 MB, 55 MB and 3 MB and `client_max_body_size 55m` in nginx.
   5. The static file server serves only the allowlisted media types from the uploads folder, with `nosniff` and a sandboxing CSP, so an unexpected file can never execute as a page on our origin.
   6. SVG is not accepted, because it can carry script.
-- **Tenant-prefixed keys (Phase 2):**
-  - Files are stored under `tenants/{id}/…`. The resolution middleware serves them only on the owning store's host.
-  - Pre-Phase-2 files under `/uploads/{folder}` belong to the default store. They are public catalog media with unguessable names.
-- **Product gallery (Phase 5):**
-  - Up to 10 images per product, each through the same content-sniffed pipeline, into the store's prefix.
-  - Removing an image from the gallery does not delete the file yet (a cleanup job is planned). The file keeps its unguessable name and is still served only on the owning store's host.
-- **Target (Phase 23):** cloud blob storage, and optional re-encoding of images (which strips metadata and neutralizes polyglots).
+- **Tenant-prefixed keys:** files are stored under `tenants/{id}/…` and the resolution middleware serves them only on the owning store's host. Two deliberate exceptions: the platform host serves any store's files, and pre-Phase-2 files under `/uploads/{folder}` belong to the default store and stay public — they are catalog media with unguessable names.
+- **Product gallery:** up to 10 images per product, each through the same pipeline, into the store's prefix. **Removing an image does not delete the file** and no cleanup job exists or is scheduled (**FUTURE**); the file keeps its unguessable name and is still served only on the owning store's host.
+- **PLANNED (Phase 23):** cloud blob storage. Re-encoding images to strip metadata and neutralize polyglots was considered in ADR-0016 and is **FUTURE** — no phase schedules it.
 
 ## 6. Secret management
 
 | Secret | Development | Docker / production |
 |---|---|---|
 | Connection string | `dotnet user-secrets` | environment variable |
-| JWT signing key | user-secrets | environment variable (≥ 256-bit random) |
-| Stripe secret + webhook secret | user-secrets | environment variable (per-tenant, encrypted, from Phase 11) |
-| Email provider keys | user-secrets | environment variable |
-| Admin bootstrap credentials | user-secrets (`Seed:AdminEmail`/`Seed:AdminPassword`) | environment variable, set once, removed after first start |
-| Platform owner bootstrap (Phase 3) | user-secrets (`Seed:PlatformOwnerEmail`/`Seed:PlatformOwnerPassword`) | environment variable, set once, removed after first start |
+| JWT signing key | user-secrets | environment variable (at least 32 bytes) |
+| Deployment Stripe secret and webhook secret | user-secrets | environment variables (`Stripe:SecretKey`, `Stripe:WebhookSecret`) |
+| A store's own Stripe keys | entered through the API, encrypted at rest | encrypted at rest with `Secrets:Keys:{id}` / `Secrets:ActiveKeyId` from the environment |
+| Email provider keys | user-secrets | environment variable (`Resend:ApiKey`, `Brevo:ApiKey`, `Gmail:AppPassword`) |
+| Admin bootstrap credentials | user-secrets (`Seed:AdminEmail` / `Seed:AdminPassword`) | environment variable, set once, removed after the first start |
+| Platform owner bootstrap | user-secrets (`Seed:PlatformOwnerEmail` / `Seed:PlatformOwnerPassword`) | environment variable, set once, removed after the first start |
 
-- **Fail fast (1B, [ADR-0020](../11-ADR/0020-configuration-and-secrets.md)):** settings are typed options validated before the database is touched. A missing connection string, a JWT key shorter than 256 bits, missing JWT issuer/audience, a missing payment provider outside Development, or missing Stripe keys when Stripe is selected stop the startup with a message that names the key and never prints its value.
-- **Development conveniences never run implicitly elsewhere:** the fake payment gateway, reset links in the console log, and the development admin work only in Development (and Testing). Anything unsafe for real customers that is enabled explicitly is logged as a warning at every start.
-- `appsettings.json` contains **no secrets and no personal data** (the personal email defaults were removed in 1A).
-- `.env` is git-ignored; `.env.example` holds placeholders only.
-- **Checked at every phase gate:** grep for keys, passwords, and connection strings in the diff.
+- **Fail fast** ([ADR-0020](../11-ADR/0020-configuration-and-secrets.md)): settings are typed options validated before the database is touched. Startup is refused by a missing connection string; a JWT key shorter than 32 bytes, a missing issuer or audience, or a lifetime outside its range; a missing payment provider outside Development and Testing; missing Stripe keys when Stripe is selected; a malformed secrets key or an active key id that does not exist; a non-absolute storage path; and **a missing email provider outside Development and Testing** unless `Email:Provider=Log` is set explicitly. Messages name the key and never print its value.
+- **Store payment keys at rest:** AES-256-GCM with a key from the environment. The store id and the kind of secret are authenticated data, so a ciphertext copied into another store's row does not decrypt. Key ids allow rotation — the old key must stay until every store re-saves its keys, because nothing re-wraps existing ciphertexts. Keys are write-only: only the last four characters are ever returned, and the audit log records what changed, not the values.
+- **Development conveniences never run implicitly elsewhere:** the fake payment gateway and the log-only email adapter are implicit in Development and Testing only; reset links in the log and the development admin exist in Development only. Anything unsafe that is enabled explicitly (`Payments:Provider=Fake`, `Email:Provider=Log`, `Payments:AllowTestModeStoreAccounts`, a missing webhook secret) is logged as a warning at every start.
+- `src/Souq.API/appsettings.json` contains **no secrets and no personal data**; `.env` is git-ignored and `.env.example` holds placeholders only.
+- **Not automated:** there is no CI and no secret scanning in the repository, so "grep the diff for keys and connection strings before merging" is a manual habit, not a control (G-01).
 
-## 7. Password reset security (fixed in 1A, B2/B6)
+## 7. Password reset security
 
-- The token is **32 bytes from a CSPRNG**, base64url-encoded, sent only in the email link.
-- The database stores **only its SHA-256 hash**. A database read never yields a usable reset token. Tokens have high entropy, so a fast hash is sufficient; no salt or slow hash is needed.
-- Tokens are valid for 2 hours, are **single-use**, and are cleared on success.
-- Forgot-password always answers 200 with the same message, so accounts can't be enumerated.
-- **Logs never contain the link or the token.**
-  - The console email adapter prints the link **only in Development**, where no real email is sent.
-  - Everywhere else it logs "reset requested" with a masked address.
-  - In Production, a missing email provider is logged as a warning at startup.
-- **Phase 3:** a successful reset or a password change rotates the security stamp and revokes every refresh token. A password change also issues a fresh session to the caller.
-- **Phase 3:** the link points at the host the request came from, so a store's customer returns to that store. An unknown host never reaches the use case (§4).
+- The token is **32 bytes from a CSPRNG**, base64url-encoded, and appears only in the email link.
+- The database stores **only its SHA-256 hash**, so a database read never yields a usable reset token. The token has 256 bits of entropy, so a fast hash is sufficient; no salt or slow hash is needed.
+- Tokens are valid for 2 hours, are **single-use**, and are cleared on success. A successful reset also clears the lockout, confirms the address, rotates the security stamp and revokes every session.
+- **The token is generated when the email is dispatched**, not when the request arrives ([ADR-0034](../11-ADR/0034-notifications-outbox.md)): the outbox row holds a user id and the request's origin, never a secret. A retry issues a new token that supersedes the previous one.
+- Forgot-password always answers 200 with the same message, so accounts cannot be enumerated there.
+- **API logs never contain the link or the token.** The console email adapter prints the link **only in Development**; elsewhere it logs "not sent" with a masked address. Outside Development and Testing the API refuses to start with no email provider at all, unless `Email:Provider=Log` is chosen explicitly.
+- **Caveat:** the link itself carries the token in a query string, and the reset page is served by nginx, whose default access log records the request line. Treat the web container's access log as sensitive until that is changed (SEC-LOG-07).
+- The link points at the host the request came from, so a store's customer returns to that store. An unknown host never reaches the use case (§4).
 
 ## 8. Payments
 
-- **PCI scope:** card details go from the browser straight to Stripe (Stripe Elements / Payment Intents). Our servers never receive, store, or log a PAN, CVV, or expiry date. This keeps Souq in the lightest PCI category (SAQ A), as long as the checkout page is served securely.
+- **PCI scope:** card details go from the browser straight to Stripe (Stripe Elements / Payment Intents). Our servers never receive, store or log a PAN, CVV or expiry date. This keeps Souq in the lightest PCI category (SAQ A), as long as the checkout page is served securely. A test scans the whole EF model for card-like columns and pins the payment tables' columns.
 - **Integrity:**
-  - The order total is computed **server-side** from catalog prices and coupon rules. The client's cart price is display only.
-  - The payment intent is created **after** the order is saved.
-  - Confirmation re-reads the intent status from the provider instead of trusting the client, and it is idempotent.
-- **Provider failure:** if intent creation fails, the order is cancelled and its reserved stock released immediately (1A fix for C6).
-- **Webhooks:** signature verification lives **inside the payment adapter** (1A; it used to be in the controller). Unsigned or invalid → 400. Missing secret → ignored with a warning.
-- **Amount conversion:** the adapter converts `Money` to the provider's minor units (`StripeAmountConverter`, unit-tested).
-  - Stripe documents currencies as two-decimal unless listed as zero-decimal. JOD (3 ISO decimals) is therefore sent ×100, rounded away from zero to the nearest 0.01. That matches the previous behaviour, now explicit.
-  - ⚠️ **Must be verified before JOD goes live on Stripe.** If the account treats JOD as a three-decimal currency, the multiplier must be 1000. Getting this wrong would charge a tenth of the price. This is listed as an open risk in the roadmap.
-- **Fake gateway (1B):** it confirms every payment without money. It used to be selected automatically whenever no Stripe key was set — including in the Production Docker stack, where any order could be marked Paid for free. It is now implicit only in Development/Testing; elsewhere the API refuses to start unless `Payments:Provider=Fake` is set explicitly (demo use), which is logged at every start.
-- **Account model:** today there is **one** platform Stripe account configured by environment. The client instance is created per adapter (1A), not through a static global. Per-tenant accounts, or Stripe Connect, is decision D-13, due in Phase 11.
+  - The order total is computed **server-side** from catalog prices, coupon rules and shipping rules; the client's cart total is display only, and the shipping country comes from the customer's own address book.
+  - The payment intent is created **after** the order is saved. If intent creation fails, the order is cancelled and its reserved stock and coupon use released immediately, and the caller gets `503 PaymentUnavailable`.
+  - Confirmation re-reads the intent's status from the provider instead of trusting the client, and it is idempotent; a customer/webhook race is resolved through the order's `rowversion`.
+- **Refunds** need `store.payments.manage`, are audited with the acting user, cannot exceed the payment under concurrency, and carry an idempotency key built from the refund id, so a retry after a timeout cannot refund twice. Another store's order is a 404.
+- **Webhooks:** signature verification lives **inside the payment adapter**; an invalid signature is `400 InvalidSignature`, and with no secret configured the event is acknowledged and ignored with a warning. An event signed by a store's own account is applied only to that store; routing by intent metadata applies only to deployment-signed events, and applying an event re-asks the gateway, so metadata alone proves nothing.
+- **Per-store accounts:** a store may connect its own Stripe account; its keys are encrypted at rest and bound to the store (§6). Later calls for an intent — confirm, cancel, refund — go through the account recorded on its payment, so switching accounts never sends a refund to an account that never took the money. A store account whose secrets cannot be decrypted answers `503 PaymentsUnavailable`; payments never fall back to the deployment account silently. **D-13 is still open:** whether multi-store production requires every store to connect its own account, or uses Stripe Connect ([ADR-0031](../11-ADR/0031-payments-and-refunds.md)).
+- **No silent fake payments:** the fake gateway confirms every payment without money. It is implicit only in Development and Testing; elsewhere the API refuses to start unless `Payments:Provider=Fake` is set explicitly, which is logged at every start. Test-mode Stripe keys for a store account are refused outside Development and Testing unless `Payments:AllowTestModeStoreAccounts` is set, which also logs a warning.
+- **Amount conversion:** the adapter converts `Money` to the provider's minor units (`StripeAmountConverter`, unit-tested). Stripe documents currencies as two-decimal unless listed as zero-decimal, so a three-decimal currency is sent ×100, rounded away from zero to the nearest 0.01.
+  - **Open risk (P-05):** this must be verified on the real Stripe account before live payments in a three-decimal currency. If the account treats it as three-decimal, the multiplier must be 1000, and getting it wrong would charge a tenth of the price.
 
 ## 9. Logging and sensitive data
 
-**Never log:**
+**Never logged:**
 - passwords or hashes;
-- tokens (JWT, refresh, reset, API keys);
-- reset or verification links;
-- full card data (we never have it);
+- tokens (JWT, refresh, reset, verification, invitation, provider API keys);
+- reset, verification or invitation links;
+- card data (we never have it);
 - full provider response bodies on success;
 - personal data beyond what is needed.
 
-**Rules applied in 1A:**
-- Email adapters log the **masked** recipient (`a***@example.com`), the subject, and the HTTP status. The provider error body is logged on failure only, truncated to 500 characters.
-- Configuration diagnostics log only `configured`/`missing`, never values.
-- Unexpected exceptions are logged server-side with the stack trace. Clients receive a generic message.
-
-**Rules added in 1B ([ADR-0018](../11-ADR/0018-observability.md)):**
+**How that is achieved:**
 - One line per request with method, path **without the query string**, route template, status and duration. Headers (including `Authorization`) and bodies are never logged.
-- Every log inside a request carries `CorrelationId` (the W3C trace id, also returned as `X-Correlation-Id` and as `traceId` in errors), `TenantId` (or `Area=Platform` on the platform host, Phase 2) and `UserId`; use-case logs add `UseCase`. A blocked cross-tenant write is logged at **Critical**.
-- Use-case logging records name and duration only — never the request payload.
-- EF Core SQL text is off by default, and parameter values are never logged.
-- Integration tests prove that no password, JWT or `Authorization` value appears in any log.
+- Every log written inside a request, after authentication, carries `CorrelationId` (the W3C trace id, also returned as `X-Correlation-Id` and as `traceId` in error bodies), the store (`TenantId`, or `Area` on the platform host) and `UserId`; use-case logs add `UseCase`. Use-case logging records the name and duration only, never the payload.
+- Email adapters log the message **kind**, the **masked** recipient (`a***@example.com`) and the HTTP status. A provider error body is logged on failure only, truncated to 500 characters with any address inside it masked. The same truncation and masking applies to the error stored on a failed outbox message.
+- Configuration diagnostics log which adapters were selected and which settings are unsafe for real customers — never a value.
+- EF Core SQL text is off by default (`Microsoft.EntityFrameworkCore` at `Warning`), and parameter values are never logged: *EnableSensitiveDataLogging* appears nowhere in the repository.
+- Unexpected exceptions are logged server-side with the stack trace; clients receive a generic message with no type, message or stack.
+- A blocked cross-tenant write and a blocked audit mutation are logged at **Critical**. Refresh-token reuse is a warning with the user id only. Refresh tokens appear only in the `Set-Cookie` header, never in a body or a log.
+- Integration tests prove that no password, JWT or `Authorization` value appears in any log, and that no reset token or address appears in the logs or in a stored outbox error.
 
-**Rules added in Phase 3:** refresh-token reuse is logged as a warning with the user id only. Refresh tokens appear only in the `Set-Cookie` header, never in a body or log.
+**Known gap:** secrets that travel in a URL escape these rules — the order tracking token is a path segment and is written into the request log line, and the SPA's token-bearing pages (`/reset-password`, `/verify-email`, `/accept-invitation`) are requested through nginx, whose default access log records the query string (SEC-LOG-07, G-03).
 
-## 10. Audit logging (implemented in Phase 4, [ADR-0024](../11-ADR/0024-platform-administration.md))
+## 10. Audit logging
 
-`AuditEntries` rows record:
+[ADR-0024](../11-ADR/0024-platform-administration.md). `AuditEntries` rows record:
 - who: the user id and role, and the area (`Platform`, `Store` or `System`);
 - which store is affected;
-- the action (`tenant.suspended`, `store.staff.invited`, …);
+- the action (`tenant.suspended`, `store.staff.invited`, `inventory.adjusted`, …);
 - the target type and id (the natural key for creates);
-- metadata as JSON, with the fields the request chose itself;
-- the client IP (only from trusted proxies) and the correlation id.
+- metadata as JSON, chosen field by field by the request itself;
+- the client address (only from trusted proxies) and the correlation id.
 
 **How rows are written:**
 - `AuditBehavior` handles every request that implements `IAuditable`.
 - The entry is staged into the current unit of work before the handler runs, so it commits atomically with the change.
-- If the handler saved nothing (a query), the entry is flushed after success. On failure it is discarded.
+- If the handler saved nothing (a query), the entry is flushed after success. A failure discards it, unless the handler had already committed it — in which case the trail keeps the attempt.
 - The request body is never copied, so passwords, tokens and file contents never reach the log.
 
-**What is audited:**
-- **Every platform request, reads included.** This is how the Platform Owner's access stays "explicit and audited", and an architecture test enforces it.
-- **Store administration:** settings, branding and staff.
+**What is audited today:**
+- **Every platform request, reads included** — this is what makes the platform owner's access "explicit and audited", and an architecture test enforces it for the Platform and Reporting feature folders.
+- **Store administration:** settings and branding, staff invitations and status, store payment accounts, refunds, customer status, export and erasure (including a customer's own), stock adjustments and thresholds, review moderation and review settings, catalog status changes, deletes and gallery changes.
 
-Refunds, stock adjustments and catalog commands join as their phases rebuild them.
+**Not audited** (the gap in SEC-AUTHZ-10): order status changes — the acting user is recorded on the order's own history row instead — coupon create/update/delete, shipping-method create/update/delete, product create and update, and customers' own profile and address changes.
 
-The write guard rejects any update or delete of an `AuditEntry`. The platform reads the log through `GET /api/platform/audit`, with `platform.audit.view`.
+The write guard rejects any update or delete of an `AuditEntry`. The platform reads the log through `GET /api/platform/audit` with `platform.audit.view`; there is no store-facing viewer yet (PLANNED, Phase 17).
 
 ## 11. Phase 0 findings: disposition
 
-| ID | Finding | Status after 1A |
+| ID | Finding | Status today |
 |---|---|---|
-| B1 | Default admin `Admin@123` seeded in every environment | ✅ Fixed. **Development** falls back to the documented dev credentials when `Seed:*` isn't set, for convenience. **Every other environment** creates an admin only when `Seed:AdminEmail`/`Seed:AdminPassword` are provided and the password meets the strength policy. Otherwise no admin is created and a warning is logged. An existing admin's password is never overwritten. |
-| B2 | Reset links in logs; PII in email logs | ✅ Fixed (§7, §9) |
-| B3 | Upload stored XSS | ✅ Fixed (§5) |
-| B4 | Long-lived JWT in `localStorage`, no revocation | ✅ Phase 3: a 15-minute access token in memory, the refresh token in an `HttpOnly` cookie, revocation by stamp and by family |
-| B5 | No rate limiting | ✅ Phase 3: limits on auth, refresh and coupon preview per `host|IP`, behind trusted forwarded headers |
-| B6 | Plaintext reset tokens | ✅ Fixed (hash only) |
-| B7 | Ownership checks in controllers; role-only authorization | ✅ 1B: `ICurrentUser`, ownership in use cases, permission policies. ✅ Phase 3: tenant, staff and platform roles |
-| New (1B) | Fake payment gateway selected implicitly in Production | ✅ 1B: explicit selection outside Development, startup refusal otherwise |
-| B8 | Anonymous tracking by sequential id exposes notes | ✅ Phase 9: tracking by a random token that returns status and shipment only; the id route is removed |
-| B9 | Security headers | 🟡 Uploads fixed in 1A; the rest in Phase 20 |
-| B10 | App connects as `sa` | ⏳ Phase 23 (least-privilege login) |
-| B11 | npm advisories | ✅ Non-breaking fixes applied; the Vite major upgrade (dev server only) is deferred to Phase 15 |
-| B12 | Personal email defaults in source | ✅ Removed from code, config, and compose |
+| B1 | Default admin `Admin@123` seeded in every environment | **Fixed.** Development falls back to the documented development credentials when `Seed:*` is unset. Every other environment creates an account only from `Seed:AdminEmail`/`Seed:AdminPassword` (and the platform-owner pair), and refuses to start if that password is shorter than 12 characters or equals the development one. Otherwise no account is created and a warning is logged. An existing account's password is never overwritten. The password policy itself (letters and digits) is **not** applied to seeded passwords |
+| B2 | Reset links in logs; personal data in email logs | **Fixed** in the API (§7, §9); see the nginx access-log caveat |
+| B3 | Upload stored XSS | **Fixed** (§5) |
+| B4 | Long-lived JWT in `localStorage`, no revocation | **Fixed:** a 15-minute access token in memory, the refresh token in an `HttpOnly` cookie, revocation by stamp and by family |
+| B5 | No rate limiting | **Fixed** for auth, refresh, coupon preview and basket writes, per `host|IP`, behind trusted forwarded headers. Coverage is still narrow (§4) |
+| B6 | Plaintext reset tokens | **Fixed** (hash only) |
+| B7 | Ownership checks in controllers; role-only authorization | **Fixed:** `ICurrentUser`, ownership in use cases, permission policies, tenant/staff/platform roles |
+| B8 | Anonymous tracking by sequential id exposes notes | **Fixed:** tracking by a random token that returns status and shipment only; the id route is gone |
+| B9 | Security headers | **Partly fixed:** uploads only. CSP, HSTS and the rest are **PLANNED** (Phase 20) |
+| B10 | The application connects as `sa` | **Open.** Still `sa` in `docker-compose.yml`, and no phase schedules a least-privilege login (G-09) |
+| B11 | npm advisories | **Partly fixed:** non-breaking fixes applied; the Vite major upgrade was deferred to Phase 15, which shipped with Vite 5 still in place (G-18) |
+| B12 | Personal email defaults in source | **Fixed:** removed from code, configuration and compose |
+| New (Phase 1B) | Fake payment gateway selected implicitly in Production | **Fixed:** explicit selection outside Development and Testing, startup refusal otherwise |

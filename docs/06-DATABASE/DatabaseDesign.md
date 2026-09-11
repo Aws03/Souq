@@ -1,275 +1,193 @@
 # Souq: Database Design
 
-> **Status:** Principles adopted 2026-09-11 ([ADR-0007](../11-ADR/0007-database-strategy.md)). The §9 changes are applied in Phase 1A; everything else is applied per phase.
+> **Status:** principles adopted 2026-09-11 ([ADR-0007](../11-ADR/0007-database-strategy.md)). This page describes the schema as it stands after `Phase14Notifications`, the latest migration.
 > **Engine:** SQL Server 2022 · **Access:** EF Core 10, code-first migrations (the **only** source of truth for the schema).
+> **Companions:** [OwnershipMap.md](OwnershipMap.md) — who owns, writes and reads each table · [Migrations.md](Migrations.md) — how the schema changes and how data is protected.
 
 ## 1. Principles
 
 1. **Migrations are the schema.** No hand-written schema scripts live in the repository. For a DBA review, generate SQL with `dotnet ef migrations script --idempotent`.
-2. **One `DbContext`, module-owned configurations.** Each module owns its tables. Configurations live under the module's folder, and a module's code reads and writes only its own tables (Reporting is the documented read-only exception).
-3. **Every constraint the business relies on is also a database constraint.** This covers uniqueness, required relationships, and precision. Code checks give friendly messages; the database is the last line of defence against races.
-4. **Explicit over clever.** Fluent configuration only, no data annotations on Domain entities.
+2. **One `DbContext`, one owning module per table.** A single unit of work is what makes checkout atomic. Every table has exactly one module whose use cases write it ([OwnershipMap.md](OwnershipMap.md)); other modules go through a contract or a read projection. Two caveats, true today: the EF configurations all live in one flat folder, `src/Souq.Infrastructure/Persistence/Configurations/`, not under module folders; and cross-module reads do happen — in query services by design, and in a handful of handlers through another module's domain repository, which no test catches (each one is listed in the ownership map).
+3. **Every constraint the business relies on is also a database constraint** — uniqueness, required relationships, precision, and the check constraints on inventory quantities and basket lines. Code checks give friendly messages; the database is the last line of defence against races.
+4. **Explicit over clever.** Fluent configuration only; there are no data annotations anywhere in `src/Souq.Domain`.
 
 ## 2. Naming
 
-| Item | Convention | Example |
+| Item | Convention | Example in the schema |
 |---|---|---|
-| Table | Plural PascalCase, in `dbo` for now | `Products`, `OrderItems` |
-| Column | PascalCase | `StockQuantity` |
-| Primary key | `Id` | |
-| Foreign key | `<Entity>Id` | `CategoryId` |
-| Index | EF default `IX_<Table>_<Cols>` | `IX_Products_CategoryId` |
-| Unique index | `IX_…` with `IsUnique()` | `IX_Categories_Slug` |
-| Concurrency column | `RowVersion` (`rowversion`) | |
-| Money | `<Name>` amount + `<Name>Currency` (or `Currency` for one-currency rows) | `Price`, `Currency` |
+| Table | Plural PascalCase, in `dbo` | `Products`, `OrderItems`, `OutboxMessages` |
+| Column | PascalCase | `LowStockThreshold` |
+| Primary key | `Id` (`int identity`; `bigint` for the two building-block tables) | |
+| Foreign key | `<Entity>Id`, composite with `TenantId` between tenant-owned rows | `(TenantId, CategoryId)` |
+| Index | EF default `IX_<Table>_<Cols>`, `TenantId` first | `IX_Products_TenantId_Status_CategoryId` |
+| Unique index | the same, with `IsUnique()` | `IX_Categories_TenantId_Slug` |
+| Filtered index | the same, with `HasFilter(...)` | `IX_Users_NormalizedEmail_Platform`, `IX_ProductVariants_ProductId_Default` |
+| Alternate key | `AK_<Table>_TenantId_Id`, the principal of composite FKs | `AK_Orders_TenantId_Id` |
+| Check constraint | `CK_<Table>_<Rule>` | `CK_Baskets_Owner`, `CK_InventoryItems_Quantities` |
+| Concurrency column | `RowVersion` (`rowversion`), a shadow property | `PersistenceConventions.HasRowVersion` |
+| Money | `<Name>` amount + `<Name>Currency`, or a bare `Currency` when the row has one | `MinOrderAmount` + `MinOrderCurrency`; `Price` + `Currency` |
+| Money without its own currency column | a second amount in the row's currency | `CompareAtPrice`, `FreeOverAmount`, `PlacedTotal`, `RefundedAmount` |
+| Enum | stored as `int` (`HasConversion<int>()`), exposed as a string by the API | `Orders.Status`, `Reviews.Status` |
+| ASCII-only text | `varchar`/`char`, fixed length where the value has one | `TrackingToken char(32)`, `GuestTokenHash char(64)`, `ProviderPaymentId varchar(100)` |
 
-Module schemas (`catalog.Products`) were considered and **postponed**. The ownership table in §4 gives the same clarity without a migration of every table. Revisit when a module is extracted or per-module database permissions are needed.
+Module schemas (`catalog.Products`) were considered and **DEFERRED** ([ADR-0007](../11-ADR/0007-database-strategy.md)): the ownership map gives the same clarity without migrating every table. Revisit when a module is extracted or per-module database permissions are needed.
 
 ## 3. Keys and identifiers
 
-- **Primary keys:** `int IDENTITY`, the clustered index ([ADR-0007](../11-ADR/0007-database-strategy.md)). This means no churn and compact indexes.
-- **Tenant key:** `TenantId int NOT NULL` + FK to `Tenants` (Phase 2). This is the only cross-module FK, and it is part of the shared kernel.
-- **Public identifiers** (never expose a guessable id where access is anonymous):
-  - orders: a per-tenant `OrderNumber` for humans, plus a random `PublicTrackingToken` for anonymous tracking (Phase 9);
-  - catalog: slugs in URLs (Phase 5).
+- **Primary keys:** `int IDENTITY`, the clustered index — no churn, compact indexes. `AuditEntries` and `OutboxMessages` use `bigint` because they are append-only and high-volume.
+- **Tenant key:** `TenantId int NOT NULL` on tenant-owned rows, `int NULL` on accounts and sessions (NULL = the platform). See §5.
+- **Public identifiers** — never expose a guessable id where access is anonymous:
+  - orders: `OrderNumber` per store (from 1001) for humans, plus `TrackingToken char(32)` — 128 random bits from `RandomNumberGenerator` — for the anonymous tracking page, which is the only route that accepts it;
+  - catalog: slugs, unique per store, in storefront URLs.
+- **Secrets are stored hashed or encrypted, never raw:** password hashes (BCrypt), `RefreshTokens.TokenHash` and the reset/verification token hashes (SHA-256 hex, 64 characters), `Baskets.GuestTokenHash` (SHA-256 of the guest cookie), and `StorePaymentAccounts.SecretKeyCipher` / `WebhookSecretCipher` (AES-GCM ciphertext, with no column for the plaintext).
 - **Merging tenants' data is not supported,** which is why `int` identity keys are acceptable.
+- The only `uniqueidentifier` column is `RefreshTokens.FamilyId`, which groups a rotated token family.
 
 ## 4. Data ownership
 
-**Ownership kinds:**
-- **Platform:** global, no tenant.
-- **Tenant:** owned by one store.
-- **User:** owned by a person *inside* a tenant.
-- **Reference:** global static lists such as currencies and countries.
+**Ownership kinds:** *platform* (global), *tenant* (one store), *user* (a person inside a store), *building block* (infrastructure rows that cross stores). **Delete strategies:** *hard* (physically deleted), *soft* (a status that carries business meaning), *never* (append-only history), *anonymize* (the row stays, the person disappears).
 
-**Delete strategies:**
-- **Hard:** physically deleted.
-- **Soft:** a status or archived flag.
-- **Never:** append-only.
+The per-table inventory — owner, tenant scope, key constraints, concurrency token, writers, cross-module readers and lifecycle — lives in **[OwnershipMap.md](OwnershipMap.md)**. It is the page to read before changing a table.
 
-| Entity | Module | Ownership | `TenantId` | Uniqueness | Key indexes | Delete | Audit | Concurrency |
-|---|---|---|---|---|---|---|---|---|
-| Tenant | Platform | Platform | — (it *is* the tenant) | `Slug` | — | Soft (Archived) | Created/Updated + AuditLog | `rowversion` |
-| TenantDomain | Platform | Platform (per tenant) | FK column | `Host` globally | `(TenantId)` | Hard | AuditLog | — |
-| Tenant settings / branding | Platform | Tenant | on the tenant row (JSON document `Tenants.Settings`, Phase 4) | — | — | With tenant | AuditEntries | the tenant's `rowversion` |
-| Module flags | Platform | Tenant | on the tenant row (`Tenants.EnabledModules`, Phase 4) | — | — | With tenant | AuditEntries | the tenant's `rowversion` |
-| User | Identity | Tenant **or** Platform (`TenantId NULL`) | nullable | filtered: `(TenantId, NormalizedEmail) WHERE TenantId IS NOT NULL`; `(NormalizedEmail) WHERE TenantId IS NULL` | reset and verification token hashes | Soft (Disabled) | Created/Updated/LastLogin | `rowversion` |
-| Role / Permission | Identity | Reference (in code; one `Role` column per user) | — | — | — | — | — | — |
-| RefreshToken | Identity | User (store or platform) | nullable (copied from the user) | `TokenHash` | `(UserId)`, `(FamilyId)` | Hard (an expired-token purge job is planned) | Created/Used/Revoked + reason | — |
-| Customer | Customers | User (in tenant) | ✓ | `(TenantId, UserId)` | `(TenantId, CreatedAt)`, `(TenantId, Status)` (Phase 7) | Soft (Blocked); anonymized on erasure (Phase 7) | Created/Updated | `rowversion` |
-| CustomerAddress (Phase 7) | Customers | User | ✓ | — | `(CustomerId)`, `(TenantId)` | Hard; part of the customer aggregate (orders keep single-line snapshots) | Created/Updated | — (changed through its customer) |
-| Category | Catalog | Tenant | ✓ | `(TenantId, Slug)` | `(TenantId, ParentId, SortOrder)` | Hard, only when empty (no products or children) | Created/Updated | — |
-| Product | Catalog | Tenant | ✓ | `(TenantId, Slug)` | `(TenantId, Status, CategoryId)` | **Soft (Archived)**, since orders reference it | Created/Updated | `rowversion` |
-| ProductVariant (Phase 5: exactly one default per product) | Catalog | Tenant | ✓ | `(TenantId, Sku) WHERE Sku IS NOT NULL`; `(ProductId) WHERE IsDefault = 1` | `(ProductId, IsDefault)`; AK `(TenantId, Id)` for later cart/order references | With the product (which is archived, never deleted) | Created/Updated | — (admin edits, last write wins) |
-| ProductImage | Catalog | Tenant | ✓ | — (at most 10 per product, Domain) | `(ProductId, SortOrder)` | Hard; the file stays until a cleanup job exists | Created | — |
-| ProductTranslation / CategoryTranslation (Phase 5) | Catalog | Tenant | ✓ | `(ProductId, Culture)` / `(CategoryId, Culture)` | `(TenantId)` | With the owner (replaced as a set) | Created/Updated | — |
-| InventoryItem (Phase 6) | Inventory | Tenant | ✓ | `(TenantId, VariantId)` | `(TenantId, ProductId)`; AK `(TenantId, Id)` | Never (products are archived) | Created/Updated | **`rowversion` (hot)** + checks `0 ≤ Reserved ≤ OnHand` |
-| StockReservation (Phase 6) | Inventory | Tenant | ✓ | — | `(TenantId, Reference)`; `(TenantId, ExpiresAt) WHERE Status = Active` | **Never** (closed with a status: Committed, Released, Expired, Restocked) | Created/ClosedAt | via its item |
-| StockMovement | Inventory | Tenant | ✓ | — | `(ProductId, CreatedAt)`, `(InventoryItemId, CreatedAt)` | **Never** (ledger; Σ = on hand) | Created (+ user later) | — |
-| Basket / BasketLine (Phase 8) | Shopping | Customer or guest token | ✓ | `(TenantId, CustomerId)` and `(TenantId, GuestTokenHash)`, both filtered; `(BasketId, VariantId)` | `(TenantId, ExpiresAt)` | Hard (sliding expiry; erasure) | Created/Updated | last-write-wins (no `rowversion`) + checks: exactly one owner, quantity 1–99 |
-| WishlistItem | Shopping | User | ✓ | `(TenantId, CustomerId, ProductId)` | — | Hard | Created | — |
-| Order | Ordering | User (in tenant) | ✓ | `(TenantId, OrderNumber)` and `(TenantId, TrackingToken)` (Phase 9) | `(TenantId, CreatedAt)`, `(TenantId, CustomerId)`, `(TenantId, Status, CreatedAt)` | **Never** (financial record; cancelled ≠ deleted) | Created/Updated, `PlacedAt`, status history with actor | **`rowversion`** |
-| OrderItem | Ordering | User | ✓ | — | `(OrderId)` | Cascade with order (never deleted in practice) | Created | via Order |
-| OrderStatusHistory | Ordering | User | ✓ | — | `(OrderId)` | **Never** | Created (+ actor) | — |
-| Payment / Refund (Phase 11) | Payments | User (in tenant) | ✓ | Payment: `(TenantId, OrderId)` (one per order) and `(TenantId, ProviderPaymentId)` | Refund: `(TenantId, PaymentId)` | **Never** (financial records) | Created/Updated | **`rowversion`** on the payment (a refund reserves its amount there) |
-| StorePaymentAccount (Phase 11) | Platform | Tenant | ✓ | `(TenantId)`: one per store | — | Hard (disconnect) | Created/Updated (+ user) | — |
-| Coupon | Promotions | Tenant | ✓ | `(TenantId, Code)` | `(TenantId, IsActive)` | Soft (Inactive) once redeemed; hard before | Created/Updated | **`rowversion`** |
-| CouponRedemption (Phase 10) | Promotions | User (in tenant) | ✓ | `(TenantId, OrderId)`: one per order | `(TenantId, CouponId, CustomerId, Status)` for the per-customer count, `(TenantId, CustomerId)` | **Never** (status Reserved → Confirmed or Released) | Created/Updated | via the coupon's `rowversion` |
-| ShippingMethod (Phase 12) | Shipping | Tenant | ✓ | — | `(TenantId, IsActive, SortOrder)` | Hard (orders keep a snapshot); deactivate to pause | Created/Updated | — |
-| Review | Reviews | User | ✓ | `(TenantId, CustomerId, ProductId)` | `(TenantId, ProductId, Status)` | Soft (Rejected/Hidden) | Created/Moderated | — |
-| AuditEntries (Phase 4) | building block | Tenant or Platform | nullable, no FK, no filter | — | `(OccurredAt)`, `(TenantId, OccurredAt)`, `(ActorUserId, OccurredAt)` | **Never** (append-only guard; a retention policy later) | — | — |
-| OutboxMessage | building block | Tenant or Platform | nullable | — | `(ProcessedAt, OccurredAt)` | Hard after processing + retention | — | — |
-| Currency / Country | shared kernel | Reference | — | ISO code | — | — | — | — |
+One correction to the original plan is worth stating here, because it contradicts [ADR-0007](../11-ADR/0007-database-strategy.md)'s "across modules: an id plus a snapshot, no FK, except `TenantId`": **cross-module foreign keys are the norm in the current schema.** `Orders` → `Customers`, `OrderItems` → `Products`, `Customers` → `Users`, `InventoryItems` → `ProductVariants`, `BasketLines` → `Products`, `CouponRedemptions` → `Orders`, `Payments` → `Orders`, `Reviews` → `Products`, `Customers` and `Orders`, `WishlistItems` → `Customers` and `Products` are all real, tenant-scoped foreign keys. The rule that actually held is narrower and worth keeping: **a reference gets a foreign key when the target row is never hard-deleted; otherwise it is an id plus a snapshot.** That is why the order's shipping method (`ShippingMethods` can be deleted), its coupon code, its payment intent id, every actor column (`ChangedByUserId`, `ModeratedByUserId`, `RequestedByUserId`, `UpdatedByUserId`), `Notifications.RecipientUserId` and both building-block tables carry no foreign key at all.
 
-## 5. Money and precision
+## 5. Tenancy in the schema
 
-- **Storage:** `decimal(19,4)` for every monetary column.
-  - 19 digits of precision covers any realistic order.
-  - 4 decimal places holds every ISO-4217 currency. Most use 2; **JOD, KWD, BHD, OMR, TND use 3**; a few use 4.
-- **Domain rule:** a `Money` value is *always* representable in its currency's minor units.
-  - The constructor rejects `12.3456 JOD`.
-  - Calculations that produce fractions (percentage discounts, tax) must call `Money.FromCalculation(...)`. It rounds to the currency's minor unit with `MidpointRounding.AwayFromZero`, i.e. commercial rounding: 0.0005 → 0.001.
-- **Why:**
-  - Before Phase 1A, `decimal(18,2)` silently rounded `12.345 JOD` to `12.35` when saving.
-  - Worse, a 15% coupon produced `1.85175` in memory (sent to the payment provider) and `1.85` in the database (shown on the order).
-  - Rounding in one place, in the Domain, makes the in-memory total, the stored total, and the charged amount agree.
-- **Payment providers:** conversion to the provider's minor units happens in the adapter (see [Security.md §8](../07-SECURITY/Security.md#8-payments)).
-- **Orders snapshot their totals** (subtotal, discount, shipping, tax, grand total) at placement (Phase 9). Reports must never recompute history from current prices.
+Implementation decisions: [ADR-0005](../11-ADR/0005-multi-tenancy-model.md) and [ADR-0022](../11-ADR/0022-tenancy-enforcement.md); the runtime picture is in [MultiTenancy.md](../02-ARCHITECTURE/MultiTenancy.md).
 
-## 6. Concurrency
+- **Marker interfaces, applied by reflection.** `AppDbContext.OnModelCreating` walks the model and, for every `ITenantOwned` type, adds the `TenantId` property as `ValueGeneratedNever`, a foreign key to `Tenants` with `Restrict`, and the **named query filter** `AppDbContext.TenantFilter` (`"Tenant"`). `ITenantOrPlatformOwned` types (only `Souq.Domain.Identity`) get the nullable variant, where the platform scope means `TenantId IS NULL`. Nothing is copied per entity, so a new entity cannot be forgotten — and `TenancyRuleTests` fails the build if a business entity implements neither interface, or if a tenant-owned entity ends up without the filter or the FK.
+- **Reads throw rather than leak.** The filter reads the current store on every query execution. With no store in scope it throws `TenantContextMissingException` — including in platform scope. There is no code path that returns "all tenants' rows".
+- **Writes are guarded, not trusted.** `TenantWriteGuardInterceptor` runs inside every `SaveChanges`: it stamps `TenantId` on insert (entities have no setter, so neither a handler nor a client can choose it), and rejects an insert for another store, an update or delete of another store's row, or any change to `TenantId`, with `CrossTenantWriteException` and a Critical log — before any SQL is sent.
+- **References carry the tenant.** Between tenant-owned rows the foreign key is composite, `(TenantId, XId) → (TenantId, Id)`, through alternate keys on `Categories`, `Products`, `Customers`, `Orders`, `ProductVariants`, `InventoryItems`, `Coupons` and `Payments`. The database itself rejects a row pointing at another store's row, whatever a handler forgot. Two deliberate exceptions: aggregate children with a shadow key to their root (created together in one scope), and `Categories.ParentId`, checked in the handler. A violation surfaces as `409 ReferenceConflict`.
+- **The only sanctioned bypass** is `IgnoreQueryFilters` inside `PlatformQueries`, allow-listed by name in `TenancyRuleTests`, and used only with an explicit `TenantId` predicate or for aggregate counts. Raw SQL is banned outside migrations by the same test, because it never passes the filter.
+- **Bulk operations skip the interceptors.** `ExecuteUpdateAsync` / `ExecuteDeleteAsync` (`OrderNumbers`, `NotificationRepository.MarkAllReadAsync`, `OutboxProcessor`) do not run `SaveChanges`, so they neither stamp `UpdatedAt` nor pass the write guard. The query filter still applies to their `WHERE` clause, which is what keeps them tenant-safe; the outbox is exempt because it has no filter by design.
+- **Evidence:** `TenantIsolationTests` drives store B against store A's real ids over HTTP for every endpoint that takes a resource id (with a completeness check that fails when a new endpoint is added), and asserts that nothing in store A changed.
 
-**Optimistic concurrency** with a `rowversion` column on aggregates that are updated concurrently. A conflict raises `ConcurrencyConflictException` (Application), and the API returns **409 Conflict**.
+## 6. Money and precision
 
-| Row | Who races | Outcome without protection | With `rowversion` |
+- **Storage:** `decimal(19,4)` for every monetary column (`PersistenceConventions.MoneyColumnType`).
+  - 19 digits cover any realistic order.
+  - 4 decimal places hold every ISO-4217 currency: most have 2; **BHD, IQD, JOD, KWD, LYD, OMR, TND have 3**; JPY, KRW, VND, CLP, ISK and others have 0 (`CurrencyInfo`).
+- **Domain rule:** a `Money` value is *always* representable in its currency's minor units. The constructor rejects `12.3456 JOD`. Calculations that produce fractions (percentage discounts, and tax when it exists) must call `Money.FromCalculation(...)`, which rounds to the currency's minor unit with `MidpointRounding.AwayFromZero` — commercial rounding: 0.0005 → 0.001.
+- **Why** ([ADR-0014](../11-ADR/0014-money-precision.md)): before Phase 1A, `decimal(18,2)` silently rounded `12.345 JOD` to `12.35`, and a 15% coupon produced `1.85175` in memory (sent to the payment provider) but `1.85` in the database (shown on the order). Rounding once, in the Domain, makes the in-memory total, the stored total and the charged amount agree.
+- **Currency is never implicit.** `Money` has no default currency; prices, coupon thresholds and orders take the store's currency, and `Orders.Currency` is a snapshot of it.
+- **Payment providers:** conversion to the provider's minor units happens in the adapter (`StripeAmountConverter`); see [Security.md](../07-SECURITY/Security.md). JOD is currently sent ×100, which is decision **P-05**, still to be confirmed against a real Stripe account.
+- **Orders freeze their money at placement** (`Order.Place`): `PlacedSubtotal` and `PlacedTotal` are stored, and lines and discount can no longer change. Lists read the stored totals instead of summing. There is **no tax column**: tax is an explicit zero stage in the pricing pipeline and an open product decision (**P-06**).
+
+## 7. Concurrency
+
+**Optimistic concurrency** with a `rowversion` shadow column on the aggregates that are written concurrently. EF appends `WHERE RowVersion = @original` to every update and delete; a conflict becomes `ConcurrencyConflictException` in `AppDbContext.SaveChangesAsync`, and the API answers **409 `ConcurrencyConflict`** ([ADR-0013](../11-ADR/0013-optimistic-concurrency.md)).
+
+| Row | Who races | Outcome without protection | With `RowVersion` |
 |---|---|---|---|
-| `InventoryItems` (Phase 6) | Checkouts for the last unit; checkout vs payment vs admin correction | Oversell; lost update | Second save fails; the inventory writer re-reads the committed values and retries (up to 5 attempts), so the loser gets `422 InsufficientStock`, not a 409 ([ADR-0026](../11-ADR/0026-inventory-reservations.md)) |
-| `Coupons.UsedCount` (Phase 10) | Checkouts taking the last use; a cancellation racing a checkout | Limit exceeded; lost update | The use is taken at checkout inside the order transaction. The loser re-reads (up to 5 attempts) and gets `422 InvalidCoupon` if no use is left ([ADR-0030](../11-ADR/0030-coupon-redemptions.md)) |
-| `Payments` (Phase 11) | Two refunds of one payment; a refund result racing another request | Refunds exceeding the payment | A refund reserves its amount on the payment row. The loser re-reads (up to 5 attempts) and gets `422 RefundExceedsPayment` ([ADR-0031](../11-ADR/0031-payments-and-refunds.md)) |
-| `Orders.Status` | Client confirmation vs Stripe webhook; admin vs payment | Double side effects | Loser re-reads: already Paid → idempotent success |
+| `InventoryItems` | Checkouts for the last unit; checkout vs payment vs an admin correction | Oversell; lost update | The second save fails; `InventoryWriter` re-reads the committed values and retries (`MaxAttempts` = 5), so the loser gets `422 InsufficientStock`, not a 409 ([ADR-0026](../11-ADR/0026-inventory-reservations.md)) |
+| `Coupons` (`UsedCount`) | Checkouts taking the last use; a cancellation racing a checkout | Limit exceeded | The use is taken at checkout inside the order transaction; the loser re-reads (5 attempts) and gets `422 InvalidCoupon` if nothing is left ([ADR-0030](../11-ADR/0030-coupon-redemptions.md)) |
+| `Payments` | Two refunds of one payment; a refund result racing another request | Refunds exceeding the payment | A refund reserves its amount on the payment row; the loser re-reads (5 attempts) and gets `422 RefundExceedsPayment` ([ADR-0031](../11-ADR/0031-payments-and-refunds.md)) |
+| `Orders` | Client confirmation vs Stripe webhook; admin vs payment | Double side effects | The loser re-reads: already Paid ⇒ idempotent success |
+| `Products` | Two admins editing one product | Lost update | The second save fails with 409 |
+| `Users` | Two sign-ins; a password change during a session | Lost lockout counter or stamp | The second save fails with 409 |
+| `Tenants` | The platform owner and a store admin editing one store | Lost settings | The second save fails with 409 |
 
-**Rejected alternatives:**
-- **Atomic conditional `UPDATE … WHERE OnHand - Reserved >= @q`.** Best under heavy contention, but it moves the rule out of the aggregate and outside the unit of work. Re-evaluated in Phase 6 and still rejected; revisit if one SKU's contention shows in latency (flash sales).
-- **Pessimistic locks** (`UPDLOCK`). They add deadlock risk and hold locks during payment-provider calls.
-- **Serializable transactions.** Throughput cost for every request.
+Rows **without** a token, by decision: `Baskets` and `BasketLines` (last write wins; checkout re-validates everything — [ADR-0028](../11-ADR/0028-basket-and-pricing-pipeline.md)), `Customers`, `Categories`, `ShippingMethods`, `Reviews`, `Notifications` and every aggregate child. A child's change is guarded only when the same save also writes its root — true for `Refunds` (they move `Payment.RefundedAmount`) and reservations (they move `InventoryItem.Reserved`), not for `OrderItems` or `CouponRedemptions.Confirm`.
 
-## 7. Soft delete policy (not everywhere)
+Other serialization points that are not `rowversion`: `OrderNumberSequences` (the `ExecuteUpdate` row lock serializes one store's checkouts until commit) and `OutboxMessages` (a two-minute `LockedUntil` lease claimed with a conditional update).
 
-| Use soft delete when… | Use hard delete when… | Never delete when… |
+**Rejected alternatives:** an atomic conditional `UPDATE … WHERE OnHand - Reserved >= @q` (best under heavy contention, but the rule leaves the aggregate and the unit of work); pessimistic locks (`UPDLOCK`: deadlock risk, and it needs raw SQL, which the architecture tests forbid outside migrations); serializable transactions (throughput cost on every request). Revisit if one SKU's contention shows up in latency.
+
+## 8. Deletion, archiving and retention
+
+| Use soft delete (a status) when… | Use hard delete when… | Never delete when… |
 |---|---|---|
-| Other records reference the row historically **and** the business may restore it (products → *Archived*, coupons after redemption, users → *Disabled*, reviews → *Hidden*) | The row has no history value and nothing references it (unused categories, addresses, basket lines, expired tokens) | The row **is** history: orders, order lines, status history, stock ledger, payments, audit log |
+| Other records reference the row historically **and** the business may restore it: products → `Archived`, coupons after a redemption → inactive, users → `Disabled`, stores → `Archived`, reviews → `Rejected` | The row has no history value and nothing points at it: an empty category, an address, a basket or its lines, a wishlist item, a shipping method (orders keep a snapshot), a store's payment account, a tenant domain | The row **is** history: orders, order lines, status history, the stock ledger, reservations, payments, refunds, coupon redemptions, notifications and the audit log |
 
-There is no global `IsDeleted` flag with a global filter. Each aggregate has an explicit status that carries business meaning (Archived ≠ Deleted).
+There is no global *IsDeleted* flag and no global filter: each aggregate has an explicit status that carries business meaning (Archived ≠ Deleted), and "delete" in the API means the aggregate's own end-of-life rule — `DELETE /api/products/{id}` archives, a delete on a used coupon answers `409 CouponInUse`, and on a non-empty category `409 CategoryInUse` / `409 CategoryHasChildren`.
 
-## 8. Audit fields, time, relationships, transactions
+**Personal data is removed by anonymizing in place.** `Customer.Erase` and `User.Erase` replace the name, email (`erased-{id}@erased.invalid`, which also frees the original address to register again) and phone, clear the address book, disable the account with an empty password hash, and rotate the security stamp; `CustomerErasure` does it in one save, revokes the refresh tokens, deletes the basket and the wishlist, and forgets the cached stamp so live access tokens die at once. Orders and reviews stay, pointing at a profile that identifies nobody ([ADR-0027](../11-ADR/0027-customer-profile-and-erasure.md)).
 
-- **Timestamps:**
-  - `CreatedAt` / `UpdatedAt` are stamped by `AuditTimestampsInterceptor` (a SaveChanges interceptor) from `TimeProvider`, and stored as `datetime2` in UTC. `TenantWriteGuardInterceptor` runs next to it (Phase 2): it stamps `TenantId` on insert and rejects any write to another tenant's row ([ADR-0022](../11-ADR/0022-tenancy-enforcement.md)).
-  - Actor columns (`CreatedBy`) are added only where the business asks "who?" (status history, ledger, audit log). Everything else goes to the `AuditLog`.
-- **Relationships:**
-  - FKs are declared for every relationship **inside** a module.
-  - Delete behaviour is `Restrict` by default, and `Cascade` only for aggregate children (order → lines).
-  - Across modules: an id plus a snapshot, no FK (the only exception is `TenantId`).
-  - Aggregate-child FKs are `NOT NULL`.
-  - **References between tenant-owned rows carry the tenant (Phase 2).**
-    - The FK is `(TenantId, XId) → (TenantId, Id)` through an alternate key on the principal (`AK_Categories_TenantId_Id`, `AK_Products_…`, `AK_Customers_…`, `AK_Orders_…`).
-    - The database itself therefore rejects a row that points at another tenant's row, whatever a handler forgot.
-    - The exceptions are aggregate children (shadow key to their root, always created together) and the optional category parent (checked in the handler).
-    - An FK violation surfaces as `409 ReferenceConflict`.
-- **Transactions ([ADR-0021](../11-ADR/0021-transaction-boundaries.md)):**
-  - The command handler owns the boundary; each `SaveChangesAsync` is one atomic transaction. Work across modules in one step uses the same unit of work.
-  - No transaction is open during a network call: save → call the provider → save. A provider failure is compensated in a new step (checkout); races are resolved by `rowversion` and an idempotent re-read (payment confirmation).
-  - Tracked aggregates are saved without `Update()`, so only changed columns are written.
-  - Side effects (email) happen after the commit; the outbox (Phase 14) makes them reliable.
-- **Reads ([ADR-0008](../11-ADR/0008-cqrs-strategy.md)):** query services project with `AsNoTracking` straight into DTOs and page with a mandatory ordering plus an `Id` tiebreaker. They are the only place a listing's SQL is written — the single point where Phase 2's tenant filter and `TenantId`-leading indexes apply.
+**Retention, honestly:**
 
-## 9. Current state and Phase 1A changes
+- Only one thing is purged automatically: processed `OutboxMessages`, once an hour, older than `Notifications:RetentionDays` (14 days).
+- Expired `Baskets` are swept per store (at most 500 per run, every `Basket:CleanupIntervalMinutes`).
+- Nothing purges `RefreshTokens`, `StockReservations`, `Notifications`, `AuditEntries` or dead outbox rows; they grow for ever.
+- The order's shipping snapshot keeps a recipient name, phone and address after erasure — lawful accounting retention, with purging of old snapshots **PLANNED** (Phase 20) and a general data-retention policy **PLANNED** (Phase 23).
+- A removed product image deletes the row but leaves the file on disk; an orphaned-file cleanup job is **PLANNED** (roadmap, "Phase 6 or later"; not built).
 
-| Finding (Phase 0) | Change in 1A |
-|---|---|
-| C5: money columns `decimal(18,2)` | All money columns become `decimal(19,4)`; `Money` enforces minor units |
-| C1: no concurrency tokens | `RowVersion` on `Products`, `Coupons`, `Orders` |
-| DB #4: `Categories.ParentId` without FK | Self-FK (`Restrict`); orphaned parents cleaned in the migration |
-| DB #5: nullable `OrderItems.OrderId` / `OrderStatusHistories.OrderId` | Made `NOT NULL` (orphans, which are unreachable garbage, are removed in the migration) |
-| G2: stale `database/*.sql` | Deleted; the README documents `dotnet ef migrations script --idempotent` |
-| B6: plaintext reset tokens | Only a SHA-256 hash is stored; column widened for the hash |
+## 9. Audit fields, time, relationships, transactions
 
-Deferred to later phases, with the phase noted: `TenantId` (2), `Users` split (3), variants, slugs, and translations (5), inventory items and reservations (6), order snapshot totals and numbers (9).
-
-**Phase 1B:** no schema change and no migration. The existing indexes cover the new read paths (`IX_OrderItems_ProductId` for the best-selling sort, `IX_StockMovements_ProductId_CreatedAt` for the paged ledger, `IX_Orders_CustomerId` for "my orders"). The admin order list sorts by `CreatedAt` without a dedicated index; Phase 2 adds `(TenantId, CreatedAt DESC)`, so no interim index was added.
-
-**Phase 2 (`Phase2MultiTenancy`, additive, rehearsed on Phase 1 data by `MigrationRehearsalTests`):**
-
-| Change | Detail |
-|---|---|
-| Platform tables | `Tenants` (slug unique, status, culture, currency, time zone, `rowversion`) and `TenantDomains` (`Host` unique across the platform) |
-| Default tenant | id 1, "Marka Demo" / `marka`, JOD, `ar`, Asia/Amman. Every pre-existing row belongs to it |
-| `TenantId` | `int NOT NULL` on all nine tenant-owned tables. Added with default 1 as an atomic backfill, then the default constraint is dropped, so a later insert without a tenant fails. FK to `Tenants` is `Restrict` |
-| Uniqueness per tenant | `(TenantId, Slug)` categories, `(TenantId, Code)` coupons, `(TenantId, Email)` customers. These replace the global indexes, and are looser, so they cannot fail on existing data |
-| Tenant-scoped FKs | Products→Categories, OrderItems→Products, Orders→Customers, Reviews→Products/Customers/Orders, StockMovements→Products. Each became composite, with `TenantId`-leading indexes |
-| Hot-path indexes | `(TenantId, IsActive)` products; `(TenantId, CreatedAt)` orders; `(TenantId, CustomerId)` orders |
-| `Orders.Currency` | Snapshot of the store currency. Backfilled from each order's first line, or `JOD` for orders without lines |
-
-**Phase 3 (`Phase3Identity`, data-preserving, rehearsed by `MigrationRehearsalTests`):**
-
-| Change | Detail |
-|---|---|
-| `Users` | Credentials, role, status, security stamp, lockout counters, hashed reset and verification tokens, `rowversion`. `TenantId` is nullable (platform accounts), FK `Restrict`. Filtered unique indexes: `(TenantId, NormalizedEmail)` for store accounts, and `NormalizedEmail` for platform accounts |
-| `RefreshTokens` | Hash (unique), family, expiry, used and revoked timestamps, revoke reason. FK to `Users` is `Cascade` |
-| Account backfill | Every `Customers` row becomes a `Users` row **with the same id** (`IDENTITY_INSERT`), store, email, name and BCrypt hash, so every account keeps its password. Role `Admin` → `TenantAdmin`; anything else → `Customer`. Each account gets a fresh security stamp, so old tokens (which have no `sstamp`) stop working |
-| `Customers.UserId` | Added with a temporary default, set to `Id`, then the default is dropped. Unique `(TenantId, UserId)`, FK `Restrict` |
-| Dropped from `Customers` | `PasswordHash`, `Role` and the reset-token columns, **only after** the copy. EF generated the drops first, which would have lost every password; the order was rewritten by hand |
-| `Down()` | Copies credentials back to the profiles. Accounts without a profile (staff, the platform owner) have no place in the old schema and are lost, so `Down()` is for development only |
-
-**Phase 4 (`Phase4PlatformAdministration`, additive only, [ADR-0024](../11-ADR/0024-platform-administration.md)):**
-
-| Change | Detail |
-|---|---|
-| `Tenants.Settings` | `nvarchar(max) NULL`: the store settings as one JSON document, read and written whole, never queried inside. `NULL` means the defaults, derived from the name and language; the seeder gives the default store the Marka look once. The document is mapped by an Infrastructure type (`StoreSettingsJson`), so the Domain carries no serialization attributes, and a tightened rule never breaks loading older settings |
-| `Tenants.EnabledModules` | `nvarchar(200) NOT NULL DEFAULT 'promotions,reviews,wishlist'`, so existing stores keep every module. It is carried in the cached tenant snapshot, so enforcement needs no query |
-| `AuditEntries` | `bigint` identity, UTC timestamp, area, action, affected store (nullable), actor and role, target, metadata (≤ 4000), IP, correlation id. No FK and no tenant filter. Append-only (write guard) |
-
-**Phase 5 (`Phase5Catalog`, data-preserving, rehearsed by `MigrationRehearsalTests`, [ADR-0025](../11-ADR/0025-catalog-model.md)):**
-
-| Change | Detail |
-|---|---|
-| `ProductTranslations`, `CategoryTranslations` | One row per (owner, culture): name (200), description (4000), SEO title (70) and SEO description (160). Unique `(OwnerId, Culture)`. `TenantId` on every row. Cascade with the owner (a shadow FK: aggregate children, exempt from the composite-FK rule) |
-| `ProductVariants` | SKU (64, unique per store when present), `Price` + `Currency` (`decimal(19,4)`), `CompareAtPrice` (same currency), `IsDefault`. Exactly one default per product, by a filtered unique index. Alternate key `(TenantId, Id)` so cart and order lines can reference a variant with a tenant-scoped FK later |
-| `ProductImages` | URL (500) and sort order; index `(ProductId, SortOrder)` |
-| `Products` | Added `Slug` (120, unique per store), `Status` (Draft 0 / Active 1 / Archived 2) and `Brand`. Dropped `NameAr`, `NameEn`, `Description`, `Price`, `Currency`, `ImageUrl` and `IsActive`. `(TenantId, Status, CategoryId)` replaces `(TenantId, IsActive)` |
-| `Categories` | Added `SortOrder` and `IsActive`. Dropped `Name`. New index `(TenantId, ParentId, SortOrder)` |
-| Data copy (runs before any drop) | An Arabic translation from `NameAr` + `Description`; an English one from `NameEn` when present and different; a default variant from `Price`/`Currency`; an image row only for real `/uploads/` or http(s) URLs (the old placeholder values are dropped); `Status` from `IsActive`; slug `p-{Id}`; each category name → a translation in its store's default language. EF generated the column drops first, which would have lost every name and price; the order was rewritten by hand |
-| `Down()` | Restores the old columns from the Arabic/English translations, the default variant and the primary image. It is lossy by nature (other languages, extra images, SKUs and compare-at prices have no old column), so it is for development only |
-
-**Phase 6 (`Phase6Inventory`, data-preserving, rehearsed by `MigrationRehearsalTests`, [ADR-0026](../11-ADR/0026-inventory-reservations.md)):**
-
-| Change | Detail |
-|---|---|
-| `InventoryItems` | One row per variant: `OnHand`, `Reserved`, `LowStockThreshold`, `rowversion`, check constraints. Composite FKs to the variant and the product within the store |
-| `StockReservations` | Reference (`order:{id}`), quantity, status, `ExpiresAt`, `ClosedAt`. Composite FK to the item. A filtered index on the active rows keeps the expiry sweep cheap |
-| `StockMovements.InventoryItemId` | Added (nullable), backfilled from each movement's product, then made `NOT NULL` with a composite FK |
-| Data copy (before any drop) | On hand = the old `StockQuantity` + the quantities of Pending orders (the old checkout had already decremented them); reserved = those quantities. Active reservations for Pending orders (a fresh 30-minute window, then the sweeper settles them); Committed reservations for Paid orders not yet shipped (so cancelling them restocks as before). An opening-balance `Adjustment` wherever the history did not add up to on-hand, so Σ ledger = on hand from here on |
-| Dropped from `Products` | `StockQuantity`, `LowStockThreshold`, only **after** the copy. EF generated the drops first, which would have lost every stock level; the order was rewritten by hand |
-| `Down()` | Restores `StockQuantity` as the available quantity (on hand − reserved) and the threshold. Reservations have no place in the old schema, so it is for development only |
-
-**Phase 7 (`Phase7Customers`, additive only, [ADR-0027](../11-ADR/0027-customer-profile-and-erasure.md)):**
-
-| Change | Detail |
-|---|---|
-| `Customers` | `Phone` (nullable), `Status` (default `0` = Active, so every existing customer stays active), `BlockedAt`, `ErasedAt`. Index `(TenantId, Status)` for the admin status filter |
-| `CustomerAddresses` | New table: label, recipient, phone, country code, city, region, lines 1–2, postal code, default-shipping and default-billing flags, `TenantId`. FK to the customer with cascade (the addresses are part of its aggregate), and to the store |
-| Data | Nothing moved or rewritten. Existing orders keep their typed addresses; new orders store the same single-line snapshot |
-| `Down()` | Drops the table and the columns, so saved addresses and statuses are lost. Development only |
-
-**Phase 8 (`Phase8Basket`, additive only, [ADR-0028](../11-ADR/0028-basket-and-pricing-pipeline.md)):**
-
-| Change | Detail |
-|---|---|
-| `Baskets` | New: `CustomerId` (nullable, composite FK to the customer within the store), `GuestTokenHash` (`char(64)`, the SHA-256 of the guest cookie; the token itself is never stored), `ExpiresAt`. Check `CK_Baskets_Owner`: exactly one of the two owners. Filtered unique indexes: one basket per customer and one per guest token in a store. `(TenantId, ExpiresAt)` for the sweep |
-| `BasketLines` | New: `ProductId` and `VariantId` (composite FKs within the store, Restrict, since products are archived, not deleted), `Quantity` (check 1–99). Unique `(BasketId, VariantId)`; cascade from the basket. No price column: prices are read live at every quote |
-| Data | None: the cart was client-side before this phase |
-
-**Phase 9 (`Phase9Orders`, additive with a data backfill, rehearsed by `MigrationRehearsalTests`, [ADR-0029](../11-ADR/0029-orders-lifecycle.md)):**
-
-| Change | Detail |
-|---|---|
-| `Orders` | New: `OrderNumber` (unique per store), `TrackingToken` (`char(32)`, unique per store), `BillingAddress`, `PlacedAt`, `PlacedSubtotal`, `PlacedTotal`. Index `(TenantId, Status, CreatedAt)` for the admin filter |
-| `OrderStatusHistories` | New: `ChangedBy` (actor kind; existing rows default to System) and `ChangedByUserId` |
-| `OrderNumberSequences` | New: one row per store holding the last issued number, incremented atomically inside the checkout transaction |
-| Backfill (runs before the unique indexes) | Numbers from 1001 per store, in creation order. A random token per order (`NEWID`). Billing = shipping. Placement at creation time, with totals from the lines and discount. Each store's counter at its highest number. The temporary column defaults are dropped afterwards. Nothing is deleted or rewritten |
-| `Down()` | Drops the columns and the table, so numbers and tokens are lost. Development only |
-
-**Phase 10 (`Phase10Coupons`, additive with a data backfill, rehearsed by `MigrationRehearsalTests`, [ADR-0030](../11-ADR/0030-coupon-redemptions.md)):**
-
-| Change | Detail |
-|---|---|
-| `Coupons` | New: `StartsAt` and `MaxUsesPerCustomer`, both nullable. Alternate key `(TenantId, Id)` for composite foreign keys |
-| `CouponRedemptions` | New: `CouponId`, `OrderId` and `CustomerId` (composite FKs within the store, Restrict), `DiscountAmount` and `Currency`, `Status` (Reserved, Confirmed, Released). Unique `(TenantId, OrderId)`; `(TenantId, CouponId, CustomerId, Status)` for the per-customer count |
-| Backfill | Each existing order that used a coupon still present gets a redemption: Pending → Reserved; Paid, Shipped or Delivered → Confirmed; Cancelled → none. Counters keep their value and gain the pending orders, which now hold their use. Nothing is deleted or rewritten |
-| `Down()` | Subtracts the reserved uses from the counters, then drops the table and the columns. Development only |
-
-**Phase 11 (`Phase11Payments`, additive with a data backfill, rehearsed by `MigrationRehearsalTests`, [ADR-0031](../11-ADR/0031-payments-and-refunds.md)):**
-
-| Change | Detail |
-|---|---|
-| `Payments` | New: `OrderId` (composite FK within the store, Restrict), `Gateway` (the account that created the intent), `ProviderPaymentId`, `Amount` and `Currency`, `Status`, `RefundedAmount`, `PendingRefundAmount`, `rowversion`. Unique `(TenantId, OrderId)` and `(TenantId, ProviderPaymentId)`. No card columns (`PaymentDataRulesTests`) |
-| `Refunds` | New: `PaymentId` (composite FK within the store, Restrict), `Amount` and `Currency`, `Reason`, `Status`, `ProviderRefundId`, `FailureReason`, `RequestedByUserId`, `CompletedAt` |
-| `StorePaymentAccounts` | New: one per store. `PublishableKey` as is; `SecretKeyCipher` and `WebhookSecretCipher` are AES-GCM ciphertext only, with no column for the plain value; `SecretKeyHint` (last four characters), `LiveMode`, `UpdatedByUserId` |
-| Backfill | Each order with a payment intent gets a payment: the fake gateway for `pi_fake_` intents, otherwise the deployment account; the placed total; Pending → Pending, Paid/Shipped/Delivered → Succeeded, Cancelled → Succeeded if its history shows it was paid first, else Cancelled. Runs after the unique indexes, so a duplicated intent stops the migration instead of being hidden. Nothing is deleted or rewritten |
-| `Down()` | Drops the three tables (payments, refunds, store accounts with their encrypted keys). Orders keep their intent ids. Development only |
-
-**Phase 12 (`Phase12Shipping`, additive, rehearsed by `MigrationRehearsalTests`, [ADR-0032](../11-ADR/0032-shipping-methods.md)):**
-
-| Change | Detail |
-|---|---|
-| `ShippingMethods` | New: `Name`, `Price` and `Currency`, `FreeOverAmount` (same currency), `Carrier`, `TrackingUrlTemplate`, `MinDays`, `MaxDays`, `Countries` (ISO codes separated by commas; empty = everywhere), `IsActive`, `SortOrder`. Index `(TenantId, IsActive, SortOrder)` |
-| `Orders` | New snapshot columns: `ShippingMethodName`, `ShippingAmount` (default 0), `ShippingMinDays`, `ShippingMaxDays`, `ShippingCountry` (`char(2)`), `ShippingTrackingUrlTemplate`. No foreign key to the method |
-| Data | Existing orders have zero shipping and no method, so their totals are unchanged. Nothing is rewritten |
-| `Down()` | Drops the table and the columns. Development only |
+- **Timestamps.** `CreatedAt` / `UpdatedAt` are stamped by `AuditTimestampsInterceptor` from `TimeProvider` (never `DateTime.UtcNow`) and stored as `datetime2` in UTC; display converts to the store's time zone. The setters are `internal`, visible only to Infrastructure (`InternalsVisibleTo` in `src/Souq.Domain/Souq.Domain.csproj`), so no handler can forge them. `AuditTimestampsTests` proves it on real SQL Server with a fixed clock. Two limits: only entities deriving from `Entity` get the columns (`AuditEntry` and `OutboxMessage` carry their own `OccurredAt` instead), and a bulk `ExecuteUpdateAsync` stamps nothing.
+- **Actor columns** are added only where the business asks "who?": `OrderStatusHistories.ChangedBy` + `ChangedByUserId`, `Reviews.ModeratedByUserId`, `Refunds.RequestedByUserId`, `StorePaymentAccounts.UpdatedByUserId`. None of them is a foreign key, so disabling an account never breaks a record. Everything else goes to `AuditEntries`, written by `AuditBehavior` for every `IAuditable` request — staged before the handler so it commits in the handler's own transaction, discarded when the request fails, and append-only (the write guard throws on any update or delete).
+- **Relationships.**
+  - Delete behaviour is `Restrict` by default and `Cascade` only for aggregate children (order → lines, basket → lines, product → translations/images/variants, customer → addresses, tenant → domains).
+  - Aggregate-child foreign keys are `NOT NULL` — `OrderItems.OrderId` and `OrderStatusHistories.OrderId` were nullable until Phase 1A, which allowed orphans.
+  - References between tenant-owned rows are composite and tenant-scoped (§5); references to rows that may be hard-deleted are an id plus a snapshot (§4).
+- **Transactions** ([ADR-0021](../11-ADR/0021-transaction-boundaries.md)).
+  - The command handler owns the boundary; each `SaveChangesAsync` is one atomic transaction. Work spanning modules in one step shares the same unit of work, so it is atomic.
+  - Several saves that must land together use `IUnitOfWork.InTransactionAsync` (an explicit transaction that joins an existing one): `CreateOrderHandler`, `OrderPaymentConfirmation`, `UpdateOrderStatusHandler`, `CreateProductHandler`, `RegisterHandler` and `AccountInvitations`. ADR-0021 wrote that handlers would open no explicit transaction; this is what the code does instead, and the rule that matters survived: **no transaction is open during a network call** — save, call the provider, save, compensate in a new step.
+  - Tracked aggregates are saved without `Update()`, so only changed columns are written; the method no longer exists on the repository contract.
+  - Side effects happen after the commit, through the outbox: `AppDbContext.SaveChangesAsync` writes domain-event rows in the same transaction as the change and detaches them if the save fails.
+  - Transient-fault retries are not enabled (no execution strategy is configured), which is why the explicit transactions are plain `BeginTransaction` — **DEFERRED** to the Phase 23 review.
+- **Reads** ([ADR-0008](../11-ADR/0008-cqrs-strategy.md)): query services project with `AsNoTracking` straight into DTOs, and `QueryableExtensions.ToPageAsync` forces a page to have both an explicit ordering (with an `Id` tiebreaker, proven by `QueryServiceTests`) and an explicit projection. They are where a listing's SQL is written, and therefore where the `TenantId`-leading indexes have to pay off.
 
 ## 10. Migration workflow
 
-1. Change the entity or configuration.
-2. Run `dotnet ef migrations add <PascalCaseIntent> --project src/Souq.Infrastructure --startup-project src/Souq.API`.
-3. **Read the generated migration.** Data-preserving steps (backfills, orphan cleanup) are added by hand in `Up()`; `Down()` is kept honest.
-4. The integration tests apply all migrations to a fresh SQL Server container. A migration that fails there fails the build.
-5. Today migrations run at startup. Production moves them to a **deployment step** (a migration bundle) in Phase 23, so that multiple replicas don't race.
+1. Change the entity or the configuration.
+2. `dotnet ef migrations add <PascalCaseIntent> --project src/Souq.Infrastructure --startup-project src/Souq.API`.
+3. **Read the generated migration.** EF orders drops before copies; data-preserving steps (backfills, orphan clean-up, temporary defaults that are then removed) are written by hand in `Up()`, and `Down()` is kept honest.
+4. Rehearse anything that moves data in `MigrationRehearsalTests`, and let the integration suite apply every migration to a fresh SQL Server container — a migration that fails there fails the build.
+5. Migrations currently run at startup, in every environment (`Program.cs` → `DbSeeder.SeedAsync` → `MigrateAsync`). Production moves them to a deployment step (a migration bundle) in Phase 23 (**PLANNED**), so that several replicas cannot race.
+
+The full workflow — commands and their prerequisites, every migration with its purpose and its data-protection notes, the rehearsal test, rollback and the seed data — is in **[Migrations.md](Migrations.md)**.
+
+## 11. Indexes for hot queries
+
+Every listing is filtered by store first, so with two exceptions (noted below) every index leads with `TenantId`.
+
+| Query | Index |
+|---|---|
+| Host → store, on every request | `IX_TenantDomains_Host` (unique, platform-wide), plus the in-process `TenantDirectory` cache |
+| Storefront catalog: active products in a category | `IX_Products_TenantId_Status_CategoryId`; texts, price and media from `IX_ProductTranslations_ProductId_Culture`, `IX_ProductVariants_ProductId_IsDefault`, `IX_ProductImages_ProductId_SortOrder` |
+| Product page by slug | `IX_Products_TenantId_Slug` (unique) |
+| Availability shown in listings (`OnHand − Reserved`) | `IX_InventoryItems_TenantId_ProductId` |
+| Category tree | `IX_Categories_TenantId_ParentId_SortOrder` |
+| Admin order list, newest first / filtered by status | `IX_Orders_TenantId_CreatedAt`, `IX_Orders_TenantId_Status_CreatedAt` |
+| "My orders", and orders of one customer | `IX_Orders_TenantId_CustomerId` |
+| Public tracking page, and lookup by number | `IX_Orders_TenantId_TrackingToken`, `IX_Orders_TenantId_OrderNumber` (both unique) |
+| Order detail lines; best-selling sort | `IX_OrderItems_OrderId`; `IX_OrderItems_TenantId_ProductId` |
+| Checkout expiry sweep | `IX_StockReservations_TenantId_ExpiresAt`, filtered to `[Status] = 0` so it stays small |
+| An order's reservations | `IX_StockReservations_TenantId_Reference` |
+| Stock ledger page; reconciliation with on hand | `IX_StockMovements_ProductId_CreatedAt`, `IX_StockMovements_InventoryItemId_CreatedAt` |
+| Basket by owner; expiry sweep | `IX_Baskets_TenantId_CustomerId`, `IX_Baskets_TenantId_GuestTokenHash` (both filtered unique), `IX_Baskets_TenantId_ExpiresAt` |
+| Coupon by code; per-customer use count | `IX_Coupons_TenantId_Code` (unique), `IX_CouponRedemptions_TenantId_CouponId_CustomerId_Status` |
+| Payment by order, and webhook by intent id | `IX_Payments_TenantId_OrderId`, `IX_Payments_TenantId_ProviderPaymentId` (both unique) |
+| Product reviews; moderation queue | `IX_Reviews_TenantId_ProductId_Status`, `IX_Reviews_TenantId_Status_CreatedAt` |
+| Notification badge and inbox | `IX_Notifications_TenantId_RecipientUserId_ReadAt`, `IX_Notifications_TenantId_RecipientUserId_CreatedAt` |
+| Outbox dispatch and purge | `IX_OutboxMessages_NextAttemptAt` and `IX_OutboxMessages_ProcessedAt`, both filtered so the index holds only what each job reads |
+| Sign-in; password reset; email verification | `IX_Users_TenantId_NormalizedEmail`, `IX_Users_NormalizedEmail_Platform`, `IX_Users_PasswordResetTokenHash`, `IX_Users_EmailVerificationTokenHash` |
+| Refresh a session; revoke a family | `IX_RefreshTokens_TokenHash` (unique), `IX_RefreshTokens_FamilyId` |
+| Audit viewer | `IX_AuditEntries_OccurredAt`, `IX_AuditEntries_TenantId_OccurredAt`, `IX_AuditEntries_ActorUserId_OccurredAt` |
+| Admin customer list, filtered by status | `IX_Customers_TenantId_Status` |
+
+Known index gaps, all small today and left for the Phase 21 performance review (**PLANNED**):
+
+- The admin customer list sorts by `CreatedAt` with no `(TenantId, CreatedAt)` index.
+- Keyword search (products, customers, orders, coupons) uses `Contains`, which SQL Server translates to `CHARINDEX` — no index seek; it scans within the store.
+- `IX_Reviews_CustomerId_ProductId` is the one unique index that does not lead with `TenantId`; it is still correct per store only because customer ids are unique platform-wide.
+- Sorting the admin product list by price or stock runs correlated subqueries over `ProductVariants` / `InventoryItems`.
+
+## 12. Backups and recovery
+
+Nothing automated exists today. Stated plainly, so that nobody assumes otherwise:
+
+- **No backup job, no retention schedule, no restore drill, no point-in-time recovery.** `docker-compose.yml` keeps the database files in the named Docker volume `souq_db_data`; deleting the volume deletes the database.
+- **The only recovery mechanism in the repository is a migration's `Down()`**, and most of them lose data ([Migrations.md](Migrations.md) §7).
+- **Manual discipline until then:** take a backup before applying a phase migration (the roadmap's own R4 mitigation), and rehearse the migration on a copy.
+- Backups plus a restore drill are **PLANNED** for Phase 23, together with the migration bundle and an incident runbook.
+
+## 13. Known gaps
+
+- **Cross-module boundary leaks in the Application layer** (handlers using another module's repository) are documented in [OwnershipMap.md](OwnershipMap.md) but not enforced by any test.
+- **Tables that only grow:** `RefreshTokens`, `StockReservations`, `Notifications`, `AuditEntries`, dead `OutboxMessages`.
+- **No tax model** (P-06) and therefore no tax column on orders.
+- **No transient-fault retry policy** on the SQL Server provider.
+- **Migrations run at application startup** in every environment, including production.
+- **SQL Server Row-Level Security** as defence in depth is an optional item of the Phase 20 security review (**PLANNED**); today isolation rests on the query filter, the write guard, the composite keys and the tests.

@@ -1,6 +1,6 @@
 # Souq: API Architecture and Conventions
 
-> **Status:** Conventions adopted 2026-09-11. The current endpoint inventory is in [ArchitectureAssessment.md §5](../archive/ArchitectureAssessment.md#5-current-api-map). Interactive docs: Swagger at `/swagger` (Development).
+> **Status:** Conventions adopted 2026-09-11; kept current. **The endpoint inventory is generated from the code:** [Endpoints.md](Endpoints.md) lists every endpoint with its authorization, host, module flag, rate limit and the use case it sends. Interactive docs: Swagger at `/swagger` (Development only).
 
 ## 1. Style
 
@@ -105,7 +105,7 @@ Every error is RFC 7807 `application/problem+json`:
     - The `X-Tenant: <slug>` header overrides both.
     - `admin.localhost` is the platform host.
   - **Availability:**
-    - `Suspended`/`Archived` stores answer `503 StoreUnavailable`, except endpoints marked `[AvailableWhenStoreClosed]`.
+    - `Suspended`/`Archived` stores answer `503 StoreUnavailable` for **every** endpoint. The `AvailableWhenStoreClosedAttribute` that would exempt one (for example the storefront configuration, so the SPA could show a branded "closed" page) is honoured by the middleware but applied nowhere today ([RiskRegister.md](../02-ARCHITECTURE/RiskRegister.md), R-08).
     - `Provisioning` stores also serve auth and admin endpoints.
     - `[PlatformEndpoint]` endpoints exist only on platform hosts; every other endpoint exists only on store hosts (404 otherwise).
   - **Tokens:**
