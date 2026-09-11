@@ -1,7 +1,9 @@
 import { NavLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../context/AuthContext';
-import { GridIcon, PackageIcon, InventoryIcon, TagIcon, ReceiptIcon, PercentIcon, UserIcon, CardIcon } from '../../components/icons/Icons';
+import {
+  GridIcon, PackageIcon, InventoryIcon, TagIcon, ReceiptIcon, PercentIcon, UserIcon, CardIcon, TruckIcon,
+} from '../../components/icons/Icons';
 import styles from './AdminLayout.module.css';
 
 // الشريط الجانبي للوحة الإدارة (سطح المكتب) — يختفي على الجوال لصالح شريط سفلي.
@@ -19,6 +21,7 @@ export default function AdminSidebar({ onLogout }) {
     { to: '/admin/coupons', label: t('admin.nav.coupons'), icon: PercentIcon, permission: 'promotions.manage' },
     { to: '/admin/orders', label: t('admin.nav.orders'), icon: ReceiptIcon, permission: 'orders.view' },
     { to: '/admin/customers', label: t('admin.nav.customers'), icon: UserIcon, permission: 'customers.view' },
+    { to: '/admin/shipping', label: t('admin.nav.shipping'), icon: TruckIcon, permission: 'store.shipping.manage' },
     { to: '/admin/payments', label: t('admin.nav.payments'), icon: CardIcon, permission: 'store.payments.manage' },
   ].filter((item) => !item.permission || can(item.permission));
 

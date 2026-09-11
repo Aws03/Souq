@@ -127,6 +127,11 @@ export default function OrderDetailDrawer({ orderId, onClose, onChanged }) {
               {order.discountAmount > 0 && (
                 <span>{t('checkout.discount')} ({order.couponCode}): -{formatPrice(order.discountAmount, order.currency)}</span>
               )}
+              {order.shippingMethod && (
+                <span>
+                  {t('cart.shipping')} ({order.shippingMethod}): {order.shippingCost > 0 ? formatPrice(order.shippingCost, order.currency) : t('cart.free')}
+                </span>
+              )}
               <b>{t('cart.total')}: {formatPrice(order.totalAmount, order.currency)}</b>
             </div>
 
@@ -180,7 +185,15 @@ export default function OrderDetailDrawer({ orderId, onClose, onChanged }) {
               <div><dt>{t('admin.orders.shipping')}</dt><dd>{order.shippingAddress}</dd></div>
               <div><dt>{t('admin.orders.billing')}</dt><dd>{order.billingAddress}</dd></div>
               {order.trackingNumber && (
-                <div><dt>{t('orders.trackingNumber')}</dt><dd dir="ltr">{order.trackingNumber} {order.shippingCarrier ?? ''}</dd></div>
+                <div>
+                  <dt>{t('orders.trackingNumber')}</dt>
+                  <dd dir="ltr">
+                    {order.trackingNumber} {order.shippingCarrier ?? ''}
+                    {order.trackingUrl && (
+                      <> · <a href={order.trackingUrl} target="_blank" rel="noopener noreferrer">{t('orders.trackShipment')}</a></>
+                    )}
+                  </dd>
+                </div>
               )}
             </dl>
 

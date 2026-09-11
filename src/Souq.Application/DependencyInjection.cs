@@ -60,6 +60,8 @@ public static class DependencyInjection
         // سياسة مفاتيحه (StorePaymentPolicy) يسجّلها Infrastructure من الإعداد والبيئة.
         services.AddScoped<Features.Payments.Contracts.IOrderPayments, Features.Payments.OrderPayments>();
         services.AddScoped<Features.Stores.StorePaymentAccountEditor>();
+        // وحدة Shipping (المرحلة 12): استراتيجية أسعار الشحن — اليوم جدول طرق المتجر؛ مزوّد ناقل يستبدل هذا التسجيل.
+        services.AddScoped<Features.Shipping.Contracts.IShippingRateProvider, Features.Shipping.StoreShippingRates>();
         // الدفع من السلة (المرحلة 9): Ordering يقرأ أسطرها ويستهلك المشترى منها عند تأكيد الدفع.
         services.AddScoped<Features.Baskets.Contracts.IBasketCheckout, Features.Baskets.BasketCheckout>();
         // منطق تأكيد الدفع وإلغاء الطلب غير المشحون، لكل مداخله (العميل المالك، توقيع البوّابة، منسّق المهلة).

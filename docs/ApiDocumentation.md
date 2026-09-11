@@ -155,6 +155,19 @@ Every error is RFC 7807 `application/problem+json`:
   - **`GET /api/payments/config`** returns the publishable key of the host store's account, or of the deployment's.
   - **Webhook** (`POST /api/payments/webhook`): verified with the host store's webhook secret, else the deployment's. An event for another store sharing the deployment account is applied in that store.
   - **A store account that can't be used** (its keys can't be decrypted) answers `503 PaymentsUnavailable`.
+- **Shipping (Phase 12, [ADR-0032](adr/0032-shipping-methods.md)):**
+  - **Methods:** `GET` and `POST /api/admin/shipping-methods`, `PUT` and `DELETE /api/admin/shipping-methods/{id}` (`store.shipping.manage`).
+    - The body has `name`; `price` (store currency); `freeOverAmount?`; `minDays?` and `maxDays?` (both or neither); `carrier?`; `trackingUrlTemplate?` (https, containing `{number}`); `countries?` (ISO codes; empty = everywhere); `isActive`; `sortOrder`.
+    - A rule violation answers `422 InvalidShippingMethod`. Another store's method is a 404.
+  - **Quote:** `GET /api/basket/quote?couponCode=&shippingMethodId=&country=` adds `shippingMethods` to the basket.
+    - It holds `options[]` (`methodId`, `name`, `cost`, `carrier`, `minDays`, `maxDays`) for the country, `selectedMethodId`, `required`, and `errorCode`/`message` (`ShippingMethodRequired`, `ShippingMethodUnavailable`, `ShippingNotAvailable`).
+    - `shipping` and `total` include the selected method.
+  - **Checkout:** `POST /api/orders` takes `shippingMethodId`.
+    - When the store has active methods, one that serves the address is required.
+    - The country comes from the chosen `shippingAddressId`. A typed address has none, so only methods without country limits apply.
+    - Errors: `422 ShippingMethodRequired`, `422 ShippingMethodUnavailable`, `422 ShippingNotAvailable`.
+    - The response includes `shippingCost`, and `totalAmount` includes it.
+  - **Order detail and tracking:** the detail adds `shippingMethod`, `shippingCost`, `shippingMinDays`, `shippingMaxDays`, `shippingCountry` and `trackingUrl`. The public tracking response adds `trackingUrl`.
 - **Rate limits (Phase 3):** auth, refresh and coupon-preview endpoints answer `429 TooManyRequests` with `Retry-After` when a limit is exceeded.
 - **Platform area (Phase 4, [ADR-0024](adr/0024-platform-administration.md)):**
   - Endpoints are marked `[PlatformEndpoint]` and are served only on platform hosts, behind `platform.*` permissions.

@@ -25,6 +25,7 @@ public class DomainExceptionCodeTests
         { new InvalidEmailVerificationException("x"), "VerificationTokenExpired" },
         { new InvalidPaymentOperationException("x"), "InvalidPaymentOperation" },
         { new InvalidPaymentOperationException("x", "RefundExceedsPayment"), "RefundExceedsPayment" },
+        { new InvalidShippingMethodException("x"), "InvalidShippingMethod" },
     };
 
     [Theory]

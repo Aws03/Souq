@@ -16,6 +16,11 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         builder.Property(o => o.PaymentIntentId).HasMaxLength(100);
         builder.Property(o => o.TrackingNumber).HasMaxLength(100);
         builder.Property(o => o.ShippingCarrier).HasMaxLength(100);
+        // لقطة الشحن (المرحلة 12): الطريقة وتكلفتها بعملة الطلب ومدّتها ودولة العنوان وقالب رابط التتبّع.
+        builder.Property(o => o.ShippingMethodName).HasMaxLength(Order.ShippingMethodMaxLength);
+        builder.Property(o => o.ShippingAmount).HasColumnType(PersistenceConventions.MoneyColumnType);
+        builder.Property(o => o.ShippingCountry).HasMaxLength(2).IsFixedLength().IsUnicode(false);
+        builder.Property(o => o.ShippingTrackingUrlTemplate).HasMaxLength(ShippingMethod.TrackingUrlMaxLength);
         builder.Property(o => o.Currency).HasMaxLength(3).IsRequired();
         // قائمة الإدارة: طلبات متجر واحد، الأحدث أولاً — الفهرس يبدأ بالمستأجر.
         builder.HasIndex(o => new { o.TenantId, o.CreatedAt });

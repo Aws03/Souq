@@ -129,7 +129,9 @@ export const api = {
   // ── السلة (المرحلة 8) ── الزائر يُعرَّف بملف تعريف ارتباط HttpOnly يضعه الخادم (لا يراه هذا الملف)، والعميل بجلسته.
   // كل عملية تعيد السلة كاملة مسعَّرةً بالخطّ نفسه الذي يُنشئ الطلب.
   getBasket: () => request('/basket'),
-  quoteBasket: (couponCode) => request(`/basket/quote${toQueryString({ couponCode })}`),
+  // shipping (المرحلة 12): { methodId, country } — طريقة الشحن المختارة ودولة العنوان.
+  quoteBasket: (couponCode, shipping = {}) =>
+    request(`/basket/quote${toQueryString({ couponCode, shippingMethodId: shipping.methodId, country: shipping.country })}`),
   addToBasket: (productId, quantity = 1) =>
     request('/basket/items', { method: 'POST', body: JSON.stringify({ productId, quantity }) }),
   setBasketQuantity: (productId, quantity) =>
@@ -216,6 +218,12 @@ export const api = {
   getStorePayments: () => request('/admin/store/payments'),
   updateStorePayments: (payload) => request('/admin/store/payments', { method: 'PUT', body: JSON.stringify(payload) }),
   removeStorePayments: () => request('/admin/store/payments', { method: 'DELETE' }),
+  // طرق الشحن (إدارة، المرحلة 12).
+  getShippingMethods: () => request('/admin/shipping-methods'),
+  createShippingMethod: (payload) => request('/admin/shipping-methods', { method: 'POST', body: JSON.stringify(payload) }),
+  updateShippingMethod: (id, payload) =>
+    request(`/admin/shipping-methods/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
+  deleteShippingMethod: (id) => request(`/admin/shipping-methods/${id}`, { method: 'DELETE' }),
   updateOrderStatus: (id, action, extra = {}) =>
     request(`/orders/${id}/status`, { method: 'PUT', body: JSON.stringify({ action, ...extra }) }),
 };

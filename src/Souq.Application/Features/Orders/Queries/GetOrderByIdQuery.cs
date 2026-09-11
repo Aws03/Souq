@@ -21,7 +21,9 @@ public record OrderDto(
     decimal Subtotal, decimal? DiscountAmount, string? CouponCode, decimal TotalAmount, string Currency,
     DateTime CreatedAt, List<OrderItemDto> Items, string? TrackingNumber, string? ShippingCarrier, string TrackingToken,
     List<OrderHistoryEntryDto> History, List<string> AllowedActions, bool CanCancel,
-    OrderPaymentDto? Payment = null, bool CanRefund = false);
+    OrderPaymentDto? Payment = null, bool CanRefund = false,
+    string? ShippingMethod = null, decimal ShippingCost = 0, int? ShippingMinDays = null, int? ShippingMaxDays = null,
+    string? ShippingCountry = null, string? TrackingUrl = null);
 
 public record GetOrderByIdQuery(int Id) : IRequest<Result<OrderDto>>;
 

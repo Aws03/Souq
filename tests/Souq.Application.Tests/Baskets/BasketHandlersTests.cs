@@ -29,7 +29,8 @@ public class BasketHandlersTests
         _baskets.When(b => b.AddAsync(Arg.Any<Basket>(), Arg.Any<CancellationToken>())).Do(call => _added = call.Arg<Basket>());
         _availability.AvailableAsync(Arg.Any<IReadOnlyCollection<int>>(), Arg.Any<CancellationToken>())
             .Returns(call => call.Arg<IReadOnlyCollection<int>>().ToDictionary(id => id, _ => 10));
-        _pricing.QuoteAsync(Arg.Any<IReadOnlyList<PricingLine>>(), Arg.Any<string?>(), Arg.Any<int?>(), Arg.Any<CancellationToken>())
+        _pricing.QuoteAsync(Arg.Any<IReadOnlyList<PricingLine>>(), Arg.Any<string?>(), Arg.Any<int?>(), Arg.Any<ShippingRequest?>(),
+                Arg.Any<CancellationToken>())
             .Returns(call => Quote(call.Arg<IReadOnlyList<PricingLine>>()));
     }
 

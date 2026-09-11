@@ -6,6 +6,7 @@ import { api } from '../../api/client';
 import {
   NEW_ADDRESS, initialShippingChoice, isShippingChoiceMissing, shippingPayload,
 } from '../../features/checkout/shippingChoice';
+import { countryOfChoice, pickShippingMethod, shippingProblem } from '../../features/checkout/shippingOptions';
 import { ErrorBanner, EmptyState } from '../../components/common/StateViews';
 import Skeleton from '../../components/common/Skeleton';
 import { couponProblemMessage, hasProblems } from '../../features/basket/basketModel';
@@ -16,10 +17,9 @@ import OrderSummaryPanel from './OrderSummaryPanel';
 import styles from './Checkout.module.css';
 
 // صفحة الدفع (محمية: تتطلّب تسجيل الدخول) — خطوتان:
-//  1) عنوان الشحن + كوبون اختياري → ينشئ الطلب على الخادم (يحجز المخزون
-//     وينشئ نيّة دفع لدى Stripe) ويعيد ClientSecret.
-//  2) بطاقة حقيقية عبر Stripe Elements (لا تصل تفاصيلها خادمنا إطلاقاً) →
-//     تأكيد لدى الخادم يتحقّق من النتيجة مع Stripe نفسها قبل إتمام الطلب.
+//  1) عنوان الشحن + طريقة الشحن (المرحلة 12) + كوبون اختياري → ينشئ الطلب على الخادم (يحجز المخزون وينشئ نيّة دفع)
+//     ويعيد ClientSecret. التسعير كله من الخادم (/basket/quote) بالخطّ نفسه الذي يُنشئ الطلب: ما يُعرض هو ما سيُدفع.
+//  2) بطاقة حقيقية عبر Stripe Elements (لا تصل تفاصيلها خادمنا إطلاقاً) → تأكيد لدى الخادم يتحقّق من النتيجة.
 export default function Checkout() {
   const { t, i18n } = useTranslation();
   const { basket, items, total, loaded, reload } = useCart();
@@ -30,6 +30,8 @@ export default function Checkout() {
   const [shippingChoice, setShippingChoice] = useState(NEW_ADDRESS);
   const [address, setAddress] = useState('');
   const [addressTouched, setAddressTouched] = useState(false);
+  const [shippingMethodId, setShippingMethodId] = useState(null);
+  const [quote, setQuote] = useState(null); // آخر تسعير من الخادم (الكوبون المطبَّق + الشحن)
   const [couponCode, setCouponCode] = useState('');
   const [couponPreview, setCouponPreview] = useState(null);
   const [couponError, setCouponError] = useState(null);
@@ -42,6 +44,9 @@ export default function Checkout() {
   const blocked = hasProblems(items);
   const appliedCode = useRef(null);
   const addressError = isShippingChoiceMissing(shippingChoice, address) ? t('checkout.addressRequired') : null;
+  const country = countryOfChoice(savedAddresses, shippingChoice);
+  const shipping = quote?.shippingMethods ?? null;
+  const shippingIssue = shippingProblem(shipping, shippingMethodId);
 
   // دفتر العناوين (المرحلة 7): الافتراضي للشحن مختار مبدئياً. تعذّر تحميله ⇒ عنوان نصّي كما قبل.
   useEffect(() => {
@@ -50,34 +55,50 @@ export default function Checkout() {
       .catch(() => setSavedAddresses([]));
   }, []);
 
-  // الخصم من الخادم بالخطّ نفسه الذي يُنشئ الطلب (المرحلة 8): ما يُعرض هنا هو ما سيُدفع. كوبون مرفوض نتيجةٌ في السلة
-  // لا خطأ — تُعرض رسالته في مكان الكوبون.
+  // تسعير الخادم للكوبون وطريقة الشحن لدولة العنوان. الطريقة المختارة تبقى ما دامت متاحة للعنوان، وإلا الأولى.
+  const quoteWith = useCallback(async (code, methodId) => {
+    const quoted = await api.quoteBasket(code, { methodId, country });
+    setQuote(quoted);
+    setShippingMethodId(pickShippingMethod(quoted.shippingMethods?.options, methodId));
+    return quoted;
+  }, [country]);
+
+  // الشحن (المرحلة 12): يُعاد التسعير بتغيّر العنوان (دولته) أو الطريقة أو السلة.
+  useEffect(() => {
+    if (savedAddresses === null || order) return;
+    quoteWith(appliedCode.current, shippingMethodId).catch(() => {});
+  }, [savedAddresses, shippingMethodId, basket.subtotal, basket.itemCount, quoteWith, order]);
+
+  // الكوبون: مرفوضه نتيجةٌ في التسعير لا خطأ — تُعرض رسالته في مكانه، ويُعاد التسعير بلا الكوبون.
   const requote = useCallback(async (code) => {
     setCouponBusy(true); setCouponError(null);
     try {
-      const quoted = await api.quoteBasket(code);
+      const quoted = await quoteWith(code, shippingMethodId);
       const problem = couponProblemMessage(quoted.coupon, {
         translate: (c) => (i18n.exists(`errors.codes.${c}`) ? t(`errors.codes.${c}`) : null),
         preferServerDetail: (i18n.language || 'ar').startsWith('ar'),
       });
       appliedCode.current = problem ? null : quoted.coupon.code;
-      setCouponPreview(problem ? null : { code: quoted.coupon.code, discountAmount: quoted.discount, newTotal: quoted.total });
+      setCouponPreview(problem ? null : { code: quoted.coupon.code, discountAmount: quoted.discount });
       setCouponError(problem);
+      if (problem) await quoteWith(null, shippingMethodId);
     } catch (err) { setCouponError(err.message); setCouponPreview(null); }
     finally { setCouponBusy(false); }
-  }, [t, i18n]);
+  }, [t, i18n, quoteWith, shippingMethodId]);
 
   const applyCoupon = () => requote(couponCode.trim());
 
-  // تغيّرت السلة بعد تطبيق الكوبون (درج السلة متاح هنا أيضاً) ⇒ إعادة التسعير بالرمز نفسه.
+  // تغيّرت السلة بعد تطبيق الكوبون (درج السلة متاح هنا أيضاً) ⇒ إعادة التحقّق من الكوبون نفسه.
+  const requoteRef = useRef(requote);
+  requoteRef.current = requote;
   useEffect(() => {
-    if (appliedCode.current) requote(appliedCode.current);
-  }, [basket.subtotal, basket.itemCount, requote]);
+    if (appliedCode.current) requoteRef.current(appliedCode.current);
+  }, [basket.subtotal, basket.itemCount]);
 
   const createOrder = async (e) => {
     e.preventDefault();
     setAddressTouched(true);
-    if (addressError || blocked) return;
+    if (addressError || blocked || shippingIssue) return;
 
     setBusy(true); setServerError(null);
     try {
@@ -85,6 +106,7 @@ export default function Checkout() {
         // بلا أسطر: الخادم يُنشئ الطلب من السلة نفسها ويسعّرها بالخطّ نفسه (المرحلة 9).
         ...shippingPayload(shippingChoice, address),
         couponCode: couponPreview?.code ?? null,
+        shippingMethodId: shipping?.options?.length ? shippingMethodId : null,
       });
       setOrder(created);
       refreshProducts?.(); // المخزون تغيّر (حُجز) على الخادم
@@ -115,11 +137,13 @@ export default function Checkout() {
   }
 
   const discountAmount = order?.discountAmount ?? couponPreview?.discountAmount ?? 0;
-  const grandTotal = order?.totalAmount ?? couponPreview?.newTotal ?? total;
+  const shippingCost = order?.shippingCost ?? quote?.shipping ?? 0;
+  const grandTotal = order?.totalAmount ?? quote?.total ?? total;
 
   return (
     <div className={`souq-layout ${styles.grid}`}>
-      <OrderSummaryPanel items={items} subtotal={total} discountAmount={discountAmount} total={grandTotal} currency={currency} />
+      <OrderSummaryPanel items={items} subtotal={basket.subtotal} discountAmount={discountAmount} shipping={shippingCost}
+        shippingPending={!order && shippingIssue === 'required'} total={grandTotal} currency={currency} />
       <div>
         {serverError && <ErrorBanner message={serverError} />}
         {!order ? (
@@ -127,6 +151,8 @@ export default function Checkout() {
             savedAddresses={savedAddresses} shippingChoice={shippingChoice} setShippingChoice={setShippingChoice}
             address={address} setAddress={setAddress}
             addressTouched={addressTouched} setAddressTouched={setAddressTouched} addressError={addressError}
+            shipping={shipping} shippingMethodId={shippingMethodId} setShippingMethodId={setShippingMethodId}
+            shippingIssue={shippingIssue} currency={currency}
             couponCode={couponCode} setCouponCode={setCouponCode}
             couponPreview={couponPreview} couponError={couponError} couponBusy={couponBusy} onApplyCoupon={applyCoupon}
             busy={busy} blocked={blocked} onSubmit={createOrder}

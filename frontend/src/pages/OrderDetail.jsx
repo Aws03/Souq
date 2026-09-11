@@ -94,6 +94,13 @@ export default function OrderDetail() {
                 <dd>-{formatPrice(order.discountAmount, order.currency)}</dd>
               </div>
             )}
+            {/* الشحن كما اختير (المرحلة 12). */}
+            {order.shippingMethod && (
+              <div>
+                <dt>{t('cart.shipping')} · {order.shippingMethod}</dt>
+                <dd>{order.shippingCost > 0 ? formatPrice(order.shippingCost, order.currency) : t('cart.free')}</dd>
+              </div>
+            )}
             <div className={styles.grandTotal}><dt>{t('cart.total')}</dt><dd>{formatPrice(order.totalAmount, order.currency)}</dd></div>
             {/* ما رُدّ للعميل من دفعته (المرحلة 11) — المبلغ وحده، بلا أسباب الإدارة. */}
             {order.payment?.refundedAmount > 0 && (
@@ -128,6 +135,9 @@ export default function OrderDetail() {
               <span className={styles.meta}>{t('orders.trackingNumber')}</span>
               <span className={styles.trackingValue}>{order.trackingNumber}</span>
               {order.shippingCarrier && <span className={styles.meta}>{order.shippingCarrier}</span>}
+              {order.trackingUrl && (
+                <a href={order.trackingUrl} target="_blank" rel="noopener noreferrer" className={styles.meta}>{t('orders.trackShipment')}</a>
+              )}
             </div>
           )}
 

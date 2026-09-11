@@ -116,7 +116,7 @@ Key patterns applied throughout:
 
 **Storefront**
 - Product catalog with search, category filters, and pagination
-- Shopping cart and checkout flow
+- Shopping cart and checkout flow, with store-defined delivery methods (flat rate, free over a threshold, by country) and carrier tracking links
 - Coupon codes (percentage or fixed-amount discounts, start and end dates, and total and per-customer usage limits that hold under concurrent checkouts)
 - Real payments via Stripe Elements, with idempotent webhook-based order confirmation
 - Product reviews and ratings
@@ -276,7 +276,7 @@ Unpaid checkouts expire after `Inventory:ReservationMinutes` (default 30).
 | Method | Endpoint                               | Auth            | Description                                               |
 | ------ | --------------------------------------- | --------------- | ---------------------------------------------------------- |
 | GET    | `/api/basket`                           | Guest/Customer  | The caller's basket, priced from the live catalog         |
-| GET    | `/api/basket/quote?couponCode=`         | Guest/Customer  | The basket priced with a coupon (same pipeline as checkout) |
+| GET    | `/api/basket/quote?couponCode=&shippingMethodId=&country=` | Guest/Customer | The basket priced with a coupon and a delivery method (same pipeline as checkout) |
 | POST   | `/api/basket/items`                     | Guest/Customer  | Add a product (up to the available quantity)              |
 | PUT    | `/api/basket/items/{productId}`         | Guest/Customer  | Set a line's quantity (0 removes it)                      |
 | DELETE | `/api/basket/items/{productId}`         | Guest/Customer  | Remove a line                                             |
@@ -309,6 +309,7 @@ Baskets never reserve stock; checkout does.
 | POST   | `/api/orders/{id}/refunds`                     | Admin     | Refund part or all of an order's payment (idempotent, can't exceed it) |
 | POST   | `/api/orders/{id}/refunds/{refundId}/retry`    | Admin     | Retry a refund the gateway didn't answer      |
 | GET/PUT/DELETE | `/api/admin/store/payments`            | Admin     | The store's own Stripe account (keys encrypted, never returned) |
+| GET/POST/PUT/DELETE | `/api/admin/shipping-methods[/{id}]` | Admin     | Shipping methods (price, free-shipping threshold, countries, estimate, tracking link) |
 | GET    | `/api/payments/config`                         | —         | The publishable key of the store's account, or the platform's |
 | POST   | `/api/payments/webhook`                        | —         | Stripe webhook (signature-verified, idempotent, routed to the order's store) |
 

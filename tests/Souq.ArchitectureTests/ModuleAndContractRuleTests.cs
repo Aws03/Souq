@@ -29,6 +29,7 @@ public class ModuleAndContractRuleTests
         ["Identity"] = ["Auth", "Staff"],
         ["Customers"] = ["Customers"],
         ["Shopping"] = ["Baskets"],
+        ["Shipping"] = ["Shipping"],
         ["Platform"] = ["Platform", "Stores"],
         ["Reporting"] = ["Reporting"],
     };
@@ -51,9 +52,10 @@ public class ModuleAndContractRuleTests
     private static readonly IReadOnlyDictionary<string, string[]> AllowedContracts = new Dictionary<string, string[]>
     {
         // الحجز والمتاح (6)؛ IPricing والسلة (8/9)؛ استخدامات الكوبون (10)؛ دفعة الطلب واستردادها (11)
-        ["Ordering"] = ["Inventory", "Shopping", "Promotions", "Payments"],
+        ["Ordering"] = ["Inventory", "Shopping", "Promotions", "Payments", "Shipping"],   // … لقطة طريقة الشحن (12)
         ["Inventory"] = ["Catalog"],    // تنفّذ منفذ Catalog IVariantStockInitializer (عكس الاعتماد، المرحلة 6)
-        ["Shopping"] = ["Inventory"],   // IStockAvailability لعرض المتاح في السلة — لا حجز (المرحلة 8)
+        // IStockAvailability لعرض المتاح في السلة — لا حجز (المرحلة 8)؛ IShippingRateProvider لمرحلة الشحن في التسعير (12)
+        ["Shopping"] = ["Inventory", "Shipping"],
     };
 
     [Theory]

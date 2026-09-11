@@ -3,6 +3,7 @@ using NSubstitute;
 using Souq.Application.Common.Tenancy;
 using Souq.Application.Features.Baskets.Contracts;
 using Souq.Application.Features.Baskets.Pricing;
+using Souq.Application.Features.Shipping.Contracts;
 using Souq.Application.Tests.TestDoubles;
 using Souq.Domain.Entities;
 using Souq.Domain.Enums;
@@ -18,9 +19,10 @@ public class PricingServiceTests
     private readonly IProductRepository _products = Substitute.For<IProductRepository>();
     private readonly ICouponRepository _coupons = Substitute.For<ICouponRepository>();
     private readonly ICouponRedemptionRepository _redemptions = Substitute.For<ICouponRedemptionRepository>();
+    private Souq.Application.Features.Shipping.Contracts.IShippingRateProvider _shipping = TestShipping.None();
 
     private PricingService Pricing(ITenantContext? store = null) =>
-        new(_products, _coupons, _redemptions, store ?? TestTenant.Context(), new FixedClock());
+        new(_products, _coupons, _redemptions, _shipping, store ?? TestTenant.Context(), new FixedClock());
 
     private void Catalog(params Product[] products) =>
         _products.GetManyAsync(Arg.Any<IReadOnlyCollection<int>>(), Arg.Any<CancellationToken>()).Returns(products.ToList());
@@ -30,7 +32,7 @@ public class PricingServiceTests
     {
         Catalog(TestCatalog.Product("سماعات", price: 12.5m, id: 1), TestCatalog.Product("شاحن", price: 3m, id: 2));
 
-        var quote = await Pricing().QuoteAsync([new(1, 2), new(2, 1)], null, null, CancellationToken.None);
+        var quote = await Pricing().QuoteAsync([new(1, 2), new(2, 1)], null, null, null, CancellationToken.None);
 
         quote.Lines.Select(l => (l.ProductId, l.VariantId, l.UnitPrice.Amount, l.LineTotal.Amount, l.Sellable))
             .Should().Equal((1, 1, 12.5m, 25m, true), (2, 2, 3m, 3m, true));
@@ -47,7 +49,7 @@ public class PricingServiceTests
         draft.ChangeStatus(ProductStatus.Draft);
         Catalog(draft, TestCatalog.Product("منشور", price: 4m, id: 2));
 
-        var quote = await Pricing().QuoteAsync([new(1, 1), new(2, 2), new(99, 1)], null, null, CancellationToken.None);
+        var quote = await Pricing().QuoteAsync([new(1, 1), new(2, 2), new(99, 1)], null, null, null, CancellationToken.None);
 
         quote.Lines.Select(l => (l.ProductId, l.Sellable)).Should().Equal((1, false), (2, true), (99, false));
         (quote.Subtotal.Amount, quote.Total.Amount).Should().Be((8m, 8m));
@@ -60,7 +62,7 @@ public class PricingServiceTests
         _coupons.GetByCodeAsync("SAVE10", Arg.Any<CancellationToken>())
             .Returns(new Coupon("SAVE10", DiscountType.Percentage, 10, null, null, null));
 
-        var quote = await Pricing().QuoteAsync([new(1, 2)], " SAVE10 ", null, CancellationToken.None);
+        var quote = await Pricing().QuoteAsync([new(1, 2)], " SAVE10 ", null, null, CancellationToken.None);
 
         quote.Coupon.Should().Be(new CouponOutcome("SAVE10", true, null, null));
         (quote.Subtotal.Amount, quote.Discount.Amount, quote.Total.Amount).Should().Be((100m, 10m, 90m));
@@ -75,10 +77,10 @@ public class PricingServiceTests
         _coupons.GetByCodeAsync("BIG", Arg.Any<CancellationToken>()).Returns(
             new Coupon("BIG", DiscountType.Percentage, 10, new Money(100, "JOD"), null, null));
 
-        var missing = await Pricing().QuoteAsync([new(1, 1)], "NOPE", null, CancellationToken.None);
-        var expired = await Pricing().QuoteAsync([new(1, 1)], "OLD", null, CancellationToken.None);
-        var belowMinimum = await Pricing().QuoteAsync([new(1, 1)], "BIG", null, CancellationToken.None);
-        var disabled = await Pricing(StoreWithoutModules()).QuoteAsync([new(1, 1)], "OLD", null, CancellationToken.None);
+        var missing = await Pricing().QuoteAsync([new(1, 1)], "NOPE", null, null, CancellationToken.None);
+        var expired = await Pricing().QuoteAsync([new(1, 1)], "OLD", null, null, CancellationToken.None);
+        var belowMinimum = await Pricing().QuoteAsync([new(1, 1)], "BIG", null, null, CancellationToken.None);
+        var disabled = await Pricing(StoreWithoutModules()).QuoteAsync([new(1, 1)], "OLD", null, null, CancellationToken.None);
 
         new[] { missing, expired, belowMinimum, disabled }.Select(q => (q.Coupon!.Applied, q.Coupon.ErrorCode))
             .Should().Equal((false, "CouponNotFound"), (false, "InvalidCoupon"), (false, "InvalidCoupon"), (false, "ModuleDisabled"));
@@ -93,12 +95,49 @@ public class PricingServiceTests
         _coupons.GetByCodeAsync("ONCE", Arg.Any<CancellationToken>()).Returns(coupon);
         _redemptions.CountActiveAsync(4, 9, Arg.Any<CancellationToken>()).Returns(1);
 
-        var usedUp = await Pricing().QuoteAsync([new(1, 1)], "ONCE", customerId: 9, CancellationToken.None);
-        var guest = await Pricing().QuoteAsync([new(1, 1)], "ONCE", customerId: null, CancellationToken.None);
+        var usedUp = await Pricing().QuoteAsync([new(1, 1)], "ONCE", customerId: 9, shipping: null, CancellationToken.None);
+        var guest = await Pricing().QuoteAsync([new(1, 1)], "ONCE", customerId: null, shipping: null, CancellationToken.None);
 
         (usedUp.Coupon!.Applied, usedUp.Coupon.ErrorCode).Should().Be((false, "InvalidCoupon"));
         guest.Coupon!.Applied.Should().BeTrue();
         await _redemptions.DidNotReceive().CountActiveAsync(Arg.Any<int>(), Arg.Is<int>(id => id != 9), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task الطريقة_المختارة_تُسعَّر_بعد_الخصم_وتدخل_الإجمالي_وبلا_اختيار_يُطلب_اختيار()
+    {
+        Catalog(TestCatalog.Product(price: 50m, id: 1));
+        _coupons.GetByCodeAsync("SAVE10", Arg.Any<CancellationToken>())
+            .Returns(new Coupon("SAVE10", DiscountType.Percentage, 10, null, null, null));
+        _shipping = TestShipping.Methods(TestShipping.Option(7, 3.5m), TestShipping.Option(8, 6m, name: "سريع"));
+
+        var chosen = await Pricing().QuoteAsync([new(1, 2)], "SAVE10", null, new ShippingRequest(7, "JO"), CancellationToken.None);
+        var unchosen = await Pricing().QuoteAsync([new(1, 2)], null, null, new ShippingRequest(null, "JO"), CancellationToken.None);
+        var wrong = await Pricing().QuoteAsync([new(1, 2)], null, null, new ShippingRequest(99, "JO"), CancellationToken.None);
+
+        (chosen.Shipping.Amount, chosen.Total.Amount, chosen.ShippingOutcome!.Selected!.MethodId, chosen.ShippingOutcome.ErrorCode)
+            .Should().Be((3.5m, 93.5m, 7, (string?)null));
+        (unchosen.Shipping.Amount, unchosen.Total.Amount, unchosen.ShippingOutcome!.ErrorCode, unchosen.ShippingOutcome.Options.Count)
+            .Should().Be((0m, 100m, "ShippingMethodRequired", 2));
+        (wrong.ShippingOutcome!.ErrorCode, wrong.Shipping.Amount).Should().Be(("ShippingMethodUnavailable", 0m));
+        // حدّ المجانية يُقاس بالإجمالي بعد الخصم: المزوّد سُئل بـ 90 لا 100.
+        await _shipping.Received().QuoteAsync(Arg.Is<Money>(m => m.Amount == 90), "JO", Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task متجر_بلا_طرق_شحنه_مجاني_بلا_اختيار_ومتجر_لا_تخدم_طرقه_العنوان_يُعلَم()
+    {
+        Catalog(TestCatalog.Product(price: 20m, id: 1));
+
+        var free = await Pricing().QuoteAsync([new(1, 1)], null, null, new ShippingRequest(null, "JO"), CancellationToken.None);
+        (free.ShippingOutcome!.Required, free.ShippingOutcome.ErrorCode, free.Total.Amount).Should().Be((false, (string?)null, 20m));
+
+        _shipping = Substitute.For<IShippingRateProvider>();
+        _shipping.QuoteAsync(Arg.Any<Money>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
+            .Returns(new ShippingQuote([], StoreShips: true));
+        var nowhere = await Pricing().QuoteAsync([new(1, 1)], null, null, new ShippingRequest(null, "EG"), CancellationToken.None);
+
+        (nowhere.ShippingOutcome!.ErrorCode, nowhere.ShippingOutcome.Required).Should().Be(("ShippingNotAvailable", true));
     }
 
     // متجر عطّل كل الوحدات الاختيارية (منها الكوبونات، D-11).

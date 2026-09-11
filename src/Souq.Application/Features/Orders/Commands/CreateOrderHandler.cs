@@ -75,11 +75,14 @@ public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, Result<Ord
 
         // العنوانان لقطتان: من دفتر العميل نفسه (معرّف عنوان غيره ⇒ غير موجود) أو النصّ المُرسَل للشحن. الفوترة بلا
         // اختيار ⇒ عنوان الفوترة الافتراضي في الدفتر، وإلا عنوان الشحن نفسه (يقرّره الكيان).
+        // دولة الشحن (المرحلة 12) من عنوان الدفتر نفسه — لا يرسلها العميل؛ عنوان نصّي حرّ بلا دولة ⇒ الطرق غير المقيَّدة بدول.
         var shippingAddress = cmd.ShippingAddress ?? "";
+        string? shippingCountry = null;
         if (cmd.ShippingAddressId is int shippingId)
         {
             if (FromBook(customer, shippingId) is not { } saved) return AddressNotFound();
             shippingAddress = saved;
+            shippingCountry = customer.Addresses.First(a => a.Id == shippingId).ToPostalAddress().Country;
         }
         var billingAddress = customer.Addresses.FirstOrDefault(a => a.IsDefaultBilling) is { } defaultBilling
             ? FromBook(customer, defaultBilling.Id)
@@ -100,7 +103,8 @@ public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, Result<Ord
         if (lines.Count == 0)
             return Result<OrderCreatedDto>.Failure(Error.Validation("BasketEmpty", "السلة فارغة — أضف منتجات قبل إتمام الطلب"));
 
-        var quote = await _pricing.QuoteAsync(lines, cmd.CouponCode, customerId, ct);
+        var quote = await _pricing.QuoteAsync(
+            lines, cmd.CouponCode, customerId, new ShippingRequest(cmd.ShippingMethodId, shippingCountry), ct);
         if (quote.Lines.FirstOrDefault(l => !l.Sellable) is { } unsellable)
             return Result<OrderCreatedDto>.Failure(Error.Validation("ProductNotFound", $"المنتج رقم {unsellable.ProductId} غير متاح"));
 
@@ -118,12 +122,19 @@ public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, Result<Ord
         if (quote.Coupon is { Applied: false } rejected)
             return Result<OrderCreatedDto>.Failure(Error.BusinessRule(rejected.ErrorCode!, rejected.Message!));
 
+        // الشحن (المرحلة 12): متجر له طرق يلزمه اختيار طريقة تخدم العنوان — قبل أي كتابة، برمزها (422).
+        if (quote.ShippingOutcome is { ErrorCode: { } shippingError } delivery)
+            return Result<OrderCreatedDto>.Failure(Error.BusinessRule(shippingError, delivery.Message!));
+
         // (2) الطلب بعملة المتجر ولقطات أسطر التسعير (الاسم بلغة المتجر الافتراضية — الفاتورة تبقى كما كانت لحظة الشراء).
         var order = new Order(customerId, shippingAddress, store.Currency, billingAddress);
         foreach (var line in quote.Lines)
             order.AddItem(line.ProductId, line.Name, line.UnitPrice, line.Quantity);
         if (quote.Coupon is { Applied: true } applied)
             order.ApplyCoupon(applied.Code, quote.Discount);
+        if (quote.ShippingOutcome?.Selected is { } method)
+            order.ApplyShipping(method.Name, method.Cost, method.Carrier, method.TrackingUrlTemplate, method.MinDays, method.MaxDays,
+                shippingCountry);
 
         var reservationLines = quote.Lines.Select(l => new ReservationLine(l.VariantId, l.Quantity, l.Name)).ToList();
         await _uow.InTransactionAsync(async () =>
@@ -161,7 +172,7 @@ public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, Result<Ord
         return Result<OrderCreatedDto>.Success(new OrderCreatedDto(
             order.Id, order.OrderNumber, order.Status.ToString(),
             order.Subtotal.Amount, order.DiscountAmount?.Amount, order.TotalAmount.Amount, order.TotalAmount.Currency,
-            intent.ClientSecret));
+            intent.ClientSecret, order.ShippingCost.Amount));
     }
 
     private static string? FromBook(Customer customer, int addressId) =>

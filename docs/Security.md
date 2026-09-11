@@ -102,6 +102,9 @@
     - **No silent fake payments:** test-mode Stripe keys are refused outside Development and Testing unless `Payments:AllowTestModeStoreAccounts` is set, which logs a startup warning. A store account that can't be decrypted answers 503; payments never fall back to another account silently.
     - **Refunds** require `store.payments.manage` and are audited with the staff member. They can't exceed the payment under concurrency, and an idempotency key means a retry can't refund twice. Another store's order is a 404 (`TenantIsolationTests`).
     - **Webhooks** are verified by signature before anything is read. An event signed by a store's own account is applied only to that store; routing by metadata applies only to deployment-signed events, and applying an event re-asks the gateway.
+  - **Shipping (Phase 12, [ADR-0032](adr/0032-shipping-methods.md)):**
+    - **Tracking links** shown to customers come only from https templates set by staff, with the tracking number URL-encoded into them. No `javascript:` or plain-http link can reach a customer.
+    - **The destination country** that decides which methods apply is read from the customer's own address book on the server, never from the request.
 
 ## 4. Transport, CORS, headers, rate limiting
 

@@ -172,6 +172,10 @@ public class MigrationRehearsalTests
                 "معلّق:fake:0:22.5000:KWD,مدفوع:stripe:deployment:1:11.2500:KWD");
             (await ScalarAsync(db, "SELECT COUNT(*) FROM [Refunds]")).Should().Be(0);
 
+            // المرحلة 12: الطلبات القديمة بلا شحن — تكلفة صفر وبلا طريقة، فإجمالياتها المثبَّتة كما هي (الفحص أعلاه).
+            (await ScalarAsync(db, "SELECT COUNT(*) FROM [Orders] WHERE [ShippingAmount] <> 0 OR [ShippingMethodName] IS NOT NULL"))
+                .Should().Be(0);
+
             // المرشّحات على البيانات المُرحَّلة: المتجر 1 يرى صفوفه، ومتجر آخر لا يرى شيئاً — والتجمّع يُقرأ كاملاً.
             await using (var asDefault = new AppDbContext(options, Context(1)))
             {

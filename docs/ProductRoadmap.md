@@ -1,7 +1,7 @@
 # Souq Platform: Product Roadmap
 
 > **Goal:** turn Souq into one **white-label, multi-tenant e-commerce platform**, sold to many clients (≈ $5,000+ each) and maintainable by a professional team.
-> **Status:** Phase 0 ✅ · Target architecture ✅ documented · Phase 1A ✅ (merged to `main`) · Phase 1B ✅ on branch `phase/1b-production-foundations` (awaiting review) · **Autonomous run on `phase/2-15-multitenant-platform`** (branched from the 1B tip): Phase 2 ✅ · Phase 3 ✅ · Phase 4 ✅ · Phase 5 ✅ · Phase 6 ✅ · Phase 7 ✅ · Phase 8 ✅ · Phase 9 ✅ · Phase 10 ✅ · Phase 11 ✅. Next: Phase 12.
+> **Status:** Phase 0 ✅ · Target architecture ✅ documented · Phase 1A ✅ (merged to `main`) · Phase 1B ✅ on branch `phase/1b-production-foundations` (awaiting review) · **Autonomous run on `phase/2-15-multitenant-platform`** (branched from the 1B tip): Phase 2 ✅ · Phase 3 ✅ · Phase 4 ✅ · Phase 5 ✅ · Phase 6 ✅ · Phase 7 ✅ · Phase 8 ✅ · Phase 9 ✅ · Phase 10 ✅ · Phase 11 ✅ · Phase 12 ✅. Next: Phase 13.
 > **Companion document:** [ArchitectureAssessment.md](ArchitectureAssessment.md) covers the current state, the problem register (IDs such as `B1` and `C2`), the target architecture, and the full reasoning behind every decision (`D-xx`).
 > **Last updated:** 2026-09-11
 
@@ -623,7 +623,31 @@ Status legend: ✅ done · 🟡 in progress · ⏳ planned · ⏸ awaiting appro
   - No card data is ever stored.
   - Swapping the gateway needs no Application change.
 
-### Phase 12: Shipping ⏳
+### Phase 12: Shipping ✅ (autonomous run)
+- **Delivered ([ADR-0032](adr/0032-shipping-methods.md)):**
+  - **Store-defined methods** (`/api/admin/shipping-methods`, `store.shipping.manage`). The rules live in the `ShippingMethod` entity. Each method has:
+    - a flat price in the store currency;
+    - an optional free-shipping threshold;
+    - optional countries;
+    - a delivery estimate;
+    - a carrier with an https tracking-link template.
+  - **An `IShippingRateProvider` strategy** (the Shipping module's contract). Today `StoreShippingRates` reads the store's methods; a carrier API would implement the same contract.
+  - **Pricing:** the pipeline's shipping stage prices the options for the address's country against the goods total after discount, which is also what the free-shipping threshold uses. A store without active methods keeps free shipping with no choice.
+  - **Checkout and address rules:** a store with methods requires one that serves the address (`422 ShippingMethodRequired`, `ShippingMethodUnavailable` or `ShippingNotAvailable`). The destination country comes from the customer's address book on the server.
+  - **Order snapshot:** method, cost, estimate, destination country, carrier and tracking template. The total includes shipping, is frozen at placement, and is what the payment intent charges and refunds return.
+  - **Carriers and tracking:** the method's carrier becomes the shipment's default carrier. The tracking link (template + number) appears on the order page, the admin drawer and the public tracking page.
+  - **Frontend:**
+    - an admin shipping page;
+    - a delivery choice with prices and estimates at checkout;
+    - shipping in the order summary, the cart ("at checkout" when a choice is needed) and the order pages.
+  - **Migration `Phase12Shipping`:** additive and rehearsed. Existing orders have zero shipping and unchanged totals.
+- **Deferred, with reasons:**
+  - **Weight- or zone-based rates and live carrier APIs:** products have no weights yet; the strategy interface is the extension point.
+  - **A structured address on the order:** the order stores the destination country next to the single-line snapshot. A full structured snapshot waits for a consumer (labels, or tax under P-06).
+  - **Translated method names:** one name per method, in the store's language. Names per language come with the white-label frontend (Phase 15) if needed.
+- **Exit criteria (met):**
+  - **Checkout quotes shipping methods.** The basket quote lists the methods serving the address's country with their price and estimate (integration: Jordan versus Egypt, and free above the threshold).
+  - **The order total includes shipping.** The order, its payment intent and its detail carry subtotal − discount + shipping (unit and integration tests).
 - **Scope.**
   - Per-tenant shipping methods: flat rate, free over a threshold, and more.
   - An `IShippingRateProvider` strategy.
@@ -868,3 +892,4 @@ The earlier `AUDIT.md` (Arabic, 8-phase program) and the engineering-thinking gu
 | 2026-09-11 | Phase 9 completed (checkout from the basket, per-store order numbers, public tracking tokens, placement with frozen totals and a billing snapshot, one transition table, actors in the status history, customer cancellation, admin order filters); ADR-0029 |
 | 2026-09-11 | Phase 10 completed (coupon uses reserved at checkout as redemption records under `rowversion`, confirmed at payment and released on every cancellation; start dates and per-customer limits; admin redemptions list; used coupons can't be deleted); ADR-0030 |
 | 2026-09-11 | Phase 11 completed (a payment record per order, idempotent refunds with retry, a full refund when a paid order is cancelled, per-store Stripe accounts with AES-GCM-encrypted keys, one gateway router, webhooks routed to the store that created the intent, admin payments page and refund UI); ADR-0031. The D-13 mechanism is built but the choice is still open; P-05 re-checked against Stripe's docs |
+| 2026-09-11 | Phase 12 completed (store-defined shipping methods behind an `IShippingRateProvider` strategy, the pipeline's shipping stage, a method required at checkout when the store has methods, the destination country from the address book, a shipping snapshot and totals including shipping, carrier tracking links); ADR-0032 |

@@ -271,12 +271,16 @@ Each entry lists:
 ### Shipping (introduced Phase 12)
 - **Responsibility:** how an order gets delivered, and what that costs.
 - **Owns:** `ShippingMethods`, rate configuration, carriers.
-- **Contracts:** `IShippingRateProvider` (quotes); method queries.
+- **Contracts:** `IShippingRateProvider` (Phase 12): the priced shipping options for a goods total and a country. `StoreShippingRates` implements it today, over the store's methods.
 - **Domain:** eligibility (country, threshold); rate strategies.
 - **Depends on:** Platform.
 - **Forbidden:** order state.
 - **Extraction:** carrier integrations sit behind the port. Extraction is unlikely.
-- **Today:** only a `TrackingNumber`/carrier text on `Order`. The UI shows "Free".
+- **Today (Phase 12, [ADR-0032](adr/0032-shipping-methods.md)):**
+  - `ShippingMethod`: a flat price, a free-shipping threshold, countries, an estimate, and a carrier tracking link.
+  - Admin CRUD.
+  - The rate provider, used by Shopping's pricing pipeline. The order keeps a snapshot of the chosen method.
+  - The contracts Shopping → Shipping and Ordering → Shipping are enforced by `ModuleAndContractRuleTests`.
 
 ### Reviews
 - **Responsibility:** customer opinions about products.

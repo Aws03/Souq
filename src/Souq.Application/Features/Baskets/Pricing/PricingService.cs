@@ -1,5 +1,6 @@
 using Souq.Application.Common.Tenancy;
 using Souq.Application.Features.Baskets.Contracts;
+using Souq.Application.Features.Shipping.Contracts;
 using Souq.Domain.Entities;
 using Souq.Domain.Exceptions;
 using Souq.Domain.Interfaces;
@@ -10,26 +11,28 @@ namespace Souq.Application.Features.Baskets.Pricing;
 
 // ============================================================================
 // تنفيذ IPricing. المنتجات تُحمَّل دفعة واحدة (لا استعلام لكل سطر)، والمستودع مُرشَّح بالمتجر: منتج متجر آخر "غير
-// موجود" هنا كما في أي مكان. مرحلتا الشحن والضريبة صفر صريح اليوم — المتجر لا يتقاضى شحناً قبل المرحلة 12، ولا نموذج
-// ضريبة (قرار منتج مفتوح P-06) — ومكانهما في الخطّ ثابت كي لا يتغيّر العقد حين يُضافان. قواعد الكوبون كلها من الكيان،
-// وحدّ العميل (المرحلة 10) من استخداماته الفعّالة.
+// موجود" هنا كما في أي مكان. الشحن (المرحلة 12) من IShippingRateProvider: طرق المتجر التي تخدم العنوان بسعرها للإجمالي
+// بعد الخصم، ومشكلته (طريقة مطلوبة أو غير متاحة) نتيجة في العرض لا فشل. الضريبة صفر صريح — لا نموذج ضريبة (قرار منتج
+// مفتوح P-06) — ومكانها في الخطّ ثابت. قواعد الكوبون كلها من الكيان، وحدّ العميل (المرحلة 10) من استخداماته الفعّالة.
 // ============================================================================
 public sealed class PricingService : IPricing
 {
     private readonly IProductRepository _products;
     private readonly ICouponRepository _coupons;
     private readonly ICouponRedemptionRepository _redemptions;
+    private readonly IShippingRateProvider _shipping;
     private readonly ITenantContext _tenant;
     private readonly TimeProvider _clock;
 
     public PricingService(
         IProductRepository products, ICouponRepository coupons, ICouponRedemptionRepository redemptions,
-        ITenantContext tenant, TimeProvider clock)
+        IShippingRateProvider shipping, ITenantContext tenant, TimeProvider clock)
     {
-        _products = products; _coupons = coupons; _redemptions = redemptions; _tenant = tenant; _clock = clock;
+        _products = products; _coupons = coupons; _redemptions = redemptions; _shipping = shipping; _tenant = tenant; _clock = clock;
     }
 
-    public async Task<PriceQuote> QuoteAsync(IReadOnlyList<PricingLine> lines, string? couponCode, int? customerId, CancellationToken ct)
+    public async Task<PriceQuote> QuoteAsync(
+        IReadOnlyList<PricingLine> lines, string? couponCode, int? customerId, ShippingRequest? shipping, CancellationToken ct)
     {
         var store = _tenant.RequireTenant();
         var zero = Money.Zero(store.Currency);
@@ -49,13 +52,34 @@ public sealed class PricingService : IPricing
         // (3) الخصم.
         var (coupon, discount) = await DiscountAsync(couponCode, subtotal, customerId, store, ct);
 
-        // (4) الشحن و(5) الضريبة: صفر صريح (انظر أعلاه).
-        var shipping = zero;
+        // (4) الشحن (المرحلة 12): بالإجمالي بعد الخصم (حدّ المجانية يُقاس به).
+        var goods = subtotal.Subtract(discount);
+        var delivery = await ShippingAsync(goods, shipping, ct);
+        var shippingCost = delivery.Selected?.Cost ?? zero;
+
+        // (5) الضريبة: صفر صريح (انظر أعلاه).
         var tax = zero;
 
         // (6) الإجمالي.
-        var total = subtotal.Subtract(discount).Add(shipping).Add(tax);
-        return new PriceQuote(store.Currency, priced, subtotal, coupon, discount, shipping, tax, total);
+        var total = goods.Add(shippingCost).Add(tax);
+        return new PriceQuote(store.Currency, priced, subtotal, coupon, discount, shippingCost, tax, total, delivery);
+    }
+
+    // الطرق المتاحة للعنوان والمختارة منها. متجر بطرق شحن يلزمه اختيار طريقة تخدم العنوان (الدفع يرفض بالرمز)؛ متجر بلا طرق
+    // شحنه مجاني بلا اختيار.
+    private async Task<ShippingOutcome> ShippingAsync(Money goods, ShippingRequest? request, CancellationToken ct)
+    {
+        var quote = await _shipping.QuoteAsync(goods, request?.Country, ct);
+        var selected = request?.MethodId is int id ? quote.Options.FirstOrDefault(o => o.MethodId == id) : null;
+
+        if (request?.MethodId is not null && selected is null)
+            return new ShippingOutcome(quote.Options, null, quote.StoreShips, "ShippingMethodUnavailable",
+                "طريقة الشحن المختارة لا تخدم هذا العنوان أو لم تعد متاحة");
+        if (selected is null && quote.StoreShips)
+            return quote.Options.Count == 0
+                ? new ShippingOutcome(quote.Options, null, true, "ShippingNotAvailable", "لا طريقة شحن تخدم هذا العنوان")
+                : new ShippingOutcome(quote.Options, null, true, "ShippingMethodRequired", "اختر طريقة الشحن");
+        return new ShippingOutcome(quote.Options, selected, quote.StoreShips, null, null);
     }
 
     private async Task<(CouponOutcome?, Money)> DiscountAsync(

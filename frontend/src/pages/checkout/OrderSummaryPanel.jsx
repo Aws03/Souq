@@ -3,9 +3,9 @@ import ProductImage from '../../components/product/ProductImage';
 import { formatPrice, getProductName } from '../../components/product/ProductBadges';
 import styles from './Checkout.module.css';
 
-// عمود ملخّص الطلب (يسار الصفحة في RTL): أصناف السلة المصغّرة، ثم الفرعي/الخصم
-// (إن وُجد كوبون) والإجمالي النهائي.
-export default function OrderSummaryPanel({ items, subtotal, discountAmount, total, currency }) {
+// عمود ملخّص الطلب (يسار الصفحة في RTL): أصناف السلة المصغّرة، ثم الفرعي والخصم (إن وُجد كوبون) والشحن (المرحلة 12 —
+// "اختر طريقة" حين يلزم اختيار) والإجمالي النهائي كما سعّره الخادم.
+export default function OrderSummaryPanel({ items, subtotal, discountAmount, shipping = 0, shippingPending = false, total, currency }) {
   const { t } = useTranslation();
   return (
     <aside className={styles.summary}>
@@ -23,12 +23,14 @@ export default function OrderSummaryPanel({ items, subtotal, discountAmount, tot
         ))}
       </div>
 
+      <div className={styles.subtotalRow}><span>{t('cart.subtotal')}</span><span>{formatPrice(subtotal, currency)}</span></div>
       {discountAmount > 0 && (
-        <>
-          <div className={styles.subtotalRow}><span>{t('cart.subtotal')}</span><span>{formatPrice(subtotal, currency)}</span></div>
-          <div className={styles.discountRow}><span>{t('checkout.discount')}</span><span>-{formatPrice(discountAmount, currency)}</span></div>
-        </>
+        <div className={styles.discountRow}><span>{t('checkout.discount')}</span><span>-{formatPrice(discountAmount, currency)}</span></div>
       )}
+      <div className={styles.subtotalRow}>
+        <span>{t('cart.shipping')}</span>
+        <span>{shippingPending ? t('checkout.shipping.chooseMethod') : shipping > 0 ? formatPrice(shipping, currency) : t('cart.free')}</span>
+      </div>
       <div className={styles.totalRow}>
         <span>{t('cart.total')}</span><span>{formatPrice(total, currency)}</span>
       </div>

@@ -16,10 +16,17 @@ public sealed record BasketLineDto(
 
 public sealed record BasketCouponDto(string Code, bool Applied, string? ErrorCode, string? Message);
 
+// ShippingMethods (المرحلة 12): الطرق المتاحة لعنوان التسعير بتكلفتها ومدّتها، والمختارة، وهل يلزم اختيار (للمتجر طرق)،
+// ومشكلة الاختيار نتيجةً لا فشلاً (ShippingMethodRequired، ShippingMethodUnavailable، ShippingNotAvailable).
+public sealed record ShippingOptionDto(int MethodId, string Name, decimal Cost, string? Carrier, int? MinDays, int? MaxDays);
+
+public sealed record BasketShippingDto(
+    IReadOnlyList<ShippingOptionDto> Options, int? SelectedMethodId, bool Required, string? ErrorCode, string? Message);
+
 public sealed record BasketDto(
     IReadOnlyList<BasketLineDto> Lines, int ItemCount, string Currency,
     decimal Subtotal, decimal Discount, decimal Shipping, decimal Tax, decimal Total,
-    BasketCouponDto? Coupon, bool ReadyForCheckout, DateTime? ExpiresAt);
+    BasketCouponDto? Coupon, bool ReadyForCheckout, DateTime? ExpiresAt, BasketShippingDto? ShippingMethods = null);
 
 // ما يفعله الـ API بملف تعريف ارتباط الزائر بعد الطلب. الرمز لا يغادر هذه النتيجة إلا إلى ملف التعريف (HttpOnly).
 public enum GuestCookieAction { None, Set, Clear }

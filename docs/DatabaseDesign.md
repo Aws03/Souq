@@ -75,7 +75,7 @@ Module schemas (`catalog.Products`) were considered and **postponed**. The owner
 | StorePaymentAccount (Phase 11) | Platform | Tenant | ✓ | `(TenantId)`: one per store | — | Hard (disconnect) | Created/Updated (+ user) | — |
 | Coupon | Promotions | Tenant | ✓ | `(TenantId, Code)` | `(TenantId, IsActive)` | Soft (Inactive) once redeemed; hard before | Created/Updated | **`rowversion`** |
 | CouponRedemption (Phase 10) | Promotions | User (in tenant) | ✓ | `(TenantId, OrderId)`: one per order | `(TenantId, CouponId, CustomerId, Status)` for the per-customer count, `(TenantId, CustomerId)` | **Never** (status Reserved → Confirmed or Released) | Created/Updated | via the coupon's `rowversion` |
-| ShippingMethod | Shipping | Tenant | ✓ | `(TenantId, Code)` | — | Soft (Inactive) | Created/Updated | — |
+| ShippingMethod (Phase 12) | Shipping | Tenant | ✓ | — | `(TenantId, IsActive, SortOrder)` | Hard (orders keep a snapshot); deactivate to pause | Created/Updated | — |
 | Review | Reviews | User | ✓ | `(TenantId, CustomerId, ProductId)` | `(TenantId, ProductId, Status)` | Soft (Rejected/Hidden) | Created/Moderated | — |
 | AuditEntries (Phase 4) | building block | Tenant or Platform | nullable, no FK, no filter | — | `(OccurredAt)`, `(TenantId, OccurredAt)`, `(ActorUserId, OccurredAt)` | **Never** (append-only guard; a retention policy later) | — | — |
 | OutboxMessage | building block | Tenant or Platform | nullable | — | `(ProcessedAt, OccurredAt)` | Hard after processing + retention | — | — |
@@ -256,6 +256,15 @@ Deferred to later phases, with the phase noted: `TenantId` (2), `Users` split (3
 | `StorePaymentAccounts` | New: one per store. `PublishableKey` as is; `SecretKeyCipher` and `WebhookSecretCipher` are AES-GCM ciphertext only, with no column for the plain value; `SecretKeyHint` (last four characters), `LiveMode`, `UpdatedByUserId` |
 | Backfill | Each order with a payment intent gets a payment: the fake gateway for `pi_fake_` intents, otherwise the deployment account; the placed total; Pending → Pending, Paid/Shipped/Delivered → Succeeded, Cancelled → Succeeded if its history shows it was paid first, else Cancelled. Runs after the unique indexes, so a duplicated intent stops the migration instead of being hidden. Nothing is deleted or rewritten |
 | `Down()` | Drops the three tables (payments, refunds, store accounts with their encrypted keys). Orders keep their intent ids. Development only |
+
+**Phase 12 (`Phase12Shipping`, additive, rehearsed by `MigrationRehearsalTests`, [ADR-0032](adr/0032-shipping-methods.md)):**
+
+| Change | Detail |
+|---|---|
+| `ShippingMethods` | New: `Name`, `Price` and `Currency`, `FreeOverAmount` (same currency), `Carrier`, `TrackingUrlTemplate`, `MinDays`, `MaxDays`, `Countries` (ISO codes separated by commas; empty = everywhere), `IsActive`, `SortOrder`. Index `(TenantId, IsActive, SortOrder)` |
+| `Orders` | New snapshot columns: `ShippingMethodName`, `ShippingAmount` (default 0), `ShippingMinDays`, `ShippingMaxDays`, `ShippingCountry` (`char(2)`), `ShippingTrackingUrlTemplate`. No foreign key to the method |
+| Data | Existing orders have zero shipping and no method, so their totals are unchanged. Nothing is rewritten |
+| `Down()` | Drops the table and the columns. Development only |
 
 ## 10. Migration workflow
 

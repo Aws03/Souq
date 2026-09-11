@@ -24,6 +24,7 @@ namespace Souq.Domain.Entities;
 public class Order : Entity, ITenantOwned
 {
     public const int ShippingAddressMaxLength = 500;
+    public const int ShippingMethodMaxLength = ShippingMethod.NameMaxLength;
     public const int TrackingTokenLength = 32;   // 128 بت بالست عشري
 
     private readonly List<OrderItem> _items = new();
@@ -53,6 +54,15 @@ public class Order : Entity, ITenantOwned
     public string? TrackingNumber { get; private set; }
     public string? ShippingCarrier { get; private set; }
 
+    // لقطة الشحن (المرحلة 12): الطريقة المختارة وتكلفتها بعملة الطلب ومدّتها ودولة العنوان وقالب رابط تتبّع ناقلها. طلب
+    // بلا طريقة (متجر لم يضبط الشحن، أو ما قبل المرحلة) تكلفته صفر.
+    public string? ShippingMethodName { get; private set; }
+    public decimal ShippingAmount { get; private set; }
+    public int? ShippingMinDays { get; private set; }
+    public int? ShippingMaxDays { get; private set; }
+    public string? ShippingCountry { get; private set; }
+    public string? ShippingTrackingUrlTemplate { get; private set; }
+
     // التثبيت (المرحلة 9): لحظته، والإجماليات كما صدرت بها الفاتورة — أعمدة تقرؤها القوائم بلا جمع.
     public DateTime? PlacedAt { get; private set; }
     public decimal PlacedSubtotal { get; private set; }
@@ -68,8 +78,13 @@ public class Order : Entity, ITenantOwned
     public Money Subtotal =>
         _items.Aggregate(Money.Zero(Currency), (sum, item) => sum.Add(item.LineTotal));
 
-    // الإجمالي النهائي = الفرعي ناقص الخصم (إن وُجد كوبون مطبَّق).
-    public Money TotalAmount => DiscountAmount is null ? Subtotal : Subtotal.Subtract(DiscountAmount);
+    public Money ShippingCost => new(ShippingAmount, Currency);
+
+    // الإجمالي النهائي = الفرعي ناقص الخصم (إن وُجد كوبون مطبَّق) زائد الشحن (المرحلة 12).
+    public Money TotalAmount => (DiscountAmount is null ? Subtotal : Subtotal.Subtract(DiscountAmount)).Add(ShippingCost);
+
+    // رابط تتبّع الشحنة من قالب ناقلها ورقمها (يظهر بعد الشحن برقم).
+    public string? TrackingUrl => ShippingMethod.TrackingUrl(ShippingTrackingUrlTemplate, TrackingNumber);
 
     private Order() { }
 
@@ -130,6 +145,28 @@ public class Order : Entity, ITenantOwned
         DiscountAmount = discountAmount;
     }
 
+    // طريقة الشحن المختارة لقطةً (المرحلة 12) — قبل التثبيت فقط؛ التكلفة جاهزة من خطّ التسعير بعملة الطلب. ناقل الطريقة
+    // يصير ناقل الشحنة الافتراضي (الشحن قد يحدّد غيره).
+    public void ApplyShipping(string methodName, Money cost, string? carrier, string? trackingUrlTemplate,
+                              int? minDays, int? maxDays, string? country)
+    {
+        EnsureOpen("لا يمكن تغيير الشحن لطلب بدأت معالجته");
+        if (string.IsNullOrWhiteSpace(methodName) || methodName.Trim().Length > ShippingMethodMaxLength)
+            throw new InvalidOrderOperationException("اسم طريقة الشحن مطلوب");
+        if (cost.Currency != Currency)
+            throw new InvalidOrderOperationException("عملة الشحن لا تطابق عملة الطلب");
+        if (country is not null && (country.Length != 2 || !country.All(char.IsAsciiLetter)))
+            throw new InvalidOrderOperationException("دولة الشحن برمز ISO من حرفين");
+
+        ShippingMethodName = methodName.Trim();
+        ShippingAmount = cost.Amount;
+        ShippingCarrier = string.IsNullOrWhiteSpace(carrier) ? null : carrier.Trim();
+        ShippingTrackingUrlTemplate = string.IsNullOrWhiteSpace(trackingUrlTemplate) ? null : trackingUrlTemplate.Trim();
+        ShippingMinDays = minDays;
+        ShippingMaxDays = maxDays;
+        ShippingCountry = country?.ToUpperInvariant();
+    }
+
     // تثبيت الطلب عند إنشائه: بعده لا سطر يُضاف ولا خصم يتغيّر، والإجماليات تُحفظ كما هي — الفاتورة لا تتغيّر.
     public void Place(DateTime placedAt)
     {
@@ -170,7 +207,8 @@ public class Order : Entity, ITenantOwned
     {
         MoveTo(OrderStatus.Shipped, by, note, "لا يمكن شحن طلب لم يُدفع");
         TrackingNumber = string.IsNullOrWhiteSpace(trackingNumber) ? null : trackingNumber;
-        ShippingCarrier = string.IsNullOrWhiteSpace(shippingCarrier) ? null : shippingCarrier;
+        // بلا ناقل صريح يبقى ناقل طريقة الشحن المختارة (المرحلة 12).
+        ShippingCarrier = string.IsNullOrWhiteSpace(shippingCarrier) ? ShippingCarrier : shippingCarrier;
     }
 
     public void MarkAsDelivered(string? note = null, OrderActor? by = null) =>

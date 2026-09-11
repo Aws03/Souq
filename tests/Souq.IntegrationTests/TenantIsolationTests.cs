@@ -31,7 +31,7 @@ namespace Souq.IntegrationTests;
 public class TenantIsolationTests
 {
     private enum Actor { Anonymous, Admin, Customer }
-    private enum Resource { Product, ProductImage, Category, Coupon, Order, StaffAccount, Customer, CustomerAddress }
+    private enum Resource { Product, ProductImage, Category, Coupon, Order, StaffAccount, Customer, CustomerAddress, ShippingMethod }
 
     private sealed record ForeignCase(string Method, string Route, Resource Resource, Actor Actor, Func<HttpContent>? Body = null);
 
@@ -70,6 +70,10 @@ public class TenantIsolationTests
         // الاسترداد (المرحلة 11): طلب A لا دفعة له في B — ولا يُعاد استرداد من دفعات A.
         new("POST", "api/orders/{id:int}/refunds", Resource.Order, Actor.Admin, () => JsonBody(new { amount = 1m })),
         new("POST", "api/orders/{id:int}/refunds/{refundId:int}/retry", Resource.Order, Actor.Admin),
+        // طرق الشحن (المرحلة 12): طريقة A لا تُعدَّل ولا تُحذف من B.
+        new("PUT", "api/admin/shipping-methods/{id:int}", Resource.ShippingMethod, Actor.Admin,
+            () => JsonBody(new { name = "من B", price = 1m })),
+        new("DELETE", "api/admin/shipping-methods/{id:int}", Resource.ShippingMethod, Actor.Admin),
         new("POST", "api/admin/inventory/{productId:int}/adjustments", Resource.Product, Actor.Admin,
             () => JsonBody(new { delta = 50, reason = "محاولة من متجر آخر" })),
         new("PUT", "api/admin/inventory/{productId:int}/threshold", Resource.Product, Actor.Admin,
@@ -433,6 +437,10 @@ public class TenantIsolationTests
         var couponResponse = await adminA.PostAsJsonAsync("/api/coupons", new { code = couponCode, type = "Percentage", value = 10m });
         couponResponse.StatusCode.Should().Be(HttpStatusCode.Created, await couponResponse.Content.ReadAsStringAsync());
         var couponId = (await couponResponse.Content.ReadFromJsonAsync<TestApi.IdBody>(TestApi.Json))!.Id;
+        // معطّلة عمداً: A هو المتجر الافتراضي المشترك — طريقة مفعّلة فيه تلزم كل دفع في الاختبارات الأخرى باختيار شحن.
+        var methodResponse = await adminA.PostAsJsonAsync("/api/admin/shipping-methods", new { name = "عزل", price = 1m, isActive = false });
+        methodResponse.StatusCode.Should().Be(HttpStatusCode.Created, await methodResponse.Content.ReadAsStringAsync());
+        var shippingMethodId = (await methodResponse.Content.ReadFromJsonAsync<TestApi.IdBody>(TestApi.Json))!.Id;
         var (customerA, customerEmail) = await storeA.NewCustomerAsync();
         var addressResponse = await customerA.PostAsJsonAsync("/api/account/addresses", new
         {
@@ -455,7 +463,7 @@ public class TenantIsolationTests
             {
                 [Resource.Product] = productId, [Resource.ProductImage] = imageId, [Resource.Category] = categoryId,
                 [Resource.Coupon] = couponId, [Resource.Order] = orderId, [Resource.StaffAccount] = staffId,
-                [Resource.Customer] = customerId, [Resource.CustomerAddress] = addressId,
+                [Resource.Customer] = customerId, [Resource.CustomerAddress] = addressId, [Resource.ShippingMethod] = shippingMethodId,
             },
             couponCode, productSlug, orderToken);
     }

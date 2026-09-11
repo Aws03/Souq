@@ -38,11 +38,13 @@ public class BasketController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> Get() => Respond(await _mediator.Send(new GetBasketQuery(GuestToken)));
 
-    // GET /api/basket/quote?couponCode=SAVE10 — السلة مسعَّرةً بكوبون، بالخطّ نفسه الذي يُنشئ الطلب.
+    // GET /api/basket/quote?couponCode=SAVE10&shippingMethodId=2&country=JO — السلة مسعَّرةً بكوبون وطريقة شحن لدولة
+    // العنوان، بالخطّ نفسه الذي يُنشئ الطلب (المرحلة 12).
     [HttpGet("quote")]
     [EnableRateLimiting(RateLimitPolicies.CouponPreview)]
-    public async Task<IActionResult> Quote([FromQuery] string? couponCode) =>
-        Respond(await _mediator.Send(new GetBasketQuery(GuestToken, couponCode)));
+    public async Task<IActionResult> Quote(
+        [FromQuery] string? couponCode, [FromQuery] int? shippingMethodId, [FromQuery] string? country) =>
+        Respond(await _mediator.Send(new GetBasketQuery(GuestToken, couponCode, shippingMethodId, country)));
 
     // POST /api/basket/items { "productId": 5, "quantity": 1 }
     [HttpPost("items")]

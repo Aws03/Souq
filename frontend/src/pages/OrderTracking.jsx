@@ -74,6 +74,12 @@ export default function OrderTracking() {
               <span className={styles.trackingLabel}>{t('orders.trackingNumber')}</span>
               <span className={styles.trackingValue}>{tracking.trackingNumber}</span>
               {tracking.shippingCarrier && <span className={styles.carrier}>{tracking.shippingCarrier}</span>}
+              {/* رابط تتبّع لدى الناقل من قالب طريقة الشحن (المرحلة 12). */}
+              {tracking.trackingUrl && (
+                <a href={tracking.trackingUrl} target="_blank" rel="noopener noreferrer" className={styles.carrier}>
+                  {t('orders.trackShipment')}
+                </a>
+              )}
             </div>
             <button type="button" className={styles.copyBtn} onClick={copyTracking}>
               {copied ? <CheckIcon size={16} /> : <CopyIcon size={16} />}

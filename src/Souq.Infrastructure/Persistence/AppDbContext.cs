@@ -70,6 +70,7 @@ public class AppDbContext : DbContext, IUnitOfWork
     public DbSet<Payment> Payments => Set<Payment>();
     public DbSet<Refund> Refunds => Set<Refund>();
     public DbSet<StorePaymentAccount> StorePaymentAccounts => Set<StorePaymentAccount>();
+    public DbSet<ShippingMethod> ShippingMethods => Set<ShippingMethod>();
 
     // الهوية (Identity): حسابات المتاجر وحسابات المنصّة في جدول واحد (D-06).
     public DbSet<User> Users => Set<User>();

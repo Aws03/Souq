@@ -159,7 +159,7 @@ public class CreateOrderCustomerRulesTests
     private CreateOrderHandler CreateHandler() => new(
         _orders, _customers,
         new PricingService(_products, Substitute.For<ICouponRepository>(), Substitute.For<ICouponRedemptionRepository>(),
-            TestTenant.Context(), new FixedClock()), _baskets, _numbers,
+            TestShipping.None(), TestTenant.Context(), new FixedClock()), _baskets, _numbers,
         Substitute.For<Souq.Application.Features.Coupons.Contracts.ICouponRedemptions>(),
         Substitute.For<Souq.Application.Features.Payments.Contracts.IOrderPayments>(), _reservations, _availability, _payment,
         new OrderPaymentConfirmation(_orders, _reservations, _customers,

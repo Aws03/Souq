@@ -18,11 +18,15 @@ public sealed class BasketViews
         _pricing = pricing; _availability = availability; _currentUser = currentUser;
     }
 
-    public async Task<BasketDto> BuildAsync(Basket? basket, string? couponCode, CancellationToken ct)
+    public Task<BasketDto> BuildAsync(Basket? basket, string? couponCode, CancellationToken ct) =>
+        BuildAsync(basket, couponCode, shipping: null, ct);
+
+    // shipping (المرحلة 12): الطريقة المختارة ودولة العنوان لتسعير الدفع؛ بدونهما تُعرض الطرق غير المقيَّدة بدول وحدها.
+    public async Task<BasketDto> BuildAsync(Basket? basket, string? couponCode, ShippingRequest? shipping, CancellationToken ct)
     {
         List<BasketLine> lines = basket?.Lines.OrderBy(l => l.Id).ToList() ?? [];
         var quote = await _pricing.QuoteAsync(
-            lines.Select(l => new PricingLine(l.ProductId, l.Quantity)).ToList(), couponCode, _currentUser.CustomerId, ct);
+            lines.Select(l => new PricingLine(l.ProductId, l.Quantity)).ToList(), couponCode, _currentUser.CustomerId, shipping, ct);
 
         var variantIds = lines.Select(l => l.VariantId).Distinct().ToList();
         IReadOnlyDictionary<int, int> available = variantIds.Count == 0
@@ -44,6 +48,10 @@ public sealed class BasketViews
         return new BasketDto(dtoLines, dtoLines.Sum(l => l.Quantity), quote.Currency,
             quote.Subtotal.Amount, quote.Discount.Amount, quote.Shipping.Amount, quote.Tax.Amount, quote.Total.Amount,
             quote.Coupon is { } c ? new BasketCouponDto(c.Code, c.Applied, c.ErrorCode, c.Message) : null,
-            ready, basket?.ExpiresAt);
+            ready, basket?.ExpiresAt, Shipping(quote.ShippingOutcome));
     }
+
+    private static BasketShippingDto? Shipping(ShippingOutcome? outcome) => outcome is null ? null : new BasketShippingDto(
+        outcome.Options.Select(o => new ShippingOptionDto(o.MethodId, o.Name, o.Cost.Amount, o.Carrier, o.MinDays, o.MaxDays)).ToList(),
+        outcome.Selected?.MethodId, outcome.Required, outcome.ErrorCode, outcome.Message);
 }

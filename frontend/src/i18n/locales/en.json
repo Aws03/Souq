@@ -60,7 +60,8 @@
     "added": "Added \"{{name}}\" to cart",
     "unavailable": "No longer available — remove it to continue",
     "onlyLeft": "Only {{count}} left — reduce the quantity",
-    "fixItems": "Fix the highlighted items to continue to checkout."
+    "fixItems": "Fix the highlighted items to continue to checkout.",
+    "shippingAtCheckout": "At checkout"
   },
   "product": {
     "addToCart": "Add to cart",
@@ -236,7 +237,15 @@
     "discount": "Discount",
     "savedAddressesLabel": "Saved addresses",
     "useNewAddress": "Use a different address",
-    "manageAddresses": "Manage addresses"
+    "manageAddresses": "Manage addresses",
+    "shipping": {
+      "title": "Delivery",
+      "daysExact": "{{days}}-day delivery",
+      "daysRange": "Delivery in {{min}}–{{max}} days",
+      "chooseMethod": "Choose a method",
+      "unavailable": "No delivery method serves this address.",
+      "needsSavedAddress": "Delivery depends on the country: choose a saved address, or add one in your account."
+    }
   },
   "confirmation": {
     "title": "Your order was received successfully",
@@ -276,7 +285,8 @@
     "keepOrder": "Keep order",
     "cancelConfirm": "Cancel this unpaid order? The items reserved for it will be released.",
     "cancelledToast": "Order cancelled",
-    "refundedLabel": "Refunded"
+    "refundedLabel": "Refunded",
+    "trackShipment": "Track shipment"
   },
   "admin": {
     "headerTitle": "Store control panel",
@@ -295,7 +305,8 @@
       "coupons": "Coupons",
       "orders": "Orders",
       "customers": "Customers",
-      "payments": "Payments"
+      "payments": "Payments",
+      "shipping": "Shipping"
     },
     "dashboard": {
       "greeting": "Welcome, {{name}}",
@@ -681,6 +692,46 @@
         "webhookInvalid": "The webhook secret starts with whsec_.",
         "testKeysNotAllowed": "Test keys aren't allowed on this server: test cards don't move real money."
       }
+    },
+    "shipping": {
+      "title": "Shipping",
+      "subtitle": "Delivery methods customers choose at checkout.",
+      "add": "Add method",
+      "created": "Shipping method added",
+      "updated": "Shipping method saved",
+      "deleted": "Shipping method deleted",
+      "confirmDelete": "Delete the shipping method \"{{name}}\"? Existing orders keep their copy of it.",
+      "colName": "Method",
+      "colPrice": "Price",
+      "colFreeOver": "Free from",
+      "colEstimate": "Delivery",
+      "colCountries": "Countries",
+      "colStatus": "Status",
+      "everywhere": "Everywhere",
+      "emptyTitle": "No shipping methods",
+      "emptyMessage": "Without an active method, checkout charges no shipping and asks for no choice.",
+      "form": {
+        "addTitle": "Add a shipping method",
+        "editTitle": "Edit shipping method",
+        "nameLabel": "Name",
+        "priceLabel": "Price",
+        "freeOverLabel": "Free when the order reaches (optional)",
+        "minDaysLabel": "Delivery from (days)",
+        "maxDaysLabel": "Delivery up to (days)",
+        "carrierLabel": "Carrier (optional)",
+        "trackingUrlLabel": "Tracking link (optional)",
+        "trackingUrlHint": "An https:// link with {number} where the tracking number goes.",
+        "countriesLabel": "Countries (optional)",
+        "countriesHint": "Two-letter codes separated by commas, such as JO, SA. Leave empty for everywhere.",
+        "sortOrderLabel": "Order",
+        "activeLabel": "Offered at checkout",
+        "nameRequired": "Enter a name.",
+        "priceInvalid": "Enter a price of zero or more.",
+        "freeOverInvalid": "The free-shipping amount must be greater than zero.",
+        "estimateInvalid": "Enter both delivery days, the first no larger than the second.",
+        "trackingUrlInvalid": "The tracking link starts with https:// and contains {number}.",
+        "countriesInvalid": "Countries are two-letter codes such as JO."
+      }
     }
   },
   "wishlist": {
@@ -786,7 +837,11 @@
       "InvalidPaymentKeys": "The keys aren't valid Stripe keys of the same mode.",
       "TestKeysNotAllowed": "Test keys aren't allowed on this server.",
       "SecretsNotConfigured": "This server can't store payment keys: no encryption key is configured.",
-      "PaymentsUnavailable": "Payments are unavailable right now. Please try again later."
+      "PaymentsUnavailable": "Payments are unavailable right now. Please try again later.",
+      "ShippingMethodRequired": "Choose a delivery method.",
+      "ShippingMethodUnavailable": "The chosen delivery method doesn't serve this address.",
+      "ShippingNotAvailable": "No delivery method serves this address.",
+      "InvalidShippingMethod": "The shipping method isn't valid."
     }
   },
   "account": {

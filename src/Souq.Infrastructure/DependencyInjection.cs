@@ -102,6 +102,7 @@ public static class DependencyInjection
         services.AddScoped<ICouponRedemptionRepository, CouponRedemptionRepository>();
         services.AddScoped<IPaymentRepository, PaymentRepository>();
         services.AddScoped<IStorePaymentAccountRepository, StorePaymentAccountRepository>();
+        services.AddScoped<IShippingMethodRepository, ShippingMethodRepository>();
         services.AddScoped<Application.Features.Orders.IOrderNumbers, OrderNumbers>();
         services.AddScoped<ITenantRepository, TenantRepository>();
 

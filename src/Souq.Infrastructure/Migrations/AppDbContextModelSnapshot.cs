@@ -609,9 +609,32 @@ namespace Souq.Infrastructure.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
+                    b.Property<decimal>("ShippingAmount")
+                        .HasColumnType("decimal(19,4)");
+
                     b.Property<string>("ShippingCarrier")
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("ShippingCountry")
+                        .HasMaxLength(2)
+                        .IsUnicode(false)
+                        .HasColumnType("char(2)")
+                        .IsFixedLength();
+
+                    b.Property<int?>("ShippingMaxDays")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ShippingMethodName")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int?>("ShippingMinDays")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ShippingTrackingUrlTemplate")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
 
                     b.Property<int>("Status")
                         .HasColumnType("int");
@@ -1103,6 +1126,64 @@ namespace Souq.Infrastructure.Migrations
                     b.ToTable("Reviews", (string)null);
                 });
 
+            modelBuilder.Entity("Souq.Domain.Entities.ShippingMethod", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Carrier")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Countries")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(300)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal?>("FreeOverAmount")
+                        .HasColumnType("decimal(19,4)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<int?>("MaxDays")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("MinDays")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("TrackingUrlTemplate")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "IsActive", "SortOrder");
+
+                    b.ToTable("ShippingMethods", (string)null);
+                });
+
             modelBuilder.Entity("Souq.Domain.Entities.StockMovement", b =>
                 {
                     b.Property<int>("Id")
@@ -1202,6 +1283,65 @@ namespace Souq.Infrastructure.Migrations
                         {
                             t.HasCheckConstraint("CK_StockReservations_Quantity", "[Quantity] > 0");
                         });
+                });
+
+            modelBuilder.Entity("Souq.Domain.Entities.StorePaymentAccount", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("LiveMode")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Provider")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<string>("PublishableKey")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<string>("SecretKeyCipher")
+                        .IsRequired()
+                        .HasMaxLength(1024)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(1024)");
+
+                    b.Property<string>("SecretKeyHint")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("UpdatedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("WebhookSecretCipher")
+                        .HasMaxLength(1024)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(1024)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId")
+                        .IsUnique();
+
+                    b.ToTable("StorePaymentAccounts", (string)null);
                 });
 
             modelBuilder.Entity("Souq.Domain.Identity.RefreshToken", b =>
@@ -1359,65 +1499,6 @@ namespace Souq.Infrastructure.Migrations
                         .HasFilter("[TenantId] IS NOT NULL");
 
                     b.ToTable("Users", (string)null);
-                });
-
-            modelBuilder.Entity("Souq.Domain.Entities.StorePaymentAccount", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<bool>("LiveMode")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("Provider")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .IsUnicode(false)
-                        .HasColumnType("varchar(20)");
-
-                    b.Property<string>("PublishableKey")
-                        .IsRequired()
-                        .HasMaxLength(255)
-                        .IsUnicode(false)
-                        .HasColumnType("varchar(255)");
-
-                    b.Property<string>("SecretKeyCipher")
-                        .IsRequired()
-                        .HasMaxLength(1024)
-                        .IsUnicode(false)
-                        .HasColumnType("varchar(1024)");
-
-                    b.Property<string>("SecretKeyHint")
-                        .IsRequired()
-                        .HasMaxLength(16)
-                        .HasColumnType("nvarchar(16)");
-
-                    b.Property<int>("TenantId")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int?>("UpdatedByUserId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("WebhookSecretCipher")
-                        .HasMaxLength(1024)
-                        .IsUnicode(false)
-                        .HasColumnType("varchar(1024)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("TenantId")
-                        .IsUnique();
-
-                    b.ToTable("StorePaymentAccounts", (string)null);
                 });
 
             modelBuilder.Entity("Souq.Domain.Platform.Tenant", b =>
@@ -2057,6 +2138,41 @@ namespace Souq.Infrastructure.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Souq.Domain.Entities.ShippingMethod", b =>
+                {
+                    b.HasOne("Souq.Domain.Platform.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.OwnsOne("Souq.Domain.ValueObjects.Money", "Price", b1 =>
+                        {
+                            b1.Property<int>("ShippingMethodId")
+                                .HasColumnType("int");
+
+                            b1.Property<decimal>("Amount")
+                                .HasColumnType("decimal(19,4)")
+                                .HasColumnName("Price");
+
+                            b1.Property<string>("Currency")
+                                .IsRequired()
+                                .HasMaxLength(3)
+                                .HasColumnType("nvarchar(3)")
+                                .HasColumnName("Currency");
+
+                            b1.HasKey("ShippingMethodId");
+
+                            b1.ToTable("ShippingMethods");
+
+                            b1.WithOwner()
+                                .HasForeignKey("ShippingMethodId");
+                        });
+
+                    b.Navigation("Price")
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Souq.Domain.Entities.StockMovement", b =>
                 {
                     b.HasOne("Souq.Domain.Platform.Tenant", null)
@@ -2096,6 +2212,15 @@ namespace Souq.Infrastructure.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Souq.Domain.Entities.StorePaymentAccount", b =>
+                {
+                    b.HasOne("Souq.Domain.Platform.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Souq.Domain.Identity.RefreshToken", b =>
                 {
                     b.HasOne("Souq.Domain.Platform.Tenant", null)
@@ -2116,15 +2241,6 @@ namespace Souq.Infrastructure.Migrations
                         .WithMany()
                         .HasForeignKey("TenantId")
                         .OnDelete(DeleteBehavior.Restrict);
-                });
-
-            modelBuilder.Entity("Souq.Domain.Entities.StorePaymentAccount", b =>
-                {
-                    b.HasOne("Souq.Domain.Platform.Tenant", null)
-                        .WithMany()
-                        .HasForeignKey("TenantId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
                 });
 
             modelBuilder.Entity("Souq.Domain.Platform.TenantDomain", b =>

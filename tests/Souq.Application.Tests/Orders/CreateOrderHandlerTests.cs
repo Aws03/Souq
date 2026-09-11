@@ -31,6 +31,7 @@ public class CreateOrderHandlerTests
     private readonly IPaymentService _payment = Substitute.For<IPaymentService>();
     private readonly IBasketCheckout _baskets = Substitute.For<IBasketCheckout>();
     private readonly ICouponRedemptionRepository _couponUses = Substitute.For<ICouponRedemptionRepository>();
+    private Souq.Application.Features.Shipping.Contracts.IShippingRateProvider _shipping = TestShipping.None();
     private readonly Souq.Application.Features.Payments.Contracts.IOrderPayments _orderPayments =
         Substitute.For<Souq.Application.Features.Payments.Contracts.IOrderPayments>();
     private readonly Souq.Application.Features.Coupons.Contracts.ICouponRedemptions _couponRedemptions =
@@ -58,7 +59,7 @@ public class CreateOrderHandlerTests
 
     // التسعير الحقيقي (المرحلة 8) فوق مستودعات بديلة — الأسعار والخصم كما في السلة تماماً.
     private CreateOrderHandler CreateHandler() => new(
-        _orders, _customers, new PricingService(_products, _coupons, _couponUses, TestTenant.Context(), new FixedClock()), _baskets,
+        _orders, _customers, new PricingService(_products, _coupons, _couponUses, _shipping, TestTenant.Context(), new FixedClock()), _baskets,
         _numbers, _couponRedemptions, _orderPayments, _reservations, _availability, _payment,
         new OrderPaymentConfirmation(_orders, _reservations, _customers, _couponRedemptions, _orderPayments, _baskets, _payment,
             Substitute.For<IEmailService>(), _uow),
@@ -84,6 +85,24 @@ public class CreateOrderHandlerTests
             .Returns(new Dictionary<int, int> { [1] = available });
         _payment.CreateIntentAsync(Arg.Any<Money>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns(new PaymentIntentResult("pi_123", "pi_123_secret"));
+    }
+
+    [Fact]
+    public async Task متجر_بطرق_شحن_يلزمه_اختيار_والمختارة_تدخل_الإجمالي_ونيّة_الدفع_ولقطة_الطلب()
+    {
+        Arrange();
+        _shipping = TestShipping.Methods(TestShipping.Option(7, 3.5m));
+
+        var missing = await CreateHandler().Handle(NewCommand(), CancellationToken.None);
+        missing.ErrorCode.Should().Be("ShippingMethodRequired");
+        _steps.Should().BeEmpty("مشكلة الشحن تُرفض قبل أي كتابة");
+
+        var result = await CreateHandler().Handle(NewCommand() with { ShippingMethodId = 7 }, CancellationToken.None);
+
+        (result.Value!.TotalAmount, result.Value.ShippingCost).Should().Be((53.5m, 3.5m));
+        (_saved!.ShippingMethodName, _saved.ShippingAmount, _saved.ShippingCarrier, _saved.ShippingTrackingUrlTemplate, _saved.PlacedTotal)
+            .Should().Be(("توصيل", 3.5m, "Aramex", "https://track.example/{number}", 53.5m));
+        await _payment.Received(1).CreateIntentAsync(Arg.Is<Money>(m => m.Amount == 53.5m), Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]

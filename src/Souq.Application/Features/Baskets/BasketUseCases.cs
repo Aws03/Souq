@@ -14,11 +14,20 @@ namespace Souq.Application.Features.Baskets;
 // ============================================================================
 
 // العرض يكتب في حالة واحدة فقط: دمج سلة زائر بعد الدخول (أو حذف سلة زائر منتهية).
-public record GetBasketQuery(string? GuestToken, string? CouponCode = null) : IRequest<Result<BasketResult>>;
+// ShippingMethodId/Country (المرحلة 12): تسعير الدفع بطريقة شحن ودولة العنوان المختار (معاينة؛ الطلب يأخذ الدولة من
+// دفتر العميل نفسه).
+public record GetBasketQuery(string? GuestToken, string? CouponCode = null, int? ShippingMethodId = null, string? Country = null)
+    : IRequest<Result<BasketResult>>;
 
 public class GetBasketValidator : AbstractValidator<GetBasketQuery>
 {
-    public GetBasketValidator() => RuleFor(q => q.CouponCode).MaximumLength(50);
+    public GetBasketValidator()
+    {
+        RuleFor(q => q.CouponCode).MaximumLength(50);
+        RuleFor(q => q.ShippingMethodId).GreaterThan(0).When(q => q.ShippingMethodId is not null);
+        RuleFor(q => q.Country).Matches("^[A-Za-z]{2}$").When(q => q.Country is not null)
+            .WithMessage("الدولة برمز ISO من حرفين");
+    }
 }
 
 public class GetBasketHandler : IRequestHandler<GetBasketQuery, Result<BasketResult>>
@@ -36,7 +45,8 @@ public class GetBasketHandler : IRequestHandler<GetBasketQuery, Result<BasketRes
     {
         var resolved = await _resolver.ResolveAsync(query.GuestToken, ct);
         await _uow.SaveChangesAsync(ct);
-        return Result<BasketResult>.Success(resolved.Read(await _views.BuildAsync(resolved.Basket, query.CouponCode, ct)));
+        var shipping = new Contracts.ShippingRequest(query.ShippingMethodId, query.Country?.ToUpperInvariant());
+        return Result<BasketResult>.Success(resolved.Read(await _views.BuildAsync(resolved.Basket, query.CouponCode, shipping, ct)));
     }
 }
 

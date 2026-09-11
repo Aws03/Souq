@@ -60,7 +60,8 @@
     "added": "أُضيف \"{{name}}\" للسلة",
     "unavailable": "لم يعد متاحاً — احذفه للمتابعة",
     "onlyLeft": "المتبقّي {{count}} فقط — خفّض الكمية",
-    "fixItems": "عدّل الأصناف المعلَّمة للمتابعة إلى الدفع."
+    "fixItems": "عدّل الأصناف المعلَّمة للمتابعة إلى الدفع.",
+    "shippingAtCheckout": "عند الدفع"
   },
   "product": {
     "addToCart": "أضف للسلة",
@@ -236,7 +237,15 @@
     "discount": "الخصم",
     "savedAddressesLabel": "العناوين المحفوظة",
     "useNewAddress": "عنوان آخر",
-    "manageAddresses": "إدارة العناوين"
+    "manageAddresses": "إدارة العناوين",
+    "shipping": {
+      "title": "التوصيل",
+      "daysExact": "توصيل خلال {{days}} يوم",
+      "daysRange": "توصيل خلال {{min}}–{{max}} أيام",
+      "chooseMethod": "اختر طريقة",
+      "unavailable": "لا طريقة توصيل تخدم هذا العنوان.",
+      "needsSavedAddress": "التوصيل بحسب الدولة: اختر عنواناً محفوظاً، أو أضف واحداً في حسابك."
+    }
   },
   "confirmation": {
     "title": "تم استلام طلبك بنجاح",
@@ -276,7 +285,8 @@
     "keepOrder": "الإبقاء على الطلب",
     "cancelConfirm": "إلغاء هذا الطلب غير المدفوع؟ ستُحرَّر الأصناف المحجوزة له.",
     "cancelledToast": "تم إلغاء الطلب",
-    "refundedLabel": "المُستردّ"
+    "refundedLabel": "المُستردّ",
+    "trackShipment": "تتبّع الشحنة"
   },
   "admin": {
     "headerTitle": "لوحة تحكّم المتجر",
@@ -295,7 +305,8 @@
       "coupons": "الكوبونات",
       "orders": "الطلبات",
       "customers": "العملاء",
-      "payments": "المدفوعات"
+      "payments": "المدفوعات",
+      "shipping": "الشحن"
     },
     "dashboard": {
       "greeting": "أهلاً، {{name}}",
@@ -681,6 +692,46 @@
         "webhookInvalid": "سرّ الإشعارات يبدأ بـ whsec_.",
         "testKeysNotAllowed": "المفاتيح التجريبية غير مسموحة على هذا الخادم: بطاقات الاختبار لا تنقل مالاً حقيقياً."
       }
+    },
+    "shipping": {
+      "title": "الشحن",
+      "subtitle": "طرق التوصيل التي يختار منها العميل عند الدفع.",
+      "add": "إضافة طريقة",
+      "created": "أُضيفت طريقة الشحن",
+      "updated": "حُفظت طريقة الشحن",
+      "deleted": "حُذفت طريقة الشحن",
+      "confirmDelete": "حذف طريقة الشحن \"{{name}}\"؟ تحتفظ الطلبات السابقة بنسختها منها.",
+      "colName": "الطريقة",
+      "colPrice": "السعر",
+      "colFreeOver": "مجاني من",
+      "colEstimate": "التوصيل",
+      "colCountries": "الدول",
+      "colStatus": "الحالة",
+      "everywhere": "كل الدول",
+      "emptyTitle": "لا طرق شحن",
+      "emptyMessage": "بلا طريقة مفعّلة لا يُتقاضى شحن ولا يُطلب من العميل اختيار.",
+      "form": {
+        "addTitle": "إضافة طريقة شحن",
+        "editTitle": "تعديل طريقة الشحن",
+        "nameLabel": "الاسم",
+        "priceLabel": "السعر",
+        "freeOverLabel": "مجاني حين يبلغ الطلب (اختياري)",
+        "minDaysLabel": "التوصيل من (أيام)",
+        "maxDaysLabel": "التوصيل حتى (أيام)",
+        "carrierLabel": "الناقل (اختياري)",
+        "trackingUrlLabel": "رابط التتبّع (اختياري)",
+        "trackingUrlHint": "رابط يبدأ بـ https:// وفيه {number} مكان رقم الشحنة.",
+        "countriesLabel": "الدول (اختياري)",
+        "countriesHint": "رموز من حرفين تفصلها فواصل، مثل JO، SA. اتركه فارغاً لكل الدول.",
+        "sortOrderLabel": "الترتيب",
+        "activeLabel": "متاحة عند الدفع",
+        "nameRequired": "أدخل الاسم.",
+        "priceInvalid": "أدخل سعراً صفراً أو أكثر.",
+        "freeOverInvalid": "مبلغ الشحن المجاني أكبر من صفر.",
+        "estimateInvalid": "أدخل يومَي التوصيل، والأول لا يتجاوز الثاني.",
+        "trackingUrlInvalid": "رابط التتبّع يبدأ بـ https:// وفيه {number}.",
+        "countriesInvalid": "الدول رموز من حرفين مثل JO."
+      }
     }
   },
   "wishlist": {
@@ -786,7 +837,11 @@
       "InvalidPaymentKeys": "المفتاحان ليسا مفتاحَي Stripe صالحَين من الوضع نفسه.",
       "TestKeysNotAllowed": "المفاتيح التجريبية غير مسموحة على هذا الخادم.",
       "SecretsNotConfigured": "لا يستطيع هذا الخادم حفظ مفاتيح الدفع: لا مفتاح تشفير مضبوط.",
-      "PaymentsUnavailable": "الدفع غير متاح الآن. حاول لاحقاً."
+      "PaymentsUnavailable": "الدفع غير متاح الآن. حاول لاحقاً.",
+      "ShippingMethodRequired": "اختر طريقة التوصيل.",
+      "ShippingMethodUnavailable": "طريقة التوصيل المختارة لا تخدم هذا العنوان.",
+      "ShippingNotAvailable": "لا طريقة توصيل تخدم هذا العنوان.",
+      "InvalidShippingMethod": "طريقة الشحن غير صالحة."
     }
   },
   "account": {

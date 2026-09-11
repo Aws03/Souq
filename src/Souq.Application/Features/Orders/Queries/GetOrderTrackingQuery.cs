@@ -12,9 +12,10 @@ namespace Souq.Application.Features.Orders.Queries;
 // ============================================================================
 public record OrderTrackingStepDto(string Status, DateTime ChangedAt);
 
+// TrackingUrl (المرحلة 12): رابط تتبّع الشحنة لدى ناقلها، من قالب طريقة الشحن ورقم التتبّع.
 public record OrderTrackingDto(
     int OrderNumber, string Status, string? TrackingNumber, string? ShippingCarrier,
-    DateTime CreatedAt, List<OrderTrackingStepDto> History);
+    DateTime CreatedAt, List<OrderTrackingStepDto> History, string? TrackingUrl = null);
 
 public record GetOrderTrackingQuery(string Token) : IRequest<Result<OrderTrackingDto>>;
 

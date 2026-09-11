@@ -47,7 +47,9 @@ internal sealed class OrderQueries : IOrderQueries
             Chronological(order).Select(h => new OrderHistoryEntryDto(
                 h.Status.ToString(), h.CreatedAt, h.Note, h.ChangedBy.ToString(),
                 h.ChangedByUserId is int userId && staffNames.TryGetValue(userId, out var name) ? name : null)).ToList(),
-            [], false);
+            [], false,
+            ShippingMethod: order.ShippingMethodName, ShippingCost: order.ShippingAmount, ShippingMinDays: order.ShippingMinDays,
+            ShippingMaxDays: order.ShippingMaxDays, ShippingCountry: order.ShippingCountry, TrackingUrl: order.TrackingUrl);
     }
 
     public async Task<OrderTrackingDto?> FindTrackingAsync(string token, CancellationToken ct)
@@ -58,7 +60,8 @@ internal sealed class OrderQueries : IOrderQueries
 
         return new OrderTrackingDto(
             order.OrderNumber, order.Status.ToString(), order.TrackingNumber, order.ShippingCarrier, order.CreatedAt,
-            Chronological(order).Select(h => new OrderTrackingStepDto(h.Status.ToString(), h.CreatedAt)).ToList());
+            Chronological(order).Select(h => new OrderTrackingStepDto(h.Status.ToString(), h.CreatedAt)).ToList(),
+            order.TrackingUrl);
     }
 
     // ترتيب زمني تصاعدي يطابق الخط الزمني في الواجهة؛ المعرّف يكسر تعادل انتقالين حُفظا في اللحظة نفسها.

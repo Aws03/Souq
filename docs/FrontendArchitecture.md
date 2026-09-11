@@ -176,6 +176,17 @@ It displays the server's decisions and handles its errors.
 | `features/admin/payments/paymentView.js` (tested): key modes, the account form's first problem, the request body (empty secrets aren't sent), the refund amount check with the currency's minor units | Pure helpers |
 | New error codes translated (`RefundExceedsPayment`, `NothingToRefund`, `PaymentNotRefundable`, `RefundNotPending`, `InvalidPaymentKeys`, `TestKeysNotAllowed`, `SecretsNotConfigured`, `PaymentsUnavailable`) | Server decisions shown in both languages |
 
+**Phase 12 (shipping):**
+
+| Change | Reason |
+|---|---|
+| Checkout has a delivery step: the methods that serve the chosen address's country, with price and estimate. It re-quotes when the address, the method or the basket changes, and keeps the chosen method while it's offered. A typed address without a country shows only methods without country limits, with a hint to use a saved address | Shipping is chosen where it's priced ([ADR-0032](adr/0032-shipping-methods.md)) |
+| The order summary shows shipping ("choose a method" until one is chosen). The cart drawer says "at checkout" when a choice will be needed | Totals match what will be charged |
+| `/admin/shipping` (sidebar and tab bar, `store.shipping.manage`): the methods table and its form drawer | Store-defined rates |
+| The customer order page, the admin drawer and the public tracking page show the method and a carrier tracking link | Carriers and tracking |
+| `features/checkout/shippingOptions.js` and `features/admin/shipping/shippingForm.js` (tested) | Pure helpers |
+| New error codes translated (`ShippingMethodRequired`, `ShippingMethodUnavailable`, `ShippingNotAvailable`, `InvalidShippingMethod`) | Server decisions shown in both languages |
+
 ## 6. Phase 15 migration plan
 
 1. Introduce `app/`, `routes/`, `layouts/`, and `contexts/` without moving features. The app keeps working.
