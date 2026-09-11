@@ -57,9 +57,10 @@ public class InventoryAndOrderTests
         var responses = await Task.WhenAll(customers.Select(c => _api.PlaceOrderAsync(c.Client, productId, 1)));
 
         var sold = responses.Count(r => r.StatusCode == HttpStatusCode.Created);
+        // 201 بيع، 409 خسر سباق rowversion، 422 رأى المخزون نافداً قبل الشراء (ADR-0017).
         responses.Should().OnlyContain(r => r.StatusCode == HttpStatusCode.Created
                                             || r.StatusCode == HttpStatusCode.Conflict
-                                            || r.StatusCode == HttpStatusCode.BadRequest);
+                                            || r.StatusCode == HttpStatusCode.UnprocessableEntity);
         sold.Should().BeInRange(1, initialStock);
         var finalStock = await StockOf(productId);
         finalStock.Should().Be(initialStock - sold).And.BeGreaterThanOrEqualTo(0);
@@ -82,7 +83,8 @@ public class InventoryAndOrderTests
         (await LedgerOf(productId)).Should().Contain(m => m.Type == StockMovementType.Cancellation && m.QuantityChange == 2);
 
         var again = await admin.PutAsJsonAsync($"/api/orders/{orderId}/status", new { action = "Cancel" });
-        again.StatusCode.Should().Be(HttpStatusCode.BadRequest);                           // C10
+        again.StatusCode.Should().Be(HttpStatusCode.UnprocessableEntity);                  // C10 — قاعدة عمل
+        (await again.Content.ReadFromJsonAsync<TestApi.ProblemBody>(TestApi.Json))!.Code.Should().Be("InvalidOrderOperation");
         (await StockOf(productId)).Should().Be(5);                                         // لا إعادة مزدوجة
     }
 
@@ -142,7 +144,7 @@ public class InventoryAndOrderTests
     }
 
     [Fact]
-    public async Task سعر_بخانات_أكثر_من_العملة_يُرفض_بـ_400_لا_500()
+    public async Task سعر_بخانات_أكثر_من_العملة_يُرفض_بـ_422_لا_500()
     {
         var admin = await _api.AdminAsync();
         var categoryId = (await admin.GetFromJsonAsync<List<TestApi.IdBody>>("/api/categories", TestApi.Json))!.First().Id;
@@ -153,7 +155,9 @@ public class InventoryAndOrderTests
             imageUrl = "placeholder", categoryId,
         });
 
-        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        // قاعدة يحرسها Money (خانات العملة) ⇒ 422 برمز ثابت، لا 500 ولا نص استثناء خام.
+        response.StatusCode.Should().Be(HttpStatusCode.UnprocessableEntity);
+        (await response.Content.ReadFromJsonAsync<TestApi.ProblemBody>(TestApi.Json))!.Code.Should().Be("InvalidMoney");
     }
 
     private Task<int> StockOf(int productId) => _api.WithDbAsync(db =>

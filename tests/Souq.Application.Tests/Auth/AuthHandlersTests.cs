@@ -173,18 +173,19 @@ public class ResetPasswordHandlerTests
     private ResetPasswordHandler CreateHandler() => new(_customers, _hasher, _uow);
 
     [Fact]
-    public async Task رمز_غير_موجود_يُرجع_InvalidToken()
+    public async Task رمز_غير_موجود_يُرجع_InvalidResetToken()
     {
         _customers.GetByResetTokenAsync("bad-token", Arg.Any<CancellationToken>()).Returns((Customer?)null);
 
         var result = await CreateHandler().Handle(new ResetPasswordCommand("bad-token", "NewPassw0rd!"), CancellationToken.None);
 
         result.IsSuccess.Should().BeFalse();
-        result.ErrorCode.Should().Be("InvalidToken");
+        result.ErrorCode.Should().Be("InvalidResetToken");
+        result.Error!.Kind.Should().Be(Souq.Application.Common.Models.ErrorKind.BusinessRule);
     }
 
     [Fact]
-    public async Task رمز_منتهي_الصلاحية_يُرجع_TokenExpired_ولا_يحفظ()
+    public async Task رمز_منتهي_الصلاحية_يرفعه_الكيان_ولا_يُحفظ_شيء()
     {
         var customer = new Customer("مستخدم", "user@souq.com", "old-hash");
         customer.GenerateResetToken();
@@ -192,10 +193,11 @@ public class ResetPasswordHandlerTests
             .SetValue(customer, DateTime.UtcNow.AddMinutes(-1));
         _customers.GetByResetTokenAsync("expired-token", Arg.Any<CancellationToken>()).Returns(customer);
 
-        var result = await CreateHandler().Handle(new ResetPasswordCommand("expired-token", "NewPassw0rd!"), CancellationToken.None);
+        var act = () => CreateHandler().Handle(new ResetPasswordCommand("expired-token", "NewPassw0rd!"), CancellationToken.None);
 
-        result.IsSuccess.Should().BeFalse();
-        result.ErrorCode.Should().Be("TokenExpired");
+        (await act.Should().ThrowAsync<Souq.Domain.Exceptions.InvalidPasswordResetException>())
+            .Which.Code.Should().Be("ResetTokenExpired");
+        customer.PasswordHash.Should().Be("old-hash");
         await _uow.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 

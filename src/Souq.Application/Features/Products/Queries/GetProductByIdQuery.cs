@@ -15,7 +15,7 @@ public class GetProductByIdHandler : IRequestHandler<GetProductByIdQuery, Result
     {
         var p = await _products.GetActiveByIdAsync(q.Id, ct);
         if (p is null)
-            return Result<ProductDto>.Failure("المنتج غير موجود", "NotFound");
+            return Result<ProductDto>.Failure(Error.NotFound("المنتج غير موجود"));
 
         return Result<ProductDto>.Success(new ProductDto(
             p.Id, p.NameAr, p.NameEn, p.Description, p.Price.Amount, p.Price.Currency,

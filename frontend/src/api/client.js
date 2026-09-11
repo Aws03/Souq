@@ -1,4 +1,5 @@
 import i18n from '../i18n';
+import { toApiError } from './problem';
 
 // ============================================================================
 // عميل API موحّد — لماذا ملف واحد؟ (مبدأ DRY + فصل الاهتمامات)
@@ -19,6 +20,17 @@ export const tokenStore = {
   clear: () => localStorage.removeItem(TOKEN_KEY),
 };
 
+// أي استجابة غير ناجحة ⇒ Error موحّد من ProblemDetails (انظر problem.js). رسائل الخادم
+// عربية، فالواجهة العربية تعرضها كما هي؛ غيرها يترجم الرمز الثابت (errors.codes.*).
+async function readApiError(res, fallbackKey) {
+  const body = await res.json().catch(() => null);
+  return toApiError(res.status, body, {
+    translate: (code) => (i18n.exists(`errors.codes.${code}`) ? i18n.t(`errors.codes.${code}`) : null),
+    preferServerDetail: (i18n.language || 'ar').startsWith('ar'),
+    fallbackMessage: i18n.t(fallbackKey),
+  });
+}
+
 async function request(path, options = {}) {
   const token = tokenStore.get();
   const res = await fetch(BASE + path, {
@@ -36,13 +48,7 @@ async function request(path, options = {}) {
     window.dispatchEvent(new Event('auth:unauthorized'));
   }
 
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    const err = new Error(body.error || i18n.t('errors.connection'));
-    err.status = res.status;
-    err.code = body.code;
-    throw err;
-  }
+  if (!res.ok) throw await readApiError(res, 'errors.connection');
   return res.status === 204 ? null : res.json();
 }
 
@@ -61,13 +67,7 @@ async function upload(path, formData) {
     window.dispatchEvent(new Event('auth:unauthorized'));
   }
 
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    const err = new Error(body.error || i18n.t('errors.upload'));
-    err.status = res.status;
-    err.code = body.code;
-    throw err;
-  }
+  if (!res.ok) throw await readApiError(res, 'errors.upload');
   return res.json();
 }
 

@@ -1,6 +1,5 @@
 using MediatR;
 using Souq.Application.Common.Models;
-using Souq.Domain.Exceptions;
 using Souq.Domain.Interfaces;
 using Souq.Domain.ValueObjects;
 
@@ -22,19 +21,14 @@ public class ApplyCouponHandler : IRequestHandler<ApplyCouponQuery, Result<Coupo
     {
         var coupon = await _coupons.GetByCodeAsync(q.Code, ct);
         if (coupon is null)
-            return Result<CouponPreviewDto>.Failure("رمز الكوبون غير صحيح", "CouponNotFound");
+            return Result<CouponPreviewDto>.Failure(Error.BusinessRule("CouponNotFound", "رمز الكوبون غير صحيح"));
 
-        try
-        {
-            var subtotal = new Money(q.Subtotal, q.Currency);
-            coupon.EnsureUsable(subtotal, DateTime.UtcNow);
-            var discount = coupon.CalculateDiscount(subtotal);
-            return Result<CouponPreviewDto>.Success(
-                new CouponPreviewDto(coupon.Code, discount.Amount, subtotal.Amount - discount.Amount));
-        }
-        catch (InvalidCouponException ex) { return Result<CouponPreviewDto>.Failure(ex.Message, "InvalidCoupon"); }
-        // Money يرمي ArgumentException لمبلغ سالب أو عملة فارغة — مدخل غير صالح من العميل،
-        // لا خطأ خادم (بلا هذا catch كان يتسرّب كـ 500 غير معالج).
-        catch (ArgumentException) { return Result<CouponPreviewDto>.Failure("الإجمالي الفرعي غير صحيح", "InvalidSubtotal"); }
+        // مبلغ/عملة غير صالحة (InvalidMoneyException) أو كوبون غير قابل للاستخدام
+        // (InvalidCouponException) ⇒ استثناء مجال يُترجم مركزياً إلى 422 برمزه.
+        var subtotal = new Money(q.Subtotal, q.Currency);
+        coupon.EnsureUsable(subtotal, DateTime.UtcNow);
+        var discount = coupon.CalculateDiscount(subtotal);
+        return Result<CouponPreviewDto>.Success(
+            new CouponPreviewDto(coupon.Code, discount.Amount, subtotal.Amount - discount.Amount));
     }
 }

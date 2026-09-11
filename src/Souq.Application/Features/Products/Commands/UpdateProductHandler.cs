@@ -34,18 +34,17 @@ public class UpdateProductHandler : IRequestHandler<UpdateProductCommand, Result
     {
         var product = await _products.GetByIdAsync(cmd.Id, ct);
         if (product is null)
-            return Result.Failure("المنتج غير موجود", "NotFound");
+            return Result.Failure(Error.NotFound("المنتج غير موجود"));
 
         var category = await _categories.GetByIdAsync(cmd.CategoryId, ct);
         if (category is null)
-            return Result.Failure("الفئة المحدّدة غير موجودة", "CategoryNotFound");
+            return Result.Failure(Error.Validation("CategoryNotFound", "الفئة المحدّدة غير موجودة"));
 
         // compare-and-set: المدير يريد تعيين المخزون، لكن فقط إن كان لا يزال كما رآه.
         // نفحص قبل أي تعديل كي لا يُحفَظ تعديل جزئي مع رفض المخزون.
         if (cmd.StockQuantity is not null && cmd.ExpectedStockQuantity != product.StockQuantity)
-            return Result.Failure(
-                $"تغيّر المخزون منذ فتح النموذج (الحالي الآن {product.StockQuantity}). أعد تحميل المنتج ثم عدّل.",
-                "Conflict");
+            return Result.Failure(Error.Conflict("StockChanged",
+                $"تغيّر المخزون منذ فتح النموذج (الحالي الآن {product.StockQuantity}). أعد تحميل المنتج ثم عدّل."));
 
         // نحافظ على عملة المنتج الحالية بدل فرض عملة افتراضية عند التحديث.
         product.UpdateDetails(

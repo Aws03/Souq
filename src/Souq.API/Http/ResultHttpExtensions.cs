@@ -4,29 +4,28 @@ using Souq.Application.Common.Models;
 namespace Souq.API.Http;
 
 // ============================================================================
-// ترجمة فشل Result إلى استجابة HTTP — مكان واحد لكل الـ Controllers بدل ثلاث نسخ
-// منسوخة من MapFailure (Phase 0 D5). المرحلة 1B تحوّل الشكل إلى ProblemDetails هنا
-// فقط، دون لمس أي Controller.
-//   NotFound ⇒ 404 (غير موجود أو يخصّ غيرك — لا نكشف الوجود)
-//   Conflict ⇒ 409 (تغيّرت البيانات منذ قراءتها)
-//   غير ذلك ⇒ 400 (قاعدة عمل أو مدخل غير صالح)
+// ترجمة فشل Result إلى ProblemDetails — مكان واحد لكل الـ Controllers (Phase 0 D5).
+// نوع الخطأ (ErrorKind) يحدّد رمز HTTP عبر ProblemDetailsConventions؛ لا Controller
+// يطابق نصوص الرموز بنفسه بعد الآن. الرمز (code) يُمرَّر كما هو: عقد ثابت للواجهة.
 // ============================================================================
 public static class ResultHttpExtensions
 {
-    public static IActionResult Failure(this ControllerBase controller, string? error, string? code)
+    public static IActionResult Failure(this ControllerBase controller, Error error)
     {
-        var body = new { error, code };
-        return code switch
-        {
-            "NotFound" => controller.NotFound(body),
-            "Conflict" => controller.Conflict(body),
-            _ => controller.BadRequest(body),
-        };
+        var status = ProblemDetailsConventions.StatusFor(error.Kind);
+        // المصنع يطبّق نفس التخصيص (traceId، الحقول القياسية) كأي ProblemDetails آخر.
+        var problem = controller.ProblemDetailsFactory.CreateProblemDetails(
+            controller.HttpContext, statusCode: status, detail: error.Message);
+        problem.Extensions[ProblemDetailsConventions.CodeKey] = error.Code;
+        return new ObjectResult(problem) { StatusCode = status };
     }
 
     public static IActionResult Failure(this ControllerBase controller, Result result)
-        => controller.Failure(result.Error, result.ErrorCode);
+        => controller.Failure(result.Error ?? throw NotAFailure());
 
     public static IActionResult Failure<T>(this ControllerBase controller, Result<T> result)
-        => controller.Failure(result.Error, result.ErrorCode);
+        => controller.Failure(result.Error ?? throw NotAFailure());
+
+    private static InvalidOperationException NotAFailure() =>
+        new("Failure() يُستدعى لنتيجة فاشلة فقط — النتيجة ناجحة.");
 }

@@ -4,11 +4,14 @@ using Souq.Application.Features.Orders;
 using Souq.Application.Features.Orders.Commands;
 using Souq.Domain.Entities;
 using Souq.Domain.Enums;
+using Souq.Domain.Exceptions;
 using Souq.Domain.Interfaces;
 using Souq.Domain.ValueObjects;
 
 namespace Souq.Application.Tests.Orders;
 
+// الانتقالات غير الصالحة يحرسها الكيان ويرفعها InvalidOrderOperationException (422
+// مركزياً، ADR-0017) — المعالج لا يلتقطها. المهمّ هنا: لا مخزون يُمسّ ولا شيء يُحفَظ.
 public class UpdateOrderStatusHandlerTests
 {
     private readonly IOrderRepository _orders = Substitute.For<IOrderRepository>();
@@ -60,16 +63,16 @@ public class UpdateOrderStatusHandlerTests
     }
 
     [Fact]
-    public async Task Ship_من_Pending_يُرفض_بانتقال_غير_صالح()
+    public async Task Ship_من_Pending_يُرفض_بانتقال_غير_صالح_ولا_يحفظ()
     {
         var order = OrderInStatus(OrderStatus.Pending);
         _orders.GetWithItemsAsync(1, Arg.Any<CancellationToken>()).Returns(order);
 
-        var result = await CreateHandler().Handle(
-            new UpdateOrderStatusCommand(1, OrderStatusAction.Ship), CancellationToken.None);
+        var act = () => CreateHandler().Handle(new UpdateOrderStatusCommand(1, OrderStatusAction.Ship), CancellationToken.None);
 
-        result.IsSuccess.Should().BeFalse();
-        result.ErrorCode.Should().Be("InvalidTransition");
+        (await act.Should().ThrowAsync<InvalidOrderOperationException>()).Which.Code.Should().Be("InvalidOrderOperation");
+        order.Status.Should().Be(OrderStatus.Pending);
+        await _uow.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -86,16 +89,16 @@ public class UpdateOrderStatusHandlerTests
     }
 
     [Fact]
-    public async Task Deliver_من_Paid_يُرفض()
+    public async Task Deliver_من_Paid_يُرفض_ولا_يحفظ()
     {
         var order = OrderInStatus(OrderStatus.Paid);
         _orders.GetWithItemsAsync(1, Arg.Any<CancellationToken>()).Returns(order);
 
-        var result = await CreateHandler().Handle(
-            new UpdateOrderStatusCommand(1, OrderStatusAction.Deliver), CancellationToken.None);
+        var act = () => CreateHandler().Handle(new UpdateOrderStatusCommand(1, OrderStatusAction.Deliver), CancellationToken.None);
 
-        result.IsSuccess.Should().BeFalse();
-        result.ErrorCode.Should().Be("InvalidTransition");
+        await act.Should().ThrowAsync<InvalidOrderOperationException>();
+        order.Status.Should().Be(OrderStatus.Paid);
+        await _uow.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
     [Theory]
@@ -128,11 +131,9 @@ public class UpdateOrderStatusHandlerTests
         var order = OrderInStatus(OrderStatus.Shipped);
         _orders.GetWithItemsAsync(1, Arg.Any<CancellationToken>()).Returns(order);
 
-        var result = await CreateHandler().Handle(
-            new UpdateOrderStatusCommand(1, OrderStatusAction.Cancel), CancellationToken.None);
+        var act = () => CreateHandler().Handle(new UpdateOrderStatusCommand(1, OrderStatusAction.Cancel), CancellationToken.None);
 
-        result.IsSuccess.Should().BeFalse();
-        result.ErrorCode.Should().Be("InvalidTransition");
+        await act.Should().ThrowAsync<InvalidOrderOperationException>();
         await _products.DidNotReceive().GetByIdAsync(Arg.Any<int>(), Arg.Any<CancellationToken>());
         await _movements.DidNotReceive().AddAsync(Arg.Any<StockMovement>(), Arg.Any<CancellationToken>());
         await _uow.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
@@ -144,11 +145,10 @@ public class UpdateOrderStatusHandlerTests
         var order = OrderInStatus(OrderStatus.Cancelled);
         _orders.GetWithItemsAsync(1, Arg.Any<CancellationToken>()).Returns(order);
 
-        var result = await CreateHandler().Handle(
-            new UpdateOrderStatusCommand(1, OrderStatusAction.Cancel), CancellationToken.None);
+        var act = () => CreateHandler().Handle(new UpdateOrderStatusCommand(1, OrderStatusAction.Cancel), CancellationToken.None);
 
-        result.IsSuccess.Should().BeFalse();
-        result.ErrorCode.Should().Be("InvalidTransition");
+        await act.Should().ThrowAsync<InvalidOrderOperationException>();
         await _movements.DidNotReceive().AddAsync(Arg.Any<StockMovement>(), Arg.Any<CancellationToken>());
+        await _uow.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 }

@@ -4,7 +4,6 @@ using Souq.Application.Common.Interfaces;
 using Souq.Application.Common.Models;
 using Souq.Domain.Entities;
 using Souq.Domain.Enums;
-using Souq.Domain.Exceptions;
 using Souq.Domain.Interfaces;
 using Souq.Domain.ValueObjects;
 
@@ -52,7 +51,8 @@ public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, Result<Ord
     {
         var customer = await _customers.GetByIdAsync(cmd.CustomerId, ct);
         if (customer is null)
-            return Result<OrderCreatedDto>.Failure("العميل غير موجود", "CustomerNotFound");
+            // توكن صالح لحساب لم يعد موجوداً ⇒ الهوية نفسها لم تعد صالحة (401 ⇒ إعادة دخول).
+            return Result<OrderCreatedDto>.Failure(Error.Unauthorized("CustomerNotFound", "العميل غير موجود"));
 
         // (1) خطّة التحقّق: نتأكّد من كل سطر ونحسب الإجمالي الفرعي دون تعديل مخزون.
         var lines = new List<(Product Product, int Quantity)>();
@@ -60,25 +60,25 @@ public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, Result<Ord
         {
             var product = await _products.GetByIdAsync(line.ProductId, ct);
             if (product is null)
-                return Result<OrderCreatedDto>.Failure($"المنتج رقم {line.ProductId} غير موجود", "ProductNotFound");
-            if (!product.CanFulfill(line.Quantity))
                 return Result<OrderCreatedDto>.Failure(
-                    $"الكمية المطلوبة ({line.Quantity}) من \"{product.Name}\" غير متوفرة. المتاح: {product.StockQuantity}",
-                    "InsufficientStock");
+                    Error.Validation("ProductNotFound", $"المنتج رقم {line.ProductId} غير موجود"));
+            if (!product.CanFulfill(line.Quantity))
+                return Result<OrderCreatedDto>.Failure(Error.BusinessRule("InsufficientStock",
+                    $"الكمية المطلوبة ({line.Quantity}) من \"{product.Name}\" غير متوفرة. المتاح: {product.StockQuantity}"));
             lines.Add((product, line.Quantity));
         }
 
         var subtotal = lines.Aggregate(Money.Zero(), (sum, l) => sum.Add(l.Product.Price.Multiply(l.Quantity)));
 
-        // (2) الكوبون اختياري، ويُتحقّق منه أيضاً قبل أي تعديل على المخزون.
+        // (2) الكوبون اختياري، ويُتحقّق منه أيضاً قبل أي تعديل على المخزون. كوبون غير قابل
+        // للاستخدام ⇒ InvalidCouponException يرتفع هنا — قبل إنقاص أي مخزون وقبل أي حفظ.
         Coupon? coupon = null;
         if (!string.IsNullOrWhiteSpace(cmd.CouponCode))
         {
             coupon = await _coupons.GetByCodeAsync(cmd.CouponCode, ct);
             if (coupon is null)
-                return Result<OrderCreatedDto>.Failure("رمز الكوبون غير صحيح", "CouponNotFound");
-            try { coupon.EnsureUsable(subtotal, DateTime.UtcNow); }
-            catch (InvalidCouponException ex) { return Result<OrderCreatedDto>.Failure(ex.Message, "InvalidCoupon"); }
+                return Result<OrderCreatedDto>.Failure(Error.BusinessRule("CouponNotFound", "رمز الكوبون غير صحيح"));
+            coupon.EnsureUsable(subtotal, DateTime.UtcNow);
         }
 
         // (3) خطّة التنفيذ: كل شيء صالح الآن — ننقص المخزون فعلياً ونبني الطلب.
@@ -113,8 +113,8 @@ public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, Result<Ord
             order.Cancel(PaymentStartFailedNote);
             await _stockRelease.ReleaseAsync(order, PaymentStartFailedNote, ct);
             await _uow.SaveChangesAsync(ct);
-            return Result<OrderCreatedDto>.Failure(
-                "تعذّر بدء عملية الدفع حالياً. لم يُحجز أي مخزون، يُرجى المحاولة لاحقاً.", "PaymentUnavailable");
+            return Result<OrderCreatedDto>.Failure(Error.Unavailable(
+                "PaymentUnavailable", "تعذّر بدء عملية الدفع حالياً. لم يُحجز أي مخزون، يُرجى المحاولة لاحقاً."));
         }
 
         order.SetPaymentIntent(intent.PaymentIntentId);

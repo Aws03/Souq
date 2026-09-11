@@ -25,7 +25,7 @@ public class DeleteProductHandler : IRequestHandler<DeleteProductCommand, Result
     {
         var product = await _products.GetByIdAsync(cmd.Id, ct);
         if (product is null)
-            return Result.Failure("المنتج غير موجود", "NotFound");
+            return Result.Failure(Error.NotFound("المنتج غير موجود"));
 
         product.Deactivate();              // قاعدة الحذف المنطقي محروسة داخل الكيان
         _products.Update(product);

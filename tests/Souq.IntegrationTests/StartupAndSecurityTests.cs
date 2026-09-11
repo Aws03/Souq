@@ -89,7 +89,8 @@ public class StartupAndSecurityTests
         (await _api.LoginAsync(email, "Brand-New-Pass-9")).Should().NotBeNull();
 
         var reuse = await anonymous.PostAsJsonAsync("/api/auth/reset-password", new { token, newPassword = "Another-Pass-10" });
-        reuse.StatusCode.Should().Be(HttpStatusCode.BadRequest);                           // استخدام واحد
+        reuse.StatusCode.Should().Be(HttpStatusCode.UnprocessableEntity);                  // استخدام واحد
+        (await reuse.Content.ReadFromJsonAsync<TestApi.ProblemBody>(TestApi.Json))!.Code.Should().Be("InvalidResetToken");
     }
 
     [Fact]

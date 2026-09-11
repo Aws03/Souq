@@ -40,7 +40,7 @@ public class ConfirmOrderPaymentHandler : IRequestHandler<ConfirmOrderPaymentCom
     {
         var order = await _orders.GetWithItemsAsync(cmd.OrderId, ct);
         if (order is null)
-            return Result<OrderConfirmedDto>.Failure("الطلب غير موجود", "NotFound");
+            return Result<OrderConfirmedDto>.Failure(Error.NotFound("الطلب غير موجود"));
 
         // مضمونة التكرار (Idempotent): وصول تأكيدين لنفس الطلب (من العميل ومن
         // الـ Webhook معاً، أو تكرار Webhook) لا يجب أن يُطبّق أثراً مرتين.
@@ -48,7 +48,8 @@ public class ConfirmOrderPaymentHandler : IRequestHandler<ConfirmOrderPaymentCom
             return Result<OrderConfirmedDto>.Success(ToDto(order, order.Status));
 
         if (string.IsNullOrEmpty(order.PaymentIntentId))
-            return Result<OrderConfirmedDto>.Failure("لا توجد نيّة دفع مرتبطة بهذا الطلب", "NoPaymentIntent");
+            return Result<OrderConfirmedDto>.Failure(
+                Error.BusinessRule("NoPaymentIntent", "لا توجد نيّة دفع مرتبطة بهذا الطلب"));
 
         var confirmation = await _payment.ConfirmAsync(order.PaymentIntentId, ct);
         if (!confirmation.Succeeded)
@@ -59,7 +60,7 @@ public class ConfirmOrderPaymentHandler : IRequestHandler<ConfirmOrderPaymentCom
             await _stockRelease.ReleaseAsync(order, reason, ct);
             await _uow.SaveChangesAsync(ct);
 
-            return Result<OrderConfirmedDto>.Failure(reason, "PaymentFailed");
+            return Result<OrderConfirmedDto>.Failure(Error.BusinessRule("PaymentFailed", reason));
         }
 
         order.MarkAsPaid();

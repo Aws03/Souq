@@ -27,7 +27,7 @@ public class ProcessPaymentWebhookHandler : IRequestHandler<ProcessPaymentWebhoo
     {
         PaymentWebhookEvent? evt;
         try { evt = _payment.ParseWebhook(cmd.Payload, cmd.Signature); }
-        catch (InvalidPaymentWebhookException ex) { return Result.Failure(ex.Message, "InvalidSignature"); }
+        catch (InvalidPaymentWebhookException ex) { return Result.Failure(Error.Validation("InvalidSignature", ex.Message)); }
 
         // حدث لا يخصّ دفعة طلب (أو لا Webhook مضبوط) — نُقرّ بالاستلام دون فعل شيء.
         if (evt is null || !int.TryParse(evt.OrderReference, out var orderId))

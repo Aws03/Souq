@@ -78,5 +78,8 @@ public sealed class TestApi
     public sealed record AuthBody(string Token);
     public sealed record IdBody(int Id);
     public sealed record OrderCreatedBody(int OrderId, string Status, decimal TotalAmount);
-    public sealed record ErrorBody(string? Error, string? Code);
+    // عقد الأخطاء (ADR-0017): RFC 7807 + code + traceId (+ errors لأخطاء التحقّق).
+    public sealed record ProblemBody(
+        string? Type, string? Title, int? Status, string? Detail, string? Code, string? TraceId,
+        Dictionary<string, string[]>? Errors);
 }

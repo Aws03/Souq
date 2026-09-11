@@ -1,7 +1,6 @@
 using MediatR;
 using Souq.Application.Common.Interfaces;
 using Souq.Application.Common.Models;
-using Souq.Domain.Exceptions;
 using Souq.Domain.Interfaces;
 
 namespace Souq.Application.Features.Auth.Commands;
@@ -23,10 +22,10 @@ public class ResetPasswordHandler : IRequestHandler<ResetPasswordCommand, Result
     {
         var customer = await _customers.GetByResetTokenAsync(cmd.Token, ct);
         if (customer is null)
-            return Result.Failure("رابط إعادة التعيين غير صالح", "InvalidToken");
+            return Result.Failure(Error.BusinessRule("InvalidResetToken", "رابط إعادة التعيين غير صالح"));
 
-        try { customer.ResetPassword(_hasher.Hash(cmd.NewPassword)); }
-        catch (InvalidPasswordResetException ex) { return Result.Failure(ex.Message, "TokenExpired"); }
+        // رمز منتهٍ ⇒ الكيان يرمي InvalidPasswordResetException (422 مركزياً) قبل أي حفظ.
+        customer.ResetPassword(_hasher.Hash(cmd.NewPassword));
 
         _customers.Update(customer);
         await _uow.SaveChangesAsync(ct);

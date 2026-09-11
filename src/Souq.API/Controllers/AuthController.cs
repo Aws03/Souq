@@ -1,13 +1,13 @@
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
-using Souq.Application.Common.Models;
-using Souq.Application.Features.Auth;
+using Souq.API.Http;
 using Souq.Application.Features.Auth.Commands;
 
 namespace Souq.API.Controllers;
 
-// نقاط المصادقة: مفتوحة للعموم (لا يملك الزائر توكناً بعد). كلاهما يُعيد
-// AuthResponse (توكن + بيانات المستخدم) عند النجاح، أو خطأً موحّداً عند الفشل.
+// نقاط المصادقة: مفتوحة للعموم (لا يملك الزائر توكناً بعد). التسجيل والدخول يُعيدان
+// AuthResponse (توكن + بيانات المستخدم) عند النجاح، أو ProblemDetails موحّداً عند الفشل:
+// بريد مكرّر ⇒ 409، بيانات دخول خاطئة ⇒ 401 (نوع الخطأ يقرّر، لا هذا الـ Controller).
 [ApiController]
 [Route("api/[controller]")]
 public class AuthController : ControllerBase
@@ -18,12 +18,18 @@ public class AuthController : ControllerBase
     // POST /api/auth/register
     [HttpPost("register")]
     public async Task<IActionResult> Register([FromBody] RegisterCommand command)
-        => Respond(await _mediator.Send(command));
+    {
+        var result = await _mediator.Send(command);
+        return result.IsSuccess ? Ok(result.Value) : this.Failure(result);
+    }
 
     // POST /api/auth/login
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginCommand command)
-        => Respond(await _mediator.Send(command));
+    {
+        var result = await _mediator.Send(command);
+        return result.IsSuccess ? Ok(result.Value) : this.Failure(result);
+    }
 
     // POST /api/auth/forgot-password — ينجح دائماً (200) بلا كشف إن كان البريد
     // مسجّلاً؛ التفصيل الفعلي (هل أُرسلت رسالة؟) يبقى في السجل الخادم فقط.
@@ -34,25 +40,11 @@ public class AuthController : ControllerBase
         return Ok(new { message = "إن كان البريد الإلكتروني مسجّلاً، وصلك رابط إعادة التعيين." });
     }
 
-    // POST /api/auth/reset-password — رمز غير صالح/منتهٍ ⇒ 400 برسالة واضحة.
+    // POST /api/auth/reset-password — رمز غير صالح أو منتهٍ ⇒ 422 برسالة واضحة.
     [HttpPost("reset-password")]
     public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordCommand command)
     {
         var result = await _mediator.Send(command);
-        return result.IsSuccess
-            ? Ok(new { message = "تم تحديث كلمة المرور بنجاح." })
-            : BadRequest(new { error = result.Error, code = result.ErrorCode });
-    }
-
-    // فشل بريد مكرّر ⇒ 409، بيانات دخول خاطئة ⇒ 401، غير ذلك ⇒ 400.
-    private IActionResult Respond(Result<AuthResponse> result)
-    {
-        if (result.IsSuccess) return Ok(result.Value);
-        return result.ErrorCode switch
-        {
-            "EmailTaken"         => Conflict(new { error = result.Error, code = result.ErrorCode }),
-            "InvalidCredentials" => Unauthorized(new { error = result.Error, code = result.ErrorCode }),
-            _                    => BadRequest(new { error = result.Error, code = result.ErrorCode }),
-        };
+        return result.IsSuccess ? Ok(new { message = "تم تحديث كلمة المرور بنجاح." }) : this.Failure(result);
     }
 }

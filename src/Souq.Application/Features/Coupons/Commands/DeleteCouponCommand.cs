@@ -22,7 +22,7 @@ public class DeleteCouponHandler : IRequestHandler<DeleteCouponCommand, Result>
     {
         var coupon = await _coupons.GetByIdAsync(cmd.Id, ct);
         if (coupon is null)
-            return Result.Failure("الكوبون غير موجود", "NotFound");
+            return Result.Failure(Error.NotFound("الكوبون غير موجود"));
 
         _coupons.Remove(coupon);
         await _uow.SaveChangesAsync(ct);

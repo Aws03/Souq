@@ -1,5 +1,6 @@
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
+using Souq.API.Http;
 using Souq.Application.Features.Orders.Commands;
 using Souq.Application.Features.Payments.Queries;
 
@@ -37,6 +38,6 @@ public class PaymentsController : ControllerBase
 
         var result = await _mediator.Send(
             new ProcessPaymentWebhookCommand(payload, Request.Headers["Stripe-Signature"].ToString()));
-        return result.IsSuccess ? Ok() : BadRequest();
+        return result.IsSuccess ? Ok() : this.Failure(result);
     }
 }

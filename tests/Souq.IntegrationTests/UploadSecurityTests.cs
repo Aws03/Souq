@@ -39,7 +39,7 @@ public class UploadSecurityTests
             File(Encoding.UTF8.GetBytes("<html><script>alert(localStorage.souq_token)</script></html>"), "evil.html", "image/png"));
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
-        (await response.Content.ReadFromJsonAsync<TestApi.ErrorBody>(TestApi.Json))!.Code.Should().Be("UnsupportedMediaType");
+        (await response.Content.ReadFromJsonAsync<TestApi.ProblemBody>(TestApi.Json))!.Code.Should().Be("UnsupportedMediaType");
         UploadedFiles().Except(before).Should().BeEmpty();
     }
 

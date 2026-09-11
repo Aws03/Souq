@@ -20,7 +20,7 @@ public class GetOrderByIdHandler : IRequestHandler<GetOrderByIdQuery, Result<Ord
     public async Task<Result<OrderDto>> Handle(GetOrderByIdQuery q, CancellationToken ct)
     {
         var order = await _orders.GetWithItemsAsync(q.Id, ct);
-        if (order is null) return Result<OrderDto>.Failure("الطلب غير موجود", "NotFound");
+        if (order is null) return Result<OrderDto>.Failure(Error.NotFound("الطلب غير موجود"));
 
         var dto = new OrderDto(
             order.Id, order.CustomerId, order.Status.ToString(), order.ShippingAddress,

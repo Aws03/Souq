@@ -3,56 +3,58 @@ namespace Souq.Domain.Exceptions;
 // ============================================================================
 // لماذا استثناءات مخصّصة للمجال؟
 // عندما تُكسر قاعدة عمل (مثل: طلب كمية أكبر من المتاح)، نريد خطأً يحمل معنىً
-// تجارياً واضحاً، لا مجرد Exception عام. هذا يتيح لطبقة الـ API لاحقاً أن
-// تترجم كل نوع خطأ إلى رمز HTTP مناسب (مثلاً 400 بدل 500).
+// تجارياً واضحاً، لا مجرد Exception عام. طبقة الـ API تترجم أي DomainException إلى
+// 422 مع رمزه (Code) — الرمز عقد ثابت تترجمه الواجهة، والرسالة للقراءة فقط (ADR-0017).
+// المعالجات لا تلتقط هذه الاستثناءات: قاعدة واحدة، مسار واحد (Phase 0 D6).
 // ============================================================================
 public abstract class DomainException : Exception
 {
-    protected DomainException(string message) : base(message) { }
+    public string Code { get; }
+
+    protected DomainException(string code, string message) : base(message) => Code = code;
 }
 
 // خطأ: الكمية المطلوبة غير متوفرة في المخزون.
 public class InsufficientStockException : DomainException
 {
     public InsufficientStockException(string productName, int requested, int available)
-        : base($"الكمية المطلوبة ({requested}) من \"{productName}\" غير متوفرة. المتاح: {available}") { }
+        : base("InsufficientStock", $"الكمية المطلوبة ({requested}) من \"{productName}\" غير متوفرة. المتاح: {available}") { }
 }
 
 // خطأ: محاولة إجراء غير مسموح على طلب حسب حالته الحالية.
 public class InvalidOrderOperationException : DomainException
 {
-    public InvalidOrderOperationException(string message) : base(message) { }
+    public InvalidOrderOperationException(string message) : base("InvalidOrderOperation", message) { }
 }
 
-// خطأ: قيمة غير صالحة لبيانات المنتج (مثل مخزون سالب). كونه DomainException
-// يضمن أن تترجمه طبقة الـ API إلى 400 (خطأ عميل) لا 500 (خطأ خادم).
+// خطأ: قيمة غير صالحة لبيانات المنتج (مثل مخزون سالب).
 public class InvalidProductDataException : DomainException
 {
-    public InvalidProductDataException(string message) : base(message) { }
+    public InvalidProductDataException(string message) : base("InvalidProductData", message) { }
 }
 
 // خطأ: كوبون غير صالح للاستخدام الآن (منتهٍ، معطّل، مستنفَد، أو الطلب لا يبلغ
 // الحد الأدنى) أو بيانات إنشاء كوبون غير منطقية (نسبة خصم خارج 1-100 مثلاً).
 public class InvalidCouponException : DomainException
 {
-    public InvalidCouponException(string message) : base(message) { }
+    public InvalidCouponException(string message) : base("InvalidCoupon", message) { }
 }
 
 // خطأ: بيانات تقييم غير صالحة (تقييم خارج 1-5، تعليق فارغ أو طويل جداً).
 public class InvalidReviewException : DomainException
 {
-    public InvalidReviewException(string message) : base(message) { }
+    public InvalidReviewException(string message) : base("InvalidReview", message) { }
 }
 
-// خطأ: رمز إعادة تعيين كلمة المرور منتهي الصلاحية (أُنشئ منذ أكثر من ساعتين).
+// خطأ: رمز إعادة تعيين كلمة المرور منتهي الصلاحية أو لا طلب إعادة تعيين قائم.
 public class InvalidPasswordResetException : DomainException
 {
-    public InvalidPasswordResetException(string message) : base(message) { }
+    public InvalidPasswordResetException(string message) : base("ResetTokenExpired", message) { }
 }
 
 // خطأ: مبلغ مالي غير صالح (سالب، عملة غير صالحة، خانات عشرية أكثر مما تسمح به
-// العملة، أو عملتان مختلفتان في عملية واحدة). كونه DomainException يعني 400 لا 500.
+// العملة، أو عملتان مختلفتان في عملية واحدة).
 public class InvalidMoneyException : DomainException
 {
-    public InvalidMoneyException(string message) : base(message) { }
+    public InvalidMoneyException(string message) : base("InvalidMoney", message) { }
 }

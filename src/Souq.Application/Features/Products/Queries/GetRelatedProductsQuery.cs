@@ -15,7 +15,7 @@ public class GetRelatedProductsHandler : IRequestHandler<GetRelatedProductsQuery
     {
         var product = await _products.GetActiveByIdAsync(q.ProductId, ct);
         if (product is null)
-            return Result<List<ProductDto>>.Failure("المنتج غير موجود", "NotFound");
+            return Result<List<ProductDto>>.Failure(Error.NotFound("المنتج غير موجود"));
 
         var related = await _products.GetRelatedAsync(product.Id, product.CategoryId, q.Count, ct);
 

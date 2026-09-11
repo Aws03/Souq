@@ -24,10 +24,10 @@ public class CreateCategoryHandler : IRequestHandler<CreateCategoryCommand, Resu
 
         // الـ slug فريد (قيد فريد في القاعدة أيضاً) — فحص مبكر لرسالة واضحة.
         if (await _categories.GetBySlugAsync(slug, ct) is not null)
-            return Result<int>.Failure("المُعرّف (slug) مستخدم مسبقاً", "SlugTaken");
+            return Result<int>.Failure(Error.Conflict("SlugTaken", "المُعرّف (slug) مستخدم مسبقاً"));
 
         if (cmd.ParentId is not null && await _categories.GetByIdAsync(cmd.ParentId.Value, ct) is null)
-            return Result<int>.Failure("الفئة الأب غير موجودة", "ParentNotFound");
+            return Result<int>.Failure(Error.Validation("ParentNotFound", "الفئة الأب غير موجودة"));
 
         var category = new Category(cmd.Name.Trim(), slug, cmd.ParentId);
         await _categories.AddAsync(category, ct);

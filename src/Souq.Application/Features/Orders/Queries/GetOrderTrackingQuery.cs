@@ -28,7 +28,7 @@ public class GetOrderTrackingHandler : IRequestHandler<GetOrderTrackingQuery, Re
     public async Task<Result<OrderTrackingDto>> Handle(GetOrderTrackingQuery q, CancellationToken ct)
     {
         var order = await _orders.GetWithItemsAsync(q.Id, ct);
-        if (order is null) return Result<OrderTrackingDto>.Failure("الطلب غير موجود", "NotFound");
+        if (order is null) return Result<OrderTrackingDto>.Failure(Error.NotFound("الطلب غير موجود"));
 
         // ترتيب زمني تصاعدي (الأقدم أولاً) يطابق اتجاه الخط الزمني في الواجهة
         // (Pending → Paid → Shipped → Delivered). المعرّف يكسر تعادل الطابع

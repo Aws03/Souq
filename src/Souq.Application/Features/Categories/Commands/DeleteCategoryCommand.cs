@@ -25,13 +25,14 @@ public class DeleteCategoryHandler : IRequestHandler<DeleteCategoryCommand, Resu
     {
         var category = await _categories.GetByIdAsync(cmd.Id, ct);
         if (category is null)
-            return Result.Failure("الفئة غير موجودة", "NotFound");
+            return Result.Failure(Error.NotFound("الفئة غير موجودة"));
 
+        // الحذف يتعارض مع حالة قائمة (منتجات أو فئات فرعية تشير إليها) ⇒ 409.
         if (await _products.ExistsInCategoryAsync(cmd.Id, ct))
-            return Result.Failure("لا يمكن حذف فئة تحتوي منتجات", "CategoryInUse");
+            return Result.Failure(Error.Conflict("CategoryInUse", "لا يمكن حذف فئة تحتوي منتجات"));
 
         if (await _categories.HasChildrenAsync(cmd.Id, ct))
-            return Result.Failure("لا يمكن حذف فئة لها فئات فرعية", "CategoryHasChildren");
+            return Result.Failure(Error.Conflict("CategoryHasChildren", "لا يمكن حذف فئة لها فئات فرعية"));
 
         _categories.Remove(category);
         await _uow.SaveChangesAsync(ct);

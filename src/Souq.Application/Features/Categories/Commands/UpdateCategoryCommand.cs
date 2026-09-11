@@ -22,21 +22,21 @@ public class UpdateCategoryHandler : IRequestHandler<UpdateCategoryCommand, Resu
     {
         var category = await _categories.GetByIdAsync(cmd.Id, ct);
         if (category is null)
-            return Result.Failure("الفئة غير موجودة", "NotFound");
+            return Result.Failure(Error.NotFound("الفئة غير موجودة"));
 
         var slug = cmd.Slug.Trim().ToLowerInvariant();
 
         // الـ slug فريد باستثناء الفئة نفسها.
         var bySlug = await _categories.GetBySlugAsync(slug, ct);
         if (bySlug is not null && bySlug.Id != cmd.Id)
-            return Result.Failure("المُعرّف (slug) مستخدم مسبقاً", "SlugTaken");
+            return Result.Failure(Error.Conflict("SlugTaken", "المُعرّف (slug) مستخدم مسبقاً"));
 
         if (cmd.ParentId is not null)
         {
             if (cmd.ParentId == cmd.Id)
-                return Result.Failure("لا يمكن أن تكون الفئة أباً لنفسها", "InvalidParent");
+                return Result.Failure(Error.BusinessRule("InvalidParent", "لا يمكن أن تكون الفئة أباً لنفسها"));
             if (await _categories.GetByIdAsync(cmd.ParentId.Value, ct) is null)
-                return Result.Failure("الفئة الأب غير موجودة", "ParentNotFound");
+                return Result.Failure(Error.Validation("ParentNotFound", "الفئة الأب غير موجودة"));
         }
 
         category.UpdateDetails(cmd.Name.Trim(), slug, cmd.ParentId);

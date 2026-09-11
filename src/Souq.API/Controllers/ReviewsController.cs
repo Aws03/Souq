@@ -2,6 +2,7 @@ using System.Security.Claims;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Souq.API.Http;
 using Souq.Application.Features.Reviews.Commands;
 using Souq.Application.Features.Reviews.Queries;
 
@@ -27,7 +28,7 @@ public class ReviewsController : ControllerBase
     {
         var result = await _mediator.Send(new CreateReviewCommand(productId, CurrentUserId(), body.Rating, body.Comment));
         if (!result.IsSuccess)
-            return BadRequest(new { error = result.Error, code = result.ErrorCode });
+            return this.Failure(result);
         return StatusCode(StatusCodes.Status201Created, new { id = result.Value });
     }
 

@@ -2,6 +2,7 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Souq.API.Http;
+using Souq.Application.Common.Models;
 using Souq.Application.Features.Products.Commands;
 using Souq.Application.Features.Products.Queries;
 using Souq.Domain.Common;
@@ -87,7 +88,7 @@ public class ProductsController : ControllerBase
     public async Task<IActionResult> UploadImage(int id, IFormFile file)
     {
         if (file is null || file.Length == 0)
-            return BadRequest(new { error = "لم يُرفق ملف صورة" });
+            return this.Failure(Error.Validation("FileRequired", "لم يُرفق ملف صورة"));
 
         await using var stream = file.OpenReadStream();
         var result = await _mediator.Send(new UploadProductImageCommand(id, stream, file.Length));
@@ -101,7 +102,7 @@ public class ProductsController : ControllerBase
     public async Task<IActionResult> UploadVideo(int id, IFormFile file)
     {
         if (file is null || file.Length == 0)
-            return BadRequest(new { error = "لم يُرفق ملف فيديو" });
+            return this.Failure(Error.Validation("FileRequired", "لم يُرفق ملف فيديو"));
 
         await using var stream = file.OpenReadStream();
         var result = await _mediator.Send(new UploadProductVideoCommand(id, stream, file.Length));

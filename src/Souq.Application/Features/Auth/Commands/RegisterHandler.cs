@@ -28,7 +28,7 @@ public class RegisterHandler : IRequestHandler<RegisterCommand, Result<AuthRespo
         // الحارس النهائي ضد التسابق بين طلبين متزامنين.
         var existing = await _customers.GetByEmailAsync(cmd.Email, ct);
         if (existing is not null)
-            return Result<AuthResponse>.Failure("البريد الإلكتروني مستخدم مسبقاً", "EmailTaken");
+            return Result<AuthResponse>.Failure(Error.Conflict("EmailTaken", "البريد الإلكتروني مستخدم مسبقاً"));
 
         var customer = new Customer(
             cmd.FullName.Trim(), cmd.Email.Trim().ToLowerInvariant(),

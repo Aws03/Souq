@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using Souq.API.Http;
 using Souq.API.Middleware;
 using Souq.Application;
 using Souq.Application.Common.Interfaces;
@@ -19,9 +20,18 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddApplication();                                                // حالات الاستخدام
 builder.Services.AddInfrastructure(builder.Configuration, builder.Environment);    // التقنيات
 
-// enums تُقرأ/تُكتب كنصوص ("Shipped" بدل 2) — أوضح لمستهلكي الـ API.
+// enums تُقرأ/تُكتب كنصوص ("Shipped" بدل 2) — أوضح لمستهلكي الـ API. رسائل أخطاء قارئ
+// JSON الخام تكشف أسماء أنواعنا الداخلية ("could not be converted to Souq.…") ⇒ نعطّلها.
 builder.Services.AddControllers()
-    .AddJsonOptions(o => o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
+    .AddJsonOptions(o =>
+    {
+        o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+        o.AllowInputFormatterExceptionMessages = false;
+    });
+
+// ── عقد الأخطاء الموحّد (ADR-0017): كل خطأ RFC 7807 ProblemDetails بـ code + traceId ──
+builder.Services.AddProblemDetails(o => o.CustomizeProblemDetails = ProblemDetailsConventions.Customize);
+builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 
 // ── تخزين الوسائط محلياً: Storage:Local:RootPath (قرص مُثبَّت في الإنتاج، مجلّد مؤقت
 // في الاختبارات) وإلا wwwroot/uploads. الصور تحت images/ والفيديو تحت videos/. ──
@@ -114,7 +124,8 @@ using (var scope = app.Services.CreateScope())
 }
 
 // ── خط أنابيب الطلب (Request Pipeline) — الترتيب مهم ──────────────────────
-app.UseMiddleware<ExceptionHandlingMiddleware>();   // معالجة الأخطاء أولاً
+app.UseExceptionHandler();   // الاستثناءات ⇒ ProblemDetails (GlobalExceptionHandler) — أولاً
+app.UseStatusCodePages();    // 401/403/404/405 بجسم فارغ من الإطار ⇒ ProblemDetails بنفس العقد
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();

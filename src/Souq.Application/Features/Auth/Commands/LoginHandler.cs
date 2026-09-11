@@ -23,7 +23,8 @@ public class LoginHandler : IRequestHandler<LoginCommand, Result<AuthResponse>>
         // رسالة موحّدة سواء كان البريد غير مسجّل أو كلمة المرور خاطئة — كي لا نكشف
         // أي البريدين مسجّل (منع تعداد الحسابات). Verify يُشغَّل دائماً منطقياً.
         if (customer is null || !_hasher.Verify(cmd.Password, customer.PasswordHash))
-            return Result<AuthResponse>.Failure("البريد الإلكتروني أو كلمة المرور غير صحيحة", "InvalidCredentials");
+            return Result<AuthResponse>.Failure(
+                Error.Unauthorized("InvalidCredentials", "البريد الإلكتروني أو كلمة المرور غير صحيحة"));
 
         var (token, expires) = _jwt.Generate(customer);
         return Result<AuthResponse>.Success(new AuthResponse(token, expires,

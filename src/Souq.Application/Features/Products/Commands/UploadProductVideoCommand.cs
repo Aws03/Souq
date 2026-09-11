@@ -26,14 +26,14 @@ public class UploadProductVideoHandler : IRequestHandler<UploadProductVideoComma
     {
         var product = await _products.GetByIdAsync(cmd.ProductId, ct);
         if (product is null)
-            return Result<string>.Failure("المنتج غير موجود", "NotFound");
+            return Result<string>.Failure(Error.NotFound("المنتج غير موجود"));
 
         if (cmd.Length > MediaFileInspector.MaxVideoBytes)
-            return Result<string>.Failure("حجم الفيديو يتجاوز 50 ميغابايت", "FileTooLarge");
+            return Result<string>.Failure(Error.Validation("FileTooLarge", "حجم الفيديو يتجاوز 50 ميغابايت"));
 
         var type = await MediaFileInspector.DetectAsync(cmd.Content, ct);
         if (type is null || type.Category != MediaCategory.Video)
-            return Result<string>.Failure("صيغة الفيديو غير مدعومة (MP4/WebM فقط)", "UnsupportedMediaType");
+            return Result<string>.Failure(Error.Validation("UnsupportedMediaType", "صيغة الفيديو غير مدعومة (MP4/WebM فقط)"));
 
         var url = await _storage.SaveAsync(cmd.Content, "videos", type.Extension, ct);
         product.SetVideoUrl(url);

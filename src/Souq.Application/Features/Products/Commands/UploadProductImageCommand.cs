@@ -26,14 +26,15 @@ public class UploadProductImageHandler : IRequestHandler<UploadProductImageComma
     {
         var product = await _products.GetByIdAsync(cmd.ProductId, ct);
         if (product is null)
-            return Result<string>.Failure("المنتج غير موجود", "NotFound");
+            return Result<string>.Failure(Error.NotFound("المنتج غير موجود"));
 
         if (cmd.Length > MediaFileInspector.MaxImageBytes)
-            return Result<string>.Failure("حجم الصورة يتجاوز 5 ميغابايت", "FileTooLarge");
+            return Result<string>.Failure(Error.Validation("FileTooLarge", "حجم الصورة يتجاوز 5 ميغابايت"));
 
         var type = await MediaFileInspector.DetectAsync(cmd.Content, ct);
         if (type is null || type.Category != MediaCategory.Image)
-            return Result<string>.Failure("صيغة الصورة غير مدعومة (JPEG/PNG/WebP/GIF فقط)", "UnsupportedMediaType");
+            return Result<string>.Failure(Error.Validation(
+                "UnsupportedMediaType", "صيغة الصورة غير مدعومة (JPEG/PNG/WebP/GIF فقط)"));
 
         var url = await _storage.SaveAsync(cmd.Content, "images", type.Extension, ct);
         product.SetImageUrl(url);

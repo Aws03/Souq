@@ -3,6 +3,7 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Souq.API.Http;
+using Souq.Application.Common.Models;
 using Souq.Application.Features.Orders.Commands;
 using Souq.Application.Features.Orders.Queries;
 using Souq.Domain.Common;
@@ -38,7 +39,7 @@ public class OrdersController : ControllerBase
         var order = await _mediator.Send(new GetOrderByIdQuery(id));
         if (!order.IsSuccess) return this.Failure(order);
         if (order.Value!.CustomerId != CurrentUserId() && !User.IsInRole(Roles.Admin))
-            return this.Failure("الطلب غير موجود", "NotFound");
+            return this.Failure(Error.NotFound("الطلب غير موجود"));
 
         var result = await _mediator.Send(new ConfirmOrderPaymentCommand(id));
         return result.IsSuccess ? Ok(result.Value) : this.Failure(result);
@@ -52,7 +53,7 @@ public class OrdersController : ControllerBase
         var result = await _mediator.Send(new GetOrderByIdQuery(id));
         if (!result.IsSuccess) return this.Failure(result);
         if (result.Value!.CustomerId != CurrentUserId() && !User.IsInRole(Roles.Admin))
-            return this.Failure("الطلب غير موجود", "NotFound");
+            return this.Failure(Error.NotFound("الطلب غير موجود"));
         return Ok(result.Value);
     }
 

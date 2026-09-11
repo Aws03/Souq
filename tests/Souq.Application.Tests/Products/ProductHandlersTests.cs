@@ -140,7 +140,9 @@ public class UpdateProductHandlerTests
             CancellationToken.None);
 
         result.IsSuccess.Should().BeFalse();
-        result.ErrorCode.Should().Be("Conflict");
+        // رمز خاص يميّزه عن تعارض rowversion (ConcurrencyConflict): الواجهة تعرف أن المخزون تحديداً تغيّر.
+        result.ErrorCode.Should().Be("StockChanged");
+        result.Error!.Kind.Should().Be(Souq.Application.Common.Models.ErrorKind.Conflict);
         product.StockQuantity.Should().Be(7);
         product.Name.Should().Be("سماعات"); // لا تعديل جزئي للتفاصيل مع رفض المخزون
         await _stockMovements.DidNotReceive().AddAsync(Arg.Any<StockMovement>(), Arg.Any<CancellationToken>());

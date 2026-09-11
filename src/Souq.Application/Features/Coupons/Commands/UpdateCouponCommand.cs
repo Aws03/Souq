@@ -1,7 +1,6 @@
 using MediatR;
 using Souq.Application.Common.Models;
 using Souq.Domain.Enums;
-using Souq.Domain.Exceptions;
 using Souq.Domain.Interfaces;
 using Souq.Domain.ValueObjects;
 
@@ -27,15 +26,11 @@ public class UpdateCouponHandler : IRequestHandler<UpdateCouponCommand, Result>
     {
         var coupon = await _coupons.GetByIdAsync(cmd.Id, ct);
         if (coupon is null)
-            return Result.Failure("الكوبون غير موجود", "NotFound");
+            return Result.Failure(Error.NotFound("الكوبون غير موجود"));
 
-        try
-        {
-            coupon.UpdateDetails(cmd.Type, cmd.Value,
-                cmd.MinOrderAmount.HasValue ? new Money(cmd.MinOrderAmount.Value) : null,
-                cmd.ExpiresAt, cmd.MaxUses);
-        }
-        catch (InvalidCouponException ex) { return Result.Failure(ex.Message, "InvalidCoupon"); }
+        coupon.UpdateDetails(cmd.Type, cmd.Value,
+            cmd.MinOrderAmount.HasValue ? new Money(cmd.MinOrderAmount.Value) : null,
+            cmd.ExpiresAt, cmd.MaxUses);
 
         if (cmd.IsActive) coupon.Activate(); else coupon.Deactivate();
 

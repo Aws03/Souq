@@ -1,6 +1,5 @@
 using MediatR;
 using Souq.Application.Common.Models;
-using Souq.Domain.Exceptions;
 using Souq.Domain.Interfaces;
 
 namespace Souq.Application.Features.Orders.Commands;
@@ -34,21 +33,15 @@ public class UpdateOrderStatusHandler : IRequestHandler<UpdateOrderStatusCommand
     {
         var order = await _orders.GetWithItemsAsync(cmd.OrderId, ct);
         if (order is null)
-            return Result.Failure("الطلب غير موجود", "NotFound");
+            return Result.Failure(Error.NotFound("الطلب غير موجود"));
 
-        try
+        // الكيان يحرس صحّة الانتقال (لا يُشحن طلب لم يُدفع...). انتقال غير صالح ⇒
+        // InvalidOrderOperationException يرتفع قبل أي تعديل مخزون أو حفظ (422 مركزياً).
+        switch (cmd.Action)
         {
-            // الكيان يحرس صحّة الانتقال (لا يُشحن طلب لم يُدفع...). خطأ متوقّع ⇒ Result.
-            switch (cmd.Action)
-            {
-                case OrderStatusAction.Ship: order.MarkAsShipped(cmd.TrackingNumber, cmd.ShippingCarrier, cmd.Note); break;
-                case OrderStatusAction.Deliver: order.MarkAsDelivered(cmd.Note); break;
-                case OrderStatusAction.Cancel: order.Cancel(cmd.Note); break;
-            }
-        }
-        catch (InvalidOrderOperationException ex)
-        {
-            return Result.Failure(ex.Message, "InvalidTransition");
+            case OrderStatusAction.Ship: order.MarkAsShipped(cmd.TrackingNumber, cmd.ShippingCarrier, cmd.Note); break;
+            case OrderStatusAction.Deliver: order.MarkAsDelivered(cmd.Note); break;
+            case OrderStatusAction.Cancel: order.Cancel(cmd.Note); break;
         }
 
         // الطلب الملغى لم يُشحن، فمخزونه المحجوز يعود للبيع — في نفس معاملة الإلغاء.
