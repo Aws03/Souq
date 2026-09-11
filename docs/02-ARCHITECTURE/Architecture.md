@@ -93,7 +93,7 @@ flowchart TB
     end
     subgraph APP["Souq.Application"]
         UC["Use cases: commands and queries"]
-        PORTS["Ports: IPaymentService, IEmailService, IFileStorage, ITenantContext, ICurrentUser"]
+        PORTS["Ports: IPaymentService, IEmailSender, IFileStorage, ITenantContext, ICurrentUser"]
     end
     subgraph DOM["Souq.Domain"]
         M["Aggregates, value objects, domain services, repository ports"]
@@ -127,7 +127,7 @@ flowchart TB
 | Infrastructure → API | Adapters must not know the delivery mechanism | `Souq.ArchitectureTests` ✅ |
 | Controllers → repositories, `DbContext`, EF Core, provider SDKs | No database access or business logic in controllers | `Souq.ArchitectureTests` ✅ |
 | Domain entities in API contracts | Entities are not DTOs: exposing them leaks internals and freezes the model | `Souq.ArchitectureTests` ✅ (no entity reachable from any request or response contract, 1B) |
-| Module A → Module B's entities, repositories, or tables | Keeps modules independently changeable and extractable | `Souq.ArchitectureTests` ✅ for Application feature modules (1B); Domain and Infrastructure per module as each module is rebuilt |
+| Module A → Module B's entities, repositories, or tables | Keeps modules independently changeable and extractable | **Partly.** `ModuleAndContractRuleTests` enforces it between `Souq.Application.Features` namespaces only. Domain repositories and entities live in shared namespaces, so crossings there compile — they are counted instead, in [ModuleDomainDependencies.md](ModuleDomainDependencies.md), and a new one fails the build |
 | `IQueryable` crossing the Application or Domain surface | SQL would be built outside Infrastructure, bypassing paging limits and (Phase 2) tenant filters | `Souq.ArchitectureTests` ✅ (1B) |
 | A `TenantId` in a client-bindable command or query | The tenant is decided by the server, never the client | `Souq.ArchitectureTests` ✅ — a tripwire for Phase 2 (1B) |
 | Reading the clock directly (`DateTime.UtcNow`) | Time-dependent rules must be testable with a fixed clock | `Souq.ArchitectureTests` ✅ (IL scan, 1B) |
@@ -154,7 +154,9 @@ flowchart TB
    - In-process domain events are added only when a second consumer of the same fact exists. Until then a direct call is simpler and easier to follow.
 5. **Shared kernel (minimal).** `Money`, `Currency`, `TenantId`, `Entity` base types, error types, paging primitives. Nothing business-specific.
 
-**Today (Phase 6):** Ordering reaches Inventory only through `Features/Inventory/Contracts` (`IInventoryReservations`: reserve, commit, cancel, find expired; `IStockAvailability`). Catalog opens stock through its own port `IVariantStockInitializer`, which Inventory implements, so no cycle exists. `ModuleAndContractRuleTests` lists the allowed contract references and rejects cycles. Ordering still reads `Product` entities for prices and names at checkout; that becomes Catalog's `ISellableItems` snapshot contract when checkout is rebuilt (Phase 9).
+**Today:** Ordering calls the contracts of Inventory, Shopping, Promotions, Payments and Shipping (`IInventoryReservations`, `IStockAvailability`, `IBasketCheckout`, `IPricing`, `ICouponRedemptions`, `IOrderPayments`, `IShippingRateProvider`). Catalog opens stock through its own port `IVariantStockInitializer`, which Inventory implements, so no cycle exists. `ModuleAndContractRuleTests` lists the allowed contract references and rejects cycles.
+
+Pricing still loads `Product` through Catalog's **domain** repository rather than a snapshot contract — the planned *ISellableItems* was never built. Every crossing of that kind is listed in [ModuleDomainDependencies.md](ModuleDomainDependencies.md) and explained in [ModuleBoundaries.md](ModuleBoundaries.md).
 
 ## 7. Domain modeling strategy (DDD where it pays)
 
@@ -177,7 +179,7 @@ flowchart TB
 - Payments, shipments, reviews, and the customer are separate aggregates referenced by ID.
 - Putting "everything connected to an order" inside it would make every payment webhook and review lock the order row. That is the classic oversized-aggregate mistake.
 
-**Value objects:** `Money` (amount + currency, currency-aware rounding), `Address` (Phase 7), `Slug`, `Email`, `Sku` (as they appear). A value object is justified when it carries rules (validation, arithmetic, normalization), not just to wrap a string.
+**Value objects today:** `Money` (amount + currency, currency-aware rounding), `PostalAddress`, `CatalogText`, `OrderActor`, `CurrencyInfo`. A value object is justified when it carries rules (validation, arithmetic, normalization), not just to wrap a string — which is why slugs are normalized by the `CatalogSlug` helper and a SKU stays a string on the variant.
 
 **Domain services:** only for rules that span aggregates *and* need no I/O, for example a pricing calculator that combines lines, discounts, shipping, and tax (Phase 8). Rules that need a database lookup belong in Application handlers.
 
@@ -214,12 +216,12 @@ Scale in this order, stopping as soon as the problem is solved:
 
 | Candidate | Why it might become a service | Required boundary | Contract it would expose | Data it would own | Messages | What keeps it extractable today |
 |---|---|---|---|---|---|---|
-| **Notifications** | Bursty I/O, provider rate limits, retries; must not slow checkout | Consumes events only; never called synchronously for business decisions | `SendNotification` (tenant, template, recipient, data) | Templates, delivery log, in-app notifications | Consumes `OrderPlaced`, `OrderPaid`, `PasswordResetRequested` … via outbox → broker | `IEmailService` port; outbox planned (Phase 14); no module reads notification tables |
-| **Payments** | PCI scope isolation, provider webhooks, separate reliability needs | Owns payment state; Ordering only sees "payment succeeded/failed" | `CreatePaymentIntent`, `Refund`, webhook → `PaymentSucceeded`/`PaymentFailed` | Payments, refunds, provider configuration (encrypted secrets) | Publishes payment events; consumes `OrderPlaced` | `IPaymentService` port; webhook parsing moved behind the port (Phase 1A); no card data anywhere |
-| **Search** | Relevance, facets, typo tolerance beyond SQL `LIKE` | Read-only projection of Catalog | `Search(tenant, query, filters)` | A search index (derived, rebuildable) | Consumes `ProductChanged` | Catalog listing already behind a query; would move behind a `ICatalogSearch` port |
-| **Media processing** | CPU-heavy resizing and transcoding | Receives uploads, emits variants | `ProcessMedia(upload)` → URLs | Blob storage objects | `MediaUploaded` → `MediaProcessed` | `IFileStorage` port; content validation in Application (Phase 1A) |
+| **Notifications** | Bursty I/O, provider rate limits, retries; must not slow checkout | Consumes events only; never called synchronously for business decisions | *SendNotification* (tenant, template, recipient, data) | Templates, delivery log, in-app notifications | Consumes `OrderStatusChanged`, `StockBecameLow`, `PasswordResetRequested` … through the outbox, which would publish to a broker instead | `IEmailSender` port confined to this module by a test; the outbox exists; no module reads notification tables |
+| **Payments** | PCI scope isolation, provider webhooks, separate reliability needs | Owns payment state; Ordering only sees "payment succeeded/failed" | *CreatePaymentIntent*, *Refund*, webhook → *PaymentSucceeded* / *PaymentFailed* | Payments, refunds, provider configuration (encrypted secrets) | Publishes payment events; consumes *OrderPlaced* | `IPaymentService` port; webhook parsing moved behind the port (Phase 1A); no card data anywhere |
+| **Search** | Relevance, facets, typo tolerance beyond SQL `LIKE` | Read-only projection of Catalog | *Search(tenant, query, filters)* | A search index (derived, rebuildable) | Consumes *ProductChanged* | Catalog listing already behind a query service; would move behind an *ICatalogSearch* port |
+| **Media processing** | CPU-heavy resizing and transcoding | Receives uploads, emits variants | *ProcessMedia(upload)* → URLs | Blob storage objects | *MediaUploaded* → *MediaProcessed* | `IFileStorage` port; content validation in Application (Phase 1A) |
 | **Reporting** | Heavy aggregate queries competing with OLTP | Read models fed by events or CDC | Report endpoints | Denormalized reporting store | Consumes order/payment events | Reports are query services only; no write logic depends on them |
-| **Inventory** | Flash-sale contention, multi-warehouse | Owns stock and reservations; checkout calls a reservation contract | `Reserve`, `Commit`, `Release` | Inventory items, reservations, ledger | Consumes `OrderCancelled`; publishes `StockLow` | `IInventoryReservations` contract planned (Phase 6); reservations are explicit records, not side effects |
+| **Inventory** | Flash-sale contention, multi-warehouse | Owns stock and reservations; checkout calls a reservation contract | *Reserve*, *Commit*, *Release* | Inventory items, reservations, ledger | Consumes *OrderCancelled*; publishes the existing `StockBecameLow` | `IInventoryReservations` already exists as an in-process contract; reservations are explicit records, not side effects |
 
 **The rule that keeps extraction possible:** a module that other modules call synchronously *today* (Inventory, Promotions) will need a saga when extracted, so its contract is designed as **reserve → commit/release** from the start (Phase 6/10). A module that only reacts (Notifications, Reporting, Search) can be extracted with nothing more than an outbox and a broker.
 
@@ -237,7 +239,7 @@ Scale in this order, stopping as soon as the problem is solved:
 | Time | `TimeProvider`; audit timestamps in a SaveChanges interceptor | ✅ 1B |
 | Logging and correlation | Request line, W3C correlation id, scopes (`CorrelationId`, `UserId`, `UseCase`; `TenantId` in 2), redaction ([ADR-0018](../11-ADR/0018-observability.md)) | ✅ 1A redaction / 1B |
 | Configuration | Typed options validated at startup, fail-fast, no implicit dev fallbacks outside Development ([ADR-0020](../11-ADR/0020-configuration-and-secrets.md)) | ✅ 1B |
-| Audit | `AuditLog` via a MediatR behavior on `IAuditableCommand` | 4 |
+| Audit | `AuditEntries`, written by the `AuditBehavior` pipeline step for every `IAuditable` request, inside the handler's own transaction | ✅ 4 |
 | Background work | Hosted services (reservation expiry, outbox dispatch) | 6 / 14 |
 | Architecture enforcement | `tests/Souq.ArchitectureTests` (NetArchTest + IL scan) | ✅ 1A / 1B |
 
@@ -245,9 +247,9 @@ Scale in this order, stopping as soon as the problem is solved:
 
 Every integration — payments, email, storage today; shipping (Phase 12) and notifications (Phase 14) later — follows the same rules:
 
-1. **A port exists only at a real boundary:** an external system, or a technology with real variants (payment gateway, email provider, file storage, password hashing, token issuing, current user). A concrete application service with one implementation gets no interface (`OrderStockRelease`, `OrderPaymentConfirmation`). The clock is .NET's own `TimeProvider`.
+1. **A port exists only at a real boundary:** an external system, or a technology with real variants (payment gateway, email provider, file storage, password hashing, token issuing, current user). A concrete application service with one implementation gets no interface (`OrderPaymentConfirmation`, `CustomerErasure`, `BasketResolver`). The clock is .NET's own `TimeProvider`.
 2. **Ports speak our language:** `Money`, `Stream`, records. No provider SDK type appears in a port, and provider exceptions are translated at the adapter (`InvalidPaymentWebhookException`, `ConcurrencyConflictException`).
-3. **Every adapter has a stand-in** for development and tests (`FakePaymentService`, `ConsoleEmailService`, the capturing test doubles). Stand-ins are selected implicitly only in Development/Testing ([ADR-0020](../11-ADR/0020-configuration-and-secrets.md)).
+3. **Every adapter has a stand-in** for development and tests (`FakeGateway` for payments, the log email sender, the capturing test doubles). Stand-ins are selected implicitly only in Development/Testing ([ADR-0020](../11-ADR/0020-configuration-and-secrets.md)).
 4. **Adapter settings are typed options validated at startup;** secrets are never logged, and provider errors are logged with masked data and truncated bodies.
 5. **HTTP adapters** use `IHttpClientFactory` with a timeout. Calls happen **outside** database transactions ([ADR-0021](../11-ADR/0021-transaction-boundaries.md)).
 6. **Tenant awareness enters inside adapters** (storage key prefix, per-tenant gateway keys, sender identity) without changing the ports.

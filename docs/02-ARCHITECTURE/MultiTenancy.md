@@ -60,9 +60,9 @@ sequenceDiagram
 | `localhost` in Development | From the `{slug}.localhost` subdomain, or a dev `X-Tenant` header | all (dev convenience only) |
 
 **Additional rules:**
-- A suspended or archived tenant's storefront answers "store unavailable". Its admins can still sign in to see a notice. Platform users are unaffected.
+- A suspended or archived tenant answers `503 StoreUnavailable`. **Today that applies to every endpoint of that store**, including `GET /api/storefront/config` and sign-in: the `AvailableWhenStoreClosedAttribute` that would let a store serve its own branded "closed" page, and let its admins sign in, exists and is honoured by the middleware but is applied to no endpoint (see [RiskRegister.md](RiskRegister.md), R-08). A `Provisioning` store still serves sign-in and permission-protected administration. Platform users are unaffected.
 - `ITenantContext` (an Application port) is scoped per request, and is also set explicitly for background jobs.
-- JWTs are audience-scoped: a platform token is invalid on tenant hosts, and vice versa.
+- Tokens are bound to their area by the **`tid` claim**, not by a separate audience: a store token carries the store's id and is rejected on any other host or on a platform host; a platform token carries no `tid` and is rejected on store hosts ([ADR-0023](../11-ADR/0023-sessions-and-credentials.md) chose this over per-area audiences). Enforced in `AccessTokenValidation`.
 
 ## 4. Enforcement mechanics (Phase 2 implementation)
 
@@ -78,7 +78,7 @@ sequenceDiagram
 | **Raw SQL** | Forbidden in feature code. Allowed only inside Infrastructure query services, which must include `TenantId` and be covered by an isolation test | Code review + tests |
 | **Uniqueness** | `(TenantId, Slug)`, `(TenantId, Code)`, `(TenantId, NormalizedEmail)`, `(TenantId, Sku)`, `(TenantId, OrderNumber)` | Database |
 | **Indexes** | Hot-path indexes lead with `TenantId` | Database |
-| **Cache keys** | Always include the tenant: `tenant:{id}:config` | Infrastructure |
+| **Cache keys** | Always identify the store, and carry a generation prefix that `Invalidate()` bumps, so a settings change cannot serve a stale entry: `host:`, `slug:`, `id:` and `storefront:{id}` in `TenantDirectoryCache` | Infrastructure |
 | **File storage** | Keys prefixed `tenants/{id}/…`; served only through the tenant's host | Infrastructure |
 | **Background jobs** | Iterate tenants explicitly and set `ITenantContext` per iteration | Infrastructure |
 | **Logs** | Every log scope carries `TenantId` | API middleware |
@@ -113,7 +113,7 @@ The harness exists since Phase 1A. It already proves **user-level** isolation: c
 | Model | When | How Souq gets there |
 |---|---|---|
 | **Shared DB** (start) | Default for all tenants | Phase 2 |
-| **Hybrid** | An enterprise tenant needs a dedicated database (compliance, noisy neighbour, data residency) | `Tenants.DatabaseMode` = Shared/Dedicated plus a connection reference. `ITenantDatabaseResolver` picks the connection when the `DbContext` is created. The same schema and migrations run against each dedicated database. |
+| **Hybrid** | An enterprise tenant needs a dedicated database (compliance, noisy neighbour, data residency) | **FUTURE, not built:** a *DatabaseMode* column (Shared/Dedicated) plus a connection reference, and an *ITenantDatabaseResolver* that picks the connection when the `DbContext` is created. The seam that makes it possible today is `ITenantDirectory`, which resolves the store before any data access. The same schema and migrations run against each dedicated database. |
 | **Database per tenant** (all) | Only if most tenants need it, which is unlikely for this market | The same resolver. The platform database keeps `Tenants`/`TenantDomains`/`Users`(platform); tenant databases keep the rest. |
 
 **What keeps these paths open (decisions taken now):**
@@ -144,11 +144,11 @@ The harness exists since Phase 1A. It already proves **user-level** isolation: c
 | Mechanism | Code | Proof |
 |---|---|---|
 | `Tenant` aggregate (status transitions, one primary domain, host normalization, reserved slugs, currency locked after activity) | `Souq.Domain.Platform.Tenant` / `TenantDomain` | `TenantTests` |
-| `ITenantOwned` on all nine business entities, including aggregate children | `Souq.Domain.Common.ITenantOwned` | `TenancyRuleTests` (every business entity; platform entities excluded) |
+| `ITenantOwned` on every business entity, including aggregate children — the rule is by namespace, not a fixed list, so a new entity that forgets it fails the build | `Souq.Domain.Common.ITenantOwned` | `TenancyRuleTests` (every business entity; platform entities excluded) |
 | Request context, set once per scope; features read `ITenantContext` only | `Application/Common/Tenancy` (`TenantContext`, `TenantScope`, `RequireTenant`) | `TenantContextTests`, `TenancyRuleTests` |
 | Host resolution, dev conveniences, platform hosts, upload host check | `API/Tenancy/TenantResolutionMiddleware` + `TenancyOptions` | `TenantResolutionMiddlewareTests` (Production vs Development), `TenantResolutionTests` |
-| Store status and endpoint-area gating | `API/Tenancy/TenantAvailabilityMiddleware` + `[PlatformEndpoint]`, `[AvailableDuringProvisioning]`, `[AvailableWhenStoreClosed]` | `TenantResolutionTests` (suspended, provisioning, platform host) |
-| Token ↔ host binding (`tid`) | `API/Security/TenantTokenBinding` (JWT `OnTokenValidated`) | `TenantIsolationTests` (A's token on B's host → 401, both ways) |
+| Store status and endpoint-area gating | `TenantAvailabilityMiddleware` + `PlatformEndpointAttribute`, `AvailableDuringProvisioningAttribute`, `AvailableOnAllHostsAttribute`. `AvailableWhenStoreClosedAttribute` is honoured but currently unused (R-08) | `TenantResolutionTests` (suspended, provisioning, platform host) |
+| Token ↔ host binding (`tid`) | `AccessTokenValidation` (`src/Souq.API/Security/AccessTokenValidation.cs`), on token validation | `TenantIsolationTests` (A's token on B's host → 401, both ways) |
 | Named query filter `"Tenant"` that throws without a tenant | `AppDbContext.ConfigureTenantOwned` (reflection) | `TenancyRuleTests` (every entity has it), `TenantIsolationTests` (no-tenant and platform scope throw) |
 | Write guard: stamp, reject cross-tenant writes, Critical log | `Persistence/Interceptors/TenantWriteGuardInterceptor` | `TenantIsolationTests` (modify foreign row; add with an explicit foreign tenant) |
 | Tenant-scoped composite FKs `(TenantId, XId) → (TenantId, Id)` | Entity configurations + migration | `TenancyRuleTests`; `TenantIsolationTests` (foreign category, parent, product, coupon, review rejected) |
