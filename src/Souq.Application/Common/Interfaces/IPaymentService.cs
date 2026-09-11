@@ -19,7 +19,18 @@ public interface IPaymentService
 
     // يتحقّق من حالة نيّة دفع لدى بوّابة الدفع نفسها (لا نثق بادّعاء العميل وحده).
     Task<PaymentConfirmationResult> ConfirmAsync(string paymentIntentId, CancellationToken ct = default);
+
+    // الإعدادات العامة التي تحتاجها الواجهة لتهيئة مزوّد الدفع (مفتاح Stripe.js العلني)
+    // — لا أسرار هنا. null ⇒ لا مزوّد حقيقي مضبوط (البوّابة التجريبية).
+    PaymentClientConfig GetClientConfig();
+
+    // يتحقّق من توقيع إشعار البوّابة (Webhook) ويستخرج مرجع الطلب إن كان الحدث عن دفعة.
+    // null ⇒ حدث لا يعنينا أو لا Webhook مضبوط. توقيع غير صالح ⇒ InvalidPaymentWebhookException.
+    // التحقّق هنا لا في الـ Controller: صيغة التوقيع تفصيل خاص بكل مزوّد (Phase 0 D1).
+    PaymentWebhookEvent? ParseWebhook(string payload, string? signatureHeader);
 }
 
 public record PaymentIntentResult(string PaymentIntentId, string ClientSecret);
 public record PaymentConfirmationResult(bool Succeeded, string? FailureReason);
+public record PaymentClientConfig(string? PublishableKey);
+public record PaymentWebhookEvent(string OrderReference);

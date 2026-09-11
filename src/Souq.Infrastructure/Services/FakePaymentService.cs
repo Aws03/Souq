@@ -6,8 +6,8 @@ namespace Souq.Infrastructure.Services;
 // ============================================================================
 // FakePaymentService — تنفيذ تجريبي لبوّابة الدفع، يُستخدم تلقائياً حين لا يوجد
 // مفتاح Stripe مضبوط (تطوير محلي بلا حساب Stripe). لا محاكاة فشل هنا عمداً:
-// اختبار مسار الفشل الحقيقي يكون عبر بطاقات Stripe التجريبية المُوثَّقة
-// (مثل 4000000000000002) بعد تفعيل StripePaymentService، لا عبر رمز اصطناعي.
+// اختبار مسار الفشل الحقيقي يكون عبر بطاقات Stripe التجريبية المُوثَّقة.
+// لا Webhooks للبوّابة التجريبية، ولا مفتاح علني (الواجهة تعرض زرّ إتمام مباشر).
 // ============================================================================
 public class FakePaymentService : IPaymentService
 {
@@ -19,4 +19,8 @@ public class FakePaymentService : IPaymentService
 
     public Task<PaymentConfirmationResult> ConfirmAsync(string paymentIntentId, CancellationToken ct = default)
         => Task.FromResult(new PaymentConfirmationResult(true, null));
+
+    public PaymentClientConfig GetClientConfig() => new(PublishableKey: null);
+
+    public PaymentWebhookEvent? ParseWebhook(string payload, string? signatureHeader) => null;
 }
