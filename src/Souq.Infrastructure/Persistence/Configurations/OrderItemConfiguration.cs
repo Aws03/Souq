@@ -13,7 +13,7 @@ public class OrderItemConfiguration : IEntityTypeConfiguration<OrderItem>
         builder.Property(i => i.ProductName).HasMaxLength(200);
         builder.OwnsOne(i => i.UnitPrice, m =>
         {
-            m.Property(x => x.Amount).HasColumnName("UnitPrice").HasColumnType("decimal(18,2)");
+            m.Property(x => x.Amount).HasColumnName("UnitPrice").HasColumnType(PersistenceConventions.MoneyColumnType);
             m.Property(x => x.Currency).HasColumnName("Currency").HasMaxLength(3);
         });
         builder.Ignore(i => i.LineTotal);   // محسوبة، لا تُخزّن

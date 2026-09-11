@@ -87,12 +87,14 @@ public class UpdateProductHandlerTests
     [Fact]
     public async Task تحديث_صالح_يعدّل_الحقول_ويحفظ_العملة_الأصلية()
     {
-        var product = NewProduct();
+        var product = NewProduct(); // مخزون 10
         _products.GetByIdAsync(1, Arg.Any<CancellationToken>()).Returns(product);
         _categories.GetByIdAsync(2, Arg.Any<CancellationToken>()).Returns(new Category("أزياء", "fashion"));
 
+        // المدير رأى 10 وعدّله إلى 20 — المخزون لم يتغيّر منذ فتح النموذج ⇒ مقبول.
         var result = await CreateHandler().Handle(
-            new UpdateProductCommand(1, "اسم جديد", "وصف جديد", 75, 20, "new.jpg", 2), CancellationToken.None);
+            new UpdateProductCommand(1, "اسم جديد", "وصف جديد", 75, 20, "new.jpg", 2, ExpectedStockQuantity: 10),
+            CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
         product.Name.Should().Be("اسم جديد");
@@ -108,18 +110,41 @@ public class UpdateProductHandlerTests
     }
 
     [Fact]
-    public async Task تحديث_بلا_تغيير_مخزون_لا_يسجّل_حركة()
+    public async Task تعديل_الاسم_وحده_لا_يمسّ_المخزون_ولا_يسجّل_حركة()
     {
         var product = NewProduct(); // مخزون 10
         _products.GetByIdAsync(1, Arg.Any<CancellationToken>()).Returns(product);
         _categories.GetByIdAsync(2, Arg.Any<CancellationToken>()).Returns(new Category("أزياء", "fashion"));
 
-        // نفس المخزون (10) — نعدّل الاسم/السعر فقط.
+        // StockQuantity = null: المدير لم يلمس حقل المخزون — لا نكتب فوق مبيعات متزامنة.
         var result = await CreateHandler().Handle(
-            new UpdateProductCommand(1, "اسم", "وصف", 75, 10, "img.jpg", 2), CancellationToken.None);
+            new UpdateProductCommand(1, "اسم", "وصف", 75, null, "img.jpg", 2), CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
+        product.StockQuantity.Should().Be(10);
         await _stockMovements.DidNotReceive().AddAsync(Arg.Any<StockMovement>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task مخزون_تغيّر_منذ_فتح_النموذج_يُرفض_بتعارض_ولا_يُعدَّل_شيء()
+    {
+        // Phase 0 C4: فتح المدير النموذج والمخزون 10، بِيعت 3 (صار 7)، ثم حفظ 20 —
+        // كان يُمحى البيع ويُسجَّل "تصحيح" وهمي. الآن: تعارض واضح ولا تغيير جزئي.
+        var product = NewProduct();
+        product.DecreaseStock(3); // 10 ⇒ 7 بعد فتح النموذج
+        _products.GetByIdAsync(1, Arg.Any<CancellationToken>()).Returns(product);
+        _categories.GetByIdAsync(2, Arg.Any<CancellationToken>()).Returns(new Category("أزياء", "fashion"));
+
+        var result = await CreateHandler().Handle(
+            new UpdateProductCommand(1, "اسم جديد", "وصف", 75, 20, "img.jpg", 2, ExpectedStockQuantity: 10),
+            CancellationToken.None);
+
+        result.IsSuccess.Should().BeFalse();
+        result.ErrorCode.Should().Be("Conflict");
+        product.StockQuantity.Should().Be(7);
+        product.Name.Should().Be("سماعات"); // لا تعديل جزئي للتفاصيل مع رفض المخزون
+        await _stockMovements.DidNotReceive().AddAsync(Arg.Any<StockMovement>(), Arg.Any<CancellationToken>());
+        await _uow.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 }
 

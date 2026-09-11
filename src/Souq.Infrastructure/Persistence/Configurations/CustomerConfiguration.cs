@@ -14,11 +14,12 @@ public class CustomerConfiguration : IEntityTypeConfiguration<Customer>
         builder.Property(c => c.Email).HasMaxLength(256).IsRequired();
         builder.Property(c => c.PasswordHash).HasMaxLength(500).IsRequired();
         builder.Property(c => c.Role).HasMaxLength(20).IsRequired();
-        builder.Property(c => c.PasswordResetToken).HasMaxLength(64);
+        // تجزئة SHA-256 بصيغة hex (64 حرفاً) — الرمز الخام لا يُخزَّن أبداً.
+        builder.Property(c => c.PasswordResetTokenHash).HasMaxLength(64);
 
-        // فهرس على الرمز: GetByResetTokenAsync يُستدعى بكل زيارة لصفحة إعادة
+        // فهرس على التجزئة: GetByResetTokenAsync يُستدعى بكل زيارة لصفحة إعادة
         // التعيين — بلا فهرس يصبح فحصاً كاملاً للجدول عند كل محاولة.
-        builder.HasIndex(c => c.PasswordResetToken);
+        builder.HasIndex(c => c.PasswordResetTokenHash);
 
         // البريد هو هوية الدخول — يجب أن يكون فريداً على مستوى قاعدة البيانات
         // (القاعدة النهائية للحقيقة)، لا في الكود فقط حيث تتسابق الطلبات المتزامنة.

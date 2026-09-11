@@ -43,6 +43,19 @@ public class CouponTests
     }
 
     [Fact]
+    public void CalculateDiscount_نسبة_تُنتج_كسوراً_تُقرَّب_لخانات_الدينار()
+    {
+        // 15% من 12.345 = 1.85175 — كان يبقى بهذه الدقّة في الذاكرة (يُرسَل للبوّابة)
+        // ويُخزَّن 1.85 في القاعدة؛ الآن تقريب واحد في المجال (ADR-0014).
+        var coupon = new Coupon("SAVE15", DiscountType.Percentage, 15, null, null, null);
+
+        var discount = coupon.CalculateDiscount(new Money(12.345m, "JOD"));
+
+        discount.Amount.Should().Be(1.852m);
+        discount.Currency.Should().Be("JOD");
+    }
+
+    [Fact]
     public void CalculateDiscount_مبلغ_ثابت_لا_يتجاوز_الإجمالي_الفرعي()
     {
         var coupon = new Coupon("BIG20", DiscountType.FixedAmount, 20, null, null, null);

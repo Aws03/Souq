@@ -2,7 +2,7 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Souq.Application.Common.Models;
+using Souq.API.Http;
 using Souq.Application.Features.Categories.Commands;
 using Souq.Application.Features.Categories.Queries;
 using Souq.Domain.Common;
@@ -27,9 +27,7 @@ public class CategoriesController : ControllerBase
     public async Task<IActionResult> Create([FromBody] CreateCategoryCommand command)
     {
         var result = await _mediator.Send(command);
-        if (!result.IsSuccess)
-            return BadRequest(new { error = result.Error, code = result.ErrorCode });
-        return StatusCode(StatusCodes.Status201Created, new { id = result.Value });
+        return result.IsSuccess ? StatusCode(StatusCodes.Status201Created, new { id = result.Value }) : this.Failure(result);
     }
 
     // PUT /api/categories/5  (مدير) — يفرض معرّف المسار على الأمر.
@@ -38,7 +36,7 @@ public class CategoriesController : ControllerBase
     public async Task<IActionResult> Update(int id, [FromBody] UpdateCategoryCommand command)
     {
         var result = await _mediator.Send(command with { Id = id });
-        return result.IsSuccess ? NoContent() : MapFailure(result);
+        return result.IsSuccess ? NoContent() : this.Failure(result);
     }
 
     // DELETE /api/categories/5  (مدير) — حذف محروس (لا فئة مستخدمة/لها أبناء).
@@ -47,12 +45,6 @@ public class CategoriesController : ControllerBase
     public async Task<IActionResult> Delete(int id)
     {
         var result = await _mediator.Send(new DeleteCategoryCommand(id));
-        return result.IsSuccess ? NoContent() : MapFailure(result);
+        return result.IsSuccess ? NoContent() : this.Failure(result);
     }
-
-    // "غير موجود" ⇒ 404، وأي فشل قاعدة عمل آخر (slug مكرّر، فئة مستخدمة...) ⇒ 400.
-    private IActionResult MapFailure(Result result) =>
-        result.ErrorCode == "NotFound"
-            ? NotFound(new { error = result.Error })
-            : BadRequest(new { error = result.Error, code = result.ErrorCode });
 }

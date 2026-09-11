@@ -10,15 +10,39 @@ public class CustomerTests
         new("مستخدم", "user@souq.com", "hashed");
 
     [Fact]
-    public void GenerateResetToken_يُعيد_رمزاً_غير_فارغ_ويُعيّن_انتهاءً_بعد_ساعتين_تقريباً()
+    public void GenerateResetToken_يُخزّن_التجزئة_فقط_ويُعيد_الرمز_الخام_مرة_واحدة()
     {
         var customer = NewCustomer();
 
         var token = customer.GenerateResetToken();
 
         token.Should().NotBeNullOrWhiteSpace();
-        customer.PasswordResetToken.Should().Be(token);
+        // القاعدة لا تحمل الرمز نفسه أبداً — من يقرؤها لا يملك رابطاً صالحاً (Phase 0 B6).
+        customer.PasswordResetTokenHash.Should().Be(Customer.HashResetToken(token));
+        customer.PasswordResetTokenHash.Should().NotBe(token);
         customer.PasswordResetTokenExpiry.Should().BeCloseTo(DateTime.UtcNow.AddHours(2), TimeSpan.FromMinutes(1));
+    }
+
+    [Fact]
+    public void GenerateResetToken_يولّد_رمزاً_عشوائياً_بطول_256_بت()
+    {
+        var customer = NewCustomer();
+
+        var first = customer.GenerateResetToken();
+        var second = customer.GenerateResetToken();
+
+        first.Should().NotBe(second);
+        first.Should().HaveLength(43);             // 32 بايت بترميز base64url بلا حشو
+        first.Should().MatchRegex("^[A-Za-z0-9_-]+$"); // آمن داخل رابط بلا ترميز إضافي
+    }
+
+    [Fact]
+    public void HashResetToken_حتمية_وتُنتج_64_حرفاً_سداسياً()
+    {
+        var hash = Customer.HashResetToken("sample-token");
+
+        hash.Should().Be(Customer.HashResetToken("sample-token"));
+        hash.Should().MatchRegex("^[0-9A-F]{64}$");
     }
 
     [Fact]
@@ -30,7 +54,7 @@ public class CustomerTests
         customer.ResetPassword("new-hashed-value");
 
         customer.PasswordHash.Should().Be("new-hashed-value");
-        customer.PasswordResetToken.Should().BeNull();
+        customer.PasswordResetTokenHash.Should().BeNull();
         customer.PasswordResetTokenExpiry.Should().BeNull();
     }
 
@@ -39,8 +63,7 @@ public class CustomerTests
     {
         var customer = NewCustomer();
         customer.GenerateResetToken();
-        // نحاكي انتهاء الصلاحية مباشرة عبر Reflection (لا باب عام لضبط تاريخ
-        // ماضٍ — نفس أسلوب محاكاة العلاقات في ProductHandlersTests).
+        // نحاكي انتهاء الصلاحية مباشرة عبر Reflection (لا باب عام لضبط تاريخ ماضٍ).
         typeof(Customer).GetProperty(nameof(Customer.PasswordResetTokenExpiry))!
             .SetValue(customer, DateTime.UtcNow.AddMinutes(-1));
 

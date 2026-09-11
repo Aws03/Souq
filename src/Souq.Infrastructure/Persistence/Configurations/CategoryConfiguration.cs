@@ -13,5 +13,13 @@ public class CategoryConfiguration : IEntityTypeConfiguration<Category>
         builder.Property(c => c.Name).HasMaxLength(100).IsRequired();
         builder.Property(c => c.Slug).HasMaxLength(100);
         builder.HasIndex(c => c.Slug).IsUnique();
+
+        // علاقة ذاتية للفئة الأب — لم تكن مُعرَّفة إطلاقاً في نموذج EF، فكان ParentId رقماً
+        // بلا قيد يقبل أباً غير موجود. Restrict: لا تُحذف فئة لها أبناء (يحرسه المعالج
+        // برسالة واضحة، والقاعدة هي الحارس الأخير).
+        builder.HasOne<Category>()
+               .WithMany()
+               .HasForeignKey(c => c.ParentId)
+               .OnDelete(DeleteBehavior.Restrict);
     }
 }

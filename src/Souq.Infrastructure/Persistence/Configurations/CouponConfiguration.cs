@@ -13,12 +13,17 @@ public class CouponConfiguration : IEntityTypeConfiguration<Coupon>
         builder.Property(c => c.Code).HasMaxLength(50).IsRequired();
         builder.HasIndex(c => c.Code).IsUnique();
         builder.Property(c => c.Type).HasConversion<int>();
-        builder.Property(c => c.Value).HasColumnType("decimal(18,2)");
+        // نسبة مئوية أو مبلغ ثابت — نفس دقّة المال كي لا يُقتطع مبلغ خصم ثابت بالفلس.
+        builder.Property(c => c.Value).HasColumnType(PersistenceConventions.MoneyColumnType);
+
+        // UsedCount يُزاد عند تأكيد الدفع — تأكيدان متزامنان لطلبين مختلفين كانا يُضيعان
+        // زيادة (lost update). rowversion يرفض الحفظ القديم (ADR-0013).
+        builder.HasRowVersion();
 
         // اعتماد اختياري (owned optional): كوبون بلا حد أدنى للطلب لا يخزّن شيئاً هنا.
         builder.OwnsOne(c => c.MinOrderAmount, m =>
         {
-            m.Property(x => x.Amount).HasColumnName("MinOrderAmount").HasColumnType("decimal(18,2)");
+            m.Property(x => x.Amount).HasColumnName("MinOrderAmount").HasColumnType(PersistenceConventions.MoneyColumnType);
             m.Property(x => x.Currency).HasColumnName("MinOrderCurrency").HasMaxLength(3);
         });
     }

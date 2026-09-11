@@ -84,7 +84,9 @@ public class Coupon : Entity
             ? subtotal.Amount * (Value / 100m)
             : Value;
         var clamped = Math.Min(raw, subtotal.Amount);
-        return new Money(clamped, subtotal.Currency);
+        // نسبة مئوية قد تُنتج كسوراً دون خانات العملة (15% من 12.345) — تقريب تجاري
+        // في مكان واحد (ADR-0014) كي يتطابق الخصم المعروض مع المخزَّن مع المُحصَّل.
+        return Money.FromCalculation(clamped, subtotal.Currency);
     }
 
     public void IncrementUsage() => UsedCount++;

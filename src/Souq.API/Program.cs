@@ -2,6 +2,7 @@ using System.Security.Claims;
 using System.Text;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -15,15 +16,18 @@ using Souq.Infrastructure.Services;
 var builder = WebApplication.CreateBuilder(args);
 
 // ── تجميع الطبقات (كل طبقة تسجّل نفسها) ──────────────────────────────────
-builder.Services.AddApplication();                         // طبقة حالات الاستخدام
-builder.Services.AddInfrastructure(builder.Configuration); // التقنيات (DB, Payment, Auth...)
+builder.Services.AddApplication();                                                // حالات الاستخدام
+builder.Services.AddInfrastructure(builder.Configuration, builder.Environment);    // التقنيات
 
 // enums تُقرأ/تُكتب كنصوص ("Shipped" بدل 2) — أوضح لمستهلكي الـ API.
 builder.Services.AddControllers()
     .AddJsonOptions(o => o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
-// ── تخزين ملفات الصور محلياً: نضبط المسار الفيزيائي هنا حيث يُعرف wwwroot ──
-var uploadsPath = Path.Combine(builder.Environment.ContentRootPath, "wwwroot", "uploads");
+// ── تخزين الوسائط محلياً: Storage:Local:RootPath (قرص مُثبَّت في الإنتاج، مجلّد مؤقت
+// في الاختبارات) وإلا wwwroot/uploads. الصور تحت images/ والفيديو تحت videos/. ──
+var uploadsPath = builder.Configuration["Storage:Local:RootPath"] is { Length: > 0 } configuredRoot
+    ? configuredRoot
+    : Path.Combine(builder.Environment.ContentRootPath, "wwwroot", "uploads");
 Directory.CreateDirectory(uploadsPath);
 builder.Services.Configure<FileStorageOptions>(o =>
 {
@@ -31,19 +35,9 @@ builder.Services.Configure<FileStorageOptions>(o =>
     o.PublicBasePath = "/uploads";
 });
 
-// ── تخزين فيديوهات المنتجات: مجلّد فرعي تحت uploads نفسه (يخدمه نفس مزوّد
-// الملفات الثابتة أدناه على /uploads تلقائياً، بلا تسجيل إضافي). ──
-var videosPath = Path.Combine(uploadsPath, "videos");
-Directory.CreateDirectory(videosPath);
-builder.Services.Configure<VideoStorageOptions>(o =>
-{
-    o.RootPath = videosPath;
-    o.PublicBasePath = "/uploads/videos";
-});
-
 // ── المصادقة: التحقّق من توكن JWT الوارد ─────────────────────────────────
-// المفتاح سرّ يأتي من user-secrets/البيئة. نُعطّل إعادة تخطيط المطالبات
-// (MapInboundClaims=false) كي تصل بالأسماء نفسها التي كتبها المُصدِّر تماماً.
+// المفتاح سرّ يأتي من user-secrets/البيئة. MapInboundClaims=false كي تصل المطالبات
+// بالأسماء نفسها التي كتبها المُصدِّر تماماً.
 var jwt = builder.Configuration.GetSection("Jwt");
 var jwtKey = jwt["Key"];
 if (string.IsNullOrWhiteSpace(jwtKey))
@@ -97,12 +91,7 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
-// ── سياسة CORS للسماح للواجهة (React) بالاتصال بالـ API ───────────────────
-// الأصول المسموحة تأتي من Cors:AllowedOrigins (appsettings/متغيرات بيئة)، وتقع
-// افتراضياً على خادم Vite للتطوير المحلي إن لم يُضبط شيء. النشر خلف Nginx
-// (docker-compose.yml) لا يحتاج هذه السياسة إطلاقاً — المتصفح يرى أصلاً واحداً
-// فقط هناك (Nginx يوكّل /api داخلياً)، فهذه السياسة تخدم فقط تشغيل الـ API
-// والواجهة كخادمين منفصلين (تطوير محلي، أو نشر بلا توكيل عكسي).
+// ── CORS للواجهة حين تعمل كخادم منفصل (التطوير المحلي). النشر خلف Nginx أصل واحد. ──
 var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
     ?? new[] { "http://localhost:5173" };
 builder.Services.AddCors(o => o.AddPolicy("frontend", p =>
@@ -110,12 +99,18 @@ builder.Services.AddCors(o => o.AddPolicy("frontend", p =>
 
 var app = builder.Build();
 
-// ── بذر قاعدة البيانات تلقائياً عند الإقلاع (للتجربة) ─────────────────────
+// ── الهجرات + البذر عند الإقلاع. المدير الافتراضي في Development فقط؛ خارجها يُنشأ
+// أول مدير من Seed:AdminEmail/Seed:AdminPassword إن ضُبطا (Phase 0 B1). ──
 using (var scope = app.Services.CreateScope())
 {
-    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    var hasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
-    await DbSeeder.SeedAsync(db, hasher);
+    var services = scope.ServiceProvider;
+    var adminSeed = new AdminSeedOptions(
+        app.Configuration["Seed:AdminEmail"], app.Configuration["Seed:AdminPassword"], app.Environment.IsDevelopment());
+    await DbSeeder.SeedAsync(
+        services.GetRequiredService<AppDbContext>(),
+        services.GetRequiredService<IPasswordHasher>(),
+        adminSeed,
+        services.GetRequiredService<ILoggerFactory>().CreateLogger("Souq.Seeding"));
 }
 
 // ── خط أنابيب الطلب (Request Pipeline) — الترتيب مهم ──────────────────────
@@ -125,12 +120,25 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
-// نخدم مجلد الرفع بمزوّد ملفات صريح على uploadsPath: لا نعتمد على WebRootPath
-// لأن wwwroot قد لا يكون موجوداً لحظة بناء المضيف (فيصبح المزوّد الافتراضي فارغاً).
+
+// مجلد الرفع يُخدَم بأنواع وسائط مسموحة فقط + nosniff + CSP معزول (ADR-0016): حتى
+// لو وصل ملف غير متوقّع إلى المجلّد بطريقة ما، لا يُخدَم كصفحة تُنفَّذ على أصل الموقع.
+var mediaContentTypes = new FileExtensionContentTypeProvider(new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+{
+    [".jpg"] = "image/jpeg", [".jpeg"] = "image/jpeg", [".png"] = "image/png", [".gif"] = "image/gif",
+    [".webp"] = "image/webp", [".mp4"] = "video/mp4", [".webm"] = "video/webm",
+});
 app.UseStaticFiles(new StaticFileOptions
 {
     FileProvider = new PhysicalFileProvider(uploadsPath),
     RequestPath = "/uploads",
+    ContentTypeProvider = mediaContentTypes,
+    ServeUnknownFileTypes = false,
+    OnPrepareResponse = ctx =>
+    {
+        ctx.Context.Response.Headers["X-Content-Type-Options"] = "nosniff";
+        ctx.Context.Response.Headers["Content-Security-Policy"] = "default-src 'none'; sandbox";
+    },
 });
 app.UseCors("frontend");
 app.UseAuthentication();     // من أنت؟ (يفكّ التوكن)
@@ -139,5 +147,5 @@ app.MapControllers();
 
 app.Run();
 
-// يُتاح لمشروع الاختبار (WebApplicationFactory) لاحقاً في المرحلة 5.
+// يُتاح لمشروع اختبارات التكامل (WebApplicationFactory<Program>).
 public partial class Program { }

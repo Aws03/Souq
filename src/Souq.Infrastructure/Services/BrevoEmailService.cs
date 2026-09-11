@@ -6,24 +6,19 @@ using Souq.Application.Common.Interfaces;
 
 namespace Souq.Infrastructure.Services;
 
-// ApiKey سرّ دوماً (متغيّر بيئة Brevo__ApiKey) — لا يُقرأ من appsettings
-// المرفوع أبداً (انظر AddInfrastructure). SenderName/SenderEmail غير سرّيين:
-// يظهران في appsettings كقيمة افتراضية قابلة للتعديل (نفس نمط Resend:From).
+// ApiKey سرّ دوماً (Brevo__ApiKey). SenderEmail يأتي من الإعداد (Brevo:SenderEmail أو
+// عنوان المرسِل المشترك Gmail:Username) — لا عنوان شخصي مكتوب في الكود (Phase 0 B12).
 public class BrevoOptions
 {
     public string ApiKey { get; set; } = "";
     public string SenderName { get; set; } = "Marka";
-    public string SenderEmail { get; set; } = "aws.03.dev@gmail.com";
+    public string SenderEmail { get; set; } = "";
     public string FrontendUrl { get; set; } = "http://localhost:5173";
 }
 
 // ============================================================================
-// BrevoEmailService — بديل ثالث عبر Brevo API (Sendinblue سابقاً). HttpClient
-// خام فقط (بلا SDK/مكتبة إضافية)؛ المصادقة هنا برأس "api-key" مباشرة، لا
-// "Authorization: Bearer" كما في Resend — فرق أساسي بين المزوّدَين. نفس حقل
-// HttpClient الثابت المشترك ونفس منهج التسجيل التفصيلي في ResendEmailService.
-// يُفعَّل حين لا يوجد Resend:ApiKey لكن يوجد Brevo:ApiKey مضبوطاً؛ وإلا يبقى
-// GmailEmailService (أو ConsoleEmailService) كبديل (انظر AddInfrastructure).
+// BrevoEmailService — بديل عبر Brevo API. المصادقة برأس "api-key" (لا Bearer). نفس
+// سياسة السجل المنقَّح في ResendEmailService.
 // ============================================================================
 public class BrevoEmailService : IEmailService
 {
@@ -39,10 +34,7 @@ public class BrevoEmailService : IEmailService
     }
 
     public Task SendOrderConfirmationAsync(string toEmail, int orderId, CancellationToken ct = default)
-    {
-        var subject = $"تأكيد الطلب #{orderId} — ماركة";
-        return SendAsync(toEmail, subject, EmailTemplates.OrderConfirmation(orderId), ct);
-    }
+        => SendAsync(toEmail, $"تأكيد الطلب #{orderId} — ماركة", EmailTemplates.OrderConfirmation(orderId), ct);
 
     public Task SendPasswordResetEmailAsync(string toEmail, string resetToken, CancellationToken ct = default)
     {
@@ -52,6 +44,14 @@ public class BrevoEmailService : IEmailService
 
     private async Task SendAsync(string toEmail, string subject, string htmlBody, CancellationToken ct)
     {
+        var recipient = LogRedaction.MaskEmail(toEmail);
+        if (string.IsNullOrWhiteSpace(_opts.SenderEmail))
+        {
+            _logger.LogError("Brevo مضبوط بلا عنوان مرسِل (Brevo:SenderEmail) — لم يُرسَل \"{Subject}\" إلى {Recipient}",
+                subject, recipient);
+            return;
+        }
+
         var payload = JsonSerializer.Serialize(new
         {
             sender = new { name = _opts.SenderName, email = _opts.SenderEmail },
@@ -60,50 +60,29 @@ public class BrevoEmailService : IEmailService
             htmlContent = htmlBody,
         });
 
-        // تشخيص الإعداد قبل أي محاولة إرسال — لا يطبع المفتاح نفسه أبداً، فقط
-        // "configured"/"missing"، إلى جانب FrontendUrl الفعلي المُستخدَم في بناء
-        // رابط إعادة التعيين (نفس منهج ResendEmailService).
-        _logger.LogInformation(
-            "Brevo config: ApiKey={ApiKeyStatus} Sender={SenderName} <{SenderEmail}> FrontendUrl={FrontendUrl}",
-            string.IsNullOrWhiteSpace(_opts.ApiKey) ? "missing" : "configured",
-            _opts.SenderName, _opts.SenderEmail, _opts.FrontendUrl);
-
-        _logger.LogInformation(
-            "إرسال بريد Brevo: المستقبِل={Email} الموضوع=\"{Subject}\" المرسِل={SenderName} <{SenderEmail}>",
-            toEmail, subject, _opts.SenderName, _opts.SenderEmail);
-
         try
         {
             using var request = new HttpRequestMessage(HttpMethod.Post, Endpoint)
             {
                 Content = new StringContent(payload, Encoding.UTF8, "application/json"),
             };
-            // Brevo يتوقّع المفتاح في رأس "api-key" مباشرة، لا "Authorization: Bearer".
             request.Headers.Add("api-key", _opts.ApiKey);
 
             using var response = await Http.SendAsync(request, ct);
-            var responseBody = await response.Content.ReadAsStringAsync(ct);
-
             if (response.IsSuccessStatusCode)
             {
-                _logger.LogInformation(
-                    "✅ نجح إرسال بريد \"{Subject}\" إلى {Email} عبر Brevo — الحالة={StatusCode} الاستجابة={Body}",
-                    subject, toEmail, (int)response.StatusCode, responseBody);
+                _logger.LogInformation("أُرسل بريد \"{Subject}\" إلى {Recipient} عبر Brevo (الحالة {StatusCode})",
+                    subject, recipient, (int)response.StatusCode);
+                return;
             }
-            else
-            {
-                _logger.LogError(
-                    "❌ فشل إرسال بريد عبر Brevo إلى {Email} (الموضوع=\"{Subject}\"): الحالة={StatusCode} الاستجابة={Body}",
-                    toEmail, subject, (int)response.StatusCode, responseBody);
-            }
+
+            var errorBody = await response.Content.ReadAsStringAsync(ct);
+            _logger.LogError("فشل إرسال بريد \"{Subject}\" إلى {Recipient} عبر Brevo: الحالة {StatusCode} — {ProviderError}",
+                subject, recipient, (int)response.StatusCode, LogRedaction.Truncate(errorBody));
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            // فشل الإرسال لا يجب أن يُسقط تدفّق العمل (مثلاً: لا نكشف فشل Brevo
-            // لطالب إعادة التعيين — الرسالة الموحّدة "نجاح دائماً" تبقى كما هي).
-            _logger.LogError(ex,
-                "❌ فشل إرسال بريد عبر Brevo إلى {Email} (الموضوع=\"{Subject}\"): {ErrorType}: {ErrorMessage}",
-                toEmail, subject, ex.GetType().Name, ex.Message);
+            _logger.LogError(ex, "فشل إرسال بريد \"{Subject}\" إلى {Recipient} عبر Brevo", subject, recipient);
         }
     }
 }

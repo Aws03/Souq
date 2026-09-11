@@ -44,15 +44,19 @@ services:
       Brevo__ApiKey: ${BREVO_API_KEY:-}
       # اختياري — بديل Resend/Brevo عبر SMTP إن لم يُضبط أيّ منهما أعلاه.
       Gmail__AppPassword: ${GMAIL_APP_PASSWORD:-}
-      Gmail__Username: ${GMAIL_USERNAME:-aws.03.dev@gmail.com}
+      # عنوان المرسِل (يُستخدم أيضاً لـ Brevo إن لم يُضبط BREVO_SENDER_EMAIL) — بلا افتراضي شخصي.
+      Gmail__Username: ${GMAIL_USERNAME:-}
+      Brevo__SenderEmail: ${BREVO_SENDER_EMAIL:-}
+      # أول مدير في بيئة Production: بلا هذين المتغيّرين لا يُنشأ أي مدير (لا كلمة مرور
+      # افتراضية منشورة). كلمة المرور 12 حرفاً على الأقل. احذفهما من .env بعد أول إقلاع.
+      Seed__AdminEmail: ${SEED_ADMIN_EMAIL:-}
+      Seed__AdminPassword: ${SEED_ADMIN_PASSWORD:-}
       # بعض مزوّدي الإنترنت يحجبون المنفذ 587 (STARTTLS) — عندها استخدم 465
       # (TLS ضمني) عبر GMAIL_SMTP_PORT في .env؛ الافتراضي يبقى 587 القياسي.
       Gmail__Port: ${GMAIL_SMTP_PORT:-587}
-      # رابط الواجهة داخل رسائل إعادة التعيين. الافتراضي عنوان الجهاز على الشبكة
-      # المحلية (لا localhost) كي يعمل الرابط من أي جهاز على نفس الشبكة — هاتف
-      # مثلاً. المنفذ 8081 هو المنفذ المنشور فعلاً للواجهة (web هي 8081:80)، لا 80.
-      # عدّل FRONTEND_URL في .env إن تغيّر عنوان جهازك على الشبكة.
-      FRONTEND_URL: ${FRONTEND_URL:-http://192.168.1.34:8081}
+      # رابط الواجهة داخل رسائل إعادة التعيين. 8081 هو المنفذ المنشور للواجهة. لتجربة
+      # الرابط من هاتف على نفس الشبكة اضبط FRONTEND_URL في .env على عنوان جهازك.
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:8081}
     depends_on:
       db:
         condition: service_healthy

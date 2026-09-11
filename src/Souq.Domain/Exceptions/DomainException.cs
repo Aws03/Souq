@@ -49,3 +49,10 @@ public class InvalidPasswordResetException : DomainException
 {
     public InvalidPasswordResetException(string message) : base(message) { }
 }
+
+// خطأ: مبلغ مالي غير صالح (سالب، عملة غير صالحة، خانات عشرية أكثر مما تسمح به
+// العملة، أو عملتان مختلفتان في عملية واحدة). كونه DomainException يعني 400 لا 500.
+public class InvalidMoneyException : DomainException
+{
+    public InvalidMoneyException(string message) : base(message) { }
+}

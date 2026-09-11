@@ -116,17 +116,21 @@ public class ForgotPasswordHandlerTests
     private ForgotPasswordHandler CreateHandler() => new(_customers, _email, _uow);
 
     [Fact]
-    public async Task بريد_موجود_يولّد_رمزاً_ويرسل_بريد_إعادة_التعيين()
+    public async Task بريد_موجود_يرسل_الرمز_الخام_بالبريد_ويخزّن_تجزئته_فقط()
     {
         var customer = new Customer("مستخدم", "user@souq.com", "hashed");
         _customers.GetByEmailAsync("user@souq.com", Arg.Any<CancellationToken>()).Returns(customer);
+        string? sentToken = null;
+        _email.When(x => x.SendPasswordResetEmailAsync("user@souq.com", Arg.Any<string>(), Arg.Any<CancellationToken>()))
+              .Do(ci => sentToken = ci.ArgAt<string>(1));
 
         var result = await CreateHandler().Handle(new ForgotPasswordCommand("user@souq.com"), CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
-        customer.PasswordResetToken.Should().NotBeNullOrWhiteSpace();
-        await _email.Received(1).SendPasswordResetEmailAsync(
-            "user@souq.com", customer.PasswordResetToken!, Arg.Any<CancellationToken>());
+        sentToken.Should().NotBeNullOrWhiteSpace();
+        // المخزَّن تجزئة الرمز المُرسَل لا الرمز نفسه (Phase 0 B6).
+        customer.PasswordResetTokenHash.Should().Be(Customer.HashResetToken(sentToken!));
+        customer.PasswordResetTokenHash.Should().NotBe(sentToken);
         await _uow.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
@@ -207,7 +211,7 @@ public class ResetPasswordHandlerTests
 
         result.IsSuccess.Should().BeTrue();
         customer.PasswordHash.Should().Be("new-hashed-value");
-        customer.PasswordResetToken.Should().BeNull();
+        customer.PasswordResetTokenHash.Should().BeNull();
         await _uow.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 }

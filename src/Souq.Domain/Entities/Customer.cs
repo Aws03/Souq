@@ -1,3 +1,6 @@
+using System.Buffers.Text;
+using System.Security.Cryptography;
+using System.Text;
 using Souq.Domain.Common;
 using Souq.Domain.Exceptions;
 
@@ -9,14 +12,17 @@ namespace Souq.Domain.Entities;
 // ============================================================================
 public class Customer : Entity
 {
+    public const int ResetTokenLifetimeHours = 2;
+
     public string FullName { get; private set; } = default!;
     public string Email { get; private set; } = default!;
     public string PasswordHash { get; private set; } = default!;
     public string Role { get; private set; } = "Customer";   // Customer أو Admin
 
-    // رمز إعادة تعيين كلمة المرور — استخدام واحد (Single-use)، يُمسح فور نجاح
-    // إعادة التعيين. NULL يعني: لا طلب إعادة تعيين قائم حالياً.
-    public string? PasswordResetToken { get; private set; }
+    // تجزئة SHA-256 لرمز إعادة التعيين — لا الرمز نفسه أبداً: من يقرأ قاعدة البيانات
+    // لا يحصل على رابط صالح. الرمز الخام يُعاد مرة واحدة فقط ليُرسَل بالبريد.
+    // NULL يعني: لا طلب إعادة تعيين قائم حالياً.
+    public string? PasswordResetTokenHash { get; private set; }
     public DateTime? PasswordResetTokenExpiry { get; private set; }
 
     private Customer() { }
@@ -37,26 +43,30 @@ public class Customer : Entity
         PasswordHash = newPasswordHash;
     }
 
-    // يولّد رمزاً عشوائياً صالحاً لساعتين ويُعيده — النسخة الوحيدة الواضحة منه؛
-    // لا نُعيد قراءته لاحقاً كنص صريح (يُقارَن فقط عبر استعلام المستودع).
+    // رمز من 32 بايت عشوائية آمنة تشفيرياً (CSPRNG) بترميز base64url صالح للروابط.
+    // نخزّن تجزئته فقط ونُعيد الخام للمستدعي — النسخة الوحيدة الواضحة منه.
     public string GenerateResetToken()
     {
-        var token = Guid.NewGuid().ToString("N");
-        PasswordResetToken = token;
-        PasswordResetTokenExpiry = DateTime.UtcNow.AddHours(2);
+        var token = Base64Url.EncodeToString(RandomNumberGenerator.GetBytes(32));
+        PasswordResetTokenHash = HashResetToken(token);
+        PasswordResetTokenExpiry = DateTime.UtcNow.AddHours(ResetTokenLifetimeHours);
         return token;
     }
 
-    // يُستدعى بعد أن يجد المستودع العميل عبر الرمز نفسه (تطابق الرمز تحقّق عنه
-    // الاستعلام مسبقاً) — مسؤولية الكيان هنا: التأكد أن الرمز لم تنتهِ صلاحيته
-    // فقط، ثم تعيين كلمة المرور الجديدة ومسح حقول الرمز فوراً (استخدام واحد).
+    // SHA-256 كافٍ هنا (لا ملح ولا خوارزمية بطيئة): الرمز عشوائي بعرض 256 بت، فلا
+    // قاموس ولا تخمين ممكن — بخلاف كلمات المرور التي يختارها البشر (لها BCrypt).
+    public static string HashResetToken(string token) =>
+        Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token)));
+
+    // يُستدعى بعد أن يجد المستودع العميل عبر تجزئة الرمز — مسؤولية الكيان هنا: التأكد
+    // أن الرمز لم تنتهِ صلاحيته، ثم تعيين كلمة المرور الجديدة ومسح الرمز فوراً (استخدام واحد).
     public void ResetPassword(string newPasswordHash)
     {
         if (PasswordResetTokenExpiry is null || PasswordResetTokenExpiry < DateTime.UtcNow)
             throw new InvalidPasswordResetException("انتهت صلاحية رابط إعادة التعيين. اطلب رابطاً جديداً.");
 
         PasswordHash = newPasswordHash;
-        PasswordResetToken = null;
+        PasswordResetTokenHash = null;
         PasswordResetTokenExpiry = null;
     }
 }

@@ -5,9 +5,8 @@ using Souq.Domain.Entities;
 namespace Souq.Infrastructure.Persistence.Configurations;
 
 // ============================================================================
-// إعداد جدول المنتجات بـ Fluent API. لماذا هنا لا فوق الكيان (Data Annotations)؟
-// حتى يبقى الكيان في Domain نقياً 100% من أي ارتباط بـ EF/SQL. لو بدّلنا ORM
-// لاحقاً، نُعدّل هذا الملف فقط دون لمس الكيان. عزل التفاصيل التقنية مجدداً.
+// إعداد جدول المنتجات بـ Fluent API — لا Data Annotations على الكيان كي يبقى Domain
+// نقياً 100% من EF/SQL. لو بدّلنا ORM لاحقاً، نُعدّل هذا الملف فقط.
 // ============================================================================
 public class ProductConfiguration : IEntityTypeConfiguration<Product>
 {
@@ -22,21 +21,23 @@ public class ProductConfiguration : IEntityTypeConfiguration<Product>
         builder.Property(p => p.ImageUrl).HasMaxLength(500);
         builder.Property(p => p.VideoUrl).HasMaxLength(500);
 
+        // المخزون يُعدَّل بالتزامن (شراءان معاً، أو شراء مع تعديل الإدارة) ⇒ rowversion
+        // يمنع البيع الزائد والتحديث الضائع (Phase 0 C1/C4).
+        builder.HasRowVersion();
+
         // كائن القيمة Money يُخزّن كعمودين داخل جدول المنتج (Owned Type).
         builder.OwnsOne(p => p.Price, money =>
         {
-            money.Property(m => m.Amount).HasColumnName("Price").HasColumnType("decimal(18,2)");
+            money.Property(m => m.Amount).HasColumnName("Price").HasColumnType(PersistenceConventions.MoneyColumnType);
             money.Property(m => m.Currency).HasColumnName("Currency").HasMaxLength(3);
         });
 
-        // Restrict لا Cascade (افتراض EF): حذف فئة لا يجوز أن يمحو منتجاتها —
-        // المنتجات لها حذف منطقي، والفئة ذات المنتجات لا تُحذف أصلاً.
+        // Restrict لا Cascade: حذف فئة لا يجوز أن يمحو منتجاتها.
         builder.HasOne(p => p.Category)
                .WithMany()
                .HasForeignKey(p => p.CategoryId)
                .OnDelete(DeleteBehavior.Restrict);
 
-        // فهرس على CategoryId لأننا نبحث بالفئة كثيراً (مبدأ الأداء).
         builder.HasIndex(p => p.CategoryId);
     }
 }

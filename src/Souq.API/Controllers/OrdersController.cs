@@ -2,15 +2,15 @@ using System.Security.Claims;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Souq.API.Http;
 using Souq.Application.Features.Orders.Commands;
 using Souq.Application.Features.Orders.Queries;
 using Souq.Domain.Common;
 
-// ملاحظة: OrderStatusAction معرّف في Souq.Application.Features.Orders.Commands.
-
 namespace Souq.API.Controllers;
 
 // كل نقاط الطلبات تتطلّب تسجيل الدخول: لا طلب دون هوية معروفة.
+// (فحص الملكية ما زال هنا مؤقتاً — ينتقل إلى Application مع ICurrentUser في المرحلة 1B.)
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
@@ -19,70 +19,56 @@ public class OrdersController : ControllerBase
     private readonly IMediator _mediator;
     public OrdersController(IMediator mediator) => _mediator = mediator;
 
-    // POST /api/orders — إتمام الطلب والدفع.
+    // POST /api/orders — إتمام الطلب والدفع. هوية العميل من التوكن لا من الجسم
+    // (منع انتحال الطلبات). تعارض مخزون متزامن ⇒ 409 من الوسيط المركزي.
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CreateOrderCommand command)
     {
-        // مصدر الحقيقة لهوية العميل هو التوكن لا جسم الطلب — نتجاهل أي CustomerId
-        // مدسوس في الجسم ونفرض هوية المستخدم المصادَق (منع انتحال الطلبات).
         var result = await _mediator.Send(command with { CustomerId = CurrentUserId() });
-        if (!result.IsSuccess)
-            return BadRequest(new { error = result.Error, code = result.ErrorCode });
-
+        if (!result.IsSuccess) return this.Failure(result);
         return CreatedAtAction(nameof(GetById), new { id = result.Value!.OrderId }, result.Value);
     }
 
-    // POST /api/orders/5/confirm-payment — بعد أن يُصادق العميل على الدفع من
-    // متصفّحه مع Stripe مباشرة، يستدعي هذه النقطة كي نتحقّق من النتيجة لدى
-    // بوّابة الدفع نفسها ونُتمّم الطلب. لا يعني نجاح هذا الاستدعاء أن الدفع
-    // بالضرورة نجح — الجسم يحمل الحالة الفعلية بعد التحقّق الحقيقي.
+    // POST /api/orders/5/confirm-payment — بعد مصادقة العميل على الدفع مع Stripe من
+    // متصفّحه؛ نتحقّق من النتيجة لدى البوّابة نفسها. الجسم يحمل الحالة الفعلية.
     [HttpPost("{id:int}/confirm-payment")]
     public async Task<IActionResult> ConfirmPayment(int id)
     {
-        // فحص الملكية أولاً (نفس منطق GetById): لا يؤكّد عميل دفع طلب عميل آخر.
+        // فحص الملكية أولاً: لا يؤكّد عميل دفع طلب عميل آخر.
         var order = await _mediator.Send(new GetOrderByIdQuery(id));
-        if (!order.IsSuccess) return NotFound(new { error = order.Error });
+        if (!order.IsSuccess) return this.Failure(order);
         if (order.Value!.CustomerId != CurrentUserId() && !User.IsInRole(Roles.Admin))
-            return NotFound(new { error = "الطلب غير موجود" });
+            return this.Failure("الطلب غير موجود", "NotFound");
 
         var result = await _mediator.Send(new ConfirmOrderPaymentCommand(id));
-        if (!result.IsSuccess)
-            return BadRequest(new { error = result.Error, code = result.ErrorCode });
-        return Ok(result.Value);
+        return result.IsSuccess ? Ok(result.Value) : this.Failure(result);
     }
 
-    // GET /api/orders/5 — متابعة الطلب. يراه صاحبه أو المدير فقط.
+    // GET /api/orders/5 — يراه صاحبه أو المدير فقط؛ غيرهما يُعامَل كأن الطلب غير موجود
+    // (404 لا 403 — لا نكشف وجود طلبات مستخدمين آخرين).
     [HttpGet("{id:int}")]
     public async Task<IActionResult> GetById(int id)
     {
         var result = await _mediator.Send(new GetOrderByIdQuery(id));
-        if (!result.IsSuccess)
-            return NotFound(new { error = result.Error });
-
-        // فحص الملكية: غير المالك وغير المدير يُعامَل كأن الطلب غير موجود (404)
-        // بدل 403 — كي لا نكشف وجود طلبات مستخدمين آخرين.
+        if (!result.IsSuccess) return this.Failure(result);
         if (result.Value!.CustomerId != CurrentUserId() && !User.IsInRole(Roles.Admin))
-            return NotFound(new { error = "الطلب غير موجود" });
-
+            return this.Failure("الطلب غير موجود", "NotFound");
         return Ok(result.Value);
     }
 
-    // GET /api/orders/mine — طلبات العميل الحالي (شاشة "طلباتي"). الهوية من
-    // التوكن حصراً، فلا حاجة لفحص ملكية إضافي (الاستعلام يجلب طلباته هو فقط).
+    // GET /api/orders/mine — طلبات العميل الحالي. الهوية من التوكن حصراً.
     [HttpGet("mine")]
     public async Task<IActionResult> GetMine()
         => Ok(await _mediator.Send(new GetMyOrdersQuery(CurrentUserId())));
 
-    // GET /api/orders/5/tracking — رابط تتبّع قابل للمشاركة، بلا مصادقة عمداً
-    // (AllowAnonymous يتجاوز [Authorize] على مستوى الـ Controller). العقد
-    // (OrderTrackingDto) مُصمَّم عمداً ليكشف الحدّ الأدنى فقط — لا هوية العميل
-    // ولا عنوانه ولا مبلغه — تحسّباً لتخمين المعرّفات التسلسلية.
+    // GET /api/orders/5/tracking — رابط تتبّع قابل للمشاركة بلا مصادقة عمداً. العقد
+    // يكشف الحدّ الأدنى فقط (رموز تتبّع عشوائية بدل المعرّف في المرحلة 9).
     [HttpGet("{id:int}/tracking")]
     [AllowAnonymous]
     public async Task<IActionResult> GetTracking(int id)
     {
         var result = await _mediator.Send(new GetOrderTrackingQuery(id));
-        return result.IsSuccess ? Ok(result.Value) : NotFound(new { error = result.Error });
+        return result.IsSuccess ? Ok(result.Value) : this.Failure(result);
     }
 
     // GET /api/orders  (مدير) — كل الطلبات مرقّمة لشاشة الإدارة.
@@ -91,26 +77,20 @@ public class OrdersController : ControllerBase
     public async Task<IActionResult> GetAll([FromQuery] int page = 1, [FromQuery] int pageSize = 20)
         => Ok(await _mediator.Send(new GetOrdersQuery(page, pageSize)));
 
-    // PUT /api/orders/5/status  (مدير) — انتقال حالة الطلب (شحن/تسليم/إلغاء).
-    // TrackingNumber/ShippingCarrier ذَواتَي معنى فقط مع Ship (الكيان يتجاهلهما
-    // لأي إجراء آخر)؛ Note اختياري لكل الإجراءات ويُسجَّل في سجلّ تاريخ الطلب.
+    // PUT /api/orders/5/status  (مدير) — شحن/تسليم/إلغاء. الإلغاء يعيد المخزون المحجوز.
     [HttpPut("{id:int}/status")]
     [Authorize(Roles = Roles.Admin)]
     public async Task<IActionResult> UpdateStatus(int id, [FromBody] UpdateOrderStatusRequest body)
     {
         var result = await _mediator.Send(new UpdateOrderStatusCommand(
             id, body.Action, body.Note, body.TrackingNumber, body.ShippingCarrier));
-        if (result.IsSuccess) return NoContent();
-        return result.ErrorCode == "NotFound"
-            ? NotFound(new { error = result.Error })
-            : BadRequest(new { error = result.Error, code = result.ErrorCode });
+        return result.IsSuccess ? NoContent() : this.Failure(result);
     }
 
     private int CurrentUserId() =>
         int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 }
 
-// جسم طلب تحديث الحالة. الإجراء enum يُرسَل كنص ("Ship"/"Deliver"/"Cancel")
-// بفضل JsonStringEnumConverter المسجّل في Program.
+// جسم طلب تحديث الحالة. الإجراء enum يُرسَل كنص ("Ship"/"Deliver"/"Cancel").
 public record UpdateOrderStatusRequest(
     OrderStatusAction Action, string? Note = null, string? TrackingNumber = null, string? ShippingCarrier = null);

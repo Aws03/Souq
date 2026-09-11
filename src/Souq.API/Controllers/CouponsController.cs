@@ -1,7 +1,7 @@
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Souq.Application.Common.Models;
+using Souq.API.Http;
 using Souq.Application.Features.Coupons.Commands;
 using Souq.Application.Features.Coupons.Queries;
 using Souq.Domain.Common;
@@ -20,7 +20,7 @@ public class CouponsController : ControllerBase
     public async Task<IActionResult> Apply([FromQuery] string code, [FromQuery] decimal subtotal, [FromQuery] string currency = "JOD")
     {
         var result = await _mediator.Send(new ApplyCouponQuery(code, subtotal, currency));
-        return result.IsSuccess ? Ok(result.Value) : BadRequest(new { error = result.Error, code = result.ErrorCode });
+        return result.IsSuccess ? Ok(result.Value) : this.Failure(result);
     }
 
     // GET /api/coupons  (مدير) — كل الكوبونات مرقّمة (نشطة ومعطّلة معاً).
@@ -35,9 +35,7 @@ public class CouponsController : ControllerBase
     public async Task<IActionResult> Create([FromBody] CreateCouponCommand command)
     {
         var result = await _mediator.Send(command);
-        if (!result.IsSuccess)
-            return BadRequest(new { error = result.Error, code = result.ErrorCode });
-        return StatusCode(StatusCodes.Status201Created, new { id = result.Value });
+        return result.IsSuccess ? StatusCode(StatusCodes.Status201Created, new { id = result.Value }) : this.Failure(result);
     }
 
     // PUT /api/coupons/5  (مدير) — يفرض معرّف المسار على الأمر.
@@ -46,20 +44,15 @@ public class CouponsController : ControllerBase
     public async Task<IActionResult> Update(int id, [FromBody] UpdateCouponCommand command)
     {
         var result = await _mediator.Send(command with { Id = id });
-        return result.IsSuccess ? NoContent() : MapFailure(result);
+        return result.IsSuccess ? NoContent() : this.Failure(result);
     }
 
-    // DELETE /api/coupons/5  (مدير) — حذف فعلي (آمن: لا مرجع أجنبي إليه، انظر تعليق DeleteCouponCommand).
+    // DELETE /api/coupons/5  (مدير) — حذف فعلي (الطلبات تحمل لقطة نصّية من الرمز فقط).
     [HttpDelete("{id:int}")]
     [Authorize(Roles = Roles.Admin)]
     public async Task<IActionResult> Delete(int id)
     {
         var result = await _mediator.Send(new DeleteCouponCommand(id));
-        return result.IsSuccess ? NoContent() : MapFailure(result);
+        return result.IsSuccess ? NoContent() : this.Failure(result);
     }
-
-    private IActionResult MapFailure(Result result) =>
-        result.ErrorCode == "NotFound"
-            ? NotFound(new { error = result.Error })
-            : BadRequest(new { error = result.Error, code = result.ErrorCode });
 }

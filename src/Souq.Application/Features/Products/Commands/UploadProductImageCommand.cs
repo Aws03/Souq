@@ -1,13 +1,14 @@
 using MediatR;
+using Souq.Application.Common.Files;
 using Souq.Application.Common.Interfaces;
 using Souq.Application.Common.Models;
 using Souq.Domain.Interfaces;
 
 namespace Souq.Application.Features.Products.Commands;
 
-// رفع صورة منتج قائم. يستقبل المحتوى كـ Stream (تفاصيل HTTP/IFormFile تبقى في
-// الـ Controller). يخزّن الملف عبر IFileStorage ويحفظ رابطه في المنتج، ويُعيده.
-public record UploadProductImageCommand(int ProductId, Stream Content, string FileName)
+// رفع صورة منتج قائم. يستقبل المحتوى كـ Stream وطوله فقط — لا اسم ملف ولا نوع من
+// العميل (كلاهما غير موثوق). النوع يُكشف من محتوى الملف نفسه (ADR-0016).
+public record UploadProductImageCommand(int ProductId, Stream Content, long Length)
     : IRequest<Result<string>>;
 
 public class UploadProductImageHandler : IRequestHandler<UploadProductImageCommand, Result<string>>
@@ -27,7 +28,14 @@ public class UploadProductImageHandler : IRequestHandler<UploadProductImageComma
         if (product is null)
             return Result<string>.Failure("المنتج غير موجود", "NotFound");
 
-        var url = await _storage.SaveAsync(cmd.Content, cmd.FileName, ct);
+        if (cmd.Length > MediaFileInspector.MaxImageBytes)
+            return Result<string>.Failure("حجم الصورة يتجاوز 5 ميغابايت", "FileTooLarge");
+
+        var type = await MediaFileInspector.DetectAsync(cmd.Content, ct);
+        if (type is null || type.Category != MediaCategory.Image)
+            return Result<string>.Failure("صيغة الصورة غير مدعومة (JPEG/PNG/WebP/GIF فقط)", "UnsupportedMediaType");
+
+        var url = await _storage.SaveAsync(cmd.Content, "images", type.Extension, ct);
         product.SetImageUrl(url);
         _products.Update(product);
         await _uow.SaveChangesAsync(ct);

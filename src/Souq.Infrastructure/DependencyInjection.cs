@@ -1,18 +1,19 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Souq.Application.Common.Interfaces;
 using Souq.Domain.Interfaces;
 using Souq.Infrastructure.Persistence;
 using Souq.Infrastructure.Persistence.Repositories;
 using Souq.Infrastructure.Services;
-using Microsoft.Extensions.Options;
 
 namespace Souq.Infrastructure;
 
 public static class DependencyInjection
 {
-    public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration config)
+    public static IServiceCollection AddInfrastructure(
+        this IServiceCollection services, IConfiguration config, IHostEnvironment environment)
     {
         // الاتصال بـ SQL Server. سلسلة الاتصال سرّ: تأتي من user-secrets (تطوير)
         // أو متغيرات البيئة (إنتاج) — لا تُخزّن في appsettings المرفوع أبداً.
@@ -35,66 +36,11 @@ public static class DependencyInjection
         services.AddScoped<IReviewRepository, ReviewRepository>();
         services.AddScoped<IStockMovementRepository, StockMovementRepository>();
 
-        // البريد: ترتيب الأولوية Resend ← Brevo ← Gmail SMTP ← طباعة في السجل
-        // فقط. كل مفتاح/كلمة مرور سرّ (متغيّر بيئة، لا يُقرأ أبداً من appsettings
-        // المرفوع). نفس نمط قرار بوّابة الدفع أدناه — Resend وBrevo يتقدّمان على
-        // Gmail لأنهما أوثق للتسليم الفعلي من SMTP (لا حدود إرسال يومية صارمة،
-        // تتبّع تسليم)؛ Resend يتقدّم على Brevo كخيار أول فقط (كلاهما يعمل بنفس الجودة).
-        var resendApiKey = config["Resend:ApiKey"];
-        var brevoApiKey = config["Brevo:ApiKey"];
-        var gmailAppPassword = config["Gmail:AppPassword"];
-        if (!string.IsNullOrWhiteSpace(resendApiKey))
-        {
-            services.Configure<ResendOptions>(o =>
-            {
-                config.GetSection("Resend").Bind(o);
-                o.ApiKey = resendApiKey;
-                // FRONTEND_URL (متغيّر بيئة، أولوية للنشر الشبكي) ثم App:FrontendUrl
-                // (appsettings) ثم افتراضي التطوير المحلي.
-                o.FrontendUrl = config["FRONTEND_URL"] ?? config["App:FrontendUrl"] ?? "http://localhost:5173";
-            });
-            services.AddScoped<IEmailService, ResendEmailService>();
-        }
-        else if (!string.IsNullOrWhiteSpace(brevoApiKey))
-        {
-            services.Configure<BrevoOptions>(o =>
-            {
-                config.GetSection("Brevo").Bind(o);
-                o.ApiKey = brevoApiKey;
-                o.FrontendUrl = config["FRONTEND_URL"] ?? config["App:FrontendUrl"] ?? "http://localhost:5173";
-            });
-            services.AddScoped<IEmailService, BrevoEmailService>();
-        }
-        else if (!string.IsNullOrWhiteSpace(gmailAppPassword))
-        {
-            services.Configure<GmailSmtpOptions>(o =>
-            {
-                config.GetSection("Gmail").Bind(o);
-                // كلمات مرور التطبيقات تعرضها Google بمجموعات تفصلها مسافات
-                // (أحياناً U+00A0 غير القابلة للكسر) وتُلصَق كما هي — ننظّف كل
-                // المسافات دفاعياً بدل فشل مصادقة SMTP غامض (5.7.8 BadCredentials).
-                o.AppPassword = string.Concat(gmailAppPassword.Where(c => !char.IsWhiteSpace(c)));
-                // Gmail:SenderEmail اسم بديل مقبول لـ Gmail:Username (يستخدمه بعض
-                // الإعداد المحلي) — Username الصريح يتقدّم عليه إن وُجد كلاهما.
-                if (string.IsNullOrWhiteSpace(config["Gmail:Username"]) &&
-                    !string.IsNullOrWhiteSpace(config["Gmail:SenderEmail"]))
-                    o.Username = config["Gmail:SenderEmail"]!;
-                // FRONTEND_URL (متغيّر بيئة، أولوية للنشر الشبكي) ثم App:FrontendUrl
-                // (appsettings) ثم افتراضي التطوير المحلي.
-                o.FrontendUrl = config["FRONTEND_URL"] ?? config["App:FrontendUrl"] ?? "http://localhost:5173";
-            });
-            services.AddScoped<IEmailService, GmailEmailService>();
-        }
-        else
-        {
-            services.AddScoped<IEmailService, ConsoleEmailService>();
-        }
+        AddEmail(services, config, environment);
 
-        // بوّابة الدفع: Stripe حقيقي إن وُجد مفتاح سرّي مضبوط (user-secrets/بيئة)،
-        // وإلا محاكاة تجريبية (تطوير محلي بلا حساب Stripe). القرار هنا فقط —
-        // لا كود آخر في النظام يعرف أيّهما يعمل، فكلاهما ينفّذ IPaymentService نفسها.
-        var stripeSecretKey = config["Stripe:SecretKey"];
-        if (!string.IsNullOrWhiteSpace(stripeSecretKey))
+        // بوّابة الدفع: Stripe حقيقي إن وُجد مفتاح سرّي مضبوط، وإلا محاكاة تجريبية.
+        // القرار هنا فقط — لا كود آخر في النظام يعرف أيّهما يعمل.
+        if (!string.IsNullOrWhiteSpace(config["Stripe:SecretKey"]))
         {
             services.AddOptions<StripeSettings>().Bind(config.GetSection("Stripe"));
             services.AddScoped<IPaymentService, StripePaymentService>();
@@ -103,10 +49,10 @@ public static class DependencyInjection
         {
             services.AddScoped<IPaymentService, FakePaymentService>();
         }
-        // تخزين الملفات محلياً (قرص) — يُبدَّل بتخزين سحابي في الإنتاج. مسار المجلد
-        // يُضبط في طبقة الـ API حيث يُعرف wwwroot (Configure<FileStorageOptions>).
+
+        // تخزين ملفات الوسائط محلياً (قرص) — يُبدَّل بتخزين سحابي في الإنتاج. المسار
+        // يُضبط في طبقة الـ API (Configure<FileStorageOptions>).
         services.AddScoped<IFileStorage, LocalFileStorage>();
-        services.AddScoped<IVideoStorage, LocalVideoStorage>();
 
         // ── المصادقة: تجزئة كلمة المرور + إصدار التوكن (عديمة الحالة ⇒ Singleton) ──
         services.AddOptions<JwtSettings>()
@@ -119,4 +65,60 @@ public static class DependencyInjection
 
         return services;
     }
+
+    // البريد: ترتيب الأولوية Resend ← Brevo ← Gmail SMTP ← طباعة في السجل. كل مفتاح
+    // سرّ (متغيّر بيئة/user-secrets). الطباعة في السجل تُظهر الروابط في Development فقط
+    // (لا بريد حقيقي يُرسَل هناك)؛ خارجها لا تظهر أي رموز أو روابط أبداً (Phase 0 B2).
+    private static void AddEmail(IServiceCollection services, IConfiguration config, IHostEnvironment environment)
+    {
+        // FRONTEND_URL (متغيّر بيئة للنشر) ثم App:FrontendUrl ثم افتراضي التطوير المحلي.
+        var frontendUrl = config["FRONTEND_URL"] ?? config["App:FrontendUrl"] ?? "http://localhost:5173";
+        // عنوان المرسِل البديل المشترك بين المزوّدين (Gmail:Username أو اسمه البديل
+        // Gmail:SenderEmail) — لا عنوان شخصي مكتوب في الكود أو appsettings المرفوع.
+        var fallbackSender = FirstNonEmpty(config["Gmail:Username"], config["Gmail:SenderEmail"]);
+
+        if (!string.IsNullOrWhiteSpace(config["Resend:ApiKey"]))
+        {
+            services.Configure<ResendOptions>(o =>
+            {
+                config.GetSection("Resend").Bind(o);
+                o.FrontendUrl = frontendUrl;
+            });
+            services.AddScoped<IEmailService, ResendEmailService>();
+        }
+        else if (!string.IsNullOrWhiteSpace(config["Brevo:ApiKey"]))
+        {
+            services.Configure<BrevoOptions>(o =>
+            {
+                config.GetSection("Brevo").Bind(o);
+                o.SenderEmail = FirstNonEmpty(o.SenderEmail, fallbackSender) ?? "";
+                o.FrontendUrl = frontendUrl;
+            });
+            services.AddScoped<IEmailService, BrevoEmailService>();
+        }
+        else if (!string.IsNullOrWhiteSpace(config["Gmail:AppPassword"]))
+        {
+            services.Configure<GmailSmtpOptions>(o =>
+            {
+                config.GetSection("Gmail").Bind(o);
+                // كلمات مرور التطبيقات تُلصَق أحياناً بمسافات (حتى U+00A0) — ننظّفها دفاعياً.
+                o.AppPassword = string.Concat(o.AppPassword.Where(c => !char.IsWhiteSpace(c)));
+                o.Username = fallbackSender ?? "";
+                o.FrontendUrl = frontendUrl;
+            });
+            services.AddScoped<IEmailService, GmailEmailService>();
+        }
+        else
+        {
+            services.Configure<ConsoleEmailOptions>(o =>
+            {
+                o.IncludeLinksInLog = environment.IsDevelopment();
+                o.FrontendUrl = frontendUrl;
+            });
+            services.AddScoped<IEmailService, ConsoleEmailService>();
+        }
+    }
+
+    private static string? FirstNonEmpty(params string?[] values) =>
+        values.FirstOrDefault(v => !string.IsNullOrWhiteSpace(v));
 }

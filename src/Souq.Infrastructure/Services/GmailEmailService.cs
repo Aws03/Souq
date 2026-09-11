@@ -7,25 +7,22 @@ using Souq.Application.Common.Interfaces;
 
 namespace Souq.Infrastructure.Services;
 
-// إعدادات SMTP جيميل. AppPassword سرّ دوماً (متغيّر بيئة Gmail__AppPassword) —
-// لا يُقرأ من appsettings المرفوع أبداً (انظر AddInfrastructure).
+// إعدادات SMTP جيميل. AppPassword سرّ دوماً (Gmail__AppPassword). Username (عنوان المرسِل)
+// من الإعداد فقط — لا عنوان شخصي مكتوب في الكود (Phase 0 B12).
 // Port: 587 (STARTTLS) قياسياً، أو 465 (TLS ضمني) حين يحجب مزوّد الإنترنت 587.
 public class GmailSmtpOptions
 {
     public string Host { get; set; } = "smtp.gmail.com";
     public int Port { get; set; } = 587;
     public bool EnableSsl { get; set; } = true;
-    public string Username { get; set; } = "aws.03.dev@gmail.com";
+    public string Username { get; set; } = "";
     public string AppPassword { get; set; } = "";
     public string FrontendUrl { get; set; } = "http://localhost:5173";
 }
 
 // ============================================================================
-// GmailEmailService — إرسال حقيقي عبر MailKit (المكتبة التي توصي بها Microsoft
-// رسمياً بدل System.Net.Mail.SmtpClient المُهمل، والذي لا يدعم TLS الضمني على
-// 465 أصلاً — ضروري حين يكون 587 محجوباً). يعمل فقط حين Gmail:AppPassword
-// مضبوط؛ غيابه يُبقي النظام يعمل عبر ConsoleEmailService بدل رمي خطأ عند
-// الإقلاع (نفس نمط الدفع التجريبي).
+// GmailEmailService — إرسال حقيقي عبر MailKit (توصية Microsoft بدل SmtpClient المُهمل،
+// ويدعم TLS الضمني على 465). السجل منقَّح: المستلم والمرسِل مُقنَّعان.
 // ============================================================================
 public class GmailEmailService : IEmailService
 {
@@ -38,10 +35,7 @@ public class GmailEmailService : IEmailService
     }
 
     public Task SendOrderConfirmationAsync(string toEmail, int orderId, CancellationToken ct = default)
-    {
-        var subject = $"تأكيد الطلب #{orderId} — ماركة";
-        return SendAsync(toEmail, subject, EmailTemplates.OrderConfirmation(orderId), ct);
-    }
+        => SendAsync(toEmail, $"تأكيد الطلب #{orderId} — ماركة", EmailTemplates.OrderConfirmation(orderId), ct);
 
     public Task SendPasswordResetEmailAsync(string toEmail, string resetToken, CancellationToken ct = default)
     {
@@ -51,6 +45,14 @@ public class GmailEmailService : IEmailService
 
     private async Task SendAsync(string toEmail, string subject, string htmlBody, CancellationToken ct)
     {
+        var recipient = LogRedaction.MaskEmail(toEmail);
+        if (string.IsNullOrWhiteSpace(_opts.Username))
+        {
+            _logger.LogError("Gmail مضبوط بلا عنوان مرسِل (Gmail:Username) — لم يُرسَل \"{Subject}\" إلى {Recipient}",
+                subject, recipient);
+            return;
+        }
+
         var message = new MimeMessage();
         message.From.Add(new MailboxAddress("ماركة Marka", _opts.Username));
         message.To.Add(MailboxAddress.Parse(toEmail));
@@ -61,14 +63,6 @@ public class GmailEmailService : IEmailService
         var socketOptions = _opts.Port == 465 ? SecureSocketOptions.SslOnConnect
             : _opts.EnableSsl ? SecureSocketOptions.StartTls : SecureSocketOptions.Auto;
 
-        // سجلّ محاولة صريح قبل الإرسال: المستقبِل + الموضوع + الخادم/المنفذ
-        // + المرسِل. بوجوده نعرف من السجل أن الإرسال بدأ فعلاً (لا استُبدل بصمت
-        // بـ ConsoleEmailService) وإلى أي عنوان بالضبط — نقطة البداية في تشخيص
-        // أي شكوى "لم يصلني البريد".
-        _logger.LogInformation(
-            "إرسال بريد Gmail: المستقبِل={Email} الموضوع=\"{Subject}\" المرسِل={From} الخادم={Host}:{Port}",
-            toEmail, subject, _opts.Username, _opts.Host, _opts.Port);
-
         try
         {
             using var client = new SmtpClient();
@@ -76,20 +70,14 @@ public class GmailEmailService : IEmailService
             await client.AuthenticateAsync(_opts.Username, _opts.AppPassword, ct);
             await client.SendAsync(message, ct);
             await client.DisconnectAsync(quit: true, ct);
-            // تأكيد نجاح صريح: بدونه لا سبيل للتفريق بين "أُرسل فعلاً" و"فشل".
-            _logger.LogInformation("✅ نجح إرسال بريد \"{Subject}\" إلى {Email} عبر {Host}:{Port}",
-                subject, toEmail, _opts.Host, _opts.Port);
+            _logger.LogInformation("أُرسل بريد \"{Subject}\" إلى {Recipient} عبر {Host}:{Port}",
+                subject, recipient, _opts.Host, _opts.Port);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            // فشل الإرسال لا يجب أن يُسقط تدفّق العمل (مثلاً: لا نكشف فشل جيميل
-            // لطالب إعادة التعيين — الرسالة الموحّدة "نجاح دائماً" تبقى كما هي).
-            // نسجّل الاستثناء كاملاً (النوع + الرسالة + المكدّس) ليتتبّعه المطوّر.
-            // (MailKit يرمي أنواعاً عدة: مصادقة/أوامر SMTP/شبكة — نلتقطها جميعاً
-            // عدا الإلغاء الذي يخصّ المستدعي.)
-            _logger.LogError(ex,
-                "❌ فشل إرسال بريد عبر Gmail SMTP إلى {Email} (الموضوع=\"{Subject}\" الخادم={Host}:{Port}): {ErrorType}: {ErrorMessage}",
-                toEmail, subject, _opts.Host, _opts.Port, ex.GetType().Name, ex.Message);
+            // فشل الإرسال لا يُسقط تدفّق العمل. نسجّل الاستثناء كاملاً (بلا كلمة المرور).
+            _logger.LogError(ex, "فشل إرسال بريد \"{Subject}\" إلى {Recipient} عبر {Host}:{Port} (المرسِل {Sender})",
+                subject, recipient, _opts.Host, _opts.Port, LogRedaction.MaskEmail(_opts.Username));
         }
     }
 }
