@@ -36,7 +36,7 @@ How should modules be represented physically so that their boundaries are real, 
 
 ## Consequences
 
-- Module isolation depends on the tests staying comprehensive. Every new module adds its dependency test (checklist in [Modules.md §4](../Modules.md#4-how-to-add-a-new-module-checklist)).
+- Module isolation depends on the tests staying comprehensive. Every new module adds its dependency test (checklist in [Modules.md §4](../04-MODULES/Modules.md#4-how-to-add-a-new-module-checklist)).
 - `internal` visibility can't hide module internals from other modules in the same project. Tests are the guard instead.
 
 ## Revisit when

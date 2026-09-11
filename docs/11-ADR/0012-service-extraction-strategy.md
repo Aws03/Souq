@@ -32,7 +32,7 @@ How do we stay "monolith first" without becoming an inseparable ball of mud?
 4. Read replicas.
 5. Dedicated tenant databases.
 
-**Candidates, in likely order:** Notifications → Media processing → Search → Reporting → Payments → Inventory. The per-candidate boundary, contract, data, and messages are listed in [Architecture.md §9](../Architecture.md#9-future-scaling-and-service-extraction).
+**Candidates, in likely order:** Notifications → Media processing → Search → Reporting → Payments → Inventory. The per-candidate boundary, contract, data, and messages are listed in [Architecture.md §9](../02-ARCHITECTURE/Architecture.md#9-future-scaling-and-service-extraction).
 
 ## Why
 

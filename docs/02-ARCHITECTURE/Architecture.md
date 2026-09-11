@@ -1,7 +1,7 @@
 # Souq: Target Architecture
 
-> **Status:** Adopted 2026-09-11 ([ADR-0001](adr/0001-target-architecture.md)). This document describes the architecture that carries Souq through every remaining phase. Where the current code differs, the "Today" notes say so, along with the phase that closes the gap.
-> **Related:** [ArchitectureEvaluation.md](ArchitectureEvaluation.md) (why this and not the alternatives) · [Modules.md](Modules.md) · [MultiTenancy.md](MultiTenancy.md) · [DatabaseDesign.md](DatabaseDesign.md) · [ApiDocumentation.md](ApiDocumentation.md) · [Security.md](Security.md) · [FrontendArchitecture.md](FrontendArchitecture.md) · [WhiteLabel.md](WhiteLabel.md) · [adr/](adr/)
+> **Status:** Adopted 2026-09-11 ([ADR-0001](../11-ADR/0001-target-architecture.md)). This document describes the architecture that carries Souq through every remaining phase. Where the current code differs, the "Today" notes say so, along with the phase that closes the gap.
+> **Related:** [ArchitectureEvaluation.md](ArchitectureEvaluation.md) (why this and not the alternatives) · [Modules.md](../04-MODULES/Modules.md) · [MultiTenancy.md](MultiTenancy.md) · [DatabaseDesign.md](../06-DATABASE/DatabaseDesign.md) · [ApiDocumentation.md](../05-API/ApiDocumentation.md) · [Security.md](../07-SECURITY/Security.md) · [FrontendArchitecture.md](../08-FRONTEND/FrontendArchitecture.md) · [WhiteLabel.md](../08-FRONTEND/WhiteLabel.md) · [adr/](../11-ADR/)
 
 ## 1. Decision in one paragraph
 
@@ -14,7 +14,7 @@ Souq is a **modular monolith**: one deployable ASP.NET Core application plus one
 | **Monolith vs microservices** | *Deployment/runtime*: how many processes and databases run in production | One process, one database (modular monolith) |
 | **Clean Architecture** | *Source dependency direction*: who may reference whom | API → Infrastructure → Application → Domain, enforced by project references + architecture tests |
 | **Hexagonal (ports and adapters)** | *Boundary to the outside world*: how the core talks to technology | Ports (interfaces) in Application; adapters in Infrastructure (driven) and API (driving) |
-| **Modular architecture** | *Business decomposition*: which capability owns which rules and data | 13 modules: 8 already exist in some form, 5 arrive in later phases ([Modules.md](Modules.md)) |
+| **Modular architecture** | *Business decomposition*: which capability owns which rules and data | 13 modules: 8 already exist in some form, 5 arrive in later phases ([Modules.md](../04-MODULES/Modules.md)) |
 | **Vertical slices** | *Code organization*: where one use case's code lives | `Features/<Module>/<UseCase>` (command/query + handler + validator + DTO) |
 | **DDD** | *Modeling discipline*: how business rules are expressed | Aggregates, value objects, and domain services where invariants justify them |
 | **CQRS** | *Read/write separation*: are the read and write models the same? | Separate handlers; writes through aggregates, reads through projections |
@@ -46,7 +46,7 @@ src/
 
 ## 4. Physical structure of modules
 
-**Decision ([ADR-0002](adr/0002-modular-monolith-structure.md)):** modules are **namespaces that cut across the four existing layer projects**. They are not separate projects per module.
+**Decision ([ADR-0002](../11-ADR/0002-modular-monolith-structure.md)):** modules are **namespaces that cut across the four existing layer projects**. They are not separate projects per module.
 
 ```
 Souq.Domain/<Module>/…                          e.g. Souq.Domain.Ordering.Order
@@ -181,7 +181,7 @@ flowchart TB
 
 **Domain services:** only for rules that span aggregates *and* need no I/O, for example a pricing calculator that combines lines, discounts, shipping, and tax (Phase 8). Rules that need a database lookup belong in Application handlers.
 
-**Domain events (Phase 14, [ADR-0034](adr/0034-notifications-outbox.md)):** only for facts with more than one consumer. Aggregates raise them, and they are written to the outbox in the same save as the change. Today there are two:
+**Domain events (Phase 14, [ADR-0034](../11-ADR/0034-notifications-outbox.md)):** only for facts with more than one consumer. Aggregates raise them, and they are written to the outbox in the same save as the change. Today there are two:
 - `OrderStatusChanged` (paid, shipped, delivered, cancelled): feeds the customer's notification and email and the staff's new-order alert.
 - `StockBecameLow`.
 
@@ -228,15 +228,15 @@ Scale in this order, stopping as soon as the problem is solved:
 | Concern | Mechanism | Phase |
 |---|---|---|
 | Validation | FluentValidation + `ValidationBehavior` (async; all commands and queries); `PagedQueryValidator` for every list | ✅ 1A / 1B |
-| Errors | RFC 7807 ProblemDetails, typed `Error`/`ErrorKind`, stable codes, one status table ([ADR-0017](adr/0017-error-contract.md)) | ✅ 1B |
+| Errors | RFC 7807 ProblemDetails, typed `Error`/`ErrorKind`, stable codes, one status table ([ADR-0017](../11-ADR/0017-error-contract.md)) | ✅ 1B |
 | Reads and paging | One projection query service per module; `ToPageAsync` over an ordered query + projection | ✅ 1B |
 | Concurrency | `rowversion` + `ConcurrencyConflictException` → 409 | ✅ 1A |
-| Transactions | Use case owns the unit of work; no transaction spans a network call; compensation; outbox later ([ADR-0021](adr/0021-transaction-boundaries.md)) | ✅ 1B (documented) / 14 (outbox) |
-| Current user and authorization | `ICurrentUser`, permission policies, ownership in use cases, explicit auth on every endpoint ([ADR-0019](adr/0019-authorization-foundation.md)) | ✅ 1B / 3 (roles) |
-| Tenant context | `ITenantContext` from the host + named EF query filter (throws without a tenant) + write guard + tenant-scoped composite FKs + `tid` binding ([MultiTenancy.md §8](MultiTenancy.md#8-implementation-phase-2), [ADR-0022](adr/0022-tenancy-enforcement.md)) | ✅ 2 |
+| Transactions | Use case owns the unit of work; no transaction spans a network call; compensation; outbox later ([ADR-0021](../11-ADR/0021-transaction-boundaries.md)) | ✅ 1B (documented) / 14 (outbox) |
+| Current user and authorization | `ICurrentUser`, permission policies, ownership in use cases, explicit auth on every endpoint ([ADR-0019](../11-ADR/0019-authorization-foundation.md)) | ✅ 1B / 3 (roles) |
+| Tenant context | `ITenantContext` from the host + named EF query filter (throws without a tenant) + write guard + tenant-scoped composite FKs + `tid` binding ([MultiTenancy.md §8](MultiTenancy.md#8-implementation-phase-2), [ADR-0022](../11-ADR/0022-tenancy-enforcement.md)) | ✅ 2 |
 | Time | `TimeProvider`; audit timestamps in a SaveChanges interceptor | ✅ 1B |
-| Logging and correlation | Request line, W3C correlation id, scopes (`CorrelationId`, `UserId`, `UseCase`; `TenantId` in 2), redaction ([ADR-0018](adr/0018-observability.md)) | ✅ 1A redaction / 1B |
-| Configuration | Typed options validated at startup, fail-fast, no implicit dev fallbacks outside Development ([ADR-0020](adr/0020-configuration-and-secrets.md)) | ✅ 1B |
+| Logging and correlation | Request line, W3C correlation id, scopes (`CorrelationId`, `UserId`, `UseCase`; `TenantId` in 2), redaction ([ADR-0018](../11-ADR/0018-observability.md)) | ✅ 1A redaction / 1B |
+| Configuration | Typed options validated at startup, fail-fast, no implicit dev fallbacks outside Development ([ADR-0020](../11-ADR/0020-configuration-and-secrets.md)) | ✅ 1B |
 | Audit | `AuditLog` via a MediatR behavior on `IAuditableCommand` | 4 |
 | Background work | Hosted services (reservation expiry, outbox dispatch) | 6 / 14 |
 | Architecture enforcement | `tests/Souq.ArchitectureTests` (NetArchTest + IL scan) | ✅ 1A / 1B |
@@ -247,7 +247,7 @@ Every integration — payments, email, storage today; shipping (Phase 12) and no
 
 1. **A port exists only at a real boundary:** an external system, or a technology with real variants (payment gateway, email provider, file storage, password hashing, token issuing, current user). A concrete application service with one implementation gets no interface (`OrderStockRelease`, `OrderPaymentConfirmation`). The clock is .NET's own `TimeProvider`.
 2. **Ports speak our language:** `Money`, `Stream`, records. No provider SDK type appears in a port, and provider exceptions are translated at the adapter (`InvalidPaymentWebhookException`, `ConcurrencyConflictException`).
-3. **Every adapter has a stand-in** for development and tests (`FakePaymentService`, `ConsoleEmailService`, the capturing test doubles). Stand-ins are selected implicitly only in Development/Testing ([ADR-0020](adr/0020-configuration-and-secrets.md)).
+3. **Every adapter has a stand-in** for development and tests (`FakePaymentService`, `ConsoleEmailService`, the capturing test doubles). Stand-ins are selected implicitly only in Development/Testing ([ADR-0020](../11-ADR/0020-configuration-and-secrets.md)).
 4. **Adapter settings are typed options validated at startup;** secrets are never logged, and provider errors are logged with masked data and truncated bodies.
-5. **HTTP adapters** use `IHttpClientFactory` with a timeout. Calls happen **outside** database transactions ([ADR-0021](adr/0021-transaction-boundaries.md)).
+5. **HTTP adapters** use `IHttpClientFactory` with a timeout. Calls happen **outside** database transactions ([ADR-0021](../11-ADR/0021-transaction-boundaries.md)).
 6. **Tenant awareness enters inside adapters** (storage key prefix, per-tenant gateway keys, sender identity) without changing the ports.

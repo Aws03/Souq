@@ -1,6 +1,6 @@
 # Souq: Authentication and Authorization
 
-> **Status:** Implemented in **Phase 3**. The decision is [ADR-0010](adr/0010-authentication-authorization.md); the mechanisms are [ADR-0023](adr/0023-sessions-and-credentials.md). Reset-token hashing dates from 1A, and the permission mechanism from 1B ([ADR-0019](adr/0019-authorization-foundation.md)).
+> **Status:** Implemented in **Phase 3**. The decision is [ADR-0010](../11-ADR/0010-authentication-authorization.md); the mechanisms are [ADR-0023](../11-ADR/0023-sessions-and-credentials.md). Reset-token hashing dates from 1A, and the permission mechanism from 1B ([ADR-0019](../11-ADR/0019-authorization-foundation.md)).
 
 ## 1. Identity model
 
@@ -146,7 +146,7 @@ Custom per-store roles are deferred until a client needs them.
   - Only Development falls back to documented credentials: `owner@souq.com` / `Owner@12345` and `admin@souq.com` / `Admin@123`.
   - An existing account is never overwritten.
 
-### Administrative accounts (Phase 4, [ADR-0024](adr/0024-platform-administration.md))
+### Administrative accounts (Phase 4, [ADR-0024](../11-ADR/0024-platform-administration.md))
 
 - **Invitations.**
   - Store staff and admins, platform admins and owners are *invited*, never self-registered.
@@ -205,7 +205,7 @@ Auth endpoints work on store and platform hosts, and while a store is still prov
 
 ## 7. Why custom (evolved) instead of ASP.NET Core Identity or an external IdP
 
-Full reasoning is in [ADR-0010](adr/0010-authentication-authorization.md). In short:
+Full reasoning is in [ADR-0010](../11-ADR/0010-authentication-authorization.md). In short:
 - The existing implementation works and is tested.
 - A Domain-owned `User` keeps Clean Architecture intact.
 - Tenant-scoped uniqueness is natural.
@@ -224,7 +224,7 @@ An external IdP stays possible later without touching business code, because the
 | Sees | All stores, through audited platform use cases | Their store only (query filters) |
 | Configures a store's identity, domain, plan, modules | ✅ | ❌ |
 | Edits their store's content, catalog, orders | Only through an explicit, audited "support mode" (Phase 18) | ✅ |
-| Edits store name, contact, SEO, theme colours | ✅ at provisioning time | ✅ a limited subset after handover ([WhiteLabel.md](WhiteLabel.md)) |
+| Edits store name, contact, SEO, theme colours | ✅ at provisioning time | ✅ a limited subset after handover ([WhiteLabel.md](../08-FRONTEND/WhiteLabel.md)) |
 
 ## 9. Tests
 

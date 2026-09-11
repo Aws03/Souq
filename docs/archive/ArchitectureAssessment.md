@@ -3,7 +3,7 @@
 > **Program:** transform Souq from a single-store application into a **white-label, multi-tenant e-commerce platform**.
 > **Phase:** 0, complete system audit. Read-only: no production code was changed.
 > **Date:** 2026-09-11 · **Audited commit:** `b3eb0d9` (`main`, clean working tree)
-> **Companion:** [ProductRoadmap.md](ProductRoadmap.md) holds the phase plan, the decision log, the risks, and the Definition of Done.
+> **Companion:** [ProductRoadmap.md](../12-ROADMAP/ProductRoadmap.md) holds the phase plan, the decision log, the risks, and the Definition of Done.
 > **History:** [AUDIT.md](AUDIT.md) is the Arabic audit of the *earlier* 8-phase program, which made the single store work end-to-end. This document assesses readiness for the *platform* program.
 
 ## Deliverables index
@@ -11,7 +11,7 @@
 | Requested deliverable | Section |
 |---|---|
 | 1. Architecture assessment | This document |
-| 2. Product roadmap | [ProductRoadmap.md](ProductRoadmap.md) |
+| 2. Product roadmap | [ProductRoadmap.md](../12-ROADMAP/ProductRoadmap.md) |
 | 3. Current Feature Map | [§3](#3-current-feature-map) |
 | 4. Current Entity Map | [§4](#4-current-entity-map-domain) |
 | 5. Current API Map | [§5](#5-current-api-map) |
@@ -239,7 +239,7 @@ There is no versioning.
 ## 6. Current Database Map
 
 - **Engine:** SQL Server 2022.
-- **Source of truth:** EF Core migrations, applied automatically at startup by `DbSeeder.SeedAsync` ([Program.cs:118](../src/Souq.API/Program.cs#L118)). There are 6 migrations:
+- **Source of truth:** EF Core migrations, applied automatically at startup by `DbSeeder.SeedAsync` ([Program.cs:118](../../src/Souq.API/Program.cs#L118)). There are 6 migrations:
   1. `InitialCreate`
   2. `AddCouponsReviewsOrderPayment`
   3. `AddProductBilingualNames`
@@ -291,7 +291,7 @@ erDiagram
 7. **Addresses are free text** (`nvarchar(500)`).
 8. **`database/01_schema.sql` and `02_seed.sql` are stale.** They still describe a single `Name` column, have no Coupons, Reviews, or ledger tables, and seed an admin with the fake hash `HASHED_admin123`. That makes them a second, contradictory source of truth.
 9. **Operations:**
-   - The app connects as `sa` in Docker ([docker-compose.yml:32](../docker-compose.yml#L32)).
+   - The app connects as `sa` in Docker ([docker-compose.yml:32](../../docker-compose.yml#L32)).
    - Migrations run at startup in every environment, which is risky with more than one replica.
 
 ---
@@ -351,8 +351,8 @@ frontend/src/
 - Folders are organized by type, not by feature. There is no platform or account area.
 - One API object covers every domain.
 - The `useEffect` + `useState` fetch/loading/error boilerplate is repeated in about 10 screens, with no caching.
-- The token lives in `localStorage` ([client.js:17](../frontend/src/api/client.js#L17)).
-- The cart is lost on refresh ([CartContext.jsx:36](../frontend/src/context/CartContext.jsx#L36)).
+- The token lives in `localStorage` ([client.js:17](../../frontend/src/api/client.js#L17)).
+- The cart is lost on refresh ([CartContext.jsx:36](../../frontend/src/context/CartContext.jsx#L36)).
 - Hard-coded values:
   - the brand, in 17 source references across 9 files plus the e-mail templates;
   - `JOD`, in 11 frontend references;
@@ -438,57 +438,57 @@ Every item carries an ID used by the roadmap, the file:line evidence, and the ph
 | ID | Finding | Evidence | Fix in |
 |---|---|---|---|
 | A1 | No tenant concept in the Domain, database, API, or UI | 0/9 tables | 2 |
-| A2 | Global uniqueness on `Slug`, `Code`, and `Email` | [CategoryConfiguration.cs:15](../src/Souq.Infrastructure/Persistence/Configurations/CategoryConfiguration.cs#L15), Coupon/Customer configurations | 2 |
-| A3 | Identity, authorization, and commerce profile mixed in `Customer`; roles are strings | [Customer.cs:15](../src/Souq.Domain/Entities/Customer.cs#L15) | 3 |
+| A2 | Global uniqueness on `Slug`, `Code`, and `Email` | [CategoryConfiguration.cs:15](../../src/Souq.Infrastructure/Persistence/Configurations/CategoryConfiguration.cs#L15), Coupon/Customer configurations | 2 |
+| A3 | Identity, authorization, and commerce profile mixed in `Customer`; roles are strings | [Customer.cs:15](../../src/Souq.Domain/Entities/Customer.cs#L15) | 3 |
 | A4 | Brand "Marka" hard-coded in 17 source references (Navbar, Footer, AuthLayout, AdminSidebar, `index.html`, all email services and templates) plus locale strings | grep | 15 (UI), 14 (email) |
-| A5 | Currency hard-coded to JOD: the `Money` defaults, `CreateProductHandler`, `CreateCouponHandler`, the controller default, 11 frontend references | [Money.cs:20](../src/Souq.Domain/ValueObjects/Money.cs#L20), [Money.cs:52](../src/Souq.Domain/ValueObjects/Money.cs#L52), [CreateOrderHandler.cs:65](../src/Souq.Application/Features/Orders/Commands/CreateOrderHandler.cs#L65) | 1B / 15 |
-| A6 | A single global Stripe account set through a static property | [StripePaymentService.cs:16](../src/Souq.Infrastructure/Services/StripePaymentService.cs#L16) | 11 |
-| A7 | The theme is chosen by the *visitor*, and the design tokens are brand-named (`--petrol`, `--saffron`) | [theme/index.js:9](../frontend/src/theme/index.js#L9) | 15 |
+| A5 | Currency hard-coded to JOD: the `Money` defaults, `CreateProductHandler`, `CreateCouponHandler`, the controller default, 11 frontend references | [Money.cs:20](../../src/Souq.Domain/ValueObjects/Money.cs#L20), [Money.cs:52](../../src/Souq.Domain/ValueObjects/Money.cs#L52), [CreateOrderHandler.cs:65](../../src/Souq.Application/Features/Orders/Commands/CreateOrderHandler.cs#L65) | 1B / 15 |
+| A6 | A single global Stripe account set through a static property | [StripePaymentService.cs:16](../../src/Souq.Infrastructure/Services/StripePaymentService.cs#L16) | 11 |
+| A7 | The theme is chosen by the *visitor*, and the design tokens are brand-named (`--petrol`, `--saffron`) | [theme/index.js:9](../../frontend/src/theme/index.js#L9) | 15 |
 | A8 | Global sequential int ids appear in URLs and as order numbers. That leaks platform-wide order volume to each tenant and enables enumeration. | routes `{id:int}` | 2 / 9 |
 | A9 | Server-side messages are Arabic string literals in the Domain and Application layers, so English-UI users see Arabic errors | `DomainException` subclasses, handlers | 1B |
-| A10 | Catalog localization is fixed at exactly two columns, and `Product.Name => NameAr`. A tenant can't be English-only or add a third language cleanly. | [Product.cs:19](../src/Souq.Domain/Entities/Product.cs#L19) | 5 |
+| A10 | Catalog localization is fixed at exactly two columns, and `Product.Name => NameAr`. A tenant can't be English-only or add a third language cleanly. | [Product.cs:19](../../src/Souq.Domain/Entities/Product.cs#L19) | 5 |
 | A11 | File storage, email sender identity, and templates are not tenant-aware | `LocalFileStorage`, `EmailTemplates` | 5 / 14 |
 
 ### B. Security
 
 | ID | Sev. | Finding | Evidence | Fix in |
 |---|---|---|---|---|
-| B1 | **High** | The default admin `admin@souq.com` / `Admin@123` is seeded on every startup in **every environment**, and Docker Compose runs with `ASPNETCORE_ENVIRONMENT=Production` | [DbSeeder.cs:14](../src/Souq.Infrastructure/Persistence/DbSeeder.cs#L14) | 1A |
-| B2 | **High** | Password-reset links (bearer secrets) are logged at Information level by `ConsoleEmailService`, which is the *automatic* fallback in any environment with no email key configured. Anyone with log access can take over accounts. The real providers also log recipient emails and full provider response bodies (PII). | [ConsoleEmailService.cs:33](../src/Souq.Infrastructure/Services/ConsoleEmailService.cs#L33) | 1A |
-| B3 | **High** in a multi-tenant setting | The upload check trusts the client-sent `Content-Type`, and the stored file keeps the client's extension. An `x.html` labelled `image/png` is then served from our own origin: stored XSS that can read the JWT from `localStorage`. Today only the single trusted admin can do this. Once tenant admins exist, it becomes a cross-tenant or platform attack path. *(static analysis)* | [LocalFileStorage.cs:30](../src/Souq.Infrastructure/Services/LocalFileStorage.cs#L30), [ProductsController.cs:104](../src/Souq.API/Controllers/ProductsController.cs#L104) | 1A |
-| B4 | Medium | The JWT sits in `localStorage` and lives 120 minutes, with no refresh or revocation. A role change, password reset, or disabled account does not invalidate existing tokens, and logout is client-side only. | [client.js:17](../frontend/src/api/client.js#L17), [appsettings.json:8](../src/Souq.API/appsettings.json#L8) | 3 |
+| B1 | **High** | The default admin `admin@souq.com` / `Admin@123` is seeded on every startup in **every environment**, and Docker Compose runs with `ASPNETCORE_ENVIRONMENT=Production` | [DbSeeder.cs:14](../../src/Souq.Infrastructure/Persistence/DbSeeder.cs#L14) | 1A |
+| B2 | **High** | Password-reset links (bearer secrets) are logged at Information level by `ConsoleEmailService`, which is the *automatic* fallback in any environment with no email key configured. Anyone with log access can take over accounts. The real providers also log recipient emails and full provider response bodies (PII). | [ConsoleEmailService.cs:33](../../src/Souq.Infrastructure/Services/ConsoleEmailService.cs#L33) | 1A |
+| B3 | **High** in a multi-tenant setting | The upload check trusts the client-sent `Content-Type`, and the stored file keeps the client's extension. An `x.html` labelled `image/png` is then served from our own origin: stored XSS that can read the JWT from `localStorage`. Today only the single trusted admin can do this. Once tenant admins exist, it becomes a cross-tenant or platform attack path. *(static analysis)* | [LocalFileStorage.cs:30](../../src/Souq.Infrastructure/Services/LocalFileStorage.cs#L30), [ProductsController.cs:104](../../src/Souq.API/Controllers/ProductsController.cs#L104) | 1A |
+| B4 | Medium | The JWT sits in `localStorage` and lives 120 minutes, with no refresh or revocation. A role change, password reset, or disabled account does not invalidate existing tokens, and logout is client-side only. | [client.js:17](../../frontend/src/api/client.js#L17), [appsettings.json:8](../../src/Souq.API/appsettings.json#L8) | 3 |
 | B5 | Medium | No rate limiting: login brute force, forgot-password email flooding, and public coupon-code enumeration are all open | Program.cs (none) | 3 |
-| B6 | Medium | Reset tokens are stored in plaintext, so read access to the database means account takeover. They should be stored as a hash. | [Customer.cs:45](../src/Souq.Domain/Entities/Customer.cs#L45) | 3 |
-| B7 | Medium | Ownership checks live in controllers and authorization is role-only: no permissions, no staff role | [OrdersController.cs:45](../src/Souq.API/Controllers/OrdersController.cs#L45), [OrdersController.cs:64](../src/Souq.API/Controllers/OrdersController.cs#L64) | 1B / 3 |
-| B8 | Low | Anonymous tracking works by sequential id, so anyone can enumerate every order's status, tracking number, and **admin notes** (for example cancellation reasons) | [OrdersController.cs:81](../src/Souq.API/Controllers/OrdersController.cs#L81) | 9 |
+| B6 | Medium | Reset tokens are stored in plaintext, so read access to the database means account takeover. They should be stored as a hash. | [Customer.cs:45](../../src/Souq.Domain/Entities/Customer.cs#L45) | 3 |
+| B7 | Medium | Ownership checks live in controllers and authorization is role-only: no permissions, no staff role | [OrdersController.cs:45](../../src/Souq.API/Controllers/OrdersController.cs#L45), [OrdersController.cs:64](../../src/Souq.API/Controllers/OrdersController.cs#L64) | 1B / 3 |
+| B8 | Low | Anonymous tracking works by sequential id, so anyone can enumerate every order's status, tracking number, and **admin notes** (for example cancellation reasons) | [OrdersController.cs:81](../../src/Souq.API/Controllers/OrdersController.cs#L81) | 9 |
 | B9 | Low | No HSTS, HTTPS redirection, or security headers (CSP, `nosniff`, frame options) in either the app or `nginx.conf`. No account lockout or email verification. | Program.cs, nginx.conf | 3 / 20 |
-| B10 | Low | The application connects to the database as `sa` | [docker-compose.yml:32](../docker-compose.yml#L32) | 23 |
+| B10 | Low | The application connects to the database as `sa` | [docker-compose.yml:32](../../docker-compose.yml#L32) | 23 |
 | B11 | Low | npm advisories: `react-router-dom` open redirect (runtime; a non-breaking fix exists). The dev-only Vite/esbuild advisories need a major upgrade. | `npm audit` | 1A / 15 |
-| B12 | Info | A personal e-mail address is hard-coded as a default in code and config. It isn't a secret, but it is PII in a white-label product. | [appsettings.json:12](../src/Souq.API/appsettings.json#L12), `GmailEmailService`, `BrevoOptions` | 1A / 14 |
+| B12 | Info | A personal e-mail address is hard-coded as a default in code and config. It isn't a secret, but it is PII in a white-label product. | [appsettings.json:12](../../src/Souq.API/appsettings.json#L12), `GmailEmailService`, `BrevoOptions` | 1A / 14 |
 
 ### C. Correctness defects (exist today, independent of tenancy)
 
 | ID | Sev. | Finding | Evidence | Fix in |
 |---|---|---|---|---|
 | C1 | **High** | **Overselling race.** There is no concurrency token, so concurrent checkouts for the last unit both succeed. The same race exists on `Coupon.UsedCount` (exceeding `MaxUses`) and on a simultaneous client + webhook confirmation (double coupon count, double email). *(static analysis)* | no `IsRowVersion` in any configuration | ✅ 1B / 6: `rowversion` everywhere it matters; inventory conflicts retry from a fresh read, so the last unit sells once (parallel-checkout tests). ✅ Phase 10: a coupon's use is taken in the checkout transaction with the same retry, so its last use goes to one order, and payment confirms without counting again (concurrent-redemption test) |
-| C2 | **High** | **Cancelling doesn't restock.** Stock is reserved when the order is created, but the admin cancel path never returns it and never writes a `Return` ledger entry. Every cancelled order permanently loses its stock. | [UpdateOrderStatusCommand.cs:43](../src/Souq.Application/Features/Orders/Commands/UpdateOrderStatusCommand.cs#L43) | 1A |
-| C3 | Medium | The payment-failure compensation restocks without a ledger entry, so the ledger no longer reconciles with `StockQuantity` | [ConfirmOrderPaymentCommand.cs:58](../src/Souq.Application/Features/Orders/Commands/ConfirmOrderPaymentCommand.cs#L58) | 1A |
-| C4 | Medium | **Lost stock update through the edit form.** The form sends back the *absolute* stock seen when it was opened. Sales made in the meantime are overwritten and logged as a fake "Adjustment". | [UpdateProductHandler.cs:55](../src/Souq.Application/Features/Products/Commands/UpdateProductHandler.cs#L55) | ✅ 6: the product form carries no stock; corrections are audited deltas with a reason (`POST /api/admin/inventory/{id}/adjustments`) |
-| C5 | Medium | **Money precision.** The `decimal(18,2)` columns can't hold 3-decimal JOD, so `12.345` is stored as `12.35`. The Stripe conversion also assumes 2 decimals. | [ProductConfiguration.cs:28](../src/Souq.Infrastructure/Persistence/Configurations/ProductConfiguration.cs#L28) | 1B |
-| C6 | Medium | **Orphaned Pending orders.** The two-save flow, plus the lack of any expiry job, means abandoned or failed checkouts hold stock forever | [CreateOrderHandler.cs:99](../src/Souq.Application/Features/Orders/Commands/CreateOrderHandler.cs#L99) | ✅ 6: reservations expire and a sweep settles abandoned checkouts, cancelling the payment intent first |
+| C2 | **High** | **Cancelling doesn't restock.** Stock is reserved when the order is created, but the admin cancel path never returns it and never writes a `Return` ledger entry. Every cancelled order permanently loses its stock. | [UpdateOrderStatusCommand.cs:43](../../src/Souq.Application/Features/Orders/Commands/UpdateOrderStatusCommand.cs#L43) | 1A |
+| C3 | Medium | The payment-failure compensation restocks without a ledger entry, so the ledger no longer reconciles with `StockQuantity` | [ConfirmOrderPaymentCommand.cs:58](../../src/Souq.Application/Features/Orders/Commands/ConfirmOrderPaymentCommand.cs#L58) | 1A |
+| C4 | Medium | **Lost stock update through the edit form.** The form sends back the *absolute* stock seen when it was opened. Sales made in the meantime are overwritten and logged as a fake "Adjustment". | [UpdateProductHandler.cs:55](../../src/Souq.Application/Features/Products/Commands/UpdateProductHandler.cs#L55) | ✅ 6: the product form carries no stock; corrections are audited deltas with a reason (`POST /api/admin/inventory/{id}/adjustments`) |
+| C5 | Medium | **Money precision.** The `decimal(18,2)` columns can't hold 3-decimal JOD, so `12.345` is stored as `12.35`. The Stripe conversion also assumes 2 decimals. | [ProductConfiguration.cs:28](../../src/Souq.Infrastructure/Persistence/Configurations/ProductConfiguration.cs#L28) | 1B |
+| C6 | Medium | **Orphaned Pending orders.** The two-save flow, plus the lack of any expiry job, means abandoned or failed checkouts hold stock forever | [CreateOrderHandler.cs:99](../../src/Souq.Application/Features/Orders/Commands/CreateOrderHandler.cs#L99) | ✅ 6: reservations expire and a sweep settles abandoned checkouts, cancelling the payment intent first |
 | C7 | Medium | Deactivated products can't be listed or reactivated by admins. The admin screen uses the active-only public endpoint, and there is no reactivate endpoint even though `Product.Activate()` exists. "Delete" is effectively irreversible. | `admin/Products.jsx` | ✅ 5: `/api/admin/products` lists every status; publish, draft, archive and restore through `PUT /api/admin/products/{id}/status` |
-| C8 | Medium | **The admin category filter is silently broken.** The UI sends `categoryId`, but the API binds `categoryIds`. | [Products.jsx:37](../frontend/src/pages/admin/Products.jsx#L37) | 1A |
-| C9 | Low | Paging is never validated. `page ≤ 0` or `pageSize ≤ 0` produces a negative OFFSET or zero FETCH, which becomes a SQL error and a 500. An unbounded `pageSize` makes queries heavy. No `Get*` query has a validator. *(static analysis)* | [ProductRepository.cs:63](../src/Souq.Infrastructure/Persistence/Repositories/ProductRepository.cs#L63) | 1B |
-| C10 | Low | `Order.Cancel` allows Cancelled → Cancelled (a duplicate history row). Paid → Cancelled has no refund. | [Order.cs:138](../src/Souq.Domain/Entities/Order.cs#L138) | 1A / 11 |
-| C11 | Low | `Money`'s `ArgumentException`/`InvalidOperationException` and `DbUpdateException` (unique-constraint races) aren't mapped, so they surface as **500** instead of 400 or 409 | [ExceptionHandlingMiddleware.cs:33](../src/Souq.API/Middleware/ExceptionHandlingMiddleware.cs#L33) | 1B |
-| C12 | Low | The cart is lost on refresh, and shipping is always displayed as "Free" because the server has no shipping concept | [CartSummary.jsx:9](../frontend/src/components/cart/CartSummary.jsx#L9) | 8 / 12 |
-| C13 | Low | The review list performs N+1 customer lookups | [GetProductReviewsQuery.cs:31](../src/Souq.Application/Features/Reviews/Queries/GetProductReviewsQuery.cs#L31) | 13 |
+| C8 | Medium | **The admin category filter is silently broken.** The UI sends `categoryId`, but the API binds `categoryIds`. | [Products.jsx:37](../../frontend/src/pages/admin/Products.jsx#L37) | 1A |
+| C9 | Low | Paging is never validated. `page ≤ 0` or `pageSize ≤ 0` produces a negative OFFSET or zero FETCH, which becomes a SQL error and a 500. An unbounded `pageSize` makes queries heavy. No `Get*` query has a validator. *(static analysis)* | [ProductRepository.cs:63](../../src/Souq.Infrastructure/Persistence/Repositories/ProductRepository.cs#L63) | 1B |
+| C10 | Low | `Order.Cancel` allows Cancelled → Cancelled (a duplicate history row). Paid → Cancelled has no refund. | [Order.cs:138](../../src/Souq.Domain/Entities/Order.cs#L138) | 1A / 11 |
+| C11 | Low | `Money`'s `ArgumentException`/`InvalidOperationException` and `DbUpdateException` (unique-constraint races) aren't mapped, so they surface as **500** instead of 400 or 409 | [ExceptionHandlingMiddleware.cs:33](../../src/Souq.API/Middleware/ExceptionHandlingMiddleware.cs#L33) | 1B |
+| C12 | Low | The cart is lost on refresh, and shipping is always displayed as "Free" because the server has no shipping concept | [CartSummary.jsx:9](../../frontend/src/components/cart/CartSummary.jsx#L9) | 8 / 12 |
+| C13 | Low | The review list performs N+1 customer lookups | [GetProductReviewsQuery.cs:31](../../src/Souq.Application/Features/Reviews/Queries/GetProductReviewsQuery.cs#L31) | 13 |
 
 ### D. Design and coupling
 
 | ID | Finding | Why it matters | Fix in |
 |---|---|---|---|
-| D1 | The Stripe SDK is used in a controller ([PaymentsController.cs:4](../src/Souq.API/Controllers/PaymentsController.cs#L4), [:45](../src/Souq.API/Controllers/PaymentsController.cs#L45)) | Infrastructure leaks into the API. A second gateway would mean editing the controller. Webhook parsing belongs behind the gateway abstraction. | 1B |
+| D1 | The Stripe SDK is used in a controller ([PaymentsController.cs:4](../../src/Souq.API/Controllers/PaymentsController.cs#L4), [:45](../../src/Souq.API/Controllers/PaymentsController.cs#L45)) | Infrastructure leaks into the API. A second gateway would mean editing the controller. Webhook parsing belongs behind the gateway abstraction. | 1B |
 | D2 | `StripeConfiguration.ApiKey` is a static global, set in a scoped constructor | Hidden global mutable state that blocks per-tenant keys. Use `StripeClient` instances instead. | 1B / 11 |
 | D3 | The read side has **repository method explosion and over-fetching**: `SearchAsync` has 8 parameters, and list queries load full entities with `Include` and then map in memory | About 15 admin listings are coming. This doesn't scale in maintainability or performance. | 1B (pattern), 5+ |
 | D4 | `ProductSortBy` lives in the Domain only because of a repository signature | A query concern polluting the Domain | 1B |
@@ -528,7 +528,7 @@ Every item carries an ID used by the roadmap, the file:line evidence, and the ph
 |---|---|---|
 | G1 | 4 `.vs/` IDE cache files are tracked despite `.gitignore` | 1A |
 | G2 | The hand-written `database/*.sql` scripts are stale (§6) | 1A |
-| G3 | The Docker default `FRONTEND_URL` is a LAN IP (`192.168.1.34`) ([docker-compose.yml:55](../docker-compose.yml#L55)) | 1A |
+| G3 | The Docker default `FRONTEND_URL` is a LAN IP (`192.168.1.34`) ([docker-compose.yml:55](../../docker-compose.yml#L55)) | 1A |
 | G4 | Naming: "Souq" (platform) vs "Marka" (brand) is mixed across docs and UI | 2 (P-04) |
 | G5 | **Licensing.** FluentAssertions 8.x uses the Xceed license, which requires a paid license for commercial use (7.x is Apache-2.0). MediatR ≥ 13 moved to a commercial license, and the project is on 12.4 (Apache-2.0), so keep it pinned. The repository itself is MIT and has a GitHub remote. *Verify current terms before selling.* | 1A (P-02), 23 (P-03) |
 
@@ -926,13 +926,13 @@ frontend/src/
    - From Phase 15, the frontend reads the configuration instead of literals.
 6. **Isolation first.**
    - From Phase 2 onwards, every new tenant-owned table must come with isolation tests before its phase can close.
-   - This is in the Definition of Done ([ProductRoadmap §9](ProductRoadmap.md#9-definition-of-done-every-phase)).
+   - This is in the Definition of Done ([ProductRoadmap §9](../12-ROADMAP/ProductRoadmap.md#9-definition-of-done-every-phase)).
 
 ---
 
 ## 13. Recommended implementation order
 
-This is the brief's 23-phase order with four adjustments, which are justified in [ProductRoadmap §5](ProductRoadmap.md#5-recommended-changes-to-the-original-23-phase-plan):
+This is the brief's 23-phase order with four adjustments, which are justified in [ProductRoadmap §5](../12-ROADMAP/ProductRoadmap.md#5-recommended-changes-to-the-original-23-phase-plan):
 
 | Gate | Phase | One-line goal |
 |---|---|---|
@@ -1039,11 +1039,11 @@ Every finding closed in Phase 1A has at least one automated test; the column say
 - A1–A11: tenancy and white-label (Phases 2–15).
 - B4/B5: token lifetime, revocation, rate limiting (Phase 3).
 - B7: ownership checks in controllers (1B).
-- B8: ✅ tracking by a random token, and the sequential-id route removed (Phase 9, [ADR-0029](adr/0029-orders-lifecycle.md)).
+- B8: ✅ tracking by a random token, and the sequential-id route removed (Phase 9, [ADR-0029](../11-ADR/0029-orders-lifecycle.md)).
 - B9: security headers beyond `/uploads` (20).
 - B10: `sa` login (23).
 - C7: reactivating products (5).
-- C12: persisted cart ✅ (Phase 8, [ADR-0028](adr/0028-basket-and-pricing-pipeline.md)); shipping (12).
+- C12: persisted cart ✅ (Phase 8, [ADR-0028](../11-ADR/0028-basket-and-pricing-pipeline.md)); shipping (12).
 - C13: review N+1 (13).
 - D3/D4/D6/D12: read-side query services, `ProductSortBy`, error strategy, `TimeProvider` (1B).
 - E1–E6: frontend structure (15).
@@ -1060,12 +1060,12 @@ Same conventions as §16. Phase 1B also found and fixed three problems the Phase
 | C13 | Review list N+1 | ✅ Reviewer name by JOIN: a constant 3 queries | Integration: executed SQL commands counted |
 | D3 | Repository method explosion and over-fetching | ✅ One projection query service per module; repositories trimmed to write needs | Integration: paging, filters, sort determinism |
 | D4 | `ProductSortBy` in the Domain | ✅ Moved to the catalog read contract | Build |
-| D5 | Duplicated, non-standard error mapping | ✅ RFC 7807 ProblemDetails + stable codes + one status table ([ADR-0017](adr/0017-error-contract.md)) | Integration (every error class) + unit (exception mapping) |
+| D5 | Duplicated, non-standard error mapping | ✅ RFC 7807 ProblemDetails + stable codes + one status table ([ADR-0017](../11-ADR/0017-error-contract.md)) | Integration (every error class) + unit (exception mapping) |
 | D6 | Mixed error strategies | ✅ Handler-decided outcomes → `Result`; entity rules → `DomainException` (422); handlers never catch domain exceptions | Unit |
 | D7 | `Update()` on tracked entities | ✅ Removed from the repository contract | Build + existing tests |
 | D10 | `Program.cs` configures Infrastructure options | ✅ Storage options registered and validated in Infrastructure | Integration: startup |
 | D12 | `DateTime.UtcNow` in the Domain and handlers | ✅ `TimeProvider`; an interceptor stamps audit fields | Arch (IL scan) + Integration (fixed clock) |
-| **New** | The fake payment gateway, which confirms every payment, was selected automatically whenever no Stripe key was set — including in the Production Docker stack | ✅ Implicit only in Development/Testing; elsewhere startup fails unless it is chosen explicitly, and then it is logged at every start ([ADR-0020](adr/0020-configuration-and-secrets.md)) | Unit (selector) + Integration (startup refusal) |
+| **New** | The fake payment gateway, which confirms every payment, was selected automatically whenever no Stripe key was set — including in the Production Docker stack | ✅ Implicit only in Development/Testing; elsewhere startup fails unless it is chosen explicitly, and then it is logged at every start ([ADR-0020](../11-ADR/0020-configuration-and-secrets.md)) | Unit (selector) + Integration (startup refusal) |
 | **New** | Four lists had no paging: my orders, inventory, low stock, stock ledger | ✅ Paged with the shared validator | Integration |
 | **New** | Email providers used a static `HttpClient` with a 100 s timeout on the request path | ✅ `IHttpClientFactory` clients with a 15 s timeout | Build |
 

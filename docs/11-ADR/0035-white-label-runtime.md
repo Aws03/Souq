@@ -5,7 +5,7 @@
   - [ADR-0006](0006-tenant-resolution.md): the store comes from the host, resolved by the server.
   - [ADR-0022](0022-tenancy-enforcement.md): module flags enforced on the server (`404 ModuleDisabled`).
   - [ADR-0024](0024-platform-administration.md): store settings and branding, and the public storefront config endpoint with an ETag (Phase 4).
-  - [WhiteLabel.md](../WhiteLabel.md) and [FrontendArchitecture.md](../FrontendArchitecture.md).
+  - [WhiteLabel.md](../08-FRONTEND/WhiteLabel.md) and [FrontendArchitecture.md](../08-FRONTEND/FrontendArchitecture.md).
 
 ## Context
 

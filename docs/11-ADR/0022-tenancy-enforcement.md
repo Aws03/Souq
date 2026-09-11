@@ -62,5 +62,5 @@ ADR-0005 and ADR-0006 fixed the model: one database, a `TenantId` on every tenan
 ## Revisit when
 
 - The app runs on more than one instance and 60-second tenant-status staleness becomes unacceptable.
-- A client requires physical isolation. The hybrid database-per-tenant path is described in [MultiTenancy.md §6](../MultiTenancy.md).
+- A client requires physical isolation. The hybrid database-per-tenant path is described in [MultiTenancy.md §6](../02-ARCHITECTURE/MultiTenancy.md).
 - SQL Server Row-Level Security is adopted as extra defence in depth (Phase 20).

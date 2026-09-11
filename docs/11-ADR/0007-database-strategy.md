@@ -1,6 +1,6 @@
 # ADR-0007: Database strategy
 
-- **Status:** Accepted, 2026-09-11. Principles apply from Phase 1A. Details: [DatabaseDesign.md](../DatabaseDesign.md).
+- **Status:** Accepted, 2026-09-11. Principles apply from Phase 1A. Details: [DatabaseDesign.md](../06-DATABASE/DatabaseDesign.md).
 
 ## Context
 

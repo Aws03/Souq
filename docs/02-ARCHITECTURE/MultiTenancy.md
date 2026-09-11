@@ -1,6 +1,6 @@
 # Souq: Multi-Tenancy Architecture
 
-> **Status:** Design adopted 2026-09-11 ([ADR-0005](adr/0005-multi-tenancy-model.md), [ADR-0006](adr/0006-tenant-resolution.md)). **Implemented in Phase 2** (2026-09-11). The implementation details are in [ADR-0022](adr/0022-tenancy-enforcement.md), and the component map is in §8.
+> **Status:** Design adopted 2026-09-11 ([ADR-0005](../11-ADR/0005-multi-tenancy-model.md), [ADR-0006](../11-ADR/0006-tenant-resolution.md)). **Implemented in Phase 2** (2026-09-11). The implementation details are in [ADR-0022](../11-ADR/0022-tenancy-enforcement.md), and the component map is in §8.
 
 ## 1. Decision
 
@@ -104,7 +104,7 @@ sequenceDiagram
 - **Missing context:** querying tenant-owned data with no tenant resolved → exception.
 - **Uniqueness per tenant:** the same slug, coupon code, email, or SKU succeeds in A and B but fails twice in A.
 - **Platform bypass:** a platform aggregate query sees both tenants; the same query from a tenant context sees one.
-- These tests run against **real SQL Server** (Testcontainers), because query filters and unique indexes are provider behaviour ([ADR-0015](adr/0015-testing-strategy.md)).
+- These tests run against **real SQL Server** (Testcontainers), because query filters and unique indexes are provider behaviour ([ADR-0015](../11-ADR/0015-testing-strategy.md)).
 
 The harness exists since Phase 1A. It already proves **user-level** isolation: customer A can't read customer B's orders.
 
@@ -121,7 +121,7 @@ The harness exists since Phase 1A. It already proves **user-level** isolation: c
 2. No foreign keys between tenant-owned data and other tenants' data.
 3. Platform tables (`Tenants`, `TenantDomains`, platform users) are separable from tenant tables.
 4. Features never build connection strings. Only the resolver seam does.
-5. Moving a tenant keeps its `int` ids (the dedicated database is empty, so `IDENTITY_INSERT` is safe). Merging tenants is *not* supported, and that is intentional ([ADR-0007](adr/0007-database-strategy.md)).
+5. Moving a tenant keeps its `int` ids (the dedicated database is empty, so `IDENTITY_INSERT` is safe). Merging tenants is *not* supported, and that is intentional ([ADR-0007](../11-ADR/0007-database-strategy.md)).
 
 **Revisit conditions:**
 - A contract requires physical isolation.
@@ -161,8 +161,8 @@ The harness exists since Phase 1A. It already proves **user-level** isolation: c
 | Explicit store currency (`Money` has no default); `Order.Currency` snapshot | Domain + handlers | `ApplyCouponHandlerTests`, `CreateProductHandlerTests` |
 
 **Left for later phases, by design:**
-- ✅ Platform read use cases through a reviewed and audited `PlatformQueries` (done in Phase 4, [ADR-0024](adr/0024-platform-administration.md)).
-- ✅ Identity split, so that platform users have `TenantId NULL` (done in Phase 3, [ADR-0023](adr/0023-sessions-and-credentials.md)).
+- ✅ Platform read use cases through a reviewed and audited `PlatformQueries` (done in Phase 4, [ADR-0024](../11-ADR/0024-platform-administration.md)).
+- ✅ Identity split, so that platform users have `TenantId NULL` (done in Phase 3, [ADR-0023](../11-ADR/0023-sessions-and-credentials.md)).
 - Distributed cache invalidation when the app scales out (ADR-0022 §8).
 - Optional SQL Server Row-Level Security (Phase 20).
 

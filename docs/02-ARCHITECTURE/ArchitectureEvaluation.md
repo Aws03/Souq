@@ -1,7 +1,7 @@
 # Architecture Styles: Evaluation for Souq
 
 > **Purpose:** choose the *smallest* architecture that gives Souq strong long-term boundaries without premature complexity.
-> **Decision recorded in:** [ADR-0001](adr/0001-target-architecture.md). **Target described in:** [Architecture.md](Architecture.md).
+> **Decision recorded in:** [ADR-0001](../11-ADR/0001-target-architecture.md). **Target described in:** [Architecture.md](Architecture.md).
 > **Date:** 2026-09-11
 
 ## 0. First, a category error to avoid
@@ -263,4 +263,4 @@ CQRS comes in increasingly expensive levels:
 - **"Plain Clean Architecture, no modules."** Cheaper this month, but with 16 capabilities in one Application project, cross-feature coupling (for example Ordering mutating Catalog entities directly, which happens today) grows unchecked, and later extraction becomes a rewrite.
 - **"Vertical slices only, no layers."** Less ceremony, but it would discard working compile-time layer boundaries and invite business rules to be duplicated across slices.
 
-The one refinement I add: **modules are enforced by architecture tests over namespaces inside the existing four layer projects**, not by a separate project per module. The reasons, and the conditions for revisiting this, are in [ADR-0002](adr/0002-modular-monolith-structure.md).
+The one refinement I add: **modules are enforced by architecture tests over namespaces inside the existing four layer projects**, not by a separate project per module. The reasons, and the conditions for revisiting this, are in [ADR-0002](../11-ADR/0002-modular-monolith-structure.md).

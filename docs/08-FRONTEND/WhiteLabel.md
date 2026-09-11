@@ -1,7 +1,7 @@
 # Souq: White-Label Architecture
 
-> **Status:** Target adopted 2026-09-11 ([ADR-0011](adr/0011-white-label-architecture.md)).
-> - **Backend configuration: ✅ Phase 4** ([ADR-0024](adr/0024-platform-administration.md)).
+> **Status:** Target adopted 2026-09-11 ([ADR-0011](../11-ADR/0011-white-label-architecture.md)).
+> - **Backend configuration: ✅ Phase 4** ([ADR-0024](../11-ADR/0024-platform-administration.md)).
 >   - A validated settings model: per-language texts, WCAG-checked colours, preset fonts and themes, allowlisted social links.
 >   - Branding uploads.
 >   - Module flags.
@@ -38,7 +38,7 @@ If a client asks for something none of those can express, it becomes a product f
 | Social links | ✅ | ✅ | An allowlist of networks; `https` URLs only |
 | SEO: title template, description, OG image | ✅ | ✅ | Length limits; per language |
 | Domains (custom, subdomain) | ✅ | ❌ (can request) | Unique globally; DNS verification; one primary |
-| Enabled modules | ✅ (within the plan) | ❌ | Enforced server-side ([MultiTenancy.md](MultiTenancy.md), D-11) |
+| Enabled modules | ✅ (within the plan) | ❌ | Enforced server-side ([MultiTenancy.md](../02-ARCHITECTURE/MultiTenancy.md), D-11) |
 | Plan and limits | ✅ | ❌ | Later (subscriptions) |
 | Email sender identity and templates | ✅ | ✅ (template text) | Sender domain needs SPF/DKIM verification (Phase 14/23) |
 
@@ -62,7 +62,7 @@ sequenceDiagram
 ```
 
 - **The config endpoint is public and resolved from the host.** It returns only presentation data: no secrets, no internal ids beyond what the UI needs. It is cached in memory per tenant and invalidated when settings change, and the ETag lets browsers revalidate cheaply.
-- **Semantic design tokens** (✅ Phase 15, [ADR-0035](adr/0035-white-label-runtime.md)):
+- **Semantic design tokens** (✅ Phase 15, [ADR-0035](../11-ADR/0035-white-label-runtime.md)):
   - Components use only these tokens:
     - `--color-primary`, `--color-secondary`, `--color-accent`;
     - `--color-bg`, `--color-surface`, `--color-text`, `--color-text-muted`, `--color-border`;
@@ -94,7 +94,7 @@ sequenceDiagram
 ## 6. Migration from today
 
 1. ✅ **Phase 4:** create the settings model and seed tenant #1 "Marka Demo" with today's exact look (petrol/saffron, Reem Kufi/Tajawal/Inter as preset `kufi-tajawal`, footer contact, announcement text). Marka stops being the product and becomes a tenant.
-2. ✅ **Phase 15** ([ADR-0035](adr/0035-white-label-runtime.md)):
+2. ✅ **Phase 15** ([ADR-0035](../11-ADR/0035-white-label-runtime.md)):
    - The brand references and the hard-coded `JOD` are removed from the frontend, `index.html` and the committed backend configuration.
    - Tenant branding replaces the visitor theme switcher.
    - The four old palettes aren't offered to visitors anymore. Selectable colour presets belong in the branding editor (Phases 17–18); until then a store's colours are set through the settings API.

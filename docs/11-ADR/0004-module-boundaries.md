@@ -18,7 +18,7 @@ Which modules exist? What does each own? How may they interact without losing ch
 
 ## Decision
 
-- **13 capability modules** ([Modules.md](../Modules.md)): Platform, Identity, Catalog, Inventory, Customers, Shopping, Ordering, Payments, Promotions, Shipping, Reviews, Notifications, Reporting.
+- **13 capability modules** ([Modules.md](../04-MODULES/Modules.md)): Platform, Identity, Catalog, Inventory, Customers, Shopping, Ordering, Payments, Promotions, Shipping, Reviews, Notifications, Reporting.
 - Categories merge into Catalog. Basket and Wishlist merge into Shopping.
 - Platform Administration and Storefront are **API/UI areas, not modules**.
 - **Communication rules:**

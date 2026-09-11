@@ -1,6 +1,6 @@
 # Souq: Development Guide
 
-> For anyone (including future you) changing the code. Architecture: [Architecture.md](Architecture.md). Plan and status: [ProductRoadmap.md](ProductRoadmap.md).
+> For anyone (including future you) changing the code. Architecture: [Architecture.md](../02-ARCHITECTURE/Architecture.md). Plan and status: [ProductRoadmap.md](../12-ROADMAP/ProductRoadmap.md).
 
 ## 1. Prerequisites
 
@@ -32,9 +32,9 @@ dotnet run --project src/Souq.API                  # http://localhost:5200/swagg
 cd frontend && npm install && npm run dev          # http://localhost:5173
 ```
 
-**Startup validation:** settings are checked before the database is touched. A missing connection string or a `Jwt:Key` shorter than 32 bytes stops the API with a message naming the key. Development uses the fake payment gateway automatically when no Stripe key is set; other environments need Stripe keys or an explicit `Payments:Provider=Fake` ([ADR-0020](adr/0020-configuration-and-secrets.md)). `Inventory:ReservationMinutes` (5–1440, default 30) is how long an unpaid checkout holds stock, and `Inventory:SweepIntervalSeconds` (0 = off, else 10–3600, default 60) is how often the expiry sweep runs. Integration tests turn the sweep off and send `ExpireStaleCheckoutsCommand` directly ([ADR-0026](adr/0026-inventory-reservations.md)). Baskets expire after `Basket:GuestLifetimeDays` (1–365, default 30) or `Basket:CustomerLifetimeDays` (1–730, default 180) without a change. Every `Basket:CleanupIntervalMinutes` (0 = off, else 5–1440, default 60) a sweep deletes them. Integration tests turn it off and send `PurgeExpiredBasketsCommand` directly ([ADR-0028](adr/0028-basket-and-pricing-pipeline.md)).
+**Startup validation:** settings are checked before the database is touched. A missing connection string or a `Jwt:Key` shorter than 32 bytes stops the API with a message naming the key. Development uses the fake payment gateway automatically when no Stripe key is set; other environments need Stripe keys or an explicit `Payments:Provider=Fake` ([ADR-0020](../11-ADR/0020-configuration-and-secrets.md)). `Inventory:ReservationMinutes` (5–1440, default 30) is how long an unpaid checkout holds stock, and `Inventory:SweepIntervalSeconds` (0 = off, else 10–3600, default 60) is how often the expiry sweep runs. Integration tests turn the sweep off and send `ExpireStaleCheckoutsCommand` directly ([ADR-0026](../11-ADR/0026-inventory-reservations.md)). Baskets expire after `Basket:GuestLifetimeDays` (1–365, default 30) or `Basket:CustomerLifetimeDays` (1–730, default 180) without a change. Every `Basket:CleanupIntervalMinutes` (0 = off, else 5–1440, default 60) a sweep deletes them. Integration tests turn it off and send `PurgeExpiredBasketsCommand` directly ([ADR-0028](../11-ADR/0028-basket-and-pricing-pipeline.md)).
 
-**Store payment keys (Phase 11, [ADR-0031](adr/0031-payments-and-refunds.md)):**
+**Store payment keys (Phase 11, [ADR-0031](../11-ADR/0031-payments-and-refunds.md)):**
 - **Encryption:** stores' own Stripe keys are encrypted with `Secrets:Keys:{id}` (base64 of exactly 32 bytes), using the key named by `Secrets:ActiveKeyId`. The setting is optional: without it, stores can't connect an account. A malformed key stops startup.
 - **Rotating the key:**
   1. Add a new id.
@@ -45,7 +45,7 @@ cd frontend && npm install && npm run dev          # http://localhost:5173
 
 **Docker (full stack):** `cp .env.example .env`, fill in the values, then `docker compose up --build`. The stack runs in Production mode: no admin exists unless `SEED_ADMIN_EMAIL`/`SEED_ADMIN_PASSWORD` are set, and the API refuses to start without Stripe keys unless `PAYMENTS_PROVIDER=Fake` is set for a demo. Set `SECRETS_KEY` to let stores connect their own Stripe accounts. The default store is bound to `localhost` explicitly through `DEFAULT_TENANT_HOSTS`. Production has no fallback store for unknown hosts.
 
-**Several stores locally (Phase 2):** the store comes from the host ([ADR-0006](adr/0006-tenant-resolution.md)).
+**Several stores locally (Phase 2):** the store comes from the host ([ADR-0006](../11-ADR/0006-tenant-resolution.md)).
 - In Development, `localhost` is the seeded default store. Set `Tenancy:LocalDefaultTenant` to serve another store's slug there instead.
 - `http://{slug}.localhost:5173` is any other store; browsers resolve `*.localhost` to 127.0.0.1 with no setup.
 - `http://admin.localhost:5173` is the platform area.
@@ -104,13 +104,13 @@ Every step appears in `GET /api/platform/audit`.
 |---|---|
 | A rule that must always hold (no negative stock, valid transitions) | `Souq.Domain` entity or value object method |
 | A use case (place order, cancel order) | `Souq.Application/Features/<Module>/<UseCase>` command/query + handler + validator |
-| A read for a screen or listing | query + handler in `Features/<Module>/Queries`; the module's read port (`ICatalogQueries`, `IOrderQueries`…) in Application; the `AsNoTracking` projection in `Infrastructure/Persistence/Queries` ([ADR-0008](adr/0008-cqrs-strategy.md)) |
-| An expected failure the use case decides (not found, duplicate, stale edit, provider down) | `Result.Failure(Error.NotFound(...) / Error.Conflict(code, ...) / …)` — the `ErrorKind` picks the HTTP status ([ADR-0017](adr/0017-error-contract.md)) |
+| A read for a screen or listing | query + handler in `Features/<Module>/Queries`; the module's read port (`ICatalogQueries`, `IOrderQueries`…) in Application; the `AsNoTracking` projection in `Infrastructure/Persistence/Queries` ([ADR-0008](../11-ADR/0008-cqrs-strategy.md)) |
+| An expected failure the use case decides (not found, duplicate, stale edit, provider down) | `Result.Failure(Error.NotFound(...) / Error.Conflict(code, ...) / …)` — the `ErrorKind` picks the HTTP status ([ADR-0017](../11-ADR/0017-error-contract.md)) |
 | A rule an entity always enforces | a `DomainException` subclass with a stable `Code` (422). Handlers never catch it. |
 | "Who is calling?" / "may they touch this?" | inject `ICurrentUser`; use `RequireUserId()` and `CanAccessOwnedBy(ownerId, permission)`. Never put a user id in a command. |
 | A new setting | a typed options class + validator + `ValidateOnStart` in the layer that uses it; secrets only in user-secrets or environment variables |
 | "Now" | inject `TimeProvider` (never `DateTime.UtcNow`; an architecture test scans for it) |
-| A way to talk to Stripe, SMTP, disk, or blob storage | port in `Souq.Application/Common/Interfaces`, adapter in `Souq.Infrastructure` ([Architecture.md §11](Architecture.md#11-external-integration-conventions-ports-and-adapters)) |
+| A way to talk to Stripe, SMTP, disk, or blob storage | port in `Souq.Application/Common/Interfaces`, adapter in `Souq.Infrastructure` ([Architecture.md §11](../02-ARCHITECTURE/Architecture.md#11-external-integration-conventions-ports-and-adapters)) |
 | EF mapping, SQL, migrations | `Souq.Infrastructure/Persistence` |
 | An HTTP endpoint | a thin controller in `Souq.API/Controllers` that sends a MediatR request |
 | UI logic without rendering (payload builders, formatting) | `frontend/src/features/<feature>/*.js` + a `*.test.js` next to it |
@@ -123,7 +123,7 @@ Every step appears in `GET /api/platform/audit`.
 - Log tokens, links, personal data, request payloads, headers or query strings.
 - Hard-code a brand, currency, or tenant.
 - Catch a `DomainException` in a handler, or return an unbounded list.
-- Call `Update()` on a tracked entity (it no longer exists — the unit of work saves changes) or hold a transaction open across a network call ([ADR-0021](adr/0021-transaction-boundaries.md)).
+- Call `Update()` on a tracked entity (it no longer exists — the unit of work saves changes) or hold a transaction open across a network call ([ADR-0021](../11-ADR/0021-transaction-boundaries.md)).
 
 ## 6. Money
 
@@ -133,7 +133,7 @@ Every step appears in `GET /api/platform/audit`.
 
 ## 7. Database migrations
 
-See [DatabaseDesign.md §10](DatabaseDesign.md#10-migration-workflow). Always read the generated migration. Add data-preserving SQL by hand. The integration tests apply every migration to a fresh database.
+See [DatabaseDesign.md §10](../06-DATABASE/DatabaseDesign.md#10-migration-workflow). Always read the generated migration. Add data-preserving SQL by hand. The integration tests apply every migration to a fresh database.
 
 ## 8. Before you open a PR (or end a phase)
 

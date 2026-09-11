@@ -321,7 +321,7 @@ Baskets never reserve stock; checkout does.
 
 All error responses are RFC 7807 `application/problem+json` with a stable
 `code` (the contract clients branch on) and a `traceId`; every response carries
-an `X-Correlation-Id` header with the same id. Details: [docs/ApiDocumentation.md](docs/ApiDocumentation.md).
+an `X-Correlation-Id` header with the same id. Details: [docs/05-API/ApiDocumentation.md](docs/05-API/ApiDocumentation.md).
 
 ---
 
@@ -362,7 +362,7 @@ dotnet test
 | `frontend` — `npm test` (20) | Error parsing and code translations, query strings, admin payloads | — |
 
 The integration suite starts `mcr.microsoft.com/mssql/server:2022-latest` through Testcontainers;
-the first run pulls the image. See [docs/DevelopmentGuide.md](docs/DevelopmentGuide.md).
+the first run pulls the image. See [docs/09-OPERATIONS/DevelopmentGuide.md](docs/09-OPERATIONS/DevelopmentGuide.md).
 
 ---
 

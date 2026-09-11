@@ -55,7 +55,7 @@ The options marked "Chosen" above. Details:
   - Deletion keeps financial records valid and ends every session at once.
 - **Negative / limits:**
   - The retained order snapshot contains the recipient's name, phone and address. That is lawful accounting retention, but stores need a documented retention period, and automatic purging of old snapshots is not implemented (Phase 20, compliance).
-  - Ordering and Reviews still load the `Customer` aggregate through `ICustomerRepository` (block check, address snapshot). The narrower `ICustomerDirectory` contract from [Modules.md](../Modules.md) is deferred until a second consumer or an extraction needs it.
+  - Ordering and Reviews still load the `Customer` aggregate through `ICustomerRepository` (block check, address snapshot). The narrower `ICustomerDirectory` contract from [Modules.md](../04-MODULES/Modules.md) is deferred until a second consumer or an extraction needs it.
   - Changing the sign-in email needs a verification flow and is not self-service yet. Marketing preferences arrive with notifications (Phase 14).
   - The order has no billing address yet (Phase 12).
 

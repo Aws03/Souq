@@ -1,6 +1,6 @@
 # Souq: API Architecture and Conventions
 
-> **Status:** Conventions adopted 2026-09-11. The current endpoint inventory is in [ArchitectureAssessment.md §5](ArchitectureAssessment.md#5-current-api-map). Interactive docs: Swagger at `/swagger` (Development).
+> **Status:** Conventions adopted 2026-09-11. The current endpoint inventory is in [ArchitectureAssessment.md §5](../archive/ArchitectureAssessment.md#5-current-api-map). Interactive docs: Swagger at `/swagger` (Development).
 
 ## 1. Style
 
@@ -47,7 +47,7 @@ Routes move into these areas in the phase that rebuilds each module. The fronten
 | Required external provider unavailable (`PaymentUnavailable`); store suspended, archived, or still provisioning (`StoreUnavailable`) | 503 |
 | Unexpected | 500, generic message, no internals |
 
-## 4. Errors ([ADR-0017](adr/0017-error-contract.md))
+## 4. Errors ([ADR-0017](../11-ADR/0017-error-contract.md))
 
 Every error is RFC 7807 `application/problem+json`:
 
@@ -94,8 +94,8 @@ Every error is RFC 7807 `application/problem+json`:
 
 - `Authorization: Bearer <access token>`, valid for 15 minutes.
   - The refresh token travels only in the `souq_refresh` cookie (`HttpOnly`, `Secure`, `SameSite=Strict`, `Path=/api/auth`). It never appears in a body.
-  - Session endpoints and their contract: [AuthenticationAndAuthorization.md §5](AuthenticationAndAuthorization.md#5-endpoints).
-- The **tenant is never a parameter.** It comes from the Host header, and for authenticated calls it must match the token's `tid` claim ([MultiTenancy.md](MultiTenancy.md), [ADR-0022](adr/0022-tenancy-enforcement.md)). Implemented in Phase 2:
+  - Session endpoints and their contract: [AuthenticationAndAuthorization.md §5](../07-SECURITY/AuthenticationAndAuthorization.md#5-endpoints).
+- The **tenant is never a parameter.** It comes from the Host header, and for authenticated calls it must match the token's `tid` claim ([MultiTenancy.md](../02-ARCHITECTURE/MultiTenancy.md), [ADR-0022](../11-ADR/0022-tenancy-enforcement.md)). Implemented in Phase 2:
   - **Resolution:**
     - `TenantResolutionMiddleware` maps the host to a store through `TenantDomains`.
     - An unknown host gets `404 StoreNotFound`. There is no fallback store in Production.
@@ -117,30 +117,30 @@ Every error is RFC 7807 `application/problem+json`:
 - **Customer identity comes from the token, never from the body.**
   - Use cases read it from `ICurrentUser` (the `cid` claim); commands have no customer id field at all.
   - A staff account has no customer profile, so customer use cases answer `403 CustomerAccountRequired`.
-- **Customer account (Phase 7, [ADR-0027](adr/0027-customer-profile-and-erasure.md)):**
+- **Customer account (Phase 7, [ADR-0027](../11-ADR/0027-customer-profile-and-erasure.md)):**
   - `/api/account` acts on the caller's own profile. An address id outside the caller's book is a 404 (update, delete, defaults); at checkout it is `400 AddressNotFound`.
   - `POST /api/orders` takes either `shippingAddressId` or a typed `shippingAddress`. The order stores a single-line snapshot, so editing an address later never changes a past order.
   - `GET /api/account/export` and `GET /api/admin/customers/{id}/export` return the data as a JSON attachment.
   - `POST /api/account/erase` requires the current password. Erasure revokes every session at once: the old access token gets 401 on the next request.
-- **Basket (Phase 8, [ADR-0028](adr/0028-basket-and-pricing-pipeline.md)):**
+- **Basket (Phase 8, [ADR-0028](../11-ADR/0028-basket-and-pricing-pipeline.md)):**
   - **Guests:** the server sets `souq_basket` on the first write. It is an HttpOnly, Secure, `SameSite=Strict` cookie scoped to `/api/basket`, holding a random token; the client never sees or sends it explicitly. Customers use their session instead.
   - **Merge:** a customer's first basket request that still carries a guest cookie merges that basket and deletes the cookie. A token that matches nothing (expired, already merged, or from another store) reads as an empty basket, and the cookie is deleted.
   - **Responses:** every response is the whole basket, priced by the same pipeline that creates orders: lines with `sellable` and `available`, then `subtotal`, `discount`, `shipping`, `tax`, `total`, `coupon` and `readyForCheckout`.
   - **Quotes:** `GET /api/basket/quote?couponCode=` reports a coupon that can't be used inside `coupon` (`applied: false`, `errorCode`, `message`) instead of failing. It shares the coupon-preview rate limit.
   - **Errors:** a product that isn't sellable in the host's store is a 404 on add. A line that isn't in the caller's basket is a 404 on update and delete.
   - **Checkout:** `POST /api/orders` prices its lines with the same pipeline, so its subtotal, discount and total equal the basket's for the same lines and coupon.
-- **Orders (Phase 9, [ADR-0029](adr/0029-orders-lifecycle.md)):**
+- **Orders (Phase 9, [ADR-0029](../11-ADR/0029-orders-lifecycle.md)):**
   - **Checkout from the basket:** `POST /api/orders` without `items` creates the order from the caller's basket (`400 BasketEmpty` if it is empty). The purchased quantities leave the basket when payment is confirmed, never before. `billingAddressId` picks a billing address from the book; otherwise the default billing address is used, else the shipping address.
   - **Order details:** orders carry a per-store `orderNumber` from 1001. `GET /api/orders/{id}` also returns `billingAddress`, the `trackingToken` for sharing, `history`, `allowedActions` (for `orders.manage`) and `canCancel` (for the owner). Customers don't receive history notes or actors.
   - **Customer cancellation:** `POST /api/orders/{id}/cancel`, owner only, unpaid orders only. The gateway is asked first. The errors are `422 InvalidOrderOperation` for a paid order, `422 OrderAlreadyPaid` if the gateway reports the payment succeeded first, and `422 PaymentProcessing` while a payment is in flight.
   - **Tracking:** `GET /api/orders/track/{token}` is the only anonymous order endpoint. It returns status, dates, tracking number and carrier. `GET /api/orders/{id}/tracking` is removed.
   - **Admin filters on `GET /api/orders`:** `status`, `search` (an order number such as `1042` or `#1042`, or part of a customer's name or email), and `from` and `to` on creation time (`to` is exclusive).
-- **Coupons (Phase 10, [ADR-0030](adr/0030-coupon-redemptions.md)):**
+- **Coupons (Phase 10, [ADR-0030](../11-ADR/0030-coupon-redemptions.md)):**
   - **Create and update** accept `startsAt` and `maxUsesPerCustomer`, both optional. `startsAt` must be before `expiresAt`, and the per-customer limit can't exceed `maxUses`.
   - **Usage:** `POST /api/orders` with a coupon takes one use inside the checkout transaction. If no use is left, or the customer has reached their limit, it answers `422 InvalidCoupon` and creates no order, even under concurrency. Cancelling the order gives the use back. The basket quote reports the same outcome in `coupon` without failing.
   - **Redemptions:** `GET /api/coupons/{id}/redemptions?page=&pageSize=` (`promotions.manage`) lists the orders that used the coupon. Each entry has `orderId`, `orderNumber`, `customerId`, `customerName`, `discount`, `currency`, `status` (`Reserved`, `Confirmed` or `Released`) and `createdAt`. Another store's coupon is a 404.
   - **Delete:** `DELETE /api/coupons/{id}` answers `409 CouponInUse` once the coupon has been used. Deactivate it with `PUT` instead.
-- **Payments and refunds (Phase 11, [ADR-0031](adr/0031-payments-and-refunds.md)):**
+- **Payments and refunds (Phase 11, [ADR-0031](../11-ADR/0031-payments-and-refunds.md)):**
   - **Order detail** includes `payment` (`status`, `amount`, `refundedAmount`, `refundable`, `currency`, `refunds[]`) and `canRefund`. Customers see the status and the refunded amount only; the refund list and reasons are for staff.
   - **Refund:** `POST /api/orders/{id}/refunds` `{ amount?, reason? }`, with `store.payments.manage`. Without `amount`, everything left is refunded.
     - The answer is the refund's outcome: `Succeeded`; `Failed` (the gateway refused, with `failureReason`); or `Pending` (the gateway didn't answer).
@@ -155,7 +155,7 @@ Every error is RFC 7807 `application/problem+json`:
   - **`GET /api/payments/config`** returns the publishable key of the host store's account, or of the deployment's.
   - **Webhook** (`POST /api/payments/webhook`): verified with the host store's webhook secret, else the deployment's. An event for another store sharing the deployment account is applied in that store.
   - **A store account that can't be used** (its keys can't be decrypted) answers `503 PaymentsUnavailable`.
-- **Shipping (Phase 12, [ADR-0032](adr/0032-shipping-methods.md)):**
+- **Shipping (Phase 12, [ADR-0032](../11-ADR/0032-shipping-methods.md)):**
   - **Methods:** `GET` and `POST /api/admin/shipping-methods`, `PUT` and `DELETE /api/admin/shipping-methods/{id}` (`store.shipping.manage`).
     - The body has `name`; `price` (store currency); `freeOverAmount?`; `minDays?` and `maxDays?` (both or neither); `carrier?`; `trackingUrlTemplate?` (https, containing `{number}`); `countries?` (ISO codes; empty = everywhere); `isActive`; `sortOrder`.
     - A rule violation answers `422 InvalidShippingMethod`. Another store's method is a 404.
@@ -169,7 +169,7 @@ Every error is RFC 7807 `application/problem+json`:
     - The response includes `shippingCost`, and `totalAmount` includes it.
   - **Order detail and tracking:** the detail adds `shippingMethod`, `shippingCost`, `shippingMinDays`, `shippingMaxDays`, `shippingCountry` and `trackingUrl`. The public tracking response adds `trackingUrl`.
 - **Rate limits (Phase 3):** auth, refresh and coupon-preview endpoints answer `429 TooManyRequests` with `Retry-After` when a limit is exceeded.
-- **Platform area (Phase 4, [ADR-0024](adr/0024-platform-administration.md)):**
+- **Platform area (Phase 4, [ADR-0024](../11-ADR/0024-platform-administration.md)):**
   - Endpoints are marked `[PlatformEndpoint]` and are served only on platform hosts, behind `platform.*` permissions.
   - These are the only requests that carry a store id (`/api/platform/tenants/{id}/…`), enforced by an architecture test.
   - Every platform request writes an audit entry.
@@ -181,7 +181,7 @@ Every error is RFC 7807 `application/problem+json`:
   - It sends a content-hash `ETag` with `Cache-Control: no-cache`, so a revalidation answers 304.
   - A suspended or provisioning store answers `503 StoreUnavailable`, like every storefront endpoint.
   - Settings are edited through `PUT /api/admin/store/settings` (store admin) or `PUT /api/platform/tenants/{id}/settings` (platform), with the same body and the same validation.
-- **Authorization (1B, [ADR-0019](adr/0019-authorization-foundation.md)):** endpoints declare `[HasPermission(Permissions.X.Y)]`, `[Authorize]` or `[AllowAnonymous]` — explicitly, every one. Resource ownership is checked inside the use case (404 for someone else's resource).
+- **Authorization (1B, [ADR-0019](../11-ADR/0019-authorization-foundation.md)):** endpoints declare `[HasPermission(Permissions.X.Y)]`, `[Authorize]` or `[AllowAnonymous]` — explicitly, every one. Resource ownership is checked inside the use case (404 for someone else's resource).
 - **Automated guards:** integration tests enumerate every endpoint and assert that each declares its decision, that the public surface equals a reviewed list, that every declared permission exists, and that permission-protected endpoints answer anonymous → 401 and customer → 403.
 
 ## 7. Versioning
@@ -207,9 +207,9 @@ Every error is RFC 7807 `application/problem+json`:
 
 - `multipart/form-data`, field `file`.
 - The controller checks presence and the size ceiling (HTTP concerns).
-- The **Application layer** validates the actual content by magic bytes, and the stored file extension is derived from the detected type, never from the client's filename or `Content-Type` ([Security.md §5](Security.md#5-input-validation-xss-and-uploads)).
+- The **Application layer** validates the actual content by magic bytes, and the stored file extension is derived from the detected type, never from the client's filename or `Content-Type` ([Security.md §5](../07-SECURITY/Security.md#5-input-validation-xss-and-uploads)).
 
-## 10. Correlation ([ADR-0018](adr/0018-observability.md))
+## 10. Correlation ([ADR-0018](../11-ADR/0018-observability.md))
 
 - Every response carries `X-Correlation-Id`: the request's W3C trace id (32 hex characters). It is also the `traceId` in error bodies and the `CorrelationId` in the server logs.
 - An incoming W3C `traceparent` header is honoured (for gateways or services in front of the API). Arbitrary client-chosen ids are not accepted.
@@ -218,5 +218,5 @@ Every error is RFC 7807 `application/problem+json`:
 ## 11. Documentation rules
 
 - Every new endpoint appears in Swagger with its auth requirement.
-- A module's public HTTP surface is listed in [Modules.md](Modules.md) when that module is rebuilt.
+- A module's public HTTP surface is listed in [Modules.md](../04-MODULES/Modules.md) when that module is rebuilt.
 - An endpoint list duplicated in the README must be regenerated, not hand-edited. Target: generated from OpenAPI (Phase 22).

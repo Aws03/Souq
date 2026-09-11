@@ -4,7 +4,7 @@
 
 ## Context
 
-Many independent stores run on one codebase. The business model is many small clients (≈ $5k each), there are no known physical-isolation requirements yet, and platform-wide dashboards are required. Details: [MultiTenancy.md](../MultiTenancy.md).
+Many independent stores run on one codebase. The business model is many small clients (≈ $5k each), there are no known physical-isolation requirements yet, and platform-wide dashboards are required. Details: [MultiTenancy.md](../02-ARCHITECTURE/MultiTenancy.md).
 
 ## Problem
 

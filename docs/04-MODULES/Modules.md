@@ -1,7 +1,7 @@
 # Souq: Module Boundaries
 
-> **Status:** Adopted 2026-09-11 ([ADR-0004](adr/0004-module-boundaries.md)). A module is a **business capability that owns its rules and its data**. It is not a folder created for appearance.
-> **Structure and communication rules:** [Architecture.md §4–§6](Architecture.md#4-physical-structure-of-modules).
+> **Status:** Adopted 2026-09-11 ([ADR-0004](../11-ADR/0004-module-boundaries.md)). A module is a **business capability that owns its rules and its data**. It is not a folder created for appearance.
+> **Structure and communication rules:** [Architecture.md §4–§6](../02-ARCHITECTURE/Architecture.md#4-physical-structure-of-modules).
 
 ## 1. The module map
 
@@ -84,7 +84,7 @@ Each entry lists:
 
 ### Platform (introduced Phase 2/4)
 - **Responsibility:** the tenant lifecycle and the configuration of each store.
-- **Owns:** `Tenants` (including the settings document and the module flags, [ADR-0024](adr/0024-platform-administration.md)), `TenantDomains`, tenant settings (branding, contact, SEO, locale, currency, time zone); plans later.
+- **Owns:** `Tenants` (including the settings document and the module flags, [ADR-0024](../11-ADR/0024-platform-administration.md)), `TenantDomains`, tenant settings (branding, contact, SEO, locale, currency, time zone); plans later.
 - **Must not own:** users (Identity); any catalog, order, or customer data.
 - **Contracts:**
   - `ITenantDirectory` (resolve a host to a tenant; tenant status);
@@ -147,8 +147,8 @@ Each entry lists:
 - **Infrastructure:** EF, image storage (via `IFileStorage`), search (SQL now).
 - **Depends on:** Platform (tenant currency and languages).
 - **Forbidden:** changing stock; reading orders (best-selling rankings come from Reporting or an Ordering query contract).
-- **Extraction:** the *search* part could be extracted (see [Architecture.md §9](Architecture.md#9-future-scaling-and-service-extraction)).
-- **Today (Phase 5, [ADR-0025](adr/0025-catalog-model.md)):**
+- **Extraction:** the *search* part could be extracted (see [Architecture.md §9](../02-ARCHITECTURE/Architecture.md#9-future-scaling-and-service-extraction)).
+- **Today (Phase 5, [ADR-0025](../11-ADR/0025-catalog-model.md)):**
   - `Product` (root) owns `ProductTranslation`, `ProductImage` and exactly one default `ProductVariant` (SKU, price, compare-at price).
   - `Category` owns `CategoryTranslation`. `CatalogText` is the per-language value object.
   - Use cases live in `Features/Products` and `Features/Categories`; `ICatalogQueries` serves both the storefront and the admin projections.
@@ -173,7 +173,7 @@ Each entry lists:
 - **Depends on:** Catalog (the variant must exist).
 - **Forbidden:** creating orders; reading order internals. It knows only reservation references.
 - **Extraction:** a candidate (flash sales, multiple warehouses), which is why its contract is reserve → commit/release from the start.
-- **Today (Phase 6, [ADR-0026](adr/0026-inventory-reservations.md)):**
+- **Today (Phase 6, [ADR-0026](../11-ADR/0026-inventory-reservations.md)):**
   - `InventoryItem` (one per variant; on hand, reserved, `rowversion`), `StockReservation`, and `StockMovement`, which only the item creates.
   - `Features/Inventory/Contracts` holds `IInventoryReservations` and `IStockAvailability`, both used by Ordering.
   - `Features/Inventory/Reservations` holds the implementation, the retrying `InventoryWriter`, and `VariantStockInitializer` (Catalog's port).
@@ -190,7 +190,7 @@ Each entry lists:
 - **Depends on:** Identity (UserId).
 - **Forbidden:** authentication logic.
 - **Extraction:** unlikely.
-- **Today (Phase 7, [ADR-0027](adr/0027-customer-profile-and-erasure.md)):**
+- **Today (Phase 7, [ADR-0027](../11-ADR/0027-customer-profile-and-erasure.md)):**
   - `Customer` (profile, phone, status, erasure) owns its `CustomerAddress`es. `PostalAddress` is the address value object.
   - `Features/Customers/Account` covers the caller's own profile, addresses, export and erasure. `Features/Customers/Admin` covers list, detail, status, export and erasure. `CustomerErasure` is the single erasure path for both.
   - Read projections (`ICustomerQueries`: the list with order count, spend and last order; the detail; the export) live in Infrastructure, so the Application layer has no Customers → Ordering dependency. Order history comes from Ordering (`GET /api/orders?customerId=`).
@@ -205,12 +205,12 @@ Each entry lists:
 - **Depends on:** Catalog, Inventory, Promotions, Shipping.
 - **Forbidden:** reserving stock (only checkout reserves).
 - **Extraction:** unlikely.
-- **Today (Phase 8, [ADR-0028](adr/0028-basket-and-pricing-pipeline.md)):**
+- **Today (Phase 8, [ADR-0028](../11-ADR/0028-basket-and-pricing-pipeline.md)):**
   - `Basket` owns its `BasketLine`s (variant plus quantity, never a price). Its owner is a customer or a hashed guest token; expiry is sliding.
   - `Features/Baskets/Contracts` holds `IPricing` (subtotal → discount → shipping → tax → total), used by the basket view and by Ordering's `CreateOrderHandler`.
   - `Features/Baskets` holds the use cases, `BasketResolver` (guest or customer, and the merge at sign-in) and `BasketViews` (quote plus Inventory's `IStockAvailability`, read-only; baskets never reserve).
   - `IBasketReader` (checkout from the basket) arrives with Phase 9.
-  - **Wishlist (Phase 13, [ADR-0033](adr/0033-review-moderation-and-wishlist.md)):**
+  - **Wishlist (Phase 13, [ADR-0033](../11-ADR/0033-review-moderation-and-wishlist.md)):**
     - `WishlistItem` (customer plus product, unique, at most 200 per customer) lives in `Features/Wishlist`, behind the `wishlist` module flag.
     - It shows live catalog prices through `IWishlistQueries` and hides products that are no longer published.
     - Guests keep their list in the browser; it merges into the account at sign-in. Customer erasure deletes it.
@@ -233,7 +233,7 @@ Each entry lists:
 - **Depends on:** Catalog, Inventory, Promotions, Payments, Shipping, Customers, Shopping.
 - **Forbidden:** mutating other modules' entities directly (the target state; today it calls `Product.DecreaseStock`, fixed in Phase 6/9).
 - **Extraction:** unlikely. It is the core, and the other modules are extracted around it.
-- **Today (Phase 9, [ADR-0029](adr/0029-orders-lifecycle.md)):**
+- **Today (Phase 9, [ADR-0029](../11-ADR/0029-orders-lifecycle.md)):**
   - `Order` holds a number, a tracking token, the placement data and a billing snapshot. `OrderTransitions` is its one transition table, and every history row records an `OrderActor`.
   - `Features/Orders` covers:
     - checkout: lines come from the request, or from the customer's basket through Shopping's `IBasketCheckout`, and are priced by `IPricing`;
@@ -252,7 +252,7 @@ Each entry lists:
 - **Depends on:** Platform (tenant gateway configuration).
 - **Forbidden:** calling Ordering; storing a PAN, CVV, or raw card data.
 - **Extraction:** a strong candidate (PCI isolation).
-- **Today (Phase 11, [ADR-0031](adr/0031-payments-and-refunds.md)):**
+- **Today (Phase 11, [ADR-0031](../11-ADR/0031-payments-and-refunds.md)):**
   - `Payment` and `Refund`. Refunds run as reserve–call–record with idempotency keys.
   - A router picks, per call, the store's own Stripe account (encrypted keys) or the deployment account. Webhooks are routed to the store that created the intent.
   - Ordering calls it through `IOrderPayments`. The contract Ordering → Payments is enforced by `ModuleAndContractRuleTests`.
@@ -266,7 +266,7 @@ Each entry lists:
 - **Depends on:** Catalog (for product or category scoped coupons, if added).
 - **Forbidden:** reading orders directly (redemptions carry the order reference).
 - **Extraction:** unlikely.
-- **Today (Phase 10, [ADR-0030](adr/0030-coupon-redemptions.md)):**
+- **Today (Phase 10, [ADR-0030](../11-ADR/0030-coupon-redemptions.md)):**
   - `Coupon` has start and end dates, global and per-customer limits, and a minimum order. There is one `CouponRedemption` per order.
   - A use is reserved inside the checkout transaction under the coupon's `rowversion`, confirmed at payment and released on every cancellation, so limits hold under concurrency.
   - Ordering calls it only through `ICouponRedemptions`. The contract Ordering → Promotions is allowed and enforced by `ModuleAndContractRuleTests`.
@@ -279,7 +279,7 @@ Each entry lists:
 - **Depends on:** Platform.
 - **Forbidden:** order state.
 - **Extraction:** carrier integrations sit behind the port. Extraction is unlikely.
-- **Today (Phase 12, [ADR-0032](adr/0032-shipping-methods.md)):**
+- **Today (Phase 12, [ADR-0032](../11-ADR/0032-shipping-methods.md)):**
   - `ShippingMethod`: a flat price, a free-shipping threshold, countries, an estimate, and a carrier tracking link.
   - Admin CRUD.
   - The rate provider, used by Shopping's pricing pipeline. The order keeps a snapshot of the chosen method.
@@ -293,7 +293,7 @@ Each entry lists:
 - **Depends on:** Ordering (`IOrderHistory`), Catalog, Customers (display name).
 - **Forbidden:** writing to Catalog (aggregates are computed or cached, never pushed into Product).
 - **Extraction:** unlikely.
-- **Today (Phase 13, [ADR-0033](adr/0033-review-moderation-and-wishlist.md)):**
+- **Today (Phase 13, [ADR-0033](../11-ADR/0033-review-moderation-and-wishlist.md)):**
   - `Review` has a status (Pending, Approved, Rejected). It records who moderated it and when, plus a note for staff only.
   - The store's `ReviewsAutoApprove` policy decides whether a verified buyer's review starts approved or pending. New stores start with moderation; stores that existed before Phase 13 kept immediate publishing.
   - The public list and the aggregates (count, average, per-star distribution) use approved reviews only. They are computed in the query and never pushed into `Product`.
@@ -312,7 +312,7 @@ Each entry lists:
 - **Depends on:** events and outbox messages only. It never calls business modules synchronously; handlers read state through repositories.
 - **Forbidden:** business decisions; logging secrets or links.
 - **Extraction:** the strongest candidate.
-- **Today (Phase 14, [ADR-0034](adr/0034-notifications-outbox.md)):**
+- **Today (Phase 14, [ADR-0034](../11-ADR/0034-notifications-outbox.md)):**
   - **The outbox:** a hosted dispatcher processes it under a lease with bounded retries. Reset, verification and invitation tokens are issued at dispatch, and domain events are written in the same save as their change.
   - **`Features/Notifications`:**
     - identity email handlers;
@@ -339,4 +339,4 @@ Each entry lists:
 3. Add the module to the dependency graph above. Refuse any cycle.
 4. Add an architecture test stating which other modules it may reference.
 5. Tenant-owned tables implement `ITenantOwned` (from Phase 2) and get isolation tests.
-6. Document its contracts here and in [ApiDocumentation.md](ApiDocumentation.md).
+6. Document its contracts here and in [ApiDocumentation.md](../05-API/ApiDocumentation.md).

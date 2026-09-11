@@ -1,6 +1,6 @@
 # Souq: Database Design
 
-> **Status:** Principles adopted 2026-09-11 ([ADR-0007](adr/0007-database-strategy.md)). The §9 changes are applied in Phase 1A; everything else is applied per phase.
+> **Status:** Principles adopted 2026-09-11 ([ADR-0007](../11-ADR/0007-database-strategy.md)). The §9 changes are applied in Phase 1A; everything else is applied per phase.
 > **Engine:** SQL Server 2022 · **Access:** EF Core 10, code-first migrations (the **only** source of truth for the schema).
 
 ## 1. Principles
@@ -27,7 +27,7 @@ Module schemas (`catalog.Products`) were considered and **postponed**. The owner
 
 ## 3. Keys and identifiers
 
-- **Primary keys:** `int IDENTITY`, the clustered index ([ADR-0007](adr/0007-database-strategy.md)). This means no churn and compact indexes.
+- **Primary keys:** `int IDENTITY`, the clustered index ([ADR-0007](../11-ADR/0007-database-strategy.md)). This means no churn and compact indexes.
 - **Tenant key:** `TenantId int NOT NULL` + FK to `Tenants` (Phase 2). This is the only cross-module FK, and it is part of the shared kernel.
 - **Public identifiers** (never expose a guessable id where access is anonymous):
   - orders: a per-tenant `OrderNumber` for humans, plus a random `PublicTrackingToken` for anonymous tracking (Phase 9);
@@ -93,7 +93,7 @@ Module schemas (`catalog.Products`) were considered and **postponed**. The owner
   - Before Phase 1A, `decimal(18,2)` silently rounded `12.345 JOD` to `12.35` when saving.
   - Worse, a 15% coupon produced `1.85175` in memory (sent to the payment provider) and `1.85` in the database (shown on the order).
   - Rounding in one place, in the Domain, makes the in-memory total, the stored total, and the charged amount agree.
-- **Payment providers:** conversion to the provider's minor units happens in the adapter (see [Security.md §8](Security.md#8-payments)).
+- **Payment providers:** conversion to the provider's minor units happens in the adapter (see [Security.md §8](../07-SECURITY/Security.md#8-payments)).
 - **Orders snapshot their totals** (subtotal, discount, shipping, tax, grand total) at placement (Phase 9). Reports must never recompute history from current prices.
 
 ## 6. Concurrency
@@ -102,9 +102,9 @@ Module schemas (`catalog.Products`) were considered and **postponed**. The owner
 
 | Row | Who races | Outcome without protection | With `rowversion` |
 |---|---|---|---|
-| `InventoryItems` (Phase 6) | Checkouts for the last unit; checkout vs payment vs admin correction | Oversell; lost update | Second save fails; the inventory writer re-reads the committed values and retries (up to 5 attempts), so the loser gets `422 InsufficientStock`, not a 409 ([ADR-0026](adr/0026-inventory-reservations.md)) |
-| `Coupons.UsedCount` (Phase 10) | Checkouts taking the last use; a cancellation racing a checkout | Limit exceeded; lost update | The use is taken at checkout inside the order transaction. The loser re-reads (up to 5 attempts) and gets `422 InvalidCoupon` if no use is left ([ADR-0030](adr/0030-coupon-redemptions.md)) |
-| `Payments` (Phase 11) | Two refunds of one payment; a refund result racing another request | Refunds exceeding the payment | A refund reserves its amount on the payment row. The loser re-reads (up to 5 attempts) and gets `422 RefundExceedsPayment` ([ADR-0031](adr/0031-payments-and-refunds.md)) |
+| `InventoryItems` (Phase 6) | Checkouts for the last unit; checkout vs payment vs admin correction | Oversell; lost update | Second save fails; the inventory writer re-reads the committed values and retries (up to 5 attempts), so the loser gets `422 InsufficientStock`, not a 409 ([ADR-0026](../11-ADR/0026-inventory-reservations.md)) |
+| `Coupons.UsedCount` (Phase 10) | Checkouts taking the last use; a cancellation racing a checkout | Limit exceeded; lost update | The use is taken at checkout inside the order transaction. The loser re-reads (up to 5 attempts) and gets `422 InvalidCoupon` if no use is left ([ADR-0030](../11-ADR/0030-coupon-redemptions.md)) |
+| `Payments` (Phase 11) | Two refunds of one payment; a refund result racing another request | Refunds exceeding the payment | A refund reserves its amount on the payment row. The loser re-reads (up to 5 attempts) and gets `422 RefundExceedsPayment` ([ADR-0031](../11-ADR/0031-payments-and-refunds.md)) |
 | `Orders.Status` | Client confirmation vs Stripe webhook; admin vs payment | Double side effects | Loser re-reads: already Paid → idempotent success |
 
 **Rejected alternatives:**
@@ -123,7 +123,7 @@ There is no global `IsDeleted` flag with a global filter. Each aggregate has an 
 ## 8. Audit fields, time, relationships, transactions
 
 - **Timestamps:**
-  - `CreatedAt` / `UpdatedAt` are stamped by `AuditTimestampsInterceptor` (a SaveChanges interceptor) from `TimeProvider`, and stored as `datetime2` in UTC. `TenantWriteGuardInterceptor` runs next to it (Phase 2): it stamps `TenantId` on insert and rejects any write to another tenant's row ([ADR-0022](adr/0022-tenancy-enforcement.md)).
+  - `CreatedAt` / `UpdatedAt` are stamped by `AuditTimestampsInterceptor` (a SaveChanges interceptor) from `TimeProvider`, and stored as `datetime2` in UTC. `TenantWriteGuardInterceptor` runs next to it (Phase 2): it stamps `TenantId` on insert and rejects any write to another tenant's row ([ADR-0022](../11-ADR/0022-tenancy-enforcement.md)).
   - Actor columns (`CreatedBy`) are added only where the business asks "who?" (status history, ledger, audit log). Everything else goes to the `AuditLog`.
 - **Relationships:**
   - FKs are declared for every relationship **inside** a module.
@@ -135,12 +135,12 @@ There is no global `IsDeleted` flag with a global filter. Each aggregate has an 
     - The database itself therefore rejects a row that points at another tenant's row, whatever a handler forgot.
     - The exceptions are aggregate children (shadow key to their root, always created together) and the optional category parent (checked in the handler).
     - An FK violation surfaces as `409 ReferenceConflict`.
-- **Transactions ([ADR-0021](adr/0021-transaction-boundaries.md)):**
+- **Transactions ([ADR-0021](../11-ADR/0021-transaction-boundaries.md)):**
   - The command handler owns the boundary; each `SaveChangesAsync` is one atomic transaction. Work across modules in one step uses the same unit of work.
   - No transaction is open during a network call: save → call the provider → save. A provider failure is compensated in a new step (checkout); races are resolved by `rowversion` and an idempotent re-read (payment confirmation).
   - Tracked aggregates are saved without `Update()`, so only changed columns are written.
   - Side effects (email) happen after the commit; the outbox (Phase 14) makes them reliable.
-- **Reads ([ADR-0008](adr/0008-cqrs-strategy.md)):** query services project with `AsNoTracking` straight into DTOs and page with a mandatory ordering plus an `Id` tiebreaker. They are the only place a listing's SQL is written — the single point where Phase 2's tenant filter and `TenantId`-leading indexes apply.
+- **Reads ([ADR-0008](../11-ADR/0008-cqrs-strategy.md)):** query services project with `AsNoTracking` straight into DTOs and page with a mandatory ordering plus an `Id` tiebreaker. They are the only place a listing's SQL is written — the single point where Phase 2's tenant filter and `TenantId`-leading indexes apply.
 
 ## 9. Current state and Phase 1A changes
 
@@ -180,7 +180,7 @@ Deferred to later phases, with the phase noted: `TenantId` (2), `Users` split (3
 | Dropped from `Customers` | `PasswordHash`, `Role` and the reset-token columns, **only after** the copy. EF generated the drops first, which would have lost every password; the order was rewritten by hand |
 | `Down()` | Copies credentials back to the profiles. Accounts without a profile (staff, the platform owner) have no place in the old schema and are lost, so `Down()` is for development only |
 
-**Phase 4 (`Phase4PlatformAdministration`, additive only, [ADR-0024](adr/0024-platform-administration.md)):**
+**Phase 4 (`Phase4PlatformAdministration`, additive only, [ADR-0024](../11-ADR/0024-platform-administration.md)):**
 
 | Change | Detail |
 |---|---|
@@ -188,7 +188,7 @@ Deferred to later phases, with the phase noted: `TenantId` (2), `Users` split (3
 | `Tenants.EnabledModules` | `nvarchar(200) NOT NULL DEFAULT 'promotions,reviews,wishlist'`, so existing stores keep every module. It is carried in the cached tenant snapshot, so enforcement needs no query |
 | `AuditEntries` | `bigint` identity, UTC timestamp, area, action, affected store (nullable), actor and role, target, metadata (≤ 4000), IP, correlation id. No FK and no tenant filter. Append-only (write guard) |
 
-**Phase 5 (`Phase5Catalog`, data-preserving, rehearsed by `MigrationRehearsalTests`, [ADR-0025](adr/0025-catalog-model.md)):**
+**Phase 5 (`Phase5Catalog`, data-preserving, rehearsed by `MigrationRehearsalTests`, [ADR-0025](../11-ADR/0025-catalog-model.md)):**
 
 | Change | Detail |
 |---|---|
@@ -200,7 +200,7 @@ Deferred to later phases, with the phase noted: `TenantId` (2), `Users` split (3
 | Data copy (runs before any drop) | An Arabic translation from `NameAr` + `Description`; an English one from `NameEn` when present and different; a default variant from `Price`/`Currency`; an image row only for real `/uploads/` or http(s) URLs (the old placeholder values are dropped); `Status` from `IsActive`; slug `p-{Id}`; each category name → a translation in its store's default language. EF generated the column drops first, which would have lost every name and price; the order was rewritten by hand |
 | `Down()` | Restores the old columns from the Arabic/English translations, the default variant and the primary image. It is lossy by nature (other languages, extra images, SKUs and compare-at prices have no old column), so it is for development only |
 
-**Phase 6 (`Phase6Inventory`, data-preserving, rehearsed by `MigrationRehearsalTests`, [ADR-0026](adr/0026-inventory-reservations.md)):**
+**Phase 6 (`Phase6Inventory`, data-preserving, rehearsed by `MigrationRehearsalTests`, [ADR-0026](../11-ADR/0026-inventory-reservations.md)):**
 
 | Change | Detail |
 |---|---|
@@ -211,7 +211,7 @@ Deferred to later phases, with the phase noted: `TenantId` (2), `Users` split (3
 | Dropped from `Products` | `StockQuantity`, `LowStockThreshold`, only **after** the copy. EF generated the drops first, which would have lost every stock level; the order was rewritten by hand |
 | `Down()` | Restores `StockQuantity` as the available quantity (on hand − reserved) and the threshold. Reservations have no place in the old schema, so it is for development only |
 
-**Phase 7 (`Phase7Customers`, additive only, [ADR-0027](adr/0027-customer-profile-and-erasure.md)):**
+**Phase 7 (`Phase7Customers`, additive only, [ADR-0027](../11-ADR/0027-customer-profile-and-erasure.md)):**
 
 | Change | Detail |
 |---|---|
@@ -220,7 +220,7 @@ Deferred to later phases, with the phase noted: `TenantId` (2), `Users` split (3
 | Data | Nothing moved or rewritten. Existing orders keep their typed addresses; new orders store the same single-line snapshot |
 | `Down()` | Drops the table and the columns, so saved addresses and statuses are lost. Development only |
 
-**Phase 8 (`Phase8Basket`, additive only, [ADR-0028](adr/0028-basket-and-pricing-pipeline.md)):**
+**Phase 8 (`Phase8Basket`, additive only, [ADR-0028](../11-ADR/0028-basket-and-pricing-pipeline.md)):**
 
 | Change | Detail |
 |---|---|
@@ -228,7 +228,7 @@ Deferred to later phases, with the phase noted: `TenantId` (2), `Users` split (3
 | `BasketLines` | New: `ProductId` and `VariantId` (composite FKs within the store, Restrict, since products are archived, not deleted), `Quantity` (check 1–99). Unique `(BasketId, VariantId)`; cascade from the basket. No price column: prices are read live at every quote |
 | Data | None: the cart was client-side before this phase |
 
-**Phase 9 (`Phase9Orders`, additive with a data backfill, rehearsed by `MigrationRehearsalTests`, [ADR-0029](adr/0029-orders-lifecycle.md)):**
+**Phase 9 (`Phase9Orders`, additive with a data backfill, rehearsed by `MigrationRehearsalTests`, [ADR-0029](../11-ADR/0029-orders-lifecycle.md)):**
 
 | Change | Detail |
 |---|---|
@@ -238,7 +238,7 @@ Deferred to later phases, with the phase noted: `TenantId` (2), `Users` split (3
 | Backfill (runs before the unique indexes) | Numbers from 1001 per store, in creation order. A random token per order (`NEWID`). Billing = shipping. Placement at creation time, with totals from the lines and discount. Each store's counter at its highest number. The temporary column defaults are dropped afterwards. Nothing is deleted or rewritten |
 | `Down()` | Drops the columns and the table, so numbers and tokens are lost. Development only |
 
-**Phase 10 (`Phase10Coupons`, additive with a data backfill, rehearsed by `MigrationRehearsalTests`, [ADR-0030](adr/0030-coupon-redemptions.md)):**
+**Phase 10 (`Phase10Coupons`, additive with a data backfill, rehearsed by `MigrationRehearsalTests`, [ADR-0030](../11-ADR/0030-coupon-redemptions.md)):**
 
 | Change | Detail |
 |---|---|
@@ -247,7 +247,7 @@ Deferred to later phases, with the phase noted: `TenantId` (2), `Users` split (3
 | Backfill | Each existing order that used a coupon still present gets a redemption: Pending → Reserved; Paid, Shipped or Delivered → Confirmed; Cancelled → none. Counters keep their value and gain the pending orders, which now hold their use. Nothing is deleted or rewritten |
 | `Down()` | Subtracts the reserved uses from the counters, then drops the table and the columns. Development only |
 
-**Phase 11 (`Phase11Payments`, additive with a data backfill, rehearsed by `MigrationRehearsalTests`, [ADR-0031](adr/0031-payments-and-refunds.md)):**
+**Phase 11 (`Phase11Payments`, additive with a data backfill, rehearsed by `MigrationRehearsalTests`, [ADR-0031](../11-ADR/0031-payments-and-refunds.md)):**
 
 | Change | Detail |
 |---|---|
@@ -257,7 +257,7 @@ Deferred to later phases, with the phase noted: `TenantId` (2), `Users` split (3
 | Backfill | Each order with a payment intent gets a payment: the fake gateway for `pi_fake_` intents, otherwise the deployment account; the placed total; Pending → Pending, Paid/Shipped/Delivered → Succeeded, Cancelled → Succeeded if its history shows it was paid first, else Cancelled. Runs after the unique indexes, so a duplicated intent stops the migration instead of being hidden. Nothing is deleted or rewritten |
 | `Down()` | Drops the three tables (payments, refunds, store accounts with their encrypted keys). Orders keep their intent ids. Development only |
 
-**Phase 12 (`Phase12Shipping`, additive, rehearsed by `MigrationRehearsalTests`, [ADR-0032](adr/0032-shipping-methods.md)):**
+**Phase 12 (`Phase12Shipping`, additive, rehearsed by `MigrationRehearsalTests`, [ADR-0032](../11-ADR/0032-shipping-methods.md)):**
 
 | Change | Detail |
 |---|---|

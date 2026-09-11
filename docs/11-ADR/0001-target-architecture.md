@@ -23,7 +23,7 @@ Which architecture carries the product through ~20 more phases without either:
 
 ## Options considered
 
-Ten styles are evaluated one by one in [ArchitectureEvaluation.md](../ArchitectureEvaluation.md):
+Ten styles are evaluated one by one in [ArchitectureEvaluation.md](../02-ARCHITECTURE/ArchitectureEvaluation.md):
 - layered monolith;
 - Clean;
 - Hexagonal;
@@ -80,5 +80,5 @@ Adopt option 4:
 ## Revisit when
 
 - Several independent teams need independent release cadences.
-- One capability's scaling, reliability, or compliance profile diverges sharply from the rest (see the candidates in [Architecture.md §9](../Architecture.md#9-future-scaling-and-service-extraction)).
+- One capability's scaling, reliability, or compliance profile diverges sharply from the rest (see the candidates in [Architecture.md §9](../02-ARCHITECTURE/Architecture.md#9-future-scaling-and-service-extraction)).
 - Release coordination becomes the bottleneck.

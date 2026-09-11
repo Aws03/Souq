@@ -1,6 +1,6 @@
 # ADR-0011: White-label architecture
 
-- **Status:** Accepted, 2026-09-11. Backend in Phase 4, frontend runtime in Phase 15. Details: [WhiteLabel.md](../WhiteLabel.md).
+- **Status:** Accepted, 2026-09-11. Backend in Phase 4, frontend runtime in Phase 15. Details: [WhiteLabel.md](../08-FRONTEND/WhiteLabel.md).
 
 ## Context
 
