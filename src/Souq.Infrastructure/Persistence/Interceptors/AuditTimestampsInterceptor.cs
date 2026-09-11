@@ -7,8 +7,8 @@ namespace Souq.Infrastructure.Persistence.Interceptors;
 // ============================================================================
 // AuditTimestampsInterceptor — يختم CreatedAt/UpdatedAt لكل كيان عند الحفظ من TimeProvider
 // (لا DateTime.UtcNow: الوقت قابل للتثبيت في الاختبارات — Phase 0 D12). كان هذا داخل
-// AppDbContext.SaveChangesAsync؛ صار معترِضاً مستقلاً لأن النمط سيتكرّر: المرحلة 2 تضيف
-// بجانبه حارس المستأجر (ختم TenantId ورفض الكتابة عبر المستأجرين) دون تضخيم AppDbContext
+// AppDbContext.SaveChangesAsync؛ صار معترِضاً مستقلاً لأن النمط تكرّر فعلاً: بجانبه اليوم
+// TenantWriteGuardInterceptor (ختم TenantId ورفض الكتابة عبر المستأجرين) دون تضخيم AppDbContext
 // ودون أن ينسى أيّ مسار حفظ تطبيقه (MultiTenancy.md §4).
 // ============================================================================
 public sealed class AuditTimestampsInterceptor : SaveChangesInterceptor
