@@ -19,12 +19,15 @@ public record UpdateOrderStatusCommand(
 
 public class UpdateOrderStatusHandler : IRequestHandler<UpdateOrderStatusCommand, Result>
 {
+    private const string AdminCancellationNote = "إلغاء من الإدارة";
+
     private readonly IOrderRepository _orders;
+    private readonly OrderStockRelease _stockRelease;
     private readonly IUnitOfWork _uow;
 
-    public UpdateOrderStatusHandler(IOrderRepository orders, IUnitOfWork uow)
+    public UpdateOrderStatusHandler(IOrderRepository orders, OrderStockRelease stockRelease, IUnitOfWork uow)
     {
-        _orders = orders; _uow = uow;
+        _orders = orders; _stockRelease = stockRelease; _uow = uow;
     }
 
     public async Task<Result> Handle(UpdateOrderStatusCommand cmd, CancellationToken ct)
@@ -47,6 +50,10 @@ public class UpdateOrderStatusHandler : IRequestHandler<UpdateOrderStatusCommand
         {
             return Result.Failure(ex.Message, "InvalidTransition");
         }
+
+        // الطلب الملغى لم يُشحن، فمخزونه المحجوز يعود للبيع — في نفس معاملة الإلغاء.
+        if (cmd.Action == OrderStatusAction.Cancel)
+            await _stockRelease.ReleaseAsync(order, cmd.Note ?? AdminCancellationNote, ct);
 
         _orders.Update(order);
         await _uow.SaveChangesAsync(ct);

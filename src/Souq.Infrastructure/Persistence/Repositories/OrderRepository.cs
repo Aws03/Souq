@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Souq.Domain.Entities;
+using Souq.Domain.Enums;
 using Souq.Domain.Interfaces;
 
 namespace Souq.Infrastructure.Persistence.Repositories;
@@ -21,6 +22,11 @@ public class OrderRepository : RepositoryBase<Order>, IOrderRepository
         => await Db.Orders.Include(o => o.Items)
                           .Where(o => o.CustomerId == customerId)
                           .OrderByDescending(o => o.CreatedAt).ToListAsync(ct);
+
+    // إسقاط قيمة واحدة (Select) لا يُتتبَّع أصلاً — نقرأ الحالة الحقيقية من القاعدة الآن
+    // حتى لو كانت نسخة متتبَّعة قديمة من نفس الطلب في الذاكرة بعد تعارض حفظ.
+    public async Task<OrderStatus?> GetStatusAsync(int id, CancellationToken ct = default)
+        => await Db.Orders.Where(o => o.Id == id).Select(o => (OrderStatus?)o.Status).FirstOrDefaultAsync(ct);
 
     public async Task<(IReadOnlyList<Order> Items, int TotalCount)> GetPagedAsync(
         int page, int pageSize, CancellationToken ct = default)

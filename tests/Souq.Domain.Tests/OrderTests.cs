@@ -231,6 +231,21 @@ public class OrderTests
     }
 
     [Fact]
+    public void Cancel_لطلب_ملغى_مسبقاً_يُرفض_كي_لا_يُعاد_المخزون_مرتين()
+    {
+        // كل إلغاء ناجح يعني "حرّر المخزون المحجوز مرة واحدة" — إلغاء ثانٍ كان يمرّ
+        // ويُكرّر سطر التاريخ (Phase 0 C10)، ومع إعادة المخزون الآن سيضخّم المخزون.
+        var order = NewOrder();
+        order.AddItem(1, "سماعات", new Money(50), 1);
+        order.Cancel();
+
+        var act = () => order.Cancel();
+
+        act.Should().Throw<InvalidOrderOperationException>();
+        order.StatusHistory.Count(h => h.Status == OrderStatus.Cancelled).Should().Be(1);
+    }
+
+    [Fact]
     public void ApplyCoupon_يخصم_من_الإجمالي_النهائي_دون_مسّ_الفرعي()
     {
         var order = NewOrder();

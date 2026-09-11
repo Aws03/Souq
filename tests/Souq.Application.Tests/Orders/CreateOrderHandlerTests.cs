@@ -1,6 +1,9 @@
 using AwesomeAssertions;
+using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
+using NSubstitute.ExceptionExtensions;
 using Souq.Application.Common.Interfaces;
+using Souq.Application.Features.Orders;
 using Souq.Application.Features.Orders.Commands;
 using Souq.Domain.Entities;
 using Souq.Domain.Enums;
@@ -9,9 +12,7 @@ using Souq.Domain.ValueObjects;
 
 namespace Souq.Application.Tests.Orders;
 
-// يغطّي التصميم بخطّتين من مرحلة 6: التحقّق (بلا أثر جانبي) ثم التنفيذ (إنقاص
-// المخزون + إنشاء نيّة دفع). فشل الدفع نفسه انتقل إلى ConfirmOrderPaymentHandler
-// (اختباراته في ملف منفصل) — هذا المعالج الآن ينشئ الطلب ونيّة الدفع فقط، لا يُحصّل.
+// التحقّق (بلا أثر جانبي) ثم التنفيذ (إنقاص المخزون + نيّة دفع)، وتعويض فشل البوّابة.
 public class CreateOrderHandlerTests
 {
     private readonly IProductRepository _products = Substitute.For<IProductRepository>();
@@ -23,11 +24,18 @@ public class CreateOrderHandlerTests
     private readonly IUnitOfWork _uow = Substitute.For<IUnitOfWork>();
 
     private CreateOrderHandler CreateHandler() =>
-        new(_products, _orders, _customers, _coupons, _stockMovements, _payment, _uow);
+        new(_products, _orders, _customers, _coupons, _stockMovements, _payment,
+            new OrderStockRelease(_products, _stockMovements), _uow, NullLogger<CreateOrderHandler>.Instance);
 
     private static Customer NewCustomer() => new("عميل", "customer@souq.com", "hash");
-    private static Product NewProduct(int stock = 10) =>
-        new("سماعات لاسلكية", "وصف", new Money(50), stock, "headphones", categoryId: 1);
+    // المعرّف 1 يطابق ProductId في الأمر (كما بعد الحفظ فعلياً) — أسطر الطلب تحمل
+    // product.Id، وتحرير المخزون يعيد تحميل المنتج بهذا المعرّف.
+    private static Product NewProduct(int stock = 10)
+    {
+        var product = new Product("سماعات لاسلكية", "وصف", new Money(50), stock, "headphones", categoryId: 1);
+        typeof(Souq.Domain.Common.Entity).GetProperty("Id")!.SetValue(product, 1);
+        return product;
+    }
 
     private static CreateOrderCommand NewCommand(int quantity = 1, string? couponCode = null) => new(
         CustomerId: 1,
@@ -114,7 +122,7 @@ public class CreateOrderHandlerTests
         savedOrder!.Status.Should().Be(OrderStatus.Pending);
         savedOrder.PaymentIntentId.Should().Be("pi_123");
 
-        // كل بيع يُسجَّل حركة مخزون Sale بكمية سالبة (نقص) تساوي المطلوب.
+        // كل بيع يُسجَّل حركة مخزون Sale بكمية سالبة تساوي المطلوب.
         await _stockMovements.Received(1).AddAsync(
             Arg.Is<StockMovement>(m => m.Type == StockMovementType.Sale && m.QuantityChange == -2),
             Arg.Any<CancellationToken>());
@@ -144,5 +152,32 @@ public class CreateOrderHandlerTests
         // نيّة الدفع تُنشأ على الإجمالي بعد الخصم لا قبله.
         await _payment.Received(1).CreateIntentAsync(
             Arg.Is<Money>(m => m.Amount == 90), Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task فشل_بوّابة_الدفع_عند_إنشاء_النيّة_يُلغي_الطلب_ويحرّر_مخزونه_فوراً()
+    {
+        // Phase 0 C6: كان الطلب يبقى Pending يحجز المخزون للأبد بلا أي وسيلة دفع.
+        var product = NewProduct(stock: 10);
+        _customers.GetByIdAsync(1, Arg.Any<CancellationToken>()).Returns(NewCustomer());
+        _products.GetByIdAsync(1, Arg.Any<CancellationToken>()).Returns(product);
+        _payment.CreateIntentAsync(Arg.Any<Money>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .ThrowsAsync(new HttpRequestException("gateway down"));
+
+        Order? savedOrder = null;
+        _orders.When(x => x.AddAsync(Arg.Any<Order>(), Arg.Any<CancellationToken>()))
+            .Do(ci => savedOrder = ci.Arg<Order>());
+
+        var result = await CreateHandler().Handle(NewCommand(quantity: 3), CancellationToken.None);
+
+        result.IsSuccess.Should().BeFalse();
+        result.ErrorCode.Should().Be("PaymentUnavailable");
+        savedOrder!.Status.Should().Be(OrderStatus.Cancelled);
+        product.StockQuantity.Should().Be(10); // 10 − 3 ثم + 3
+        await _stockMovements.Received(1).AddAsync(
+            Arg.Is<StockMovement>(m => m.Type == StockMovementType.Cancellation && m.QuantityChange == 3),
+            Arg.Any<CancellationToken>());
+        // حفظ الطلب، ثم حفظ التعويض (إلغاء + إعادة) في معاملة واحدة.
+        await _uow.Received(2).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 }

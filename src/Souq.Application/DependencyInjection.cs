@@ -25,6 +25,10 @@ public static class DependencyInjection
         // يُدخل سلوك التحقّق في خط أنابيب MediatR.
         services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
 
+        // خدمة تطبيق مشتركة بين مسارَي الإلغاء (الإدارة + تعويض الدفع) — صنف ملموس
+        // بلا واجهة: لا تنفيذ بديل له، فالواجهة ستكون تجريداً بلا سبب.
+        services.AddScoped<Features.Orders.OrderStockRelease>();
+
         return services;
     }
 }

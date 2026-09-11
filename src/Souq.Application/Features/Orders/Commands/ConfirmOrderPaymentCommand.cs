@@ -1,6 +1,8 @@
 using MediatR;
+using Souq.Application.Common.Exceptions;
 using Souq.Application.Common.Interfaces;
 using Souq.Application.Common.Models;
+using Souq.Domain.Entities;
 using Souq.Domain.Enums;
 using Souq.Domain.Interfaces;
 
@@ -16,8 +18,10 @@ public record OrderConfirmedDto(int OrderId, string Status, decimal TotalAmount,
 
 public class ConfirmOrderPaymentHandler : IRequestHandler<ConfirmOrderPaymentCommand, Result<OrderConfirmedDto>>
 {
+    private const string PaymentFailedNote = "فشل الدفع";
+
     private readonly IOrderRepository _orders;
-    private readonly IProductRepository _products;
+    private readonly OrderStockRelease _stockRelease;
     private readonly ICustomerRepository _customers;
     private readonly ICouponRepository _coupons;
     private readonly IPaymentService _payment;
@@ -25,10 +29,10 @@ public class ConfirmOrderPaymentHandler : IRequestHandler<ConfirmOrderPaymentCom
     private readonly IUnitOfWork _uow;
 
     public ConfirmOrderPaymentHandler(
-        IOrderRepository orders, IProductRepository products, ICustomerRepository customers,
+        IOrderRepository orders, OrderStockRelease stockRelease, ICustomerRepository customers,
         ICouponRepository coupons, IPaymentService payment, IEmailService email, IUnitOfWork uow)
     {
-        _orders = orders; _products = products; _customers = customers;
+        _orders = orders; _stockRelease = stockRelease; _customers = customers;
         _coupons = coupons; _payment = payment; _email = email; _uow = uow;
     }
 
@@ -41,8 +45,7 @@ public class ConfirmOrderPaymentHandler : IRequestHandler<ConfirmOrderPaymentCom
         // مضمونة التكرار (Idempotent): وصول تأكيدين لنفس الطلب (من العميل ومن
         // الـ Webhook معاً، أو تكرار Webhook) لا يجب أن يُطبّق أثراً مرتين.
         if (order.Status != OrderStatus.Pending)
-            return Result<OrderConfirmedDto>.Success(new OrderConfirmedDto(
-                order.Id, order.Status.ToString(), order.TotalAmount.Amount, order.TotalAmount.Currency));
+            return Result<OrderConfirmedDto>.Success(ToDto(order, order.Status));
 
         if (string.IsNullOrEmpty(order.PaymentIntentId))
             return Result<OrderConfirmedDto>.Failure("لا توجد نيّة دفع مرتبطة بهذا الطلب", "NoPaymentIntent");
@@ -50,18 +53,13 @@ public class ConfirmOrderPaymentHandler : IRequestHandler<ConfirmOrderPaymentCom
         var confirmation = await _payment.ConfirmAsync(order.PaymentIntentId, ct);
         if (!confirmation.Succeeded)
         {
-            // تعويض فشل الدفع: نعيد المخزون ونُلغي الطلب (نفس منطق مرحلة 4).
-            foreach (var item in order.Items)
-            {
-                var product = await _products.GetByIdAsync(item.ProductId, ct);
-                if (product is null) continue;
-                product.IncreaseStock(item.Quantity);
-                _products.Update(product);
-            }
-            order.Cancel(confirmation.FailureReason ?? "فشل الدفع");
+            // تعويض فشل الدفع: نُلغي الطلب ونعيد مخزونه مع أثر في سجلّ الحركة.
+            var reason = confirmation.FailureReason ?? PaymentFailedNote;
+            order.Cancel(reason);
+            await _stockRelease.ReleaseAsync(order, reason, ct);
             await _uow.SaveChangesAsync(ct);
 
-            return Result<OrderConfirmedDto>.Failure(confirmation.FailureReason ?? "فشل الدفع", "PaymentFailed");
+            return Result<OrderConfirmedDto>.Failure(reason, "PaymentFailed");
         }
 
         order.MarkAsPaid();
@@ -78,14 +76,28 @@ public class ConfirmOrderPaymentHandler : IRequestHandler<ConfirmOrderPaymentCom
             }
         }
 
-        await _uow.SaveChangesAsync(ct);
+        try
+        {
+            await _uow.SaveChangesAsync(ct);
+        }
+        catch (ConcurrencyConflictException)
+        {
+            // سباق مع مسار التأكيد الآخر (العميل ضد الـ Webhook): الفائز حفظ أولاً و
+            // rowversion رفض نسختنا القديمة. نقرأ الحالة الحقيقية دون تتبّع — إن كان
+            // الطلب قد دُفع فهذا نجاح مضمون التكرار، بلا كوبون مكرّر ولا بريد ثانٍ.
+            var current = await _orders.GetStatusAsync(order.Id, ct);
+            if (current is null or OrderStatus.Pending) throw;
+            return Result<OrderConfirmedDto>.Success(ToDto(order, current.Value));
+        }
 
         // أثر جانبي غير حرج (البريد): لو فشل لا نُفشل تأكيد الطلب.
         var customer = await _customers.GetByIdAsync(order.CustomerId, ct);
         if (customer is not null)
             await _email.SendOrderConfirmationAsync(customer.Email, order.Id, ct);
 
-        return Result<OrderConfirmedDto>.Success(new OrderConfirmedDto(
-            order.Id, order.Status.ToString(), order.TotalAmount.Amount, order.TotalAmount.Currency));
+        return Result<OrderConfirmedDto>.Success(ToDto(order, order.Status));
     }
+
+    private static OrderConfirmedDto ToDto(Order order, OrderStatus status) =>
+        new(order.Id, status.ToString(), order.TotalAmount.Amount, order.TotalAmount.Currency);
 }

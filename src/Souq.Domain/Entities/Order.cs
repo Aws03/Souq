@@ -135,11 +135,15 @@ public class Order : Entity
         RecordStatusChange(note);
     }
 
+    // الإلغاء مسموح فقط من Pending/Paid — وهما بالضبط الحالتان اللتان يحجز فيهما
+    // الطلب مخزوناً لم يُشحن بعد. لذا كل إلغاء ناجح يعني "حرّر المخزون مرة واحدة":
+    // رفض Cancelled ⇒ Cancelled يمنع إعادة المخزون مرتين (تضخيم وهمي للمخزون).
     public void Cancel(string? note = null)
     {
-        // لا نُلغي طلباً شُحن أو سُلّم.
         if (Status is OrderStatus.Shipped or OrderStatus.Delivered)
             throw new InvalidOrderOperationException("لا يمكن إلغاء طلب تم شحنه أو تسليمه");
+        if (Status == OrderStatus.Cancelled)
+            throw new InvalidOrderOperationException("الطلب ملغى مسبقاً");
         Status = OrderStatus.Cancelled;
         RecordStatusChange(note);
     }
