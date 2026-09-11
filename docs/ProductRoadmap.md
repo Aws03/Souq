@@ -1,7 +1,7 @@
 # Souq Platform: Product Roadmap
 
 > **Goal:** turn Souq into one **white-label, multi-tenant e-commerce platform**, sold to many clients (≈ $5,000+ each) and maintainable by a professional team.
-> **Status:** Phase 0 ✅ · Target architecture ✅ documented · Phase 1A ✅ (merged to `main`) · Phase 1B ✅ on branch `phase/1b-production-foundations` (awaiting review) · **Autonomous run on `phase/2-15-multitenant-platform`** (branched from the 1B tip): Phase 2 ✅ · Phase 3 ✅ · Phase 4 ✅ · Phase 5 ✅ · Phase 6 ✅ · Phase 7 ✅. Next: Phase 8.
+> **Status:** Phase 0 ✅ · Target architecture ✅ documented · Phase 1A ✅ (merged to `main`) · Phase 1B ✅ on branch `phase/1b-production-foundations` (awaiting review) · **Autonomous run on `phase/2-15-multitenant-platform`** (branched from the 1B tip): Phase 2 ✅ · Phase 3 ✅ · Phase 4 ✅ · Phase 5 ✅ · Phase 6 ✅ · Phase 7 ✅ · Phase 8 ✅. Next: Phase 9.
 > **Companion document:** [ArchitectureAssessment.md](ArchitectureAssessment.md) covers the current state, the problem register (IDs such as `B1` and `C2`), the target architecture, and the full reasoning behind every decision (`D-xx`).
 > **Last updated:** 2026-09-11
 
@@ -467,7 +467,28 @@ Status legend: ✅ done · 🟡 in progress · ⏳ planned · ⏸ awaiting appro
   - Ownership and isolation tests pass.
   - Admins cannot reach other tenants' customers.
 
-### Phase 8: Basket / cart ⏳
+### Phase 8: Basket / cart ✅ (autonomous run)
+- **Delivered ([ADR-0028](adr/0028-basket-and-pricing-pipeline.md)):**
+  - **A server-side basket:** the `Basket` aggregate owns its lines (variant plus quantity, never a price).
+    - It has at most 50 lines and 99 units per line, and one basket per owner per store.
+    - Guests are identified by a random token in an HttpOnly, Secure, `SameSite=Strict` cookie scoped to `/api/basket`; only its SHA-256 is stored. Customers are identified by their session.
+  - **Endpoints:** `GET /api/basket`; `GET /api/basket/quote?couponCode=` (behind the coupon-preview rate limit); `POST /api/basket/items`; `PUT` and `DELETE /api/basket/items/{productId}`; `DELETE /api/basket`.
+  - **Merge at sign-in:** a customer's first basket request that still carries a guest cookie merges the guest basket (quantities summed and capped), deletes it and clears the cookie.
+  - **One pricing pipeline, `IPricing`:** subtotal → discount → shipping → tax → total, from live catalog prices.
+    - The basket view and `CreateOrderHandler` both use it, so the basket total is the checkout total.
+    - A coupon that can't be used is reported in the quote, not raised as an error.
+  - **Stock:** baskets reserve nothing; this closes Phase 6's open question. Adding beyond what is available is `422 InsufficientStock`. Lines that are archived or over the available quantity are flagged, and they block checkout.
+  - **Expiry:** sliding, 30 days for guests and 180 for customers (`Basket:*`). A per-store hosted sweep, sharing a base with the checkout-expiry sweep, deletes expired baskets. Erasing a customer deletes their basket.
+  - **Frontend:** `CartContext` is backed by the server (it survives a refresh and a device switch). The drawer and checkout show server totals, the checkout coupon uses the basket quote, and blocking lines are explained.
+  - **Migration `Phase8Basket`:** additive only.
+- **Deferred, with reasons:**
+  - Checkout from the basket itself (`IBasketReader`), and clearing the basket on the server when an order is placed: Phase 9, which owns checkout. Today the SPA sends the basket's lines and clears the basket after payment.
+  - Shipping: Phase 12, when the stage stops being zero.
+  - **Tax:** no model exists, and no phase plans one. It is logged as open product decision P-06; the stage is an explicit zero.
+  - Category visibility at checkout: Phase 9, as for checkout today.
+- **Exit criteria (met):**
+  - **Basket totals equal checkout totals:** `BasketTests` places an order with the basket's lines and coupon and compares subtotal, discount and total. `CreateOrderHandlerTests` runs on the same pipeline.
+  - **The cart survives a refresh or a device switch (C12):** a guest basket persists through its cookie. After sign-in it is merged into the customer's basket, which another client of the same customer then sees.
 - **Scope.**
   - A server-side basket: guests use an anonymous-id cookie, signed-in customers have their own basket, and the two merge on login.
   - Add, update, remove, and clear. Prices recalculate from the live catalog.
@@ -682,6 +703,7 @@ Each decision is argued in full (options, recommendation, rationale) in Architec
 | D-14 | Notifications | Outbox + background dispatcher, per-tenant templates | 14 |
 | D-19 | Frontend stack | Incremental TypeScript + TanStack Query | 15 |
 | P-03 | Source license and repository visibility | The repo is MIT-licensed and has a GitHub remote. Decide before the first sale. | before 23 |
+| P-06 | Tax model | No tax exists in the product, and no phase plans one. Decide: prices tax-inclusive or exclusive, a per-store rate, and whether invoices must show tax (Jordan GST). The pricing pipeline has a zero tax stage ready for it ([ADR-0028](adr/0028-basket-and-pricing-pipeline.md)) | before the first sale |
 
 ## 8. Risk register
 
@@ -760,3 +782,4 @@ The earlier `AUDIT.md` (Arabic, 8-phase program) and the engineering-thinking gu
 | 2026-09-11 | Phase 5 completed (catalog translations, default variant, product lifecycle and slugs, gallery, category tree, admin catalog API and UI); ADR-0025 |
 | 2026-09-11 | Phase 6 completed (inventory items per variant, explicit reservations, retry-on-conflict checkout, delta adjustments, checkout expiry sweep, module contracts); ADR-0026 |
 | 2026-09-11 | Phase 7 completed (customer profile, address book with defaults, saved-address checkout, account status, admin customer list and detail with order history, data export and erasure); ADR-0027 |
+| 2026-09-11 | Phase 8 completed (server-side basket for guests and customers, merge at sign-in, one pricing pipeline shared with checkout, basket expiry, no basket reservations); ADR-0028. Tax model logged as open decision P-06 |

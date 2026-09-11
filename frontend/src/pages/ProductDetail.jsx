@@ -55,10 +55,12 @@ export default function ProductDetail() {
   };
   useEffect(loadReviews, [id, page]);
 
-  const handleAdd = () => {
+  // الخادم يؤكّد الإضافة — الإشعار بعد نجاحها فقط؛ خطؤها (نفاد المتاح) يعرضه سياق السلة.
+  const handleAdd = async () => {
     setAdding(true);
-    add(product);
-    setTimeout(() => { setAdding(false); showToast(getProductName(product)); }, 350);
+    const added = await add(product);
+    setAdding(false);
+    if (added) showToast(getProductName(product));
   };
 
   if (productError) return <div className="souq-layout"><ErrorBanner message={productError} /></div>;

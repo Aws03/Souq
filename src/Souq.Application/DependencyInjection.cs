@@ -49,6 +49,11 @@ public static class DependencyInjection
             sp => sp.GetRequiredService<Features.Inventory.Reservations.InventoryReservations>());
         services.AddScoped<Features.Products.Contracts.IVariantStockInitializer,
             Features.Inventory.Reservations.VariantStockInitializer>();
+        // وحدة Shopping (المرحلة 8): خطّ التسعير الواحد (السلة والدفع)، وسلة المتصل وعرضها. الإعدادات (أعمار السلال)
+        // يسجّلها Infrastructure من Basket:* بعد التحقّق منها.
+        services.AddScoped<Features.Baskets.Contracts.IPricing, Features.Baskets.Pricing.PricingService>();
+        services.AddScoped<Features.Baskets.BasketResolver>();
+        services.AddScoped<Features.Baskets.BasketViews>();
         // منطق تأكيد الدفع وإلغاء الطلب غير المشحون، لكل مداخله (العميل المالك، توقيع البوّابة، منسّق المهلة).
         services.AddScoped<Features.Orders.OrderPaymentConfirmation>();
         // محو العميل (حقّ الحذف) — مسار واحد للعميل نفسه وللإدارة (المرحلة 7).

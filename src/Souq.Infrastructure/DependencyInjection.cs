@@ -50,6 +50,7 @@ public static class DependencyInjection
 
         AddPersistence(services, config);
         AddInventory(services, config);
+        AddBaskets(services, config);
         AddPayments(services, config, environment, report);
         AddEmail(services, config, environment, report);
         AddStorage(services, config, environment);
@@ -97,6 +98,7 @@ public static class DependencyInjection
         services.AddScoped<IReviewRepository, ReviewRepository>();
         services.AddScoped<IStockMovementRepository, StockMovementRepository>();
         services.AddScoped<IInventoryRepository, InventoryRepository>();
+        services.AddScoped<IBasketRepository, BasketRepository>();
         services.AddScoped<ITenantRepository, TenantRepository>();
 
         // خدمات القراءة (ADR-0008): إسقاطات بلا تتبّع خلف منافذ Application، لكل وحدة منفذها.
@@ -130,6 +132,21 @@ public static class DependencyInjection
             .ValidateOnStart();
         services.AddSingleton(sp => sp.GetRequiredService<IOptions<InventorySettings>>().Value);
         services.AddHostedService<BackgroundJobs.ReservationExpiryService>();
+    }
+
+    // السلال (المرحلة 8): أعمار سلة الزائر وسلة العميل ودورة منسّق حذف المنتهية من Basket:* — مُتحقَّق منها عند الإقلاع.
+    // CleanupIntervalMinutes = 0 يعطّل المنسّق (الاختبارات ترسل أمر الحذف مباشرة).
+    private static void AddBaskets(IServiceCollection services, IConfiguration config)
+    {
+        services.AddOptions<Application.Features.Baskets.BasketSettings>()
+            .Bind(config.GetSection("Basket"))
+            .Validate(s => s.GuestLifetimeDays is >= 1 and <= 365, "Basket:GuestLifetimeDays بين 1 و365 يوماً.")
+            .Validate(s => s.CustomerLifetimeDays is >= 1 and <= 730, "Basket:CustomerLifetimeDays بين 1 و730 يوماً.")
+            .Validate(s => s.CleanupIntervalMinutes == 0 || s.CleanupIntervalMinutes is >= 5 and <= 1440,
+                "Basket:CleanupIntervalMinutes صفر (معطّل) أو بين 5 و1440 دقيقة.")
+            .ValidateOnStart();
+        services.AddSingleton(sp => sp.GetRequiredService<IOptions<Application.Features.Baskets.BasketSettings>>().Value);
+        services.AddHostedService<BackgroundJobs.BasketCleanupService>();
     }
 
     // بوّابة الدفع: القرار هنا فقط — لا كود آخر في النظام يعرف أيّها يعمل. البوّابة التجريبية

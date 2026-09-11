@@ -4,18 +4,18 @@ using Souq.Application.Common.Interfaces;
 using Souq.Application.Common.Models;
 using Souq.Application.Common.Security;
 using Souq.Application.Common.Tenancy;
+using Souq.Application.Features.Baskets.Contracts;
 using Souq.Application.Features.Inventory.Contracts;
 using Souq.Domain.Entities;
 using Souq.Domain.Interfaces;
-using Souq.Domain.Platform;
-using Souq.Domain.ValueObjects;
 
 namespace Souq.Application.Features.Orders.Commands;
 
 // ============================================================================
 // CreateOrderHandler — "منسّق" حالة الاستخدام الأهم في النظام.
 //
-// (1) تحقّق بلا أثر: المنتجات قابلة للبيع، المتاح يكفي (قراءة مبكرة لرسالة واضحة)، والكوبون صالح.
+// (1) تحقّق بلا أثر: الأسعار والخصم من خطّ التسعير الواحد (IPricing، المرحلة 8) — الخطّ نفسه الذي تُعرض به السلة،
+//     فإجمالي الدفع هو إجمالي السلة. كل سطر قابل للبيع، المتاح يكفي (قراءة مبكرة لرسالة واضحة)، والكوبون مقبول.
 // (2) الطلب Pending والحجز في معاملة واحدة (المرحلة 6، ADR-0026): حفظ الطلب يولّد معرّفه، ثم يحجز Inventory
 //     الأسطر بمرجعه ("order:{id}"). نقص حقيقي بعد القراءة (سباق) ⇒ InsufficientStock وتُلغى المعاملة كلها — لا
 //     طلب بلا حجز ولا حجز بلا طلب. المخزون المحجوز لا يُسجَّل بيعاً إلا عند الدفع.
@@ -26,10 +26,9 @@ public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, Result<Ord
 {
     private const string PaymentStartFailedNote = "تعذّر بدء عملية الدفع";
 
-    private readonly IProductRepository _products;
     private readonly IOrderRepository _orders;
     private readonly ICustomerRepository _customers;
-    private readonly ICouponRepository _coupons;
+    private readonly IPricing _pricing;
     private readonly IInventoryReservations _reservations;
     private readonly IStockAvailability _availability;
     private readonly IPaymentService _payment;
@@ -37,18 +36,17 @@ public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, Result<Ord
     private readonly ICurrentUser _currentUser;
     private readonly ITenantContext _tenant;
     private readonly IUnitOfWork _uow;
-    private readonly TimeProvider _clock;
     private readonly ILogger<CreateOrderHandler> _logger;
 
     public CreateOrderHandler(
-        IProductRepository products, IOrderRepository orders, ICustomerRepository customers, ICouponRepository coupons,
+        IOrderRepository orders, ICustomerRepository customers, IPricing pricing,
         IInventoryReservations reservations, IStockAvailability availability, IPaymentService payment,
         OrderPaymentConfirmation confirmation, ICurrentUser currentUser, ITenantContext tenant, IUnitOfWork uow,
-        TimeProvider clock, ILogger<CreateOrderHandler> logger)
+        ILogger<CreateOrderHandler> logger)
     {
-        _products = products; _orders = orders; _customers = customers; _coupons = coupons;
+        _orders = orders; _customers = customers; _pricing = pricing;
         _reservations = reservations; _availability = availability; _payment = payment; _confirmation = confirmation;
-        _currentUser = currentUser; _tenant = tenant; _uow = uow; _clock = clock; _logger = logger;
+        _currentUser = currentUser; _tenant = tenant; _uow = uow; _logger = logger;
     }
 
     public async Task<Result<OrderCreatedDto>> Handle(CreateOrderCommand cmd, CancellationToken ct)
@@ -76,53 +74,34 @@ public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, Result<Ord
 
         var store = _tenant.RequireTenant();
 
-        // (1) التحقّق: كل سطر لمنتج قابل للبيع في هذا المتجر (المستودع مُرشَّح بالمتجر).
-        var lines = new List<(Product Product, int Quantity)>();
-        foreach (var line in cmd.Items)
-        {
-            var product = await _products.GetByIdAsync(line.ProductId, ct);
-            if (product is null || !product.IsActive)
-                return Result<OrderCreatedDto>.Failure(
-                    Error.Validation("ProductNotFound", $"المنتج رقم {line.ProductId} غير متاح"));
-            lines.Add((product, line.Quantity));
-        }
+        // (1) التسعير: كل سطر من الكتالوج الحيّ لهذا المتجر (منتج غير منشور أو من متجر آخر غير قابل للبيع).
+        var quote = await _pricing.QuoteAsync(cmd.Items.Select(i => new PricingLine(i.ProductId, i.Quantity)).ToList(), cmd.CouponCode, ct);
+        if (quote.Lines.FirstOrDefault(l => !l.Sellable) is { } unsellable)
+            return Result<OrderCreatedDto>.Failure(Error.Validation("ProductNotFound", $"المنتج رقم {unsellable.ProductId} غير متاح"));
 
-        var available = await _availability.AvailableAsync(lines.Select(l => l.Product.DefaultVariant.Id).Distinct().ToList(), ct);
-        foreach (var group in lines.GroupBy(l => l.Product.DefaultVariant.Id))
+        var available = await _availability.AvailableAsync(quote.Lines.Select(l => l.VariantId).Distinct().ToList(), ct);
+        foreach (var group in quote.Lines.GroupBy(l => l.VariantId))
         {
             var requested = group.Sum(l => l.Quantity);
             var inStock = available.GetValueOrDefault(group.Key);
             if (requested > inStock)
                 return Result<OrderCreatedDto>.Failure(Error.BusinessRule("InsufficientStock",
-                    $"الكمية المطلوبة ({requested}) من \"{group.First().Product.NameIn(store.DefaultCulture)}\" غير متوفرة. المتاح: {Math.Max(inStock, 0)}"));
+                    $"الكمية المطلوبة ({requested}) من \"{group.First().Name}\" غير متوفرة. المتاح: {Math.Max(inStock, 0)}"));
         }
 
-        // الطلب بعملة المتجر (لقطة مجمّدة على الطلب نفسه).
-        var subtotal = lines.Aggregate(Money.Zero(store.Currency), (sum, l) => sum.Add(l.Product.Price.Multiply(l.Quantity)));
+        // كوبون مرفوض يوقف الطلب برمزه (ModuleDisabled، CouponNotFound، InvalidCoupon — 422) قبل أي كتابة.
+        if (quote.Coupon is { Applied: false } rejected)
+            return Result<OrderCreatedDto>.Failure(Error.BusinessRule(rejected.ErrorCode!, rejected.Message!));
 
-        // الكوبون اختياري، ويُتحقّق منه قبل أي كتابة. غير قابل للاستخدام ⇒ InvalidCouponException (422) هنا.
-        Coupon? coupon = null;
-        if (!string.IsNullOrWhiteSpace(cmd.CouponCode))
-        {
-            // وحدة الكوبونات معطّلة لهذا المتجر (D-11): الواجهة تُخفي الحقل، والخادم يرفض على أي حال.
-            if (!store.HasModule(StoreModules.Promotions))
-                return Result<OrderCreatedDto>.Failure(Error.BusinessRule("ModuleDisabled", "الكوبونات غير مفعّلة في هذا المتجر"));
-            coupon = await _coupons.GetByCodeAsync(cmd.CouponCode, ct);
-            if (coupon is null)
-                return Result<OrderCreatedDto>.Failure(Error.BusinessRule("CouponNotFound", "رمز الكوبون غير صحيح"));
-            coupon.EnsureUsable(subtotal, _clock.GetUtcNow().UtcDateTime);
-        }
-
-        // (2) الطلب بلقطات الأسطر (الاسم بلغة المتجر الافتراضية — الفاتورة تبقى كما كانت لحظة الشراء)، ثم الحجز.
+        // (2) الطلب بعملة المتجر ولقطات أسطر التسعير (الاسم بلغة المتجر الافتراضية — الفاتورة تبقى كما كانت لحظة
+        //     الشراء)، ثم الحجز.
         var order = new Order(customerId, shippingAddress, store.Currency);
-        foreach (var (product, quantity) in lines)
-            order.AddItem(product.Id, product.NameIn(store.DefaultCulture), product.Price, quantity);
-        if (coupon is not null)
-            order.ApplyCoupon(coupon.Code, coupon.CalculateDiscount(subtotal));
+        foreach (var line in quote.Lines)
+            order.AddItem(line.ProductId, line.Name, line.UnitPrice, line.Quantity);
+        if (quote.Coupon is { Applied: true } applied)
+            order.ApplyCoupon(applied.Code, quote.Discount);
 
-        var reservationLines = lines
-            .Select(l => new ReservationLine(l.Product.DefaultVariant.Id, l.Quantity, l.Product.NameIn(store.DefaultCulture)))
-            .ToList();
+        var reservationLines = quote.Lines.Select(l => new ReservationLine(l.VariantId, l.Quantity, l.Name)).ToList();
         await _orders.AddAsync(order, ct);
         await _uow.InTransactionAsync(async () =>
         {

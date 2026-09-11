@@ -15,7 +15,7 @@ export default function AddressStep({
   savedAddresses, shippingChoice, setShippingChoice,
   address, setAddress, addressTouched, setAddressTouched, addressError,
   couponCode, setCouponCode, couponPreview, couponError, couponBusy, onApplyCoupon,
-  busy, onSubmit,
+  busy, blocked, onSubmit,
 }) {
   const { t } = useTranslation();
   const choiceClass = (selected) => `${styles.addressChoice} ${selected ? styles.addressChoiceActive : ''}`;
@@ -74,7 +74,9 @@ export default function AddressStep({
         </div>
       )}
 
-      <Button type="submit" variant="saffron" size="lg" loading={busy} disabled={savedAddresses === null} className={styles.submit}>
+      {blocked && <p className={styles.blockedNote}>{t('cart.fixItems')}</p>}
+      <Button type="submit" variant="saffron" size="lg" loading={busy} disabled={savedAddresses === null || blocked}
+        className={styles.submit}>
         {t('checkout.continueToPayment')}
       </Button>
     </form>

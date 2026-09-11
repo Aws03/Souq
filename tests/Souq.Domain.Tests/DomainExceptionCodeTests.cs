@@ -15,6 +15,7 @@ public class DomainExceptionCodeTests
         { new InvalidCategoryParentException("x"), "InvalidParent" },
         { new InvalidInventoryOperationException("x"), "InvalidInventoryOperation" },
         { new InvalidCustomerDataException("x"), "InvalidCustomerData" },
+        { new InvalidBasketOperationException("x"), "InvalidBasketOperation" },
         { new InvalidCouponException("x"), "InvalidCoupon" },
         { new InvalidReviewException("x"), "InvalidReview" },
         { new InvalidPasswordResetException("x"), "ResetTokenExpired" },

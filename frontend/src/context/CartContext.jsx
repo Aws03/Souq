@@ -1,50 +1,62 @@
-import { createContext, useContext, useReducer } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { api } from '../api/client';
+import { useAuth } from './AuthContext';
+import { useToast } from './ToastContext';
+import { EMPTY_BASKET, nextQuantity, toCartItems } from '../features/basket/basketModel';
 
 // ============================================================================
-// CartContext — إدارة حالة السلة المشتركة (مبدأ: حالة مركزية للبيانات المشتركة).
-// لماذا Context + Reducer؟ السلة يصل إليها شريط التنقّل، صفحة المنتج، والدرج...
-// تمريرها يدوياً عبر كل مكوّن (prop drilling) فوضى. الـ Context يجعلها متاحة
-// لأي مكوّن دون تمرير، والـ Reducer يجمع كل منطق تعديلها في مكان واحد منظّم.
+// CartContext — السلة من الخادم (المرحلة 8، ADR-0028). الخادم مصدر الحقيقة للأصناف والأسعار والمجاميع (خطّ التسعير نفسه
+// الذي يُنشئ الطلب)، فتنجو السلة من التحديث وتتبع العميل بين أجهزته (C12). الزائر يُعرَّف بملف تعريف ارتباط HttpOnly
+// يضعه الخادم. كل عملية تعيد السلة كاملة فتُستبدل الحالة بها — لا حساب محلي يمكن أن يختلف عن الخادم.
 // ============================================================================
 const CartContext = createContext();
 
-function reducer(state, action) {
-  switch (action.type) {
-    case 'ADD': {
-      const existing = state.find((i) => i.id === action.product.id);
-      if (existing)
-        return state.map((i) =>
-          i.id === action.product.id ? { ...i, qty: i.qty + 1 } : i);
-      return [...state, { ...action.product, qty: 1 }];
-    }
-    case 'INC':
-      return state.map((i) => (i.id === action.id ? { ...i, qty: i.qty + 1 } : i));
-    case 'DEC':
-      return state
-        .map((i) => (i.id === action.id ? { ...i, qty: i.qty - 1 } : i))
-        .filter((i) => i.qty > 0);
-    case 'REMOVE':
-      return state.filter((i) => i.id !== action.id);
-    case 'CLEAR':
-      return [];
-    default:
-      return state;
-  }
-}
-
 export function CartProvider({ children }) {
-  const [items, dispatch] = useReducer(reducer, []);
-  const total = items.reduce((s, i) => s + i.price * i.qty, 0);
-  const count = items.reduce((s, i) => s + i.qty, 0);
+  const { user, loading: sessionLoading } = useAuth();
+  const toast = useToast();
+  const [basket, setBasket] = useState(EMPTY_BASKET);
+  const [loaded, setLoaded] = useState(false);
 
-  const value = {
-    items, total, count,
-    add: (product) => dispatch({ type: 'ADD', product }),
-    inc: (id) => dispatch({ type: 'INC', id }),
-    dec: (id) => dispatch({ type: 'DEC', id }),
-    remove: (id) => dispatch({ type: 'REMOVE', id }),
-    clear: () => dispatch({ type: 'CLEAR' }),
-  };
+  const reload = useCallback(
+    () => api.getBasket().then(setBasket).catch(() => {}).finally(() => setLoaded(true)),
+    []);
+
+  // بعد استعادة الجلسة لا قبلها، وعند كل تبدّل للمستخدم: أول قراءة بعد الدخول يدمج فيها الخادم سلة الزائر.
+  useEffect(() => {
+    if (!sessionLoading) reload();
+  }, [sessionLoading, user?.id, reload]);
+
+  // الخطأ (نفاد المتاح، منتج لم يعد متاحاً) يُعرض هنا مرة واحدة؛ المستدعي يعرف النجاح من القيمة المعادة.
+  const run = useCallback(async (operation) => {
+    try {
+      setBasket(await operation());
+      return true;
+    } catch (e) {
+      toast.error(e.message);
+      return false;
+    }
+  }, [toast]);
+
+  const items = useMemo(() => toCartItems(basket), [basket]);
+
+  const value = useMemo(() => {
+    const change = (id, delta) => {
+      const item = items.find((i) => i.id === id);
+      return item ? run(() => api.setBasketQuantity(id, nextQuantity(item, delta))) : Promise.resolve(false);
+    };
+    return {
+      basket, items, loaded,
+      total: basket.subtotal,
+      count: basket.itemCount,
+      add: (product, quantity = 1) => run(() => api.addToBasket(product.id, quantity)),
+      inc: (id) => change(id, 1),
+      dec: (id) => change(id, -1),
+      remove: (id) => run(() => api.removeFromBasket(id)),
+      clear: () => run(async () => { await api.clearBasket(); return EMPTY_BASKET; }),
+      reload,
+    };
+  }, [basket, items, loaded, run, reload]);
+
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 }
 

@@ -11,12 +11,17 @@ public class ProductRepository : RepositoryBase<Product>, IProductRepository
     public ProductRepository(AppDbContext db) : base(db) { }
 
     public override Task<Product?> GetByIdAsync(int id, CancellationToken ct = default) =>
-        Db.Products
-            .Include(p => p.Translations)
-            .Include(p => p.Images)
-            .Include(p => p.Variants)
-            .AsSplitQuery()
-            .FirstOrDefaultAsync(p => p.Id == id, ct);
+        WithChildren().FirstOrDefaultAsync(p => p.Id == id, ct);
+
+    // عدد ثابت من الاستعلامات (واحد لكل مجموعة أبناء) مهما كثرت المنتجات.
+    public async Task<IReadOnlyList<Product>> GetManyAsync(IReadOnlyCollection<int> ids, CancellationToken ct = default) =>
+        ids.Count == 0 ? [] : await WithChildren().Where(p => ids.Contains(p.Id)).ToListAsync(ct);
+
+    private IQueryable<Product> WithChildren() => Db.Products
+        .Include(p => p.Translations)
+        .Include(p => p.Images)
+        .Include(p => p.Variants)
+        .AsSplitQuery();
 
     // بأي حالة (مسودّة/مؤرشف أيضاً): المفتاح الأجنبي قائم بغضّ النظر عنها.
     public Task<bool> ExistsInCategoryAsync(int categoryId, CancellationToken ct = default)

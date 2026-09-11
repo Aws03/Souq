@@ -9,8 +9,6 @@ import { HeartIcon } from '../icons/Icons';
 import { PriceTag, getProductName } from './ProductBadges';
 import styles from './ProductCard.module.css';
 
-const ADD_FEEDBACK_MS = 350;
-
 // بطاقة منتج نظيفة (نمط الكتالوج المرجعي): صورة كاملة بلا قصّ، الاسم، السعر،
 // زرّ الإضافة — بلا شارة فئة ولا وصف. قلب المفضّلة فوق الصورة. النقر على الصورة
 // أو الاسم ينتقل لصفحة المنتج. layout="list" يبدّلها لبطاقة أفقية (وضع القائمة).
@@ -23,10 +21,12 @@ export default function ProductCard({ product, onAdded, isNew = false, layout = 
   const inWishlist = wishlist.has(product.id);
   const name = getProductName(product);
 
-  const handleAdd = () => {
+  // الخادم يؤكّد الإضافة (منشور، متاح) — الإشعار بعد نجاحها فقط؛ خطؤها يعرضه سياق السلة.
+  const handleAdd = async () => {
     setAdding(true);
-    add(product);
-    setTimeout(() => { setAdding(false); onAdded?.(name); }, ADD_FEEDBACK_MS);
+    const added = await add(product);
+    setAdding(false);
+    if (added) onAdded?.(name);
   };
 
   return (

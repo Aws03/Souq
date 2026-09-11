@@ -136,6 +136,16 @@ It displays the server's decisions and handles its errors.
 | The admin mobile tab bar truncates labels, so seven tabs fit on a 360px screen | The new Customers tab |
 | New error codes translated (`CustomerBlocked`, `AddressNotFound`, `InvalidCustomerData`) | Server decisions shown in both languages |
 
+**Phase 8 (basket):**
+
+| Change | Reason |
+|---|---|
+| `CartContext` is backed by `/api/basket`. It reads after the session is restored and again whenever the user changes (the server merges the guest basket at the first read after sign-in). Every action replaces the state with the basket the server returns | The cart survives a refresh and a device switch (C12). The server is the only source of prices and totals ([ADR-0028](adr/0028-basket-and-pricing-pipeline.md)) |
+| `features/basket/basketModel.js` (tested) maps server lines to the item shape the components already render, flags lines that block checkout (no longer available, more than available), bounds quantities, and words a rejected coupon | One place for basket rules on the client |
+| The drawer and checkout show the server's subtotal, shipping and total. Checkout previews a coupon through `/api/basket/quote` (the pipeline that creates the order) and re-quotes when the basket changes. Checkout is disabled while a line blocks it | Basket totals equal checkout totals |
+| Add-to-cart waits for the server: the "added" toast appears only on success, and failures (for example, not enough stock) show once from the cart context | The server decides availability |
+| `api.applyCoupon` removed (its only caller was checkout); `InvalidBasketOperation` translated | No second pricing path |
+
 ## 6. Phase 15 migration plan
 
 1. Introduce `app/`, `routes/`, `layouts/`, and `contexts/` without moving features. The app keeps working.

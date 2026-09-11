@@ -66,7 +66,7 @@ Module schemas (`catalog.Products`) were considered and **postponed**. The owner
 | InventoryItem (Phase 6) | Inventory | Tenant | ✓ | `(TenantId, VariantId)` | `(TenantId, ProductId)`; AK `(TenantId, Id)` | Never (products are archived) | Created/Updated | **`rowversion` (hot)** + checks `0 ≤ Reserved ≤ OnHand` |
 | StockReservation (Phase 6) | Inventory | Tenant | ✓ | — | `(TenantId, Reference)`; `(TenantId, ExpiresAt) WHERE Status = Active` | **Never** (closed with a status: Committed, Released, Expired, Restocked) | Created/ClosedAt | via its item |
 | StockMovement | Inventory | Tenant | ✓ | — | `(ProductId, CreatedAt)`, `(InventoryItemId, CreatedAt)` | **Never** (ledger; Σ = on hand) | Created (+ user later) | — |
-| Basket / BasketLine | Shopping | User or anonymous | ✓ | `(TenantId, CustomerId)`; `(TenantId, AnonymousId)` | `(ExpiresAt)` | Hard (expiry) | Updated | last-write-wins |
+| Basket / BasketLine (Phase 8) | Shopping | Customer or guest token | ✓ | `(TenantId, CustomerId)` and `(TenantId, GuestTokenHash)`, both filtered; `(BasketId, VariantId)` | `(TenantId, ExpiresAt)` | Hard (sliding expiry; erasure) | Created/Updated | last-write-wins (no `rowversion`) + checks: exactly one owner, quantity 1–99 |
 | WishlistItem | Shopping | User | ✓ | `(TenantId, CustomerId, ProductId)` | — | Hard | Created | — |
 | Order | Ordering | User (in tenant) | ✓ | `(TenantId, OrderNumber)`; `PublicTrackingToken` | `(TenantId, CreatedAt DESC)`, `(TenantId, CustomerId)`, `(TenantId, Status)` | **Never** (financial record; cancelled ≠ deleted) | Created/Updated + status history | **`rowversion`** |
 | OrderItem | Ordering | User | ✓ | — | `(OrderId)` | Cascade with order (never deleted in practice) | Created | via Order |
@@ -217,6 +217,14 @@ Deferred to later phases, with the phase noted: `TenantId` (2), `Users` split (3
 | `CustomerAddresses` | New table: label, recipient, phone, country code, city, region, lines 1–2, postal code, default-shipping and default-billing flags, `TenantId`. FK to the customer with cascade (the addresses are part of its aggregate), and to the store |
 | Data | Nothing moved or rewritten. Existing orders keep their typed addresses; new orders store the same single-line snapshot |
 | `Down()` | Drops the table and the columns, so saved addresses and statuses are lost. Development only |
+
+**Phase 8 (`Phase8Basket`, additive only, [ADR-0028](adr/0028-basket-and-pricing-pipeline.md)):**
+
+| Change | Detail |
+|---|---|
+| `Baskets` | New: `CustomerId` (nullable, composite FK to the customer within the store), `GuestTokenHash` (`char(64)`, the SHA-256 of the guest cookie; the token itself is never stored), `ExpiresAt`. Check `CK_Baskets_Owner`: exactly one of the two owners. Filtered unique indexes: one basket per customer and one per guest token in a store. `(TenantId, ExpiresAt)` for the sweep |
+| `BasketLines` | New: `ProductId` and `VariantId` (composite FKs within the store, Restrict, since products are archived, not deleted), `Quantity` (check 1–99). Unique `(BasketId, VariantId)`; cascade from the basket. No price column: prices are read live at every quote |
+| Data | None: the cart was client-side before this phase |
 
 ## 10. Migration workflow
 

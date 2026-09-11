@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using Souq.Application.Common.Interfaces;
 using Souq.Application.Common.Security;
+using Souq.Application.Features.Baskets.Pricing;
 using Souq.Application.Features.Customers;
 using Souq.Application.Features.Customers.Account;
 using Souq.Application.Features.Customers.Admin;
@@ -43,7 +44,7 @@ public class CustomerAccountHandlersTests
     private static AddressInput Input(string line1 = "شارع الجامعة 12", string? label = "المنزل") =>
         new("سارة", "0790000000", "JO", "عمّان", line1, Label: label);
 
-    private CustomerErasure Erasure() => new(_users, _tokens, _uow, _sessions, new FixedClock());
+    private CustomerErasure Erasure() => new(_users, _tokens, Substitute.For<IBasketRepository>(), _uow, _sessions, new FixedClock());
 
     [Fact]
     public async Task تحديث_الملف_يعدّل_الملف_واسم_الحساب_معاً()
@@ -143,7 +144,8 @@ public class CreateOrderCustomerRulesTests
     public CreateOrderCustomerRulesTests()
     {
         _customers.GetByIdAsync(1, Arg.Any<CancellationToken>()).Returns(_customer);
-        _products.GetByIdAsync(1, Arg.Any<CancellationToken>()).Returns(TestCatalog.Product("سماعات", price: 50, id: 1));
+        _products.GetManyAsync(Arg.Any<IReadOnlyCollection<int>>(), Arg.Any<CancellationToken>())
+            .Returns(new List<Product> { TestCatalog.Product("سماعات", price: 50, id: 1) });
         _availability.AvailableAsync(Arg.Any<IReadOnlyCollection<int>>(), Arg.Any<CancellationToken>())
             .Returns(new Dictionary<int, int> { [1] = 10 });
         _payment.CreateIntentAsync(Arg.Any<Money>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
@@ -151,10 +153,12 @@ public class CreateOrderCustomerRulesTests
     }
 
     private CreateOrderHandler CreateHandler() => new(
-        _products, _orders, _customers, Substitute.For<ICouponRepository>(), _reservations, _availability, _payment,
+        _orders, _customers,
+        new PricingService(_products, Substitute.For<ICouponRepository>(), TestTenant.Context(), new FixedClock()),
+        _reservations, _availability, _payment,
         new OrderPaymentConfirmation(_orders, _reservations, _customers, Substitute.For<ICouponRepository>(), _payment,
             Substitute.For<IEmailService>(), _uow),
-        TestCurrentUser.Customer(1), TestTenant.Context(), _uow, new FixedClock(), NullLogger<CreateOrderHandler>.Instance);
+        TestCurrentUser.Customer(1), TestTenant.Context(), _uow, NullLogger<CreateOrderHandler>.Instance);
 
     private static CreateOrderCommand Command(string? address = "عمّان", int? addressId = null) =>
         new(address, [new OrderLineInput(1, 1)], null, addressId);

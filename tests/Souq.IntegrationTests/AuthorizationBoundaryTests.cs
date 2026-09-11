@@ -36,6 +36,9 @@ public class AuthorizationBoundaryTests
         "GET api/Orders/{id:int}/tracking",
         "GET api/payments/config", "POST api/payments/webhook",
         "GET api/storefront/config",
+        // السلة (المرحلة 8): للزائر برمز ملف تعريف ارتباط وللعميل بجلسته — لا بيانات غير سلة المتصل نفسه.
+        "GET api/basket", "GET api/basket/quote", "POST api/basket/items", "PUT api/basket/items/{productId:int}",
+        "DELETE api/basket/items/{productId:int}", "DELETE api/basket",
     };
 
     private readonly SouqApiFactory _factory;

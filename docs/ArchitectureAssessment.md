@@ -1043,7 +1043,7 @@ Every finding closed in Phase 1A has at least one automated test; the column say
 - B9: security headers beyond `/uploads` (20).
 - B10: `sa` login (23).
 - C7: reactivating products (5).
-- C12: persisted cart and shipping (8/12).
+- C12: persisted cart ✅ (Phase 8, [ADR-0028](adr/0028-basket-and-pricing-pipeline.md)); shipping (12).
 - C13: review N+1 (13).
 - D3/D4/D6/D12: read-side query services, `ProductSortBy`, error strategy, `TimeProvider` (1B).
 - E1–E6: frontend structure (15).

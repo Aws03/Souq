@@ -205,7 +205,13 @@ Each entry lists:
 - **Depends on:** Catalog, Inventory, Promotions, Shipping.
 - **Forbidden:** reserving stock (only checkout reserves).
 - **Extraction:** unlikely.
-- **Today:** client-side only (`CartContext` in memory; wishlist in `localStorage`).
+- **Today (Phase 8, [ADR-0028](adr/0028-basket-and-pricing-pipeline.md)):**
+  - `Basket` owns its `BasketLine`s (variant plus quantity, never a price). Its owner is a customer or a hashed guest token; expiry is sliding.
+  - `Features/Baskets/Contracts` holds `IPricing` (subtotal → discount → shipping → tax → total), used by the basket view and by Ordering's `CreateOrderHandler`.
+  - `Features/Baskets` holds the use cases, `BasketResolver` (guest or customer, and the merge at sign-in) and `BasketViews` (quote plus Inventory's `IStockAvailability`, read-only; baskets never reserve).
+  - `IBasketReader` (checkout from the basket) arrives with Phase 9.
+  - The wishlist is still in `localStorage` until Phase 13.
+  - `ModuleAndContractRuleTests` allows Ordering → Shopping and Shopping → Inventory contracts only.
 
 ### Ordering
 - **Responsibility:** turning a purchase decision into an immutable commercial record and moving it through its lifecycle.

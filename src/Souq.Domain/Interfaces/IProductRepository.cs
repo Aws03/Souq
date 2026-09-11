@@ -6,6 +6,9 @@ namespace Souq.Domain.Interfaces;
 // (ADR-0008). GetByIdAsync يحمّل التجمّع كاملاً (ترجمات، صور، متغيّرات) — كل قاعدة تحتاج أبناءه.
 public interface IProductRepository : IRepository<Product>
 {
+    // عدّة منتجات بتجمّعاتها في دفعة واحدة (خطّ التسعير، المرحلة 8) — لا استعلام لكل سطر. الغائب لا يُعاد.
+    Task<IReadOnlyList<Product>> GetManyAsync(IReadOnlyCollection<int> ids, CancellationToken ct = default);
+
     // هل يشير أي منتج (بأي حالة) لهذه الفئة؟ لمنع حذف فئة مستخدمة — المفتاح الأجنبي قائم بغضّ النظر عن الحالة.
     Task<bool> ExistsInCategoryAsync(int categoryId, CancellationToken ct = default);
 

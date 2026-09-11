@@ -9,3 +9,7 @@
 .lineTotal { font-weight: 700; color: var(--petrol); font-size: var(--fs-body-sm); white-space: nowrap; }
 .remove { color: var(--muted); transition: color var(--ease-hover); }
 .remove:hover { color: var(--clay); }
+
+/* سطر لم يعد متاحاً أو يتجاوز المتاح (المرحلة 8): الاسم باهت وسبب المشكلة تحته. */
+.problem .name { color: var(--muted); }
+.warning { color: var(--clay); font-size: var(--fs-caption); font-weight: 700; margin-top: 2px; white-space: normal; }

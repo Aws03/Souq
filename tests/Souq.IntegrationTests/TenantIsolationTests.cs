@@ -78,6 +78,10 @@ public class TenantIsolationTests
         new("PUT", "api/account/addresses/{id:int}/default-shipping", Resource.CustomerAddress, Actor.Customer),
         new("PUT", "api/account/addresses/{id:int}/default-billing", Resource.CustomerAddress, Actor.Customer),
         new("POST", "api/admin/staff/{id:int}/status", Resource.StaffAccount, Actor.Admin, () => JsonBody(new { active = false })),
+        // السلة (المرحلة 8): سطر لمنتج A غير موجود في أي سلة على مضيف B (الرمز والسلة مُرشَّحان بالمتجر — الاختبار
+        // المخصّص أدناه يرسل رمز سلة A الحقيقي إلى B).
+        new("PUT", "api/basket/items/{productId:int}", Resource.Product, Actor.Anonymous, () => JsonBody(new { quantity = 1 })),
+        new("DELETE", "api/basket/items/{productId:int}", Resource.Product, Actor.Anonymous),
     ];
 
     // قوائم تحت منتج لـ A: 200 بلا أي صف (القائمة موجودة؛ المنتج "لا صفوف له" من منظور B).
@@ -228,6 +232,12 @@ public class TenantIsolationTests
         (await ProblemAsync(await s.StoreB.PlaceOrderAsync(s.CustomerB, aProduct, 1)))
             .Should().Be((HttpStatusCode.BadRequest, "ProductNotFound"));
 
+        // منتج A لا يدخل سلة على مضيف B — لزائر ولا لعميل (غير موجود من منظور B).
+        (await ProblemAsync(await s.StoreB.Anonymous().PostAsJsonAsync("/api/basket/items", new { productId = aProduct, quantity = 1 })))
+            .Should().Be((HttpStatusCode.NotFound, "NotFound"));
+        (await ProblemAsync(await s.CustomerB.PostAsJsonAsync("/api/basket/items", new { productId = aProduct, quantity = 1 })))
+            .Should().Be((HttpStatusCode.NotFound, "NotFound"));
+
         (await ProblemAsync(await s.StoreB.Anonymous().GetAsync($"/api/coupons/apply?code={s.ACouponCode}&subtotal=100")))
             .Should().Be((HttpStatusCode.UnprocessableEntity, "CouponNotFound"));
 
@@ -371,6 +381,31 @@ public class TenantIsolationTests
         url.Should().StartWith($"/uploads/tenants/{(await s.StoreA.TenantAsync()).Id}/images/");
         (await s.StoreA.Anonymous().GetAsync(url)).StatusCode.Should().Be(HttpStatusCode.OK);
         (await s.StoreB.Anonymous().GetAsync(url)).StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task رمز_سلة_زائر_متجر_لا_يفتح_سلته_على_مضيف_متجر_آخر()
+    {
+        var s = await ArrangeAsync();
+        var aProduct = s.AIds[Resource.Product];
+        var added = await s.StoreA.SecureClient().PostAsJsonAsync("/api/basket/items", new { productId = aProduct, quantity = 1 });
+        added.StatusCode.Should().Be(HttpStatusCode.OK, await added.Content.ReadAsStringAsync());
+        var token = TestApi.GuestBasketToken(added);
+
+        // الرمز نفسه على مضيف B: لا سلة (البحث مُرشَّح بالمتجر) ويُمسح الرمز، ولا تعديل ولا حذف لسطر A.
+        var onB = s.StoreB.SecureClient(handleCookies: false);
+        onB.DefaultRequestHeaders.Add("Cookie", $"{TestApi.GuestBasketCookie}={token}");
+        var read = await onB.GetAsync("/api/basket");
+        read.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await read.Content.ReadFromJsonAsync<TestApi.BasketBody>(TestApi.Json))!.Lines.Should().BeEmpty();
+        read.Headers.GetValues("Set-Cookie").Should().Contain(h => h.StartsWith($"{TestApi.GuestBasketCookie}=;", StringComparison.Ordinal));
+        (await onB.PutAsJsonAsync($"/api/basket/items/{aProduct}", new { quantity = 5 })).StatusCode.Should().Be(HttpStatusCode.NotFound);
+        (await onB.DeleteAsync($"/api/basket/items/{aProduct}")).StatusCode.Should().Be(HttpStatusCode.NotFound);
+
+        var hash = Souq.Application.Features.Baskets.GuestBasketTokens.Hash(token);
+        (await s.StoreA.WithDbAsync(db => db.Baskets.Where(b => b.GuestTokenHash == hash)
+                .SelectMany(b => b.Lines).Select(l => l.Quantity).SingleAsync()))
+            .Should().Be(1, "سلة A كما هي");
     }
 
     // ── الإعداد: موارد حقيقية في A عبر الـ API، ومتجر B فعلي بمديره وعميله على مضيفه ──

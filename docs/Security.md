@@ -78,6 +78,12 @@
     - Blocking, exporting and erasing need `customers.manage` on top of `customers.view`. They are audited, and so are a customer's own export and erasure.
     - Self-erasure needs the current password. Erasure anonymizes the profile and the login in one save, revokes refresh tokens and forgets the cached security stamp, so existing access tokens stop working immediately.
     - Exports contain no credential material (no password hash, tokens or security stamp).
+  - **Basket (Phase 8, [ADR-0028](adr/0028-basket-and-pricing-pipeline.md)):**
+    - **The guest cookie** is HttpOnly, Secure, `SameSite=Strict` and scoped to `/api/basket`, so scripts can't read it and cross-site requests don't carry it. It holds 256 random bits; only its SHA-256 is stored, so a database leak doesn't open live guest baskets.
+    - **Store isolation:** lookups are filtered by store. A store-A guest token on store B's host opens nothing: an empty basket, the cookie is cleared, and updates and deletes get 404. Store A's product can't be added on store B's host (404). A's basket is unchanged (`TenantIsolationTests`).
+    - **No ids on the wire:** requests carry no basket id at all. The basket is the session's or the cookie's, so there is nothing to enumerate.
+    - **Rate limits:** coupon codes are priced only through `GET /api/basket/quote`, behind the coupon-preview limit. Writes have their own limit (120 per minute per host and address), because every add from a new guest creates a row.
+    - **Amounts:** checkout never trusts one from the client. Prices, discount and total come from the pipeline at order time.
 
 ## 4. Transport, CORS, headers, rate limiting
 

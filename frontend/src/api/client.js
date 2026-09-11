@@ -125,6 +125,17 @@ export const api = {
   confirmOrderPayment: (id) => request(`/orders/${id}/confirm-payment`, { method: 'POST' }),
   // مرقّمة (PaginatedList): { items, totalCount, totalPages, ... }
   getMyOrders: (params = {}) => request(`/orders/mine${toQueryString(params)}`),
+
+  // ── السلة (المرحلة 8) ── الزائر يُعرَّف بملف تعريف ارتباط HttpOnly يضعه الخادم (لا يراه هذا الملف)، والعميل بجلسته.
+  // كل عملية تعيد السلة كاملة مسعَّرةً بالخطّ نفسه الذي يُنشئ الطلب.
+  getBasket: () => request('/basket'),
+  quoteBasket: (couponCode) => request(`/basket/quote${toQueryString({ couponCode })}`),
+  addToBasket: (productId, quantity = 1) =>
+    request('/basket/items', { method: 'POST', body: JSON.stringify({ productId, quantity }) }),
+  setBasketQuantity: (productId, quantity) =>
+    request(`/basket/items/${productId}`, { method: 'PUT', body: JSON.stringify({ quantity }) }),
+  removeFromBasket: (productId) => request(`/basket/items/${productId}`, { method: 'DELETE' }),
+  clearBasket: () => request('/basket', { method: 'DELETE' }),
   // تتبّع بلا مصادقة (رابط قابل للمشاركة) — نفس نقطة الخادم العامة تُستخدم هنا
   // وفي صفحة تفصيل الطلب داخل التطبيق معاً (لا فرق بين الحالتين من الواجهة).
   getOrderTracking: (id) => request(`/orders/${id}/tracking`),
@@ -132,9 +143,7 @@ export const api = {
   // ── الدفع (Stripe) ──
   getPaymentConfig: () => request('/payments/config'),
 
-  // ── الكوبونات ── (العملة عملة المتجر على الخادم — لا يرسلها العميل)
-  applyCoupon: (code, subtotal) =>
-    request(`/coupons/apply?${new URLSearchParams({ code, subtotal })}`),
+  // ── الكوبونات (إدارة) ── معاينة الخصم للعميل من /basket/quote (المرحلة 8): الخطّ نفسه الذي يُنشئ الطلب.
   getCoupons: (params = {}) => request(`/coupons${toQueryString(params)}`),
   createCoupon: (payload) => request('/coupons', { method: 'POST', body: JSON.stringify(payload) }),
   updateCoupon: (id, payload) => request(`/coupons/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),

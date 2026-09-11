@@ -272,6 +272,19 @@ Unpaid checkouts expire after `Inventory:ReservationMinutes` (default 30).
 | GET    | `/api/admin/customers/{id}/export`                             | Admin | Export a customer's data                           |
 | POST   | `/api/admin/customers/{id}/erase`                              | Admin | Erase a customer's personal data                   |
 
+### Basket
+| Method | Endpoint                               | Auth            | Description                                               |
+| ------ | --------------------------------------- | --------------- | ---------------------------------------------------------- |
+| GET    | `/api/basket`                           | Guest/Customer  | The caller's basket, priced from the live catalog         |
+| GET    | `/api/basket/quote?couponCode=`         | Guest/Customer  | The basket priced with a coupon (same pipeline as checkout) |
+| POST   | `/api/basket/items`                     | Guest/Customer  | Add a product (up to the available quantity)              |
+| PUT    | `/api/basket/items/{productId}`         | Guest/Customer  | Set a line's quantity (0 removes it)                      |
+| DELETE | `/api/basket/items/{productId}`         | Guest/Customer  | Remove a line                                             |
+| DELETE | `/api/basket`                           | Guest/Customer  | Empty the basket                                          |
+
+Guests are identified by an HttpOnly cookie that the server sets; signing in merges the guest basket into the customer's.
+Baskets never reserve stock; checkout does.
+
 ### Coupons
 | Method | Endpoint                                          | Auth  | Description                              |
 | ------ | --------------------------------------------------- | ----- | ------------------------------------------ |

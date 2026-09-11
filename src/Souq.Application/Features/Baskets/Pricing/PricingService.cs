@@ -1,0 +1,90 @@
+using Souq.Application.Common.Tenancy;
+using Souq.Application.Features.Baskets.Contracts;
+using Souq.Domain.Entities;
+using Souq.Domain.Exceptions;
+using Souq.Domain.Interfaces;
+using Souq.Domain.Platform;
+using Souq.Domain.ValueObjects;
+
+namespace Souq.Application.Features.Baskets.Pricing;
+
+// ============================================================================
+// تنفيذ IPricing. المنتجات تُحمَّل دفعة واحدة (لا استعلام لكل سطر)، والمستودع مُرشَّح بالمتجر: منتج متجر آخر "غير
+// موجود" هنا كما في أي مكان. مرحلتا الشحن والضريبة صفر صريح اليوم — المتجر لا يتقاضى شحناً قبل المرحلة 12، ولا نموذج
+// ضريبة (قرار منتج مفتوح P-06) — ومكانهما في الخطّ ثابت كي لا يتغيّر العقد حين يُضافان.
+// ============================================================================
+public sealed class PricingService : IPricing
+{
+    private readonly IProductRepository _products;
+    private readonly ICouponRepository _coupons;
+    private readonly ITenantContext _tenant;
+    private readonly TimeProvider _clock;
+
+    public PricingService(IProductRepository products, ICouponRepository coupons, ITenantContext tenant, TimeProvider clock)
+    {
+        _products = products; _coupons = coupons; _tenant = tenant; _clock = clock;
+    }
+
+    public async Task<PriceQuote> QuoteAsync(IReadOnlyList<PricingLine> lines, string? couponCode, CancellationToken ct)
+    {
+        var store = _tenant.RequireTenant();
+        var zero = Money.Zero(store.Currency);
+
+        // (1) الأسطر بأسعار الكتالوج الحيّة.
+        var products = (await _products.GetManyAsync(lines.Select(l => l.ProductId).Distinct().ToList(), ct))
+            .ToDictionary(p => p.Id);
+        var priced = lines
+            .Select(line => products.TryGetValue(line.ProductId, out var product)
+                ? Price(product, line.Quantity, store.DefaultCulture)
+                : Missing(line, zero))
+            .ToList();
+
+        // (2) الفرعي: الأسطر القابلة للبيع وحدها.
+        var subtotal = priced.Where(l => l.Sellable).Aggregate(zero, (sum, l) => sum.Add(l.LineTotal));
+
+        // (3) الخصم.
+        var (coupon, discount) = await DiscountAsync(couponCode, subtotal, store, ct);
+
+        // (4) الشحن و(5) الضريبة: صفر صريح (انظر أعلاه).
+        var shipping = zero;
+        var tax = zero;
+
+        // (6) الإجمالي.
+        var total = subtotal.Subtract(discount).Add(shipping).Add(tax);
+        return new PriceQuote(store.Currency, priced, subtotal, coupon, discount, shipping, tax, total);
+    }
+
+    private async Task<(CouponOutcome?, Money)> DiscountAsync(string? code, Money subtotal, TenantInfo store, CancellationToken ct)
+    {
+        var none = Money.Zero(subtotal.Currency);
+        if (string.IsNullOrWhiteSpace(code)) return (null, none);
+        code = code.Trim();
+
+        // وحدة الكوبونات معطّلة لهذا المتجر (D-11): الواجهة تُخفي الحقل، والخادم يرفض على أي حال.
+        if (!store.HasModule(StoreModules.Promotions))
+            return (new CouponOutcome(code, false, "ModuleDisabled", "الكوبونات غير مفعّلة في هذا المتجر"), none);
+
+        var coupon = await _coupons.GetByCodeAsync(code, ct);
+        if (coupon is null)
+            return (new CouponOutcome(code, false, "CouponNotFound", "رمز الكوبون غير صحيح"), none);
+
+        try
+        {
+            coupon.EnsureUsable(subtotal, _clock.GetUtcNow().UtcDateTime);
+        }
+        catch (InvalidCouponException ex)
+        {
+            return (new CouponOutcome(coupon.Code, false, ex.Code, ex.Message), none);
+        }
+
+        return (new CouponOutcome(coupon.Code, true, null, null), coupon.CalculateDiscount(subtotal));
+    }
+
+    private static PricedLine Price(Product product, int quantity, string culture) => new(
+        product.Id, product.DefaultVariant.Id, product.NameIn(culture),
+        product.Translations.ToDictionary(t => t.Culture, t => t.Name), product.PrimaryImageUrl,
+        product.Price, quantity, product.Price.Multiply(quantity), product.IsActive);
+
+    private static PricedLine Missing(PricingLine line, Money zero) => new(
+        line.ProductId, 0, "", new Dictionary<string, string>(), null, zero, line.Quantity, zero, Sellable: false);
+}

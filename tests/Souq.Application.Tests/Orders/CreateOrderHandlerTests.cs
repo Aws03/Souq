@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 using Souq.Application.Common.Interfaces;
+using Souq.Application.Features.Baskets.Pricing;
 using Souq.Application.Features.Inventory.Contracts;
 using Souq.Application.Features.Orders;
 using Souq.Application.Features.Orders.Commands;
@@ -46,10 +47,12 @@ public class CreateOrderHandlerTests
             .Do(_ => _steps.Add("intent"));
     }
 
+    // التسعير الحقيقي (المرحلة 8) فوق مستودعات بديلة — الأسعار والخصم كما في السلة تماماً.
     private CreateOrderHandler CreateHandler() => new(
-        _products, _orders, _customers, _coupons, _reservations, _availability, _payment,
+        _orders, _customers, new PricingService(_products, _coupons, TestTenant.Context(), new FixedClock()),
+        _reservations, _availability, _payment,
         new OrderPaymentConfirmation(_orders, _reservations, _customers, _coupons, _payment, Substitute.For<IEmailService>(), _uow),
-        TestCurrentUser.Customer(1), TestTenant.Context(), _uow, new FixedClock(), NullLogger<CreateOrderHandler>.Instance);
+        TestCurrentUser.Customer(1), TestTenant.Context(), _uow, NullLogger<CreateOrderHandler>.Instance);
 
     private static Customer NewCustomer() => new(userId: 1, "عميل", "customer@souq.com");
 
@@ -65,7 +68,8 @@ public class CreateOrderHandlerTests
     private void Arrange(Product? product = null, int available = 10)
     {
         _customers.GetByIdAsync(1, Arg.Any<CancellationToken>()).Returns(NewCustomer());
-        _products.GetByIdAsync(1, Arg.Any<CancellationToken>()).Returns(product ?? NewProduct());
+        _products.GetManyAsync(Arg.Any<IReadOnlyCollection<int>>(), Arg.Any<CancellationToken>())
+            .Returns(new List<Product> { product ?? NewProduct() });
         _availability.AvailableAsync(Arg.Any<IReadOnlyCollection<int>>(), Arg.Any<CancellationToken>())
             .Returns(new Dictionary<int, int> { [1] = available });
         _payment.CreateIntentAsync(Arg.Any<Money>(), Arg.Any<string>(), Arg.Any<CancellationToken>())

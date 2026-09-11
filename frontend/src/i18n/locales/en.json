@@ -57,7 +57,10 @@
     "free": "Free",
     "total": "Total",
     "checkoutCta": "Proceed to checkout",
-    "added": "Added \"{{name}}\" to cart"
+    "added": "Added \"{{name}}\" to cart",
+    "unavailable": "No longer available — remove it to continue",
+    "onlyLeft": "Only {{count}} left — reduce the quantity",
+    "fixItems": "Fix the highlighted items to continue to checkout."
   },
   "product": {
     "addToCart": "Add to cart",
@@ -655,7 +658,8 @@
       "ServerError": "An unexpected server error occurred.",
       "CustomerBlocked": "Your account is suspended from placing orders and writing reviews. Please contact the store.",
       "AddressNotFound": "The selected address isn't in your address book.",
-      "InvalidCustomerData": "The profile or address details aren't valid."
+      "InvalidCustomerData": "The profile or address details aren't valid.",
+      "InvalidBasketOperation": "This basket change isn't allowed (quantity limit or number of items)."
     }
   },
   "account": {

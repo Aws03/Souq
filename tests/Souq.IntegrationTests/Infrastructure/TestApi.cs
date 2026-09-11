@@ -170,6 +170,25 @@ public sealed class TestApi
         return client;
     }
 
+    // رمز سلة الزائر من Set-Cookie لاستجابة (المرحلة 8) — لإرساله يدوياً (مضيف آخر، رمز قديم).
+    public const string GuestBasketCookie = "souq_basket";
+
+    public static string GuestBasketToken(HttpResponseMessage response)
+    {
+        var header = response.Headers.GetValues("Set-Cookie")
+            .Single(h => h.StartsWith($"{GuestBasketCookie}=", StringComparison.Ordinal));
+        return header[(GuestBasketCookie.Length + 1)..header.IndexOf(';')];
+    }
+
+    // عقد السلة في JSON (المرحلة 8).
+    public sealed record BasketBody(
+        List<BasketLineBody> Lines, int ItemCount, string Currency, decimal Subtotal, decimal Discount,
+        decimal Shipping, decimal Tax, decimal Total, BasketCouponBody? Coupon, bool ReadyForCheckout);
+    public sealed record BasketLineBody(
+        int ProductId, int VariantId, string Name, string? ImageUrl, decimal UnitPrice, int Quantity, decimal LineTotal,
+        bool Sellable, int Available);
+    public sealed record BasketCouponBody(string Code, bool Applied, string? ErrorCode, string? Message);
+
     // شكل PaginatedList في JSON — عقد كل القوائم المرقّمة.
     public sealed record PageBody<T>(
         List<T> Items, int PageNumber, int PageSize, int TotalCount, int TotalPages, bool HasNext, bool HasPrevious);

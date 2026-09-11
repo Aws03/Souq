@@ -57,8 +57,10 @@ public sealed class SouqApiFactory : WebApplicationFactory<Program>, IAsyncLifet
         builder.UseSetting("Storage:Local:RootPath", UploadsRoot);
         // منسّق انتهاء الحجوزات الدوري معطّل: الاختبارات تشغّل أمر الانتهاء مباشرة ولا تسابقها دورة خلفية.
         builder.UseSetting("Inventory:SweepIntervalSeconds", "0");
+        // وكذلك منسّق حذف السلال المنتهية: BasketTests ترسل أمر الحذف مباشرة.
+        builder.UseSetting("Basket:CleanupIntervalMinutes", "0");
         // مئات الاختبارات تدخل من العنوان نفسه: حدود الإنتاج تخنقها. اختبار حدّ المعدّل يضيّقها بمصنع مشتقّ.
-        foreach (var policy in new[] { "Auth", "Refresh", "CouponPreview" })
+        foreach (var policy in new[] { "Auth", "Refresh", "CouponPreview", "Basket" })
             builder.UseSetting($"RateLimiting:{policy}:PermitLimit", "100000");
 
         builder.ConfigureLogging(logging =>

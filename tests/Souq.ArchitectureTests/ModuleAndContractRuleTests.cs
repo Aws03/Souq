@@ -28,6 +28,7 @@ public class ModuleAndContractRuleTests
         ["Reviews"] = ["Reviews"],
         ["Identity"] = ["Auth", "Staff"],
         ["Customers"] = ["Customers"],
+        ["Shopping"] = ["Baskets"],
         ["Platform"] = ["Platform", "Stores"],
         ["Reporting"] = ["Reporting"],
     };
@@ -49,8 +50,9 @@ public class ModuleAndContractRuleTests
     // العقود المسموحة بين الوحدات وفق رسم الاعتماديات (Modules.md §2): الوحدة ⇒ الوحدات التي تستدعي عقودها.
     private static readonly IReadOnlyDictionary<string, string[]> AllowedContracts = new Dictionary<string, string[]>
     {
-        ["Ordering"] = ["Inventory"],   // IInventoryReservations، IStockAvailability (المرحلة 6)
+        ["Ordering"] = ["Inventory", "Shopping"],   // IInventoryReservations، IStockAvailability (6)؛ IPricing (8)
         ["Inventory"] = ["Catalog"],    // تنفّذ منفذ Catalog IVariantStockInitializer (عكس الاعتماد، المرحلة 6)
+        ["Shopping"] = ["Inventory"],   // IStockAvailability لعرض المتاح في السلة — لا حجز (المرحلة 8)
     };
 
     [Theory]

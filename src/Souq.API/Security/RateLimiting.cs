@@ -11,6 +11,7 @@ public static class RateLimitPolicies
     public const string Auth = "auth";                  // دخول، تسجيل، استعادة/تغيير كلمة المرور، تأكيد البريد
     public const string Refresh = "auth-refresh";       // تجديد الجلسة (يتكرّر كل 15 دقيقة لكل تبويب)
     public const string CouponPreview = "coupon-preview"; // تخمين رموز الكوبونات
+    public const string Basket = "basket";              // كتابة السلة (كل إضافة من زائر جديد تُنشئ سلة)
 }
 
 // الحدود قابلة للضبط (RateLimiting:Auth:PermitLimit…) — الاختبارات ترفعها، والإنتاج يضيّقها إن لزم.
@@ -21,6 +22,7 @@ public sealed class RateLimitingOptions
     public WindowLimit Auth { get; set; } = new() { PermitLimit = 10, WindowSeconds = 60 };
     public WindowLimit Refresh { get; set; } = new() { PermitLimit = 30, WindowSeconds = 60 };
     public WindowLimit CouponPreview { get; set; } = new() { PermitLimit = 30, WindowSeconds = 60 };
+    public WindowLimit Basket { get; set; } = new() { PermitLimit = 120, WindowSeconds = 60 };
 }
 
 public sealed class WindowLimit
@@ -65,6 +67,7 @@ public static class RateLimitingSetup
             AddPolicy(limiter, RateLimitPolicies.Auth, options.Auth);
             AddPolicy(limiter, RateLimitPolicies.Refresh, options.Refresh);
             AddPolicy(limiter, RateLimitPolicies.CouponPreview, options.CouponPreview);
+            AddPolicy(limiter, RateLimitPolicies.Basket, options.Basket);
         });
         return services;
     }

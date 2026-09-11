@@ -64,6 +64,7 @@ public class AppDbContext : DbContext, IUnitOfWork
     public DbSet<StockMovement> StockMovements => Set<StockMovement>();
     public DbSet<InventoryItem> InventoryItems => Set<InventoryItem>();
     public DbSet<StockReservation> StockReservations => Set<StockReservation>();
+    public DbSet<Basket> Baskets => Set<Basket>();
 
     // الهوية (Identity): حسابات المتاجر وحسابات المنصّة في جدول واحد (D-06).
     public DbSet<User> Users => Set<User>();
