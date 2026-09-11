@@ -1,4 +1,4 @@
-using FluentAssertions;
+using AwesomeAssertions;
 using NSubstitute;
 using Souq.Application.Common.Interfaces;
 using Souq.Application.Features.Auth.Commands;

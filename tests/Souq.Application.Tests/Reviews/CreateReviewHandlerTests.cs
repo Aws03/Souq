@@ -1,4 +1,4 @@
-using FluentAssertions;
+using AwesomeAssertions;
 using NSubstitute;
 using Souq.Application.Features.Reviews.Commands;
 using Souq.Domain.Entities;

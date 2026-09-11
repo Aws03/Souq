@@ -1,4 +1,4 @@
-using FluentAssertions;
+using AwesomeAssertions;
 using Souq.Domain.ValueObjects;
 
 namespace Souq.Domain.Tests;
