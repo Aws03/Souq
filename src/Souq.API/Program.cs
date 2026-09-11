@@ -9,6 +9,7 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Souq.API.Http;
 using Souq.API.Middleware;
+using Souq.API.Observability;
 using Souq.API.Security;
 using Souq.Application;
 using Souq.Application.Common.Interfaces;
@@ -114,7 +115,8 @@ builder.Services.AddSwaggerGen(c =>
 var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
     ?? new[] { "http://localhost:5173" };
 builder.Services.AddCors(o => o.AddPolicy("frontend", p =>
-    p.WithOrigins(allowedOrigins).AllowAnyHeader().AllowAnyMethod()));
+    p.WithOrigins(allowedOrigins).AllowAnyHeader().AllowAnyMethod()
+     .WithExposedHeaders(RequestCorrelation.HeaderName)));   // تقرؤه الواجهة لعرضه عند الدعم
 
 var app = builder.Build();
 
@@ -133,7 +135,8 @@ using (var scope = app.Services.CreateScope())
 }
 
 // ── خط أنابيب الطلب (Request Pipeline) — الترتيب مهم ──────────────────────
-app.UseExceptionHandler();   // الاستثناءات ⇒ ProblemDetails (GlobalExceptionHandler) — أولاً
+app.UseMiddleware<CorrelationHeaderMiddleware>(); // X-Correlation-Id على كل استجابة، حتى الأخطاء (ADR-0018)
+app.UseExceptionHandler();   // الاستثناءات ⇒ ProblemDetails (GlobalExceptionHandler)
 app.UseStatusCodePages();    // 401/403/404/405 بجسم فارغ من الإطار ⇒ ProblemDetails بنفس العقد
 if (app.Environment.IsDevelopment())
 {
@@ -162,6 +165,7 @@ app.UseStaticFiles(new StaticFileOptions
 });
 app.UseCors("frontend");
 app.UseAuthentication();     // من أنت؟ (يفكّ التوكن)
+app.UseMiddleware<RequestLoggingMiddleware>(); // سطر لكل طلب + نطاق (CorrelationId, UserId) — يرى 401/403 أيضاً
 app.UseAuthorization();      // هل يُسمح لك؟ (يفرض [Authorize])
 app.MapControllers();
 

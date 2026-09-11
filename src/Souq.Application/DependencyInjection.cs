@@ -23,7 +23,9 @@ public static class DependencyInjection
         // يكتشف كل المدقّقات (Validators) تلقائياً.
         services.AddValidatorsFromAssembly(assembly);
 
-        // يُدخل سلوك التحقّق في خط أنابيب MediatR.
+        // خط أنابيب MediatR — ترتيب التسجيل هو ترتيب التنفيذ (الأول هو الأبعد):
+        // نطاق سجلّ حالة الاستخدام وزمنها أولاً (يشمل التحقّق)، ثم التحقّق.
+        services.AddTransient(typeof(IPipelineBehavior<,>), typeof(UseCaseLoggingBehavior<,>));
         services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
 
         // الساعة: كل قراءة "الآن" في حالات الاستخدام تمرّ عبر TimeProvider (مدمج في .NET)
