@@ -33,14 +33,8 @@ export const buildAccountPayload = (form) => ({
   ...(form.webhookSecret.trim() ? { webhookSecret: form.webhookSecret.trim() } : {}),
 });
 
-// خانات العملة الصغرى من Intl (ISO 4217): الدينار 3، الدولار 2، الين 0.
-export function currencyDecimals(currency) {
-  try {
-    return new Intl.NumberFormat('en', { style: 'currency', currency }).resolvedOptions().maximumFractionDigits;
-  } catch {
-    return 2;
-  }
-}
+// خانات العملة الصغرى من Intl (ISO 4217) — مصدر واحد مع تنسيق الأسعار (app/tenantModel، المرحلة 15).
+export { currencyDecimals } from '../../../app/tenantModel';
 
 // مبلغ فارغ ⇒ كل المتبقّي. وإلا موجب، لا يتجاوز المتاح، وبخانات العملة.
 export function refundProblem(amount, refundable, decimals) {

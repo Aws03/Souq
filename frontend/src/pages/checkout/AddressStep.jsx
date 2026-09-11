@@ -5,6 +5,7 @@ import Button from '../../components/common/Button';
 import Skeleton from '../../components/common/Skeleton';
 import { CheckIcon } from '../../components/icons/Icons';
 import { formatPrice } from '../../components/product/ProductBadges';
+import { useModule } from '../../app/TenantProvider';
 import { formatAddressLine } from '../../features/account/addressForm';
 import { NEW_ADDRESS } from '../../features/checkout/shippingChoice';
 import { estimateLabel } from '../../features/checkout/shippingOptions';
@@ -21,6 +22,7 @@ export default function AddressStep({
   busy, blocked, onSubmit,
 }) {
   const { t } = useTranslation();
+  const couponsEnabled = useModule('promotions');   // وحدة الكوبونات (المرحلة 15): معطّلة ⇒ لا حقل كوبون
   const choiceClass = (selected) => `${styles.addressChoice} ${selected ? styles.addressChoiceActive : ''}`;
 
   return (
@@ -88,20 +90,24 @@ export default function AddressStep({
         </>
       )}
 
-      <h2 className={styles.panelTitle}>{t('checkout.couponTitle')}</h2>
-      <div className={styles.couponRow}>
-        <input value={couponCode} dir="ltr" className={inputClass(!!couponError)}
-          onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
-          placeholder={t('checkout.couponPlaceholder')} />
-        <Button type="button" variant="ghost" loading={couponBusy} onClick={onApplyCoupon} disabled={!couponCode.trim()}>
-          {t('checkout.applyCoupon')}
-        </Button>
-      </div>
-      {couponError && <span className={styles.couponError}>{couponError}</span>}
-      {couponPreview && (
-        <div className={styles.couponApplied}>
-          <CheckIcon size={15} /> {t('checkout.couponApplied', { amount: formatPrice(couponPreview.discountAmount, currency) })}
-        </div>
+      {couponsEnabled && (
+        <>
+          <h2 className={styles.panelTitle}>{t('checkout.couponTitle')}</h2>
+          <div className={styles.couponRow}>
+            <input value={couponCode} dir="ltr" className={inputClass(!!couponError)}
+              onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+              placeholder={t('checkout.couponPlaceholder')} />
+            <Button type="button" variant="ghost" loading={couponBusy} onClick={onApplyCoupon} disabled={!couponCode.trim()}>
+              {t('checkout.applyCoupon')}
+            </Button>
+          </div>
+          {couponError && <span className={styles.couponError}>{couponError}</span>}
+          {couponPreview && (
+            <div className={styles.couponApplied}>
+              <CheckIcon size={15} /> {t('checkout.couponApplied', { amount: formatPrice(couponPreview.discountAmount, currency) })}
+            </div>
+          )}
+        </>
       )}
 
       {blocked && <p className={styles.blockedNote}>{t('cart.fixItems')}</p>}

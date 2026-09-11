@@ -1,22 +1,22 @@
 .empty {
-  text-align: center; color: var(--muted); padding: 48px 20px;
+  text-align: center; color: var(--color-text-muted); padding: 48px 20px;
   display: flex; flex-direction: column; align-items: center; gap: 6px;
 }
 .emptyIcon {
-  width: 88px; height: 88px; border-radius: 50%; background: var(--soft);
-  display: grid; place-items: center; color: var(--muted); margin-bottom: 8px;
+  width: 88px; height: 88px; border-radius: 50%; background: var(--color-surface-alt);
+  display: grid; place-items: center; color: var(--color-text-muted); margin-bottom: 8px;
 }
-.emptyTitle { font-family: var(--font-display); font-size: var(--fs-heading); color: var(--ink); }
+.emptyTitle { font-family: var(--font-display); font-size: var(--fs-heading); color: var(--color-text); }
 .emptyMsg { font-size: var(--fs-body-sm); max-width: 340px; margin-bottom: 6px; }
 
 .error {
-  display: flex; align-items: center; gap: 10px; background: #fdf0ec; color: var(--clay);
+  display: flex; align-items: center; gap: 10px; background: #fdf0ec; color: var(--color-danger);
   border: 1px solid #f1d3ca; border-radius: var(--radius-sm); padding: 12px 16px;
   font-size: var(--fs-body-sm); margin-bottom: 18px; flex-wrap: wrap;
 }
 .errorMsg { flex: 1; }
 .retry {
-  display: inline-flex; align-items: center; gap: 6px; color: var(--clay); font-weight: 700;
+  display: inline-flex; align-items: center; gap: 6px; color: var(--color-danger); font-weight: 700;
   font-size: var(--fs-caption); border: 1px solid #f1d3ca; padding: 5px 12px; border-radius: 50px;
   transition: background var(--ease-hover);
 }

@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
+import { useModule } from '../app/TenantProvider';
 import Button from '../components/common/Button';
 import Pagination from '../components/common/Pagination';
 import Skeleton from '../components/common/Skeleton';
@@ -50,11 +51,16 @@ export default function ProductDetail() {
     api.getRelatedProducts(id).then(setRelated).catch(() => setRelated([])).finally(() => setRelatedLoading(false));
   }, [id]);
 
+  // وحدة التقييمات معطّلة في المتجر (المرحلة 15) ⇒ لا قسم ولا طلب يرفضه الخادم بـ 404 ModuleDisabled.
+  const reviewsEnabled = useModule('reviews');
   const loadReviews = () => {
     setReviewsError(null);
     api.getProductReviews(id, { page, pageSize: 5 }).then(setReviews).catch((e) => setReviewsError(e.message));
   };
-  useEffect(loadReviews, [id, page]);
+  useEffect(() => {
+    if (reviewsEnabled) loadReviews();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, page, reviewsEnabled]);
 
   // الخادم يؤكّد الإضافة — الإشعار بعد نجاحها فقط؛ خطؤها (نفاد المتاح) يعرضه سياق السلة.
   const handleAdd = async () => {
@@ -93,7 +99,7 @@ export default function ProductDetail() {
         <div>
           <CategoryBadge name={product.categoryName} />
           <h1 className={styles.name}>{getProductName(product)}</h1>
-          {reviews && reviews.totalCount > 0 && (
+          {reviewsEnabled && reviews && reviews.totalCount > 0 && (
             <div className={styles.ratingLine}>
               <StarRating value={reviews.averageRating} />
               <span>{reviews.averageRating} ({t('product.ratingSummary', { count: reviews.totalCount })})</span>
@@ -113,24 +119,26 @@ export default function ProductDetail() {
       <ProductSection title={t('product.relatedTitle')} products={related} loading={relatedLoading}
         onAdded={showToast} showViewAll={false} />
 
-      <section className={styles.reviewsSection}>
-        <h2 className={styles.sectionTitle}>{t('product.reviewsTitle')}</h2>
-        {reviews && (
-          <RatingSummary average={reviews.averageRating} total={reviews.totalCount} distribution={reviews.distribution} />
-        )}
+      {reviewsEnabled && (
+        <section className={styles.reviewsSection}>
+          <h2 className={styles.sectionTitle}>{t('product.reviewsTitle')}</h2>
+          {reviews && (
+            <RatingSummary average={reviews.averageRating} total={reviews.totalCount} distribution={reviews.distribution} />
+          )}
 
-        {isAuthenticated ? (
-          <ReviewForm productId={id} onSubmitted={() => { setPage(1); loadReviews(); }} />
-        ) : (
-          <p className={styles.signInHint}>
-            <Link to="/login">{t('auth.signIn')}</Link> {t('product.signInToReview')}
-          </p>
-        )}
+          {isAuthenticated ? (
+            <ReviewForm productId={id} onSubmitted={() => { setPage(1); loadReviews(); }} />
+          ) : (
+            <p className={styles.signInHint}>
+              <Link to="/login">{t('auth.signIn')}</Link> {t('product.signInToReview')}
+            </p>
+          )}
 
-        <ReviewList reviews={reviews?.items ?? []} loading={!reviews && !reviewsError}
-          error={reviewsError} onRetry={loadReviews} />
-        <Pagination page={page} totalPages={totalPages} onChange={setPage} />
-      </section>
+          <ReviewList reviews={reviews?.items ?? []} loading={!reviews && !reviewsError}
+            error={reviewsError} onRetry={loadReviews} />
+          <Pagination page={page} totalPages={totalPages} onChange={setPage} />
+        </section>
+      )}
     </div>
   );
 }

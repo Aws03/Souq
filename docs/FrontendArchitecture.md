@@ -1,6 +1,6 @@
 # Souq: Frontend Architecture
 
-> **Status:** Target adopted 2026-09-11. The restructuring happens in **Phase 15**; until then only minimal, targeted changes are made.
+> **Status:** Target adopted 2026-09-11. **Phase 15 ✅** delivered the runtime ([ADR-0035](adr/0035-white-label-runtime.md)): the store configuration at boot, semantic theming, module gates, four areas and route-level code splitting (§6). Existing screens move into `features/*` in the phases that rebuild them (16–17). D-19 is deferred with a trigger.
 > **Stack:** React 18 · Vite 5 · React Router 6 · i18next · CSS Modules + design tokens · Stripe.js. Tests: **Vitest**, introduced in 1A for pure logic.
 
 ## 1. Assessment: evolve, don't rewrite
@@ -57,11 +57,11 @@ frontend/src/
 | **Feature components** | `features/*/components` | Presentational plus local UI state |
 | **UI kit** | `components/` | Knows nothing about business or API; styled only with semantic tokens |
 | **API clients** | `features/*/api.js` over `api/http.js` | One file per feature. The shared http core handles auth headers, token refresh, and error normalization. |
-| **Server state** | `features/*/hooks.js` | Target: TanStack Query (caching, deduplication, retries; decision D-19, Phase 15). Until then, the existing hooks pattern. |
+| **Server state** | `features/*/hooks.js` | Target: TanStack Query (caching, deduplication, retries). D-19 was **deferred** in Phase 15 ([ADR-0035](adr/0035-white-label-runtime.md)); the trigger is Phase 16. Until then, the existing hooks pattern. |
 | **Client state** | contexts or local state | Auth session, tenant config, theme, toasts. The cart becomes *server* state in Phase 8. |
 | **Authentication** | `contexts/AuthProvider` (today `context/AuthContext.jsx` + `api/client.js`, Phase 3 ✅) | Access token in module memory; refresh through the `HttpOnly` cookie with a single-flight silent refresh. What the UI shows follows `user.permissions`. Route guards are UX only. |
-| **Tenant context** | `contexts/TenantProvider` | Populated from the config endpoint, read-only. Components never send a tenant id to the API. |
-| **Theme/branding** | `contexts/ThemeProvider` + `styles/tokens.css` | Semantic CSS variables set from tenant config ([WhiteLabel.md](WhiteLabel.md)) |
+| **Tenant context** | `app/TenantProvider.jsx` (Phase 15 ✅) | Populated from the config endpoint, read-only: `useTenant`, `useStoreConfig`, `useModule`. Components never send a tenant id to the API. |
+| **Theme/branding** | `app/storeTheme.js` + `app/tenantModel.js` + the tokens in `styles.css` (Phase 15 ✅) | Semantic CSS variables set from the store's config ([WhiteLabel.md](WhiteLabel.md)). There is no visitor theme choice. |
 | **Forms** | feature components + `FormField` | Client validation is for UX; server validation is authoritative and displayed as returned |
 | **Tables** | `DataTable` + server paging | Page, sort, and filter state in the URL for admin lists |
 | **Loading, error, empty** | `Skeleton`, `ErrorBanner`, `EmptyState` | Every data view handles all three |
@@ -187,11 +187,25 @@ It displays the server's decisions and handles its errors.
 | `features/checkout/shippingOptions.js` and `features/admin/shipping/shippingForm.js` (tested) | Pure helpers |
 | New error codes translated (`ShippingMethodRequired`, `ShippingMethodUnavailable`, `ShippingNotAvailable`, `InvalidShippingMethod`) | Server decisions shown in both languages |
 
-## 6. Phase 15 migration plan
+## 6. Phase 15 migration plan: status
 
-1. Introduce `app/`, `routes/`, `layouts/`, and `contexts/` without moving features. The app keeps working.
-2. Move one feature at a time with `git mv` (history preserved): catalog → cart → checkout → orders → auth → admin features → platform features.
-3. Split `api/client.js` into per-feature `api.js` files over a shared `http.js`.
-4. Replace brand-named tokens with semantic tokens; add ThemeProvider and TenantProvider.
-5. Add TypeScript incrementally (`.ts` for new files and `model.js` → `model.ts`), if D-19 is approved.
-6. Add route-level lazy loading and set bundle budgets.
+1. ✅ **`app/` introduced without moving features.** It holds:
+   - `TenantProvider`: the boot from `GET /api/storefront/config`;
+   - `storeTheme` and `tenantModel`: the theme, formatting and module logic, unit-tested;
+   - `BootScreens`: store closed, unknown store, retry;
+   - `StoreBrand`: the store's logo or name;
+   - `PlatformLayout`: the platform shell.
+
+   The guards stay in `components/ProtectedRoute.jsx`, which gained `RequireModule` and `PlatformRoute`. The customer account pages still render inside the storefront layout behind `ProtectedRoute`; their own `AccountLayout` comes with the account rebuild (Phase 16).
+2. ⏸ **Deferred to Phases 16–17:** moving features with `git mv`. Each screen moves when it is rebuilt, so its history is preserved and the diff stays reviewable.
+3. ⏸ **Deferred with D-19:** splitting `api/client.js` into per-feature `api.js` files. The query layer decides their shape. The shared client already normalizes ProblemDetails and refreshes the session silently (Phase 3).
+4. ✅ **Theming.** Brand-named tokens were replaced by semantic tokens everywhere. The theme comes from the store, and the visitor theme switcher is gone.
+5. ⏸ **TypeScript:** D-19 is deferred with a trigger ([ADR-0035](adr/0035-white-label-runtime.md)).
+6. ✅ **Route-level lazy loading.** Every page except the home and product pages is lazy.
+   - Baseline: the first bundle is about 381 KB of JavaScript (122 KB gzipped), and about 144 KB loads on demand.
+   - Budgets will be enforced once a CI pipeline exists.
+
+**Also delivered in Phase 15:**
+- The store's name, currency, languages, footer content and announcement come from its configuration.
+- Wishlist, reviews and coupons are hidden when their module is off.
+- `whiteLabel.test.js` fails on any brand, currency or contact literal in the frontend source.

@@ -1,7 +1,7 @@
 .overlay { position: fixed; inset: 0; background: rgba(15, 59, 58, .4); z-index: 100; }
 
 .panel {
-  position: fixed; top: 0; bottom: 0; background: var(--paper); z-index: 101;
+  position: fixed; top: 0; bottom: 0; background: var(--color-bg); z-index: 101;
   display: flex; flex-direction: column; animation: slide-in var(--ease-panel);
   width: min(var(--drawer-width, 420px), 92vw);
 }
@@ -28,11 +28,11 @@
 @keyframes slide-in-right { from { transform: translateX(16px); opacity: 0; } }
 
 .head {
-  background: var(--petrol); color: var(--paper); padding: 18px 22px;
+  background: var(--color-primary); color: var(--color-bg); padding: 18px 22px;
   display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;
 }
 .title { font-size: var(--fs-heading); }
-.close { color: var(--paper); opacity: .85; }
+.close { color: var(--color-bg); opacity: .85; }
 .close:hover { opacity: 1; }
 
 /* min-height: 0 ضروري هنا: بلا هذا، عنصر flex بـ overflow-y:auto يتمدّد
@@ -50,5 +50,5 @@
 }
 .foot {
   padding: 18px 22px calc(18px + env(safe-area-inset-bottom, 0px));
-  border-top: 1px solid var(--line); background: var(--surface); flex-shrink: 0;
+  border-top: 1px solid var(--color-border); background: var(--color-surface); flex-shrink: 0;
 }

@@ -1,7 +1,7 @@
 .spinner {
   display: inline-block; border-radius: 50%;
   border: 2.5px solid rgba(15, 59, 58, .18);
-  border-top-color: var(--petrol);
+  border-top-color: var(--color-primary);
   animation: spin .7s linear infinite;
   flex-shrink: 0;
 }

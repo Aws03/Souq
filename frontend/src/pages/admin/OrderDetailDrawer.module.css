@@ -1,8 +1,8 @@
 .loading { display: flex; justify-content: center; padding: 40px 0; }
 
 .head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
-.meta { color: var(--muted); font-size: var(--fs-caption); overflow-wrap: anywhere; }
-.sectionTitle { font-size: var(--fs-body-sm); color: var(--petrol); margin: 18px 0 8px; }
+.meta { color: var(--color-text-muted); font-size: var(--fs-caption); overflow-wrap: anywhere; }
+.sectionTitle { font-size: var(--fs-body-sm); color: var(--color-primary); margin: 18px 0 8px; }
 
 .list { list-style: none; display: flex; flex-direction: column; gap: 6px; }
 .row { display: flex; align-items: center; gap: 10px; font-size: var(--fs-body-sm); }
@@ -10,12 +10,12 @@
 .totals { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; margin-top: 8px; font-size: var(--fs-body-sm); }
 
 .addresses { display: flex; flex-direction: column; gap: 8px; }
-.addresses div { background: var(--soft); border-radius: 10px; padding: 10px 12px; }
-.addresses dt { color: var(--muted); font-size: var(--fs-caption); }
+.addresses div { background: var(--color-surface-alt); border-radius: 10px; padding: 10px 12px; }
+.addresses dt { color: var(--color-text-muted); font-size: var(--fs-caption); }
 .addresses dd { margin: 2px 0 0; font-size: var(--fs-body-sm); overflow-wrap: anywhere; }
 
-.entry { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; }
-.note { font-size: var(--fs-body-sm); color: var(--ink); margin-top: 2px; }
+.entry { border: 1px solid var(--color-border); border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; }
+.note { font-size: var(--fs-body-sm); color: var(--color-text); margin-top: 2px; }
 
 .footActions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
-.confirm p { color: var(--clay); font-size: var(--fs-body-sm); margin-bottom: 10px; }
+.confirm p { color: var(--color-danger); font-size: var(--fs-body-sm); margin-bottom: 10px; }

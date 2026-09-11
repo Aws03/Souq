@@ -1,15 +1,15 @@
 .line {
   display: grid; grid-template-columns: 52px 1fr auto auto auto; gap: 12px; align-items: center;
-  padding: 14px 0; border-bottom: 1px solid var(--line);
+  padding: 14px 0; border-bottom: 1px solid var(--color-border);
 }
 .thumb { width: 52px; height: 52px; border-radius: 10px; overflow: hidden; flex-shrink: 0; }
 .info { min-width: 0; }
 .name { font-weight: 700; font-size: var(--fs-body-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.unit { color: var(--muted); font-size: var(--fs-caption); margin-top: 2px; }
-.lineTotal { font-weight: 700; color: var(--petrol); font-size: var(--fs-body-sm); white-space: nowrap; }
-.remove { color: var(--muted); transition: color var(--ease-hover); }
-.remove:hover { color: var(--clay); }
+.unit { color: var(--color-text-muted); font-size: var(--fs-caption); margin-top: 2px; }
+.lineTotal { font-weight: 700; color: var(--color-primary); font-size: var(--fs-body-sm); white-space: nowrap; }
+.remove { color: var(--color-text-muted); transition: color var(--ease-hover); }
+.remove:hover { color: var(--color-danger); }
 
 /* سطر لم يعد متاحاً أو يتجاوز المتاح (المرحلة 8): الاسم باهت وسبب المشكلة تحته. */
-.problem .name { color: var(--muted); }
-.warning { color: var(--clay); font-size: var(--fs-caption); font-weight: 700; margin-top: 2px; white-space: normal; }
+.problem .name { color: var(--color-text-muted); }
+.warning { color: var(--color-danger); font-size: var(--fs-caption); font-weight: 700; margin-top: 2px; white-space: normal; }

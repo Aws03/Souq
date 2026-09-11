@@ -46,7 +46,7 @@ cd frontend && npm install && npm run dev          # http://localhost:5173
 **Docker (full stack):** `cp .env.example .env`, fill in the values, then `docker compose up --build`. The stack runs in Production mode: no admin exists unless `SEED_ADMIN_EMAIL`/`SEED_ADMIN_PASSWORD` are set, and the API refuses to start without Stripe keys unless `PAYMENTS_PROVIDER=Fake` is set for a demo. Set `SECRETS_KEY` to let stores connect their own Stripe accounts. The default store is bound to `localhost` explicitly through `DEFAULT_TENANT_HOSTS`. Production has no fallback store for unknown hosts.
 
 **Several stores locally (Phase 2):** the store comes from the host ([ADR-0006](adr/0006-tenant-resolution.md)).
-- In Development, `localhost` is the default store (`Tenancy:LocalDefaultTenant`, `marka`).
+- In Development, `localhost` is the seeded default store. Set `Tenancy:LocalDefaultTenant` to serve another store's slug there instead.
 - `http://{slug}.localhost:5173` is any other store; browsers resolve `*.localhost` to 127.0.0.1 with no setup.
 - `http://admin.localhost:5173` is the platform area.
 - API tools can send `X-Tenant: <slug>` instead.

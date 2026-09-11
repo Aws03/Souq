@@ -5,6 +5,7 @@ import { useAuth } from '../../context/AuthContext';
 import FormField, { inputClass } from '../../components/common/FormField';
 import PasswordInput from '../../components/common/PasswordInput';
 import Button from '../../components/common/Button';
+import { useStoreName } from '../../app/StoreBrand';
 import AuthLayout from './AuthLayout';
 import styles from './Auth.module.css';
 
@@ -14,6 +15,7 @@ export default function Register() {
   const { t } = useTranslation();
   const { register } = useAuth();
   const navigate = useNavigate();
+  const storeName = useStoreName();
 
   const [form, setForm] = useState({ fullName: '', email: '', password: '', confirm: '' });
   const [touched, setTouched] = useState({});
@@ -50,7 +52,7 @@ export default function Register() {
   const err = (k) => (touched[k] ? errors[k] : null);
 
   return (
-    <AuthLayout title={t('auth.registerTitle')} subtitle={t('auth.registerSubtitle')} serverError={serverError}>
+    <AuthLayout title={t('auth.registerTitle')} subtitle={t('auth.registerSubtitle', { store: storeName })} serverError={serverError}>
       <form onSubmit={submit} noValidate>
         <FormField label={t('auth.fullNameLabel')} error={err('fullName')}>
           <input value={form.fullName} autoComplete="name" className={inputClass(err('fullName'))}

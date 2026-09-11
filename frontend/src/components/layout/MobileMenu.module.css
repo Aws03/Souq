@@ -1,6 +1,6 @@
 .overlay { position: fixed; inset: 0; background: rgba(15, 59, 58, .4); z-index: 100; }
 .sheet {
-  position: fixed; left: 0; right: 0; bottom: 0; z-index: 101; background: var(--paper);
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 101; background: var(--color-bg);
   border-radius: 20px 20px 0 0; padding: 20px; box-shadow: 0 -8px 30px rgba(0, 0, 0, .18);
   animation: rise-sheet var(--ease-panel);
 }
@@ -11,10 +11,10 @@
 .links { display: flex; flex-direction: column; gap: 4px; }
 .links a, .links button {
   padding: 13px 6px; text-align: start; font-weight: 600; font-size: var(--fs-body);
-  border-bottom: 1px solid var(--line); color: var(--ink); width: 100%;
+  border-bottom: 1px solid var(--color-border); color: var(--color-text); width: 100%;
 }
 .links a:last-child, .links button:last-child { border-bottom: none; }
-.hello { padding: 13px 6px; color: var(--muted); font-weight: 500; }
+.hello { padding: 13px 6px; color: var(--color-text-muted); font-weight: 500; }
 
 .themeRow { display: flex; align-items: center; justify-content: space-between; padding: 13px 6px 0; margin-top: 4px; }
-.themeLabel { font-weight: 600; font-size: var(--fs-body); color: var(--ink); }
+.themeLabel { font-weight: 600; font-size: var(--fs-body); color: var(--color-text); }

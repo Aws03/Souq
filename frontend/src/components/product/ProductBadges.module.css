@@ -1,10 +1,10 @@
-.price { font-family: var(--font-display); font-weight: 700; font-size: 18px; color: var(--petrol); }
+.price { font-family: var(--font-display); font-weight: 700; font-size: 18px; color: var(--color-primary); }
 
 .onSale { display: inline-flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
-.compareAt { font-size: 13px; font-weight: 600; color: var(--muted, #8a8f98); }
+.compareAt { font-size: 13px; font-weight: 600; color: var(--color-text-muted, #8a8f98); }
 
 .category {
-  display: inline-block; font-size: var(--fs-label); color: var(--saffron); font-weight: 700;
+  display: inline-block; font-size: var(--fs-label); color: var(--color-accent); font-weight: 700;
   text-transform: uppercase; letter-spacing: .3px;
 }
 
@@ -12,4 +12,4 @@
   display: inline-block; padding: 3px 10px; border-radius: 50px; font-size: 11px; font-weight: 700;
 }
 .stock.low { background: #fdf3e2; color: #a06a12; }
-.stock.out { background: #fdf0ec; color: var(--clay); }
+.stock.out { background: #fdf0ec; color: var(--color-danger); }

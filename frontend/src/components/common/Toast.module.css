@@ -6,12 +6,12 @@
 .toast {
   display: flex; align-items: center; gap: 10px; padding: 13px 16px;
   border-radius: var(--radius-sm); box-shadow: var(--shadow-lg);
-  background: var(--petrol); color: var(--paper);
+  background: var(--color-primary); color: var(--color-bg);
   animation: rise .25s ease;
 }
-.toast.success { background: var(--petrol); }
+.toast.success { background: var(--color-primary); }
 .toast.error { background: #7a2f20; }
-.toast.info { background: var(--info); }
+.toast.info { background: var(--color-info); }
 .msg { flex: 1; font-size: var(--fs-body-sm); }
 .close { color: inherit; opacity: .75; flex-shrink: 0; }
 .close:hover { opacity: 1; }

@@ -15,5 +15,5 @@
   .grid5, .grid4 { grid-template-columns: repeat(2, 1fr); }
 }
 
-.skeletonCard { background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
+.skeletonCard { background: var(--color-surface); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
 .skeletonBody { padding: 14px; display: flex; flex-direction: column; gap: 10px; }

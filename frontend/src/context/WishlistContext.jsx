@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import { api } from '../api/client';
 import { useAuth } from './AuthContext';
 import { useToast } from './ToastContext';
+import { useModule } from '../app/TenantProvider';
 import {
   WISHLIST_STORAGE_KEY, localIds, parseStored, serverUnavailable, toggleLocal,
 } from '../features/wishlist/wishlistModel';
@@ -26,13 +27,15 @@ export function WishlistProvider({ children }) {
   const toast = useToast();
   const [items, setItems] = useState(readLocal);
   const [onServer, setOnServer] = useState(false);
+  // وحدة المفضّلة معطّلة في المتجر (المرحلة 15) ⇒ القائمة المحلية وحدها، بلا طلبات يرفضها الخادم بـ 404 ModuleDisabled.
+  const moduleEnabled = useModule('wishlist');
 
   // عند كل تبدّل للمستخدم (استعادة الجلسة، دخول، خروج): العميل ⇒ دمج المحلي (إن وُجد) ثم قائمة الخادم؛ غيره ⇒ المحلي. الفشل
   // (شبكة، وحدة معطّلة) يُبقي المحلي دون فقده — الدمج يُعاد في الدخول التالي.
   const userId = user?.id;
   useEffect(() => {
     if (sessionLoading) return undefined;
-    if (!userId || canManageStore) {
+    if (!userId || canManageStore || !moduleEnabled) {
       setOnServer(false);
       setItems(readLocal());
       return undefined;
@@ -54,7 +57,7 @@ export function WishlistProvider({ children }) {
         if (!serverUnavailable(e)) console.warn('wishlist sync failed', e.code ?? e.message);
       });
     return () => { active = false; };
-  }, [sessionLoading, userId, canManageStore]);
+  }, [sessionLoading, userId, canManageStore, moduleEnabled]);
 
   // القائمة المحلية تُحفظ بعد كل تغيير — لا حين تكون القائمة من الخادم (العميل لا يترك أثراً على جهاز مشترك).
   useEffect(() => {

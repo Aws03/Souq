@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useCart } from '../../context/CartContext';
 import { useWishlist } from '../../context/WishlistContext';
+import { useModule } from '../../app/TenantProvider';
 import Button from '../common/Button';
 import ProductImage from './ProductImage';
 import { HeartIcon } from '../icons/Icons';
@@ -16,6 +17,7 @@ export default function ProductCard({ product, onAdded, isNew = false, layout = 
   const { t } = useTranslation();
   const { add } = useCart();
   const wishlist = useWishlist();
+  const wishlistEnabled = useModule('wishlist');   // وحدة المفضّلة (المرحلة 15): معطّلة ⇒ لا قلب
   const [adding, setAdding] = useState(false);
   const outOfStock = product.stockQuantity <= 0;
   const inWishlist = wishlist.has(product.id);
@@ -36,10 +38,12 @@ export default function ProductCard({ product, onAdded, isNew = false, layout = 
         {isNew && <span className={styles.badge}>{t('product.badgeNew')}</span>}
       </Link>
 
-      <button type="button" className={styles.wishBtn} onClick={() => wishlist.toggle(product)}
-        aria-pressed={inWishlist} aria-label={t(inWishlist ? 'product.wishlistRemove' : 'product.wishlistAdd')}>
-        <HeartIcon size={16} filled={inWishlist} />
-      </button>
+      {wishlistEnabled && (
+        <button type="button" className={styles.wishBtn} onClick={() => wishlist.toggle(product)}
+          aria-pressed={inWishlist} aria-label={t(inWishlist ? 'product.wishlistRemove' : 'product.wishlistAdd')}>
+          <HeartIcon size={16} filled={inWishlist} />
+        </button>
+      )}
 
       <div className={styles.body}>
         <h3 className={styles.name}>

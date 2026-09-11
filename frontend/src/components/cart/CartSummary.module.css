@@ -1,9 +1,9 @@
-.row { display: flex; justify-content: space-between; font-size: var(--fs-body-sm); color: var(--muted); margin-bottom: 8px; }
+.row { display: flex; justify-content: space-between; font-size: var(--fs-body-sm); color: var(--color-text-muted); margin-bottom: 8px; }
 .total {
   display: flex; justify-content: space-between; font-size: 20px; font-weight: 700;
-  font-family: var(--font-display); color: var(--petrol); margin: 10px 0 16px;
-  padding-top: 12px; border-top: 1px dashed var(--line);
+  font-family: var(--font-display); color: var(--color-primary); margin: 10px 0 16px;
+  padding-top: 12px; border-top: 1px dashed var(--color-border);
 }
 .cta { width: 100%; }
 /* سطر يمنع الدفع (غير متاح أو يتجاوز المتاح — المرحلة 8). */
-.blocked { color: var(--clay); font-size: var(--fs-caption); font-weight: 700; margin-bottom: 10px; }
+.blocked { color: var(--color-danger); font-size: var(--fs-caption); font-weight: 700; margin-bottom: 10px; }

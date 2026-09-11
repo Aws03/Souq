@@ -70,7 +70,7 @@ public class Coupon : Entity, ITenantOwned
     }
 
     // يحسب قيمة الخصم الفعلية على إجمالي فرعي معيّن، بلا تجاوز الإجمالي نفسه
-    // (كوبون "-20 د.أ" على طلب بـ15 د.أ يخصم 15 لا 20 — لا مبلغ سالب أبداً).
+    // (كوبون ثابت بـ20 على طلب بـ15 يخصم 15 لا 20 — لا مبلغ سالب أبداً).
     public Money CalculateDiscount(Money subtotal)
     {
         var raw = Type == DiscountType.Percentage

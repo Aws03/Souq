@@ -1,7 +1,7 @@
 # Souq Platform: Product Roadmap
 
 > **Goal:** turn Souq into one **white-label, multi-tenant e-commerce platform**, sold to many clients (≈ $5,000+ each) and maintainable by a professional team.
-> **Status:** Phase 0 ✅ · Target architecture ✅ documented · Phase 1A ✅ (merged to `main`) · Phase 1B ✅ on branch `phase/1b-production-foundations` (awaiting review) · **Autonomous run on `phase/2-15-multitenant-platform`** (branched from the 1B tip): Phase 2 ✅ · Phase 3 ✅ · Phase 4 ✅ · Phase 5 ✅ · Phase 6 ✅ · Phase 7 ✅ · Phase 8 ✅ · Phase 9 ✅ · Phase 10 ✅ · Phase 11 ✅ · Phase 12 ✅ · Phase 13 ✅ · Phase 14 ✅. Next: Phase 15.
+> **Status:** Phase 0 ✅ · Target architecture ✅ documented · Phase 1A ✅ (merged to `main`) · Phase 1B ✅ on branch `phase/1b-production-foundations` (awaiting review) · **Autonomous run on `phase/2-15-multitenant-platform`** (branched from the 1B tip): Phase 2 ✅ · Phase 3 ✅ · Phase 4 ✅ · Phase 5 ✅ · Phase 6 ✅ · Phase 7 ✅ · Phase 8 ✅ · Phase 9 ✅ · Phase 10 ✅ · Phase 11 ✅ · Phase 12 ✅ · Phase 13 ✅ · Phase 14 ✅ · Phase 15 ✅. The autonomous run ends at Phase 15; Phase 16 is next.
 > **Companion document:** [ArchitectureAssessment.md](ArchitectureAssessment.md) covers the current state, the problem register (IDs such as `B1` and `C2`), the target architecture, and the full reasoning behind every decision (`D-xx`).
 > **Last updated:** 2026-09-11
 
@@ -729,7 +729,31 @@ Status legend: ✅ done · 🟡 in progress · ⏳ planned · ⏸ awaiting appro
   - No tokens or PII appear in logs.
   - The request path never waits on the email provider.
 
-### Phase 15: Frontend foundation and white-label runtime ⏳ *(was 18)*
+### Phase 15: Frontend foundation and white-label runtime ✅ (autonomous run)
+- **Delivered ([ADR-0035](adr/0035-white-label-runtime.md)):**
+  - **Boot from the store configuration.** `TenantProvider` loads the storefront config before anything renders, with explicit screens for a closed store, an unknown host and a network error. On the platform host it opens the platform area instead.
+  - **Runtime theming.** The theme provider writes the semantic tokens, the preset, the page title, the description, the favicon and the fonts from the store's branding. Derived colours keep text readable.
+  - **Brand removed (A7).** The brand-named tokens are replaced by semantic ones in every component, and the visitor theme switcher is gone.
+  - **Store content from the configuration (A4, A5):**
+    - the store's name or logo;
+    - the footer description, contact details and social links;
+    - the announcement;
+    - prices in the store's currency, with its minor units;
+    - a language toggle limited to the store's languages.
+  - **Module gates** (`useModule`, `RequireModule`):
+    - Wishlist, reviews and coupons are hidden when off, and no request is sent.
+    - The admin navigation is filtered by permission and by module.
+  - **Four areas in one build**, with route-level code splitting. The first bundle is about 381 KB; about 144 KB loads on demand. The platform host has a shell: sign-in, invitations and a placeholder area.
+  - **Checks:**
+    - `whiteLabel.test.js` covers the frontend source and `index.html`.
+    - `WhiteLabelSourceTests` covers the backend code and committed `appsettings*`.
+    - `tenantModel.test.js` renders two stores.
+
+    The development default store now comes from the seeder, not from committed configuration.
+- **Deferred:**
+  - **D-19** (TypeScript + TanStack Query). It is proposed for approval, and its trigger is Phase 16 or a CI type-check.
+  - **Moving existing screens into `features/*`** and splitting `api/client.js` per feature. Each screen moves when it is rebuilt (Phases 16–17).
+  - **Colour presets in a branding editor** (Phases 17–18) and per-host SEO heads (Phase 16).
 - **Scope.**
   - Feature-based folders.
   - Four areas, each with its own layout and route guards.
@@ -738,8 +762,8 @@ Status legend: ✅ done · 🟡 in progress · ⏳ planned · ⏸ awaiting appro
   - Server-state management (D-19).
   - **TenantProvider** (bootstraps from the config endpoint), **ThemeProvider** (semantic design tokens and presets), and **ModuleGate**.
   - Remove the hard-coded brand, currency, and contact details (A4, A5). Replace the visitor theme switcher (A7).
-- **Decisions needed.** D-19.
-- **Exit criteria.**
+- **Decisions needed.** D-19: deferred with a trigger.
+- **Exit criteria** (both met).
   - The same build renders two tenants with different branding, currency, and modules.
   - The source contains no brand or currency literals, enforced by a check.
 - **Docs.** `FrontendArchitecture.md`, `WhiteLabel.md`.
@@ -850,7 +874,7 @@ Each decision is argued in full (options, recommendation, rationale) in Architec
 | D-04 | Identity implementation | ✅ **Implemented in Phase 3:** the custom JWT + BCrypt evolved into a `User` aggregate with refresh-token rotation — [ADR-0010](adr/0010-authentication-authorization.md), [ADR-0023](adr/0023-sessions-and-credentials.md) | 3 |
 | D-05 | Authorization model | ✅ **Implemented:** permission-based policies with built-in roles mapped in code. The mechanism came in 1B ([ADR-0019](adr/0019-authorization-foundation.md)); tenant, staff and platform roles in Phase 3 | 3 |
 | D-11 | Feature modules | ✅ **Implemented in Phase 4:** per-tenant module flags, enforced server-side (endpoints and use cases) and exposed in the storefront config — [ADR-0024](adr/0024-platform-administration.md) | 4 |
-| D-12 | White-label runtime | ✅ **Backend implemented in Phase 4** (settings model + storefront config API with ETag); TenantProvider/ThemeProvider with semantic tokens in Phase 15 | 4 / 15 |
+| D-12 | White-label runtime | ✅ **Implemented:** backend in Phase 4 (the settings model and the storefront config API with an ETag); frontend runtime in Phase 15 (TenantProvider, runtime theme with semantic tokens, module gates) — [ADR-0035](adr/0035-white-label-runtime.md) | 4 / 15 |
 | D-17 | Auditing | ✅ **Implemented in Phase 4:** append-only `AuditEntries` written by a MediatR behavior for `IAuditable` requests, inside the handler's unit of work | 4 |
 | D-10 | Catalog localization | ✅ **Implemented in Phase 5:** translation tables in the store's languages replace `NameAr`/`NameEn` — [ADR-0025](adr/0025-catalog-model.md) | 5 |
 | D-18 | File storage | Tenant-prefixed keys and content validation ✅ (1A/2); the product gallery ✅ (5); cloud blob storage in production (23) | 1A / 5 / 23 |
@@ -858,7 +882,7 @@ Each decision is argued in full (options, recommendation, rationale) in Architec
 | D-15 | Background jobs | ✅ **Implemented in Phase 6:** a .NET hosted service (checkout expiry sweep per store); Hangfire only when needed — [ADR-0026](adr/0026-inventory-reservations.md) | 6 |
 | **D-13** | Payment tenancy | 🟡 **Mechanism built in Phase 11** ([ADR-0031](adr/0031-payments-and-refunds.md)): per-store gateway resolution, AES-GCM-encrypted store keys, routing by the account that took each payment, per-store webhook secrets. A store may connect its own Stripe account; the others use the deployment account. **Still to decide:** require every store to connect its own account (merchant of record), or adopt Stripe Connect (another adapter behind the same router) | before multi-store live payments |
 | D-14 | Notifications | ✅ **Resolved in Phase 14** ([ADR-0034](adr/0034-notifications-outbox.md)): a transactional outbox with a leased hosted dispatcher and bounded retries; domain events in the same save; localized emails with the store's identity; in-app notifications | 14 |
-| D-19 | Frontend stack | Incremental TypeScript + TanStack Query | 15 |
+| D-19 | Frontend stack | ⏸ **Deferred in Phase 15** ([ADR-0035](adr/0035-white-label-runtime.md)): incremental TypeScript + TanStack Query, proposed for approval. The trigger is the start of Phase 16 or a CI type-check | 16 |
 | P-03 | Source license and repository visibility | The repo is MIT-licensed and has a GitHub remote. Decide before the first sale. | before 23 |
 | P-06 | Tax model | No tax exists in the product, and no phase plans one. Decide: prices tax-inclusive or exclusive, a per-store rate, and whether invoices must show tax (Jordan GST). The pricing pipeline has a zero tax stage ready for it ([ADR-0028](adr/0028-basket-and-pricing-pipeline.md)) | before the first sale |
 
@@ -946,3 +970,4 @@ The earlier `AUDIT.md` (Arabic, 8-phase program) and the engineering-thinking gu
 | 2026-09-11 | Phase 12 completed (store-defined shipping methods behind an `IShippingRateProvider` strategy, the pipeline's shipping stage, a method required at checkout when the store has methods, the destination country from the address book, a shipping snapshot and totals including shipping, carrier tracking links); ADR-0032 |
 | 2026-09-11 | Phase 13 completed (review moderation under a per-store auto-approve policy, approved-only aggregates with a per-star distribution, an audited moderation API, a server-side wishlist that absorbs the guest list at sign-in, both features behind their module flags); ADR-0033 |
 | 2026-09-11 | Phase 14 completed (a transactional outbox with a leased dispatcher and bounded retries, tokens issued at dispatch, domain events for order status and low stock, localized emails with the store's identity, in-app notifications with a bell, no silent console email fallback outside development); ADR-0034, D-14 resolved |
+| 2026-09-11 | Phase 15 completed (the SPA boots from the host's store configuration with closed, unknown-store and retry screens; semantic tokens and fonts from the store's branding; the visitor theme switcher removed; the store's name, currency, languages and footer content from its configuration; module gates; four areas with route-level code splitting; tests forbid brand and currency literals in the frontend and backend); ADR-0035, D-19 deferred with a trigger |

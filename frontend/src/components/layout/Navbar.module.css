@@ -1,44 +1,44 @@
 .navbar {
-  background: var(--surface); color: var(--ink); border-bottom: 1px solid var(--line);
+  background: var(--color-surface); color: var(--color-text); border-bottom: 1px solid var(--color-border);
   padding: 0 clamp(16px, 4vw, 28px); height: var(--navbar-height);
   display: flex; align-items: center; gap: 18px; flex-wrap: nowrap; position: sticky; top: 0; z-index: 50;
   overflow-x: hidden; /* شبكة أمان: لا انسكاب أفقي مهما ضاق العرض */
 }
 
 .brand {
-  font-family: var(--font-display); font-size: 24px; font-weight: 700; color: var(--petrol);
+  font-family: var(--font-display); font-size: 24px; font-weight: 700; color: var(--color-primary);
   letter-spacing: .5px; text-decoration: none; flex-shrink: 0;
 }
-.brand span { color: var(--saffron); }
+.brand span { color: var(--color-accent); }
 
 .searchDesktop { flex: 1; max-width: 480px; margin: 0 auto; }
 
 .actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; margin-inline-start: auto; }
-.linkLight { color: var(--ink); text-decoration: none; font-weight: 500; opacity: .8; transition: opacity var(--ease-hover); }
+.linkLight { color: var(--color-text); text-decoration: none; font-weight: 500; opacity: .8; transition: opacity var(--ease-hover); }
 .linkLight:hover { opacity: 1; }
-.user { color: var(--petrol); font-size: var(--fs-caption); white-space: nowrap; font-weight: 500; }
-.linkBtn { color: var(--ink); opacity: .7; font-weight: 500; }
+.user { color: var(--color-primary); font-size: var(--fs-caption); white-space: nowrap; font-weight: 500; }
+.linkBtn { color: var(--color-text); opacity: .7; font-weight: 500; }
 .linkBtn:hover { opacity: 1; text-decoration: underline; }
 
 .iconBtn {
-  position: relative; background: var(--soft); color: var(--petrol);
+  position: relative; background: var(--color-surface-alt); color: var(--color-primary);
   width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center;
   transition: background var(--ease-hover), transform var(--ease-hover);
 }
-.iconBtn:hover { background: var(--saffron-soft); transform: translateY(-1px); }
+.iconBtn:hover { background: var(--color-accent-soft); transform: translateY(-1px); }
 .iconBadge {
-  position: absolute; top: -4px; left: -4px; background: var(--clay); color: #fff; border-radius: 50%;
+  position: absolute; top: -4px; left: -4px; background: var(--color-danger); color: #fff; border-radius: 50%;
   width: 19px; height: 19px; display: grid; place-items: center; font-size: 11px; font-weight: 700;
 }
 
-.hamburger { display: none; color: var(--ink); width: 36px; height: 36px; }
+.hamburger { display: none; color: var(--color-text); width: 36px; height: 36px; }
 
 .langToggle {
-  color: var(--petrol); background: var(--soft); border-radius: 999px;
+  color: var(--color-primary); background: var(--color-surface-alt); border-radius: 999px;
   font-weight: 700; font-size: var(--fs-caption); padding: 6px 12px; flex-shrink: 0;
   transition: background var(--ease-hover);
 }
-.langToggle:hover { background: var(--saffron-soft); }
+.langToggle:hover { background: var(--color-accent-soft); }
 
 @media (max-width: 767px) {
   .hamburger { display: grid; place-items: center; }

@@ -4,8 +4,9 @@
 // ============================================================================
 export const MAX_QUANTITY = 99; // Basket.MaxQuantityPerLine في Domain
 
+// سلة فارغة قبل ردّ الخادم: بلا عملة — formatPrice يأخذ عملة المتجر من إعداده (المرحلة 15).
 export const EMPTY_BASKET = {
-  lines: [], itemCount: 0, currency: 'JOD', subtotal: 0, discount: 0, shipping: 0, tax: 0, total: 0,
+  lines: [], itemCount: 0, currency: '', subtotal: 0, discount: 0, shipping: 0, tax: 0, total: 0,
   coupon: null, readyForCheckout: false,
 };
 

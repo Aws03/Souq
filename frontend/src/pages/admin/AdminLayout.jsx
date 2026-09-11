@@ -1,4 +1,6 @@
+import { Suspense } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
+import { PagePending } from '../../components/ProtectedRoute';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../context/AuthContext';
 import NotificationBell from '../../components/notifications/NotificationBell';
@@ -36,7 +38,10 @@ export default function AdminLayout() {
           </div>
         </header>
         <main className={styles.content}>
-          <Outlet />
+          {/* صفحات الإدارة تُحمَّل عند فتحها (المرحلة 15): الانتظار داخل المحتوى، والشريط الجانبي باقٍ. */}
+          <Suspense fallback={<PagePending />}>
+            <Outlet />
+          </Suspense>
         </main>
       </div>
 

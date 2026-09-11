@@ -1,7 +1,7 @@
 /* لاصق أسفل شريط التنقّل (بارتفاعه) — يبقى ظاهراً مع تمرير الصفحة، بتمرير
    أفقي على الجوال. */
 .bar {
-  background: var(--surface); border-bottom: 1px solid var(--line);
+  background: var(--color-surface); border-bottom: 1px solid var(--color-border);
   position: sticky; top: var(--navbar-height); z-index: 45;
 }
 .scroller {
@@ -11,9 +11,9 @@
 .scroller::-webkit-scrollbar { display: none; }
 
 .link {
-  flex-shrink: 0; padding: 13px 14px; color: var(--ink); text-decoration: none; font-weight: 600;
+  flex-shrink: 0; padding: 13px 14px; color: var(--color-text); text-decoration: none; font-weight: 600;
   font-size: var(--fs-body-sm); white-space: nowrap; border-bottom: 2px solid transparent;
   transition: color var(--ease-hover), border-color var(--ease-hover);
 }
-.link:hover { color: var(--petrol); }
-.active { color: var(--petrol); border-bottom-color: var(--saffron); }
+.link:hover { color: var(--color-primary); }
+.active { color: var(--color-primary); border-bottom-color: var(--color-accent); }

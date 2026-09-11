@@ -1,38 +1,50 @@
 import { NavLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../context/AuthContext';
+import { useStoreConfig } from '../../app/TenantProvider';
+import StoreBrand from '../../app/StoreBrand';
+import { isModuleEnabled } from '../../app/tenantModel';
 import {
   GridIcon, PackageIcon, InventoryIcon, TagIcon, ReceiptIcon, PercentIcon, UserIcon, CardIcon, TruckIcon, StarIcon,
 } from '../../components/icons/Icons';
 import styles from './AdminLayout.module.css';
 
+// روابط لوحة الإدارة بصلاحياتها ووحداتها — مشتركة بين الشريط الجانبي (سطح المكتب) والشريط السفلي (الجوال).
+export const ADMIN_NAV = [
+  { to: '/admin', end: true, label: 'admin.nav.dashboard', shortLabel: 'admin.nav.home', icon: GridIcon },
+  { to: '/admin/products', label: 'admin.nav.products', icon: PackageIcon, permission: 'catalog.manage' },
+  { to: '/admin/inventory', label: 'admin.nav.inventory', icon: InventoryIcon, permission: 'inventory.view' },
+  { to: '/admin/categories', label: 'admin.nav.categories', icon: TagIcon, permission: 'catalog.manage' },
+  { to: '/admin/coupons', label: 'admin.nav.coupons', icon: PercentIcon, permission: 'promotions.manage', module: 'promotions' },
+  { to: '/admin/orders', label: 'admin.nav.orders', icon: ReceiptIcon, permission: 'orders.view' },
+  { to: '/admin/customers', label: 'admin.nav.customers', icon: UserIcon, permission: 'customers.view' },
+  { to: '/admin/reviews', label: 'admin.nav.reviews', icon: StarIcon, permission: 'reviews.moderate', module: 'reviews' },
+  { to: '/admin/shipping', label: 'admin.nav.shipping', icon: TruckIcon, permission: 'store.shipping.manage' },
+  { to: '/admin/payments', label: 'admin.nav.payments', icon: CardIcon, permission: 'store.payments.manage' },
+];
+
+// الروابط التي يراها الحساب الحالي: صلاحيته من الخادم، والوحدة (إن كانت اختيارية) مفعّلة في متجره — الموظّف لا يرى ما سيرفضه
+// الخادم بـ 403، ولا أحد يرى وحدة يرفضها بـ 404 ModuleDisabled.
+export function useAdminNav() {
+  const { can } = useAuth();
+  const config = useStoreConfig();
+  return ADMIN_NAV.filter((item) => (!item.permission || can(item.permission))
+    && (!item.module || isModuleEnabled(config, item.module)));
+}
+
 // الشريط الجانبي للوحة الإدارة (سطح المكتب) — يختفي على الجوال لصالح شريط سفلي.
-// كل رابط بصلاحيته من الخادم: الموظّف لا يرى ما سيرفضه الخادم بـ 403 (الكوبونات مثلاً).
 export default function AdminSidebar({ onLogout }) {
   const { t } = useTranslation();
-  const { can } = useAuth();
+  const nav = useAdminNav();
   const linkClass = ({ isActive }) => `${styles.navLink} ${isActive ? styles.active : ''}`;
-
-  const NAV = [
-    { to: '/admin', end: true, label: t('admin.nav.dashboard'), icon: GridIcon },
-    { to: '/admin/products', label: t('admin.nav.products'), icon: PackageIcon, permission: 'catalog.manage' },
-    { to: '/admin/inventory', label: t('admin.nav.inventory'), icon: InventoryIcon, permission: 'inventory.view' },
-    { to: '/admin/categories', label: t('admin.nav.categories'), icon: TagIcon, permission: 'catalog.manage' },
-    { to: '/admin/coupons', label: t('admin.nav.coupons'), icon: PercentIcon, permission: 'promotions.manage' },
-    { to: '/admin/orders', label: t('admin.nav.orders'), icon: ReceiptIcon, permission: 'orders.view' },
-    { to: '/admin/customers', label: t('admin.nav.customers'), icon: UserIcon, permission: 'customers.view' },
-    { to: '/admin/reviews', label: t('admin.nav.reviews'), icon: StarIcon, permission: 'reviews.moderate' },
-    { to: '/admin/shipping', label: t('admin.nav.shipping'), icon: TruckIcon, permission: 'store.shipping.manage' },
-    { to: '/admin/payments', label: t('admin.nav.payments'), icon: CardIcon, permission: 'store.payments.manage' },
-  ].filter((item) => !item.permission || can(item.permission));
 
   return (
     <aside className={styles.sidebar}>
-      <div className={styles.brand}>Mar<span>ka</span> · {t('admin.sidebar.title')}</div>
+      <div className={styles.brand}><StoreBrand /> · {t('admin.sidebar.title')}</div>
       <nav className={styles.nav}>
-        {NAV.map(({ to, end, label, icon: Icon }) => (
+        {nav.map(({ to, end, label, icon: Icon }) => (
           <NavLink key={to} to={to} end={end} className={linkClass}>
-            <Icon size={17} /> {label}
+            <Icon size={17} /> {t(label)}
           </NavLink>
         ))}
       </nav>

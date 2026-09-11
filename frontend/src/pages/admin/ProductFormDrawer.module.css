@@ -1,42 +1,42 @@
 .dropzone {
-  border: 2px dashed var(--line); border-radius: var(--radius); background: var(--surface);
+  border: 2px dashed var(--color-border); border-radius: var(--radius); background: var(--color-surface);
   min-height: 140px; display: grid; place-items: center; cursor: pointer; margin-bottom: 18px;
   overflow: hidden; transition: border-color var(--ease-hover), background var(--ease-hover);
 }
-.dropzone:hover, .dropzone.dragOver { border-color: var(--saffron); background: #fffaf0; }
-.dropHint { text-align: center; color: var(--muted); font-size: var(--fs-body-sm); padding: 20px; display: flex; flex-direction: column; align-items: center; gap: 8px; }
-.dropHint small { color: var(--muted); font-size: 11.5px; }
+.dropzone:hover, .dropzone.dragOver { border-color: var(--color-accent); background: #fffaf0; }
+.dropHint { text-align: center; color: var(--color-text-muted); font-size: var(--fs-body-sm); padding: 20px; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.dropHint small { color: var(--color-text-muted); font-size: 11.5px; }
 .preview { width: 100%; max-height: 200px; object-fit: contain; }
 
 .videoPreviewWrap { width: 100%; display: flex; flex-direction: column; gap: 8px; padding: 10px; cursor: default; }
 .videoPreview { width: 100%; max-height: 220px; border-radius: var(--radius-sm); background: #000; }
 .removeVideoBtn {
   align-self: flex-end; display: inline-flex; align-items: center; gap: 6px;
-  color: var(--clay); font-size: var(--fs-caption); font-weight: 600; padding: 4px 8px;
+  color: var(--color-danger); font-size: var(--fs-caption); font-weight: 600; padding: 4px 8px;
 }
 .removeVideoBtn:hover { text-decoration: underline; }
 
 /* معرض الصور الحالية: الأولى رئيسية؛ لكل صورة "اجعلها الرئيسية" و"إزالة". */
 .galleryBlock { margin-bottom: 18px; }
 .galleryTitle { font-weight: 600; font-size: var(--fs-body-sm); margin-bottom: 2px; }
-.galleryHint { display: block; color: var(--muted); font-size: 11.5px; margin-bottom: 8px; }
+.galleryHint { display: block; color: var(--color-text-muted); font-size: 11.5px; margin-bottom: 8px; }
 .gallery { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 10px; }
-.galleryItem { border: 1px solid var(--line); border-radius: var(--radius-sm); overflow: hidden; background: var(--surface); display: flex; flex-direction: column; }
+.galleryItem { border: 1px solid var(--color-border); border-radius: var(--radius-sm); overflow: hidden; background: var(--color-surface); display: flex; flex-direction: column; }
 .galleryImage { width: 100%; aspect-ratio: 1; object-fit: contain; background: #fff; }
 .galleryActions { display: flex; flex-direction: column; gap: 2px; padding: 6px 8px; font-size: 11.5px; }
-.galleryActions button { color: var(--petrol); font-weight: 600; text-align: start; padding: 0; }
+.galleryActions button { color: var(--color-primary); font-weight: 600; text-align: start; padding: 0; }
 .galleryActions button:hover:not(:disabled) { text-decoration: underline; }
 .galleryActions button:disabled { opacity: .5; cursor: default; }
-.galleryActions .removeImageBtn { color: var(--clay); }
-.primaryTag { color: var(--saffron); font-weight: 700; }
-.galleryFull { color: var(--muted); font-size: var(--fs-body-sm); margin: 0 0 18px; }
+.galleryActions .removeImageBtn { color: var(--color-danger); }
+.primaryTag { color: var(--color-accent); font-weight: 700; }
+.galleryFull { color: var(--color-text-muted); font-size: var(--fs-body-sm); margin: 0 0 18px; }
 
 /* المخزون عند التعديل للعرض فقط — يُصحَّح من صفحة الجرد (المرحلة 6). */
 .stockSummary {
-  border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface);
+  border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-surface);
   padding: 10px 12px; margin-bottom: 18px; font-size: var(--fs-body-sm);
 }
-.stockSummary small { display: block; color: var(--muted); font-size: 11.5px; margin-top: 4px; }
+.stockSummary small { display: block; color: var(--color-text-muted); font-size: 11.5px; margin-top: 4px; }
 
 .row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .footActions { display: flex; justify-content: flex-end; gap: 10px; }

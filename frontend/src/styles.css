@@ -1,40 +1,44 @@
 /* ============================================================================
-   نظام التصميم (Design Tokens) — كل ألوان وقياسات المتجر في مكان واحد.
-   الفائدة: لتغيير هويّة المتجر كلها، تُعدّل هنا فقط (مبدأ "مصدر واحد للحقيقة").
-   الهوية: "ماركة" (Marka) — بترولي عميق + لمسة زعفرانية + خطوط عربية مميّزة.
+   نظام التصميم (Design Tokens) — رموز دلالية لا أسماء علامة (المرحلة 15، A7، WhiteLabel.md §3): المكوّنات لا تقرأ إلا
+   --color-* و--font-* وقياسات الشكل. ألوان الهوية وخطّها يكتبها ThemeProvider (app/storeTheme.js) على <html> من إعداد
+   المتجر؛ القيم هنا محايدة لما قبل وصول الإعداد فقط، وألوان الحالة (نجاح، معلومة، خطر) ثابتة عبر كل المتاجر عمداً.
    ملاحظة معمارية: هذا الملف يحمل الرموز العامة (Tokens) وإعادة الضبط (Reset)
    والأساسيات فقط. كل مكوّن له وحدة CSS خاصة به (*.module.css) — لا تصادم أسماء.
    ============================================================================ */
 :root {
-  --petrol: #0F3B3A;
-  --petrol-700: #0a2c2b;
-  --saffron: #E8A33D;
-  --saffron-soft: #f3c987;
-  --clay: #C4674E;
-  --paper: #FAF7F1;   /* خلفية الصفحة */
-  --soft: #F0EBE1;    /* أسطح ثانوية (أقسام، لصائق) */
-  --surface: #ffffff; /* أسطح البطاقات */
-  --ink: #1A2421;
-  --muted: #6b736f;
-  --line: #e3ddd0;
-  --success: #2e7d32;
-  --success-soft: #e8f5e9;
-  --info: #2a5da8;
-  --info-soft: #eaf1fb;
+  --color-primary: #1F2937;
+  --color-primary-strong: #171F29;
+  --color-on-primary: #FFFFFF;
+  --color-secondary: var(--color-primary);
+  --color-accent: #D97706;
+  --color-accent-soft: #ECB47D;
+  --color-on-accent: #111827;
+  --color-danger: #C4674E;
+  --color-bg: #F9FAFB;          /* خلفية الصفحة */
+  --color-surface-alt: #F0F1F2; /* أسطح ثانوية (أقسام، لصائق) */
+  --color-surface: #ffffff;     /* أسطح البطاقات */
+  --color-text: #111827;
+  --color-text-muted: #5B616B;
+  --color-border: #E1E3E5;
+  --color-success: #2e7d32;
+  --color-success-soft: #e8f5e9;
+  --color-info: #2a5da8;
+  --color-info-soft: #eaf1fb;
 
   --radius-sm: 8px;
   --radius: 14px;
   --radius-lg: 20px;
   --card-radius: 14px;
-  --shadow: 0 6px 24px rgba(15, 59, 58, 0.08);
+  --shadow: 0 6px 24px rgba(31, 41, 55, 0.08);
   --shadow-lg: 0 20px 50px rgba(0, 0, 0, .25);
 
   /* ── هيكل الرأس الثابت: يستخدمها كل عنصر ملتصق (sticky) ليحسب إزاحته ── */
   --announcement-height: 36px;
   --navbar-height: 64px;
 
-  --font-display: 'Reem Kufi', sans-serif;
-  --font-body: 'Tajawal', sans-serif;
+  /* خطّ المتجر (--tenant-font-*) من إعداده؛ Tajawal قبل وصوله. */
+  --font-display: var(--tenant-font-heading, 'Tajawal', sans-serif);
+  --font-body: var(--tenant-font-body, 'Tajawal', sans-serif);
 
   /* ── مقياس الطباعة (Type Scale) ── */
   --fs-display: clamp(32px, 5vw, 48px);
@@ -57,38 +61,14 @@ html[lang="en"] {
   --font-body: 'Inter', sans-serif;
 }
 
-/* ── السمات (Themes) ──────────────────────────────────────────────────────
-   يُضبط data-theme على <html> عبر theme/index.js (يحفظ الاختيار في
-   localStorage). "default" هو نفس ألوان :root أعلاه فلا يحتاج تعريفاً هنا —
-   كل سمة أخرى تُعيد تعريف عائلة ألوان الهوية فقط (بترولي/زعفراني ومشتقّاتهما
-   + ظلّ الصفحة المصبوغ بنفس اللون)؛ الألوان الدلالية (نجاح/خطأ/معلومة) ثابتة
-   عمداً عبر كل السمات. كل مكوّن يقرأ var(--petrol)/var(--saffron) يتبدّل معه
-   فوراً دون أي تعديل على مكوّناته. */
-[data-theme="ocean"] {
-  --petrol: #0A2540;
-  --petrol-700: #071a2d;
-  --saffron: #00B4D8;
-  --saffron-soft: #a6e6f2;
-  --shadow: 0 6px 24px rgba(10, 37, 64, 0.08);
-}
-[data-theme="rose"] {
-  --petrol: #3D1A24;
-  --petrol-700: #2a1119;
-  --saffron: #F4B942;
-  --saffron-soft: #fbe0a0;
-  --shadow: 0 6px 24px rgba(61, 26, 36, 0.08);
-}
-[data-theme="forest"] {
-  --petrol: #1B3A2D;
-  --petrol-700: #12281f;
-  --saffron: #8CB369;
-  --saffron-soft: #d9e8c9;
-  --shadow: 0 6px 24px rgba(27, 58, 45, 0.08);
-}
+/* ── القوالب (Presets) ─────────────────────────────────────────────────────
+   لا سمة يختارها الزائر بعد المرحلة 15 (A7): الهوية قرار المتجر. ThemeProvider يضع قالب المتجر
+   (classic / minimal / bold) في data-preset على <html> — نقطة ربط لتنويعات التخطيط في المرحلة 16
+   (WhiteLabel.md §4)، والألوان والخطّ من إعداد المتجر لا من هنا. */
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html { scroll-behavior: smooth; }
-body { font-family: var(--font-body); background: var(--paper); color: var(--ink);
+body { font-family: var(--font-body); background: var(--color-bg); color: var(--color-text);
   line-height: 1.6; font-size: var(--fs-body); }
 h1, h2, h3 { font-family: var(--font-display); font-weight: 600; }
 button { font-family: var(--font-body); cursor: pointer; border: none; background: none; color: inherit; }
@@ -99,7 +79,7 @@ a { color: inherit; }
 /* حلقة تركيز مرئية على كل عنصر تفاعلي — إتاحة (Accessibility) لا تُساوَم عليها */
 a:focus-visible, button:focus-visible, input:focus-visible,
 textarea:focus-visible, select:focus-visible, [tabindex]:focus-visible {
-  outline: 3px solid var(--saffron);
+  outline: 3px solid var(--color-accent);
   outline-offset: 2px;
   border-radius: var(--radius-sm);
 }

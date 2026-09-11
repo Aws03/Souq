@@ -112,6 +112,9 @@ export const api = {
   exportMyData: () => request('/account/export'),
   eraseMyAccount: (password) => request('/account/erase', { method: 'POST', body: JSON.stringify({ password }) }),
 
+  // ── إعداد متجر المضيف (المرحلة 15) ── أول طلب عند الإقلاع: الهوية واللغات والعملة والوحدات. المتجر من المضيف لا من الطلب.
+  getStorefrontConfig: () => request('/storefront/config'),
+
   // ── الكتالوج ── (سلسلة الاستعلام لكل القوائم من toQueryString: مصفوفات بمفتاح متكرّر)
   getProducts: (params = {}) => request(`/products${toQueryString(params)}`),
   getProduct: (id) => request(`/products/${id}`),

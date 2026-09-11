@@ -1,30 +1,30 @@
-.title { font-size: var(--fs-heading-lg); color: var(--petrol); margin: 24px 0 20px; }
+.title { font-size: var(--fs-heading-lg); color: var(--color-primary); margin: 24px 0 20px; }
 
 .list { list-style: none; display: flex; flex-direction: column; gap: 12px; }
 
 .row {
   width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 16px;
-  background: var(--surface); border: 1px solid var(--line); border-radius: 14px;
-  padding: 18px 20px; text-align: start; color: var(--ink);
+  background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 14px;
+  padding: 18px 20px; text-align: start; color: var(--color-text);
   transition: transform var(--ease-hover), box-shadow var(--ease-hover);
 }
 .row:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
 
 .rowMain { display: flex; flex-direction: column; gap: 4px; }
-.orderNo { font-weight: 700; color: var(--petrol); }
-.date { color: var(--muted); font-size: var(--fs-caption); }
+.orderNo { font-weight: 700; color: var(--color-primary); }
+.date { color: var(--color-text-muted); font-size: var(--fs-caption); }
 
-.rowEnd { display: flex; align-items: center; gap: 14px; color: var(--muted); }
-.total { font-family: var(--font-display); font-weight: 700; color: var(--petrol); }
+.rowEnd { display: flex; align-items: center; gap: 14px; color: var(--color-text-muted); }
+.total { font-family: var(--font-display); font-weight: 700; color: var(--color-primary); }
 
 /* شارة الحالة — نفس درجات ألوان لوحة الإدارة، مستقلّة عن ملفها (لا تزاوج
    واجهة العميل بأنماط CSS خاصة بلوحة الإدارة). */
 .statusBadge { display: inline-block; padding: 4px 12px; border-radius: 50px; font-size: 12.5px; font-weight: 700; white-space: nowrap; }
 .pending { background: #fdf3e2; color: #a06a12; }
-.paid { background: var(--info-soft); color: var(--petrol); }
-.shipped { background: #eaf1fb; color: var(--info); }
-.delivered { background: var(--success-soft); color: var(--success); }
-.cancelled { background: #fdf0ec; color: var(--clay); }
+.paid { background: var(--color-info-soft); color: var(--color-primary); }
+.shipped { background: #eaf1fb; color: var(--color-info); }
+.delivered { background: var(--color-success-soft); color: var(--color-success); }
+.cancelled { background: #fdf0ec; color: var(--color-danger); }
 
 @media (max-width: 560px) {
   .row { flex-direction: column; align-items: flex-start; gap: 10px; }

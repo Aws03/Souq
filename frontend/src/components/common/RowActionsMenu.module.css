@@ -1,21 +1,21 @@
 .trigger {
   width: 32px; height: 32px; border-radius: 8px; display: grid; place-items: center;
-  color: var(--muted); transition: background var(--ease-hover);
+  color: var(--color-text-muted); transition: background var(--ease-hover);
 }
-.trigger:hover { background: var(--soft); color: var(--ink); }
+.trigger:hover { background: var(--color-surface-alt); color: var(--color-text); }
 
 /* القائمة تعيش في Portal على body بموضع fixed (يحسبه المكوّن من موضع الزر) —
    خارج أي حاوية overflow فلا تُقصّ إطلاقاً. فوق كل الطبقات الأخرى (أعلاها 300). */
 .menu {
   position: fixed; z-index: 400; min-width: 140px;
-  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-sm);
+  background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-sm);
   box-shadow: var(--shadow-lg); overflow: hidden; padding: 6px;
 }
 .item {
   display: block; width: 100%; text-align: start; padding: 9px 12px; border-radius: 6px;
-  font-size: var(--fs-body-sm); color: var(--ink); transition: background var(--ease-hover);
+  font-size: var(--fs-body-sm); color: var(--color-text); transition: background var(--ease-hover);
 }
-.item:hover:not(:disabled) { background: var(--soft); }
+.item:hover:not(:disabled) { background: var(--color-surface-alt); }
 .item:disabled { opacity: .5; cursor: not-allowed; }
-.item.danger { color: var(--clay); }
+.item.danger { color: var(--color-danger); }
 .item.danger:hover:not(:disabled) { background: #fdf0ec; }

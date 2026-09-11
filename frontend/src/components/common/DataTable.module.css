@@ -1,17 +1,17 @@
 .wrap {
-  background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow);
+  background: var(--color-surface); border-radius: var(--radius); box-shadow: var(--shadow);
   overflow-x: auto;
 }
 /* table-layout: fixed يجعل عرض <col> فعلياً (لا يتجاهله المتصفح حسب المحتوى) —
    هذا هو أساس "أعمدة بعرض ثابت" بدل الطول العشوائي حسب أطول قيمة في العمود. */
 .table { width: 100%; min-width: 100%; border-collapse: collapse; font-size: var(--fs-body-sm); table-layout: fixed; }
 .table th {
-  text-align: start; padding: 14px 16px; color: var(--muted); font-weight: 700;
-  font-size: var(--fs-label); border-bottom: 1px solid var(--line); white-space: nowrap;
+  text-align: start; padding: 14px 16px; color: var(--color-text-muted); font-weight: 700;
+  font-size: var(--fs-label); border-bottom: 1px solid var(--color-border); white-space: nowrap;
 }
-.table td { padding: 12px 16px; border-bottom: 1px solid var(--line); vertical-align: middle; text-align: start; }
+.table td { padding: 12px 16px; border-bottom: 1px solid var(--color-border); vertical-align: middle; text-align: start; }
 .table tr:last-child td { border-bottom: none; }
-.table tbody tr:nth-child(even) { background: var(--paper); }
+.table tbody tr:nth-child(even) { background: var(--color-bg); }
 
 .alignStart { text-align: start; }
 .alignEnd { text-align: end; } /* الأعمدة الرقمية (سعر، عدد) — يمينها في LTR ويسارها في RTL */
@@ -22,6 +22,6 @@
    التي تفعّل stickyFirstColumn) — الخلفية إلزامية كي لا يشفّ محتوى الأعمدة خلفه. */
 .stickyCol {
   position: sticky; inset-inline-start: 0; z-index: 1;
-  background: inherit; background-color: var(--surface);
+  background: inherit; background-color: var(--color-surface);
 }
-.table tbody tr:nth-child(even) .stickyCol { background-color: var(--paper); }
+.table tbody tr:nth-child(even) .stickyCol { background-color: var(--color-bg); }

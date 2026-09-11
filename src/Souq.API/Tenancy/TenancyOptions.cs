@@ -13,7 +13,8 @@ public sealed class TenancyOptions
     // مضيفو منطقة المنصّة (مثل admin.souq.app): لا متجر عليها — نقاط [PlatformEndpoint] فقط.
     public string[] PlatformHosts { get; set; } = [];
 
-    // Development/Testing فقط: معرّف المتجر الذي يخدمه localhost/127.0.0.1 مباشرة.
+    // Development/Testing فقط: معرّف المتجر الذي يخدمه localhost/127.0.0.1 مباشرة — افتراضياً متجر البذر
+    // (DbSeeder.DefaultTenantSlug، في Program)؛ الضبط هنا يختار متجراً آخر.
     public string? LocalDefaultTenant { get; set; }
 
     // يُحسب من البيئة في Program (PostConfigure) ويطغى على أي قيمة في الإعداد: ترويسة يختار بها

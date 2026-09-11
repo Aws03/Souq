@@ -4,30 +4,31 @@ import { useTranslation } from 'react-i18next';
 import { useCart } from '../../context/CartContext';
 import { useWishlist } from '../../context/WishlistContext';
 import { useAuth } from '../../context/AuthContext';
+import { useModule, useStoreConfig } from '../../app/TenantProvider';
+import StoreBrand from '../../app/StoreBrand';
+import { enabledLanguages } from '../../app/tenantModel';
 import { setLanguage } from '../../i18n';
-import { getTheme, setTheme } from '../../theme';
 import { CartIcon, HeartIcon, MenuIcon } from '../icons/Icons';
 import NotificationBell from '../notifications/NotificationBell';
 import SearchBar from './SearchBar';
 import MobileMenu from './MobileMenu';
-import ThemeSwitcher from './ThemeSwitcher';
 import styles from './Navbar.module.css';
 
-// شريط تنقّل المتجر: خلفية بيضاء ثابتة أعلى الصفحة (تحت شريط الإعلان)، الشعار
-// يميناً (RTL)، البحث وسطاً، أيقونات اللغة/المفضّلة/السلة يساراً. يتحوّل على
-// الجوال إلى هامبرغر + ورقة سفلية.
+// شريط تنقّل المتجر: خلفية بيضاء ثابتة أعلى الصفحة (تحت شريط الإعلان)، اسم المتجر أو شعاره يميناً (RTL)، البحث وسطاً، أيقونات
+// اللغة/المفضّلة/السلة يساراً. يتحوّل على الجوال إلى هامبرغر + ورقة سفلية. المرحلة 15: الهوية من إعداد المتجر (لا سمة يختارها
+// الزائر)، وتبديل اللغة والمفضّلة بما يفعّله المتجر.
 export default function Navbar({ onCartClick, searchTerm, onSearchChange }) {
   const { t, i18n } = useTranslation();
   const { count } = useCart();
   const { count: wishlistCount } = useWishlist();
   const { user, isAuthenticated, canManageStore, logout } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [theme, setThemeState] = useState(getTheme());
+  const wishlistEnabled = useModule('wishlist');
+  const languages = enabledLanguages(useStoreConfig());
 
   const otherLanguage = i18n.language === 'ar' ? 'en' : 'ar';
+  const canToggleLanguage = languages.includes(otherLanguage);
   const toggleLanguage = () => setLanguage(otherLanguage);
-
-  const changeTheme = (next) => { setTheme(next); setThemeState(next); };
 
   return (
     <nav className={styles.navbar}>
@@ -35,7 +36,7 @@ export default function Navbar({ onCartClick, searchTerm, onSearchChange }) {
         <MenuIcon />
       </button>
 
-      <Link to="/" className={styles.brand}>Mar<span>ka</span></Link>
+      <Link to="/" className={styles.brand}><StoreBrand /></Link>
 
       <SearchBar value={searchTerm} onChange={onSearchChange} className={styles.searchDesktop} />
 
@@ -57,21 +58,21 @@ export default function Navbar({ onCartClick, searchTerm, onSearchChange }) {
           </>
         )}
 
-        <button type="button" className={`${styles.langToggle} ${styles.desktopOnly}`} onClick={toggleLanguage} aria-label={t('nav.langToggleAria')}>
-          {otherLanguage === 'en' ? 'EN' : 'ع'}
-        </button>
-
-        <div className={styles.desktopOnly}>
-          <ThemeSwitcher current={theme} onChange={changeTheme} />
-        </div>
+        {canToggleLanguage && (
+          <button type="button" className={`${styles.langToggle} ${styles.desktopOnly}`} onClick={toggleLanguage} aria-label={t('nav.langToggleAria')}>
+            {otherLanguage === 'en' ? 'EN' : 'ع'}
+          </button>
+        )}
 
         {/* إشعارات الحساب (المرحلة 14): حالة الطلبات للعميل — ظاهرة على الجوال أيضاً. */}
         <NotificationBell />
 
-        <Link to="/wishlist" className={`${styles.iconBtn} ${styles.desktopOnly}`} aria-label={t('nav.wishlistAria')}>
-          <HeartIcon size={18} filled={wishlistCount > 0} />
-          {wishlistCount > 0 && <span className={styles.iconBadge}>{wishlistCount}</span>}
-        </Link>
+        {wishlistEnabled && (
+          <Link to="/wishlist" className={`${styles.iconBtn} ${styles.desktopOnly}`} aria-label={t('nav.wishlistAria')}>
+            <HeartIcon size={18} filled={wishlistCount > 0} />
+            {wishlistCount > 0 && <span className={styles.iconBadge}>{wishlistCount}</span>}
+          </Link>
+        )}
 
         {/* السلة تبقى ظاهرة على الجوال أيضاً — إجراء أساسي في متجر إلكتروني،
             بخلاف اللغة/المفضّلة اللتين تنتقلان إلى القائمة السفلية هناك. */}
@@ -83,8 +84,8 @@ export default function Navbar({ onCartClick, searchTerm, onSearchChange }) {
 
       <MobileMenu open={menuOpen} onClose={() => setMenuOpen(false)}
         searchTerm={searchTerm} onSearchChange={onSearchChange}
-        currentLanguage={i18n.language} otherLanguage={otherLanguage} onToggleLanguage={toggleLanguage}
-        theme={theme} onThemeChange={changeTheme} />
+        currentLanguage={i18n.language} otherLanguage={otherLanguage}
+        onToggleLanguage={canToggleLanguage ? toggleLanguage : undefined} />
     </nav>
   );
 }

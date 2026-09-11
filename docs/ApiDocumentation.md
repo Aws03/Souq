@@ -101,7 +101,7 @@ Every error is RFC 7807 `application/problem+json`:
     - An unknown host gets `404 StoreNotFound`. There is no fallback store in Production.
     - Platform hosts (`Tenancy:PlatformHosts`) have no store.
   - **Development/Testing only:**
-    - `localhost` serves `Tenancy:LocalDefaultTenant`, and `{slug}.localhost` serves that store.
+    - `localhost` serves the seeded default store, or the store named by `Tenancy:LocalDefaultTenant`, and `{slug}.localhost` serves that store.
     - The `X-Tenant: <slug>` header overrides both.
     - `admin.localhost` is the platform host.
   - **Availability:**

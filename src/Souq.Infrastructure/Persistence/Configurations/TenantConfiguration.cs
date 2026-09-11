@@ -21,7 +21,7 @@ public class TenantConfiguration : IEntityTypeConfiguration<Tenant>
         builder.Property(t => t.TimeZone).HasMaxLength(Tenant.TimeZoneMaxLength).IsRequired();
 
         // إعدادات الواجهة (D-12): مستند JSON يُقرأ ويُكتب كاملاً مع المتجر ولا يُستعلم بداخله. NULL = متجر سابق
-        // للمرحلة 4 (يُعرض الافتراضي حتى يُضبط — البذر يضبط المتجر الافتراضي بمظهر ماركة).
+        // للمرحلة 4 (يُعرض الافتراضي حتى يُضبط — البذر يضبط مظهر المتجر الافتراضي، DbSeeder).
         builder.Property<StoreSettings?>("_settings")
                .HasColumnName("Settings")
                .HasConversion(StoreSettingsJson.Converter, StoreSettingsJson.Comparer);

@@ -1,48 +1,48 @@
-.pageTitle { font-size: 24px; color: var(--petrol); }
-.pageSub { color: var(--muted); margin: 4px 0 24px; }
+.pageTitle { font-size: 24px; color: var(--color-primary); }
+.pageSub { color: var(--color-text-muted); margin: 4px 0 24px; }
 
 .toolbar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 20px; }
 .toolbar select {
-  padding: 10px 14px; border: 1px solid var(--line); border-radius: 10px;
-  background: var(--surface); font-family: var(--font-body); color: var(--ink);
+  padding: 10px 14px; border: 1px solid var(--color-border); border-radius: 10px;
+  background: var(--color-surface); font-family: var(--font-body); color: var(--color-text);
 }
 .search {
-  display: flex; align-items: center; gap: 8px; background: var(--surface); border: 1px solid var(--line);
-  border-radius: 50px; padding: 9px 16px; color: var(--muted); flex: 1; min-width: 200px; max-width: 320px;
+  display: flex; align-items: center; gap: 8px; background: var(--color-surface); border: 1px solid var(--color-border);
+  border-radius: 50px; padding: 9px 16px; color: var(--color-text-muted); flex: 1; min-width: 200px; max-width: 320px;
 }
-.search input { flex: 1; background: none; color: var(--ink); font-size: var(--fs-body-sm); }
-.search:focus-within { border-color: var(--petrol); }
+.search input { flex: 1; background: none; color: var(--color-text); font-size: var(--fs-body-sm); }
+.search:focus-within { border-color: var(--color-primary); }
 
 /* بطاقات الإحصاء */
 .statRow { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 18px; margin-bottom: 28px; }
-.statTile { background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); padding: 22px; border-top: 3px solid var(--saffron); }
-.statValue { font-family: var(--font-display); font-size: 34px; font-weight: 700; color: var(--petrol); }
-.statLabel { color: var(--muted); font-size: var(--fs-body-sm); margin-top: 4px; }
+.statTile { background: var(--color-surface); border-radius: var(--radius); box-shadow: var(--shadow); padding: 22px; border-top: 3px solid var(--color-accent); }
+.statValue { font-family: var(--font-display); font-size: 34px; font-weight: 700; color: var(--color-primary); }
+.statLabel { color: var(--color-text-muted); font-size: var(--fs-body-sm); margin-top: 4px; }
 
 /* بطاقات الوصول السريع */
 .quick { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 18px; }
 .quickCard {
-  background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); padding: 20px;
-  text-decoration: none; color: var(--ink); display: flex; flex-direction: column; gap: 6px;
+  background: var(--color-surface); border-radius: var(--radius); box-shadow: var(--shadow); padding: 20px;
+  text-decoration: none; color: var(--color-text); display: flex; flex-direction: column; gap: 6px;
   transition: transform var(--ease-hover), box-shadow var(--ease-hover);
 }
 .quickCard:hover { transform: translateY(-3px); box-shadow: 0 14px 32px rgba(15, 59, 58, .14); }
-.quickCard b { color: var(--petrol); font-size: 17px; }
-.quickCard span { color: var(--muted); font-size: var(--fs-body-sm); }
+.quickCard b { color: var(--color-primary); font-size: 17px; }
+.quickCard span { color: var(--color-text-muted); font-size: var(--fs-body-sm); }
 
 /* شارات حالة الطلب */
 .statusBadge { display: inline-block; padding: 4px 12px; border-radius: 50px; font-size: 12.5px; font-weight: 700; }
 .pending { background: #fdf3e2; color: #a06a12; }
-.paid { background: var(--info-soft); color: var(--petrol); }
-.shipped { background: #eaf1fb; color: var(--info); }
-.delivered { background: var(--success-soft); color: var(--success); }
-.cancelled { background: #fdf0ec; color: var(--clay); }
+.paid { background: var(--color-info-soft); color: var(--color-primary); }
+.shipped { background: #eaf1fb; color: var(--color-info); }
+.delivered { background: var(--color-success-soft); color: var(--color-success); }
+.cancelled { background: #fdf0ec; color: var(--color-danger); }
 
 /* حالة حساب العميل (المرحلة 7) */
-.customerActive { background: var(--success-soft); color: var(--success); }
-.customerBlocked { background: #fdf0ec; color: var(--clay); }
+.customerActive { background: var(--color-success-soft); color: var(--color-success); }
+.customerBlocked { background: #fdf0ec; color: var(--color-danger); }
 
-.thumb { width: 44px; height: 44px; border-radius: 8px; overflow: hidden; background: var(--soft); }
+.thumb { width: 44px; height: 44px; border-radius: 8px; overflow: hidden; background: var(--color-surface-alt); }
 
 /* ── جرد المخزون ── */
 /* شارة مستوى المخزون: ثلاث درجات لونية (منخفض/يقترب/وفير). */
@@ -50,13 +50,13 @@
   display: inline-block; min-width: 40px; text-align: center; padding: 4px 10px;
   border-radius: 50px; font-weight: 700; font-size: 13px;
 }
-.stockLow { background: #fdf0ec; color: var(--clay); }
+.stockLow { background: #fdf0ec; color: var(--color-danger); }
 .stockWarn { background: #fdf3e2; color: #a06a12; }
-.stockOk { background: var(--success-soft); color: var(--success); }
+.stockOk { background: var(--color-success-soft); color: var(--color-success); }
 
 /* تنبيه المخزون المنخفض أعلى شاشة الجرد. */
 .lowStockAlert {
-  background: #fdf0ec; color: var(--clay); border: 1px solid #f3cfc4;
+  background: #fdf0ec; color: var(--color-danger); border: 1px solid #f3cfc4;
   border-radius: var(--radius); padding: 12px 18px; margin-bottom: 20px;
   font-weight: 600; font-size: var(--fs-body-sm);
 }
@@ -65,31 +65,31 @@
 .alertCard {
   display: block; text-decoration: none; margin-bottom: 24px;
   background: #fdf0ec; border: 1px solid #f3cfc4; border-radius: var(--radius);
-  padding: 16px 20px; color: var(--clay);
+  padding: 16px 20px; color: var(--color-danger);
   transition: transform var(--ease-hover), box-shadow var(--ease-hover);
 }
 .alertCard:hover { transform: translateY(-2px); box-shadow: 0 12px 28px rgba(178, 74, 46, .14); }
 .alertCard b { display: block; font-size: 16px; margin-bottom: 2px; }
-.alertCard span { color: var(--clay); font-size: var(--fs-body-sm); opacity: .85; }
+.alertCard span { color: var(--color-danger); font-size: var(--fs-body-sm); opacity: .85; }
 
 /* سجلّ حركة المخزون داخل الدرج. */
 .movementList { list-style: none; display: flex; flex-direction: column; gap: 10px; }
 .movementRow {
   display: grid; grid-template-columns: auto auto 1fr; gap: 6px 12px; align-items: center;
-  background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px;
+  background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 12px; padding: 12px 14px;
 }
 .moveType { font-weight: 700; font-size: 12.5px; padding: 3px 10px; border-radius: 50px; }
-.move_purchase { background: var(--success-soft); color: var(--success); }
-.move_sale { background: var(--info-soft); color: var(--petrol); }
+.move_purchase { background: var(--color-success-soft); color: var(--color-success); }
+.move_sale { background: var(--color-info-soft); color: var(--color-primary); }
 .move_adjustment { background: #fdf3e2; color: #a06a12; }
-.move_return { background: #eaf1fb; color: var(--info); }
-.move_cancellation { background: #f6ece8; color: var(--clay); }
+.move_return { background: #eaf1fb; color: var(--color-info); }
+.move_cancellation { background: #f6ece8; color: var(--color-danger); }
 .moveDelta { font-family: var(--font-display); font-weight: 700; font-size: 16px; }
-.moveUp { color: var(--success); }
-.moveDown { color: var(--clay); }
-.moveMeta { grid-column: 3; color: var(--muted); font-size: var(--fs-caption); }
-.moveDate { grid-column: 1 / -1; color: var(--muted); font-size: var(--fs-caption); }
+.moveUp { color: var(--color-success); }
+.moveDown { color: var(--color-danger); }
+.moveMeta { grid-column: 3; color: var(--color-text-muted); font-size: var(--fs-caption); }
+.moveDate { grid-column: 1 / -1; color: var(--color-text-muted); font-size: var(--fs-caption); }
 
 /* اسم ثانوي (اللغة الأخرى) أسفل الاسم الأساسي في جدول المنتجات — الإدارة
    ترى الاسمين معاً بغضّ النظر عن لغة الواجهة الحالية. */
-.nameSecondary { color: var(--muted); font-size: var(--fs-caption); margin-top: 2px; }
+.nameSecondary { color: var(--color-text-muted); font-size: var(--fs-caption); margin-top: 2px; }

@@ -1,0 +1,14 @@
+.screen {
+  min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px;
+  background: var(--color-bg); color: var(--color-text);
+}
+.card {
+  max-width: 440px; width: 100%; text-align: center; padding: 32px 28px; border-radius: var(--radius);
+  background: var(--color-surface); box-shadow: var(--shadow);
+}
+.title { font-size: var(--fs-heading-lg); margin-bottom: 10px; }
+.message { color: var(--color-text-muted); }
+.retry {
+  margin-top: 20px; padding: 10px 22px; border-radius: var(--radius-sm); font-weight: 700;
+  background: var(--color-primary); color: var(--color-on-primary);
+}

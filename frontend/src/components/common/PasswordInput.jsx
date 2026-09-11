@@ -8,25 +8,25 @@ import styles from './PasswordInput.module.css';
 function PeekFace({ revealed }) {
   return (
     <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">
-      <circle cx="12" cy="12" r="10" fill="var(--saffron-soft)" />
-      <path d="M8.5 15.5c1 1 3 1 3.6 0" stroke="var(--petrol)" strokeWidth="1.2" strokeLinecap="round" fill="none" />
+      <circle cx="12" cy="12" r="10" fill="var(--color-accent-soft)" />
+      <path d="M8.5 15.5c1 1 3 1 3.6 0" stroke="var(--color-primary)" strokeWidth="1.2" strokeLinecap="round" fill="none" />
 
       {/* العينان ثابتتان تحت اليدين دوماً — تنكشف اليمنى فقط حين تتحرّك يدها */}
-      <circle cx="8.5" cy="11" r="1.15" fill="var(--petrol-700)" />
-      <circle cx="15.5" cy="11" r="1.15" fill="var(--petrol-700)" />
+      <circle cx="8.5" cy="11" r="1.15" fill="var(--color-primary-strong)" />
+      <circle cx="15.5" cy="11" r="1.15" fill="var(--color-primary-strong)" />
 
       {/* اليد اليسرى: تبقى مغطّية دوماً */}
       <g>
-        <ellipse cx="8.5" cy="11.2" rx="3" ry="2.7" fill="var(--petrol)" />
+        <ellipse cx="8.5" cy="11.2" rx="3" ry="2.7" fill="var(--color-primary)" />
         <path d="M6.1 9.8c.7-.45 1.5-.65 2.3-.65M6.1 12.6c.7.45 1.5.65 2.3.65"
-          stroke="var(--saffron-soft)" strokeWidth=".55" fill="none" strokeLinecap="round" />
+          stroke="var(--color-accent-soft)" strokeWidth=".55" fill="none" strokeLinecap="round" />
       </g>
 
       {/* اليد اليمنى: الحركة الوحيدة في الأيقونة — تنزاح للأعلى وتدور قليلاً */}
       <g className={`${styles.rightHand} ${revealed ? styles.revealed : ''}`}>
-        <ellipse cx="15.5" cy="11.2" rx="3" ry="2.7" fill="var(--petrol)" />
+        <ellipse cx="15.5" cy="11.2" rx="3" ry="2.7" fill="var(--color-primary)" />
         <path d="M13.1 9.8c.7-.45 1.5-.65 2.3-.65M13.1 12.6c.7.45 1.5.65 2.3.65"
-          stroke="var(--saffron-soft)" strokeWidth=".55" fill="none" strokeLinecap="round" />
+          stroke="var(--color-accent-soft)" strokeWidth=".55" fill="none" strokeLinecap="round" />
       </g>
     </svg>
   );

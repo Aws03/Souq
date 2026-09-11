@@ -1,7 +1,4 @@
 {
-  "announcement": {
-    "freeShipping": "Free shipping on orders over 50 JOD — delivery across Jordan — Marka"
-  },
   "common": {
     "previous": "Previous",
     "next": "Next",
@@ -37,13 +34,6 @@
     "wishlistAria": "Wishlist",
     "home": "Home",
     "offers": "Offers",
-    "themeSwitcherAria": "Store color",
-    "theme": {
-      "default": "Default",
-      "ocean": "Ocean",
-      "rose": "Rose",
-      "forest": "Forest"
-    },
     "account": "My account"
   },
   "cart": {
@@ -166,7 +156,7 @@
     "loginTitle": "Sign in",
     "loginSubtitle": "Welcome back — sign in to continue shopping",
     "registerTitle": "Create account",
-    "registerSubtitle": "Join Marka and start shopping",
+    "registerSubtitle": "Join {{store}} and start shopping",
     "emailLabel": "Email",
     "emailRequired": "Email is required",
     "emailInvalid": "Invalid email format",
@@ -523,9 +513,9 @@
       "codeHint": "The code can't be changed after creation",
       "typeLabel": "Discount type",
       "typePercentage": "Percentage %",
-      "typeFixed": "Fixed amount (JOD)",
+      "typeFixed": "Fixed amount ({{currency}})",
       "percentageLabel": "Percentage (1-100)",
-      "amountLabel": "Amount (JOD)",
+      "amountLabel": "Amount ({{currency}})",
       "minOrderLabel": "Minimum order amount (optional)",
       "expiresLabel": "Expiry date (optional)",
       "maxUsesLabel": "Maximum uses (optional)",
@@ -777,7 +767,6 @@
     "emptyMessage": "Add products you like by tapping the heart icon."
   },
   "footer": {
-    "brandDesc": "Marka — a modern online store with an authentic Arabian identity, carefully curated products and fast delivery.",
     "quickLinks": "Quick Links",
     "customerService": "Customer Service",
     "contactUs": "Contact Us",
@@ -786,10 +775,9 @@
     "shipping": "Shipping Policy",
     "returns": "Return Policy",
     "contactLink": "Contact Us",
-    "address": "Amman, Jordan",
     "privacyPolicy": "Privacy Policy",
     "terms": "Terms & Conditions",
-    "copyright": "© {{year}} Marka. All rights reserved."
+    "copyright": "© {{year}} {{store}}. All rights reserved."
   },
   "errors": {
     "connection": "A server connection error occurred",
@@ -944,5 +932,27 @@
     "newOrder": "New paid order #{{number}}",
     "lowStock": "Running low: “{{name}}” — {{available}} available",
     "generic": "New notification"
+  },
+  "boot": {
+    "closed": {
+      "title": "This store is temporarily closed",
+      "message": "We'll be back soon — thank you for your patience."
+    },
+    "unknown": {
+      "title": "There is no store at this address",
+      "message": "Check the link, or contact the store owner."
+    },
+    "error": {
+      "title": "The store couldn't load",
+      "message": "Check your connection and try again."
+    },
+    "retry": "Try again"
+  },
+  "platform": {
+    "name": "Souq platform",
+    "title": "Platform console",
+    "subtitle": "The screens for stores, accounts and the audit log arrive in Phase 18. The platform API is available now for platform accounts.",
+    "signedInAs": "Signed in as {{name}}",
+    "logout": "Sign out"
   }
 }

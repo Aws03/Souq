@@ -1,5 +1,5 @@
-.title { font-size: var(--fs-heading-lg); color: var(--petrol); margin: 24px 0 4px; }
-.subtitle { color: var(--muted); margin-bottom: 22px; }
+.title { font-size: var(--fs-heading-lg); color: var(--color-primary); margin: 24px 0 4px; }
+.subtitle { color: var(--color-text-muted); margin-bottom: 22px; }
 
 .grid {
   display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr); gap: 24px; align-items: start;
@@ -7,10 +7,10 @@
 }
 .stack { display: flex; flex-direction: column; gap: 24px; min-width: 0; }
 
-.panel { background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); padding: 24px; min-width: 0; }
+.panel { background: var(--color-surface); border-radius: var(--radius); box-shadow: var(--shadow); padding: 24px; min-width: 0; }
 .panelHead { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
-.panelTitle { font-size: var(--fs-heading); color: var(--petrol); }
-.muted { color: var(--muted); font-size: var(--fs-body-sm); }
+.panelTitle { font-size: var(--fs-heading); color: var(--color-primary); }
+.muted { color: var(--color-text-muted); font-size: var(--fs-body-sm); }
 
 /* حساب موقوف: يرى بياناته ويُنزّلها لكنه لا يطلب ولا يقيّم (CustomerStatus.Blocked). */
 .notice {
@@ -20,19 +20,19 @@
 
 /* ── دفتر العناوين ── */
 .addressList { list-style: none; display: flex; flex-direction: column; gap: 12px; margin-top: 4px; }
-.addressCard { border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 5px; }
+.addressCard { border: 1px solid var(--color-border); border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 5px; }
 .addressTop { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.addressLabel { font-weight: 700; color: var(--ink); }
-.badge { padding: 2px 10px; border-radius: 50px; font-size: 12px; font-weight: 700; background: var(--info-soft); color: var(--petrol); }
+.addressLabel { font-weight: 700; color: var(--color-text); }
+.badge { padding: 2px 10px; border-radius: 50px; font-size: 12px; font-weight: 700; background: var(--color-info-soft); color: var(--color-primary); }
 .addressLine { font-size: var(--fs-body-sm); overflow-wrap: anywhere; }
-.addressMeta { color: var(--muted); font-size: var(--fs-caption); }
+.addressMeta { color: var(--color-text-muted); font-size: var(--fs-caption); }
 .addressActions { display: flex; gap: 4px 12px; flex-wrap: wrap; margin-top: 4px; }
 
 /* ── الخصوصية ── */
-.privacyBlock + .privacyBlock { border-top: 1px solid var(--line); margin-top: 18px; padding-top: 18px; }
-.privacyBlock h3 { font-size: 16px; color: var(--ink); margin-bottom: 4px; }
+.privacyBlock + .privacyBlock { border-top: 1px solid var(--color-border); margin-top: 18px; padding-top: 18px; }
+.privacyBlock h3 { font-size: 16px; color: var(--color-text); margin-bottom: 4px; }
 .privacyBlock p { margin-bottom: 12px; }
-.danger h3 { color: var(--clay); }
+.danger h3 { color: var(--color-danger); }
 
 /* ── درج العنوان ── */
 .drawerActions { display: flex; gap: 10px; justify-content: flex-end; }

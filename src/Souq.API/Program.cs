@@ -52,6 +52,9 @@ builder.Services.AddOptions<TenancyOptions>()
         o.AllowDevelopmentResolution = allowDevelopmentTenancy;
         if (allowDevelopmentTenancy && !o.PlatformHosts.Contains(TenancyOptions.DevelopmentPlatformHost))
             o.PlatformHosts = [.. o.PlatformHosts, TenancyOptions.DevelopmentPlatformHost];
+        // localhost ⇒ متجر البذر ما لم يُضبط غيره: معرّفه من DbSeeder (بياناته) لا من إعداد مرفوع (المرحلة 15، A4).
+        if (allowDevelopmentTenancy && string.IsNullOrWhiteSpace(o.LocalDefaultTenant))
+            o.LocalDefaultTenant = DbSeeder.DefaultTenantSlug;
     });
 
 // ── المصادقة: التحقّق من توكن JWT الوارد، من إعدادات JwtSettings نفسها التي يُصدِر بها

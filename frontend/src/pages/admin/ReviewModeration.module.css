@@ -1,7 +1,7 @@
 .policy {
   display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: center; margin-bottom: 20px;
-  padding: 12px 16px; border-radius: var(--radius); background: var(--soft);
+  padding: 12px 16px; border-radius: var(--radius); background: var(--color-surface-alt);
 }
 .policyToggle { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; cursor: pointer; }
 .policyToggle input:disabled { cursor: not-allowed; }
-.policyHint { color: var(--muted); font-size: var(--fs-caption); }
+.policyHint { color: var(--color-text-muted); font-size: var(--fs-caption); }

@@ -8,6 +8,7 @@ import Pagination from '../../components/common/Pagination';
 import Button from '../../components/common/Button';
 import { formatPrice } from '../../components/product/ProductBadges';
 import { formatDate } from '../../i18n';
+import { getStoreCurrency } from '../../app/tenantModel';
 import CouponFormDrawer from './CouponFormDrawer';
 import CouponRedemptionsDrawer from './CouponRedemptionsDrawer';
 import styles from './Admin.module.css';
@@ -67,15 +68,18 @@ export default function Coupons() {
     { key: 'code', header: t('admin.coupons.colCode'), width: '110px', truncate: true, tooltip: (c) => c.code, render: (c) => <span dir="ltr">{c.code}</span> },
     {
       key: 'type', header: t('admin.coupons.colType'), width: '130px',
-      render: (c) => (c.type === 'Percentage' ? t('admin.couponForm.typePercentage') : t('admin.couponForm.typeFixed')),
+      render: (c) => (c.type === 'Percentage'
+        ? t('admin.couponForm.typePercentage')
+        : t('admin.couponForm.typeFixed', { currency: getStoreCurrency() })),
     },
     {
+      // مبالغ الكوبون بعملة المتجر (المرحلة 15، A5) — formatPrice بلا عملة صريحة يأخذها من إعداده.
       key: 'value', header: t('admin.coupons.colDiscount'), width: '90px', align: 'end',
-      render: (c) => (c.type === 'Percentage' ? `${c.value}%` : formatPrice(c.value, 'JOD')),
+      render: (c) => (c.type === 'Percentage' ? `${c.value}%` : formatPrice(c.value)),
     },
     {
       key: 'minOrder', header: t('admin.coupons.colMinOrder'), width: '110px', align: 'end',
-      render: (c) => (c.minOrderAmount ? formatPrice(c.minOrderAmount, 'JOD') : '—'),
+      render: (c) => (c.minOrderAmount ? formatPrice(c.minOrderAmount) : '—'),
     },
     { key: 'window', header: t('admin.coupons.colWindow'), width: '170px', truncate: true, tooltip: windowLabel, render: windowLabel },
     {

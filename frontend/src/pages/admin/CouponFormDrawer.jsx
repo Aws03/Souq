@@ -5,11 +5,13 @@ import FormField, { inputClass } from '../../components/common/FormField';
 import Button from '../../components/common/Button';
 import { ErrorBanner } from '../../components/common/StateViews';
 import { buildCouponPayload, couponFormProblem, couponToForm } from '../../features/admin/coupons/couponForm';
+import { getStoreCurrency } from '../../app/tenantModel';
 import styles from './CategoryFormDrawer.module.css';
 
 // درج إضافة/تعديل كوبون (المرحلة 10: نافذة بدء وانتهاء، وحدّ لكل عميل). الرمز لا يتغيّر بعد الإنشاء.
 export default function CouponFormDrawer({ coupon, onSave, onClose }) {
   const { t } = useTranslation();
+  const currency = getStoreCurrency();   // مبلغ الخصم الثابت بعملة المتجر (المرحلة 15، A5)
   const isEdit = !!coupon;
   const [form, setForm] = useState(() => couponToForm(coupon));
   const [error, setError] = useState(null);
@@ -46,11 +48,11 @@ export default function CouponFormDrawer({ coupon, onSave, onClose }) {
         <FormField label={t('admin.couponForm.typeLabel')}>
           <select className={inputClass(false)} value={form.type} onChange={set('type')}>
             <option value="Percentage">{t('admin.couponForm.typePercentage')}</option>
-            <option value="FixedAmount">{t('admin.couponForm.typeFixed')}</option>
+            <option value="FixedAmount">{t('admin.couponForm.typeFixed', { currency })}</option>
           </select>
         </FormField>
 
-        <FormField label={form.type === 'Percentage' ? t('admin.couponForm.percentageLabel') : t('admin.couponForm.amountLabel')}>
+        <FormField label={form.type === 'Percentage' ? t('admin.couponForm.percentageLabel') : t('admin.couponForm.amountLabel', { currency })}>
           <input className={inputClass(false)} type="number" min="0" step="0.01" value={form.value} onChange={set('value')} />
         </FormField>
 
