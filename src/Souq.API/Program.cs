@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.Extensions.FileProviders;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Souq.API.Http;
@@ -37,31 +38,14 @@ builder.Services.AddControllers()
 builder.Services.AddProblemDetails(o => o.CustomizeProblemDetails = ProblemDetailsConventions.Customize);
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 
-// ── تخزين الوسائط محلياً: Storage:Local:RootPath (قرص مُثبَّت في الإنتاج، مجلّد مؤقت
-// في الاختبارات) وإلا wwwroot/uploads. الصور تحت images/ والفيديو تحت videos/. ──
-var uploadsPath = builder.Configuration["Storage:Local:RootPath"] is { Length: > 0 } configuredRoot
-    ? configuredRoot
-    : Path.Combine(builder.Environment.ContentRootPath, "wwwroot", "uploads");
-Directory.CreateDirectory(uploadsPath);
-builder.Services.Configure<FileStorageOptions>(o =>
-{
-    o.RootPath = uploadsPath;
-    o.PublicBasePath = "/uploads";
-});
-
-// ── المصادقة: التحقّق من توكن JWT الوارد ─────────────────────────────────
-// المفتاح سرّ يأتي من user-secrets/البيئة. MapInboundClaims=false كي تصل المطالبات
-// بالأسماء نفسها التي كتبها المُصدِّر تماماً.
-var jwt = builder.Configuration.GetSection("Jwt");
-var jwtKey = jwt["Key"];
-if (string.IsNullOrWhiteSpace(jwtKey))
-    throw new InvalidOperationException(
-        "مفتاح JWT (Jwt:Key) غير مضبوط. للتطوير: " +
-        "dotnet user-secrets set \"Jwt:Key\" \"<مفتاح طويل عشوائي>\" --project src/Souq.API");
-
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
+// ── المصادقة: التحقّق من توكن JWT الوارد، من إعدادات JwtSettings نفسها التي يُصدِر بها
+// JwtTokenGenerator (مُتحقَّق منها عند الإقلاع: مفتاح ≥ 256 بت، مُصدِر وجمهور). المفتاح سرّ من
+// user-secrets/البيئة. MapInboundClaims=false كي تصل المطالبات بالأسماء التي كتبها المُصدِر. ──
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer();
+builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
+    .Configure<IOptions<JwtSettings>>((options, jwtSettings) =>
     {
+        var jwt = jwtSettings.Value;
         options.MapInboundClaims = false;
         options.TokenValidationParameters = new TokenValidationParameters
         {
@@ -69,9 +53,9 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidateAudience = true,
             ValidateLifetime = true,
             ValidateIssuerSigningKey = true,
-            ValidIssuer = jwt["Issuer"],
-            ValidAudience = jwt["Audience"],
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
+            ValidIssuer = jwt.Issuer,
+            ValidAudience = jwt.Audience,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwt.Key)),
             RoleClaimType = ClaimTypes.Role,
             NameClaimType = ClaimTypes.NameIdentifier,
             ClockSkew = TimeSpan.FromSeconds(30),   // هامش ضيّق بدل 5 دقائق افتراضية
@@ -120,6 +104,14 @@ builder.Services.AddCors(o => o.AddPolicy("frontend", p =>
 
 var app = builder.Build();
 
+// ── فشل آمن مبكّر (ADR-0020): كل إعداد مُسجَّل بـ ValidateOnStart (JWT، Stripe، التخزين) يُفحص
+// الآن — قبل لمس قاعدة البيانات أو قبول أي طلب. سرّ ناقص أو ضعيف = إقلاع مرفوض برسالة تسمّي
+// المفتاح (بلا قيمته). ثم تحذيرات الإعداد غير المناسب للإنتاج مرة واحدة في السجل. ──
+app.Services.GetRequiredService<IStartupValidator>().Validate();
+var startupLog = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Souq.Startup");
+foreach (var warning in app.Services.GetRequiredService<InfrastructureStartupReport>().Warnings)
+    startupLog.LogWarning("Configuration warning: {ConfigurationWarning}", warning);
+
 // ── الهجرات + البذر عند الإقلاع. المدير الافتراضي في Development فقط؛ خارجها يُنشأ
 // أول مدير من Seed:AdminEmail/Seed:AdminPassword إن ضُبطا (Phase 0 B1). ──
 using (var scope = app.Services.CreateScope())
@@ -146,6 +138,8 @@ if (app.Environment.IsDevelopment())
 
 // مجلد الرفع يُخدَم بأنواع وسائط مسموحة فقط + nosniff + CSP معزول (ADR-0016): حتى
 // لو وصل ملف غير متوقّع إلى المجلّد بطريقة ما، لا يُخدَم كصفحة تُنفَّذ على أصل الموقع.
+var uploadsPath = app.Services.GetRequiredService<IOptions<FileStorageOptions>>().Value.RootPath;
+Directory.CreateDirectory(uploadsPath);
 var mediaContentTypes = new FileExtensionContentTypeProvider(new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
 {
     [".jpg"] = "image/jpeg", [".jpeg"] = "image/jpeg", [".png"] = "image/png", [".gif"] = "image/gif",

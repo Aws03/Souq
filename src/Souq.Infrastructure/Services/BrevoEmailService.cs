@@ -18,19 +18,19 @@ public class BrevoOptions
 
 // ============================================================================
 // BrevoEmailService — بديل عبر Brevo API. المصادقة برأس "api-key" (لا Bearer). نفس
-// سياسة السجل المنقَّح في ResendEmailService.
+// سياسة السجل المنقَّح وعميل HTTP المُدار بمهلة في ResendEmailService.
 // ============================================================================
 public class BrevoEmailService : IEmailService
 {
     private const string Endpoint = "https://api.brevo.com/v3/smtp/email";
-    private static readonly HttpClient Http = new();
 
+    private readonly HttpClient _http;
     private readonly BrevoOptions _opts;
     private readonly ILogger<BrevoEmailService> _logger;
 
-    public BrevoEmailService(IOptions<BrevoOptions> opts, ILogger<BrevoEmailService> logger)
+    public BrevoEmailService(HttpClient http, IOptions<BrevoOptions> opts, ILogger<BrevoEmailService> logger)
     {
-        _opts = opts.Value; _logger = logger;
+        _http = http; _opts = opts.Value; _logger = logger;
     }
 
     public Task SendOrderConfirmationAsync(string toEmail, int orderId, CancellationToken ct = default)
@@ -68,7 +68,7 @@ public class BrevoEmailService : IEmailService
             };
             request.Headers.Add("api-key", _opts.ApiKey);
 
-            using var response = await Http.SendAsync(request, ct);
+            using var response = await _http.SendAsync(request, ct);
             if (response.IsSuccessStatusCode)
             {
                 _logger.LogInformation("أُرسل بريد \"{Subject}\" إلى {Recipient} عبر Brevo (الحالة {StatusCode})",

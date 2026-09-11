@@ -18,21 +18,21 @@ public class ResendOptions
 }
 
 // ============================================================================
-// ResendEmailService — إرسال حقيقي عبر Resend API بـ HttpClient خام (حقل ثابت مشترك
-// لتفادي استنزاف المقابس؛ ترويسة التفويض لكل طلب على حدة). السجل: المستلم مُقنَّع،
-// لا جسم استجابة عند النجاح، وجسم مُختصَر عند الفشل فقط (Security.md §9).
+// ResendEmailService — إرسال حقيقي عبر Resend API. عميل HTTP من IHttpClientFactory (مهلة
+// 15 ثانية، اتصالات مُدارة تحترم تغيّر DNS)؛ ترويسة التفويض لكل طلب على حدة. السجل: المستلم
+// مُقنَّع، لا جسم استجابة عند النجاح، وجسم مُختصَر عند الفشل فقط (Security.md §9).
 // ============================================================================
 public class ResendEmailService : IEmailService
 {
     private const string Endpoint = "https://api.resend.com/emails";
-    private static readonly HttpClient Http = new();
 
+    private readonly HttpClient _http;
     private readonly ResendOptions _opts;
     private readonly ILogger<ResendEmailService> _logger;
 
-    public ResendEmailService(IOptions<ResendOptions> opts, ILogger<ResendEmailService> logger)
+    public ResendEmailService(HttpClient http, IOptions<ResendOptions> opts, ILogger<ResendEmailService> logger)
     {
-        _opts = opts.Value; _logger = logger;
+        _http = http; _opts = opts.Value; _logger = logger;
     }
 
     public Task SendOrderConfirmationAsync(string toEmail, int orderId, CancellationToken ct = default)
@@ -57,7 +57,7 @@ public class ResendEmailService : IEmailService
             };
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _opts.ApiKey);
 
-            using var response = await Http.SendAsync(request, ct);
+            using var response = await _http.SendAsync(request, ct);
             if (response.IsSuccessStatusCode)
             {
                 _logger.LogInformation("أُرسل بريد \"{Subject}\" إلى {Recipient} عبر Resend (الحالة {StatusCode})",

@@ -3,6 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
 using Souq.Application.Common.Interfaces;
 using Souq.Application.Features.Coupons.Queries;
 using Souq.Application.Features.Inventory.Queries;
@@ -18,17 +19,41 @@ using Souq.Infrastructure.Services;
 
 namespace Souq.Infrastructure;
 
+// ============================================================================
+// تسجيل المحوّلات (Adapters) — "مكان الحقيقة" لقرارات التقنية. اصطلاحات الإعداد (ADR-0020):
+//   • كل قسم إعداد صنف مطبوع (Options) مُتحقَّق منه ValidateOnStart ⇒ يُفحص قبل أي طلب.
+//   • الأسرار من user-secrets/متغيّرات البيئة فقط؛ appsettings المرفوع بلا أسرار.
+//   • وسائل التطوير (بوّابة تجريبية، بريد في السجل) لا تعمل ضمنياً خارج Development/Testing.
+//   • كل تحذير تشغيلي يُجمع في InfrastructureStartupReport ويُسجَّل مرة عند الإقلاع.
+// ============================================================================
 public static class DependencyInjection
 {
+    // مهلة أي استدعاء HTTP لمزوّد خارجي: مزوّد بطيء لا يحبس طلب العميل 100 ثانية (الافتراضي).
+    private static readonly TimeSpan ProviderTimeout = TimeSpan.FromSeconds(15);
+
     public static IServiceCollection AddInfrastructure(
         this IServiceCollection services, IConfiguration config, IHostEnvironment environment)
+    {
+        var report = new InfrastructureStartupReport();
+        services.AddSingleton(report);
+
+        AddPersistence(services, config);
+        AddPayments(services, config, environment, report);
+        AddEmail(services, config, environment, report);
+        AddStorage(services, config, environment);
+        AddAuthentication(services, config);
+
+        return services;
+    }
+
+    private static void AddPersistence(IServiceCollection services, IConfiguration config)
     {
         // الاتصال بـ SQL Server. سلسلة الاتصال سرّ: تأتي من user-secrets (تطوير)
         // أو متغيرات البيئة (إنتاج) — لا تُخزّن في appsettings المرفوع أبداً.
         var connectionString = config.GetConnectionString("Default");
         if (string.IsNullOrWhiteSpace(connectionString))
             throw new InvalidOperationException(
-                "سلسلة الاتصال 'Default' غير مضبوطة. للتطوير: " +
+                "سلسلة الاتصال 'Default' غير مضبوطة (ConnectionStrings:Default). للتطوير: " +
                 "dotnet user-secrets set \"ConnectionStrings:Default\" \"...\" --project src/Souq.API");
 
         // الساعة الوحيدة في النظام (Phase 0 D12) — TryAdd: قد تكون Application سجّلتها أولاً.
@@ -40,7 +65,7 @@ public static class DependencyInjection
             options.UseSqlServer(connectionString)
                    .AddInterceptors(sp.GetRequiredService<AuditTimestampsInterceptor>()));
 
-        // ربط كل واجهة بتنفيذها. هذا هو "مكان الحقيقة" لقرارات التقنية.
+        // منافذ الكتابة (مستودعات التجمّعات) + وحدة العمل.
         services.AddScoped<IUnitOfWork>(sp => sp.GetRequiredService<AppDbContext>());
         services.AddScoped<IProductRepository, ProductRepository>();
         services.AddScoped<IOrderRepository, OrderRepository>();
@@ -56,41 +81,42 @@ public static class DependencyInjection
         services.AddScoped<ICouponQueries, CouponQueries>();
         services.AddScoped<IReviewQueries, ReviewQueries>();
         services.AddScoped<IInventoryQueries, InventoryQueries>();
+    }
 
-        AddEmail(services, config, environment);
+    // بوّابة الدفع: القرار هنا فقط — لا كود آخر في النظام يعرف أيّها يعمل. البوّابة التجريبية
+    // لا تعمل ضمنياً خارج Development/Testing (PaymentProviderSelector).
+    private static void AddPayments(
+        IServiceCollection services, IConfiguration config, IHostEnvironment environment, InfrastructureStartupReport report)
+    {
+        var provider = PaymentProviderSelector.Select(
+            config[PaymentProviderSelector.ConfigKey], config["Stripe:SecretKey"], environment.EnvironmentName);
+        report.PaymentProvider = provider;
 
-        // بوّابة الدفع: Stripe حقيقي إن وُجد مفتاح سرّي مضبوط، وإلا محاكاة تجريبية.
-        // القرار هنا فقط — لا كود آخر في النظام يعرف أيّهما يعمل.
-        if (!string.IsNullOrWhiteSpace(config["Stripe:SecretKey"]))
+        if (provider == PaymentProvider.Stripe)
         {
-            services.AddOptions<StripeSettings>().Bind(config.GetSection("Stripe"));
+            services.AddOptions<StripeSettings>().Bind(config.GetSection("Stripe")).ValidateOnStart();
+            services.AddSingleton<IValidateOptions<StripeSettings>>(
+                new StripeSettingsValidator(requirePublishableKey: !environment.IsDevelopment()));
             services.AddScoped<IPaymentService, StripePaymentService>();
+
+            if (string.IsNullOrWhiteSpace(config["Stripe:WebhookSecret"]))
+                report.Warn("Stripe:WebhookSecret غير مضبوط — تأكيد الدفع يعتمد على متصفّح العميل وحده؛ " +
+                            "طلب يُغلق صاحبه الصفحة قبل التأكيد يبقى معلّقاً.");
         }
         else
         {
             services.AddScoped<IPaymentService, FakePaymentService>();
+            if (!PaymentProviderSelector.IsLocal(environment.EnvironmentName))
+                report.Warn($"بوّابة الدفع التجريبية مفعّلة صراحةً ({PaymentProviderSelector.ConfigKey}=Fake): " +
+                            "كل دفع يُعتبر ناجحاً بلا مال — للعرض التوضيحي فقط، لا زبائن حقيقيون.");
         }
-
-        // تخزين ملفات الوسائط محلياً (قرص) — يُبدَّل بتخزين سحابي في الإنتاج. المسار
-        // يُضبط في طبقة الـ API (Configure<FileStorageOptions>).
-        services.AddScoped<IFileStorage, LocalFileStorage>();
-
-        // ── المصادقة: تجزئة كلمة المرور + إصدار التوكن (عديمة الحالة ⇒ Singleton) ──
-        services.AddOptions<JwtSettings>()
-            .Bind(config.GetSection("Jwt"))
-            .Validate(s => !string.IsNullOrWhiteSpace(s.Key),
-                "مفتاح JWT (Jwt:Key) غير مضبوط. اضبطه في user-secrets/متغيرات البيئة.")
-            .ValidateOnStart();
-        services.AddSingleton<IPasswordHasher, BcryptPasswordHasher>();
-        services.AddSingleton<IJwtTokenGenerator, JwtTokenGenerator>();
-
-        return services;
     }
 
     // البريد: ترتيب الأولوية Resend ← Brevo ← Gmail SMTP ← طباعة في السجل. كل مفتاح
     // سرّ (متغيّر بيئة/user-secrets). الطباعة في السجل تُظهر الروابط في Development فقط
     // (لا بريد حقيقي يُرسَل هناك)؛ خارجها لا تظهر أي رموز أو روابط أبداً (Phase 0 B2).
-    private static void AddEmail(IServiceCollection services, IConfiguration config, IHostEnvironment environment)
+    private static void AddEmail(
+        IServiceCollection services, IConfiguration config, IHostEnvironment environment, InfrastructureStartupReport report)
     {
         // FRONTEND_URL (متغيّر بيئة للنشر) ثم App:FrontendUrl ثم افتراضي التطوير المحلي.
         var frontendUrl = config["FRONTEND_URL"] ?? config["App:FrontendUrl"] ?? "http://localhost:5173";
@@ -105,7 +131,9 @@ public static class DependencyInjection
                 config.GetSection("Resend").Bind(o);
                 o.FrontendUrl = frontendUrl;
             });
-            services.AddScoped<IEmailService, ResendEmailService>();
+            // عميل HTTP من المصنع: مهلة، وتدوير اتصالات يحترم تغيّر DNS (لا HttpClient ساكن).
+            services.AddHttpClient<IEmailService, ResendEmailService>(c => c.Timeout = ProviderTimeout);
+            report.EmailProvider = "Resend";
         }
         else if (!string.IsNullOrWhiteSpace(config["Brevo:ApiKey"]))
         {
@@ -115,7 +143,8 @@ public static class DependencyInjection
                 o.SenderEmail = FirstNonEmpty(o.SenderEmail, fallbackSender) ?? "";
                 o.FrontendUrl = frontendUrl;
             });
-            services.AddScoped<IEmailService, BrevoEmailService>();
+            services.AddHttpClient<IEmailService, BrevoEmailService>(c => c.Timeout = ProviderTimeout);
+            report.EmailProvider = "Brevo";
         }
         else if (!string.IsNullOrWhiteSpace(config["Gmail:AppPassword"]))
         {
@@ -128,6 +157,7 @@ public static class DependencyInjection
                 o.FrontendUrl = frontendUrl;
             });
             services.AddScoped<IEmailService, GmailEmailService>();
+            report.EmailProvider = "Gmail";
         }
         else
         {
@@ -137,7 +167,38 @@ public static class DependencyInjection
                 o.FrontendUrl = frontendUrl;
             });
             services.AddScoped<IEmailService, ConsoleEmailService>();
+            report.EmailProvider = "Console";
+            if (!PaymentProviderSelector.IsLocal(environment.EnvironmentName))
+                report.Warn("لا مزوّد بريد مضبوط (Resend/Brevo/Gmail) — لن تُرسَل رسائل تأكيد الطلب ولا إعادة التعيين.");
         }
+    }
+
+    // تخزين الوسائط محلياً (قرص) خلف IFileStorage — يُستبدل بتخزين سحابي بتبديل هذا التسجيل
+    // وحده. Storage:Local:RootPath: قرص مُثبَّت في الإنتاج، مجلّد مؤقت في الاختبارات؛ وإلا
+    // wwwroot/uploads. (كان يُضبط في Program.cs — Phase 0 D10.)
+    private static void AddStorage(IServiceCollection services, IConfiguration config, IHostEnvironment environment)
+    {
+        services.AddOptions<FileStorageOptions>()
+            .Configure(o =>
+            {
+                o.RootPath = config["Storage:Local:RootPath"] is { Length: > 0 } root
+                    ? root
+                    : Path.Combine(environment.ContentRootPath, "wwwroot", "uploads");
+                o.PublicBasePath = "/uploads";
+            })
+            .Validate(o => Path.IsPathRooted(o.RootPath), "Storage:Local:RootPath يجب أن يكون مساراً مطلقاً.")
+            .ValidateOnStart();
+        services.AddScoped<IFileStorage, LocalFileStorage>();
+    }
+
+    // المصادقة: تجزئة كلمة المرور + إصدار التوكن (عديمة الحالة ⇒ Singleton). إعدادات التوكن
+    // مُتحقَّق منها عند الإقلاع (JwtSettingsValidator) — الـ API يقرؤها منها للتحقّق من التوكن.
+    private static void AddAuthentication(IServiceCollection services, IConfiguration config)
+    {
+        services.AddOptions<JwtSettings>().Bind(config.GetSection("Jwt")).ValidateOnStart();
+        services.AddSingleton<IValidateOptions<JwtSettings>, JwtSettingsValidator>();
+        services.AddSingleton<IPasswordHasher, BcryptPasswordHasher>();
+        services.AddSingleton<IJwtTokenGenerator, JwtTokenGenerator>();
     }
 
     private static string? FirstNonEmpty(params string?[] values) =>

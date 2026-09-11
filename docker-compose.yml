@@ -33,7 +33,10 @@ services:
       Jwt__Key: ${JWT_KEY}
       Jwt__Issuer: Souq
       Jwt__Audience: SouqClient
-      # اختياريّان — بلا Stripe:SecretKey يعمل النظام تلقائياً عبر FakePaymentService.
+      # بوّابة الدفع: بمفتاح Stripe تعمل Stripe. بلا مفتاح يرفض الـ API الإقلاع (هذه حزمة
+      # Production) ما لم يُضبط PAYMENTS_PROVIDER=Fake صراحةً — بوّابة تجريبية تعتبر كل دفع
+      # ناجحاً بلا مال: للعرض التوضيحي فقط، لا زبائن حقيقيون (ADR-0020).
+      Payments__Provider: ${PAYMENTS_PROVIDER:-}
       Stripe__SecretKey: ${STRIPE_SECRET_KEY:-}
       Stripe__PublishableKey: ${STRIPE_PUBLISHABLE_KEY:-}
       Stripe__WebhookSecret: ${STRIPE_WEBHOOK_SECRET:-}
