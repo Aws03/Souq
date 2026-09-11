@@ -6,6 +6,9 @@
   - [ADR-0027](0027-customer-profile-and-erasure.md): the address book, whose `PostalAddress` carries an ISO country.
   - [ADR-0028](0028-basket-and-pricing-pipeline.md): the pricing pipeline, whose shipping stage was an explicit zero.
   - [ADR-0029](0029-orders-lifecycle.md): placement freezes the totals.
+- **Date:** 2026-09-11
+- **Related modules:** Shipping; Shopping (the pricing stage); Ordering (the snapshot); Customers (the destination country)
+- **Related ADRs:** builds on [ADR-0014](0014-money-precision.md), [ADR-0027](0027-customer-profile-and-erasure.md), [ADR-0028](0028-basket-and-pricing-pipeline.md) and [ADR-0029](0029-orders-lifecycle.md); the total it completes is charged and refunded through [ADR-0031](0031-payments-and-refunds.md)
 
 ## Context
 
@@ -14,6 +17,10 @@ Before Phase 12:
 - **Orders** had only a tracking number and a carrier, typed by staff at shipping.
 - **Totals** didn't include shipping.
 - **Deferred to this phase:** Phase 9 left the shipping-method snapshot and structured addresses for Phase 12.
+
+## Problem
+
+How does a store define what it charges for delivery, and how does the pricing pipeline learn that price without reaching into another module's tables? And what must an order keep, so that editing or deleting a shipping method later never changes what a past order was charged?
 
 ## Options considered
 

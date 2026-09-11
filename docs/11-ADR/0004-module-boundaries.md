@@ -1,6 +1,9 @@
 # ADR-0004: Module boundaries and inter-module communication
 
 - **Status:** Accepted, 2026-09-11
+- **Date:** 2026-09-11
+- **Related modules:** Cross-cutting (the 13 modules and the rules between them): Platform, Identity, Catalog, Inventory, Customers, Shopping, Ordering, Payments, Promotions, Shipping, Reviews, Notifications, Reporting
+- **Related ADRs:** builds on [ADR-0001](0001-target-architecture.md); given physical form by [ADR-0002](0002-modular-monolith-structure.md); extraction rules in [ADR-0012](0012-service-extraction-strategy.md); contracts added by [ADR-0026](0026-inventory-reservations.md) (Inventory), [ADR-0028](0028-basket-and-pricing-pipeline.md) (pricing and basket checkout), [ADR-0030](0030-coupon-redemptions.md) (coupon redemptions), [ADR-0031](0031-payments-and-refunds.md) (order payments) and [ADR-0032](0032-shipping-methods.md) (shipping rates); the remaining cross-module repository reads are recorded by [ADR-0027](0027-customer-profile-and-erasure.md) and [ADR-0033](0033-review-moderation-and-wishlist.md)
 
 ## Context
 

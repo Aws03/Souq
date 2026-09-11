@@ -1,6 +1,9 @@
 # ADR-0002: Physical structure of the modular monolith
 
 - **Status:** Accepted, 2026-09-11
+- **Date:** 2026-09-11
+- **Related modules:** Cross-cutting (how modules are represented in each layer project)
+- **Related ADRs:** builds on [ADR-0001](0001-target-architecture.md); the module list it names comes from [ADR-0004](0004-module-boundaries.md); the tests that enforce it are chosen in [ADR-0015](0015-testing-strategy.md); the allowed contract references between feature folders are added by [ADR-0026](0026-inventory-reservations.md), [ADR-0028](0028-basket-and-pricing-pipeline.md) and [ADR-0032](0032-shipping-methods.md)
 
 ## Context
 
@@ -36,7 +39,7 @@ How should modules be represented physically so that their boundaries are real, 
 
 ## Consequences
 
-- Module isolation depends on the tests staying comprehensive. Every new module adds its dependency test (checklist in [Modules.md §4](../04-MODULES/Modules.md#4-how-to-add-a-new-module-checklist)).
+- Module isolation depends on the tests staying comprehensive. Every new module adds its dependency test (checklist in [Modules.md §4](../04-MODULES/Modules.md#5-adding-a-module)).
 - `internal` visibility can't hide module internals from other modules in the same project. Tests are the guard instead.
 
 ## Revisit when

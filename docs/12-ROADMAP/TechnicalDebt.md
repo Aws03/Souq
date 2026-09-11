@@ -1,0 +1,76 @@
+# Technical debt register
+
+> **What this page is:** work that is known, deliberate and unfinished. Every entry was found by reading the code during the engineering-knowledge pass, not invented to look thorough. Nothing here is a defect report — defects and dangers live in [RiskRegister.md](../02-ARCHITECTURE/RiskRegister.md); several entries below are the *fix* for a risk, and say so.
+> **How to use it:** pick by priority, read the linked module document first, then follow [HowToChangeExistingCode.md](../00-START-HERE/HowToChangeExistingCode.md). When you close one, delete the row in the same commit.
+
+**Priority** is "how much does it cost the next team": **P1** blocks or misleads day-to-day work · **P2** slows work or hides risk · **P3** tidy-up worth doing when nearby.
+
+## Structure and boundaries
+
+| # | Debt | Why it exists | Impact | Fix | Priority | Prerequisites | ADR? |
+|---|---|---|---|---|---|---|---|
+| TD-01 | **Module boundaries are enforced only inside `Souq.Application.Features`.** Repository ports and entities live in shared Domain namespaces, so 78 cross-module crossings compile silently | The Domain was organized by kind before modules existed (ADR-0002's per-layer namespaces were never applied outside Application) | A new engineer reads "enforced" and adds the 79th in good faith; extraction gets harder | The ratchet now counts them ([ModuleDomainDependencies.md](../02-ARCHITECTURE/ModuleDomainDependencies.md)). Next: agree the target graph, then extract contracts module by module | P1 | Agreement on the target graph | Yes, if ownership moves |
+| TD-02 | **Four contracts are named in the docs but do not exist:** *ICustomerDirectory*, *IUserDirectory* / *IAccountTokens*, *IOrderHistory*, *ISellableItems* | Each was deferred when its phase shipped; the docs kept the name | Four module pairs reach into domain repositories instead | Extract them, starting with the pair that hurts most (Shopping → Catalog, 12 crossings) | P1 | TD-01's target graph | No |
+| TD-03 | **Identity and Customers form a cycle** (registration creates a customer; erasure and profile updates write the user) | Registration and erasure were built on both sides at different phases | Neither module can be tested or extracted alone; the target graph forbids cycles | Decide which side owns account provisioning and erasure; one contract each way is not allowed — pick a direction | P1 | TD-02 | Yes |
+| TD-04 | **Store-side payment-account and review-settings use cases live in the Platform feature folder** (`Features/Stores`) | "Store administration" was organized by *who* administers rather than *what* is administered | The most sensitive code (gateway secrets) is attributed to the wrong module by the tests and the docs | Move them to Payments and Reviews; keep `Features/Stores` for genuine store settings | P2 | None | No |
+| TD-05 | **`Souq.Domain` has no module namespaces**, unlike the Application layer | Never done; ADR-0002 assumed it | Ownership of an entity is only discoverable through the `DomainOwners` map in the tests | Either move types into per-module namespaces, or record that the map is the source of truth (cheaper, chosen for now) | P3 | TD-01 | Yes if moved |
+
+## Correctness and consistency
+
+| # | Debt | Why it exists | Impact | Fix | Priority | Prerequisites | ADR? |
+|---|---|---|---|---|---|---|---|
+| TD-06 | **Two coupon evaluations.** `GET /api/coupons/apply` trusts a client-sent subtotal and skips the per-customer limit and the module check that the pricing pipeline applies | Predates the pricing pipeline; the SPA stopped using it | A publicly reachable endpoint can accept a coupon that checkout then rejects | Delete it, or reimplement it over `IPricing` | P1 | None | No |
+| TD-07 | **Visibility and sellability disagree.** The storefront hides a product in a disabled category; the basket and checkout only check the product's own status | Category visibility was deferred in Phase 8 and never picked up | A "removed" category still sells (risk R-07) | Define sellability in one place and enforce it in the pipeline and at checkout | P1 | Product decision on what a disabled category means | No |
+| TD-08 | **Order emails compute their own total from an aggregate loaded without lines** | The handler was written against the order root only | Wrong or missing customer emails (risk R-06) | Use the frozen `PlacedTotal`; add a handler test with lines and a discount | P1 | None | No |
+| TD-09 | **A failed payment does not cancel the intent at the gateway** | The confirmation path treats "not succeeded" as final | A retried card can capture against a cancelled order (risk R-02) | Cancel the intent in the same path; test the late-success case | P1 | None | No |
+| TD-10 | **One failure model, two conventions.** The same business condition is a `Result` in one module and an exception in another; three places throw raw `InvalidOperationException` for a missing tenant (500) | Conventions settled after some code was written | The HTTP status of a condition depends on which path reached it | State the rule (invariants throw, use-case outcomes return `Result`), then align the outliers | P2 | None | No |
+| TD-11 | **Thirty commands have no validator**, including every upload command | Validation was added per phase, where it was felt necessary | A reader cannot tell "nothing to validate" from "validated elsewhere" | Document the rule; add validators where input is user-supplied | P2 | TD-10 | No |
+| TD-12 | **Store-side actions are not audited:** order status changes, coupons, shipping methods (platform actions are) | The audit behaviour was built for the platform area | A store cannot answer "who cancelled this order?" | Decide the store-side audit scope, then mark those commands auditable | P2 | Product decision | No |
+| TD-13 | **`CreateOrderHandler` carries the whole checkout** — 16 dependencies, one method, ~17 responsibilities including compensation | Grew phase by phase, each adding one correct step | The most important use case is the least readable; its compensation path is easy to break | Split into quote → place → pay, keeping the handler as orchestrator | P2 | The integration suite green at each step | No |
+| TD-14 | **Three hand-rolled retry loops** (inventory, coupons, payments), each with its own `MaxAttempts` and reset convention | Written per phase | Divergent behaviour under conflict; three places to fix a bug | One documented retry helper | P3 | None | No |
+| TD-15 | **`IRepository<T>` gives all sixteen ports a `Remove` the model forbids** for most aggregates (one implementation throws to say so) | A generic base from before the aggregates diverged | Invites deletions the domain does not allow | Drop `Remove` from the base; add it to the six ports that mean it | P3 | None | No |
+
+## Data and operations
+
+| # | Debt | Why it exists | Impact | Fix | Priority | Prerequisites | ADR? |
+|---|---|---|---|---|---|---|---|
+| TD-16 | **No retention anywhere:** refresh tokens, stock reservations, in-app notifications, audit entries and dead outbox rows are never purged | Only the outbox purge was in scope (Phase 14) | Unbounded growth; personal data kept indefinitely (risk R-21) | Decide retention per table, then extend the existing sweep services | P2 | Legal decision on audit and notification retention | No |
+| TD-17 | **Demo data is seeded into every fresh database**, production included | The seeder predates multi-tenancy | A production start creates a demo store and catalog (risk R-17) | Gate the catalog seed on Development or explicit configuration | P1 | None | No |
+| TD-18 | **No design-time `DbContext` factory**, so `dotnet ef` must boot the API host and fails without full configuration | Never needed locally | The documented migration command does not work from a clean checkout | Add a design-time factory | P2 | None | No |
+| TD-19 | **`ExecuteUpdate`/`ExecuteDelete` bypass the interceptors** (no audit timestamps, no write guard) in three places; only the query filter keeps them tenant-safe | Chosen for set-based performance | A future call could write across stores with no guard | Document at each call site; consider a guarded helper | P2 | None | No |
+| TD-20 | **Uploads live on local disk**, and the proxy does not forward the original host for them | Local storage was the Phase 1 choice; blob storage is Phase 23 | Images likely 404 through the compose stack; blocks a second instance (risks R-13, R-23) | Fix the proxy header now; move to blob storage before scaling out | P1 | None (header) / Phase 23 (storage) | No |
+| TD-21 | **Configuration read outside the options convention** in two places (`FRONTEND_URL`), and one options class bound without validation | Added late in two different layers | The convention says every section is validated; two are not | One validated options type | P3 | None | No |
+| TD-22 | **The Domain knows the storage URL layout** (branding asset paths must start with the local storage prefix) | The validation was added with local storage | Swapping to blob storage would make the Domain reject every asset URL | Pass the expected prefix in, or validate the shape only | P2 | Before blob storage | No |
+
+## Frontend
+
+| # | Debt | Why it exists | Impact | Fix | Priority | Prerequisites | ADR? |
+|---|---|---|---|---|---|---|---|
+| TD-23 | **D-19 is undecided** (TypeScript and a server-state library), and its trigger has arrived | Deliberately deferred in Phase 15 | Every new screen is built twice: once now, once after the decision | Decide, then adopt incrementally as ADR-0035 describes | P1 | Owner decision | Yes |
+| TD-24 | **Feature folders are half-migrated:** pure logic lives in `features/`, screens in `pages/`, and `api/client.js` is one module with about a hundred endpoints | The migration was deliberately deferred to the phases that rebuild those screens | "Where does this go?" has two answers | Move each screen as it is rebuilt (Phases 16–17) | P2 | TD-23 | No |
+| TD-25 | **Half the data-fetching effects have no cancellation guard**, so fast navigation can paint the previous product or order | Written before the pattern settled | Stale data on screen | One `useAsync` helper, applied as screens are touched | P2 | TD-23 (a query library would replace it) | No |
+| TD-26 | **A failed payment-config request is cached forever as "no Stripe key"**, silently degrading checkout to the direct-pay form until a reload | A `catch` that maps every failure to "not configured" | A transient network error looks like a misconfiguration | Distinguish the two; do not cache failures | P2 | None | No |
+| TD-27 | **White-label leaks the literal test does not catch:** fixed hero copy, a hard-coded delivery window, an `ar-JO` date locale, a `JO` country default, hard-coded colours in the Stripe element | The test only forbids the seed brand, the currency and the demo contact | A second store sees another store's marketing copy and a wrong delivery promise | Extend `whiteLabel.test.js`, then fix what it catches | P2 | None | No |
+| TD-28 | **Five status→CSS-class maps** that borrow each other's vocabulary (an approved review is styled "delivered") | Copied per screen | Inconsistent colours; a rename restyles unrelated screens | One `tone` vocabulary in one module | P3 | None | No |
+| TD-29 | **A password-change screen does not exist** although the endpoint, the client function and the context method all do | The screen was never built | A signed-in customer cannot change their password | Build the screen | P2 | None | No |
+| TD-30 | **The `onSale` filter never reached the UI**, so "Offers" shows the whole catalog newest-first | The backend filter shipped in Phase 5; the frontend never sent it | A storefront page that promises offers and shows everything | Pass the filter; fix the two comments and the roadmap line | P2 | None | No |
+
+## Tests and tooling
+
+| # | Debt | Why it exists | Impact | Fix | Priority | Prerequisites | ADR? |
+|---|---|---|---|---|---|---|---|
+| TD-31 | **No CI pipeline** | Never set up | Every suite runs only when a person remembers; a red state can be committed | Add a pipeline that runs the five suites and the documentation tests | P1 | None | No |
+| TD-32 | **No frontend component tests** | No testing-library setup | Guards, forms and rendering are verified by hand | Add the setup and cover the guards and checkout first | P2 | TD-23 | No |
+| TD-33 | **The Stripe adapter and the email providers have no tests**; only the fakes are covered | External adapters are hard to test without a sandbox | Provider changes surface in production | Contract tests against provider sandboxes, or recorded responses | P2 | Provider sandbox credentials | No |
+| TD-34 | **Untested recovery paths in the outbox:** purge, lease expiry, two dispatchers racing | Added with the happy path and the retry schedule | The recovery behaviour is asserted only by reading | Three integration tests | P2 | None | No |
+| TD-35 | **`MigrationRehearsalTests` is one large test** with seven phase-labelled blocks | Grew with each phase | A failure cannot be bisected | Split per phase | P3 | None | No |
+| TD-36 | **Duplicated integration-test scaffolding**: the problem-details reader copied into twelve classes, four token parsers, two SQL counters | Copied as suites grew | Twelve places to change one helper | Move the shared pieces onto `TestApi` | P3 | None | No |
+| TD-37 | **`TestCurrentUser.Customer(id)` uses the same id for the account and the customer**, which its own comment says are different concepts | Convenience | A handler that confuses the two passes every Application test | Use distinct ids and fix what fails | P2 | None | No |
+
+## Documentation
+
+| # | Debt | Why it exists | Impact | Fix | Priority |
+|---|---|---|---|---|---|
+| TD-38 | **Historical ADR statements have drifted from the code** (types renamed, phases shipped) | ADRs are historical records and are not rewritten | A reader of an old ADR can be misled | §4 of the [ADR index](../11-ADR/README.md) lists every drifted claim; keep it current when a decision is superseded | P3 |
+| TD-39 | **Arabic code comments, English documentation** | The codebase was written in Arabic by its author | A non-Arabic-speaking team must translate comments that carry real reasoning | Decide the language policy for new comments; do not mass-translate | P3 |
+| TD-40 | **Verified-dead code and a few remaining stale comments.** Dead (each confirmed by a repository-wide search): `HistoryIcon`; `ToastContext.info` and its CSS class; `CartContext.clear` with `api.clearBasket`; `api.getProductBySlug`; `api.deleteProduct`; `WishlistContext` values `remove` and `onServer`; `CatalogTranslation.ToText()`; `CapturingEmailSender.Sent`; four unused CSS classes. Also unused vocabulary that may be intentional: `ShippingMethod.FreeOver`, `StockMovementType.Return`, the type parameter of `BaseEntity<TId>` | Written for a use that never arrived, or left behind when a feature moved | Every one is a small false lead for a reader, and dead code is never covered by tests | Delete the confirmed items; decide the three vocabulary ones before removing them. The comment corrections in this pass covered the misleading ones; the rest are listed in the audit notes | P3 |

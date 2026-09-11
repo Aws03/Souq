@@ -1,6 +1,9 @@
 # ADR-0009: Where DDD is used
 
 - **Status:** Accepted, 2026-09-11
+- **Date:** 2026-09-11
+- **Related modules:** Cross-cutting (domain modelling in every module)
+- **Related ADRs:** builds on [ADR-0001](0001-target-architecture.md); boundaries from [ADR-0004](0004-module-boundaries.md); applied by [ADR-0025](0025-catalog-model.md) (the product aggregate) and [ADR-0026](0026-inventory-reservations.md) (the inventory aggregate); the domain events it defers arrive with [ADR-0034](0034-notifications-outbox.md)
 
 ## Context
 

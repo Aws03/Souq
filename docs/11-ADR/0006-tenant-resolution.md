@@ -1,6 +1,9 @@
 # ADR-0006: Tenant resolution
 
 - **Status:** Accepted, 2026-09-11. Implementation: Phase 2.
+- **Date:** 2026-09-11
+- **Related modules:** Platform; Identity (the token bound to the host); Cross-cutting (the request pipeline)
+- **Related ADRs:** companion of [ADR-0005](0005-multi-tenancy-model.md); its token rule is adopted by [ADR-0010](0010-authentication-authorization.md) and extended by [ADR-0023](0023-sessions-and-credentials.md) (no tenant claim on platform hosts); implementation details in [ADR-0022](0022-tenancy-enforcement.md); the frontend boots from the resolved host in [ADR-0035](0035-white-label-runtime.md)
 
 ## Context
 

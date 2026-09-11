@@ -2,6 +2,9 @@
 
 - **Status:** Accepted, 2026-09-11
 - **Deciders:** Platform owner (product), Claude (engineering)
+- **Date:** 2026-09-11
+- **Related modules:** Cross-cutting (the architecture style every module follows)
+- **Related ADRs:** detailed by [ADR-0002](0002-modular-monolith-structure.md) (module structure), [ADR-0003](0003-clean-hexagonal-boundaries.md) (dependency rule and ports), [ADR-0004](0004-module-boundaries.md) (module boundaries), [ADR-0008](0008-cqrs-strategy.md) (CQRS) and [ADR-0009](0009-ddd-usage.md) (DDD); exit path kept open by [ADR-0012](0012-service-extraction-strategy.md); the event-driven edge is implemented by [ADR-0034](0034-notifications-outbox.md) (outbox)
 
 ## Context
 

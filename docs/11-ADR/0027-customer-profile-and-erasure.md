@@ -2,6 +2,9 @@
 
 - **Status:** Accepted (implemented in Phase 7), 2026-09-11.
 - **Builds on:** [ADR-0019](0019-authorization-foundation.md) (permissions), [ADR-0021](0021-transaction-boundaries.md) (transactions), [ADR-0022](0022-tenancy-enforcement.md) (tenancy) and [ADR-0023](0023-sessions-and-credentials.md) (identity split, sessions). It changes none of them.
+- **Date:** 2026-09-11
+- **Related modules:** Customers; Identity (the account erased with the profile); Ordering (the address snapshot)
+- **Related ADRs:** builds on [ADR-0019](0019-authorization-foundation.md), [ADR-0021](0021-transaction-boundaries.md), [ADR-0022](0022-tenancy-enforcement.md) and [ADR-0023](0023-sessions-and-credentials.md); erasure is extended to the basket by [ADR-0028](0028-basket-and-pricing-pipeline.md) and to the wishlist by [ADR-0033](0033-review-moderation-and-wishlist.md); the order's billing address arrives with [ADR-0029](0029-orders-lifecycle.md); its address country selects shipping methods in [ADR-0032](0032-shipping-methods.md)
 
 ## Context
 

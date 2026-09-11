@@ -1,6 +1,9 @@
 # ADR-0023: Sessions and credentials: implementation details
 
 - **Status:** Accepted (implemented in Phase 3), 2026-09-11. Refines [ADR-0010](0010-authentication-authorization.md); it does not change that decision.
+- **Date:** 2026-09-11
+- **Related modules:** Identity; Customers (the profile a session points at)
+- **Related ADRs:** refines [ADR-0010](0010-authentication-authorization.md); host binding from [ADR-0006](0006-tenant-resolution.md) and [ADR-0022](0022-tenancy-enforcement.md); permissions from [ADR-0019](0019-authorization-foundation.md); narrows the access-token lifetime validated by [ADR-0020](0020-configuration-and-secrets.md); its reset token is reused for invitations by [ADR-0024](0024-platform-administration.md); erasure ends its sessions in [ADR-0027](0027-customer-profile-and-erasure.md); its tokens are issued at dispatch by [ADR-0034](0034-notifications-outbox.md)
 
 ## Context
 

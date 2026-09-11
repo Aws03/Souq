@@ -7,6 +7,9 @@
   - [ADR-0024](0024-platform-administration.md): module flags (D-11) and the audit behavior.
   - [ADR-0027](0027-customer-profile-and-erasure.md): customer erasure.
   - [ADR-0028](0028-basket-and-pricing-pipeline.md): the guest-to-customer merge at sign-in.
+- **Date:** 2026-09-11
+- **Related modules:** Reviews; Shopping (the wishlist); Platform (publishing policy and module flags); Customers (erasure)
+- **Related ADRs:** builds on [ADR-0008](0008-cqrs-strategy.md), [ADR-0022](0022-tenancy-enforcement.md), [ADR-0024](0024-platform-administration.md), [ADR-0027](0027-customer-profile-and-erasure.md) and [ADR-0028](0028-basket-and-pricing-pipeline.md); its module gates are hidden in the UI by [ADR-0035](0035-white-label-runtime.md); notifications arrive with [ADR-0034](0034-notifications-outbox.md) (order and stock facts only)
 
 ## Context
 
@@ -14,6 +17,10 @@ Before Phase 13:
 - **Reviews:** every verified-purchase review was published at once. A store couldn't hide an abusive one, and the average counted all reviews.
 - **Wishlist:** it lived only in `localStorage`. It stayed in one browser, wasn't tied to the account, and didn't follow the customer to another device.
 - **Module flags:** the `reviews` flag closed the public review endpoints. The `wishlist` flag existed (D-11) but had no server surface to close.
+
+## Problem
+
+How can a store hide an abusive review and still publish an honest rating, and who decides whether reviews appear at once? And where should a wishlist live, so that it follows the customer across devices and the wishlist module flag has something to close on the server?
 
 ## Options considered
 

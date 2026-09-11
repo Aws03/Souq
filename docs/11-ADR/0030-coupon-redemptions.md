@@ -3,6 +3,9 @@
 - **Status:** Accepted (implemented in Phase 10), 2026-09-11.
 - **Fixes:** Phase 0 C1 for coupons. Two checkouts could both take a coupon's last use, because usage was counted only when payment was confirmed. Nothing recorded which order used which coupon.
 - **Builds on:** [ADR-0013](0013-optimistic-concurrency.md) (`rowversion`), [ADR-0014](0014-money-precision.md) (rounding once), [ADR-0021](0021-transaction-boundaries.md) (no network call inside a transaction), [ADR-0026](0026-inventory-reservations.md) (retry from a fresh read), [ADR-0028](0028-basket-and-pricing-pipeline.md) (pricing pipeline) and [ADR-0029](0029-orders-lifecycle.md) (order transitions). It changes none of them.
+- **Date:** 2026-09-11
+- **Related modules:** Promotions; Ordering; Shopping (the quote)
+- **Related ADRs:** builds on [ADR-0013](0013-optimistic-concurrency.md), [ADR-0014](0014-money-precision.md), [ADR-0021](0021-transaction-boundaries.md), [ADR-0026](0026-inventory-reservations.md), [ADR-0028](0028-basket-and-pricing-pipeline.md) and [ADR-0029](0029-orders-lifecycle.md); [ADR-0031](0031-payments-and-refunds.md) records that a refund does not return a use, only a cancellation does
 
 ## Context
 
@@ -12,6 +15,10 @@ Before Phase 10:
 - **Rules:** an expiry date, a global limit and a minimum order amount. There was no start date and no per-customer limit.
 - **Deleting:** always a hard delete, even after the coupon had been used.
 - **Cancelling:** a cancelled paid order kept its use.
+
+## Problem
+
+When should a coupon's use be taken, so that concurrent checkouts cannot take the same last use? And what must a use record hold, so that a per-customer limit is possible, admins can see who used a coupon, and a cancelled order gives its use back?
 
 ## Options considered
 

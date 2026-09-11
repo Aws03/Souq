@@ -1,6 +1,9 @@
 # ADR-0008: CQRS strategy
 
 - **Status:** Accepted, 2026-09-11
+- **Date:** 2026-09-11
+- **Related modules:** Cross-cutting (the shape of every command and query); Catalog (the reference listing)
+- **Related ADRs:** builds on [ADR-0001](0001-target-architecture.md) and [ADR-0003](0003-clean-hexagonal-boundaries.md) (query ports); projections applied by [ADR-0025](0025-catalog-model.md) (catalog), [ADR-0027](0027-customer-profile-and-erasure.md) (customers) and [ADR-0033](0033-review-moderation-and-wishlist.md) (review aggregates); query services are tested as decided in [ADR-0015](0015-testing-strategy.md)
 
 ## Context
 

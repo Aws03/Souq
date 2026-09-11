@@ -4,6 +4,9 @@
 - **Fixes:** Phase 0 C12, the persistence half: the cart was lost on refresh. The shipping half stays with Phase 12.
 - **Closes:** the question Phase 6 left open ([ADR-0026](0026-inventory-reservations.md)): baskets do not reserve stock.
 - **Builds on:** [ADR-0004](0004-module-boundaries.md) (the Shopping module), [ADR-0022](0022-tenancy-enforcement.md) (tenancy), [ADR-0023](0023-sessions-and-credentials.md) (sessions) and [ADR-0026](0026-inventory-reservations.md) (only checkout reserves). It changes none of them.
+- **Date:** 2026-09-11
+- **Related modules:** Shopping; Ordering; Promotions; Inventory; Shipping
+- **Related ADRs:** builds on [ADR-0004](0004-module-boundaries.md), [ADR-0022](0022-tenancy-enforcement.md), [ADR-0023](0023-sessions-and-credentials.md) and [ADR-0026](0026-inventory-reservations.md), and deletes baskets on the erasure of [ADR-0027](0027-customer-profile-and-erasure.md); checkout reads the basket itself in [ADR-0029](0029-orders-lifecycle.md); the coupon stage is completed by [ADR-0030](0030-coupon-redemptions.md) and the shipping stage by [ADR-0032](0032-shipping-methods.md); the sign-in merge is repeated for the wishlist in [ADR-0033](0033-review-moderation-and-wishlist.md)
 
 ## Context
 

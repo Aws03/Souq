@@ -1,7 +1,7 @@
 # Souq Platform: Product Roadmap
 
 > **Goal:** turn Souq into one **white-label, multi-tenant e-commerce platform**, sold to many clients (≈ $5,000+ each) and maintainable by a professional team.
-> **Status:** Phase 0 ✅ · Target architecture ✅ documented · Phase 1A ✅ (merged to `main`) · Phase 1B ✅ on branch `phase/1b-production-foundations` (awaiting review) · **Autonomous run on `phase/2-15-multitenant-platform`** (branched from the 1B tip): Phase 2 ✅ · Phase 3 ✅ · Phase 4 ✅ · Phase 5 ✅ · Phase 6 ✅ · Phase 7 ✅ · Phase 8 ✅ · Phase 9 ✅ · Phase 10 ✅ · Phase 11 ✅ · Phase 12 ✅ · Phase 13 ✅ · Phase 14 ✅ · Phase 15 ✅. The autonomous run ends at Phase 15; Phase 16 is next.
+> **Status:** Phase 0 ✅ · Target architecture ✅ documented · Phase 1A ✅ (merged to `main`) · Phase 1B ✅ on branch `phase/1b-production-foundations` (awaiting review) · **Autonomous run on `phase/2-15-multitenant-platform`** (branched from the 1B tip): Phase 2 ✅ · Phase 3 ✅ · Phase 4 ✅ · Phase 5 ✅ · Phase 6 ✅ · Phase 7 ✅ · Phase 8 ✅ · Phase 9 ✅ · Phase 10 ✅ · Phase 11 ✅ · Phase 12 ✅ · Phase 13 ✅ · Phase 14 ✅ · Phase 15 ✅. An **engineering-knowledge and handoff pass** then ran on branch `phase/16-engineering-knowledge-and-handoff` (documentation system, module and boundary documentation, generated inventories, documentation tests) — it is not a roadmap phase, and the roadmap's Phase 16 (Storefront) has not started.
 > **Companion document:** [ArchitectureAssessment.md](../archive/ArchitectureAssessment.md) covers the current state, the problem register (IDs such as `B1` and `C2`), the target architecture, and the full reasoning behind every decision (`D-xx`).
 > **Last updated:** 2026-09-11
 
@@ -195,7 +195,7 @@ Status legend: ✅ done · 🟡 in progress · ⏳ planned · ⏸ awaiting appro
   - Every existing feature works under the default store (the full pre-existing suite is green).
   - A second store is isolated: `TenantIsolationTests` has an explicit endpoint table plus a completeness check, and covers listings, references, tokens, the write guard, missing context, uploads and uniqueness.
 - **Goal.** Every tenant-owned row belongs to exactly one tenant, and the backend blocks cross-tenant access by default.
-- **Foundations already in place (1B).** `ICurrentUser` ready for a `tid` claim; one request log scope with a `TenantId` slot; the SaveChanges interceptor seam for the write guard; reads only through query services (one place for filters); the `TenantId` tripwire test; explicit endpoint authorization; 404 for foreign resources. Checklist and exact prerequisites: [MultiTenancy.md §8](../02-ARCHITECTURE/MultiTenancy.md#8-phase-2-readiness-after-phase-1b).
+- **Foundations already in place (1B).** `ICurrentUser` ready for a `tid` claim; one request log scope with a `TenantId` slot; the SaveChanges interceptor seam for the write guard; reads only through query services (one place for filters); the `TenantId` tripwire test; explicit endpoint authorization; 404 for foreign resources. Checklist and exact prerequisites: [MultiTenancy.md §8](../02-ARCHITECTURE/MultiTenancy.md#8-implementation-phase-2).
 - **Scope.**
   - Domain: a `Tenant` aggregate (name, slug, status, default culture, currency, time zone), `TenantDomain`, and an `ITenantOwned` marker.
   - Resolution (D-02): Host header → `TenantDomains` (cached).
@@ -343,7 +343,7 @@ Status legend: ✅ done · 🟡 in progress · ⏳ planned · ⏸ awaiting appro
   - **Default variant** (D-21): every product sells through exactly one default `ProductVariant`, which holds the SKU (unique per store), the price and the compare-at price. Stock stays on the product until Phase 6.
   - **Lifecycle:** Draft / Active / Archived, with no hard delete (`DELETE` archives). The admin list covers every status and restores archived products (fixes C7). The storefront shows Active products in active categories.
   - **Slugs, unique per store:** suggested from the Latin name, with a numeric suffix. `GET /api/products/by-slug/{slug}`.
-  - **Offers:** compare-at price, the `onSale` filter, and a struck-through price in the UI.
+  - **Offers:** compare-at price and a struck-through price in the UI; the `onSale` filter exists in the API (`GET /api/products?onSale=true`) but the frontend never sends it, so the "Offers" page still lists the whole catalog (TD-30).
   - **Gallery:** up to 10 ordered images (the first is primary); remove and reorder endpoints; files under the tenant prefix.
   - **Category tree:** cycle and depth (5) guards, sort order, a visibility flag (a hidden category hides its products), SEO fields.
   - **Admin API:** `/api/admin/products` (search over name, SKU and slug; status and category filters; sort; paging), full product detail, status changes, image removal and ordering, `/api/admin/categories`.

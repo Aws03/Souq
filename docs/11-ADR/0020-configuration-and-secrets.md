@@ -1,6 +1,9 @@
 # ADR-0020: Configuration and secrets — validated options, fail-fast startup, no silent dev fallbacks
 
-- **Status:** Accepted and implemented in Phase 1B, 2026-09-11
+- **Status:** Accepted and implemented in Phase 1B, 2026-09-11, partially superseded by [ADR-0023](0023-sessions-and-credentials.md) (access-token lifetime) and [ADR-0034](0034-notifications-outbox.md) (email provider required at startup)
+- **Date:** 2026-09-11
+- **Related modules:** Cross-cutting (configuration and startup); Payments and Notifications (provider selection)
+- **Related ADRs:** ports and development fakes from [ADR-0003](0003-clean-hexagonal-boundaries.md); partially superseded by [ADR-0023](0023-sessions-and-credentials.md) (narrower access-token lifetime) and [ADR-0034](0034-notifications-outbox.md) (a missing email provider now refuses startup instead of warning); per-store gateway secrets are added by [ADR-0031](0031-payments-and-refunds.md)
 
 ## Context
 

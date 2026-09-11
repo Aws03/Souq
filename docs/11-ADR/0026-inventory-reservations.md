@@ -9,6 +9,9 @@
   - C4 (absolute stock edits);
   - the C6 residual (abandoned Pending orders).
 - **Builds on:** [ADR-0013](0013-optimistic-concurrency.md), [ADR-0021](0021-transaction-boundaries.md) and [ADR-0025](0025-catalog-model.md). It changes none of them.
+- **Date:** 2026-09-11
+- **Related modules:** Inventory; Ordering; Catalog; Payments (intent cancellation)
+- **Related ADRs:** builds on [ADR-0013](0013-optimistic-concurrency.md), [ADR-0021](0021-transaction-boundaries.md) and [ADR-0025](0025-catalog-model.md), and replaces the checkout-conflict and stock-edit parts of [ADR-0013](0013-optimistic-concurrency.md); baskets are excluded from reservations by [ADR-0028](0028-basket-and-pricing-pipeline.md); its reservations drive [ADR-0029](0029-orders-lifecycle.md) and the release path of [ADR-0030](0030-coupon-redemptions.md); its retry pattern is reused for refunds by [ADR-0031](0031-payments-and-refunds.md); low stock becomes a domain event in [ADR-0034](0034-notifications-outbox.md)
 
 ## Context
 

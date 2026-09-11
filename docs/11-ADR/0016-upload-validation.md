@@ -1,6 +1,9 @@
 # ADR-0016: Upload validation and media serving
 
 - **Status:** Accepted and implemented in Phase 1A, 2026-09-11
+- **Date:** 2026-09-11
+- **Related modules:** Catalog (product media); Platform (branding uploads); Cross-cutting (the file storage port and the static file server)
+- **Related ADRs:** storage keys become tenant-prefixed in [ADR-0022](0022-tenancy-enforcement.md); the product gallery and its endpoints arrive with [ADR-0025](0025-catalog-model.md); branding uploads reuse the same port in [ADR-0024](0024-platform-administration.md); rejections use the error shape of [ADR-0017](0017-error-contract.md)
 
 ## Context
 

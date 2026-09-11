@@ -6,6 +6,9 @@
   - D-21 (sellable unit: a default variant for every product);
   - the Phase 5 part of D-18 (a tenant-prefixed image gallery).
 - **Builds on:** [ADR-0009](0009-ddd-usage.md), [ADR-0014](0014-money-precision.md), [ADR-0016](0016-upload-validation.md) and [ADR-0022](0022-tenancy-enforcement.md). It changes none of them.
+- **Date:** 2026-09-11
+- **Related modules:** Catalog; Inventory (the variant its stock hangs off)
+- **Related ADRs:** builds on [ADR-0009](0009-ddd-usage.md), [ADR-0014](0014-money-precision.md), [ADR-0016](0016-upload-validation.md) and [ADR-0022](0022-tenancy-enforcement.md); its read projections follow [ADR-0008](0008-cqrs-strategy.md); stock moves from the product to the variant in [ADR-0026](0026-inventory-reservations.md); basket and order lines point at its variants in [ADR-0028](0028-basket-and-pricing-pipeline.md) and [ADR-0029](0029-orders-lifecycle.md)
 
 ## Context
 

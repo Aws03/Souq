@@ -5,6 +5,9 @@
 - **Builds on:**
   - [ADR-0005](0005-multi-tenancy-model.md), [ADR-0011](0011-white-label-architecture.md) and [ADR-0022](0022-tenancy-enforcement.md), which it does not change;
   - [ADR-0023](0023-sessions-and-credentials.md), whose reset token it reuses for invitations.
+- **Date:** 2026-09-11
+- **Related modules:** Platform; Identity (invitations and account rules); Cross-cutting (the audit behavior)
+- **Related ADRs:** builds on [ADR-0005](0005-multi-tenancy-model.md), [ADR-0011](0011-white-label-architecture.md), [ADR-0022](0022-tenancy-enforcement.md) and [ADR-0023](0023-sessions-and-credentials.md), and keeps the transaction rule of [ADR-0021](0021-transaction-boundaries.md); its module flags are checked in use cases by [ADR-0033](0033-review-moderation-and-wishlist.md) and hidden in the UI by [ADR-0035](0035-white-label-runtime.md); per-store payment accounts are added by [ADR-0031](0031-payments-and-refunds.md); its store branding is used by the email templates of [ADR-0034](0034-notifications-outbox.md)
 
 ## Context
 

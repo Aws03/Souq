@@ -1,6 +1,9 @@
 # ADR-0005: Multi-tenancy model
 
 - **Status:** Accepted, 2026-09-11. Implementation: Phase 2.
+- **Date:** 2026-09-11
+- **Related modules:** Platform; Cross-cutting (every tenant-owned table)
+- **Related ADRs:** companion of [ADR-0006](0006-tenant-resolution.md) (where the tenant comes from); refined by [ADR-0022](0022-tenancy-enforcement.md) (filter, write guard, composite keys); the audited platform bypass is built by [ADR-0024](0024-platform-administration.md)
 
 ## Context
 

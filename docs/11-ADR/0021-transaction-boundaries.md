@@ -1,6 +1,9 @@
 # ADR-0021: Transaction boundaries — the use case owns the unit of work; no transaction spans a network call
 
 - **Status:** Accepted, 2026-09-11 (Phase 1B). Documents and standardizes what Phase 1A built for checkout.
+- **Date:** 2026-09-11
+- **Related modules:** Cross-cutting (every command handler); Ordering, Inventory, Promotions, Payments
+- **Related ADRs:** builds on [ADR-0013](0013-optimistic-concurrency.md); its compensation maps onto the saga steps of [ADR-0012](0012-service-extraction-strategy.md); followed by [ADR-0024](0024-platform-administration.md), [ADR-0026](0026-inventory-reservations.md), [ADR-0027](0027-customer-profile-and-erasure.md), [ADR-0029](0029-orders-lifecycle.md), [ADR-0030](0030-coupon-redemptions.md) and [ADR-0031](0031-payments-and-refunds.md); the side effects it defers are moved to the outbox by [ADR-0034](0034-notifications-outbox.md)
 
 ## Context
 

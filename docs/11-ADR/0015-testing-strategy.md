@@ -1,6 +1,9 @@
 # ADR-0015: Testing strategy and tooling
 
 - **Status:** Accepted and implemented in Phase 1A, 2026-09-11
+- **Date:** 2026-09-11
+- **Related modules:** Cross-cutting (the test layers every module uses)
+- **Related ADRs:** makes the rules of [ADR-0002](0002-modular-monolith-structure.md) and [ADR-0003](0003-clean-hexagonal-boundaries.md) executable; the tenant isolation suite it anticipates is built by [ADR-0022](0022-tenancy-enforcement.md); every ADR from [ADR-0027](0027-customer-profile-and-erasure.md) onward lists its tests in a Verification section
 
 ## Context
 

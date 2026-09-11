@@ -1,43 +1,138 @@
 # Architecture Decision Records
 
-An ADR captures **one** significant decision: the context, the options considered, the choice, why it was made, its consequences, and **when to revisit it**. ADRs are immutable once accepted. A changed decision gets a new ADR that supersedes the old one.
+> **What an ADR is here:** the record of one decision — its context, the problem, the options that were considered, what was chosen, and what that costs. ADRs explain **why** the code looks the way it does. They are the first thing to read before changing an architectural rule, and the last thing to write after making one.
+> **They are historical records.** An ADR is not updated when the code moves on; a later ADR supersedes it, and the living documents in `docs/02-ARCHITECTURE`, `docs/04-MODULES` and the rest describe today. Where an old ADR's description of the code has drifted, §4 lists it explicitly so nobody is misled.
 
-| # | Decision | Status |
+## 1. How to use this index
+
+- **Looking for a rule?** Find the category in §2, read the one-line decision, open the ADR only if you need the reasoning.
+- **About to change something architectural?** Find the ADR that decided it. If your change contradicts it, you need a new ADR that supersedes it — not a quiet edit.
+- **Writing one?** Copy the structure of a recent ADR (0031–0035 are good models): metadata (`Status`, `Date`, `Related modules`, `Related ADRs`), then `Context`, `Problem`, `Options considered`, `Decision`, `Consequences`, and optionally `Why`, `Revisit when`, `Migration`, `Verification`. `DocumentationTests` fails the build if an ADR is missing a required part or is not listed here.
+- **Validity** in the tables below means: does the ADR still describe the code? *Accurate* / *Partially stale* (the decision holds, some details moved — see §4) / *Superseded in part* (a later ADR replaced part of it).
+
+**When a change needs an ADR:** a new dependency or technology; a new module or a change to module boundaries; a different persistence, transaction or consistency strategy; anything touching tenant isolation, authentication or payment flow; a public contract that others will depend on; or deliberately *not* doing something that a future engineer would otherwise assume was an oversight.
+
+## 2. Decisions by category
+
+### Architecture and structure
+
+| ADR | Decision | Validity |
 |---|---|---|
-| [0001](0001-target-architecture.md) | Target architecture: modular monolith + Clean/Hexagonal + selective DDD + vertical slices + selective CQRS | Accepted |
-| [0002](0002-modular-monolith-structure.md) | Modules as namespaces across the four layer projects, enforced by architecture tests | Accepted |
-| [0003](0003-clean-hexagonal-boundaries.md) | Clean dependency rule + ports and adapters only at real variation points | Accepted |
-| [0004](0004-module-boundaries.md) | 13 business modules; contracts, IDs, and a shared transaction for cross-module work | Accepted |
-| [0005](0005-multi-tenancy-model.md) | Shared database + `TenantId` + central enforcement; hybrid path kept open | Accepted (implemented Phase 2) |
-| [0006](0006-tenant-resolution.md) | Tenant resolved from the host; token `tid` must match; platform on its own host | Accepted (implemented Phase 2) |
-| [0007](0007-database-strategy.md) | SQL Server + EF Core, one DbContext, int keys, per-tenant uniqueness, explicit soft-delete policy | Accepted |
-| [0008](0008-cqrs-strategy.md) | CQRS level 1 + projection query services; read models only for reporting | Accepted |
-| [0009](0009-ddd-usage.md) | Tactical DDD only where invariants are rich; small aggregates | Accepted |
-| [0010](0010-authentication-authorization.md) | Evolve the custom JWT/BCrypt into a User aggregate + permissions + rotating refresh tokens | Accepted (implementation Phase 3) |
-| [0011](0011-white-label-architecture.md) | Configuration-driven white-label: storefront config API + semantic tokens + presets | Accepted (Phase 4/15) |
-| [0012](0012-service-extraction-strategy.md) | Monolith first; extraction only with evidence, prepared by contracts and an outbox | Accepted |
-| [0013](0013-optimistic-concurrency.md) | `rowversion` optimistic concurrency with 409s and idempotent re-reads | Accepted (implemented 1A) |
-| [0014](0014-money-precision.md) | `decimal(19,4)` + currency minor units enforced by `Money` | Accepted (implemented 1A) |
-| [0015](0015-testing-strategy.md) | Testcontainers integration tests, NetArchTest architecture tests, AwesomeAssertions, Vitest | Accepted (implemented 1A) |
-| [0016](0016-upload-validation.md) | Content-sniffed uploads with server-chosen extensions and a locked-down static file server | Accepted (implemented 1A) |
-| [0017](0017-error-contract.md) | RFC 7807 ProblemDetails with typed errors, stable codes and one status mapping | Accepted (implemented 1B) |
-| [0018](0018-observability.md) | Built-in structured logging, W3C trace id as correlation id, request line and log scopes | Accepted (implemented 1B) |
-| [0019](0019-authorization-foundation.md) | `ICurrentUser`, permission policies, ownership in use cases, explicit auth on every endpoint | Accepted (implemented 1B) |
-| [0020](0020-configuration-and-secrets.md) | Typed validated options, fail-fast startup, no implicit dev fallbacks outside Development | Accepted (implemented 1B) |
-| [0021](0021-transaction-boundaries.md) | Use case owns the unit of work; no transaction spans a network call; compensation and outbox | Accepted (1B) |
-| [0022](0022-tenancy-enforcement.md) | Tenancy enforcement details: set-once context, named filter that throws without a tenant, write guard, tenant-scoped composite FKs, dev-only resolution, status gating | Accepted (implemented Phase 2) |
-| [0023](0023-sessions-and-credentials.md) | Session and credential mechanics: host-bound `tid` (none on platform hosts), `cid` claim, one role per account, 10 s refresh grace, 30-day sliding refresh, cached stamp check, email links on the request host, `host|IP` rate limits, id-preserving identity migration | Accepted (implemented Phase 3) |
-| [0024](0024-platform-administration.md) | Platform administration: settings as a validated JSON document (WCAG contrast), module flags in the cached tenant snapshot, audit staged into the handler's unit of work (append-only), platform writes through the target store's scope, one reviewed cross-tenant query class, invitations on the store domain | Accepted (implemented Phase 4) |
-| [0025](0025-catalog-model.md) | Catalog model: translation tables per aggregate, one default variant per product (SKU, price, compare-at), Draft/Active/Archived with no hard delete, per-store slugs, an ordered gallery, a guarded category tree, a data-preserving migration | Accepted (implemented Phase 5) |
-| [0026](0026-inventory-reservations.md) | Inventory: an item per variant (on hand, reserved, `rowversion`), explicit reservations (reserve at checkout, commit at payment, release or restock on cancel), retry-from-fresh-read on conflicts, delta corrections with a reason, a hosted checkout-expiry sweep that asks the gateway first, module contracts enforced by tests | Accepted (implemented Phase 6) |
-| [0027](0027-customer-profile-and-erasure.md) | Customers: an address book inside the customer aggregate (one default shipping and billing), orders keep a snapshot of an address chosen by id from the caller's own book, Active/Blocked separate from the login, erasure by anonymization with orders retained, audited export, `customers.view`/`customers.manage` | Accepted (implemented Phase 7) |
-| [0028](0028-basket-and-pricing-pipeline.md) | Shopping: a server-side basket (customer, or a guest identified by a hashed HttpOnly-cookie token), merged at sign-in, sliding expiry; one pricing pipeline (`IPricing`) shared by the basket and checkout; baskets never reserve stock | Accepted (implemented Phase 8) |
-| [0029](0029-orders-lifecycle.md) | Orders: per-store numbers from an atomic counter in the checkout transaction, random public tracking tokens (B8), placement freezing lines and totals, one transition table with actors in the history, customer cancellation of unpaid orders (gateway asked first), checkout from the basket | Accepted (implemented Phase 9) |
-| [0030](0030-coupon-redemptions.md) | Coupons: one redemption record per order, with the use reserved inside the checkout transaction under `rowversion` (retried from a fresh read), confirmed at payment and released on every cancellation; start dates and per-customer limits; used coupons can't be deleted; no category scope yet | Accepted (implemented Phase 10) |
-| [0031](0031-payments-and-refunds.md) | Payments: a payment record per order; refunds as reserve–call–record with an idempotency key (safe to retry, safe under concurrency); a full refund when a paid order is cancelled; per-store Stripe accounts with AES-GCM-encrypted keys behind one gateway router; webhooks routed to the store that created the intent; the D-13 choice still open | Accepted (implemented Phase 11) |
-| [0032](0032-shipping-methods.md) | Shipping: store-defined methods (flat price, free over a threshold measured after discount, countries, estimate, carrier with an https tracking template) behind an `IShippingRateProvider` strategy; a method required at checkout when the store has any; the destination country from the address book; an order snapshot whose total includes shipping | Accepted (implemented Phase 12) |
-| [0033](0033-review-moderation-and-wishlist.md) | Reviews and wishlist: Pending/Approved/Rejected moderation (audited, note for staff only) under a per-store auto-approve policy (new stores moderate, existing stores migrated to publish at once); aggregates over approved reviews only; a server-side wishlist (live catalog data, idempotent add, 200 per customer) that absorbs the guest's browser list at sign-in; both behind their module flags | Accepted (implemented Phase 13) |
-| [0034](0034-notifications-outbox.md) | Notifications: a transactional outbox (references only, tokens issued at dispatch) with a leased background dispatcher and bounded retries; domain events (`OrderStatusChanged`, `StockBecameLow`) written in the same save; localized emails with the store's identity; in-app notifications for customers and staff; no silent console fallback outside development; resolves D-14 | Accepted (implemented Phase 14) |
-| [0035](0035-white-label-runtime.md) | White-label runtime: the SPA boots from the host's storefront config (explicit closed, unknown-store, platform and retry screens); semantic tokens and allow-listed fonts from the store's branding, with contrast-safe derived colours; money through Intl in the store's currency; module gates; the visitor theme switcher removed; four areas with route-level code splitting; tests forbid brand and currency literals in frontend and backend source; D-19 deferred with a trigger | Accepted (implemented Phase 15) |
+| [0001](0001-target-architecture.md) | Modular monolith with the Clean dependency rule, selective DDD and CQRS, events only at the edges; no event sourcing, no microservices | Accurate |
+| [0002](0002-modular-monolith-structure.md) | Modules are namespaces and folders inside the four layer projects, enforced by architecture tests — not separate projects | Partially stale (§4) |
+| [0003](0003-clean-hexagonal-boundaries.md) | Strict layer dependencies; a port only at a real variation point; provider exceptions translated in the adapter | Partially stale (§4) |
+| [0004](0004-module-boundaries.md) | Thirteen capability modules; call another module only through its contracts; reference by id; one shared transaction is allowed; no cycles | Partially stale (§4) |
+| [0008](0008-cqrs-strategy.md) | Separate command and query paths over one database, with projection query services; read models only when reporting demands them | Accurate |
+| [0009](0009-ddd-usage.md) | Tactical DDD only where invariants are rich; small aggregates; strategic DDD for boundaries | Partially stale (§4) |
+| [0017](0017-error-contract.md) | One RFC 7807 error shape with a stable `code` and a trace id; results for decided outcomes, domain exceptions for guarded rules | Accurate (one stale example) |
+| [0021](0021-transaction-boundaries.md) | The use case owns the unit of work; no transaction spans a network call; compensate or resolve idempotently | Partially stale (§4) |
 
-**Template:** Context · Problem · Options considered · Decision · Why · Consequences · Revisit when.
+### Multi-tenancy
+
+| ADR | Decision | Validity |
+|---|---|---|
+| [0005](0005-multi-tenancy-model.md) | Shared database with a tenant id on every tenant-owned table, enforced centrally, with an audited platform bypass | Partially stale (§4) |
+| [0006](0006-tenant-resolution.md) | The store comes from the Host header through a cached domain map; the token's tenant claim must match; the platform host is separate | Accurate |
+| [0022](0022-tenancy-enforcement.md) | Scope-set tenant context, one named query filter, a write guard, composite foreign keys, status gating, host-bound tokens, tenant-prefixed storage | Accurate |
+| [0024](0024-platform-administration.md) | Settings as one JSON document, modules as a column, audit staged inside the handler's transaction, one reviewed cross-tenant query type | Accurate |
+
+### Security and identity
+
+| ADR | Decision | Validity |
+|---|---|---|
+| [0010](0010-authentication-authorization.md) | A `User` aggregate with rotating refresh tokens and permission policies over built-in roles, instead of an identity framework | Accurate |
+| [0016](0016-upload-validation.md) | Detect the file type from magic bytes, let the server choose the stored extension, cap sizes, lock down static file serving | Accurate |
+| [0019](0019-authorization-foundation.md) | `ICurrentUser`, permissions as constants with one role→permission map, `[HasPermission]` policies, ownership in use cases, 404 for someone else's resource | Partially stale (§4) |
+| [0023](0023-sessions-and-credentials.md) | Short access token, rotating hashed refresh cookie with a grace window, security stamp, lockout, host-bound tenant claim, partitioned rate limits | Accurate |
+
+### Data
+
+| ADR | Decision | Validity |
+|---|---|---|
+| [0007](0007-database-strategy.md) | EF Core migrations as the only schema source, one `DbContext`, integer keys, fixed money precision, rowversion on hot aggregates | Accurate |
+| [0013](0013-optimistic-concurrency.md) | Rowversion on contended aggregates; conflicts become 409 | Superseded in part by [0026](0026-inventory-reservations.md) |
+| [0014](0014-money-precision.md) | `decimal(19,4)` storage, a `Money` value object carrying the currency, commercial rounding, provider conversion in the adapter | Accurate (two stale details, §4) |
+| [0025](0025-catalog-model.md) | Translation tables, exactly one default variant per product, a status lifecycle, per-store slugs, bounded gallery and category depth | Accurate |
+| [0026](0026-inventory-reservations.md) | Stock per variant, explicit reservations, an append-only ledger, bounded retry, and a sweeper for abandoned checkouts | Accurate (one stale expectation, §4) |
+| [0027](0027-customer-profile-and-erasure.md) | Addresses inside the customer aggregate; Active/Blocked; erasure anonymizes in place and keeps orders | Accurate (one stale detail, §4) |
+| [0028](0028-basket-and-pricing-pipeline.md) | A server-side basket with a hashed guest cookie, live prices, and one pricing pipeline shared with checkout; baskets never reserve stock | Partially stale (§4) |
+| [0029](0029-orders-lifecycle.md) | Per-store order numbers, a random public tracking token, totals frozen at placement, one transition table, the actor recorded | Accurate |
+| [0030](0030-coupon-redemptions.md) | A coupon use is reserved inside the checkout transaction, confirmed at payment and released on every cancellation | Accurate |
+| [0032](0032-shipping-methods.md) | Store-defined methods behind a rate-provider contract, chosen at checkout and snapshotted on the order | Accurate |
+| [0033](0033-review-moderation-and-wishlist.md) | Moderation states under a per-store auto-approve policy; aggregates over approved reviews only; a server-side wishlist that absorbs the guest list | Accurate (one stale expectation, §4) |
+
+### Payments
+
+| ADR | Decision | Validity |
+|---|---|---|
+| [0031](0031-payments-and-refunds.md) | One payment per order; refunds as reserve → call → record with an idempotency key; per-store gateway accounts with encrypted secrets; webhooks routed by intent metadata | Accurate; **P-05** (JOD minor units) and **D-13** (account model) remain open |
+
+### Frontend and white-label
+
+| ADR | Decision | Validity |
+|---|---|---|
+| [0011](0011-white-label-architecture.md) | One build, configuration-driven branding; the platform owner controls contracts, the tenant controls presentation; no arbitrary CSS or scripts | Partially stale (§4) |
+| [0035](0035-white-label-runtime.md) | The SPA boots from the storefront configuration, writes semantic tokens, gates modules, and splits four areas with lazy routes; D-19 deferred with a trigger | Accurate; **the D-19 trigger is now due** (§4) |
+
+### Operations
+
+| ADR | Decision | Validity |
+|---|---|---|
+| [0018](0018-observability.md) | A W3C trace id as correlation id, one log line per request, log scopes, JSON console logging in Production | Accurate |
+| [0020](0020-configuration-and-secrets.md) | Typed options validated at startup, fail-fast before touching the database, no silent development fallbacks | Superseded in part by [0023](0023-sessions-and-credentials.md) and [0034](0034-notifications-outbox.md) |
+| [0034](0034-notifications-outbox.md) | A transactional outbox with a leased dispatcher and bounded retries; domain events written in the same save; localized branded email; in-app notifications | Accurate (provider list has grown, §4) |
+
+### Testing
+
+| ADR | Decision | Validity |
+|---|---|---|
+| [0015](0015-testing-strategy.md) | Four .NET suites plus Vitest; a real SQL Server through Testcontainers; architecture rules as tests | Accurate; its "CI" revisit is still open |
+
+### Future scaling
+
+| ADR | Decision | Validity |
+|---|---|---|
+| [0012](0012-service-extraction-strategy.md) | Stay a monolith; keep the rules that make extraction possible; pay for distribution only on evidence | Accurate |
+
+## 3. What later ADRs changed
+
+| Earlier decision | Changed by | What changed |
+|---|---|---|
+| [0013](0013-optimistic-concurrency.md) checkout conflict handling | [0026](0026-inventory-reservations.md) | A bounded retry then `422 InsufficientStock`, instead of a 409 "stock changed"; stock corrections became delta adjustments with a reason |
+| [0020](0020-configuration-and-secrets.md) token lifetime | [0023](0023-sessions-and-credentials.md) | Access-token expiry validated 5–60 minutes |
+| [0020](0020-configuration-and-secrets.md) missing email provider | [0034](0034-notifications-outbox.md) | Startup now refuses outside Development/Testing unless `Email:Provider=Log` is explicit |
+| [0005](0005-multi-tenancy-model.md) model | [0022](0022-tenancy-enforcement.md) | Filled in the enforcement details (filter name, write guard, composite keys, status gating) |
+| [0010](0010-authentication-authorization.md) roles | [0023](0023-sessions-and-credentials.md), [0024](0024-platform-administration.md) | Platform and store roles, invitations, account status |
+| [0028](0028-basket-and-pricing-pipeline.md) checkout source and stages | [0029](0029-orders-lifecycle.md), [0032](0032-shipping-methods.md) | Checkout reads the basket server-side; shipping became a charged stage |
+| [0021](0021-transaction-boundaries.md) residual risks | [0026](0026-inventory-reservations.md), [0034](0034-notifications-outbox.md) | The abandoned-checkout sweeper and the outbox closed both risks it listed |
+
+## 4. Statements inside ADRs that no longer match the code
+
+The decisions stand; these *descriptions* have drifted. Living documents are authoritative — this table exists so a reader of an old ADR is not misled.
+
+| ADR | What it says | What is true today |
+|---|---|---|
+| 0002 | Modules are namespaces in every layer (`Souq.Domain.<Module>`, `Souq.Infrastructure.*.<Module>`) | Only the Application layer has per-module folders, named after features and mapped by `ModuleMap`; the Domain is organized by kind (only Identity and Platform per module), Infrastructure by technical concern ([DependencyRules.md §5](../02-ARCHITECTURE/DependencyRules.md)) |
+| 0003 | All ports live in `Application/Common/Interfaces`; a `FakePaymentService` stand-in | Ports are spread over `Common/Interfaces`, `Common/Notifications`, `Common/Security`, `Common/Tenancy`; the clock is .NET's `TimeProvider`; the payment stand-in is `FakeGateway` |
+| 0004 | Modules communicate only through contracts | True in the Application layer and tested there; several modules still use another module's *domain* repositories directly ([TechnicalDebt.md](../12-ROADMAP/TechnicalDebt.md)) |
+| 0005 | An `ITenantDatabaseResolver` seam keeps a per-store database possible | No such interface exists; the seam is the tenant directory, where a per-store connection would be injected |
+| 0009 | Value objects `Money`, `Address`, `Slug`, `Email`, `Sku`; a pricing *domain* service | Value objects are `Money`, `PostalAddress`, `CatalogText`, `OrderActor`; slugs use the `CatalogSlug` helper; pricing is `PricingService` behind `IPricing` in the Application layer |
+| 0011, 0002, 0015, 0020 | "A CI check", "will run in CI", CI in Phase 23 | There is no CI configuration in the repository. The white-label rule is enforced by tests that a person must run |
+| 0011 | A tenant admin controls templates | There are no store-editable templates; ADR-0034 rejected them. A store picks typography and theme presets |
+| 0013, 0017 | The `StockChanged` 409 code | It no longer exists; insufficient stock is `422 InsufficientStock` |
+| 0014 | "The default currency is still JOD"; a short zero-decimal list | `Money` has required an explicit currency since Phase 2; `CurrencyInfo` lists many more zero-decimal currencies and two four-decimal ones |
+| 0019 | `RolePermissions`: `Admin` → all | There is no `Admin` role; the map covers PlatformOwner, PlatformAdmin, TenantAdmin, TenantStaff and Customer |
+| 0020 | Reset links logged in Development *and* Testing | Development only |
+| 0021 | Multi-save atomicity "through the EF execution strategy" | `IUnitOfWork.InTransactionAsync` over an explicit transaction; no execution strategy, and retry-on-failure is off |
+| 0026 | Low-stock alert *emails* arrive in Phase 14 | Phase 14 shipped the in-app `stock.low` notification only |
+| 0027 | The order has no billing address yet | It has had one since Phase 9 |
+| 0028 | Shipping and tax stay at zero | Shipping is charged since Phase 12; only tax is still zero (open decision P-06) |
+| 0033 | Phase 14 will notify staff of pending reviews and customers of decisions | Not built; only order status, new order and low stock exist |
+| 0034 | One email provider plus a log fallback | The chain is Resend → Brevo → Gmail SMTP by which key is present; the startup rule is unchanged |
+| 0035 | D-19 trigger: "the start of Phase 16" | The trigger has arrived. TypeScript and TanStack Query need a decision, or the trigger needs rewording. Note that the branch `phase/16-engineering-knowledge-and-handoff` is this documentation pass, not the roadmap's Phase 16 (Storefront) |
+
+## 5. Numbering and lifecycle
+
+- ADRs are numbered sequentially and never renumbered. The next one is **0036**.
+- A superseded ADR keeps its text; its `Status` line says what replaced it, and the replacement links back through `Related ADRs`.
+- Rejected proposals are worth an ADR too: "we considered X and chose not to" saves the next person the same investigation ([ExplicitNonGoals.md](../02-ARCHITECTURE/ExplicitNonGoals.md) collects the big ones).

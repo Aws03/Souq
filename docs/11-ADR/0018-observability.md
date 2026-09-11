@@ -1,6 +1,9 @@
 # ADR-0018: Observability — structured logs, W3C correlation and log scopes
 
 - **Status:** Accepted and implemented in Phase 1B, 2026-09-11. Implements decision D-16.
+- **Date:** 2026-09-11
+- **Related modules:** Cross-cutting (every request and use case)
+- **Related ADRs:** shares its correlation id with [ADR-0017](0017-error-contract.md); the tenant it adds to the log scope is resolved by [ADR-0006](0006-tenant-resolution.md) and [ADR-0022](0022-tenancy-enforcement.md); startup warnings are collected by [ADR-0020](0020-configuration-and-secrets.md)
 
 ## Context
 

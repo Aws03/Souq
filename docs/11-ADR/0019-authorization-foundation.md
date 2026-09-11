@@ -1,6 +1,9 @@
 # ADR-0019: Authorization foundation — ICurrentUser, permission policies and ownership in Application
 
 - **Status:** Accepted and implemented in Phase 1B, 2026-09-11. Brings the *mechanism* of [ADR-0010](0010-authentication-authorization.md) forward from Phase 3; the identity split, token rotation and tenant roles stay in Phase 3.
+- **Date:** 2026-09-11
+- **Related modules:** Identity; Ordering and Payments (ownership and the webhook entry point); Cross-cutting (permission policies)
+- **Related ADRs:** brings the mechanism of [ADR-0010](0010-authentication-authorization.md) forward; the roles it anticipates are added by [ADR-0023](0023-sessions-and-credentials.md); platform permissions and the audit trail in [ADR-0024](0024-platform-administration.md); its ownership rule is used by [ADR-0027](0027-customer-profile-and-erasure.md), [ADR-0029](0029-orders-lifecycle.md) and [ADR-0033](0033-review-moderation-and-wishlist.md)
 
 ## Context
 

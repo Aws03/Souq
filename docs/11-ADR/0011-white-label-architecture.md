@@ -1,6 +1,9 @@
 # ADR-0011: White-label architecture
 
 - **Status:** Accepted, 2026-09-11. Backend in Phase 4, frontend runtime in Phase 15. Details: [WhiteLabel.md](../08-FRONTEND/WhiteLabel.md).
+- **Date:** 2026-09-11
+- **Related modules:** Platform (store settings and branding); Cross-cutting (frontend and email presentation)
+- **Related ADRs:** backend implemented by [ADR-0024](0024-platform-administration.md) (settings, modules, contrast check); frontend runtime implemented by [ADR-0035](0035-white-label-runtime.md); branded localized email in [ADR-0034](0034-notifications-outbox.md); the host that selects the brand comes from [ADR-0006](0006-tenant-resolution.md)
 
 ## Context
 

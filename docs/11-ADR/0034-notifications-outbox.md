@@ -7,6 +7,9 @@
   - [ADR-0023](0023-sessions-and-credentials.md): tokens are stored as hashes only.
   - [ADR-0024](0024-platform-administration.md): store settings and branding.
   - D-15: background work runs in .NET hosted services.
+- **Date:** 2026-09-11
+- **Related modules:** Notifications; Ordering and Inventory (the facts it reacts to); Identity (account email); Platform (store branding)
+- **Related ADRs:** builds on [ADR-0021](0021-transaction-boundaries.md), [ADR-0022](0022-tenancy-enforcement.md), [ADR-0023](0023-sessions-and-credentials.md) and [ADR-0024](0024-platform-administration.md); implements the outbox promised by [ADR-0001](0001-target-architecture.md) and [ADR-0012](0012-service-extraction-strategy.md) and the domain events deferred by [ADR-0009](0009-ddd-usage.md); replaces the missing-provider warning of [ADR-0020](0020-configuration-and-secrets.md) with a startup refusal; its events come from the transitions of [ADR-0029](0029-orders-lifecycle.md) and the stock rules of [ADR-0026](0026-inventory-reservations.md)
 
 ## Context
 
@@ -17,6 +20,10 @@ Before Phase 14:
 - **Templates** were hard-coded in Arabic with the "Marka" brand.
 - **Without a configured provider**, non-local environments silently logged "not sent". The only trace was a warning in the startup report.
 - **There were no in-app notifications.**
+
+## Problem
+
+How is a side effect of a committed change delivered without the request waiting on a provider, and without the message being lost when the provider fails? And how do those messages carry each store's brand and language instead of one hard-coded identity?
 
 ## Options considered
 

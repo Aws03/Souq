@@ -1,6 +1,9 @@
 # ADR-0007: Database strategy
 
 - **Status:** Accepted, 2026-09-11. Principles apply from Phase 1A. Details: [DatabaseDesign.md](../06-DATABASE/DatabaseDesign.md).
+- **Date:** 2026-09-11
+- **Related modules:** Cross-cutting (schema conventions and migrations for every module)
+- **Related ADRs:** the concurrency token is detailed by [ADR-0013](0013-optimistic-concurrency.md) and the money type by [ADR-0014](0014-money-precision.md); tenant-scoped uniqueness and composite foreign keys are added by [ADR-0022](0022-tenancy-enforcement.md); the transaction rule is stated by [ADR-0021](0021-transaction-boundaries.md)
 
 ## Context
 

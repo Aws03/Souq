@@ -9,6 +9,9 @@
   - [ADR-0021](0021-transaction-boundaries.md): no network call inside a transaction.
   - [ADR-0024](0024-platform-administration.md): platform writes go through the target store's scope.
   - [ADR-0026](0026-inventory-reservations.md) and [ADR-0030](0030-coupon-redemptions.md): retry from a fresh read.
+- **Date:** 2026-09-11
+- **Related modules:** Payments; Ordering; Platform (per-store gateway accounts and their secrets)
+- **Related ADRs:** builds on [ADR-0013](0013-optimistic-concurrency.md), [ADR-0014](0014-money-precision.md), [ADR-0020](0020-configuration-and-secrets.md), [ADR-0021](0021-transaction-boundaries.md), [ADR-0024](0024-platform-administration.md), [ADR-0026](0026-inventory-reservations.md) and [ADR-0030](0030-coupon-redemptions.md); the amount it charges and refunds includes the shipping added by [ADR-0032](0032-shipping-methods.md); its failures use the error shape of [ADR-0017](0017-error-contract.md)
 
 ## Context
 
@@ -18,6 +21,10 @@ Before Phase 11:
   - Nothing recorded a payment except `Order.PaymentIntentId`.
   - Refunds didn't exist. An admin could cancel a paid order and the money stayed where it was; Phase 9 deferred refunds to this phase.
 - **Lost webhooks:** events arrived at one URL. An event for another store's order was acknowledged and dropped. That order was confirmed later by the customer's browser or by the expiry sweep.
+
+## Problem
+
+What should record a payment, so that refunds have somewhere to live, and how is a refund called without holding a transaction over the network or refunding twice? And how does a store take money into its own gateway account, with its secrets protected and its webhook events reaching the right store?
 
 ## Options considered
 

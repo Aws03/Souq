@@ -6,6 +6,9 @@
   - [ADR-0022](0022-tenancy-enforcement.md): module flags enforced on the server (`404 ModuleDisabled`).
   - [ADR-0024](0024-platform-administration.md): store settings and branding, and the public storefront config endpoint with an ETag (Phase 4).
   - [WhiteLabel.md](../08-FRONTEND/WhiteLabel.md) and [FrontendArchitecture.md](../08-FRONTEND/FrontendArchitecture.md).
+- **Date:** 2026-09-11
+- **Related modules:** Platform (the public storefront configuration); Cross-cutting (the whole frontend)
+- **Related ADRs:** completes the frontend half of [ADR-0011](0011-white-label-architecture.md); builds on [ADR-0006](0006-tenant-resolution.md), [ADR-0022](0022-tenancy-enforcement.md) and [ADR-0024](0024-platform-administration.md); the module flags it hides are enforced on the server by [ADR-0024](0024-platform-administration.md) and in use cases by [ADR-0033](0033-review-moderation-and-wishlist.md); money is formatted with the minor units of [ADR-0014](0014-money-precision.md)
 
 ## Context
 
@@ -16,6 +19,10 @@ Before Phase 15 the frontend belonged to one store:
 - **Design tokens had brand names.**
 - **There was one bundle.** Visitors downloaded the admin, checkout and payment code.
 - **The storefront config endpoint** (Phase 4) existed, but the frontend never called it.
+
+## Problem
+
+How can one build render any store's identity — its name, colours, fonts, currency, languages and optional modules — without a build or a fork per store? And what should the application show before the first paint, when the store named by the host is closed, unknown, or cannot be reached?
 
 ## Options considered
 

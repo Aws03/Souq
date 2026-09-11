@@ -1,6 +1,9 @@
 # ADR-0010: Authentication and authorization
 
 - **Status:** Accepted, 2026-09-11. Reset-token hardening was implemented in 1A and the rest in Phase 3. The implementation choices are in [ADR-0023](0023-sessions-and-credentials.md). Details: [AuthenticationAndAuthorization.md](../07-SECURITY/AuthenticationAndAuthorization.md).
+- **Date:** 2026-09-11
+- **Related modules:** Identity; Customers (the profile split from the account); Platform (platform accounts)
+- **Related ADRs:** builds on [ADR-0006](0006-tenant-resolution.md) (tokens bound to the host); its mechanism is brought forward by [ADR-0019](0019-authorization-foundation.md); implemented and refined by [ADR-0023](0023-sessions-and-credentials.md); platform accounts and shared account rules in [ADR-0024](0024-platform-administration.md)
 
 ## Context
 

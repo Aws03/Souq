@@ -1,6 +1,9 @@
 # ADR-0017: Error contract — RFC 7807 ProblemDetails with typed errors and stable codes
 
 - **Status:** Accepted and implemented in Phase 1B, 2026-09-11. Implements decision D-08.
+- **Date:** 2026-09-11
+- **Related modules:** Cross-cutting (every API error response)
+- **Related ADRs:** shares its correlation id with [ADR-0018](0018-observability.md); authorization statuses come from [ADR-0019](0019-authorization-foundation.md); codes extended by [ADR-0022](0022-tenancy-enforcement.md) (store and reference conflicts), [ADR-0024](0024-platform-administration.md) (disabled modules) and [ADR-0026](0026-inventory-reservations.md) (insufficient stock instead of a checkout conflict)
 
 ## Context
 

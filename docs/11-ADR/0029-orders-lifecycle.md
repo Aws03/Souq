@@ -3,6 +3,9 @@
 - **Status:** Accepted (implemented in Phase 9), 2026-09-11.
 - **Fixes:** Phase 0 B8. Anonymous tracking by sequential id exposed every order's status, tracking number and admin notes.
 - **Builds on:** [ADR-0013](0013-optimistic-concurrency.md) (`rowversion`), [ADR-0021](0021-transaction-boundaries.md) (no network call inside a transaction), [ADR-0026](0026-inventory-reservations.md) (reservations) and [ADR-0028](0028-basket-and-pricing-pipeline.md) (basket, pricing pipeline). It changes none of them.
+- **Date:** 2026-09-11
+- **Related modules:** Ordering; Shopping (checkout from the basket); Payments (gateway-first cancellation); Inventory
+- **Related ADRs:** builds on [ADR-0013](0013-optimistic-concurrency.md), [ADR-0021](0021-transaction-boundaries.md), [ADR-0026](0026-inventory-reservations.md) and [ADR-0028](0028-basket-and-pricing-pipeline.md); coupon uses are released on its cancellation paths in [ADR-0030](0030-coupon-redemptions.md); refunds and the staff cancellation path arrive with [ADR-0031](0031-payments-and-refunds.md); the shipping snapshot and total with [ADR-0032](0032-shipping-methods.md); its transitions raise the domain events of [ADR-0034](0034-notifications-outbox.md)
 
 ## Context
 
@@ -14,6 +17,10 @@ Before Phase 9:
 - **History:** it recorded what happened, but not who did it.
 - **Customers** could not cancel an order.
 - **Checkout** still received its lines from the client, although the basket had lived on the server since Phase 8.
+
+## Problem
+
+How should an order be identified to its customer without exposing a store's sales volume or allowing enumeration, and how can an anonymous tracking link show progress without showing admin notes? And where do the transition rules, the invoice amounts, the actor behind each change and the checkout's lines live, so that each has one source of truth?
 
 ## Options considered
 

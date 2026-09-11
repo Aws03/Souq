@@ -1,10 +1,27 @@
 # ADR-0022: Tenancy enforcement details
 
 - **Status:** Accepted, 2026-09-11 (Phase 2). Refines [ADR-0005](0005-multi-tenancy-model.md) (shared database + `TenantId`) and [ADR-0006](0006-tenant-resolution.md) (host-based resolution) with the implementation choices those ADRs left open.
+- **Date:** 2026-09-11
+- **Related modules:** Platform; Identity (tokens bound to hosts); Cross-cutting (query filter, write guard, host resolution, storage keys)
+- **Related ADRs:** refines [ADR-0005](0005-multi-tenancy-model.md) and [ADR-0006](0006-tenant-resolution.md); removes the default currency of [ADR-0014](0014-money-precision.md) and extends the storage keys of [ADR-0016](0016-upload-validation.md); relied on by [ADR-0024](0024-platform-administration.md), [ADR-0025](0025-catalog-model.md), [ADR-0027](0027-customer-profile-and-erasure.md), [ADR-0028](0028-basket-and-pricing-pipeline.md), [ADR-0033](0033-review-moderation-and-wishlist.md), [ADR-0034](0034-notifications-outbox.md) and [ADR-0035](0035-white-label-runtime.md)
 
 ## Context
 
 ADR-0005 and ADR-0006 fixed the model: one database, a `TenantId` on every tenant-owned row, the tenant resolved from the host, and a `tid` claim that must match the host. Implementing them required further decisions. Each one affects security, so they are recorded here instead of being left implicit in code.
+
+## Problem
+
+Which concrete mechanisms implement the shared database with a tenant id, and the tenant resolved from the host, that the two earlier ADRs decided? Every one of these choices affects isolation, so leaving them implicit in the code would hide security decisions.
+
+## Options considered
+
+Alternatives were not recorded when this decision was made. The model-level options are in [ADR-0005](0005-multi-tenancy-model.md) (isolation model) and [ADR-0006](0006-tenant-resolution.md) (where the tenant comes from); this ADR records the implementation choices those two left open. The Decisions below name the approaches they rule out:
+
+- switching the tenant inside a request, instead of opening a new scope (Decision 1);
+- returning every tenant's rows when no tenant is set (Decision 2);
+- letting a handler or a client choose the tenant on insert (Decision 3);
+- a host fallback in Production, or development conveniences enabled from configuration (Decision 5);
+- keeping the default of 1 on the tenant columns after the backfill (Decision 11).
 
 ## Decisions
 

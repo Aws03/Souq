@@ -1,6 +1,9 @@
 # ADR-0013: Optimistic concurrency with `rowversion`
 
-- **Status:** Accepted and implemented in Phase 1A, 2026-09-11
+- **Status:** Accepted and implemented in Phase 1A, 2026-09-11, partially superseded by [ADR-0026](0026-inventory-reservations.md) (checkout conflicts and admin stock edits)
+- **Date:** 2026-09-11
+- **Related modules:** Catalog, Promotions, Ordering, Payments; Cross-cutting (conflict translation in the unit of work)
+- **Related ADRs:** builds on [ADR-0007](0007-database-strategy.md); conflicts map to status codes through [ADR-0017](0017-error-contract.md); the re-read rule is standardized by [ADR-0021](0021-transaction-boundaries.md); partially superseded by [ADR-0026](0026-inventory-reservations.md) (bounded retry, and stock corrections instead of compare-and-set); the same token is reused by [ADR-0029](0029-orders-lifecycle.md), [ADR-0030](0030-coupon-redemptions.md) and [ADR-0031](0031-payments-and-refunds.md)
 
 ## Context
 

@@ -1,6 +1,9 @@
 # ADR-0003: Clean dependency rule + ports and adapters
 
 - **Status:** Accepted, 2026-09-11
+- **Date:** 2026-09-11
+- **Related modules:** Cross-cutting (layer dependency rule, ports and adapters); first applied to Payments and Notifications
+- **Related ADRs:** builds on [ADR-0001](0001-target-architecture.md); read ports refined by [ADR-0008](0008-cqrs-strategy.md); enforcement tooling chosen in [ADR-0015](0015-testing-strategy.md); applied by [ADR-0031](0031-payments-and-refunds.md) (gateway router behind the unchanged payment port) and [ADR-0034](0034-notifications-outbox.md) (only Notifications may use the email port)
 
 ## Context
 

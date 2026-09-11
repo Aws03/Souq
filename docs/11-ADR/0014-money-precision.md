@@ -1,6 +1,9 @@
 # ADR-0014: Money representation and precision
 
 - **Status:** Accepted and implemented in Phase 1A, 2026-09-11
+- **Date:** 2026-09-11
+- **Related modules:** Cross-cutting (every monetary amount); Payments (conversion for the provider)
+- **Related ADRs:** builds on [ADR-0007](0007-database-strategy.md); its default currency is removed by [ADR-0022](0022-tenancy-enforcement.md); applied by [ADR-0025](0025-catalog-model.md), [ADR-0028](0028-basket-and-pricing-pipeline.md), [ADR-0030](0030-coupon-redemptions.md) and [ADR-0032](0032-shipping-methods.md); the provider multiplier (P-05) is carried unchanged by [ADR-0031](0031-payments-and-refunds.md)
 
 ## Context
 

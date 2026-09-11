@@ -1,6 +1,9 @@
 # ADR-0012: Future service extraction strategy
 
 - **Status:** Accepted, 2026-09-11
+- **Date:** 2026-09-11
+- **Related modules:** Cross-cutting (every module); the named candidates are Notifications, Reporting, Payments and Inventory
+- **Related ADRs:** builds on [ADR-0001](0001-target-architecture.md); boundary rules from [ADR-0004](0004-module-boundaries.md); reserve then commit or release is implemented by [ADR-0026](0026-inventory-reservations.md) and [ADR-0030](0030-coupon-redemptions.md); compensation and idempotent re-reads are standardized by [ADR-0021](0021-transaction-boundaries.md); the outbox is implemented by [ADR-0034](0034-notifications-outbox.md)
 
 ## Context
 
