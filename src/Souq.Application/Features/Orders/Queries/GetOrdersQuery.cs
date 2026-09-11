@@ -9,8 +9,9 @@ public record OrderSummaryDto(
     int Id, int CustomerId, string Status, decimal TotalAmount, string Currency,
     DateTime CreatedAt, int ItemCount);
 
-// كل الطلبات لشاشة الإدارة — مرقّمة، الأحدث أولاً.
-public record GetOrdersQuery(int Page = 1, int PageSize = 20)
+// كل الطلبات لشاشة الإدارة — مرقّمة، الأحدث أولاً. CustomerId (المرحلة 7) لسجلّ طلبات عميل في صفحة تفاصيله؛ عميل
+// متجر آخر لا طلبات له هنا (المرشّح).
+public record GetOrdersQuery(int Page = 1, int PageSize = 20, int? CustomerId = null)
     : IRequest<PaginatedList<OrderSummaryDto>>, IPagedQuery;
 
 public class GetOrdersHandler : IRequestHandler<GetOrdersQuery, PaginatedList<OrderSummaryDto>>
@@ -19,5 +20,7 @@ public class GetOrdersHandler : IRequestHandler<GetOrdersQuery, PaginatedList<Or
     public GetOrdersHandler(IOrderQueries orders) => _orders = orders;
 
     public Task<PaginatedList<OrderSummaryDto>> Handle(GetOrdersQuery q, CancellationToken ct) =>
-        _orders.ListAsync(PageRequest.From(q), ct);
+        q.CustomerId is int customerId
+            ? _orders.ListForCustomerAsync(customerId, PageRequest.From(q), ct)
+            : _orders.ListAsync(PageRequest.From(q), ct);
 }

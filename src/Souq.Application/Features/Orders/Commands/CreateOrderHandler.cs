@@ -60,6 +60,20 @@ public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, Result<Ord
             // توكن صالح لحساب لم يعد موجوداً ⇒ الهوية نفسها لم تعد صالحة (401 ⇒ إعادة دخول).
             return Result<OrderCreatedDto>.Failure(Error.Unauthorized("CustomerNotFound", "العميل غير موجود"));
 
+        // المحظور تجارياً (المرحلة 7) يرى حسابه وطلباته لكنه لا يطلب.
+        if (customer.IsBlocked)
+            return Result<OrderCreatedDto>.Failure(Error.Forbidden("CustomerBlocked", "حسابك موقوف عن الشراء في هذا المتجر."));
+
+        // عنوان من دفتر العميل نفسه (لقطة نصّية على الطلب)، أو النصّ المُرسَل.
+        var shippingAddress = cmd.ShippingAddress ?? "";
+        if (cmd.ShippingAddressId is int addressId)
+        {
+            var saved = customer.Addresses.FirstOrDefault(a => a.Id == addressId);
+            if (saved is null)
+                return Result<OrderCreatedDto>.Failure(Error.Validation("AddressNotFound", "العنوان غير موجود في دفترك"));
+            shippingAddress = saved.ToPostalAddress().ToSingleLine(Order.ShippingAddressMaxLength);
+        }
+
         var store = _tenant.RequireTenant();
 
         // (1) التحقّق: كل سطر لمنتج قابل للبيع في هذا المتجر (المستودع مُرشَّح بالمتجر).
@@ -100,7 +114,7 @@ public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, Result<Ord
         }
 
         // (2) الطلب بلقطات الأسطر (الاسم بلغة المتجر الافتراضية — الفاتورة تبقى كما كانت لحظة الشراء)، ثم الحجز.
-        var order = new Order(customerId, cmd.ShippingAddress, store.Currency);
+        var order = new Order(customerId, shippingAddress, store.Currency);
         foreach (var (product, quantity) in lines)
             order.AddItem(product.Id, product.NameIn(store.DefaultCulture), product.Price, quantity);
         if (coupon is not null)

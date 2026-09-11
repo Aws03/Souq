@@ -43,7 +43,8 @@
       "ocean": "Ocean",
       "rose": "Rose",
       "forest": "Forest"
-    }
+    },
+    "account": "My account"
   },
   "cart": {
     "title": "Your Cart",
@@ -229,7 +230,10 @@
     "confirmFailed": "Couldn't confirm payment — please try again.",
     "orderSummaryTitle": "Order summary",
     "itemQty": "Qty: {{qty}}",
-    "discount": "Discount"
+    "discount": "Discount",
+    "savedAddressesLabel": "Saved addresses",
+    "useNewAddress": "Use a different address",
+    "manageAddresses": "Manage addresses"
   },
   "confirmation": {
     "title": "Your order was received successfully",
@@ -272,7 +276,8 @@
       "inventory": "Inventory",
       "categories": "Categories",
       "coupons": "Coupons",
-      "orders": "Orders"
+      "orders": "Orders",
+      "customers": "Customers"
     },
     "dashboard": {
       "greeting": "Welcome, {{name}}",
@@ -513,6 +518,51 @@
       "carrierLabel": "Shipping carrier (optional)",
       "carrierPlaceholder": "Aramex, Jordan Post...",
       "noteLabel": "Note (optional)"
+    },
+    "customers": {
+      "title": "Customers",
+      "subtitle": "Your store's customers, their orders and account status.",
+      "searchPlaceholder": "Search by name, email or phone…",
+      "allStatuses": "All statuses",
+      "status": {
+        "Active": "Active",
+        "Blocked": "Blocked"
+      },
+      "erased": "Erased",
+      "colCustomer": "Customer",
+      "colStatus": "Status",
+      "colOrders": "Orders",
+      "colSpent": "Spent",
+      "colLastOrder": "Last order",
+      "colActions": "Actions",
+      "view": "View details",
+      "emptyTitle": "No customers found",
+      "emptyMessage": "Customers appear here once they register in your store.",
+      "detailTitle": "Customer #{{id}}",
+      "ordersCount": "Orders",
+      "totalSpent": "Total spent",
+      "joined": "Joined",
+      "lastLogin": "Last sign-in",
+      "emailConfirmed": "Email confirmed",
+      "emailNotConfirmed": "Email not confirmed yet",
+      "blockedSince": "Blocked since {{date}}",
+      "addressesTitle": "Addresses",
+      "noAddresses": "No saved addresses.",
+      "recentOrders": "Recent orders",
+      "noOrders": "No orders yet.",
+      "action": {
+        "Block": "Block",
+        "Unblock": "Unblock",
+        "Export": "Export data",
+        "Erase": "Erase data"
+      },
+      "done": {
+        "Block": "Customer blocked",
+        "Unblock": "Customer unblocked",
+        "Erase": "Customer data erased"
+      },
+      "eraseConfirm": "The customer's name, email, phone and saved addresses will be erased permanently and they won't be able to sign in. Their orders stay for accounting. This can't be undone.",
+      "eraseConfirmButton": "Erase permanently"
     }
   },
   "wishlist": {
@@ -602,7 +652,62 @@
       "DomainTaken": "This domain is already connected to another store.",
       "CannotDisableSelf": "You can't disable your own account.",
       "LastAdministrator": "The last active administrator can't be disabled.",
-      "ServerError": "An unexpected server error occurred."
+      "ServerError": "An unexpected server error occurred.",
+      "CustomerBlocked": "Your account is suspended from placing orders and writing reviews. Please contact the store.",
+      "AddressNotFound": "The selected address isn't in your address book.",
+      "InvalidCustomerData": "The profile or address details aren't valid."
     }
+  },
+  "account": {
+    "title": "My account",
+    "subtitle": "Your details, saved addresses and privacy settings.",
+    "profileTitle": "Personal details",
+    "fullNameLabel": "Full name",
+    "emailLabel": "Email",
+    "emailHint": "This is your sign-in email and can't be changed here.",
+    "phoneLabel": "Phone (optional)",
+    "saveProfile": "Save details",
+    "profileSaved": "Your details were saved",
+    "nameRequired": "Name is required",
+    "blockedNotice": "Your account is suspended from placing orders and writing reviews. You can still view and download your data — contact the store to lift the suspension.",
+    "addressesTitle": "Address book",
+    "addAddress": "Add address",
+    "addressLimit": "You've reached the maximum of {{max}} saved addresses.",
+    "noAddressesTitle": "No saved addresses",
+    "noAddressesMessage": "Save an address to choose it quickly at checkout.",
+    "defaultShipping": "Default shipping",
+    "defaultBilling": "Default billing",
+    "makeDefaultShipping": "Use for shipping",
+    "makeDefaultBilling": "Use for billing",
+    "removeAddress": "Remove",
+    "addressSaved": "Address saved",
+    "addressRemoved": "Address removed",
+    "addressFormAdd": "New address",
+    "addressFormEdit": "Edit address",
+    "field": {
+      "label": "Label (optional)",
+      "labelPlaceholder": "Home, Work…",
+      "recipientName": "Recipient name",
+      "phone": "Recipient phone",
+      "country": "Country code (2 letters)",
+      "city": "City",
+      "region": "Region (optional)",
+      "line1": "Street address",
+      "line2": "Building, floor, apartment (optional)",
+      "postalCode": "Postal code (optional)"
+    },
+    "fieldRequired": "This field is required",
+    "useAsDefaultShipping": "Make this my default shipping address",
+    "useAsDefaultBilling": "Make this my default billing address",
+    "privacyTitle": "Privacy and data",
+    "exportTitle": "Download your data",
+    "exportDesc": "A JSON file with your profile, addresses, orders and reviews.",
+    "exportButton": "Download my data",
+    "eraseTitle": "Delete account",
+    "eraseDesc": "Your name, email, phone number and saved addresses are erased permanently, and you won't be able to sign in again. Your past orders — including the shipping address recorded on each — stay in the store's accounting records.",
+    "erasePasswordLabel": "Confirm with your password",
+    "passwordRequired": "Enter your password to confirm",
+    "eraseButton": "Delete my account permanently",
+    "erased": "Your account was deleted."
   }
 }

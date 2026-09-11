@@ -1,8 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useOutletContext } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useCart } from '../../context/CartContext';
 import { api } from '../../api/client';
+import {
+  NEW_ADDRESS, initialShippingChoice, isShippingChoiceMissing, shippingPayload,
+} from '../../features/checkout/shippingChoice';
 import { ErrorBanner, EmptyState } from '../../components/common/StateViews';
 import { PackageIcon } from '../../components/icons/Icons';
 import AddressStep from './AddressStep';
@@ -21,6 +24,8 @@ export default function Checkout() {
   const { refreshProducts } = useOutletContext();
   const navigate = useNavigate();
 
+  const [savedAddresses, setSavedAddresses] = useState(null); // null حتى يُحمَّل دفتر العناوين
+  const [shippingChoice, setShippingChoice] = useState(NEW_ADDRESS);
   const [address, setAddress] = useState('');
   const [addressTouched, setAddressTouched] = useState(false);
   const [couponCode, setCouponCode] = useState('');
@@ -32,7 +37,14 @@ export default function Checkout() {
   const [serverError, setServerError] = useState(null);
 
   const currency = items[0]?.currency || 'JOD';
-  const addressError = !address.trim() ? t('checkout.addressRequired') : null;
+  const addressError = isShippingChoiceMissing(shippingChoice, address) ? t('checkout.addressRequired') : null;
+
+  // دفتر العناوين (المرحلة 7): الافتراضي للشحن مختار مبدئياً. تعذّر تحميله ⇒ عنوان نصّي كما قبل.
+  useEffect(() => {
+    api.getMyAddresses()
+      .then((list) => { setSavedAddresses(list); setShippingChoice(initialShippingChoice(list)); })
+      .catch(() => setSavedAddresses([]));
+  }, []);
 
   const applyCoupon = async () => {
     setCouponBusy(true); setCouponError(null);
@@ -51,7 +63,7 @@ export default function Checkout() {
     setBusy(true); setServerError(null);
     try {
       const created = await api.createOrder({
-        shippingAddress: address,
+        ...shippingPayload(shippingChoice, address),
         items: items.map((i) => ({ productId: i.id, quantity: i.qty })),
         couponCode: couponPreview?.code ?? null,
       });
@@ -88,6 +100,7 @@ export default function Checkout() {
         {serverError && <ErrorBanner message={serverError} />}
         {!order ? (
           <AddressStep
+            savedAddresses={savedAddresses} shippingChoice={shippingChoice} setShippingChoice={setShippingChoice}
             address={address} setAddress={setAddress}
             addressTouched={addressTouched} setAddressTouched={setAddressTouched} addressError={addressError}
             couponCode={couponCode} setCouponCode={setCouponCode}

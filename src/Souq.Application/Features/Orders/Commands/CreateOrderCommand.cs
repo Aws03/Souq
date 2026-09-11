@@ -7,10 +7,12 @@ namespace Souq.Application.Features.Orders.Commands;
 // عميل: العميل هو المستخدم الحالي (ICurrentUser) دائماً — حقل في الجسم كان يمكن التلاعب به
 // لو نسي Controller استبداله. لا رمز دفع هنا — Stripe.js يتولّى تفاصيل البطاقة مباشرة من
 // المتصفّح؛ هذا الأمر ينشئ الطلب Pending فقط ويعيد نيّة دفع (ClientSecret) للواجهة.
+// ShippingAddressId (المرحلة 7): عنوان من دفتر العميل نفسه — تُحفظ لقطته النصّية على الطلب. بدونه يُرسل العنوان نصّاً.
 public record CreateOrderCommand(
-    string ShippingAddress,
+    string? ShippingAddress,
     List<OrderLineInput> Items,
-    string? CouponCode
+    string? CouponCode,
+    int? ShippingAddressId = null
 ) : IRequest<Result<OrderCreatedDto>>;
 
 public record OrderLineInput(int ProductId, int Quantity);

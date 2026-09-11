@@ -44,6 +44,8 @@ export default function Navbar({ onCartClick, searchTerm, onSearchChange }) {
         {isAuthenticated ? (
           <>
             <Link to="/orders" className={`${styles.linkLight} ${styles.desktopOnly}`}>{t('nav.myOrders')}</Link>
+            {/* "حسابي" لحساب عميل فقط (له ملف شراء) — نقاط /api/account ترفض الموظّف بـ 403. */}
+            {user.customerId && <Link to="/account" className={`${styles.linkLight} ${styles.desktopOnly}`}>{t('nav.account')}</Link>}
             <span className={styles.user}>{t('nav.hello', { name: user.fullName?.split(' ')[0] })}</span>
             <button className={styles.linkBtn} onClick={logout}>{t('nav.logout')}</button>
           </>

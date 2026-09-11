@@ -38,6 +38,10 @@
 .delivered { background: var(--success-soft); color: var(--success); }
 .cancelled { background: #fdf0ec; color: var(--clay); }
 
+/* حالة حساب العميل (المرحلة 7) */
+.customerActive { background: var(--success-soft); color: var(--success); }
+.customerBlocked { background: #fdf0ec; color: var(--clay); }
+
 .thumb { width: 44px; height: 44px; border-radius: 8px; overflow: hidden; background: var(--soft); }
 
 /* ── جرد المخزون ── */

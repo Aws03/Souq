@@ -27,6 +27,7 @@ public class ModuleAndContractRuleTests
         ["Promotions"] = ["Coupons"],
         ["Reviews"] = ["Reviews"],
         ["Identity"] = ["Auth", "Staff"],
+        ["Customers"] = ["Customers"],
         ["Platform"] = ["Platform", "Stores"],
         ["Reporting"] = ["Reporting"],
     };

@@ -41,9 +41,11 @@
   background: var(--petrol); box-shadow: 0 -4px 20px rgba(0, 0, 0, .18);
 }
 .tab {
-  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px;
+  flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 3px;
   padding: 10px 4px 8px; color: var(--paper); opacity: .7; font-size: 11px; text-decoration: none;
 }
+/* حتى سبعة تبويبات على 360px: التسمية تُقصّ بنقاط بدل أن تدفع الشريط خارج عرض الشاشة. */
+.tab span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tabActive { opacity: 1; color: var(--saffron-soft); }
 
 @media (max-width: 767px) {

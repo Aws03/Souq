@@ -56,8 +56,8 @@ Module schemas (`catalog.Products`) were considered and **postponed**. The owner
 | User | Identity | Tenant **or** Platform (`TenantId NULL`) | nullable | filtered: `(TenantId, NormalizedEmail) WHERE TenantId IS NOT NULL`; `(NormalizedEmail) WHERE TenantId IS NULL` | reset and verification token hashes | Soft (Disabled) | Created/Updated/LastLogin | `rowversion` |
 | Role / Permission | Identity | Reference (in code; one `Role` column per user) | — | — | — | — | — | — |
 | RefreshToken | Identity | User (store or platform) | nullable (copied from the user) | `TokenHash` | `(UserId)`, `(FamilyId)` | Hard (an expired-token purge job is planned) | Created/Used/Revoked + reason | — |
-| Customer | Customers | User (in tenant) | ✓ | `(TenantId, UserId)` | `(TenantId, CreatedAt)` | Soft (Blocked); anonymize on erasure | Created/Updated | `rowversion` |
-| CustomerAddress | Customers | User | ✓ | — | `(CustomerId)` | Hard (orders keep snapshots) | Created/Updated | — |
+| Customer | Customers | User (in tenant) | ✓ | `(TenantId, UserId)` | `(TenantId, CreatedAt)`, `(TenantId, Status)` (Phase 7) | Soft (Blocked); anonymized on erasure (Phase 7) | Created/Updated | `rowversion` |
+| CustomerAddress (Phase 7) | Customers | User | ✓ | — | `(CustomerId)`, `(TenantId)` | Hard; part of the customer aggregate (orders keep single-line snapshots) | Created/Updated | — (changed through its customer) |
 | Category | Catalog | Tenant | ✓ | `(TenantId, Slug)` | `(TenantId, ParentId, SortOrder)` | Hard, only when empty (no products or children) | Created/Updated | — |
 | Product | Catalog | Tenant | ✓ | `(TenantId, Slug)` | `(TenantId, Status, CategoryId)` | **Soft (Archived)**, since orders reference it | Created/Updated | `rowversion` |
 | ProductVariant (Phase 5: exactly one default per product) | Catalog | Tenant | ✓ | `(TenantId, Sku) WHERE Sku IS NOT NULL`; `(ProductId) WHERE IsDefault = 1` | `(ProductId, IsDefault)`; AK `(TenantId, Id)` for later cart/order references | With the product (which is archived, never deleted) | Created/Updated | — (admin edits, last write wins) |
@@ -208,6 +208,15 @@ Deferred to later phases, with the phase noted: `TenantId` (2), `Users` split (3
 | Data copy (before any drop) | On hand = the old `StockQuantity` + the quantities of Pending orders (the old checkout had already decremented them); reserved = those quantities. Active reservations for Pending orders (a fresh 30-minute window, then the sweeper settles them); Committed reservations for Paid orders not yet shipped (so cancelling them restocks as before). An opening-balance `Adjustment` wherever the history did not add up to on-hand, so Σ ledger = on hand from here on |
 | Dropped from `Products` | `StockQuantity`, `LowStockThreshold`, only **after** the copy. EF generated the drops first, which would have lost every stock level; the order was rewritten by hand |
 | `Down()` | Restores `StockQuantity` as the available quantity (on hand − reserved) and the threshold. Reservations have no place in the old schema, so it is for development only |
+
+**Phase 7 (`Phase7Customers`, additive only, [ADR-0027](adr/0027-customer-profile-and-erasure.md)):**
+
+| Change | Detail |
+|---|---|
+| `Customers` | `Phone` (nullable), `Status` (default `0` = Active, so every existing customer stays active), `BlockedAt`, `ErasedAt`. Index `(TenantId, Status)` for the admin status filter |
+| `CustomerAddresses` | New table: label, recipient, phone, country code, city, region, lines 1–2, postal code, default-shipping and default-billing flags, `TenantId`. FK to the customer with cascade (the addresses are part of its aggregate), and to the store |
+| Data | Nothing moved or rewritten. Existing orders keep their typed addresses; new orders store the same single-line snapshot |
+| `Down()` | Drops the table and the columns, so saved addresses and statuses are lost. Development only |
 
 ## 10. Migration workflow
 

@@ -60,11 +60,11 @@ public class OrdersController : ControllerBase
         return result.IsSuccess ? Ok(result.Value) : this.Failure(result);
     }
 
-    // GET /api/orders — كل الطلبات مرقّمة لشاشة الإدارة.
+    // GET /api/orders?customerId= — كل الطلبات مرقّمة لشاشة الإدارة، أو طلبات عميل واحد (صفحة تفاصيله).
     [HttpGet]
     [HasPermission(Permissions.Orders.View)]
-    public async Task<IActionResult> GetAll([FromQuery] int page = 1, [FromQuery] int pageSize = 20)
-        => Ok(await _mediator.Send(new GetOrdersQuery(page, pageSize)));
+    public async Task<IActionResult> GetAll([FromQuery] int page = 1, [FromQuery] int pageSize = 20, [FromQuery] int? customerId = null)
+        => Ok(await _mediator.Send(new GetOrdersQuery(page, pageSize, customerId)));
 
     // PUT /api/orders/5/status — شحن/تسليم/إلغاء. الإلغاء يعيد المخزون المحجوز.
     [HttpPut("{id:int}/status")]

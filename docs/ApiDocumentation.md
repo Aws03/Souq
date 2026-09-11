@@ -20,8 +20,8 @@
 |---|---|---|---|
 | Auth | `/api/auth` | host's tenant (or platform host) | anonymous + token flows |
 | Storefront | `/api/storefront` (`/config` since Phase 4); still on shared routes: `/api/products` (with `onSale`), `/api/products/{id}`, `/api/products/by-slug/{slug}` (Phase 5), `/api/categories`, `/api/coupons/apply`, `/api/products/{id}/reviews` | required | anonymous/customer |
-| Customer account | `/api/account` *(target)*; today `/api/orders/mine`, `/api/orders/{id}` | required | customer (own data) |
-| Tenant back-office | `/api/admin`: `/api/admin/inventory` (on hand, reserved, available; Phase 6 adds `POST /{productId}/adjustments` and `PUT /{productId}/threshold`, `inventory.manage`), `/api/admin/store/*` and `/api/admin/staff` (Phase 4), `/api/admin/products` (every status, full detail, `/{id}/status`, `/{id}/images/order`, `/{id}/images/{imageId}`) and `/api/admin/categories` (Phase 5), plus admin writes still on shared routes (`POST/PUT/DELETE /api/products`, `/api/categories`) | required | tenant admin/staff + permission |
+| Customer account | `/api/account` (Phase 7): `/profile`, `/addresses` (plus `/{id}/default-shipping` and `/{id}/default-billing`), `/export`, `/erase`; orders are still at `/api/orders/mine` and `/api/orders/{id}` | required | customer (own data) |
+| Tenant back-office | `/api/admin`: `/api/admin/inventory` (on hand, reserved, available; Phase 6 adds `POST /{productId}/adjustments` and `PUT /{productId}/threshold`, `inventory.manage`), `/api/admin/store/*` and `/api/admin/staff` (Phase 4), `/api/admin/products` (every status, full detail, `/{id}/status`, `/{id}/images/order`, `/{id}/images/{imageId}`) and `/api/admin/categories` (Phase 5), `/api/admin/customers` (Phase 7: list and detail with `customers.view`; `/{id}/status`, `/{id}/export` and `/{id}/erase` also need `customers.manage`), plus admin writes still on shared routes (`POST/PUT/DELETE /api/products`, `/api/categories`) | required | tenant admin/staff + permission |
 | Platform | `/api/platform/tenants`, `/api/platform/users`, `/api/platform/stats`, `/api/platform/audit` (Phase 4) | none | platform owner/admin, platform host only, every request audited |
 | Webhooks | `/api/payments/webhook` (target `/api/webhooks/{provider}`) | from provider metadata | signature |
 | Health | `/health/live`, `/health/ready` (Phase 23) | — | infrastructure |
@@ -35,13 +35,13 @@ Routes move into these areas in the phase that rebuilds each module. The fronten
 | Read OK | 200 |
 | Created | 201 + `Location` (or `{ id }`) |
 | Updated or deleted with no body | 204 |
-| Validation failed (shape, ranges, paging, unreadable JSON, unsupported upload type, a compare-at price not above the price, no text in the store's default language `DefaultTranslationRequired`) | 400 |
+| Validation failed (shape, ranges, paging, unreadable JSON, unsupported upload type, a compare-at price not above the price, no text in the store's default language `DefaultTranslationRequired`, a checkout address id that isn't in the caller's own book `AddressNotFound`) | 400 |
 | Not authenticated, token invalid, wrong credentials | 401 |
-| Authenticated but lacking the permission | 403 |
+| Authenticated but lacking the permission; a staff account on a customer use case (`CustomerAccountRequired`); a blocked customer placing an order or writing a review (`CustomerBlocked`) | 403 |
 | Resource missing **or owned by someone else** (tenant or user) | **404**. Never 403, which would leak that the resource exists. |
 | No store on this host (`StoreNotFound`); a platform endpoint on a store host or the reverse (`NotFound`); a module disabled for this store (`ModuleDisabled`) | **404** |
 | Conflict with the current state: concurrent write (`ConcurrencyConflict`), duplicate (`DuplicateValue`, `EmailTaken`, `SlugTaken`, `ProductSlugTaken`, `SkuTaken`, `TenantSlugTaken`, `DomainTaken`), delete blocked (`CategoryInUse`, `CategoryHasChildren`), database reference rejected (`ReferenceConflict`) | **409** |
-| Business rule violated (invalid transition, insufficient stock, coupon unusable, too many decimals, unreadable colour palette, `CannotDisableSelf`, `LastAdministrator`, `TenantHasNoDomain`, `ModuleDisabled` at checkout, catalog values the entity rejects, such as a malformed slug or SKU or an unsupported language (`InvalidProductData`, `InvalidCategory`), a category cycle or a tree deeper than 5 levels (`InvalidParent`), an image order that does not list every image once, a stock correction below what open orders reserve (`InvalidInventoryOperation`)) | **422** |
+| Business rule violated (invalid transition, insufficient stock, coupon unusable, too many decimals, unreadable colour palette, `CannotDisableSelf`, `LastAdministrator`, `TenantHasNoDomain`, `ModuleDisabled` at checkout, catalog values the entity rejects, such as a malformed slug or SKU or an unsupported language (`InvalidProductData`, `InvalidCategory`), a category cycle or a tree deeper than 5 levels (`InvalidParent`), an image order that does not list every image once, a stock correction below what open orders reserve (`InvalidInventoryOperation`), profile or address values the entity rejects, such as a malformed phone, a country that isn't a 2-letter code, or a 21st address (`InvalidCustomerData`)) | **422** |
 | Too many requests | 429 (Phase 3) |
 | Required external provider unavailable (`PaymentUnavailable`); store suspended, archived, or still provisioning (`StoreUnavailable`) | 503 |
 | Unexpected | 500, generic message, no internals |
@@ -116,6 +116,11 @@ Every error is RFC 7807 `application/problem+json`:
 - **Customer identity comes from the token, never from the body.**
   - Use cases read it from `ICurrentUser` (the `cid` claim); commands have no customer id field at all.
   - A staff account has no customer profile, so customer use cases answer `403 CustomerAccountRequired`.
+- **Customer account (Phase 7, [ADR-0027](adr/0027-customer-profile-and-erasure.md)):**
+  - `/api/account` acts on the caller's own profile. An address id outside the caller's book is a 404 (update, delete, defaults); at checkout it is `400 AddressNotFound`.
+  - `POST /api/orders` takes either `shippingAddressId` or a typed `shippingAddress`. The order stores a single-line snapshot, so editing an address later never changes a past order.
+  - `GET /api/account/export` and `GET /api/admin/customers/{id}/export` return the data as a JSON attachment.
+  - `POST /api/account/erase` requires the current password. Erasure revokes every session at once: the old access token gets 401 on the next request.
 - **Rate limits (Phase 3):** auth, refresh and coupon-preview endpoints answer `429 TooManyRequests` with `Retry-After` when a limit is exceeded.
 - **Platform area (Phase 4, [ADR-0024](adr/0024-platform-administration.md)):**
   - Endpoints are marked `[PlatformEndpoint]` and are served only on platform hosts, behind `platform.*` permissions.

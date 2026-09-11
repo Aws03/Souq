@@ -31,7 +31,7 @@ namespace Souq.IntegrationTests;
 public class TenantIsolationTests
 {
     private enum Actor { Anonymous, Admin, Customer }
-    private enum Resource { Product, ProductImage, Category, Coupon, Order, StaffAccount }
+    private enum Resource { Product, ProductImage, Category, Coupon, Order, StaffAccount, Customer, CustomerAddress }
 
     private sealed record ForeignCase(string Method, string Route, Resource Resource, Actor Actor, Func<HttpContent>? Body = null);
 
@@ -68,6 +68,15 @@ public class TenantIsolationTests
             () => JsonBody(new { delta = 50, reason = "محاولة من متجر آخر" })),
         new("PUT", "api/admin/inventory/{productId:int}/threshold", Resource.Product, Actor.Admin,
             () => JsonBody(new { lowStockThreshold = 99 })),
+        new("GET", "api/admin/customers/{id:int}", Resource.Customer, Actor.Admin),
+        new("PUT", "api/admin/customers/{id:int}/status", Resource.Customer, Actor.Admin, () => JsonBody(new { status = "Blocked" })),
+        new("GET", "api/admin/customers/{id:int}/export", Resource.Customer, Actor.Admin),
+        new("POST", "api/admin/customers/{id:int}/erase", Resource.Customer, Actor.Admin),
+        new("PUT", "api/account/addresses/{id:int}", Resource.CustomerAddress, Actor.Customer,
+            () => JsonBody(new { recipientName = "مسروق", phone = "0790000000", country = "JO", city = "عمّان", line1 = "شارع" })),
+        new("DELETE", "api/account/addresses/{id:int}", Resource.CustomerAddress, Actor.Customer),
+        new("PUT", "api/account/addresses/{id:int}/default-shipping", Resource.CustomerAddress, Actor.Customer),
+        new("PUT", "api/account/addresses/{id:int}/default-billing", Resource.CustomerAddress, Actor.Customer),
         new("POST", "api/admin/staff/{id:int}/status", Resource.StaffAccount, Actor.Admin, () => JsonBody(new { active = false })),
     ];
 
@@ -141,6 +150,12 @@ public class TenantIsolationTests
         var staffId = s.AIds[Resource.StaffAccount];
         (await s.StoreA.WithDbAsync(db => db.Users.Where(u => u.Id == staffId).Select(u => u.Status).SingleAsync()))
             .Should().Be(UserStatus.Active, "مدير متجر B لا يوقف موظّف متجر A");
+
+        // عميل A لم يُحظر ولم يُمحَ، وعنوانه باقٍ كما هو.
+        var customerId = s.AIds[Resource.Customer];
+        (await s.StoreA.WithDbAsync(db => db.Customers.Where(c => c.Id == customerId)
+                .Select(c => new { c.Status, Erased = c.ErasedAt != null, Addresses = c.Addresses.Count() }).SingleAsync()))
+            .Should().BeEquivalentTo(new { Status = CustomerStatus.Active, Erased = false, Addresses = 1 });
     }
 
     [Fact]
@@ -169,6 +184,8 @@ public class TenantIsolationTests
         (await IdsAsync(s.AdminB, "/api/admin/inventory?pageSize=100")).Should().Equal(bProduct);
         (await IdsAsync(s.AdminB, "/api/admin/inventory/low-stock?pageSize=100")).Should().Equal(bProduct);
         (await IdsAsync(s.AdminB, "/api/admin/products?pageSize=100")).Should().Equal(bProduct);
+        (await IdsAsync(s.AdminB, "/api/admin/customers?pageSize=100")).Should().NotContain(s.AIds[Resource.Customer]);
+        (await IdsAsync(s.AdminB, $"/api/orders?customerId={s.AIds[Resource.Customer]}&pageSize=100")).Should().BeEmpty();
         (await IdsAsync(s.AdminB, "/api/coupons?pageSize=100")).Should().BeEmpty();
         (await IdsAsync(s.AdminB, "/api/orders?pageSize=100")).Should().BeEmpty();
         var bCategories = await s.StoreB.Anonymous().GetFromJsonAsync<List<TestApi.IdBody>>("/api/categories", TestApi.Json);
@@ -375,7 +392,14 @@ public class TenantIsolationTests
         var couponResponse = await adminA.PostAsJsonAsync("/api/coupons", new { code = couponCode, type = "Percentage", value = 10m });
         couponResponse.StatusCode.Should().Be(HttpStatusCode.Created, await couponResponse.Content.ReadAsStringAsync());
         var couponId = (await couponResponse.Content.ReadFromJsonAsync<TestApi.IdBody>(TestApi.Json))!.Id;
-        var (customerA, _) = await storeA.NewCustomerAsync();
+        var (customerA, customerEmail) = await storeA.NewCustomerAsync();
+        var addressResponse = await customerA.PostAsJsonAsync("/api/account/addresses", new
+        {
+            address = new { recipientName = "عميل A", phone = "0790000000", country = "JO", city = "عمّان", line1 = "شارع A" },
+        });
+        addressResponse.StatusCode.Should().Be(HttpStatusCode.Created, await addressResponse.Content.ReadAsStringAsync());
+        var addressId = (await addressResponse.Content.ReadFromJsonAsync<TestApi.IdBody>(TestApi.Json))!.Id;
+        var customerId = await storeA.WithDbAsync(db => db.Customers.Where(c => c.Email == customerEmail).Select(c => c.Id).SingleAsync());
         var placed = await storeA.PlaceOrderAsync(customerA, productId, 1);
         placed.StatusCode.Should().Be(HttpStatusCode.Created, await placed.Content.ReadAsStringAsync());
         var orderId = (await placed.Content.ReadFromJsonAsync<TestApi.OrderCreatedBody>(TestApi.Json))!.OrderId;
@@ -389,6 +413,7 @@ public class TenantIsolationTests
             {
                 [Resource.Product] = productId, [Resource.ProductImage] = imageId, [Resource.Category] = categoryId,
                 [Resource.Coupon] = couponId, [Resource.Order] = orderId, [Resource.StaffAccount] = staffId,
+                [Resource.Customer] = customerId, [Resource.CustomerAddress] = addressId,
             },
             couponCode, productSlug);
     }

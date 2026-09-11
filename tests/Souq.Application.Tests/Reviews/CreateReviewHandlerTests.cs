@@ -15,10 +15,28 @@ public class CreateReviewHandlerTests
 {
     private readonly IReviewRepository _reviews = Substitute.For<IReviewRepository>();
     private readonly IOrderRepository _orders = Substitute.For<IOrderRepository>();
+    private readonly ICustomerRepository _customers = Substitute.For<ICustomerRepository>();
     private readonly IUnitOfWork _uow = Substitute.For<IUnitOfWork>();
+    private readonly Customer _customer = new(userId: 1, "عميل", "c@souq.test");
+
+    public CreateReviewHandlerTests() =>
+        _customers.GetByIdAsync(Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns(_customer);
 
     private CreateReviewHandler CreateHandler(TestCurrentUser? user = null) =>
-        new(_reviews, _orders, user ?? TestCurrentUser.Customer(1), _uow);
+        new(_reviews, _orders, _customers, user ?? TestCurrentUser.Customer(1), _uow);
+
+    [Fact]
+    public async Task عميل_محظور_لا_يقيّم_حتى_لو_استلم()
+    {
+        // المرحلة 7: الحظر التجاري يمنع التقييم كما يمنع الشراء.
+        _customer.Block(DateTime.UtcNow);
+        _orders.FindDeliveredOrderIdContainingAsync(1, 5, Arg.Any<CancellationToken>()).Returns(9);
+
+        var result = await CreateHandler().Handle(new CreateReviewCommand(ProductId: 5, Rating: 5, Comment: "ممتاز"), CancellationToken.None);
+
+        result.ErrorCode.Should().Be("CustomerBlocked");
+        await _reviews.DidNotReceive().AddAsync(Arg.Any<Review>(), Arg.Any<CancellationToken>());
+    }
 
     [Fact]
     public async Task عميل_بلا_طلب_مُسلَّم_يحوي_المنتج_يُرفض()

@@ -71,6 +71,13 @@
     - Stock corrections and thresholds require `inventory.manage` on top of `inventory.view`. Every correction is audited with its delta and reason.
     - Store B's admin gets 404 for A's product on both endpoints, and A's stock and threshold are unchanged (`TenantIsolationTests`).
     - Reservations and ledger rows reference the item through composite tenant-scoped foreign keys, and the expiry sweep runs inside each store's own scope.
+  - **Customers (Phase 7, [ADR-0027](adr/0027-customer-profile-and-erasure.md)):**
+    - `/api/account` carries no customer id: the profile is always the caller's (`cid`).
+    - An address id outside the caller's own book is a 404 on update, delete and both default endpoints, and a checkout with one is `400 AddressNotFound`. A guessed id never reveals or uses someone else's address.
+    - Store B's admin gets 404 on every admin customer route for A's customer. B's list and `orders?customerId=` exclude A's customer, and A's customer is unchanged afterwards (`TenantIsolationTests`).
+    - Blocking, exporting and erasing need `customers.manage` on top of `customers.view`. They are audited, and so are a customer's own export and erasure.
+    - Self-erasure needs the current password. Erasure anonymizes the profile and the login in one save, revokes refresh tokens and forgets the cached security stamp, so existing access tokens stop working immediately.
+    - Exports contain no credential material (no password hash, tokens or security stamp).
 
 ## 4. Transport, CORS, headers, rate limiting
 

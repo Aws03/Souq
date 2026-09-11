@@ -125,6 +125,17 @@ It displays the server's decisions and handles its errors.
 | The product form sets stock and the threshold only when a product is created; on edit it shows a read-only summary pointing to the inventory page. `productPayload.js` (tested) never sends stock on edit | The product aggregate no longer owns stock ([ADR-0026](adr/0026-inventory-reservations.md)) |
 | `StockChanged` translation removed; `InvalidInventoryOperation` added | The compare-and-set path no longer exists |
 
+**Phase 7 (customers):**
+
+| Change | Reason |
+|---|---|
+| `/account` ("My account"; the link shows only when the session has a `customerId`): a profile form, the address book with an add/edit drawer and default actions, a data download, and account deletion with password confirmation followed by a local sign-out | Self-service profile and data rights ([ADR-0027](adr/0027-customer-profile-and-erasure.md)) |
+| Checkout lists saved addresses with the default shipping address preselected, and sends only `shippingAddressId`. "Use a different address" keeps the free-text field. `features/checkout/shippingChoice.js` (tested) | The server snapshots the caller's own address; the client never sends address text it didn't type |
+| `/admin/customers` (`customers.view`): search, status filter, order count, spend and last order. A detail drawer shows addresses, recent orders (`orders.view`), and block / export / erase (`customers.manage`; erase asks for explicit confirmation). `features/admin/customers/customerActions.js` (tested) mirrors the entity rules | Admin customer management |
+| `features/account/addressForm.js` (tested) builds the address payload: trimmed, upper-case country, empty optional fields as `null` | One address shape for the account page and the admin views |
+| The admin mobile tab bar truncates labels, so seven tabs fit on a 360px screen | The new Customers tab |
+| New error codes translated (`CustomerBlocked`, `AddressNotFound`, `InvalidCustomerData`) | Server decisions shown in both languages |
+
 ## 6. Phase 15 migration plan
 
 1. Introduce `app/`, `routes/`, `layouts/`, and `contexts/` without moving features. The app keeps working.

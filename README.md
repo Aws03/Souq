@@ -249,6 +249,29 @@ is running. Summary of the main endpoints:
 Placing an order reserves stock; paying commits it; cancelling releases it (or restocks a paid order).
 Unpaid checkouts expire after `Inventory:ReservationMinutes` (default 30).
 
+### Customer account
+| Method | Endpoint                                           | Auth     | Description                                         |
+| ------ | --------------------------------------------------- | -------- | ---------------------------------------------------- |
+| GET    | `/api/account/profile`                              | Customer | The caller's profile and addresses                  |
+| PUT    | `/api/account/profile`                              | Customer | Update name and phone                               |
+| GET    | `/api/account/addresses`                            | Customer | The address book (default shipping first)           |
+| POST   | `/api/account/addresses`                            | Customer | Add an address, optionally as a default             |
+| PUT    | `/api/account/addresses/{id}`                       | Customer | Update an address (own addresses only; others are 404) |
+| DELETE | `/api/account/addresses/{id}`                       | Customer | Remove an address                                   |
+| PUT    | `/api/account/addresses/{id}/default-shipping`      | Customer | Make it the default shipping address                |
+| PUT    | `/api/account/addresses/{id}/default-billing`       | Customer | Make it the default billing address                 |
+| GET    | `/api/account/export`                               | Customer | Download all of the caller's data (JSON)            |
+| POST   | `/api/account/erase`                                | Customer | Delete the account (password required; orders are kept) |
+
+### Customers (admin)
+| Method | Endpoint                                                      | Auth  | Description                                        |
+| ------ | -------------------------------------------------------------- | ----- | --------------------------------------------------- |
+| GET    | `/api/admin/customers?keyword=&status=&page=1&pageSize=20`     | Admin | Customers with order count, spend and last order   |
+| GET    | `/api/admin/customers/{id}`                                    | Admin | Detail with addresses (orders: `/api/orders?customerId=`) |
+| PUT    | `/api/admin/customers/{id}/status`                             | Admin | Block or unblock                                   |
+| GET    | `/api/admin/customers/{id}/export`                             | Admin | Export a customer's data                           |
+| POST   | `/api/admin/customers/{id}/erase`                              | Admin | Erase a customer's personal data                   |
+
 ### Coupons
 | Method | Endpoint                                          | Auth  | Description                              |
 | ------ | --------------------------------------------------- | ----- | ------------------------------------------ |
@@ -261,11 +284,11 @@ Unpaid checkouts expire after `Inventory:ReservationMinutes` (default 30).
 ### Orders & Payments
 | Method | Endpoint                                | Auth      | Description                                 |
 | ------ | ------------------------------------------ | --------- | --------------------------------------------- |
-| POST   | `/api/orders`                                | Customer  | Place an order and start payment              |
+| POST   | `/api/orders`                                | Customer  | Place an order (a saved `shippingAddressId` or a typed address) and start payment |
 | POST   | `/api/orders/{id}/confirm-payment`           | Customer  | Confirm payment client-side after Stripe Elements |
 | GET    | `/api/orders/{id}`                            | Customer  | Get order details (own orders only; others are 404) |
 | GET    | `/api/orders/mine?page=1&pageSize=20`          | Customer  | The current customer's orders (paged)         |
-| GET    | `/api/orders?page=1&pageSize=20`               | Admin     | List all orders                               |
+| GET    | `/api/orders?page=1&pageSize=20&customerId=`   | Admin     | List all orders, optionally for one customer  |
 | PUT    | `/api/orders/{id}/status`                      | Admin     | Update order status                           |
 | GET    | `/api/payments/config`                         | —         | Get the Stripe publishable key                |
 | POST   | `/api/payments/webhook`                        | —         | Stripe webhook (signature-verified, idempotent) |

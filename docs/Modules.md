@@ -190,7 +190,11 @@ Each entry lists:
 - **Depends on:** Identity (UserId).
 - **Forbidden:** authentication logic.
 - **Extraction:** unlikely.
-- **Today:** mixed into `Customer`.
+- **Today (Phase 7, [ADR-0027](adr/0027-customer-profile-and-erasure.md)):**
+  - `Customer` (profile, phone, status, erasure) owns its `CustomerAddress`es. `PostalAddress` is the address value object.
+  - `Features/Customers/Account` covers the caller's own profile, addresses, export and erasure. `Features/Customers/Admin` covers list, detail, status, export and erasure. `CustomerErasure` is the single erasure path for both.
+  - Read projections (`ICustomerQueries`: the list with order count, spend and last order; the detail; the export) live in Infrastructure, so the Application layer has no Customers → Ordering dependency. Order history comes from Ordering (`GET /api/orders?customerId=`).
+  - Ordering and Reviews still load the `Customer` aggregate through `ICustomerRepository` (block check, address snapshot). The narrower `ICustomerDirectory` contract above is deferred until a second consumer or an extraction needs it.
 
 ### Shopping (Basket Phase 8, Wishlist Phase 13)
 - **Responsibility:** what a shopper intends to buy or remember.

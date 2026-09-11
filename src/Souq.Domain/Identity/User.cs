@@ -166,6 +166,21 @@ public class User : Entity, ITenantOrPlatformOwned
 
     public void Enable() => Status = UserStatus.Active;
 
+    // حقّ الحذف (المرحلة 7): الاسم والبريد يُستبدلان بقيم لا تعرّف أحداً (فريدة بالمعرّف كي يبقى قيد البريد الفريد
+    // سليماً)، وكلمة المرور تُمحى (تجزئة فارغة ⇒ الدخول مستحيل)، والرموز تُلغى، والحساب يتوقّف وتسقط جلساته. الصفّ يبقى
+    // لأن ملف العميل وطلباته تشير إليه. مضمون التكرار.
+    public void Erase()
+    {
+        FullName = "حساب محذوف";
+        SetEmail($"erased-{Id}@erased.invalid");
+        PasswordHash = "";
+        ClearResetToken();
+        EmailVerificationTokenHash = null;
+        EmailVerificationTokenExpiry = null;
+        Status = UserStatus.Disabled;
+        RotateSecurityStamp();
+    }
+
     // لا عبور بين عالمَي المنصّة والمتجر بتغيير الدور: حساب المتجر يبقى حساب متجر.
     public void ChangeRole(string role)
     {

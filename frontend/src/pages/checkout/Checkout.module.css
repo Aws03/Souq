@@ -29,6 +29,18 @@
   font-family: var(--font-display); color: var(--petrol); padding-top: 12px; border-top: 1px dashed var(--line);
 }
 
+/* ── عناوين الدفتر (المرحلة 7) ── */
+.addressChoices { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
+.addressChoice {
+  display: flex; align-items: flex-start; gap: 10px; cursor: pointer;
+  border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; background: var(--surface);
+}
+.addressChoice input { margin-top: 4px; accent-color: var(--petrol); flex-shrink: 0; }
+.addressChoiceActive { border-color: var(--petrol); box-shadow: inset 0 0 0 1px var(--petrol); }
+.addressChoiceText { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.addressChoiceLine { color: var(--muted); font-size: var(--fs-caption); overflow-wrap: anywhere; }
+.manageAddresses { align-self: flex-start; font-size: var(--fs-caption); font-weight: 700; color: var(--petrol); }
+
 /* ── كوبون الخصم ── */
 .couponRow { display: flex; gap: 10px; margin-bottom: 6px; flex-wrap: wrap; }
 .couponRow input {

@@ -10,6 +10,7 @@ using Souq.Application.Common.Interfaces;
 using Souq.Application.Common.Security;
 using Souq.Application.Common.Tenancy;
 using Souq.Application.Features.Coupons.Queries;
+using Souq.Application.Features.Customers;
 using Souq.Application.Features.Inventory.Queries;
 using Souq.Application.Features.Inventory.Reservations;
 using Souq.Application.Features.Orders.Queries;
@@ -105,6 +106,7 @@ public static class DependencyInjection
         services.AddScoped<IReviewQueries, ReviewQueries>();
         services.AddScoped<IInventoryQueries, InventoryQueries>();
         services.AddScoped<IAccountQueries, AccountQueries>();
+        services.AddScoped<ICustomerQueries, CustomerQueries>();
         // منطقة المنصّة والإحصاءات: الصنف المُراجَع الوحيد لتجاوز مرشّح المستأجر يخدم منفذيهما.
         services.AddScoped<PlatformQueries>();
         services.AddScoped<IPlatformQueries>(sp => sp.GetRequiredService<PlatformQueries>());

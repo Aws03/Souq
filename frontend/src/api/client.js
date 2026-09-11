@@ -100,6 +100,18 @@ export const api = {
   verifyEmail: (token) => publicAuth('/auth/verify-email', { token }),
   resendVerification: () => request('/auth/resend-verification', { method: 'POST' }),
 
+  // ── حساب العميل (المرحلة 7) ── العميل هو المستخدم الحالي دائماً؛ لا معرّف عميل في أي طلب.
+  getMyProfile: () => request('/account/profile'),
+  updateMyProfile: (payload) => request('/account/profile', { method: 'PUT', body: JSON.stringify(payload) }),
+  getMyAddresses: () => request('/account/addresses'),
+  addMyAddress: (address, { defaultShipping = false, defaultBilling = false } = {}) =>
+    request('/account/addresses', { method: 'POST', body: JSON.stringify({ address, defaultShipping, defaultBilling }) }),
+  updateMyAddress: (id, address) => request(`/account/addresses/${id}`, { method: 'PUT', body: JSON.stringify(address) }),
+  removeMyAddress: (id) => request(`/account/addresses/${id}`, { method: 'DELETE' }),
+  setMyDefaultAddress: (id, use) => request(`/account/addresses/${id}/default-${use}`, { method: 'PUT' }),
+  exportMyData: () => request('/account/export'),
+  eraseMyAccount: (password) => request('/account/erase', { method: 'POST', body: JSON.stringify({ password }) }),
+
   // ── الكتالوج ── (سلسلة الاستعلام لكل القوائم من toQueryString: مصفوفات بمفتاح متكرّر)
   getProducts: (params = {}) => request(`/products${toQueryString(params)}`),
   getProduct: (id) => request(`/products/${id}`),
@@ -172,6 +184,14 @@ export const api = {
     request(`/admin/inventory/${productId}/adjustments`, { method: 'POST', body: JSON.stringify({ delta, reason }) }),
   setStockThreshold: (productId, lowStockThreshold) =>
     request(`/admin/inventory/${productId}/threshold`, { method: 'PUT', body: JSON.stringify({ lowStockThreshold }) }),
+
+  // ── عملاء المتجر (أدمن، المرحلة 7) ── سجلّ طلبات عميل من getOrders({ customerId }).
+  getCustomers: (params = {}) => request(`/admin/customers${toQueryString(params)}`),
+  getCustomer: (id) => request(`/admin/customers/${id}`),
+  setCustomerStatus: (id, status) =>
+    request(`/admin/customers/${id}/status`, { method: 'PUT', body: JSON.stringify({ status }) }),
+  exportCustomer: (id) => request(`/admin/customers/${id}/export`),
+  eraseCustomer: (id) => request(`/admin/customers/${id}/erase`, { method: 'POST' }),
 
   // ── إدارة الطلبات (أدمن) ──
   getOrders: (params = {}) => request(`/orders${toQueryString(params)}`),

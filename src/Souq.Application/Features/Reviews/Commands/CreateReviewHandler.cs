@@ -10,23 +10,29 @@ namespace Souq.Application.Features.Reviews.Commands;
 // CreateReviewHandler — يفرض قاعدة "لا تقييم بلا شراء واستلام فعليّين" (تمنع
 // تقييمات مزيّفة). القاعدة تُفرَض هنا لا في كيان Review نفسه، لأنها تتقاطع بين
 // تجمّعين (Order وReview) — المعالج ينسّق، الكيان يحرس قواعده الخاصة فقط.
-// المقيِّم هو المستخدم الحالي دائماً (ICurrentUser) — لا تقييم باسم عميل آخر.
+// المقيِّم هو المستخدم الحالي دائماً (ICurrentUser) — لا تقييم باسم عميل آخر، ولا تقييم من محظور (المرحلة 7).
 // ============================================================================
 public class CreateReviewHandler : IRequestHandler<CreateReviewCommand, Result<int>>
 {
     private readonly IReviewRepository _reviews;
     private readonly IOrderRepository _orders;
+    private readonly ICustomerRepository _customers;
     private readonly ICurrentUser _currentUser;
     private readonly IUnitOfWork _uow;
 
-    public CreateReviewHandler(IReviewRepository reviews, IOrderRepository orders, ICurrentUser currentUser, IUnitOfWork uow)
+    public CreateReviewHandler(
+        IReviewRepository reviews, IOrderRepository orders, ICustomerRepository customers, ICurrentUser currentUser, IUnitOfWork uow)
     {
-        _reviews = reviews; _orders = orders; _currentUser = currentUser; _uow = uow;
+        _reviews = reviews; _orders = orders; _customers = customers; _currentUser = currentUser; _uow = uow;
     }
 
     public async Task<Result<int>> Handle(CreateReviewCommand cmd, CancellationToken ct)
     {
         var customerId = _currentUser.RequireCustomerId();
+
+        var customer = await _customers.GetByIdAsync(customerId, ct);
+        if (customer is null || customer.IsBlocked)
+            return Result<int>.Failure(Error.Forbidden("CustomerBlocked", "حسابك موقوف عن التقييم في هذا المتجر."));
 
         if (await _reviews.HasCustomerReviewedProductAsync(customerId, cmd.ProductId, ct))
             return Result<int>.Failure(Error.Conflict("AlreadyReviewed", "قيّمت هذا المنتج مسبقاً"));

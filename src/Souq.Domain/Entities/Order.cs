@@ -19,6 +19,8 @@ namespace Souq.Domain.Entities;
 // ============================================================================
 public class Order : Entity, ITenantOwned
 {
+    public const int ShippingAddressMaxLength = 500;
+
     private readonly List<OrderItem> _items = new();
     // سجلّ انتقالات الحالة — جزء من التجمّع مثل _items تماماً. RecordStatusChange
     // هو الباب الوحيد للإضافة إليه، يُستدعى داخلياً من كل دالة تُغيّر Status،
@@ -54,8 +56,11 @@ public class Order : Entity, ITenantOwned
 
     public Order(int customerId, string shippingAddress, string currency)
     {
+        var address = shippingAddress?.Trim() ?? "";
+        if (address.Length is 0 or > ShippingAddressMaxLength)
+            throw new InvalidOrderOperationException($"عنوان الشحن مطلوب (حتى {ShippingAddressMaxLength} حرف)");
         CustomerId = customerId;
-        ShippingAddress = shippingAddress;
+        ShippingAddress = address;
         Currency = Money.Zero(currency).Currency;   // يتحقّق من الرمز ويوحّد صيغته
         Status = OrderStatus.Pending;   // كل طلب يبدأ "بانتظار الدفع"
         RecordStatusChange(null);       // سطر تاريخ أول يوثّق لحظة إنشاء الطلب

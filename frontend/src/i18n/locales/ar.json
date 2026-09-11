@@ -43,7 +43,8 @@
       "ocean": "المحيط",
       "rose": "وردي",
       "forest": "الغابة"
-    }
+    },
+    "account": "حسابي"
   },
   "cart": {
     "title": "سلّتك",
@@ -229,7 +230,10 @@
     "confirmFailed": "تعذّر تأكيد الدفع — حاول مرة أخرى.",
     "orderSummaryTitle": "ملخّص الطلب",
     "itemQty": "الكمية: {{qty}}",
-    "discount": "الخصم"
+    "discount": "الخصم",
+    "savedAddressesLabel": "العناوين المحفوظة",
+    "useNewAddress": "عنوان آخر",
+    "manageAddresses": "إدارة العناوين"
   },
   "confirmation": {
     "title": "تم استلام طلبك بنجاح",
@@ -272,7 +276,8 @@
       "inventory": "المخزون",
       "categories": "الفئات",
       "coupons": "الكوبونات",
-      "orders": "الطلبات"
+      "orders": "الطلبات",
+      "customers": "العملاء"
     },
     "dashboard": {
       "greeting": "أهلاً، {{name}}",
@@ -513,6 +518,51 @@
       "carrierLabel": "شركة الشحن (اختياري)",
       "carrierPlaceholder": "أرامكس، بريد أردن...",
       "noteLabel": "ملاحظة (اختياري)"
+    },
+    "customers": {
+      "title": "العملاء",
+      "subtitle": "عملاء متجرك وطلباتهم وحالة حساباتهم.",
+      "searchPlaceholder": "ابحث بالاسم أو البريد أو الهاتف…",
+      "allStatuses": "كل الحالات",
+      "status": {
+        "Active": "نشط",
+        "Blocked": "موقوف"
+      },
+      "erased": "محذوف",
+      "colCustomer": "العميل",
+      "colStatus": "الحالة",
+      "colOrders": "الطلبات",
+      "colSpent": "الإنفاق",
+      "colLastOrder": "آخر طلب",
+      "colActions": "الإجراءات",
+      "view": "عرض التفاصيل",
+      "emptyTitle": "لا عملاء",
+      "emptyMessage": "يظهر العملاء هنا فور تسجيلهم في متجرك.",
+      "detailTitle": "العميل #{{id}}",
+      "ordersCount": "الطلبات",
+      "totalSpent": "إجمالي الإنفاق",
+      "joined": "تاريخ التسجيل",
+      "lastLogin": "آخر دخول",
+      "emailConfirmed": "البريد مؤكَّد",
+      "emailNotConfirmed": "البريد لم يُؤكَّد بعد",
+      "blockedSince": "موقوف منذ {{date}}",
+      "addressesTitle": "العناوين",
+      "noAddresses": "لا عناوين محفوظة.",
+      "recentOrders": "آخر الطلبات",
+      "noOrders": "لا طلبات بعد.",
+      "action": {
+        "Block": "إيقاف",
+        "Unblock": "رفع الإيقاف",
+        "Export": "تصدير البيانات",
+        "Erase": "حذف البيانات"
+      },
+      "done": {
+        "Block": "تم إيقاف العميل",
+        "Unblock": "تم رفع الإيقاف عن العميل",
+        "Erase": "تم حذف بيانات العميل"
+      },
+      "eraseConfirm": "سيُمحى اسم العميل وبريده وهاتفه وعناوينه المحفوظة نهائياً ولن يستطيع الدخول. تبقى طلباته للمحاسبة. لا يمكن التراجع عن هذا.",
+      "eraseConfirmButton": "حذف نهائي"
     }
   },
   "wishlist": {
@@ -602,7 +652,62 @@
       "DomainTaken": "هذا النطاق مربوط بمتجر آخر على المنصّة.",
       "CannotDisableSelf": "لا يمكنك إيقاف حسابك بنفسك.",
       "LastAdministrator": "لا يمكن إيقاف آخر حساب إداري فعّال.",
-      "ServerError": "حدث خطأ غير متوقّع في الخادم."
+      "ServerError": "حدث خطأ غير متوقّع في الخادم.",
+      "CustomerBlocked": "حسابك موقوف عن الطلب والتقييم. تواصل مع المتجر.",
+      "AddressNotFound": "العنوان المختار غير موجود في دفتر عناوينك.",
+      "InvalidCustomerData": "بيانات الملف أو العنوان غير صالحة."
     }
+  },
+  "account": {
+    "title": "حسابي",
+    "subtitle": "بياناتك وعناوينك المحفوظة وإعدادات خصوصيتك.",
+    "profileTitle": "البيانات الشخصية",
+    "fullNameLabel": "الاسم الكامل",
+    "emailLabel": "البريد الإلكتروني",
+    "emailHint": "بريد تسجيل الدخول، ولا يتغيّر من هنا.",
+    "phoneLabel": "الهاتف (اختياري)",
+    "saveProfile": "حفظ البيانات",
+    "profileSaved": "تم حفظ بياناتك",
+    "nameRequired": "الاسم مطلوب",
+    "blockedNotice": "حسابك موقوف عن الطلب والتقييم. ما زال بإمكانك الاطلاع على بياناتك وتنزيلها — تواصل مع المتجر لرفع الإيقاف.",
+    "addressesTitle": "دفتر العناوين",
+    "addAddress": "إضافة عنوان",
+    "addressLimit": "بلغت الحدّ الأقصى للعناوين المحفوظة ({{max}}).",
+    "noAddressesTitle": "لا عناوين محفوظة",
+    "noAddressesMessage": "احفظ عنواناً لتختاره بسرعة عند الدفع.",
+    "defaultShipping": "افتراضي للشحن",
+    "defaultBilling": "افتراضي للفوترة",
+    "makeDefaultShipping": "استخدمه للشحن",
+    "makeDefaultBilling": "استخدمه للفوترة",
+    "removeAddress": "حذف",
+    "addressSaved": "تم حفظ العنوان",
+    "addressRemoved": "تم حذف العنوان",
+    "addressFormAdd": "عنوان جديد",
+    "addressFormEdit": "تعديل العنوان",
+    "field": {
+      "label": "اسم مختصر (اختياري)",
+      "labelPlaceholder": "المنزل، العمل…",
+      "recipientName": "اسم المستلم",
+      "phone": "هاتف المستلم",
+      "country": "رمز الدولة (حرفان)",
+      "city": "المدينة",
+      "region": "المنطقة (اختياري)",
+      "line1": "الشارع والعنوان",
+      "line2": "المبنى، الطابق، الشقة (اختياري)",
+      "postalCode": "الرمز البريدي (اختياري)"
+    },
+    "fieldRequired": "هذا الحقل مطلوب",
+    "useAsDefaultShipping": "اجعله عنوان الشحن الافتراضي",
+    "useAsDefaultBilling": "اجعله عنوان الفوترة الافتراضي",
+    "privacyTitle": "الخصوصية والبيانات",
+    "exportTitle": "تنزيل بياناتك",
+    "exportDesc": "ملف JSON يضمّ ملفك وعناوينك وطلباتك وتقييماتك.",
+    "exportButton": "تنزيل بياناتي",
+    "eraseTitle": "حذف الحساب",
+    "eraseDesc": "يُمحى اسمك وبريدك وهاتفك وعناوينك المحفوظة نهائياً ولن تستطيع الدخول بعدها. تبقى طلباتك السابقة — ومعها عنوان الشحن المسجّل على كل طلب — ضمن سجلات المتجر المحاسبية.",
+    "erasePasswordLabel": "أكّد بكلمة المرور",
+    "passwordRequired": "أدخل كلمة المرور للتأكيد",
+    "eraseButton": "حذف حسابي نهائياً",
+    "erased": "تم حذف حسابك."
   }
 }

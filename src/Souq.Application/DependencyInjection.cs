@@ -51,6 +51,8 @@ public static class DependencyInjection
             Features.Inventory.Reservations.VariantStockInitializer>();
         // منطق تأكيد الدفع وإلغاء الطلب غير المشحون، لكل مداخله (العميل المالك، توقيع البوّابة، منسّق المهلة).
         services.AddScoped<Features.Orders.OrderPaymentConfirmation>();
+        // محو العميل (حقّ الحذف) — مسار واحد للعميل نفسه وللإدارة (المرحلة 7).
+        services.AddScoped<Features.Customers.CustomerErasure>();
         // إصدار الجلسات (رمز تجديد + توكن وصول) لكل مداخلها: دخول، تسجيل، تجديد، تغيير كلمة مرور.
         services.AddScoped<Features.Auth.AuthSessionIssuer>();
         // حسابات الإدارة (دعوة، تفعيل/إيقاف) مشتركة بين منطقة المنصّة وإدارة موظّفي المتجر.

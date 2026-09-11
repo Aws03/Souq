@@ -1,7 +1,7 @@
 # Souq Platform: Product Roadmap
 
 > **Goal:** turn Souq into one **white-label, multi-tenant e-commerce platform**, sold to many clients (≈ $5,000+ each) and maintainable by a professional team.
-> **Status:** Phase 0 ✅ · Target architecture ✅ documented · Phase 1A ✅ (merged to `main`) · Phase 1B ✅ on branch `phase/1b-production-foundations` (awaiting review) · **Autonomous run on `phase/2-15-multitenant-platform`** (branched from the 1B tip): Phase 2 ✅ · Phase 3 ✅ · Phase 4 ✅ · Phase 5 ✅ · Phase 6 ✅. Next: Phase 7.
+> **Status:** Phase 0 ✅ · Target architecture ✅ documented · Phase 1A ✅ (merged to `main`) · Phase 1B ✅ on branch `phase/1b-production-foundations` (awaiting review) · **Autonomous run on `phase/2-15-multitenant-platform`** (branched from the 1B tip): Phase 2 ✅ · Phase 3 ✅ · Phase 4 ✅ · Phase 5 ✅ · Phase 6 ✅ · Phase 7 ✅. Next: Phase 8.
 > **Companion document:** [ArchitectureAssessment.md](ArchitectureAssessment.md) covers the current state, the problem register (IDs such as `B1` and `C2`), the target architecture, and the full reasoning behind every decision (`D-xx`).
 > **Last updated:** 2026-09-11
 
@@ -423,7 +423,40 @@ Status legend: ✅ done · 🟡 in progress · ⏳ planned · ⏸ awaiting appro
   - Parallel-checkout test: the last unit is sold exactly once.
   - The ledger reconciles with on-hand stock in every scenario.
 
-### Phase 7: Customers and addresses ⏳
+### Phase 7: Customers and addresses ✅ (autonomous run)
+- **Delivered ([ADR-0027](adr/0027-customer-profile-and-erasure.md)):**
+  - **Profile:** `GET/PUT /api/account/profile` (name, phone). The customer is always the caller; staff get `403 CustomerAccountRequired`.
+  - **Address book:** a `PostalAddress` value object and `CustomerAddress` entities inside the `Customer` aggregate:
+    - at most 20 addresses;
+    - exactly one default shipping and one default billing address while any exist;
+    - removing a default moves it to the oldest remaining address.
+    - Endpoints: `/api/account/addresses` (CRUD plus the two default endpoints). Another customer's address id is a 404.
+  - **Checkout:** `POST /api/orders` accepts `shippingAddressId` (resolved in the caller's own book, otherwise `400 AddressNotFound`) or typed text. The order keeps a single-line snapshot, now limited to 500 characters by the entity.
+  - **Status:** Active or Blocked. A blocked customer can't order or review (`403 CustomerBlocked`) but can still sign in, view and export their data.
+  - **Admin:**
+    - `GET /api/admin/customers` (`customers.view`): search by name, email or phone; status filter; order count, spend and last order.
+    - Detail with addresses. Order history via `GET /api/orders?customerId=`.
+    - `PUT …/status`, `GET …/export` and `POST …/erase` (`customers.manage`, audited).
+  - **Data rights:**
+    - `GET /api/account/export`: JSON with profile, addresses, orders with their lines, and reviews.
+    - `POST /api/account/erase` (password re-entry): profile and login anonymized, every session ended immediately, orders and reviews retained.
+  - **Frontend:** a "My account" page (profile, address-book drawer, data download, deletion), a saved-address picker at checkout, and an admin customers page with a detail drawer.
+  - **Migration `Phase7Customers`:** additive only.
+- **Deferred, with reasons:**
+  - The narrower `ICustomerDirectory` contract: Ordering and Reviews still read the `Customer` aggregate through the domain repository (block check, address snapshot). It will be added when a second consumer or an extraction needs it.
+  - Structured order addresses and a billing address on the order: Phase 12, because shipping rates need the structured shape.
+  - Self-service email change needs a verification flow. Marketing preferences come with Phase 14.
+  - A retention policy that purges the shipping snapshots of erased customers' old orders: Phase 20 (compliance).
+- **Exit criteria (met):**
+  - **Ownership:** `CustomerAccountTests`:
+    - customer B gets 404 for customer A's address on update, delete and both default endpoints;
+    - checkout with A's address id is `400 AddressNotFound`;
+    - after deletion the old session gets 401 and the password no longer signs in.
+  - **Isolation:** `TenantIsolationTests`:
+    - store B's admin gets 404 on all four admin routes for A's customer;
+    - B's customer gets 404 on A's address routes;
+    - B's customer list and `orders?customerId=` exclude A's customer;
+    - A's customer is unchanged afterwards.
 - **Scope.**
   - Self-service profile.
   - Structured address book with default shipping and billing addresses.
@@ -726,3 +759,4 @@ The earlier `AUDIT.md` (Arabic, 8-phase program) and the engineering-thinking gu
 | 2026-09-11 | Phase 4 completed (platform API, store settings and modules, storefront config, audit log, invitations, staff management); ADR-0024 |
 | 2026-09-11 | Phase 5 completed (catalog translations, default variant, product lifecycle and slugs, gallery, category tree, admin catalog API and UI); ADR-0025 |
 | 2026-09-11 | Phase 6 completed (inventory items per variant, explicit reservations, retry-on-conflict checkout, delta adjustments, checkout expiry sweep, module contracts); ADR-0026 |
+| 2026-09-11 | Phase 7 completed (customer profile, address book with defaults, saved-address checkout, account status, admin customer list and detail with order history, data export and erasure); ADR-0027 |

@@ -17,6 +17,7 @@ import Offers from './pages/Offers';
 import ProductDetail from './pages/ProductDetail';
 import Wishlist from './pages/Wishlist';
 import MyOrders from './pages/MyOrders';
+import Account from './pages/account/Account';
 import OrderTracking from './pages/OrderTracking';
 import Checkout from './pages/checkout/Checkout';
 import Confirmation from './pages/Confirmation';
@@ -32,6 +33,7 @@ import Inventory from './pages/admin/Inventory';
 import Categories from './pages/admin/Categories';
 import Coupons from './pages/admin/Coupons';
 import Orders from './pages/admin/Orders';
+import Customers from './pages/admin/Customers';
 import './styles.css';
 
 // ============================================================================
@@ -92,6 +94,7 @@ export default function App() {
           <Route path="categories" element={<Categories />} />
           <Route path="coupons" element={<Coupons />} />
           <Route path="orders" element={<Orders />} />
+          <Route path="customers" element={<Customers />} />
         </Route>
 
         {/* ── المتجر (عميل/زائر) ── */}
@@ -101,6 +104,7 @@ export default function App() {
           <Route path="/products/:id" element={<ProductDetail />} />
           <Route path="/wishlist" element={<Wishlist />} />
           <Route path="/orders" element={<ProtectedRoute><MyOrders /></ProtectedRoute>} />
+          <Route path="/account" element={<ProtectedRoute><Account /></ProtectedRoute>} />
           {/* بلا حارس عمداً: نفس رابط التتبّع العام القابل للمشاركة (الخادم لا
               يتطلّب مصادقة لهذه النقطة) — يعمل لزائر لم يُسجّل الدخول أيضاً. */}
           <Route path="/orders/:id" element={<OrderTracking />} />
