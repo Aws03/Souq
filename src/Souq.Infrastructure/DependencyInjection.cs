@@ -1,10 +1,12 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Souq.Application.Common.Interfaces;
 using Souq.Domain.Interfaces;
 using Souq.Infrastructure.Persistence;
+using Souq.Infrastructure.Persistence.Interceptors;
 using Souq.Infrastructure.Persistence.Repositories;
 using Souq.Infrastructure.Services;
 
@@ -23,8 +25,14 @@ public static class DependencyInjection
                 "سلسلة الاتصال 'Default' غير مضبوطة. للتطوير: " +
                 "dotnet user-secrets set \"ConnectionStrings:Default\" \"...\" --project src/Souq.API");
 
-        services.AddDbContext<AppDbContext>(options =>
-            options.UseSqlServer(connectionString));
+        // الساعة الوحيدة في النظام (Phase 0 D12) — TryAdd: قد تكون Application سجّلتها أولاً.
+        services.TryAddSingleton(TimeProvider.System);
+
+        // المعترِضات تعمل داخل كل SaveChanges بلا استثناء (المرحلة 2: حارس المستأجر بجانبها).
+        services.AddSingleton<AuditTimestampsInterceptor>();
+        services.AddDbContext<AppDbContext>((sp, options) =>
+            options.UseSqlServer(connectionString)
+                   .AddInterceptors(sp.GetRequiredService<AuditTimestampsInterceptor>()));
 
         // ربط كل واجهة بتنفيذها. هذا هو "مكان الحقيقة" لقرارات التقنية.
         services.AddScoped<IUnitOfWork>(sp => sp.GetRequiredService<AppDbContext>());

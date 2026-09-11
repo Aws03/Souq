@@ -5,6 +5,7 @@ using NSubstitute.ExceptionExtensions;
 using Souq.Application.Common.Interfaces;
 using Souq.Application.Features.Orders;
 using Souq.Application.Features.Orders.Commands;
+using Souq.Application.Tests.TestDoubles;
 using Souq.Domain.Entities;
 using Souq.Domain.Enums;
 using Souq.Domain.Interfaces;
@@ -25,7 +26,7 @@ public class CreateOrderHandlerTests
 
     private CreateOrderHandler CreateHandler() =>
         new(_products, _orders, _customers, _coupons, _stockMovements, _payment,
-            new OrderStockRelease(_products, _stockMovements), _uow, NullLogger<CreateOrderHandler>.Instance);
+            new OrderStockRelease(_products, _stockMovements), _uow, new FixedClock(), NullLogger<CreateOrderHandler>.Instance);
 
     private static Customer NewCustomer() => new("عميل", "customer@souq.com", "hash");
     // المعرّف 1 يطابق ProductId في الأمر (كما بعد الحفظ فعلياً) — أسطر الطلب تحمل

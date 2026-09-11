@@ -45,11 +45,13 @@ public class Customer : Entity
 
     // رمز من 32 بايت عشوائية آمنة تشفيرياً (CSPRNG) بترميز base64url صالح للروابط.
     // نخزّن تجزئته فقط ونُعيد الخام للمستدعي — النسخة الوحيدة الواضحة منه.
-    public string GenerateResetToken()
+    // utcNow يمرّره المستدعي من TimeProvider (لا DateTime.UtcNow هنا): الكيان حتمي، وتُختبر
+    // الصلاحية بساعة ثابتة بلا انتظار ولا Reflection (Phase 0 D12).
+    public string GenerateResetToken(DateTime utcNow)
     {
         var token = Base64Url.EncodeToString(RandomNumberGenerator.GetBytes(32));
         PasswordResetTokenHash = HashResetToken(token);
-        PasswordResetTokenExpiry = DateTime.UtcNow.AddHours(ResetTokenLifetimeHours);
+        PasswordResetTokenExpiry = utcNow.AddHours(ResetTokenLifetimeHours);
         return token;
     }
 
@@ -60,9 +62,9 @@ public class Customer : Entity
 
     // يُستدعى بعد أن يجد المستودع العميل عبر تجزئة الرمز — مسؤولية الكيان هنا: التأكد
     // أن الرمز لم تنتهِ صلاحيته، ثم تعيين كلمة المرور الجديدة ومسح الرمز فوراً (استخدام واحد).
-    public void ResetPassword(string newPasswordHash)
+    public void ResetPassword(string newPasswordHash, DateTime utcNow)
     {
-        if (PasswordResetTokenExpiry is null || PasswordResetTokenExpiry < DateTime.UtcNow)
+        if (PasswordResetTokenExpiry is null || PasswordResetTokenExpiry < utcNow)
             throw new InvalidPasswordResetException("انتهت صلاحية رابط إعادة التعيين. اطلب رابطاً جديداً.");
 
         PasswordHash = newPasswordHash;

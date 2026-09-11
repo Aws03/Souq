@@ -33,17 +33,11 @@ public class AppDbContext : DbContext, IUnitOfWork
         base.OnModelCreating(modelBuilder);
     }
 
-    // اعتراض الحفظ لملء تواريخ الإنشاء/التعديل تلقائياً (Cross-Cutting)، ولترجمة
-    // استثناءات EF/SQL Server إلى أنواع Application — لا نوع تقني يعبر حدود هذه الطبقة
-    // (ADR-0003). الـ API يترجم كليهما إلى 409 (ADR-0013).
+    // ترجمة استثناءات EF/SQL Server إلى أنواع Application — لا نوع تقني يعبر حدود هذه
+    // الطبقة (ADR-0003). الـ API يترجم كليهما إلى 409 (ADR-0013). ختم تواريخ الإنشاء/
+    // التعديل في AuditTimestampsInterceptor (يعمل داخل base.SaveChangesAsync).
     public override async Task<int> SaveChangesAsync(CancellationToken ct = default)
     {
-        foreach (var entry in ChangeTracker.Entries<Souq.Domain.Common.Entity>())
-        {
-            if (entry.State == EntityState.Added) entry.Entity.CreatedAt = DateTime.UtcNow;
-            if (entry.State == EntityState.Modified) entry.Entity.UpdatedAt = DateTime.UtcNow;
-        }
-
         try
         {
             return await base.SaveChangesAsync(ct);

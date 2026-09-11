@@ -18,10 +18,11 @@ public class ForgotPasswordHandler : IRequestHandler<ForgotPasswordCommand, Resu
     private readonly ICustomerRepository _customers;
     private readonly IEmailService _email;
     private readonly IUnitOfWork _uow;
+    private readonly TimeProvider _clock;
 
-    public ForgotPasswordHandler(ICustomerRepository customers, IEmailService email, IUnitOfWork uow)
+    public ForgotPasswordHandler(ICustomerRepository customers, IEmailService email, IUnitOfWork uow, TimeProvider clock)
     {
-        _customers = customers; _email = email; _uow = uow;
+        _customers = customers; _email = email; _uow = uow; _clock = clock;
     }
 
     public async Task<Result> Handle(ForgotPasswordCommand cmd, CancellationToken ct)
@@ -29,7 +30,7 @@ public class ForgotPasswordHandler : IRequestHandler<ForgotPasswordCommand, Resu
         var customer = await _customers.GetByEmailAsync(cmd.Email.Trim().ToLowerInvariant(), ct);
         if (customer is not null)
         {
-            var token = customer.GenerateResetToken();
+            var token = customer.GenerateResetToken(_clock.GetUtcNow().UtcDateTime);
             _customers.Update(customer);
             await _uow.SaveChangesAsync(ct);
 

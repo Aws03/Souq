@@ -2,6 +2,7 @@ using AwesomeAssertions;
 using NSubstitute;
 using Souq.Application.Common.Interfaces;
 using Souq.Application.Features.Auth.Commands;
+using Souq.Application.Tests.TestDoubles;
 using Souq.Domain.Common;
 using Souq.Domain.Entities;
 using Souq.Domain.Interfaces;
@@ -113,7 +114,9 @@ public class ForgotPasswordHandlerTests
     private readonly IEmailService _email = Substitute.For<IEmailService>();
     private readonly IUnitOfWork _uow = Substitute.For<IUnitOfWork>();
 
-    private ForgotPasswordHandler CreateHandler() => new(_customers, _email, _uow);
+    private readonly FixedClock _clock = new();
+
+    private ForgotPasswordHandler CreateHandler() => new(_customers, _email, _uow, _clock);
 
     [Fact]
     public async Task بريد_موجود_يرسل_الرمز_الخام_بالبريد_ويخزّن_تجزئته_فقط()
@@ -170,7 +173,9 @@ public class ResetPasswordHandlerTests
     private readonly IPasswordHasher _hasher = Substitute.For<IPasswordHasher>();
     private readonly IUnitOfWork _uow = Substitute.For<IUnitOfWork>();
 
-    private ResetPasswordHandler CreateHandler() => new(_customers, _hasher, _uow);
+    private readonly FixedClock _clock = new();
+
+    private ResetPasswordHandler CreateHandler() => new(_customers, _hasher, _uow, _clock);
 
     [Fact]
     public async Task رمز_غير_موجود_يُرجع_InvalidResetToken()
@@ -188,9 +193,8 @@ public class ResetPasswordHandlerTests
     public async Task رمز_منتهي_الصلاحية_يرفعه_الكيان_ولا_يُحفظ_شيء()
     {
         var customer = new Customer("مستخدم", "user@souq.com", "old-hash");
-        customer.GenerateResetToken();
-        typeof(Customer).GetProperty(nameof(Customer.PasswordResetTokenExpiry))!
-            .SetValue(customer, DateTime.UtcNow.AddMinutes(-1));
+        customer.GenerateResetToken(_clock.UtcNow);
+        _clock.Advance(TimeSpan.FromHours(Customer.ResetTokenLifetimeHours).Add(TimeSpan.FromMinutes(1)));
         _customers.GetByResetTokenAsync("expired-token", Arg.Any<CancellationToken>()).Returns(customer);
 
         var act = () => CreateHandler().Handle(new ResetPasswordCommand("expired-token", "NewPassw0rd!"), CancellationToken.None);
@@ -205,7 +209,7 @@ public class ResetPasswordHandlerTests
     public async Task رمز_صالح_يُحدّث_كلمة_المرور_ويمسح_الرمز_ويحفظ()
     {
         var customer = new Customer("مستخدم", "user@souq.com", "old-hash");
-        var token = customer.GenerateResetToken();
+        var token = customer.GenerateResetToken(_clock.UtcNow);
         _customers.GetByResetTokenAsync(token, Arg.Any<CancellationToken>()).Returns(customer);
         _hasher.Hash("NewPassw0rd!").Returns("new-hashed-value");
 

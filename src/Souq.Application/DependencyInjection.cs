@@ -2,6 +2,7 @@ using System.Reflection;
 using FluentValidation;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Souq.Application.Common.Behaviors;
 
 namespace Souq.Application;
@@ -24,6 +25,10 @@ public static class DependencyInjection
 
         // يُدخل سلوك التحقّق في خط أنابيب MediatR.
         services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
+
+        // الساعة: كل قراءة "الآن" في حالات الاستخدام تمرّ عبر TimeProvider (مدمج في .NET)
+        // لا DateTime.UtcNow — فتُختبر الصلاحيات والانتهاء بساعة ثابتة (Phase 0 D12).
+        services.TryAddSingleton(TimeProvider.System);
 
         // خدمة تطبيق مشتركة بين مسارَي الإلغاء (الإدارة + تعويض الدفع) — صنف ملموس
         // بلا واجهة: لا تنفيذ بديل له، فالواجهة ستكون تجريداً بلا سبب.

@@ -29,6 +29,9 @@ public sealed class SouqApiFactory : WebApplicationFactory<Program>, IAsyncLifet
     public CapturingLoggerProvider Logs { get; } = new();
     public string UploadsRoot { get; } = Path.Combine(Path.GetTempPath(), $"souq-it-uploads-{Guid.NewGuid():N}");
 
+    // لاختبارات تبني AppDbContext بإعدادات خاصة (معترِض بساعة ثابتة) فوق نفس القاعدة.
+    public string ConnectionString => _sql.GetConnectionString();
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         // "Testing" لا Development: لا user-secrets للمطوّر، ولا مدير افتراضي — المدير

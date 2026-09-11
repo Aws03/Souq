@@ -15,7 +15,12 @@ public record CouponPreviewDto(string Code, decimal DiscountAmount, decimal NewT
 public class ApplyCouponHandler : IRequestHandler<ApplyCouponQuery, Result<CouponPreviewDto>>
 {
     private readonly ICouponRepository _coupons;
-    public ApplyCouponHandler(ICouponRepository coupons) => _coupons = coupons;
+    private readonly TimeProvider _clock;
+
+    public ApplyCouponHandler(ICouponRepository coupons, TimeProvider clock)
+    {
+        _coupons = coupons; _clock = clock;
+    }
 
     public async Task<Result<CouponPreviewDto>> Handle(ApplyCouponQuery q, CancellationToken ct)
     {
@@ -26,7 +31,7 @@ public class ApplyCouponHandler : IRequestHandler<ApplyCouponQuery, Result<Coupo
         // مبلغ/عملة غير صالحة (InvalidMoneyException) أو كوبون غير قابل للاستخدام
         // (InvalidCouponException) ⇒ استثناء مجال يُترجم مركزياً إلى 422 برمزه.
         var subtotal = new Money(q.Subtotal, q.Currency);
-        coupon.EnsureUsable(subtotal, DateTime.UtcNow);
+        coupon.EnsureUsable(subtotal, _clock.GetUtcNow().UtcDateTime);
         var discount = coupon.CalculateDiscount(subtotal);
         return Result<CouponPreviewDto>.Success(
             new CouponPreviewDto(coupon.Code, discount.Amount, subtotal.Amount - discount.Amount));

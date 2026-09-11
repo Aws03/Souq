@@ -6,6 +6,9 @@ namespace Souq.Domain.Tests;
 
 public class CustomerTests
 {
+    // الوقت يُمرَّر صراحةً (Phase 0 D12): لا DateTime.UtcNow داخل الكيان، ولا Reflection هنا.
+    private static readonly DateTime Now = new(2026, 9, 11, 10, 0, 0, DateTimeKind.Utc);
+
     private static Customer NewCustomer() =>
         new("مستخدم", "user@souq.com", "hashed");
 
@@ -14,13 +17,13 @@ public class CustomerTests
     {
         var customer = NewCustomer();
 
-        var token = customer.GenerateResetToken();
+        var token = customer.GenerateResetToken(Now);
 
         token.Should().NotBeNullOrWhiteSpace();
         // القاعدة لا تحمل الرمز نفسه أبداً — من يقرؤها لا يملك رابطاً صالحاً (Phase 0 B6).
         customer.PasswordResetTokenHash.Should().Be(Customer.HashResetToken(token));
         customer.PasswordResetTokenHash.Should().NotBe(token);
-        customer.PasswordResetTokenExpiry.Should().BeCloseTo(DateTime.UtcNow.AddHours(2), TimeSpan.FromMinutes(1));
+        customer.PasswordResetTokenExpiry.Should().Be(Now.AddHours(Customer.ResetTokenLifetimeHours));
     }
 
     [Fact]
@@ -28,8 +31,8 @@ public class CustomerTests
     {
         var customer = NewCustomer();
 
-        var first = customer.GenerateResetToken();
-        var second = customer.GenerateResetToken();
+        var first = customer.GenerateResetToken(Now);
+        var second = customer.GenerateResetToken(Now);
 
         first.Should().NotBe(second);
         first.Should().HaveLength(43);             // 32 بايت بترميز base64url بلا حشو
@@ -46,12 +49,12 @@ public class CustomerTests
     }
 
     [Fact]
-    public void ResetPassword_برمز_صالح_يُحدّث_التجزئة_ويمسح_حقول_الرمز()
+    public void ResetPassword_داخل_مدّة_الصلاحية_يُحدّث_التجزئة_ويمسح_حقول_الرمز()
     {
         var customer = NewCustomer();
-        customer.GenerateResetToken();
+        customer.GenerateResetToken(Now);
 
-        customer.ResetPassword("new-hashed-value");
+        customer.ResetPassword("new-hashed-value", Now.AddHours(Customer.ResetTokenLifetimeHours).AddSeconds(-1));
 
         customer.PasswordHash.Should().Be("new-hashed-value");
         customer.PasswordResetTokenHash.Should().BeNull();
@@ -59,15 +62,12 @@ public class CustomerTests
     }
 
     [Fact]
-    public void ResetPassword_برمز_منتهي_الصلاحية_يرمي_ولا_يغيّر_كلمة_المرور()
+    public void ResetPassword_بعد_انتهاء_الصلاحية_يرمي_ولا_يغيّر_كلمة_المرور()
     {
         var customer = NewCustomer();
-        customer.GenerateResetToken();
-        // نحاكي انتهاء الصلاحية مباشرة عبر Reflection (لا باب عام لضبط تاريخ ماضٍ).
-        typeof(Customer).GetProperty(nameof(Customer.PasswordResetTokenExpiry))!
-            .SetValue(customer, DateTime.UtcNow.AddMinutes(-1));
+        customer.GenerateResetToken(Now);
 
-        var act = () => customer.ResetPassword("new-hashed-value");
+        var act = () => customer.ResetPassword("new-hashed-value", Now.AddHours(Customer.ResetTokenLifetimeHours).AddSeconds(1));
 
         act.Should().Throw<InvalidPasswordResetException>();
         customer.PasswordHash.Should().Be("hashed"); // لم يتغيّر
@@ -78,7 +78,7 @@ public class CustomerTests
     {
         var customer = NewCustomer(); // لم يُستدعَ GenerateResetToken إطلاقاً
 
-        var act = () => customer.ResetPassword("new-hashed-value");
+        var act = () => customer.ResetPassword("new-hashed-value", Now);
 
         act.Should().Throw<InvalidPasswordResetException>();
     }

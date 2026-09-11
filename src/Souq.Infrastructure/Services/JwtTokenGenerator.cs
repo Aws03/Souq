@@ -17,11 +17,16 @@ namespace Souq.Infrastructure.Services;
 public class JwtTokenGenerator : IJwtTokenGenerator
 {
     private readonly JwtSettings _settings;
-    public JwtTokenGenerator(IOptions<JwtSettings> settings) => _settings = settings.Value;
+    private readonly TimeProvider _clock;
+
+    public JwtTokenGenerator(IOptions<JwtSettings> settings, TimeProvider clock)
+    {
+        _settings = settings.Value; _clock = clock;
+    }
 
     public (string Token, DateTime ExpiresAt) Generate(Customer customer)
     {
-        var expiresAt = DateTime.UtcNow.AddMinutes(_settings.ExpiryMinutes);
+        var expiresAt = _clock.GetUtcNow().UtcDateTime.AddMinutes(_settings.ExpiryMinutes);
 
         var claims = new[]
         {

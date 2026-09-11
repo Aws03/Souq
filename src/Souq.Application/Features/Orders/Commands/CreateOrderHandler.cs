@@ -34,17 +34,18 @@ public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, Result<Ord
     private readonly IPaymentService _payment;
     private readonly OrderStockRelease _stockRelease;
     private readonly IUnitOfWork _uow;
+    private readonly TimeProvider _clock;
     private readonly ILogger<CreateOrderHandler> _logger;
 
     public CreateOrderHandler(
         IProductRepository products, IOrderRepository orders, ICustomerRepository customers,
         ICouponRepository coupons, IStockMovementRepository stockMovements,
         IPaymentService payment, OrderStockRelease stockRelease, IUnitOfWork uow,
-        ILogger<CreateOrderHandler> logger)
+        TimeProvider clock, ILogger<CreateOrderHandler> logger)
     {
         _products = products; _orders = orders; _customers = customers;
         _coupons = coupons; _stockMovements = stockMovements; _payment = payment;
-        _stockRelease = stockRelease; _uow = uow; _logger = logger;
+        _stockRelease = stockRelease; _uow = uow; _clock = clock; _logger = logger;
     }
 
     public async Task<Result<OrderCreatedDto>> Handle(CreateOrderCommand cmd, CancellationToken ct)
@@ -78,7 +79,7 @@ public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, Result<Ord
             coupon = await _coupons.GetByCodeAsync(cmd.CouponCode, ct);
             if (coupon is null)
                 return Result<OrderCreatedDto>.Failure(Error.BusinessRule("CouponNotFound", "رمز الكوبون غير صحيح"));
-            coupon.EnsureUsable(subtotal, DateTime.UtcNow);
+            coupon.EnsureUsable(subtotal, _clock.GetUtcNow().UtcDateTime);
         }
 
         // (3) خطّة التنفيذ: كل شيء صالح الآن — ننقص المخزون فعلياً ونبني الطلب.
