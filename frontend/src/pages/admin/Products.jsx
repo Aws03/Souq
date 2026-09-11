@@ -9,6 +9,7 @@ import Button from '../../components/common/Button';
 import ProductImage from '../../components/product/ProductImage';
 import { formatPrice, getProductName } from '../../components/product/ProductBadges';
 import { SearchIcon } from '../../components/icons/Icons';
+import { buildAdminProductQuery } from '../../features/admin/products/productQuery';
 import ProductFormDrawer from './ProductFormDrawer';
 import styles from './Admin.module.css';
 
@@ -34,7 +35,7 @@ export default function Products() {
 
   const load = useCallback(() => {
     setLoading(true);
-    api.getProducts({ keyword: keyword || undefined, categoryId: categoryId || undefined, page, pageSize: PAGE_SIZE })
+    api.getProducts(buildAdminProductQuery({ keyword, categoryId, page, pageSize: PAGE_SIZE }))
       .then((res) => { setItems(res.items); setTotalPages(res.totalPages); setError(null); })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));

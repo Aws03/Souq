@@ -312,7 +312,8 @@
         "Purchase": "Purchase",
         "Sale": "Sale",
         "Adjustment": "Adjustment",
-        "Return": "Return"
+        "Return": "Return",
+        "Cancellation": "Order cancelled"
       }
     },
     "productForm": {

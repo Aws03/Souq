@@ -312,7 +312,8 @@
         "Purchase": "توريد",
         "Sale": "بيع",
         "Adjustment": "تصحيح",
-        "Return": "إرجاع"
+        "Return": "إرجاع",
+        "Cancellation": "إلغاء طلب"
       }
     },
     "productForm": {

@@ -79,6 +79,7 @@
 .move_sale { background: var(--info-soft); color: var(--petrol); }
 .move_adjustment { background: #fdf3e2; color: #a06a12; }
 .move_return { background: #eaf1fb; color: var(--info); }
+.move_cancellation { background: #f6ece8; color: var(--clay); }
 .moveDelta { font-family: var(--font-display); font-weight: 700; font-size: 16px; }
 .moveUp { color: var(--success); }
 .moveDown { color: var(--clay); }

@@ -6,6 +6,7 @@ import Button from '../../components/common/Button';
 import { ErrorBanner } from '../../components/common/StateViews';
 import { CameraIcon, VideoIcon, CloseIcon } from '../../components/icons/Icons';
 import { isRealImage } from '../../components/product/ProductImage';
+import { buildProductPayload } from '../../features/admin/products/productPayload';
 import styles from './ProductFormDrawer.module.css';
 
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
@@ -69,13 +70,10 @@ export default function ProductFormDrawer({ product, categories, onSave, onClose
 
     setBusy(true); setError(null);
     try {
-      await onSave({
-        nameAr: nameAr.trim(), nameEn: nameEn.trim() || null,
-        description: description.trim(), price: Number(price),
-        stockQuantity: Number(stockQuantity) || 0, categoryId: Number(categoryId),
-        imageUrl: product?.imageUrl ?? '',
-        videoUrl: videoRemoved ? null : (product?.videoUrl ?? null),
-      }, file, videoFile);
+      // المخزون يُرسَل فقط إن غيّره المدير (مع القيمة التي رآها) — تعارض ⇒ 409 تظهر رسالته هنا.
+      await onSave(buildProductPayload(
+        { nameAr, nameEn, description, price, stockQuantity, categoryId, videoRemoved }, product,
+      ), file, videoFile);
     } catch (err) { setError(err.message); setBusy(false); }
   };
 
