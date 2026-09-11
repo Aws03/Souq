@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using Souq.Domain.Common;
 using Souq.Domain.Enums;
+using Souq.Domain.Events;
 using Souq.Domain.Exceptions;
 using Souq.Domain.ValueObjects;
 
@@ -231,8 +232,11 @@ public class Order : Entity, ITenantOwned
         var actor = by ?? OrderActor.System;
         if (!OrderTransitions.CanMove(Status, target, actor))
             throw new InvalidOrderOperationException(refusal);
+        var from = Status;
         Status = target;
         RecordStatusChange(note, actor);
+        // المرحلة 14: بريد العميل وإشعارات الإدارة تنطلق من هذا الحدث (صندوق الصادر) — لطلب محفوظ فقط.
+        if (Id > 0) Raise(new OrderStatusChanged(Id, CustomerId, from, target, actor.Kind));
     }
 
     private void EnsureOpen(string refusal)

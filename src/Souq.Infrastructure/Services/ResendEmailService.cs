@@ -1,29 +1,32 @@
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Souq.Application.Common.Interfaces;
+using Souq.Application.Common.Notifications;
 
 namespace Souq.Infrastructure.Services;
 
-// ApiKey سرّ دوماً (متغيّر بيئة Resend__ApiKey/user-secrets). From غير سرّي: يظهر في
-// appsettings كقيمة افتراضية قابلة للتعديل.
+// ApiKey سرّ دوماً (متغيّر بيئة Resend__ApiKey/user-secrets). From غير سرّي: عنوان النشر المُتحقَّق منه لدى Resend — اسم
+// المرسِل يُستبدل باسم المتجر لكل رسالة (المرحلة 14).
 public class ResendOptions
 {
     public string ApiKey { get; set; } = "";
     // onboarding@resend.dev يعمل فوراً بلا تحقّق نطاق — مخصّص للتطوير/الاختبار.
-    public string From { get; set; } = "Marka <onboarding@resend.dev>";
+    public string From { get; set; } = "Souq <onboarding@resend.dev>";
 }
 
 // ============================================================================
-// ResendEmailService — إرسال حقيقي عبر Resend API. عميل HTTP من IHttpClientFactory (مهلة
-// 15 ثانية، اتصالات مُدارة تحترم تغيّر DNS)؛ ترويسة التفويض لكل طلب على حدة. السجل: المستلم
-// مُقنَّع، لا جسم استجابة عند النجاح، وجسم مُختصَر عند الفشل فقط (Security.md §9).
+// ResendEmailService — إرسال حقيقي عبر Resend API. عميل HTTP من IHttpClientFactory (مهلة 15 ثانية، اتصالات مُدارة تحترم تغيّر
+// DNS)؛ ترويسة التفويض لكل طلب على حدة. الفشل يرمي EmailDeliveryException فيعيد صندوق الصادر المحاولة. السجل: نوع الرسالة
+// والمستلم مُقنَّعاً، لا جسم عند النجاح، وجسم مُختصَر منقَّح عند الفشل فقط (Security.md §9).
 // ============================================================================
-public class ResendEmailService : IEmailService
+public class ResendEmailService : IEmailSender
 {
     private const string Endpoint = "https://api.resend.com/emails";
+
+    private static readonly JsonSerializerOptions Json = new() { DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
 
     private readonly HttpClient _http;
     private readonly ResendOptions _opts;
@@ -34,50 +37,48 @@ public class ResendEmailService : IEmailService
         _http = http; _opts = opts.Value; _logger = logger;
     }
 
-    public Task SendOrderConfirmationAsync(string toEmail, int orderId, CancellationToken ct = default)
-        => SendAsync(toEmail, $"تأكيد الطلب #{orderId} — ماركة", EmailTemplates.OrderConfirmation(orderId), ct);
-
-    public Task SendEmailVerificationAsync(string toEmail, string verificationLink, CancellationToken ct = default)
-        => SendAsync(toEmail, "تأكيد بريدك الإلكتروني — ماركة", EmailTemplates.EmailVerification(verificationLink), ct);
-
-    public Task SendInvitationAsync(string toEmail, string storeName, string invitationLink, CancellationToken ct = default)
-        => SendAsync(toEmail, EmailTemplates.Subject($"دعوة للانضمام إلى {storeName}"),
-            EmailTemplates.Invitation(storeName, invitationLink), ct);
-
-    public Task SendPasswordResetEmailAsync(string toEmail, string resetLink, CancellationToken ct = default)
+    public async Task SendAsync(EmailMessage message, CancellationToken ct)
     {
-        return SendAsync(toEmail, "إعادة تعيين كلمة المرور — ماركة", EmailTemplates.PasswordReset(resetLink), ct);
-    }
+        var recipient = LogRedaction.MaskEmail(message.To);
+        var payload = JsonSerializer.Serialize(new
+        {
+            from = EmailSenders.WithDisplayName(_opts.From, message.FromName),
+            to = new[] { message.To },
+            reply_to = message.ReplyTo is null ? null : new[] { message.ReplyTo },
+            subject = message.Subject,
+            html = message.HtmlBody,
+            text = message.TextBody,
+        }, Json);
 
-    private async Task SendAsync(string toEmail, string subject, string htmlBody, CancellationToken ct)
-    {
-        var recipient = LogRedaction.MaskEmail(toEmail);
-        var payload = JsonSerializer.Serialize(new { from = _opts.From, to = new[] { toEmail }, subject, html = htmlBody });
+        using var request = new HttpRequestMessage(HttpMethod.Post, Endpoint)
+        {
+            Content = new StringContent(payload, Encoding.UTF8, "application/json"),
+        };
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _opts.ApiKey);
 
+        HttpResponseMessage response;
         try
         {
-            using var request = new HttpRequestMessage(HttpMethod.Post, Endpoint)
-            {
-                Content = new StringContent(payload, Encoding.UTF8, "application/json"),
-            };
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _opts.ApiKey);
+            response = await _http.SendAsync(request, ct);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException && !ct.IsCancellationRequested)
+        {
+            throw new EmailDeliveryException("تعذّر الاتصال بـ Resend", ex);
+        }
 
-            using var response = await _http.SendAsync(request, ct);
+        using (response)
+        {
             if (response.IsSuccessStatusCode)
             {
-                _logger.LogInformation("أُرسل بريد \"{Subject}\" إلى {Recipient} عبر Resend (الحالة {StatusCode})",
-                    subject, recipient, (int)response.StatusCode);
+                _logger.LogInformation("Email {Kind} sent to {Recipient} via Resend ({StatusCode})",
+                    message.Kind, recipient, (int)response.StatusCode);
                 return;
             }
 
             var errorBody = await response.Content.ReadAsStringAsync(ct);
-            _logger.LogError("فشل إرسال بريد \"{Subject}\" إلى {Recipient} عبر Resend: الحالة {StatusCode} — {ProviderError}",
-                subject, recipient, (int)response.StatusCode, LogRedaction.Truncate(errorBody));
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            // فشل الإرسال لا يُسقط تدفّق العمل (لا نكشف لطالب إعادة التعيين شيئاً).
-            _logger.LogError(ex, "فشل إرسال بريد \"{Subject}\" إلى {Recipient} عبر Resend", subject, recipient);
+            _logger.LogError("Resend rejected email {Kind} to {Recipient}: {StatusCode} — {ProviderError}",
+                message.Kind, recipient, (int)response.StatusCode, LogRedaction.Truncate(LogRedaction.MaskEmails(errorBody)));
+            throw new EmailDeliveryException($"Resend أعاد الحالة {(int)response.StatusCode}");
         }
     }
 }

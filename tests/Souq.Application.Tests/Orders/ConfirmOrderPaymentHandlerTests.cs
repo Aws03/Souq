@@ -10,6 +10,7 @@ using Souq.Application.Features.Orders.Commands;
 using Souq.Application.Tests.TestDoubles;
 using Souq.Domain.Entities;
 using Souq.Domain.Enums;
+using Souq.Domain.Events;
 using Souq.Domain.Interfaces;
 using Souq.Domain.ValueObjects;
 
@@ -21,10 +22,8 @@ public class ConfirmOrderPaymentHandlerTests
 {
     private readonly IOrderRepository _orders = Substitute.For<IOrderRepository>();
     private readonly IInventoryReservations _reservations = Substitute.For<IInventoryReservations>();
-    private readonly ICustomerRepository _customers = Substitute.For<ICustomerRepository>();
     private readonly ICouponRepository _coupons = Substitute.For<ICouponRepository>();
     private readonly IPaymentService _payment = Substitute.For<IPaymentService>();
-    private readonly IEmailService _email = Substitute.For<IEmailService>();
     private readonly Souq.Application.Features.Baskets.Contracts.IBasketCheckout _baskets =
         Substitute.For<Souq.Application.Features.Baskets.Contracts.IBasketCheckout>();
     private readonly Souq.Application.Features.Coupons.Contracts.ICouponRedemptions _couponRedemptions =
@@ -36,8 +35,7 @@ public class ConfirmOrderPaymentHandlerTests
     // الطلبات في هذه الاختبارات يملكها العميل 1 (انظر PendingOrderWithIntent).
     private ConfirmOrderPaymentHandler CreateHandler(ICurrentUser? user = null) => new(
         _orders,
-        new OrderPaymentConfirmation(_orders, _reservations, _customers, _couponRedemptions, _orderPayments, _baskets, _payment,
-            _email, _uow),
+        new OrderPaymentConfirmation(_orders, _reservations, _couponRedemptions, _orderPayments, _baskets, _payment, _uow),
         user ?? TestCurrentUser.Customer(1));
 
     private static Order PendingOrderWithIntent(string paymentIntentId = "pi_123", int quantity = 2)
@@ -118,22 +116,22 @@ public class ConfirmOrderPaymentHandlerTests
         await _reservations.Received(1).CancelAsync(OrderStockReference.For(9), "بطاقة مرفوضة", false, Arg.Any<CancellationToken>());
         await _reservations.DidNotReceive().CommitAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
         await _uow.Received(1).InTransactionAsync(Arg.Any<Func<Task>>(), Arg.Any<CancellationToken>());
-        await _email.DidNotReceive().SendOrderConfirmationAsync(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>());
+        // المرحلة 14: لا بريد في مسار الطلب — الإلغاء يرفع حدثه (من البوّابة، طلب غير مدفوع) ومعالجه لا يرسل بريداً له.
+        order.PendingDomainEvents().Should().Equal(
+            new OrderStatusChanged(9, 1, OrderStatus.Pending, OrderStatus.Cancelled, OrderActorKind.PaymentGateway));
         // فشل الدفع يلغي الطلب فيعود استخدام كوبونه (المرحلة 10)، وتُحسم دفعته فاشلةً لا ملغاة (المرحلة 11).
         await _couponRedemptions.Received(1).ReleaseAsync(order.Id, Arg.Any<CancellationToken>());
         await _orderPayments.Received(1).MarkClosedAsync(order.Id, true, Arg.Any<CancellationToken>());
     }
 
     [Fact]
-    public async Task نجاح_الدفع_يُعلّم_الطلب_مدفوعاً_ويلتزم_الحجز_ويؤكّد_استخدام_الكوبون_ويرسل_البريد()
+    public async Task نجاح_الدفع_يُعلّم_الطلب_مدفوعاً_ويلتزم_الحجز_ويؤكّد_استخدام_الكوبون_ويرفع_حدث_البريد()
     {
         var order = PendingOrderWithIntent(quantity: 2);
         var coupon = new Coupon("SAVE10", DiscountType.Percentage, 10, null, null, null);
         order.ApplyCoupon(coupon.Code, coupon.CalculateDiscount(order.Subtotal));
-        var customer = new Customer(userId: 1, "عميل", "customer@souq.com");
 
         _orders.GetWithItemsAsync(1, Arg.Any<CancellationToken>()).Returns(order);
-        _customers.GetByIdAsync(1, Arg.Any<CancellationToken>()).Returns(customer);
         _payment.ConfirmAsync("pi_123", Arg.Any<CancellationToken>()).Returns(new PaymentConfirmationResult(true, null));
 
         var result = await CreateHandler().Handle(new ConfirmOrderPaymentCommand(1), CancellationToken.None);
@@ -148,7 +146,9 @@ public class ConfirmOrderPaymentHandlerTests
         await _orderPayments.Received(1).MarkSucceededAsync(order.Id, Arg.Any<CancellationToken>());
         await _reservations.Received(1).CommitAsync(OrderStockReference.For(9), Arg.Any<CancellationToken>());
         await _uow.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
-        await _email.Received(1).SendOrderConfirmationAsync(customer.Email, order.Id, Arg.Any<CancellationToken>());
+        // المرحلة 14: بريد التأكيد وإشعارات الإدارة ينطلقان من هذا الحدث — يُكتب في صندوق الصادر في الحفظ نفسه (AppDbContext).
+        order.PendingDomainEvents().Should().Equal(
+            new OrderStatusChanged(9, 1, OrderStatus.Pending, OrderStatus.Paid, OrderActorKind.PaymentGateway));
     }
 
     [Fact]
@@ -165,7 +165,8 @@ public class ConfirmOrderPaymentHandlerTests
 
         result.Value!.Status.Should().Be(nameof(OrderStatus.Paid));
         await _reservations.DidNotReceive().CommitAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
-        await _email.DidNotReceive().SendOrderConfirmationAsync(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>());
+        // لا بريد ثانٍ: حفظ الخاسر فشل، وAppDbContext لا يكتب أحداث حفظ فاشل في صندوق الصادر (NotificationTests يثبته على SQL
+        // Server بتعارض rowversion حقيقي).
     }
 
     [Fact]

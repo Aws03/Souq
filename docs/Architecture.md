@@ -181,7 +181,9 @@ flowchart TB
 
 **Domain services:** only for rules that span aggregates *and* need no I/O, for example a pricing calculator that combines lines, discounts, shipping, and tax (Phase 8). Rules that need a database lookup belong in Application handlers.
 
-**Domain events:** introduced with the outbox (Phase 14) and only for facts with more than one consumer: `OrderPlaced`, `OrderPaid`, `OrderCancelled`, `StockLow`.
+**Domain events (Phase 14, [ADR-0034](adr/0034-notifications-outbox.md)):** only for facts with more than one consumer. Aggregates raise them, and they are written to the outbox in the same save as the change. Today there are two:
+- `OrderStatusChanged` (paid, shipped, delivered, cancelled): feeds the customer's notification and email and the staff's new-order alert.
+- `StockBecameLow`.
 
 **Keep simple (no aggregate ceremony):** Category, Wishlist items, store configuration read models, reviews' moderation flags.
 

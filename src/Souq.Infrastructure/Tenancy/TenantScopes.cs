@@ -23,4 +23,12 @@ public static class TenantScopes
         scope.ServiceProvider.GetRequiredService<TenantContext>().UseTenant(tenant);
         return await work(scope.ServiceProvider);
     }
+
+    // نطاق المنصّة خارج طلب HTTP (المرحلة 14): رسائل حسابات المنصّة في صندوق الصادر — حساباتها وحدها مرئية فيه.
+    public static async Task RunPlatformAsync(IServiceProvider services, Func<IServiceProvider, Task> work)
+    {
+        await using var scope = services.GetRequiredService<IServiceScopeFactory>().CreateAsyncScope();
+        scope.ServiceProvider.GetRequiredService<TenantContext>().UsePlatform();
+        await work(scope.ServiceProvider);
+    }
 }

@@ -933,5 +933,16 @@
     "passwordRequired": "أدخل كلمة المرور للتأكيد",
     "eraseButton": "حذف حسابي نهائياً",
     "erased": "تم حذف حسابك."
+  },
+  "notifications": {
+    "title": "الإشعارات",
+    "aria": "الإشعارات ({{count}} غير مقروء)",
+    "markAll": "تعليم الكلّ مقروءاً",
+    "empty": "لا إشعارات بعد.",
+    "loading": "جارٍ التحميل…",
+    "orderStatus": "طلبك #{{number}}: {{status}}",
+    "newOrder": "طلب جديد مدفوع #{{number}}",
+    "lowStock": "المخزون ينفد: «{{name}}» — المتاح {{available}}",
+    "generic": "إشعار جديد"
   }
 }

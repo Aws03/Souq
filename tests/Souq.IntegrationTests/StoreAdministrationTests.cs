@@ -105,12 +105,14 @@ public class StoreAdministrationTests
 
         (await admin.PostAsJsonAsync("/api/admin/staff", new { fullName = "Clerk", email, role = "TenantStaff" })).StatusCode
             .Should().Be(HttpStatusCode.OK);
+        await _factory.DispatchNotificationsAsync();   // المرحلة 14: الدعوة من صندوق الصادر
         new Uri(_factory.Emails.LastInvitationLinkFor(email)).Host.Should().Be(store.Host);
         var firstToken = _factory.Emails.LastInvitationTokenFor(email);
 
         // إعادة الإرسال تجدّد الرمز: رابط الرسالة الأولى لم يعد صالحاً.
         var resend = await admin.PostAsJsonAsync("/api/admin/staff", new { fullName = "Clerk", email, role = "TenantStaff" });
         (await resend.Content.ReadFromJsonAsync<InvitationBody>(TestApi.Json))!.Renewed.Should().BeTrue();
+        await _factory.DispatchNotificationsAsync();
         _factory.Emails.LastInvitationTokenFor(email).Should().NotBe(firstToken);
         (await ProblemAsync(await storeApi.Anonymous().PostAsJsonAsync("/api/auth/reset-password",
                 new { token = firstToken, newPassword = "Clerk-Pass-1" })))

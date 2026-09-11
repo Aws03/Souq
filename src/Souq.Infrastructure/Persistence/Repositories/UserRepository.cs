@@ -31,6 +31,10 @@ public class UserRepository : RepositoryBase<User>, IUserRepository
 
     public Task<int> CountActiveByRoleAsync(string role, CancellationToken ct = default) =>
         Db.Users.CountAsync(u => u.Role == role && u.Status == UserStatus.Active && u.PasswordHash != "", ct);
+
+    public async Task<IReadOnlyList<int>> ListActiveIdsByRolesAsync(IReadOnlyCollection<string> roles, CancellationToken ct = default) =>
+        await Db.Users.Where(u => roles.Contains(u.Role) && u.Status == UserStatus.Active && u.PasswordHash != "")
+            .OrderBy(u => u.Id).Select(u => u.Id).ToListAsync(ct);
 }
 
 // المتجر بنطاقاته (جدول منصّة: لا مرشّح). لا حذف: المتاجر تُؤرشف (سجلّها المالي والتدقيقي يبقى).

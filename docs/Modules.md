@@ -303,12 +303,23 @@ Each entry lists:
 ### Notifications (module from Phase 14)
 - **Responsibility:** telling people what happened, through the right channel, in the tenant's voice.
 - **Owns:** templates (per tenant, per language), the delivery log, in-app notifications, the outbox dispatch state.
-- **Contracts:** event consumers; `IEmailService` / `INotificationSender` ports.
+- **Contracts:**
+  - `INotificationOutbox`: use cases enqueue references in their own unit of work;
+  - domain events from the aggregates (`OrderStatusChanged`, `StockBecameLow`);
+  - `IEmailSender`, for the dispatch handlers only;
+  - in-app notification queries and commands.
 - **Domain:** idempotent delivery; retries; opt-outs (later).
-- **Depends on:** events only. It never calls business modules synchronously.
+- **Depends on:** events and outbox messages only. It never calls business modules synchronously; handlers read state through repositories.
 - **Forbidden:** business decisions; logging secrets or links.
 - **Extraction:** the strongest candidate.
-- **Today:** `IEmailService` with 4 adapters, sent inline. Link and PII logging were fixed in 1A.
+- **Today (Phase 14, [ADR-0034](adr/0034-notifications-outbox.md)):**
+  - **The outbox:** a hosted dispatcher processes it under a lease with bounded retries. Reset, verification and invitation tokens are issued at dispatch, and domain events are written in the same save as their change.
+  - **`Features/Notifications`:**
+    - identity email handlers;
+    - order and stock handlers (in-app fan-out and customer emails);
+    - the in-app use cases.
+  - **`IEmailSender`** has four adapters (Resend, Brevo, Gmail, log). The templates are localized and branded (`EmailComposer` in Infrastructure).
+  - **Enforcement:** `ModuleAndContractRuleTests` maps the module and confines `IEmailSender` to it, so no request waits on a provider.
 
 ### Reporting (introduced Phase 17)
 - **Responsibility:** dashboards and reports for tenants and the platform.

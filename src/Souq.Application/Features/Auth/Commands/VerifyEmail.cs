@@ -2,6 +2,7 @@ using FluentValidation;
 using MediatR;
 using Souq.Application.Common.Interfaces;
 using Souq.Application.Common.Models;
+using Souq.Application.Common.Notifications;
 using Souq.Application.Common.Security;
 using Souq.Domain.Interfaces;
 
@@ -39,23 +40,22 @@ public class VerifyEmailHandler : IRequestHandler<VerifyEmailCommand, Result>
     }
 }
 
-// إعادة إرسال رابط التأكيد للمستخدم الحالي (حدّ المعدّل في الـ API). مؤكَّد مسبقاً ⇒ نجاح بلا بريد.
+// إعادة إرسال رابط التأكيد للمستخدم الحالي (حدّ المعدّل في الـ API). مؤكَّد مسبقاً ⇒ نجاح بلا بريد. الرسالة تُوضع في صندوق
+// الصادر (المرحلة 14) والرمز يُولَّد عند إرسالها — الطلب لا ينتظر مزوّد البريد.
 public record ResendVerificationCommand : IRequest<Result>;
 
 public class ResendVerificationHandler : IRequestHandler<ResendVerificationCommand, Result>
 {
     private readonly IUserRepository _users;
     private readonly ICurrentUser _currentUser;
-    private readonly IEmailService _email;
+    private readonly INotificationOutbox _outbox;
     private readonly IStorefrontLinks _links;
     private readonly IUnitOfWork _uow;
-    private readonly TimeProvider _clock;
 
     public ResendVerificationHandler(
-        IUserRepository users, ICurrentUser currentUser, IEmailService email, IStorefrontLinks links,
-        IUnitOfWork uow, TimeProvider clock)
+        IUserRepository users, ICurrentUser currentUser, INotificationOutbox outbox, IStorefrontLinks links, IUnitOfWork uow)
     {
-        _users = users; _currentUser = currentUser; _email = email; _links = links; _uow = uow; _clock = clock;
+        _users = users; _currentUser = currentUser; _outbox = outbox; _links = links; _uow = uow;
     }
 
     public async Task<Result> Handle(ResendVerificationCommand cmd, CancellationToken ct)
@@ -66,9 +66,8 @@ public class ResendVerificationHandler : IRequestHandler<ResendVerificationComma
         if (user.EmailConfirmedAt is not null)
             return Result.Success();
 
-        var token = user.GenerateEmailVerificationToken(_clock.GetUtcNow().UtcDateTime);
+        _outbox.Enqueue(new EmailVerificationRequested(user.Id, _links.Origin()));
         await _uow.SaveChangesAsync(ct);
-        await _email.SendEmailVerificationAsync(user.Email, _links.EmailVerification(token), ct);
         return Result.Success();
     }
 }

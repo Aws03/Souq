@@ -2,6 +2,7 @@ using FluentValidation;
 using MediatR;
 using Souq.Application.Common.Interfaces;
 using Souq.Application.Common.Models;
+using Souq.Application.Common.Notifications;
 using Souq.Domain.Identity;
 using Souq.Domain.Interfaces;
 
@@ -22,15 +23,13 @@ public class ForgotPasswordValidator : AbstractValidator<ForgotPasswordCommand>
 public class ForgotPasswordHandler : IRequestHandler<ForgotPasswordCommand, Result>
 {
     private readonly IUserRepository _users;
-    private readonly IEmailService _email;
+    private readonly INotificationOutbox _outbox;
     private readonly IStorefrontLinks _links;
     private readonly IUnitOfWork _uow;
-    private readonly TimeProvider _clock;
 
-    public ForgotPasswordHandler(
-        IUserRepository users, IEmailService email, IStorefrontLinks links, IUnitOfWork uow, TimeProvider clock)
+    public ForgotPasswordHandler(IUserRepository users, INotificationOutbox outbox, IStorefrontLinks links, IUnitOfWork uow)
     {
-        _users = users; _email = email; _links = links; _uow = uow; _clock = clock;
+        _users = users; _outbox = outbox; _links = links; _uow = uow;
     }
 
     public async Task<Result> Handle(ForgotPasswordCommand cmd, CancellationToken ct)
@@ -38,10 +37,9 @@ public class ForgotPasswordHandler : IRequestHandler<ForgotPasswordCommand, Resu
         var user = await _users.GetByEmailAsync(cmd.Email, ct);
         if (user is { Status: UserStatus.Active })
         {
-            var token = user.GenerateResetToken(_clock.GetUtcNow().UtcDateTime);
+            // المرحلة 14: الرسالة في صندوق الصادر والرمز يُولَّد عند إرسالها — الطلب لا ينتظر مزوّد البريد، ولا رمز خام يُخزَّن.
+            _outbox.Enqueue(new PasswordResetRequested(user.Id, _links.Origin()));
             await _uow.SaveChangesAsync(ct);
-
-            await _email.SendPasswordResetEmailAsync(user.Email, _links.PasswordReset(token), ct);
         }
 
         return Result.Success();

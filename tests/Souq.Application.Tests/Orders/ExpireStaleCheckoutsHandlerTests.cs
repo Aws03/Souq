@@ -25,11 +25,11 @@ public class ExpireStaleCheckoutsHandlerTests
 
     private ExpireStaleCheckoutsHandler CreateHandler() => new(
         _reservations, _orders, _payment,
-        new OrderPaymentConfirmation(_orders, _reservations, Substitute.For<ICustomerRepository>(),
+        new OrderPaymentConfirmation(_orders, _reservations,
             Substitute.For<Souq.Application.Features.Coupons.Contracts.ICouponRedemptions>(),
             Substitute.For<Souq.Application.Features.Payments.Contracts.IOrderPayments>(),
             Substitute.For<Souq.Application.Features.Baskets.Contracts.IBasketCheckout>(),
-            _payment, Substitute.For<IEmailService>(), _uow),
+            _payment, _uow),
         NullLogger<ExpireStaleCheckoutsHandler>.Instance);
 
     private Order PendingOrder(int id, string? intent = null)

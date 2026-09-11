@@ -1,5 +1,6 @@
 using Souq.Application.Common.Interfaces;
 using Souq.Application.Common.Models;
+using Souq.Application.Common.Notifications;
 using Souq.Application.Common.Security;
 using Souq.Domain.Identity;
 using Souq.Domain.Interfaces;
@@ -26,20 +27,22 @@ public sealed record InvitationResult(int UserId, bool Renewed);
 
 // ============================================================================
 // دعوة حساب إدارة: حساب بلا كلمة مرور + رابط لاختيارها بالبريد. البريد نفسه لحساب ما زال بانتظار القبول ⇒
-// رمز جديد (إعادة إرسال، ويُحدَّث الاسم والدور)؛ لحساب مفعّل ⇒ EmailTaken. الحفظ أولاً ثم البريد — لا
-// معاملة مفتوحة أثناء اتصال بالمزوّد (ADR-0021)، وفشل المزوّد يُسجَّل ولا يُسقط الدعوة (تُعاد بإرسالها ثانيةً).
+// رمز جديد (إعادة إرسال، ويُحدَّث الاسم والدور — ورابط الدعوة السابقة يسقط فوراً)؛ لحساب مفعّل ⇒ EmailTaken. الحساب ورسالة
+// الدعوة في وحدة واحدة (المرحلة 14): الرسالة في صندوق الصادر ورمزها يُولَّد عند إرسالها — لا انتظار لمزوّد البريد، وفشله يُعاد
+// تلقائياً.
 // ============================================================================
 public sealed class AccountInvitations
 {
     private readonly IUserRepository _users;
     private readonly IUnitOfWork _uow;
-    private readonly IEmailService _email;
+    private readonly INotificationOutbox _outbox;
     private readonly IStorefrontLinks _links;
     private readonly TimeProvider _clock;
 
-    public AccountInvitations(IUserRepository users, IUnitOfWork uow, IEmailService email, IStorefrontLinks links, TimeProvider clock)
+    public AccountInvitations(
+        IUserRepository users, IUnitOfWork uow, INotificationOutbox outbox, IStorefrontLinks links, TimeProvider clock)
     {
-        _users = users; _uow = uow; _email = email; _links = links; _clock = clock;
+        _users = users; _uow = uow; _outbox = outbox; _links = links; _clock = clock;
     }
 
     // inviterName: اسم المتجر (أو المنصّة) في نصّ الرسالة. linkHost: مضيف صفحة القبول؛ null ⇒ مضيف الطلب.
@@ -50,17 +53,16 @@ public sealed class AccountInvitations
         var existing = await _users.GetByEmailAsync(email, ct);
 
         User user;
-        string token;
         if (existing is null)
         {
-            (user, token) = User.Invite(fullName, email, role, now);
+            (user, _) = User.Invite(fullName, email, role, now);
             await _users.AddAsync(user, ct);
         }
         else if (existing.IsInvitationPending)
         {
             existing.Rename(fullName);
             existing.ChangeRole(role);
-            token = existing.RenewInvitation(now);
+            existing.RenewInvitation(now);   // رابط الرسالة السابقة يسقط الآن، لا حين تُرسل الجديدة
             user = existing;
         }
         else
@@ -69,8 +71,13 @@ public sealed class AccountInvitations
                 Error.Conflict("EmailTaken", "البريد الإلكتروني مستخدم لحساب مفعّل هنا"));
         }
 
-        await _uow.SaveChangesAsync(ct);
-        await _email.SendInvitationAsync(user.Email, inviterName, _links.Invitation(token, linkHost), ct);
+        var origin = _links.Origin(linkHost);
+        await _uow.InTransactionAsync(async () =>
+        {
+            await _uow.SaveChangesAsync(ct);   // معرّف الحساب الجديد قبل رسالته
+            _outbox.Enqueue(new AccountInvited(user.Id, inviterName, origin));
+            await _uow.SaveChangesAsync(ct);
+        }, ct);
         return Result<InvitationResult>.Success(new InvitationResult(user.Id, Renewed: existing is not null));
     }
 }

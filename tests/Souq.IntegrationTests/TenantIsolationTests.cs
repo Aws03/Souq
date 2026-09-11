@@ -31,7 +31,10 @@ namespace Souq.IntegrationTests;
 public class TenantIsolationTests
 {
     private enum Actor { Anonymous, Admin, Customer }
-    private enum Resource { Product, ProductImage, Category, Coupon, Order, StaffAccount, Customer, CustomerAddress, ShippingMethod, Review }
+    private enum Resource
+    {
+        Product, ProductImage, Category, Coupon, Order, StaffAccount, Customer, CustomerAddress, ShippingMethod, Review, Notification,
+    }
 
     private sealed record ForeignCase(string Method, string Route, Resource Resource, Actor Actor, Func<HttpContent>? Body = null);
 
@@ -79,6 +82,8 @@ public class TenantIsolationTests
         new("POST", "api/admin/reviews/{id:int}/reject", Resource.Review, Actor.Admin, () => JsonBody(new { note = "من B" })),
         new("PUT", "api/wishlist/{productId:int}", Resource.Product, Actor.Customer),
         new("DELETE", "api/wishlist/{productId:int}", Resource.Product, Actor.Customer),
+        // الإشعارات (المرحلة 14): إشعار عميل A لا يُعلَّم مقروءاً من حساب في B.
+        new("POST", "api/notifications/{id:int}/read", Resource.Notification, Actor.Customer),
         new("POST", "api/admin/inventory/{productId:int}/adjustments", Resource.Product, Actor.Admin,
             () => JsonBody(new { delta = 50, reason = "محاولة من متجر آخر" })),
         new("PUT", "api/admin/inventory/{productId:int}/threshold", Resource.Product, Actor.Admin,
@@ -181,6 +186,11 @@ public class TenantIsolationTests
         (await s.StoreA.WithDbAsync(db => db.Reviews.Where(r => r.Id == reviewId)
                 .Select(r => new { r.Status, r.ModeratedByUserId }).SingleAsync()))
             .Should().BeEquivalentTo(new { Status = ReviewStatus.Approved, ModeratedByUserId = (int?)null });
+
+        // وإشعار عميل A ما زال غير مقروء.
+        var notificationId = s.AIds[Resource.Notification];
+        (await s.StoreA.WithDbAsync(db => db.Notifications.Where(n => n.Id == notificationId).Select(n => n.ReadAt).SingleAsync()))
+            .Should().BeNull();
     }
 
     [Fact]
@@ -482,6 +492,14 @@ public class TenantIsolationTests
         var reviewResponse = await customerA.PostAsJsonAsync($"/api/products/{reviewedProductId}/reviews", new { rating = 4, comment = "من A" });
         reviewResponse.StatusCode.Should().Be(HttpStatusCode.Created, await reviewResponse.Content.ReadAsStringAsync());
         var reviewId = (await reviewResponse.Content.ReadFromJsonAsync<TestApi.IdBody>(TestApi.Json))!.Id;
+        var notificationId = await storeA.WithDbAsync(async db =>
+        {
+            var userId = await db.Customers.Where(c => c.Id == customerId).Select(c => c.UserId).SingleAsync();
+            var notification = new Notification(userId, NotificationKinds.OrderStatus, "{}");
+            db.Notifications.Add(notification);
+            await db.SaveChangesAsync();
+            return notification.Id;
+        });
         var staffEmail = await _factory.CreateStoreUserAsync(await _factory.DefaultTenantAsync(), Roles.TenantStaff);
         var staffId = await storeA.WithDbAsync(db => db.Users.Where(u => u.Email == staffEmail).Select(u => u.Id).SingleAsync());
 
@@ -493,7 +511,7 @@ public class TenantIsolationTests
                 [Resource.Product] = productId, [Resource.ProductImage] = imageId, [Resource.Category] = categoryId,
                 [Resource.Coupon] = couponId, [Resource.Order] = orderId, [Resource.StaffAccount] = staffId,
                 [Resource.Customer] = customerId, [Resource.CustomerAddress] = addressId, [Resource.ShippingMethod] = shippingMethodId,
-                [Resource.Review] = reviewId,
+                [Resource.Review] = reviewId, [Resource.Notification] = notificationId,
             },
             couponCode, productSlug, orderToken);
     }

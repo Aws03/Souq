@@ -175,6 +175,12 @@ export const api = {
   removeFromWishlist: (productId) => request(`/wishlist/${productId}`, { method: 'DELETE' }),
   mergeWishlist: (productIds) => request('/wishlist/merge', { method: 'POST', body: JSON.stringify({ productIds }) }),
 
+  // ── الإشعارات (المرحلة 14) ── للحساب الحالي: الشارة تسأل العدد دورياً، والقائمة تُجلب عند فتحها.
+  getNotifications: (params = {}) => request(`/notifications${toQueryString(params)}`),
+  getUnreadNotificationCount: () => request('/notifications/unread-count'),
+  markNotificationRead: (id) => request(`/notifications/${id}/read`, { method: 'POST' }),
+  markAllNotificationsRead: () => request('/notifications/read-all', { method: 'POST' }),
+
   // ── إدارة المنتجات (أدمن) ── القائمة والتفاصيل من /admin (كل الحالات وكل اللغات والصور بمعرّفاتها)
   getAdminProducts: (params = {}) => request(`/admin/products${toQueryString(params)}`),
   getAdminProduct: (id) => request(`/admin/products/${id}`),

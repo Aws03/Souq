@@ -9,6 +9,7 @@ using Souq.Domain.Entities;
 using Souq.Domain.Identity;
 using Souq.Domain.Interfaces;
 using Souq.Domain.Platform;
+using Souq.Infrastructure.Persistence.Outbox;
 
 namespace Souq.Infrastructure.Persistence;
 
@@ -36,9 +37,14 @@ public class AppDbContext : DbContext, IUnitOfWork
         typeof(AppDbContext).GetMethod(nameof(ConfigureTenantOrPlatformOwned), BindingFlags.NonPublic | BindingFlags.Instance)!;
 
     private readonly ITenantContext _tenancy;
+    private readonly TimeProvider _clock;
 
-    public AppDbContext(DbContextOptions<AppDbContext> options, ITenantContext tenancy) : base(options)
-        => _tenancy = tenancy;
+    // الساعة لوقت أحداث المجال في صندوق الصادر (المرحلة 14) — اختيارية لسياقات تُبنى يدوياً (اختبارات النموذج).
+    public AppDbContext(DbContextOptions<AppDbContext> options, ITenantContext tenancy, TimeProvider? clock = null) : base(options)
+    {
+        _tenancy = tenancy;
+        _clock = clock ?? TimeProvider.System;
+    }
 
     internal ITenantContext Tenancy => _tenancy;
 
@@ -72,6 +78,10 @@ public class AppDbContext : DbContext, IUnitOfWork
     public DbSet<StorePaymentAccount> StorePaymentAccounts => Set<StorePaymentAccount>();
     public DbSet<ShippingMethod> ShippingMethods => Set<ShippingMethod>();
     public DbSet<WishlistItem> WishlistItems => Set<WishlistItem>();
+    public DbSet<Notification> Notifications => Set<Notification>();
+
+    // صندوق الصادر (المرحلة 14): كتلة بناء بلا مرشّح مستأجر — يقرؤها المُرسِل عبر المتاجر.
+    public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
 
     // الهوية (Identity): حسابات المتاجر وحسابات المنصّة في جدول واحد (D-06).
     public DbSet<User> Users => Set<User>();
@@ -132,24 +142,68 @@ public class AppDbContext : DbContext, IUnitOfWork
     // التعديل وختم المستأجر وحراسته في المعترِضات (تعمل داخل base.SaveChangesAsync).
     public override async Task<int> SaveChangesAsync(CancellationToken ct = default)
     {
+        var raised = CaptureDomainEvents();
         try
         {
-            return await base.SaveChangesAsync(ct);
+            var written = await base.SaveChangesAsync(ct);
+            raised.Complete();
+            return written;
         }
         catch (DbUpdateConcurrencyException ex)
         {
             // rowversion تغيّر منذ القراءة: كتابة متزامنة سبقتنا على نفس التجمّع.
+            raised.Abandon(this);
             throw new ConcurrencyConflictException(ex);
         }
         catch (DbUpdateException ex) when (ex.InnerException is SqlException { Number: 2601 or 2627 })
         {
             // 2601/2627 = انتهاك فهرس/قيد فريد — سباق تجاوز الفحص المبكر في المعالج.
+            raised.Abandon(this);
             throw new UniqueConstraintViolationException(ex);
         }
         catch (DbUpdateException ex) when (ex.InnerException is SqlException { Number: 547 })
         {
             // 547 = قيد مفتاح أجنبي: مرجع مفقود/لمتجر آخر، أو حذف سجلّ ما زال مُشاراً إليه.
+            raised.Abandon(this);
             throw new ReferenceConstraintViolationException(ex);
+        }
+        catch
+        {
+            raised.Abandon(this);
+            throw;
+        }
+    }
+
+    // أحداث المجال ⇒ صفوف صادر في الحفظ نفسه (المرحلة 14، ADR-0034): تُلتزم مع التغيير أو تتراجع معه. بعد النجاح تُمحى من
+    // الكيانات؛ بعد الفشل تُفصل الصفوف المضافة وتُمحى الأحداث أيضاً — من يعيد المحاولة يعيد بناء تغييره فتُرفع أحداثه من جديد.
+    private RaisedEvents CaptureDomainEvents()
+    {
+        var sources = ChangeTracker.Entries<BaseEntity<int>>()
+            .Select(e => e.Entity)
+            .Where(e => e.PendingDomainEvents().Count > 0)
+            .ToList();
+        if (sources.Count == 0) return RaisedEvents.None;
+
+        int? tenantId = _tenancy.Scope == TenantScope.Tenant ? _tenancy.Tenant!.Id : null;
+        var now = _clock.GetUtcNow().UtcDateTime;
+        var messages = sources.SelectMany(e => e.PendingDomainEvents()).Select(e => OutboxMessage.For(e, tenantId, now)).ToList();
+        OutboxMessages.AddRange(messages);
+        return new RaisedEvents(sources, messages);
+    }
+
+    private sealed record RaisedEvents(IReadOnlyList<BaseEntity<int>> Sources, IReadOnlyList<OutboxMessage> Messages)
+    {
+        public static readonly RaisedEvents None = new([], []);
+
+        public void Complete()
+        {
+            foreach (var source in Sources) source.ClearDomainEvents();
+        }
+
+        public void Abandon(DbContext db)
+        {
+            foreach (var message in Messages) db.Entry(message).State = EntityState.Detached;
+            Complete();
         }
     }
 

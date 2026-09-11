@@ -131,10 +131,10 @@ public class ApplyPaymentEventHandlerTests
     private ApplyPaymentEventHandler CreateHandler() => new(
         _orders,
         new OrderPaymentConfirmation(_orders, _reservations,
-            Substitute.For<ICustomerRepository>(), Substitute.For<Souq.Application.Features.Coupons.Contracts.ICouponRedemptions>(),
+            Substitute.For<Souq.Application.Features.Coupons.Contracts.ICouponRedemptions>(),
             Substitute.For<Souq.Application.Features.Payments.Contracts.IOrderPayments>(),
             Substitute.For<Souq.Application.Features.Baskets.Contracts.IBasketCheckout>(),
-            _payment, Substitute.For<IEmailService>(), _uow),
+            _payment, _uow),
         NullLogger<ApplyPaymentEventHandler>.Instance);
 
     [Fact]

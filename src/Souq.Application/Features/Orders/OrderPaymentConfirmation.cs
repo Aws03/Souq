@@ -32,21 +32,18 @@ public sealed class OrderPaymentConfirmation
 
     private readonly IOrderRepository _orders;
     private readonly IInventoryReservations _reservations;
-    private readonly ICustomerRepository _customers;
     private readonly ICouponRedemptions _couponRedemptions;
     private readonly IOrderPayments _payments;
     private readonly IBasketCheckout _baskets;
     private readonly IPaymentService _payment;
-    private readonly IEmailService _email;
     private readonly IUnitOfWork _uow;
 
     public OrderPaymentConfirmation(
-        IOrderRepository orders, IInventoryReservations reservations, ICustomerRepository customers,
-        ICouponRedemptions couponRedemptions, IOrderPayments payments, IBasketCheckout baskets, IPaymentService payment,
-        IEmailService email, IUnitOfWork uow)
+        IOrderRepository orders, IInventoryReservations reservations, ICouponRedemptions couponRedemptions,
+        IOrderPayments payments, IBasketCheckout baskets, IPaymentService payment, IUnitOfWork uow)
     {
-        _orders = orders; _reservations = reservations; _customers = customers; _couponRedemptions = couponRedemptions;
-        _payments = payments; _baskets = baskets; _payment = payment; _email = email; _uow = uow;
+        _orders = orders; _reservations = reservations; _couponRedemptions = couponRedemptions;
+        _payments = payments; _baskets = baskets; _payment = payment; _uow = uow;
     }
 
     public async Task<Result<OrderConfirmedDto>> ConfirmAsync(Order order, CancellationToken ct)
@@ -96,12 +93,8 @@ public sealed class OrderPaymentConfirmation
             return Result<OrderConfirmedDto>.Success(ToDto(order, current.Value));
         }
 
-        // أثر جانبي غير حرج (البريد) بعد الحفظ: فشله لا يُفشل تأكيد الطلب. المرحلة 14 تنقله
-        // إلى صندوق صادر (Outbox) كي لا ينتظر الطلب مزوّد البريد ولا يضيع إشعار.
-        var customer = await _customers.GetByIdAsync(order.CustomerId, ct);
-        if (customer is not null)
-            await _email.SendOrderConfirmationAsync(customer.Email, order.Id, ct);
-
+        // بريد التأكيد وإشعارات العميل والإدارة (المرحلة 14): حدث OrderStatusChanged الذي رفعه MarkAsPaid كُتب في صندوق
+        // الصادر في الحفظ نفسه — لا انتظار لمزوّد البريد هنا، ولا إشعار يضيع أو يُرسل لدفع تراجع.
         return Result<OrderConfirmedDto>.Success(ToDto(order, order.Status));
     }
 

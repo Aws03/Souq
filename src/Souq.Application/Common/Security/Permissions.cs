@@ -101,6 +101,10 @@ public static class RolePermissions
     public static IReadOnlySet<string> For(string role) =>
         ByRole.TryGetValue(role, out var granted) ? granted : Set();
 
+    // الأدوار التي تمنح صلاحية — لمخاطبة كل من يملكها (إشعار الإدارة بطلب جديد لمن يرى الطلبات، المرحلة 14).
+    public static IReadOnlyList<string> RolesGranting(string permission) =>
+        ByRole.Where(r => r.Value.Contains(permission)).Select(r => r.Key).OrderBy(r => r, StringComparer.Ordinal).ToList();
+
     private static IReadOnlySet<string> Set(params string[] permissions) =>
         new HashSet<string>(permissions, StringComparer.Ordinal);
 }

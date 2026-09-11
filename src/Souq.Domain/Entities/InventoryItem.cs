@@ -1,5 +1,6 @@
 using Souq.Domain.Common;
 using Souq.Domain.Enums;
+using Souq.Domain.Events;
 using Souq.Domain.Exceptions;
 
 namespace Souq.Domain.Entities;
@@ -63,7 +64,9 @@ public class InventoryItem : Entity, ITenantOwned
         if (OnHand + delta < Reserved)
             throw new InvalidInventoryOperationException(
                 $"لا يمكن إنزال الموجود ({OnHand}) إلى {OnHand + delta}: المحجوز لطلبات قائمة {Reserved}");
+        var before = Available;
         OnHand += delta;
+        RaiseIfBecameLow(before);
         return Record(StockMovementType.Adjustment, delta, trimmed);
     }
 
@@ -74,7 +77,9 @@ public class InventoryItem : Entity, ITenantOwned
             throw new InvalidInventoryOperationException("كمية الحجز يجب أن تكون أكبر من صفر");
         if (quantity > Available)
             throw new InsufficientStockException(displayName, quantity, Math.Max(Available, 0));
+        var before = Available;
         Reserved += quantity;
+        RaiseIfBecameLow(before);
         return new StockReservation(this, reference, quantity, expiresAt);
     }
 
@@ -114,6 +119,13 @@ public class InventoryItem : Entity, ITenantOwned
         if (threshold < 0)
             throw new InvalidInventoryOperationException("حدّ التنبيه لا يكون سالباً");
         LowStockThreshold = threshold;
+    }
+
+    // عبور حدّ التنبيه نزولاً (المرحلة 14): حدث واحد لكل هبوط — لا لكل بيع بعده، ولا لتصحيح يرفع المتاح. لمخزون محفوظ فقط.
+    private void RaiseIfBecameLow(int availableBefore)
+    {
+        if (Id > 0 && availableBefore > LowStockThreshold && IsLowStock)
+            Raise(new StockBecameLow(ProductId, VariantId, Math.Max(Available, 0), LowStockThreshold));
     }
 
     private void EnsureOwns(StockReservation reservation)

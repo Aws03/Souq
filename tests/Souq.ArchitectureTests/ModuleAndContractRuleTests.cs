@@ -30,6 +30,7 @@ public class ModuleAndContractRuleTests
         ["Customers"] = ["Customers"],
         ["Shopping"] = ["Baskets", "Wishlist"],
         ["Shipping"] = ["Shipping"],
+        ["Notifications"] = ["Notifications"],
         ["Platform"] = ["Platform", "Stores"],
         ["Reporting"] = ["Reporting"],
     };
@@ -46,6 +47,21 @@ public class ModuleAndContractRuleTests
             .Distinct();
 
         folders.Should().BeSubsetOf(ModuleFolders.Values.SelectMany(f => f));
+    }
+
+    [Fact]
+    public void مسار_الطلب_لا_يعرف_مزوّد_البريد()
+    {
+        // المرحلة 14 (D-14): حالات الاستخدام تضع رسائل في صندوق الصادر؛ مزوّد البريد لمعالجي الصندوق وحدهم (وحدة Notifications)
+        // — فلا طلب HTTP ينتظر مزوّداً بطيئاً، ولا يُفقد بريد بفشله.
+        var result = Types.InAssembly(Application)
+            .That().ResideInNamespaceStartingWith("Souq.Application")
+            .And().DoNotResideInNamespaceStartingWith($"{Features}.Notifications")
+            .And().DoNotResideInNamespace("Souq.Application.Common.Notifications")
+            .ShouldNot().HaveDependencyOn("Souq.Application.Common.Notifications.IEmailSender")
+            .GetResult();
+
+        result.IsSuccessful.Should().BeTrue(string.Join(", ", result.FailingTypeNames ?? []));
     }
 
     // العقود المسموحة بين الوحدات وفق رسم الاعتماديات (Modules.md §2): الوحدة ⇒ الوحدات التي تستدعي عقودها.

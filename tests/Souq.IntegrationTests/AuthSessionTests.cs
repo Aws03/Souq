@@ -161,6 +161,7 @@ public class AuthSessionTests
         var (customer, email) = await _api.NewCustomerAsync();
         (await customer.GetFromJsonAsync<TestApi.UserBody>("/api/auth/me", TestApi.Json))!.EmailConfirmed.Should().BeFalse();
 
+        await _factory.DispatchNotificationsAsync();   // المرحلة 14: الرسالة من صندوق الصادر
         var token = _factory.Emails.LastVerificationTokenFor(email);
         (await _api.Anonymous().PostAsJsonAsync("/api/auth/verify-email", new { token }))
             .StatusCode.Should().Be(HttpStatusCode.NoContent);
@@ -178,6 +179,7 @@ public class AuthSessionTests
         var (_, email) = await storeApi.NewCustomerAsync();
 
         (await storeApi.Anonymous().PostAsJsonAsync("/api/auth/forgot-password", new { email })).EnsureSuccessStatusCode();
+        await _factory.DispatchNotificationsAsync();
 
         new Uri(_factory.Emails.LastResetLinkFor(email)).Host.Should().Be(store.Host);
     }

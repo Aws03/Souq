@@ -1,7 +1,7 @@
 # Souq Platform: Product Roadmap
 
 > **Goal:** turn Souq into one **white-label, multi-tenant e-commerce platform**, sold to many clients (≈ $5,000+ each) and maintainable by a professional team.
-> **Status:** Phase 0 ✅ · Target architecture ✅ documented · Phase 1A ✅ (merged to `main`) · Phase 1B ✅ on branch `phase/1b-production-foundations` (awaiting review) · **Autonomous run on `phase/2-15-multitenant-platform`** (branched from the 1B tip): Phase 2 ✅ · Phase 3 ✅ · Phase 4 ✅ · Phase 5 ✅ · Phase 6 ✅ · Phase 7 ✅ · Phase 8 ✅ · Phase 9 ✅ · Phase 10 ✅ · Phase 11 ✅ · Phase 12 ✅ · Phase 13 ✅. Next: Phase 14.
+> **Status:** Phase 0 ✅ · Target architecture ✅ documented · Phase 1A ✅ (merged to `main`) · Phase 1B ✅ on branch `phase/1b-production-foundations` (awaiting review) · **Autonomous run on `phase/2-15-multitenant-platform`** (branched from the 1B tip): Phase 2 ✅ · Phase 3 ✅ · Phase 4 ✅ · Phase 5 ✅ · Phase 6 ✅ · Phase 7 ✅ · Phase 8 ✅ · Phase 9 ✅ · Phase 10 ✅ · Phase 11 ✅ · Phase 12 ✅ · Phase 13 ✅ · Phase 14 ✅. Next: Phase 15.
 > **Companion document:** [ArchitectureAssessment.md](ArchitectureAssessment.md) covers the current state, the problem register (IDs such as `B1` and `C2`), the target architecture, and the full reasoning behind every decision (`D-xx`).
 > **Last updated:** 2026-09-11
 
@@ -691,7 +691,34 @@ Status legend: ✅ done · 🟡 in progress · ⏳ planned · ⏸ awaiting appro
   - Moderation workflow tests pass.
   - A disabled module returns 404.
 
-### Phase 14: Notifications ⏳
+### Phase 14: Notifications ✅ (autonomous run)
+- **Delivered ([ADR-0034](adr/0034-notifications-outbox.md), resolves D-14):**
+  - **A transactional outbox** (`OutboxMessages`):
+    - use cases enqueue references (account or order id, the link origin) in their own unit of work;
+    - a hosted dispatcher processes them under a lease with bounded retries (30 s up to 6 h, then dead, kept for diagnosis);
+    - processed rows are purged after 14 days.
+  - **Tokens issued at dispatch:** reset, verification and invitation tokens are created and hashed when the email is sent. No raw token is ever stored.
+  - **Domain events** (`OrderStatusChanged`, `StockBecameLow`) raised by the aggregates and written to the outbox in the same save — and discarded when the save fails.
+  - **`IEmailSender`** (Resend, Brevo, Gmail, log):
+    - the sender is named after the store, and replies go to the store's contact email;
+    - templates are localized (Arabic, English) and branded, with a plain-text alternative;
+    - provider failures throw, so the dispatcher retries.
+  - **In-app notifications:**
+    - customers: their orders' status changes;
+    - staff with `orders.view`: new paid orders;
+    - staff with `inventory.view`: low stock;
+    - `/api/notifications` (list, unread count, mark read, mark all read), and a bell in the storefront and admin headers.
+  - **No silent console fallback:** outside Development/Testing the API refuses to start without a provider, unless `Email:Provider=Log` is set explicitly. docker-compose passes `EMAIL_PROVIDER`.
+  - **Migration `Phase14Notifications`:** additive.
+- **Deferred, with reasons:**
+  - **Customer language preference and per-store editable templates:** emails use the store's default language.
+  - **Push (WebSocket/SignalR):** the bell polls every minute.
+  - **Per-store sending domains:** each needs SPF/DKIM verification (Phase 23).
+  - **An operator screen for dead messages:** Phase 17/23.
+- **Exit criteria (met):**
+  - **Retries are tested:** unit tests for the schedule and the handlers; the integration test covers a failure, the backoff, the delivery, and a message that dies after its last attempt.
+  - **No tokens or PII appear in logs:** the integration test searches every captured log line, and the stored error, for the token and the email address. Senders log the message kind and a masked recipient only, and mask any address echoed in a provider error.
+  - **The request path never waits on the email provider:** an architecture test confines `IEmailSender` to the Notifications module, and in the integration test the request succeeds while the provider is blocked.
 - **Scope.**
   - An outbox with a background dispatcher (D-14).
   - `INotificationSender` (email), with a per-tenant sender identity and localized, branded templates.
@@ -830,7 +857,7 @@ Each decision is argued in full (options, recommendation, rationale) in Architec
 | D-21 | Sellable unit | ✅ **Implemented in Phases 5–6:** a default variant per product holds the SKU, price and compare-at price ([ADR-0025](adr/0025-catalog-model.md)); its stock is an `InventoryItem` with reservations ([ADR-0026](adr/0026-inventory-reservations.md)) | 5 / 6 |
 | D-15 | Background jobs | ✅ **Implemented in Phase 6:** a .NET hosted service (checkout expiry sweep per store); Hangfire only when needed — [ADR-0026](adr/0026-inventory-reservations.md) | 6 |
 | **D-13** | Payment tenancy | 🟡 **Mechanism built in Phase 11** ([ADR-0031](adr/0031-payments-and-refunds.md)): per-store gateway resolution, AES-GCM-encrypted store keys, routing by the account that took each payment, per-store webhook secrets. A store may connect its own Stripe account; the others use the deployment account. **Still to decide:** require every store to connect its own account (merchant of record), or adopt Stripe Connect (another adapter behind the same router) | before multi-store live payments |
-| D-14 | Notifications | Outbox + background dispatcher, per-tenant templates | 14 |
+| D-14 | Notifications | ✅ **Resolved in Phase 14** ([ADR-0034](adr/0034-notifications-outbox.md)): a transactional outbox with a leased hosted dispatcher and bounded retries; domain events in the same save; localized emails with the store's identity; in-app notifications | 14 |
 | D-19 | Frontend stack | Incremental TypeScript + TanStack Query | 15 |
 | P-03 | Source license and repository visibility | The repo is MIT-licensed and has a GitHub remote. Decide before the first sale. | before 23 |
 | P-06 | Tax model | No tax exists in the product, and no phase plans one. Decide: prices tax-inclusive or exclusive, a per-store rate, and whether invoices must show tax (Jordan GST). The pricing pipeline has a zero tax stage ready for it ([ADR-0028](adr/0028-basket-and-pricing-pipeline.md)) | before the first sale |
@@ -918,3 +945,4 @@ The earlier `AUDIT.md` (Arabic, 8-phase program) and the engineering-thinking gu
 | 2026-09-11 | Phase 11 completed (a payment record per order, idempotent refunds with retry, a full refund when a paid order is cancelled, per-store Stripe accounts with AES-GCM-encrypted keys, one gateway router, webhooks routed to the store that created the intent, admin payments page and refund UI); ADR-0031. The D-13 mechanism is built but the choice is still open; P-05 re-checked against Stripe's docs |
 | 2026-09-11 | Phase 12 completed (store-defined shipping methods behind an `IShippingRateProvider` strategy, the pipeline's shipping stage, a method required at checkout when the store has methods, the destination country from the address book, a shipping snapshot and totals including shipping, carrier tracking links); ADR-0032 |
 | 2026-09-11 | Phase 13 completed (review moderation under a per-store auto-approve policy, approved-only aggregates with a per-star distribution, an audited moderation API, a server-side wishlist that absorbs the guest list at sign-in, both features behind their module flags); ADR-0033 |
+| 2026-09-11 | Phase 14 completed (a transactional outbox with a leased dispatcher and bounded retries, tokens issued at dispatch, domain events for order status and low stock, localized emails with the store's identity, in-app notifications with a bell, no silent console email fallback outside development); ADR-0034, D-14 resolved |

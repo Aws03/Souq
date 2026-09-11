@@ -7,12 +7,14 @@ using Microsoft.Extensions.Options;
 using Souq.Application.Common.Accounts;
 using Souq.Application.Common.Auditing;
 using Souq.Application.Common.Interfaces;
+using Souq.Application.Common.Notifications;
 using Souq.Application.Common.Security;
 using Souq.Application.Common.Tenancy;
 using Souq.Application.Features.Coupons.Queries;
 using Souq.Application.Features.Customers;
 using Souq.Application.Features.Inventory.Queries;
 using Souq.Application.Features.Inventory.Reservations;
+using Souq.Application.Features.Notifications;
 using Souq.Application.Features.Orders.Queries;
 using Souq.Application.Features.Platform;
 using Souq.Application.Features.Products.Queries;
@@ -21,8 +23,11 @@ using Souq.Application.Features.Reviews.Queries;
 using Souq.Application.Features.Stores;
 using Souq.Domain.Interfaces;
 using Souq.Infrastructure.Auditing;
+using Souq.Infrastructure.BackgroundJobs;
+using Souq.Infrastructure.Notifications;
 using Souq.Infrastructure.Persistence;
 using Souq.Infrastructure.Persistence.Interceptors;
+using Souq.Infrastructure.Persistence.Outbox;
 using Souq.Infrastructure.Persistence.Queries;
 using Souq.Infrastructure.Persistence.Repositories;
 using Souq.Infrastructure.Services;
@@ -53,6 +58,7 @@ public static class DependencyInjection
         AddBaskets(services, config);
         AddPayments(services, config, environment, report);
         AddEmail(services, config, environment, report);
+        AddNotifications(services, config);
         AddStorage(services, config, environment);
         AddAuthentication(services, config);
 
@@ -211,9 +217,10 @@ public static class DependencyInjection
             report.Warn("Payments:AllowTestModeStoreAccounts مفعّل: متجر بمفاتيح Stripe تجريبية يقبل بطاقات الاختبار بلا مال حقيقي.");
     }
 
-    // البريد: ترتيب الأولوية Resend ← Brevo ← Gmail SMTP ← طباعة في السجل. كل مفتاح
-    // سرّ (متغيّر بيئة/user-secrets). الطباعة في السجل تُظهر الروابط في Development فقط
-    // (لا بريد حقيقي يُرسَل هناك)؛ خارجها لا تظهر أي رموز أو روابط أبداً (Phase 0 B2).
+    // البريد: ترتيب الأولوية Resend ← Brevo ← Gmail SMTP. كل مفتاح سرّ (متغيّر بيئة/user-secrets). بلا مزوّد (المرحلة 14): السجل
+    // بدل البريد في Development/Testing تلقائياً (الروابط تظهر في Development وحده، Phase 0 B2)، وخارجهما بإذن صريح
+    // Email:Provider=Log فقط — وإلا يرفض الـ API الإقلاع: لا بديل طرفي صامت في الإنتاج (رسائل إعادة التعيين وتأكيد الطلبات لا
+    // تصل ولا يلاحظ أحد). المزوّد لا يُستدعى من مسار الطلب أبداً — معالجو صندوق الصادر وحدهم (اختبار معماري).
     private static void AddEmail(
         IServiceCollection services, IConfiguration config, IHostEnvironment environment, InfrastructureStartupReport report)
     {
@@ -225,7 +232,7 @@ public static class DependencyInjection
         {
             services.Configure<ResendOptions>(config.GetSection("Resend"));
             // عميل HTTP من المصنع: مهلة، وتدوير اتصالات يحترم تغيّر DNS (لا HttpClient ساكن).
-            services.AddHttpClient<IEmailService, ResendEmailService>(c => c.Timeout = ProviderTimeout);
+            services.AddHttpClient<IEmailSender, ResendEmailService>(c => c.Timeout = ProviderTimeout);
             report.EmailProvider = "Resend";
         }
         else if (!string.IsNullOrWhiteSpace(config["Brevo:ApiKey"]))
@@ -235,7 +242,7 @@ public static class DependencyInjection
                 config.GetSection("Brevo").Bind(o);
                 o.SenderEmail = FirstNonEmpty(o.SenderEmail, fallbackSender) ?? "";
             });
-            services.AddHttpClient<IEmailService, BrevoEmailService>(c => c.Timeout = ProviderTimeout);
+            services.AddHttpClient<IEmailSender, BrevoEmailService>(c => c.Timeout = ProviderTimeout);
             report.EmailProvider = "Brevo";
         }
         else if (!string.IsNullOrWhiteSpace(config["Gmail:AppPassword"]))
@@ -247,20 +254,45 @@ public static class DependencyInjection
                 o.AppPassword = string.Concat(o.AppPassword.Where(c => !char.IsWhiteSpace(c)));
                 o.Username = fallbackSender ?? "";
             });
-            services.AddScoped<IEmailService, GmailEmailService>();
+            services.AddScoped<IEmailSender, GmailEmailService>();
             report.EmailProvider = "Gmail";
         }
         else
         {
-            services.Configure<ConsoleEmailOptions>(o =>
-            {
-                o.IncludeLinksInLog = environment.IsDevelopment();
-            });
-            services.AddScoped<IEmailService, ConsoleEmailService>();
-            report.EmailProvider = "Console";
-            if (!PaymentProviderSelector.IsLocal(environment.EnvironmentName))
-                report.Warn("لا مزوّد بريد مضبوط (Resend/Brevo/Gmail) — لن تُرسَل رسائل تأكيد الطلب ولا إعادة التعيين.");
+            var local = PaymentProviderSelector.IsLocal(environment.EnvironmentName);
+            var explicitLog = string.Equals(config["Email:Provider"], "Log", StringComparison.OrdinalIgnoreCase);
+            if (!local && !explicitLog)
+                throw new InvalidOperationException(
+                    $"لا مزوّد بريد مضبوط في بيئة {environment.EnvironmentName}: اضبط Resend:ApiKey أو Brevo:ApiKey أو " +
+                    "Gmail:AppPassword، أو Email:Provider=Log صراحةً لعرض توضيحي لا تصل فيه أي رسالة.");
+
+            services.Configure<ConsoleEmailOptions>(o => o.IncludeLinksInLog = environment.IsDevelopment());
+            services.AddScoped<IEmailSender, ConsoleEmailService>();
+            report.EmailProvider = "Log";
+            if (!local)
+                report.Warn("Email:Provider=Log — لا تُرسَل أي رسالة (إعادة تعيين، تأكيد، دعوة، تأكيد طلب): عرض توضيحي فقط.");
         }
+    }
+
+    // الإشعارات (المرحلة 14، D-14): صندوق الصادر ومُرسِله الخلفي، القوالب، أصول واجهات المتاجر، والإشعارات داخل التطبيق.
+    // DispatchIntervalSeconds = 0 يعطّل المُرسِل (الاختبارات تشغّل دورة المعالجة مباشرة).
+    private static void AddNotifications(IServiceCollection services, IConfiguration config)
+    {
+        services.AddOptions<NotificationSettings>()
+            .Bind(config.GetSection("Notifications"))
+            .Validate(s => s.DispatchIntervalSeconds == 0 || s.DispatchIntervalSeconds is >= 1 and <= 300,
+                "Notifications:DispatchIntervalSeconds صفر (معطّل) أو بين 1 و300 ثانية.")
+            .Validate(s => s.RetentionDays is >= 1 and <= 365, "Notifications:RetentionDays بين 1 و365 يوماً.")
+            .ValidateOnStart();
+        services.AddSingleton(sp => sp.GetRequiredService<IOptions<NotificationSettings>>().Value);
+
+        services.AddScoped<INotificationOutbox, NotificationOutbox>();
+        services.AddScoped<IOutboxProcessor, OutboxProcessor>();
+        services.AddSingleton<IEmailComposer, EmailComposer>();
+        services.AddScoped<IStoreOrigins, StoreOrigins>();
+        services.AddScoped<INotificationRepository, NotificationRepository>();
+        services.AddScoped<INotificationQueries, NotificationQueries>();
+        services.AddHostedService<OutboxDispatcherService>();
     }
 
     // تخزين الوسائط محلياً (قرص) خلف IFileStorage — يُستبدل بتخزين سحابي بتبديل هذا التسجيل

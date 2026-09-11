@@ -2,6 +2,7 @@ using FluentValidation;
 using MediatR;
 using Souq.Application.Common.Interfaces;
 using Souq.Application.Common.Models;
+using Souq.Application.Common.Notifications;
 using Souq.Application.Common.Tenancy;
 using Souq.Domain.Common;
 using Souq.Domain.Entities;
@@ -30,18 +31,17 @@ public class RegisterHandler : IRequestHandler<RegisterCommand, Result<AuthSessi
     private readonly ICustomerRepository _customers;
     private readonly IPasswordHasher _hasher;
     private readonly AuthSessionIssuer _sessions;
-    private readonly IEmailService _email;
+    private readonly INotificationOutbox _outbox;
     private readonly IStorefrontLinks _links;
     private readonly ITenantContext _tenant;
     private readonly IUnitOfWork _uow;
-    private readonly TimeProvider _clock;
 
     public RegisterHandler(
         IUserRepository users, ICustomerRepository customers, IPasswordHasher hasher, AuthSessionIssuer sessions,
-        IEmailService email, IStorefrontLinks links, ITenantContext tenant, IUnitOfWork uow, TimeProvider clock)
+        INotificationOutbox outbox, IStorefrontLinks links, ITenantContext tenant, IUnitOfWork uow)
     {
         _users = users; _customers = customers; _hasher = hasher; _sessions = sessions;
-        _email = email; _links = links; _tenant = tenant; _uow = uow; _clock = clock;
+        _outbox = outbox; _links = links; _tenant = tenant; _uow = uow;
     }
 
     public async Task<Result<AuthSession>> Handle(RegisterCommand cmd, CancellationToken ct)
@@ -54,20 +54,19 @@ public class RegisterHandler : IRequestHandler<RegisterCommand, Result<AuthSessi
             return Result<AuthSession>.Failure(Error.Conflict("EmailTaken", "البريد الإلكتروني مستخدم مسبقاً"));
 
         var user = new User(cmd.FullName, cmd.Email, _hasher.Hash(cmd.Password), Roles.Customer);
-        var verificationToken = user.GenerateEmailVerificationToken(_clock.GetUtcNow().UtcDateTime);
 
-        // الحساب ثم ملف العميل (يحتاج معرّفه) ثم الجلسة — وحدة واحدة: لا حساب يبقى بلا ملف شراء.
+        // الحساب ثم ملف العميل (يحتاج معرّفه) ورسالة التأكيد ثم الجلسة — وحدة واحدة: لا حساب بلا ملف شراء، ولا رسالة لحساب
+        // لم يُحفظ. الرسالة في صندوق الصادر (المرحلة 14) والرمز يُولَّد عند إرسالها — التسجيل لا ينتظر مزوّد البريد.
         var session = await _uow.InTransactionAsync(async () =>
         {
             await _users.AddAsync(user, ct);
             await _uow.SaveChangesAsync(ct);
             await _customers.AddAsync(new Customer(user.Id, user.FullName, user.Email), ct);
+            _outbox.Enqueue(new EmailVerificationRequested(user.Id, _links.Origin()));
             await _uow.SaveChangesAsync(ct);
             return await _sessions.IssueAsync(user, familyId: null, ct);
         }, ct);
 
-        // البريد بعد الالتزام وخارج المعاملة (ADR-0021): فشل المزوّد لا يُسقط التسجيل.
-        await _email.SendEmailVerificationAsync(user.Email, _links.EmailVerification(verificationToken), ct);
         return Result<AuthSession>.Success(session);
     }
 }

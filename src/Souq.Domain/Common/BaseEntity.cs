@@ -1,3 +1,5 @@
+using Souq.Domain.Events;
+
 namespace Souq.Domain.Common;
 
 // ============================================================================
@@ -16,4 +18,14 @@ public abstract class BaseEntity<TId>
     // لا يستطيع تزوير هذه التواريخ.
     public DateTime CreatedAt { get; internal set; }
     public DateTime? UpdatedAt { get; internal set; }
+
+    // أحداث المجال (المرحلة 14، ADR-0034): حقل خاص لا خاصية فلا يُربط بالقاعدة. وحدة العمل تكتبها في صندوق الصادر مع التغيير
+    // نفسه ثم تمحوها — بعد نجاح الحفظ، أو بعد فشله (من يعيد المحاولة يعيد بناء تغييره فتُرفع أحداثه من جديد).
+    private List<IDomainEvent>? _domainEvents;
+
+    protected void Raise(IDomainEvent domainEvent) => (_domainEvents ??= []).Add(domainEvent);
+
+    public IReadOnlyList<IDomainEvent> PendingDomainEvents() => _domainEvents is null ? [] : _domainEvents.ToArray();
+
+    public void ClearDomainEvents() => _domainEvents?.Clear();
 }

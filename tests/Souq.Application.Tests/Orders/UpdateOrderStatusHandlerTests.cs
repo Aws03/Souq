@@ -29,9 +29,8 @@ public class UpdateOrderStatusHandlerTests
     {
         var coupons = Substitute.For<Souq.Application.Features.Coupons.Contracts.ICouponRedemptions>();
         return new(_orders, _reservations, coupons, _payments,
-            new OrderPaymentConfirmation(_orders, _reservations, Substitute.For<ICustomerRepository>(), coupons, _payments,
-                Substitute.For<Souq.Application.Features.Baskets.Contracts.IBasketCheckout>(), _gateway,
-                Substitute.For<Souq.Application.Common.Interfaces.IEmailService>(), _uow),
+            new OrderPaymentConfirmation(_orders, _reservations, coupons, _payments,
+                Substitute.For<Souq.Application.Features.Baskets.Contracts.IBasketCheckout>(), _gateway, _uow),
             TestCurrentUser.Admin(), _uow);
     }
 

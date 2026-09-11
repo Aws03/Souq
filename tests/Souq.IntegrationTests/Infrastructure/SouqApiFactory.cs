@@ -5,11 +5,13 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
 using Souq.Application.Common.Interfaces;
+using Souq.Application.Common.Notifications;
 using Souq.Application.Common.Tenancy;
 using Souq.Domain.Common;
 using Souq.Domain.Identity;
 using Souq.Domain.Platform;
 using Souq.Infrastructure.Persistence;
+using Souq.Infrastructure.Persistence.Outbox;
 using Testcontainers.MsSql;
 
 namespace Souq.IntegrationTests.Infrastructure;
@@ -36,7 +38,7 @@ public sealed class SouqApiFactory : WebApplicationFactory<Program>, IAsyncLifet
 
     private readonly MsSqlContainer _sql = new MsSqlBuilder("mcr.microsoft.com/mssql/server:2022-latest").Build();
 
-    public CapturingEmailService Emails { get; } = new();
+    public CapturingEmailSender Emails { get; } = new();
     public CapturingLoggerProvider Logs { get; } = new();
     public string UploadsRoot { get; } = Path.Combine(Path.GetTempPath(), $"souq-it-uploads-{Guid.NewGuid():N}");
 
@@ -64,6 +66,8 @@ public sealed class SouqApiFactory : WebApplicationFactory<Program>, IAsyncLifet
         builder.UseSetting("Inventory:SweepIntervalSeconds", "0");
         // وكذلك منسّق حذف السلال المنتهية: BasketTests ترسل أمر الحذف مباشرة.
         builder.UseSetting("Basket:CleanupIntervalMinutes", "0");
+        // وكذلك مُرسِل صندوق الصادر (المرحلة 14): الاختبارات تشغّل دورته صراحةً (DispatchNotificationsAsync) — حتمية بلا انتظار.
+        builder.UseSetting("Notifications:DispatchIntervalSeconds", "0");
         builder.UseSetting("Secrets:ActiveKeyId", SecretsKeyId);
         builder.UseSetting($"Secrets:Keys:{SecretsKeyId}", SecretsKey);
         builder.UseSetting("Payments:Fake:WebhookSecret", FakeWebhookSecret);
@@ -81,9 +85,24 @@ public sealed class SouqApiFactory : WebApplicationFactory<Program>, IAsyncLifet
         builder.ConfigureTestServices(services =>
         {
             // نلتقط البريد بدل إرساله — لنقرأ رمز إعادة التعيين كما يصل للمستخدم.
-            services.RemoveAll<IEmailService>();
-            services.AddSingleton<IEmailService>(Emails);
+            services.RemoveAll<IEmailSender>();
+            services.AddSingleton<IEmailSender>(Emails);
         });
+    }
+
+    // دورة إرسال صريحة لما حان وقته في صندوق الصادر — وما ولّدته معالجاته (بريد الطلب بعد إشعاراته) في الدورات التالية.
+    public async Task<int> DispatchNotificationsAsync()
+    {
+        await using var scope = Services.CreateAsyncScope();
+        var processor = scope.ServiceProvider.GetRequiredService<IOutboxProcessor>();
+        var total = 0;
+        for (var pass = 0; pass < 5; pass++)
+        {
+            var handled = await processor.ProcessDueAsync(CancellationToken.None);
+            if (handled == 0) break;
+            total += handled;
+        }
+        return total;
     }
 
     public async Task<TenantInfo> TenantAsync(string slug)

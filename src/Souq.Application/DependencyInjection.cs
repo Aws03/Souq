@@ -73,6 +73,20 @@ public static class DependencyInjection
         // حسابات الإدارة (دعوة، تفعيل/إيقاف) مشتركة بين منطقة المنصّة وإدارة موظّفي المتجر.
         services.AddScoped<Common.Accounts.AccountInvitations>();
         services.AddScoped<Common.Accounts.AccountStatusChanger>();
+        // الإشعارات (المرحلة 14): معالجو رسائل صندوق الصادر — يستدعيهم المُرسِل الخلفي داخل نطاق متجر كل رسالة.
+        services.AddScoped<Features.Notifications.NotificationEmails>();
+        services.AddScoped<Common.Notifications.INotificationMessageHandler<Common.Notifications.PasswordResetRequested>,
+            Features.Notifications.PasswordResetEmailHandler>();
+        services.AddScoped<Common.Notifications.INotificationMessageHandler<Common.Notifications.EmailVerificationRequested>,
+            Features.Notifications.EmailVerificationEmailHandler>();
+        services.AddScoped<Common.Notifications.INotificationMessageHandler<Common.Notifications.AccountInvited>,
+            Features.Notifications.InvitationEmailHandler>();
+        services.AddScoped<Common.Notifications.INotificationMessageHandler<Common.Notifications.OrderEmailRequested>,
+            Features.Notifications.OrderEmailHandler>();
+        services.AddScoped<Common.Notifications.INotificationMessageHandler<Domain.Events.OrderStatusChanged>,
+            Features.Notifications.OrderStatusChangedHandler>();
+        services.AddScoped<Common.Notifications.INotificationMessageHandler<Domain.Events.StockBecameLow>,
+            Features.Notifications.StockBecameLowHandler>();
 
         return services;
     }

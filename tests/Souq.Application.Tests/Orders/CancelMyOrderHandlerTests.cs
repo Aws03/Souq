@@ -23,10 +23,10 @@ public class CancelMyOrderHandlerTests
 
     private CancelMyOrderHandler Handler(int customerId = 1) => new(
         _orders,
-        new OrderPaymentConfirmation(_orders, _reservations, Substitute.For<ICustomerRepository>(),
+        new OrderPaymentConfirmation(_orders, _reservations,
             Substitute.For<Souq.Application.Features.Coupons.Contracts.ICouponRedemptions>(),
             Substitute.For<Souq.Application.Features.Payments.Contracts.IOrderPayments>(),
-            Substitute.For<IBasketCheckout>(), _payment, Substitute.For<IEmailService>(), _uow),
+            Substitute.For<IBasketCheckout>(), _payment, _uow),
         TestCurrentUser.Customer(customerId));
 
     private Order Arrange(string? intent = null, bool paid = false)

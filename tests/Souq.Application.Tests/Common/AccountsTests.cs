@@ -2,6 +2,7 @@ using AwesomeAssertions;
 using NSubstitute;
 using Souq.Application.Common.Accounts;
 using Souq.Application.Common.Interfaces;
+using Souq.Application.Common.Notifications;
 using Souq.Application.Common.Security;
 using Souq.Application.Tests.TestDoubles;
 using Souq.Domain.Common;
@@ -17,15 +18,20 @@ public class AccountsTests
     private readonly IUserRepository _users = Substitute.For<IUserRepository>();
     private readonly IRefreshTokenRepository _tokens = Substitute.For<IRefreshTokenRepository>();
     private readonly IUnitOfWork _uow = Substitute.For<IUnitOfWork>();
-    private readonly IEmailService _email = Substitute.For<IEmailService>();
+    private readonly INotificationOutbox _outbox = Substitute.For<INotificationOutbox>();
     private readonly IStorefrontLinks _links = Substitute.For<IStorefrontLinks>();
     private readonly ISessionValidator _sessions = Substitute.For<ISessionValidator>();
 
-    public AccountsTests() =>
-        _links.Invitation(Arg.Any<string>(), Arg.Any<string?>())
-            .Returns(call => $"https://{call.ArgAt<string?>(1) ?? "request-host"}/accept-invitation?token={call.ArgAt<string>(0)}");
+    public AccountsTests()
+    {
+        _links.Origin(Arg.Any<string?>()).Returns(call => $"https://{call.Arg<string?>() ?? "request-host"}");
+        _uow.InTransactionAsync(Arg.Any<Func<Task>>(), Arg.Any<CancellationToken>()).Returns(call => call.Arg<Func<Task>>()());
+    }
 
-    private AccountInvitations Invitations() => new(_users, _uow, _email, _links, TimeProvider.System);
+    private AccountInvitations Invitations() => new(_users, _uow, _outbox, _links, TimeProvider.System);
+
+    private static bool IsAcmeInvitation(object message) =>
+        message is AccountInvited { InviterName: "Acme", Origin: "https://acme.test" };
 
     private AccountStatusChanger Changer(ICurrentUser currentUser) =>
         new(_users, _tokens, _uow, _sessions, currentUser, TimeProvider.System);
@@ -40,11 +46,13 @@ public class AccountsTests
         result.IsSuccess.Should().BeTrue();
         result.Value!.Renewed.Should().BeFalse();
         await _users.Received(1).AddAsync(Arg.Is<User>(u => u.IsInvitationPending && u.Role == Roles.TenantAdmin), Arg.Any<CancellationToken>());
+        // المرحلة 14: الحساب يُحفظ أولاً (معرّفه في الرسالة) ثم رسالة الدعوة في صندوق الصادر على مضيف المتجر المطلوب — الرمز
+        // يُولَّد عند إرسالها.
         Received.InOrder(() =>
         {
             _uow.SaveChangesAsync(Arg.Any<CancellationToken>());
-            _email.SendInvitationAsync("boss@acme.test", "Acme",
-                Arg.Is<string>(link => link.StartsWith("https://acme.test/accept-invitation?token=")), Arg.Any<CancellationToken>());
+            _outbox.Enqueue(Arg.Is<object>(m => IsAcmeInvitation(m)));
+            _uow.SaveChangesAsync(Arg.Any<CancellationToken>());
         });
     }
 
@@ -71,7 +79,7 @@ public class AccountsTests
         var result = await Invitations().InviteAsync("x", "active@acme.test", Roles.TenantStaff, "Acme", null, CancellationToken.None);
 
         result.ErrorCode.Should().Be("EmailTaken");
-        await _email.DidNotReceiveWithAnyArgs().SendInvitationAsync(default!, default!, default!, default);
+        _outbox.DidNotReceiveWithAnyArgs().Enqueue(default!);
     }
 
     [Fact]

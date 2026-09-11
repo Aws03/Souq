@@ -7,6 +7,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Souq.Application.Common.Interfaces;
+using Souq.Application.Common.Notifications;
 using Souq.Domain.Identity;
 using Souq.Infrastructure.Persistence;
 using Souq.Infrastructure.Services;
@@ -78,6 +79,7 @@ public class StartupAndSecurityTests
         var anonymous = _api.Anonymous();
 
         (await anonymous.PostAsJsonAsync("/api/auth/forgot-password", new { email })).EnsureSuccessStatusCode();
+        await _factory.DispatchNotificationsAsync();   // المرحلة 14: الرمز يُولَّد ويُرسل من صندوق الصادر
         var token = _factory.Emails.LastResetTokenFor(email);
 
         var storedHash = await _api.WithDbAsync(db =>
@@ -103,7 +105,9 @@ public class StartupAndSecurityTests
             Options.Create(new ConsoleEmailOptions { IncludeLinksInLog = false }),
             logs.CreateLogger("test") is var inner ? new LoggerAdapter(inner) : null!);
 
-        await service.SendPasswordResetEmailAsync("victim@souq.test", "secret-reset-token");
+        const string link = "https://store.test/reset-password?token=secret-reset-token";
+        await service.SendAsync(new EmailMessage("victim@souq.test", "إعادة تعيين كلمة المرور", $"<a href=\"{link}\">x</a>", link,
+            "متجر", null, "PasswordReset", link), CancellationToken.None);
 
         logs.Messages.Should().NotBeEmpty();
         logs.Messages.Should().NotContain(m => m.Contains("secret-reset-token") || m.Contains("victim@souq.test"));

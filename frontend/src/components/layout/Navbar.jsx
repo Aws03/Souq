@@ -7,6 +7,7 @@ import { useAuth } from '../../context/AuthContext';
 import { setLanguage } from '../../i18n';
 import { getTheme, setTheme } from '../../theme';
 import { CartIcon, HeartIcon, MenuIcon } from '../icons/Icons';
+import NotificationBell from '../notifications/NotificationBell';
 import SearchBar from './SearchBar';
 import MobileMenu from './MobileMenu';
 import ThemeSwitcher from './ThemeSwitcher';
@@ -63,6 +64,9 @@ export default function Navbar({ onCartClick, searchTerm, onSearchChange }) {
         <div className={styles.desktopOnly}>
           <ThemeSwitcher current={theme} onChange={changeTheme} />
         </div>
+
+        {/* إشعارات الحساب (المرحلة 14): حالة الطلبات للعميل — ظاهرة على الجوال أيضاً. */}
+        <NotificationBell />
 
         <Link to="/wishlist" className={`${styles.iconBtn} ${styles.desktopOnly}`} aria-label={t('nav.wishlistAria')}>
           <HeartIcon size={18} filled={wishlistCount > 0} />

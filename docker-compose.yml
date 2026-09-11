@@ -45,8 +45,9 @@ services:
       Secrets__ActiveKeyId: ${SECRETS_KEY:+primary}
       Secrets__Keys__primary: ${SECRETS_KEY:-}
       Payments__AllowTestModeStoreAccounts: ${PAYMENTS_ALLOW_TEST_MODE_STORE_ACCOUNTS:-false}
-      # اختياري — ترتيب الأولوية Resend ← Brevo ← Gmail ← ConsoleEmailService
-      # (بلا أي منها تُطبَع رابط إعادة التعيين في سجلّ الحاوية بدل إرسال حقيقي).
+      # البريد (المرحلة 14): ترتيب الأولوية Resend ← Brevo ← Gmail. بلا أي منها يرفض الـ API الإقلاع (هذه حزمة Production)
+      # ما لم يُضبط EMAIL_PROVIDER=Log صراحةً — لا تصل حينها أي رسالة (إعادة تعيين، تأكيد، دعوة، تأكيد طلب): للعرض فقط.
+      Email__Provider: ${EMAIL_PROVIDER:-}
       Resend__ApiKey: ${RESEND_API_KEY:-}
       # اختياري — بديل Resend، يعمل فقط إن لم يُضبط Resend__ApiKey أعلاه.
       Brevo__ApiKey: ${BREVO_API_KEY:-}

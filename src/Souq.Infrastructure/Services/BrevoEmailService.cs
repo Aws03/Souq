@@ -1,27 +1,30 @@
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Souq.Application.Common.Interfaces;
+using Souq.Application.Common.Notifications;
 
 namespace Souq.Infrastructure.Services;
 
-// ApiKey سرّ دوماً (Brevo__ApiKey). SenderEmail يأتي من الإعداد (Brevo:SenderEmail أو
-// عنوان المرسِل المشترك Gmail:Username) — لا عنوان شخصي مكتوب في الكود (Phase 0 B12).
+// ApiKey سرّ دوماً (Brevo__ApiKey). SenderEmail يأتي من الإعداد (Brevo:SenderEmail أو عنوان المرسِل المشترك Gmail:Username) —
+// لا عنوان شخصي مكتوب في الكود (Phase 0 B12). اسم المرسِل اسم المتجر لكل رسالة (المرحلة 14).
 public class BrevoOptions
 {
     public string ApiKey { get; set; } = "";
-    public string SenderName { get; set; } = "Marka";
+    public string SenderName { get; set; } = "Souq";
     public string SenderEmail { get; set; } = "";
 }
 
 // ============================================================================
-// BrevoEmailService — بديل عبر Brevo API. المصادقة برأس "api-key" (لا Bearer). نفس
-// سياسة السجل المنقَّح وعميل HTTP المُدار بمهلة في ResendEmailService.
+// BrevoEmailService — بديل عبر Brevo API. المصادقة برأس "api-key" (لا Bearer). نفس سياسة السجل المنقَّح وعميل HTTP المُدار
+// بمهلة في ResendEmailService، والفشل يرمي EmailDeliveryException فيُعاد من صندوق الصادر.
 // ============================================================================
-public class BrevoEmailService : IEmailService
+public class BrevoEmailService : IEmailSender
 {
     private const string Endpoint = "https://api.brevo.com/v3/smtp/email";
+
+    private static readonly JsonSerializerOptions Json = new() { DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
 
     private readonly HttpClient _http;
     private readonly BrevoOptions _opts;
@@ -32,60 +35,51 @@ public class BrevoEmailService : IEmailService
         _http = http; _opts = opts.Value; _logger = logger;
     }
 
-    public Task SendOrderConfirmationAsync(string toEmail, int orderId, CancellationToken ct = default)
-        => SendAsync(toEmail, $"تأكيد الطلب #{orderId} — ماركة", EmailTemplates.OrderConfirmation(orderId), ct);
-
-    public Task SendPasswordResetEmailAsync(string toEmail, string resetLink, CancellationToken ct = default)
-        => SendAsync(toEmail, "إعادة تعيين كلمة المرور — ماركة", EmailTemplates.PasswordReset(resetLink), ct);
-
-    public Task SendEmailVerificationAsync(string toEmail, string verificationLink, CancellationToken ct = default)
-        => SendAsync(toEmail, "تأكيد بريدك الإلكتروني — ماركة", EmailTemplates.EmailVerification(verificationLink), ct);
-
-    public Task SendInvitationAsync(string toEmail, string storeName, string invitationLink, CancellationToken ct = default)
-        => SendAsync(toEmail, EmailTemplates.Subject($"دعوة للانضمام إلى {storeName}"),
-            EmailTemplates.Invitation(storeName, invitationLink), ct);
-
-    private async Task SendAsync(string toEmail, string subject, string htmlBody, CancellationToken ct)
+    public async Task SendAsync(EmailMessage message, CancellationToken ct)
     {
-        var recipient = LogRedaction.MaskEmail(toEmail);
+        var recipient = LogRedaction.MaskEmail(message.To);
         if (string.IsNullOrWhiteSpace(_opts.SenderEmail))
-        {
-            _logger.LogError("Brevo مضبوط بلا عنوان مرسِل (Brevo:SenderEmail) — لم يُرسَل \"{Subject}\" إلى {Recipient}",
-                subject, recipient);
-            return;
-        }
+            throw new EmailDeliveryException("Brevo مضبوط بلا عنوان مرسِل (Brevo:SenderEmail)");
 
         var payload = JsonSerializer.Serialize(new
         {
-            sender = new { name = _opts.SenderName, email = _opts.SenderEmail },
-            to = new[] { new { email = toEmail } },
-            subject,
-            htmlContent = htmlBody,
-        });
+            sender = new { name = EmailSenders.CleanName(message.FromName, _opts.SenderName), email = _opts.SenderEmail },
+            to = new[] { new { email = message.To } },
+            replyTo = message.ReplyTo is null ? null : new { email = message.ReplyTo },
+            subject = message.Subject,
+            htmlContent = message.HtmlBody,
+            textContent = message.TextBody,
+        }, Json);
 
+        using var request = new HttpRequestMessage(HttpMethod.Post, Endpoint)
+        {
+            Content = new StringContent(payload, Encoding.UTF8, "application/json"),
+        };
+        request.Headers.Add("api-key", _opts.ApiKey);
+
+        HttpResponseMessage response;
         try
         {
-            using var request = new HttpRequestMessage(HttpMethod.Post, Endpoint)
-            {
-                Content = new StringContent(payload, Encoding.UTF8, "application/json"),
-            };
-            request.Headers.Add("api-key", _opts.ApiKey);
+            response = await _http.SendAsync(request, ct);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException && !ct.IsCancellationRequested)
+        {
+            throw new EmailDeliveryException("تعذّر الاتصال بـ Brevo", ex);
+        }
 
-            using var response = await _http.SendAsync(request, ct);
+        using (response)
+        {
             if (response.IsSuccessStatusCode)
             {
-                _logger.LogInformation("أُرسل بريد \"{Subject}\" إلى {Recipient} عبر Brevo (الحالة {StatusCode})",
-                    subject, recipient, (int)response.StatusCode);
+                _logger.LogInformation("Email {Kind} sent to {Recipient} via Brevo ({StatusCode})",
+                    message.Kind, recipient, (int)response.StatusCode);
                 return;
             }
 
             var errorBody = await response.Content.ReadAsStringAsync(ct);
-            _logger.LogError("فشل إرسال بريد \"{Subject}\" إلى {Recipient} عبر Brevo: الحالة {StatusCode} — {ProviderError}",
-                subject, recipient, (int)response.StatusCode, LogRedaction.Truncate(errorBody));
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            _logger.LogError(ex, "فشل إرسال بريد \"{Subject}\" إلى {Recipient} عبر Brevo", subject, recipient);
+            _logger.LogError("Brevo rejected email {Kind} to {Recipient}: {StatusCode} — {ProviderError}",
+                message.Kind, recipient, (int)response.StatusCode, LogRedaction.Truncate(LogRedaction.MaskEmails(errorBody)));
+            throw new EmailDeliveryException($"Brevo أعاد الحالة {(int)response.StatusCode}");
         }
     }
 }

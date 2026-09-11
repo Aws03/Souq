@@ -3,7 +3,7 @@ using MailKit.Security;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using MimeKit;
-using Souq.Application.Common.Interfaces;
+using Souq.Application.Common.Notifications;
 
 namespace Souq.Infrastructure.Services;
 
@@ -20,10 +20,11 @@ public class GmailSmtpOptions
 }
 
 // ============================================================================
-// GmailEmailService — إرسال حقيقي عبر MailKit (توصية Microsoft بدل SmtpClient المُهمل،
-// ويدعم TLS الضمني على 465). السجل منقَّح: المستلم والمرسِل مُقنَّعان.
+// GmailEmailService — إرسال حقيقي عبر MailKit (توصية Microsoft بدل SmtpClient المُهمل، ويدعم TLS الضمني على 465). اسم
+// المرسِل اسم المتجر والردّ لبريد تواصله (المرحلة 14). الفشل يرمي EmailDeliveryException فيُعاد من صندوق الصادر. السجل منقَّح:
+// المستلم والمرسِل مُقنَّعان.
 // ============================================================================
-public class GmailEmailService : IEmailService
+public class GmailEmailService : IEmailSender
 {
     private readonly GmailSmtpOptions _opts;
     private readonly ILogger<GmailEmailService> _logger;
@@ -33,54 +34,36 @@ public class GmailEmailService : IEmailService
         _opts = opts.Value; _logger = logger;
     }
 
-    public Task SendOrderConfirmationAsync(string toEmail, int orderId, CancellationToken ct = default)
-        => SendAsync(toEmail, $"تأكيد الطلب #{orderId} — ماركة", EmailTemplates.OrderConfirmation(orderId), ct);
-
-    public Task SendPasswordResetEmailAsync(string toEmail, string resetLink, CancellationToken ct = default)
-        => SendAsync(toEmail, "إعادة تعيين كلمة المرور — ماركة", EmailTemplates.PasswordReset(resetLink), ct);
-
-    public Task SendEmailVerificationAsync(string toEmail, string verificationLink, CancellationToken ct = default)
-        => SendAsync(toEmail, "تأكيد بريدك الإلكتروني — ماركة", EmailTemplates.EmailVerification(verificationLink), ct);
-
-    public Task SendInvitationAsync(string toEmail, string storeName, string invitationLink, CancellationToken ct = default)
-        => SendAsync(toEmail, EmailTemplates.Subject($"دعوة للانضمام إلى {storeName}"),
-            EmailTemplates.Invitation(storeName, invitationLink), ct);
-
-    private async Task SendAsync(string toEmail, string subject, string htmlBody, CancellationToken ct)
+    public async Task SendAsync(EmailMessage message, CancellationToken ct)
     {
-        var recipient = LogRedaction.MaskEmail(toEmail);
+        var recipient = LogRedaction.MaskEmail(message.To);
         if (string.IsNullOrWhiteSpace(_opts.Username))
-        {
-            _logger.LogError("Gmail مضبوط بلا عنوان مرسِل (Gmail:Username) — لم يُرسَل \"{Subject}\" إلى {Recipient}",
-                subject, recipient);
-            return;
-        }
+            throw new EmailDeliveryException("Gmail مضبوط بلا عنوان مرسِل (Gmail:Username)");
 
-        var message = new MimeMessage();
-        message.From.Add(new MailboxAddress("ماركة Marka", _opts.Username));
-        message.To.Add(MailboxAddress.Parse(toEmail));
-        message.Subject = subject;
-        message.Body = new BodyBuilder { HtmlBody = htmlBody }.ToMessageBody();
+        var mime = new MimeMessage();
+        mime.From.Add(new MailboxAddress(EmailSenders.CleanName(message.FromName, "Souq"), _opts.Username));
+        mime.To.Add(MailboxAddress.Parse(message.To));
+        if (message.ReplyTo is not null) mime.ReplyTo.Add(MailboxAddress.Parse(message.ReplyTo));
+        mime.Subject = message.Subject;
+        mime.Body = new BodyBuilder { HtmlBody = message.HtmlBody, TextBody = message.TextBody }.ToMessageBody();
 
         // 465 = TLS ضمني (مصافحة فور الاتصال)، غيره = STARTTLS (ترقية بعد الاتصال).
         var socketOptions = _opts.Port == 465 ? SecureSocketOptions.SslOnConnect
             : _opts.EnableSsl ? SecureSocketOptions.StartTls : SecureSocketOptions.Auto;
-
         try
         {
             using var client = new SmtpClient();
             await client.ConnectAsync(_opts.Host, _opts.Port, socketOptions, ct);
             await client.AuthenticateAsync(_opts.Username, _opts.AppPassword, ct);
-            await client.SendAsync(message, ct);
+            await client.SendAsync(mime, ct);
             await client.DisconnectAsync(quit: true, ct);
-            _logger.LogInformation("أُرسل بريد \"{Subject}\" إلى {Recipient} عبر {Host}:{Port}",
-                subject, recipient, _opts.Host, _opts.Port);
+            _logger.LogInformation("Email {Kind} sent to {Recipient} via {Host}:{Port}", message.Kind, recipient, _opts.Host, _opts.Port);
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
         {
-            // فشل الإرسال لا يُسقط تدفّق العمل. نسجّل الاستثناء كاملاً (بلا كلمة المرور).
-            _logger.LogError(ex, "فشل إرسال بريد \"{Subject}\" إلى {Recipient} عبر {Host}:{Port} (المرسِل {Sender})",
-                subject, recipient, _opts.Host, _opts.Port, LogRedaction.MaskEmail(_opts.Username));
+            _logger.LogError("SMTP delivery of email {Kind} to {Recipient} via {Host}:{Port} (sender {Sender}) failed: {ErrorType}",
+                message.Kind, recipient, _opts.Host, _opts.Port, LogRedaction.MaskEmail(_opts.Username), ex.GetType().Name);
+            throw new EmailDeliveryException("تعذّر الإرسال عبر SMTP", ex);
         }
     }
 }

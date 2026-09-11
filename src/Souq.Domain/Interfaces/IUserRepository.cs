@@ -15,6 +15,9 @@ public interface IUserRepository : IRepository<User>
 
     // الحسابات القادرة فعلاً على الدخول بهذا الدور في النطاق (فعّالة وقبلت دعوتها) — حارس "آخر مدير".
     Task<int> CountActiveByRoleAsync(string role, CancellationToken ct = default);
+
+    // معرّفات الحسابات القادرة على الدخول بأحد هذه الأدوار في النطاق — مستلمو إشعارات الإدارة (المرحلة 14).
+    Task<IReadOnlyList<int>> ListActiveIdsByRolesAsync(IReadOnlyCollection<string> roles, CancellationToken ct = default);
 }
 
 // منفذ رموز التجديد: بحث بالتجزئة، وإبطال عائلة أو كل جلسات مستخدم (تغيير كلمة المرور، سرقة).

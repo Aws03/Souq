@@ -933,5 +933,16 @@
     "passwordRequired": "Enter your password to confirm",
     "eraseButton": "Delete my account permanently",
     "erased": "Your account was deleted."
+  },
+  "notifications": {
+    "title": "Notifications",
+    "aria": "Notifications ({{count}} unread)",
+    "markAll": "Mark all as read",
+    "empty": "No notifications yet.",
+    "loading": "Loading…",
+    "orderStatus": "Order #{{number}}: {{status}}",
+    "newOrder": "New paid order #{{number}}",
+    "lowStock": "Running low: “{{name}}” — {{available}} available",
+    "generic": "New notification"
   }
 }

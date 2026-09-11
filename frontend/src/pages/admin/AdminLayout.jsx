@@ -1,6 +1,7 @@
 import { Outlet, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../context/AuthContext';
+import NotificationBell from '../../components/notifications/NotificationBell';
 import AdminSidebar from './AdminSidebar';
 import AdminMobileTabBar from './AdminMobileTabBar';
 import styles from './AdminLayout.module.css';
@@ -25,6 +26,8 @@ export default function AdminLayout() {
         <header className={styles.header}>
           <span className={styles.headerTitle}>{t('admin.headerTitle')}</span>
           <div className={styles.headerRight}>
+            {/* طلب جديد مدفوع، ومخزون نزل عن حدّه (المرحلة 14) — لكل من يملك صلاحية رؤيتهما. */}
+            <NotificationBell />
             <span className={styles.headerUser}>{user?.fullName || t('admin.adminFallback')}</span>
             {/* الرجوع للمتجر + الخروج متاحان على الجوال هنا (الشريط الجانبي يوفّرهما
                 على سطح المكتب، لكنه مخفيّ على الجوال لصالح شريط التبويب السفلي). */}

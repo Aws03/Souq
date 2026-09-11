@@ -59,6 +59,7 @@ public class PlatformAdministrationTests
         var email = $"boss-{Guid.NewGuid():N}@acme.test";
         (await owner.PostAsJsonAsync($"/api/platform/tenants/{tenantId}/admins", new { fullName = "Acme Boss", email }))
             .StatusCode.Should().Be(HttpStatusCode.OK);
+        await _factory.DispatchNotificationsAsync();   // المرحلة 14: الدعوة من صندوق الصادر (داخل نطاق المتجر)
         var link = new Uri(_factory.Emails.LastInvitationLinkFor(email));
         link.Host.Should().Be(host);
         link.AbsolutePath.Should().Be("/accept-invitation");
@@ -190,6 +191,7 @@ public class PlatformAdministrationTests
 
         (await owner.PostAsJsonAsync("/api/platform/users", new { fullName = "Ops", email, role = "PlatformAdmin" })).StatusCode
             .Should().Be(HttpStatusCode.OK);
+        await _factory.DispatchNotificationsAsync();   // رسالة حساب منصّة: نطاق المنصّة في المُرسِل
         var link = _factory.Emails.LastInvitationLinkFor(email);
         new Uri(link).Host.Should().Be(SouqApiFactory.PlatformHost);
         await _api.AcceptInvitationAsync(link, "Ops-Platform-Pass-1");

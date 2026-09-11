@@ -1,43 +1,57 @@
 using System.Collections.Concurrent;
 using Microsoft.Extensions.Logging;
-using Souq.Application.Common.Interfaces;
+using Souq.Application.Common.Notifications;
 
 namespace Souq.IntegrationTests.Infrastructure;
 
-// بديل IEmailService يحفظ الرسائل في الذاكرة بدل إرسالها — الرابط كما يصل للمستخدم تماماً (بمضيفه).
-public sealed class CapturingEmailService : IEmailService
+// ============================================================================
+// بديل IEmailSender يحفظ الرسائل في الذاكرة بدل إرسالها — الرابط كما يصل للمستخدم تماماً (بمضيفه). المرحلة 14: الرسائل تُرسل
+// من صندوق الصادر لا من الطلب، فالاختبار يشغّل دورة الإرسال (SouqApiFactory.DispatchNotificationsAsync) قبل قراءتها. ويمكن
+// جعله يفشل (إعادة المحاولة) أو يتعطّل (إثبات أن الطلب لا ينتظر مزوّد البريد).
+// ============================================================================
+public sealed class CapturingEmailSender : IEmailSender
 {
-    private readonly ConcurrentQueue<(string Kind, string To, string Link)> _links = new();
+    private readonly ConcurrentQueue<EmailMessage> _sent = new();
+    private int _failuresLeft;
+    private volatile TaskCompletionSource? _gate;
 
-    public Task SendOrderConfirmationAsync(string toEmail, int orderId, CancellationToken ct = default) => Task.CompletedTask;
+    public IReadOnlyCollection<EmailMessage> Sent => _sent.ToArray();
 
-    public Task SendPasswordResetEmailAsync(string toEmail, string resetLink, CancellationToken ct = default) =>
-        Capture("reset", toEmail, resetLink);
-
-    public Task SendEmailVerificationAsync(string toEmail, string verificationLink, CancellationToken ct = default) =>
-        Capture("verify", toEmail, verificationLink);
-
-    public Task SendInvitationAsync(string toEmail, string storeName, string invitationLink, CancellationToken ct = default) =>
-        Capture("invite", toEmail, invitationLink);
-
-    public string LastInvitationLinkFor(string email) => Last("invite", email);
-
-    public string LastInvitationTokenFor(string email) => TokenOf(Last("invite", email));
-
-    public string LastResetLinkFor(string email) => Last("reset", email);
-
-    public string LastResetTokenFor(string email) => TokenOf(Last("reset", email));
-
-    public string LastVerificationTokenFor(string email) => TokenOf(Last("verify", email));
-
-    private Task Capture(string kind, string to, string link)
+    public async Task SendAsync(EmailMessage message, CancellationToken ct)
     {
-        _links.Enqueue((kind, to, link));
-        return Task.CompletedTask;
+        if (_gate is { } gate) await gate.Task.WaitAsync(ct);
+        if (Interlocked.Decrement(ref _failuresLeft) >= 0)
+            throw new EmailDeliveryException("فشل مزوّد مصطنع للاختبار");
+        _sent.Enqueue(message);
     }
 
-    private string Last(string kind, string email) =>
-        _links.Reverse().First(l => l.Kind == kind && l.To == email).Link;
+    // المحاولات القادمة تفشل بعدد times ثم تنجح.
+    public void FailNext(int times) => Volatile.Write(ref _failuresLeft, times);
+
+    // مزوّد معطّل: كل إرسال ينتظر حتى Release.
+    public void Block() => _gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    public void Release()
+    {
+        _gate?.TrySetResult();
+        _gate = null;
+    }
+
+    public EmailMessage? LastTo(string email, EmailTemplate template) =>
+        _sent.Reverse().FirstOrDefault(m => m.Kind == template.ToString() && m.To == email);
+
+    public string LastInvitationLinkFor(string email) => Last(EmailTemplate.Invitation, email);
+
+    public string LastInvitationTokenFor(string email) => TokenOf(Last(EmailTemplate.Invitation, email));
+
+    public string LastResetLinkFor(string email) => Last(EmailTemplate.PasswordReset, email);
+
+    public string LastResetTokenFor(string email) => TokenOf(Last(EmailTemplate.PasswordReset, email));
+
+    public string LastVerificationTokenFor(string email) => TokenOf(Last(EmailTemplate.EmailVerification, email));
+
+    private string Last(EmailTemplate template, string email) =>
+        (LastTo(email, template) ?? throw new InvalidOperationException($"لم تُرسل رسالة {template} إلى {email}")).ActionUrl!;
 
     private static string TokenOf(string link) =>
         Uri.UnescapeDataString(link[(link.IndexOf("token=", StringComparison.Ordinal) + "token=".Length)..]);
