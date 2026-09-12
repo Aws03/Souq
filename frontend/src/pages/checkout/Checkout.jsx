@@ -56,8 +56,16 @@ export default function Checkout() {
   }, []);
 
   // تسعير الخادم للكوبون وطريقة الشحن لدولة العنوان. الطريقة المختارة تبقى ما دامت متاحة للعنوان، وإلا الأولى.
+  //
+  // التسعير يُطلب من عدّة مسارات (تغيّر العنوان أو الطريقة أو السلة أو الكوبون)، وردوده قد تصل بغير ترتيب طلبها.
+  // بلا هذا الحارس كان ردّ تسعير قديم قد يصل أخيراً فيكتب مجموعاً وشحناً لا يخصّان الاختيار الحالي — بجوار زرّ إنشاء
+  // الطلب. الخادم يُعيد التسعير عند الإنشاء (ADR-0028) فلا يُدفع مبلغ خاطئ، لكن ما يُعرض يجب أن يطابق ما سيُدفع.
+  // الأحدث وحده يكتب: ما سُبق يُهمَل ويُعيد null ليعرف مُستدعيه أن نتيجته لم تعد صالحة.
+  const quoteSeq = useRef(0);
   const quoteWith = useCallback(async (code, methodId) => {
+    const seq = ++quoteSeq.current;
     const quoted = await api.quoteBasket(code, { methodId, country });
+    if (seq !== quoteSeq.current) return null;
     setQuote(quoted);
     setShippingMethodId(pickShippingMethod(quoted.shippingMethods?.options, methodId));
     return quoted;
@@ -74,6 +82,7 @@ export default function Checkout() {
     setCouponBusy(true); setCouponError(null);
     try {
       const quoted = await quoteWith(code, shippingMethodId);
+      if (!quoted) return;   // سبقه تسعير أحدث: حالة الكوبون تتبع الأحدث لا هذا الردّ
       const problem = couponProblemMessage(quoted.coupon, {
         translate: (c) => (i18n.exists(`errors.codes.${c}`) ? t(`errors.codes.${c}`) : null),
         preferServerDetail: (i18n.language || 'ar').startsWith('ar'),
