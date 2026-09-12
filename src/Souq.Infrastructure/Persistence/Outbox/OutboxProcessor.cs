@@ -92,11 +92,14 @@ internal sealed class OutboxProcessor : IOutboxProcessor
                 await TenantScopes.RunPlatformAsync(_services, scoped => NotificationMessageDispatch.DispatchAsync(scoped, payload, ct));
             }
 
+            // CancellationToken.None عمداً كما في تسجيل الفشل: الرسالة غادرت النظام فعلاً (بريد أُرسل)، وتسجيل ذلك
+            // عملٌ محاسبي لا يُلغى. بـ ct كانت إشارة الإيقاف بين الإرسال والتسجيل تُلغي الكتابة، فيبقى الصفّ غير
+            // مُعالَج ومحجوزاً حتى تنتهي المهلة ثم يُرسَل ثانيةً — رسالة مكرّرة لكل رسالة طائرة عند كل نشر.
             var done = _clock.GetUtcNow().UtcDateTime;
             await _db.OutboxMessages.Where(m => m.Id == message.Id).ExecuteUpdateAsync(s => s
                 .SetProperty(m => m.ProcessedAt, done)
                 .SetProperty(m => m.LockedUntil, (DateTime?)null)
-                .SetProperty(m => m.LastError, (string?)null), ct);
+                .SetProperty(m => m.LastError, (string?)null), CancellationToken.None);
         }
         catch (Exception ex) when (!(ex is OperationCanceledException && ct.IsCancellationRequested))
         {

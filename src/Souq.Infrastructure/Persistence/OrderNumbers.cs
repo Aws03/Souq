@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Souq.Application.Common.Exceptions;
 using Souq.Application.Features.Orders;
 using Souq.Domain.Entities;
 
@@ -34,9 +35,14 @@ internal sealed class OrderNumbers : IOrderNumbers
                 await _db.SaveChangesAsync(ct);
                 return first.LastNumber;
             }
-            catch (DbUpdateException) when (attempt == 0)
+            catch (UniqueConstraintViolationException) when (attempt == 0)
             {
                 // طلب متزامن في المتجر نفسه أنشأ الصفّ أولاً: نزيد صفّه في الدورة التالية.
+                //
+                // النوع مقصود ولا يجوز ردّه إلى DbUpdateException: SaveChangesAsync في AppDbContext يترجم 2601/2627
+                // إلى UniqueConstraintViolationException، وهو : Exception لا DbUpdateException — فكان هذا الاصطياد
+                // لا يقع أبداً، وأول طلبين متزامنين في متجر جديد يخرج أحدهما بـ 409 DuplicateValue على أوّل طلب
+                // للمتجر بدل أن يُعاد ويأخذ 1002.
                 _db.Entry(first).State = EntityState.Detached;
             }
         }
