@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using Souq.API.Http;
@@ -33,7 +34,7 @@ public class AdminCustomersController : ControllerBase
     [HttpPut("{id:int}/status")]
     [HasPermission(Permissions.Customers.Manage)]
     public async Task<IActionResult> SetStatus(int id, [FromBody] CustomerStatusRequest body) =>
-        this.ToHttp(await _mediator.Send(new SetCustomerStatusCommand(id, body.Status)));
+        this.ToHttp(await _mediator.Send(new SetCustomerStatusCommand(id, body.Status!.Value)));
 
     [HttpGet("{id:int}/export")]
     [HasPermission(Permissions.Customers.Manage)]
@@ -50,4 +51,5 @@ public class AdminCustomersController : ControllerBase
     public async Task<IActionResult> Erase(int id) => this.ToHttp(await _mediator.Send(new EraseCustomerCommand(id)));
 }
 
-public record CustomerStatusRequest(CustomerStatus Status);
+// قابل للعدم و[Required]: بنوع غير قابل للعدم كان {} يعني Active (العضو صفر) فيُرفع الحظر عن عميل محظور بجواب ناجح.
+public record CustomerStatusRequest([Required] CustomerStatus? Status);

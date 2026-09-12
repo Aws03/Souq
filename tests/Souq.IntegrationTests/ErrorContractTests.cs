@@ -43,6 +43,26 @@ public class ErrorContractTests
         raw.Should().NotContain("Souq.").And.NotContain("System.").And.NotContain("Exception").And.NotContain(" at ");
     }
 
+    // F-16: الجسم الفارغ {} كان جسماً "موجوداً"، فيملأ الربطُ الأعضاءَ بأصفارها وينفَّذ الأمر بجواب ناجح —
+    // ProductStatus.Draft يُخفي المنتج، وAutoApprove=false يفرض المراجعة اليدوية. IsInEnum لا يكشف ذلك: صفر عضو معرّف.
+    [Fact]
+    public async Task جسم_فارغ_يُرفض_بدل_أن_يُنفَّذ_بالعضو_صفر()
+    {
+        var admin = await _api.AdminAsync();
+        var productId = await _api.CreateProductAsync(admin);
+
+        await AssertProblemAsync(await admin.PutAsJsonAsync($"/api/admin/products/{productId}/status", new { }),
+            HttpStatusCode.BadRequest, "ValidationFailed");
+        await AssertProblemAsync(await admin.PutAsJsonAsync("/api/admin/reviews/settings", new { }),
+            HttpStatusCode.BadRequest, "ValidationFailed");
+
+        // التشديد لم يكسر النقطتين: الجسم الصريح ما يزال يعمل.
+        (await admin.PutAsJsonAsync($"/api/admin/products/{productId}/status", new { status = "Draft" }))
+            .StatusCode.Should().Be(HttpStatusCode.NoContent);
+        (await admin.PutAsJsonAsync("/api/admin/reviews/settings", new { autoApprove = true }))
+            .StatusCode.Should().Be(HttpStatusCode.NoContent);
+    }
+
     [Fact]
     public async Task بلا_توكن_401_Unauthenticated()
     {

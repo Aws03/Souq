@@ -100,7 +100,7 @@ public class StaffController : ControllerBase
 
     [HttpPost("{id:int}/status")]
     public async Task<IActionResult> SetStatus(int id, [FromBody] AccountStatusRequest body)
-        => this.ToHttp(await _mediator.Send(new SetStaffStatusCommand(id, body.Active)));
+        => this.ToHttp(await _mediator.Send(new SetStaffStatusCommand(id, body.Active!.Value)));
 }
 
 // ============================================================================

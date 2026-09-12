@@ -189,6 +189,22 @@ public class PlatformAdministrationTests
             .Should().Be((HttpStatusCode.UnprocessableEntity, "InvalidTenantOperation"));
     }
 
+    // F-16: {} جسمٌ موجود، فكان يُربَط إلى TenantLifecycleAction العضو صفر — أي Activate: متجر موقوف يُفتح للزوّار
+    // بجواب 204 دون أن يطلب أحد ذلك. أخطر صور هذا العيب لأنها تُلغي إيقافاً إدارياً.
+    [Fact]
+    public async Task جسم_فارغ_لا_يغيّر_حالة_متجر()
+    {
+        var owner = await _api.PlatformOwnerAsync();
+        var store = await _factory.CreateStoreAsync();
+        var url = $"/api/platform/tenants/{store.Tenant.Id}/status";
+
+        (await ProblemAsync(await owner.PostAsJsonAsync(url, new { })))
+            .Should().Be((HttpStatusCode.BadRequest, "ValidationFailed"));
+
+        // والإجراء الصريح ما يزال يعمل.
+        (await owner.PostAsJsonAsync(url, new { action = "Suspend" })).StatusCode.Should().Be(HttpStatusCode.NoContent);
+    }
+
     // R-09: الكوبون صفّ مُسعَّر أيضاً، ومبلغه الثابت decimal بلا عملة — فتغيير العملة بعد إنشائه كان يحوّل "خصم 5
     // دنانير" إلى خصم 5 بعملة أخرى بصمت. القفل كان يعدّ المنتجات والطلبات وحدها.
     [Fact]

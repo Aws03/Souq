@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using Souq.API.Http;
@@ -51,7 +52,7 @@ public class PlatformTenantsController : ControllerBase
     // { "action": "Activate" | "Suspend" | "Archive" }
     [HttpPost("{id:int}/status")]
     public async Task<IActionResult> ChangeStatus(int id, [FromBody] TenantStatusRequest body)
-        => this.ToHttp(await _mediator.Send(new ChangeTenantStatusCommand(id, body.Action)));
+        => this.ToHttp(await _mediator.Send(new ChangeTenantStatusCommand(id, body.Action!.Value)));
 
     [HttpPost("{id:int}/domains")]
     public async Task<IActionResult> AddDomain(int id, [FromBody] TenantDomainRequest body)
@@ -89,7 +90,7 @@ public class PlatformTenantsController : ControllerBase
     // { "modules": ["promotions", "reviews", "wishlist"] } — القائمة كاملة تستبدل الحالية.
     [HttpPut("{id:int}/modules")]
     public async Task<IActionResult> SetModules(int id, [FromBody] TenantModulesRequest body)
-        => this.ToHttp(await _mediator.Send(new SetTenantModulesCommand(id, body.Modules ?? [])));
+        => this.ToHttp(await _mediator.Send(new SetTenantModulesCommand(id, body.Modules!)));
 
     // POST /api/platform/tenants/5/branding/Logo|Favicon|SocialImage — multipart؛ النوع من المحتوى (ADR-0016).
     [HttpPost("{id:int}/branding/{asset}")]
@@ -134,7 +135,7 @@ public class PlatformUsersController : ControllerBase
 
     [HttpPost("{id:int}/status")]
     public async Task<IActionResult> SetStatus(int id, [FromBody] AccountStatusRequest body)
-        => this.ToHttp(await _mediator.Send(new SetPlatformUserStatusCommand(id, body.Active)));
+        => this.ToHttp(await _mediator.Send(new SetPlatformUserStatusCommand(id, body.Active!.Value)));
 }
 
 // الإحصاءات (platform.reports.view) وسجلّ التدقيق (platform.audit.view).
@@ -159,9 +160,13 @@ public class PlatformInsightsController : ControllerBase
         => Ok(await _mediator.Send(new ListAuditEntriesQuery(tenantId, action, actorUserId, from, to, page, pageSize)));
 }
 
+// الحقول المطلوبة قابلة للعدم و[Required] عمداً (انظر UpdateOrderStatusRequest): بأنواع غير قابلة للعدم كان الجسم
+// الفارغ {} يُقبل بجواب ناجح ويعني العضو صفر — أي Activate لمتجر موقوف، وfalse فيُوقَف حساب، وقائمة وحدات فارغة
+// فتُطفأ وحدات المتجر كلها. "غائب" يجب أن يُميَّز عن "العضو صفر"، لا أن يساويه.
+// Modules: [Required] ترفض الغياب وحده — القائمة الفارغة صراحةً طلبٌ مشروع (إطفاء كل الوحدات).
 public record UpdateTenantRequest(string Name, string Currency);
-public record TenantStatusRequest(TenantLifecycleAction Action);
+public record TenantStatusRequest([Required] TenantLifecycleAction? Action);
 public record TenantDomainRequest(string Host);
-public record TenantModulesRequest(IReadOnlyList<string>? Modules);
+public record TenantModulesRequest([Required] IReadOnlyList<string>? Modules);
 public record InviteAccountRequest(string FullName, string Email);
-public record AccountStatusRequest(bool Active);
+public record AccountStatusRequest([Required] bool? Active);

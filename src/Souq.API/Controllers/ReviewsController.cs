@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -76,8 +77,13 @@ public class ReviewModerationController : ControllerBase
 
     [HttpPut("settings")]
     [HasPermission(Permissions.Store.Settings)]
-    public async Task<IActionResult> UpdateSettings([FromBody] ReviewSettingsDto body)
-        => this.ToHttp(await _mediator.Send(new UpdateReviewSettingsCommand(body.AutoApprove)));
+    public async Task<IActionResult> UpdateSettings([FromBody] ReviewSettingsRequest body)
+        => this.ToHttp(await _mediator.Send(new UpdateReviewSettingsCommand(body.AutoApprove!.Value)));
 }
 
 public record RejectReviewRequest(string? Note);
+
+// جسم الطلب وحده — لا ReviewSettingsDto، فذاك عقد الاستجابة أيضاً (GetReviewSettingsQuery) وجعله قابلاً للعدم كان
+// سيغيّر شكل الجواب لإصلاح مشكلة في الربط. قابل للعدم و[Required]: بـ bool غير قابل للعدم كان {} يعني false فتُفرض
+// المراجعة اليدوية على المتجر بصمت.
+public record ReviewSettingsRequest([Required] bool? AutoApprove);

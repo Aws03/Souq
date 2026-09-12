@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using Souq.API.Http;
@@ -36,7 +37,7 @@ public class AdminCatalogController : ControllerBase
     // { "status": "Active" | "Draft" | "Archived" } — نشر، إخفاء مؤقّت، أرشفة، أو استعادة.
     [HttpPut("products/{id:int}/status")]
     public async Task<IActionResult> ChangeStatus(int id, [FromBody] ProductStatusRequest body)
-        => this.ToHttp(await _mediator.Send(new ChangeProductStatusCommand(id, body.Status)));
+        => this.ToHttp(await _mediator.Send(new ChangeProductStatusCommand(id, body.Status!.Value)));
 
     [HttpDelete("products/{id:int}/images/{imageId:int}")]
     public async Task<IActionResult> RemoveImage(int id, int imageId)
@@ -51,5 +52,6 @@ public class AdminCatalogController : ControllerBase
     public async Task<IActionResult> ListCategories() => Ok(await _mediator.Send(new ListAdminCategoriesQuery()));
 }
 
-public record ProductStatusRequest(ProductStatus Status);
+// قابل للعدم و[Required]: بنوع غير قابل للعدم كان {} يعني Draft (العضو صفر) فيُخفى المنتج من المتجر بجواب ناجح.
+public record ProductStatusRequest([Required] ProductStatus? Status);
 public record ImageOrderRequest(IReadOnlyList<int>? ImageIds);

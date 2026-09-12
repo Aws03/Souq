@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -86,13 +87,20 @@ public class OrdersController : ControllerBase
     public async Task<IActionResult> UpdateStatus(int id, [FromBody] UpdateOrderStatusRequest body)
     {
         var result = await _mediator.Send(new UpdateOrderStatusCommand(
-            id, body.Action, body.Note, body.TrackingNumber, body.ShippingCarrier));
+            id, body.Action!.Value, body.Note, body.TrackingNumber, body.ShippingCarrier));
         return result.IsSuccess ? NoContent() : this.Failure(result);
     }
 }
 
 // جسم طلب تحديث الحالة. الإجراء enum يُرسَل كنص ("Ship"/"Deliver"/"Cancel").
+//
+// الحقل قابل للعدم و[Required] عمداً: بنوع غير قابل للعدم كان الجسم الفارغ {} يُقبل — الربط يملأ العضو صفراً، وهو
+// هنا Ship، فيُشحن الطلب بجواب 204 دون أن يطلب أحد ذلك. IsInEnum لا يكشفه لأن صفراً عضو معرّف. القابلية للعدم
+// تفصل "غائب" عن "العضو صفر"، والتحقّق التلقائي في [ApiController] يردّ 400 ValidationFailed بالعقد نفسه.
+// [Required] بلا محدِّد هدف: في السجلّ الموضعي يقع الوسم على معامل المُنشئ، وهو ما يقرؤه التحقّق. بـ [property:]
+// يرمي MVC صراحةً (ThrowIfRecordTypeHasValidationOnProperties) لأن الوسم على الخاصية يُتجاهَل.
 public record UpdateOrderStatusRequest(
-    OrderStatusAction Action, string? Note = null, string? TrackingNumber = null, string? ShippingCarrier = null);
+    [Required] OrderStatusAction? Action,
+    string? Note = null, string? TrackingNumber = null, string? ShippingCarrier = null);
 
 public record CancelOrderRequest(string? Reason = null);
