@@ -34,9 +34,14 @@ Corollary: **never say "as we decided earlier"** unless you can point at a commi
 | Never | Why |
 |---|---|
 | Weaken or delete a test to make a build pass | The tests are the written memory of decisions |
+| Weaken the **control** a failing test protects — a query filter, an ownership check, a guard, a validator — so the suite goes green | The test failing means the control is working. This is the most damaging change you can make in this repository, and it looks like progress |
 | Bypass a module boundary because it is quicker | It compiles today and blocks extraction forever; the crossings are counted in [ModuleDomainDependencies.md](../02-ARCHITECTURE/ModuleDomainDependencies.md) |
 | Touch tenant isolation, authorization or payment safety for convenience | These are why the product may exist |
-| Introduce a dependency, a service, a broker, a cache or a framework | See [ExplicitNonGoals.md](../02-ARCHITECTURE/ExplicitNonGoals.md); each has a recorded reason and a trigger |
+| Change payment behaviour silently — amounts, capture, cancellation, refunds, retries, idempotency | It is commercial behaviour and it moves real money. It changes with an ADR and tests, or it does not change |
+| Invent a business rule to fill a gap | If it is not in [BusinessRules.md](../01-REQUIREMENTS/BusinessRules.md), a test or an ADR, it does not exist. A guessed rule about price, discount, refund or eligibility is a commercial decision made by accident |
+| Introduce microservices, Kafka or any broker, event sourcing, a database per module or tenant, distributed transactions, Kubernetes, a second ORM, or a replacement for SQL Server or React | These are **named** non-goals, each with a recorded reason and the evidence that would reverse it ([ExplicitNonGoals.md](../02-ARCHITECTURE/ExplicitNonGoals.md)). Reversing one needs an ADR, not a preference |
+| Introduce any other dependency, service, cache or framework | Propose it; do not add it quietly ([AGENTS.md](../../AGENTS.md) §5) |
+| Run a destructive or irreversible migration — dropped column or table, narrowed type, deleted rows | Write it, do not run it, and report what it would destroy. Only the owner approves data loss ([Migrations.md](../06-DATABASE/Migrations.md)) |
 | Silently change an architectural decision | It needs an ADR, and the old one must say what superseded it |
 | Invent architecture that "should" be there | Document what **is**; propose what should be |
 | Read, print or commit `.env` | It holds the owner's real secrets |

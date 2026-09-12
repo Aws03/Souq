@@ -7,12 +7,14 @@ This file is the working contract for **AI agents and engineers** in the Souq re
 ## 0. The rules that override everything else
 
 1. **The repository is the source of truth.** Never assume a previous conversation, a chat summary, or your memory of this project. If a document disagrees with the code, the code wins — then fix the document in the same change.
-2. **Never weaken a test to make it pass.** A failing test is information. Understand it, then fix the cause.
-3. **Never weaken tenant isolation, authorization or payment safety** for convenience. These are the product's licence to exist ([SecurityControls.md](docs/07-SECURITY/SecurityControls.md)).
-4. **Don't redesign the architecture** because another style is fashionable. The architecture and its rejected alternatives are recorded in [ADR-0001](docs/11-ADR/0001-target-architecture.md) and [ExplicitNonGoals.md](docs/02-ARCHITECTURE/ExplicitNonGoals.md). A change of direction needs evidence and a new ADR.
-5. **Stop and ask** when a decision is genuinely the owner's: see §9.
-6. **Never read, print or commit `.env`** (the owner's real secrets). `.env.example` documents the variables.
-7. **Never push or merge** unless you were explicitly asked to. Don't rewrite existing history.
+2. **Never weaken a test to make it pass** — and never weaken the *control* the test protects. If a tenancy, authorization, validation or payment test fails, the control is working and your change is wrong. Deleting the assertion, widening the filter, relaxing the guard or adding an exemption to make a suite green is the single most damaging thing you can do here. A failing test is information: understand it, then fix the cause.
+3. **Never weaken tenant isolation, authorization or payment safety** for convenience. These are the product's licence to exist ([SecurityControls.md](docs/07-SECURITY/SecurityControls.md)). **Payment behaviour is never changed silently:** amounts, capture, cancellation, refunds, retries and idempotency are commercial behaviour. Change them deliberately, with an ADR and tests, or not at all.
+4. **Never invent a business rule.** If a rule is not in [BusinessRules.md](docs/01-REQUIREMENTS/BusinessRules.md), a test, or an ADR, it does not exist — find it or stop and ask (§9). Guessing a rule that touches pricing, discounts, refunds, limits or eligibility makes a commercial decision by accident, and it will look deliberate to everyone who reads it afterwards.
+5. **Don't redesign the architecture** because another style is fashionable. The architecture and its rejected alternatives are recorded in [ADR-0001](docs/11-ADR/0001-target-architecture.md) and [ExplicitNonGoals.md](docs/02-ARCHITECTURE/ExplicitNonGoals.md). **Named non-goals — microservices, Kafka or any message broker, event sourcing, a database per module or per tenant, distributed transactions, Kubernetes, a second ORM, replacing SQL Server or React — may not be introduced at all** without an ADR that supersedes the recorded reason. "It would scale better" is not evidence; a measured limit is.
+6. **Never make a destructive or irreversible database change** — dropping a column or table, narrowing a type, deleting rows, or any migration that loses data — without explicit approval from the owner. Write it, do not run it, and report what it would destroy (§9, [Migrations.md](docs/06-DATABASE/Migrations.md)).
+7. **Stop and ask** when a decision is genuinely the owner's: see §9.
+8. **Never read, print or commit `.env`** (the owner's real secrets). `.env.example` documents the variables.
+9. **Never push or merge** unless you were explicitly asked to. Don't rewrite existing history.
 
 ## 1. Read this before you write code
 
