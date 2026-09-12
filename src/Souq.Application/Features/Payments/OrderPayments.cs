@@ -50,6 +50,9 @@ public sealed class OrderPayments : IOrderPayments
         else payment.MarkCancelled();
     }
 
+    public async Task<bool> MarkCapturedAfterCloseAsync(int orderId, CancellationToken ct) =>
+        (await _payments.GetForOrderAsync(orderId, ct))?.MarkCapturedAfterClose() ?? false;
+
     public async Task<Result<RefundOutcome>> RefundAsync(
         int orderId, decimal? amount, string? reason, int? requestedByUserId, CancellationToken ct)
     {

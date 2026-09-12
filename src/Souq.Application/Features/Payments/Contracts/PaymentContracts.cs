@@ -18,6 +18,10 @@ public interface IOrderPayments
     // دفعة معلّقة لطلب أُلغي: failed لرفض البوّابة، وإلا ملغاة. دفعة محسومة لا تتغيّر.
     Task MarkClosedAsync(int orderId, bool failed, CancellationToken ct);
 
+    // البوّابة قبضت بعد إغلاق الدفعة (طلب ملغى نجحت نيّته — R-02): تُسجَّل ناجحةً فتصير قابلة للاسترداد. يعيد هل تغيّرت.
+    // يُتتبَّع فقط؛ المستدعي يحفظ.
+    Task<bool> MarkCapturedAfterCloseAsync(int orderId, CancellationToken ct);
+
     // amount null ⇒ كل المتبقّي. بعملة الدفعة وخاناتها. البوّابة لم تُجب ⇒ استرداد معلّق (يُعاد بالمفتاح نفسه).
     Task<Result<RefundOutcome>> RefundAsync(int orderId, decimal? amount, string? reason, int? requestedByUserId, CancellationToken ct);
 

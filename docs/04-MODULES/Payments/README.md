@@ -76,8 +76,12 @@ stateDiagram-v2
     Pending --> Succeeded: order confirmed
     Pending --> Failed: gateway refused
     Pending --> Cancelled: order cancelled before payment
+    Failed --> Succeeded: gateway captured after the order closed
+    Cancelled --> Succeeded: gateway captured after the order closed
     Succeeded --> Succeeded: refunds (status unchanged)
 ```
+
+The two arrows out of `Failed` and `Cancelled` are the only way a settled payment moves, and they exist because the gateway — not Souq — decides whether money moved ([ADR-0036](../../11-ADR/0036-payment-intent-state-machine.md)).
 
 ## Use cases
 
@@ -102,6 +106,7 @@ stateDiagram-v2
 | `RecordIntentAsync` | tracks only; the caller saves it with the order | `CreateOrderHandler` |
 | `MarkSucceededAsync` | tracks only; saved inside the confirmation transaction | `OrderPaymentConfirmation.ConfirmAsync` |
 | `MarkClosedAsync` | tracks only; saved inside the cancellation transaction | `OrderPaymentConfirmation.CancelAsync` |
+| `MarkCapturedAfterCloseAsync` | tracks only; the caller saves | `OrderPaymentConfirmation` when a cancelled order's intent turns out to have captured |
 | `RefundAsync`, `RetryRefundAsync` | save twice themselves, with a gateway call in between — **must not be called inside an open transaction** ([ADR-0021](../../11-ADR/0021-transaction-boundaries.md)) | `RefundOrderHandler`, `RetryRefundHandler`, `UpdateOrderStatusHandler` after the cancellation commits |
 
 **`IPaymentQueries`** — `ForOrderAsync`, used by `GetOrderByIdHandler`; the handler strips the refundable amount and the refund list for non-staff viewers. DTOs: `RefundOutcome`, `RefundDto`, `OrderPaymentDto`.
@@ -241,7 +246,7 @@ Add a provider · change refund rules · support a new currency or change minor-
 4. Disconnecting a store's account blocks confirming, cancelling and refunding every payment it took, until it is reconnected.
 5. A pending refund needs a human to retry it: no reconciliation sweep, no refund webhooks.
 6. A refund changes nothing outside the payment: not the order status, not the coupon use, not stock.
-7. Money captured against an order that Ordering has already cancelled leaves a `Failed` payment, which no refund path accepts — see limitation 1 in the [Ordering module](../Ordering/README.md).
+7. Money captured against an order that Ordering has already cancelled is recorded by `Payment.MarkCapturedAfterClose`, which moves the payment to `Succeeded` so the normal refund path accepts it ([ADR-0036](../../11-ADR/0036-payment-intent-state-machine.md)). Nothing refunds it automatically and nothing sweeps for it: the signal is an error log line, and the reconciliation query is "a `Succeeded` payment on a `Cancelled` order".
 8. Every refund is sent to Stripe with the reason `requested_by_customer`, whatever the real reason was; the store's reason is kept only in our own row.
 9. `StorePaymentAccounts` has no concurrency token: two admins editing keys at once silently produce last-write-wins.
 10. `PaymentIntentResult` defaults its gateway name to a value no adapter produces; adapters always pass their own `Name`, and the router treats anything that isn't `stripe:store` as the deployment account.

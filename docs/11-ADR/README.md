@@ -65,7 +65,8 @@
 
 | ADR | Decision | Validity |
 |---|---|---|
-| [0031](0031-payments-and-refunds.md) | One payment per order; refunds as reserve → call → record with an idempotency key; per-store gateway accounts with encrypted secrets; webhooks routed by intent metadata | Accurate; **P-05** (JOD minor units) and **D-13** (account model) remain open |
+| [0031](0031-payments-and-refunds.md) | One payment per order; refunds as reserve → call → record with an idempotency key; per-store gateway accounts with encrypted secrets; webhooks routed by intent metadata | Superseded in part by [0036](0036-payment-intent-state-machine.md); **P-05** (JOD minor units) and **D-13** (account model) remain open |
+| [0036](0036-payment-intent-state-machine.md) | A confirmation reads the intent's state instead of a boolean: a retryable decline leaves the order open, only a dead intent cancels it, and money captured after an order closes is recorded so it can be refunded | Accurate; the state mapping is **unverified against a real Stripe account** |
 
 ### Frontend and white-label
 
@@ -105,6 +106,7 @@
 | [0010](0010-authentication-authorization.md) roles | [0023](0023-sessions-and-credentials.md), [0024](0024-platform-administration.md) | Platform and store roles, invitations, account status |
 | [0028](0028-basket-and-pricing-pipeline.md) checkout source and stages | [0029](0029-orders-lifecycle.md), [0032](0032-shipping-methods.md) | Checkout reads the basket server-side; shipping became a charged stage |
 | [0021](0021-transaction-boundaries.md) residual risks | [0026](0026-inventory-reservations.md), [0034](0034-notifications-outbox.md) | The abandoned-checkout sweeper and the outbox closed both risks it listed |
+| [0031](0031-payments-and-refunds.md) confirmation path | [0036](0036-payment-intent-state-machine.md) | A non-succeeded confirmation no longer cancels the order unconditionally: it reads the intent's state, and a capture against a closed order is recorded instead of ignored |
 
 ## 4. Statements inside ADRs that no longer match the code
 
@@ -133,6 +135,6 @@ The decisions stand; these *descriptions* have drifted. Living documents are aut
 
 ## 5. Numbering and lifecycle
 
-- ADRs are numbered sequentially and never renumbered. The next one is **0036**.
+- ADRs are numbered sequentially and never renumbered. The next one is **0037**.
 - A superseded ADR keeps its text; its `Status` line says what replaced it, and the replacement links back through `Related ADRs`.
 - Rejected proposals are worth an ADR too: "we considered X and chose not to" saves the next person the same investigation ([ExplicitNonGoals.md](../02-ARCHITECTURE/ExplicitNonGoals.md) collects the big ones).

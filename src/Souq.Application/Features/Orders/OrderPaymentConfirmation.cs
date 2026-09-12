@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using Souq.Application.Common.Exceptions;
 using Souq.Application.Common.Interfaces;
 using Souq.Application.Common.Models;
@@ -37,13 +38,15 @@ public sealed class OrderPaymentConfirmation
     private readonly IBasketCheckout _baskets;
     private readonly IPaymentService _payment;
     private readonly IUnitOfWork _uow;
+    private readonly ILogger<OrderPaymentConfirmation> _logger;
 
     public OrderPaymentConfirmation(
         IOrderRepository orders, IInventoryReservations reservations, ICouponRedemptions couponRedemptions,
-        IOrderPayments payments, IBasketCheckout baskets, IPaymentService payment, IUnitOfWork uow)
+        IOrderPayments payments, IBasketCheckout baskets, IPaymentService payment, IUnitOfWork uow,
+        ILogger<OrderPaymentConfirmation> logger)
     {
         _orders = orders; _reservations = reservations; _couponRedemptions = couponRedemptions;
-        _payments = payments; _baskets = baskets; _payment = payment; _uow = uow;
+        _payments = payments; _baskets = baskets; _payment = payment; _uow = uow; _logger = logger;
     }
 
     public async Task<Result<OrderConfirmedDto>> ConfirmAsync(Order order, CancellationToken ct)
@@ -51,7 +54,7 @@ public sealed class OrderPaymentConfirmation
         // مضمونة التكرار (Idempotent): وصول تأكيدين لنفس الطلب (من العميل ومن
         // الـ Webhook معاً، أو تكرار Webhook) لا يجب أن يُطبّق أثراً مرتين.
         if (order.Status != OrderStatus.Pending)
-            return Result<OrderConfirmedDto>.Success(ToDto(order, order.Status));
+            return await SettledAsync(order, ct);
 
         if (string.IsNullOrEmpty(order.PaymentIntentId))
             return Result<OrderConfirmedDto>.Failure(
@@ -60,11 +63,7 @@ public sealed class OrderPaymentConfirmation
         // استدعاء خارجي خارج أي معاملة قاعدة بيانات مفتوحة (ADR-0021).
         var confirmation = await _payment.ConfirmAsync(order.PaymentIntentId, ct);
         if (!confirmation.Succeeded)
-        {
-            var reason = confirmation.FailureReason ?? PaymentFailedNote;
-            await CancelAsync(order, reason, expired: false, OrderActor.PaymentGateway, ct);
-            return Result<OrderConfirmedDto>.Failure(Error.BusinessRule("PaymentFailed", reason));
-        }
+            return await UnpaidAsync(order, confirmation, ct);
 
         order.MarkAsPaid(by: OrderActor.PaymentGateway);
 
@@ -96,6 +95,49 @@ public sealed class OrderPaymentConfirmation
         // بريد التأكيد وإشعارات العميل والإدارة (المرحلة 14): حدث OrderStatusChanged الذي رفعه MarkAsPaid كُتب في صندوق
         // الصادر في الحفظ نفسه — لا انتظار لمزوّد البريد هنا، ولا إشعار يضيع أو يُرسل لدفع تراجع.
         return Result<OrderConfirmedDto>.Success(ToDto(order, order.Status));
+    }
+
+    // البوّابة قالت "لم يُدفع". ما يُفعَل بالطلب يتوقّف على حال النيّة نفسها لا على مجرّد "ليس ناجحاً" (R-02):
+    //   أُلغيت لدى البوّابة ⇒ لا تقبض بعد الآن، فيُؤمَن إلغاء الطلب وتحرير حجزه.
+    //   قيد المعالجة      ⇒ لا تُلغى ولا تُؤكَّد؛ يحسمها الإشعار التالي أو منسّق انتهاء المهلة.
+    //   حيّة وتقبل محاولة أخرى (بطاقة مرفوضة) ⇒ الطلب يبقى Pending كي يعيد العميل المحاولة على السرّ نفسه؛ منسّق انتهاء
+    //     المهلة يتولّاه إن هُجر. إلغاؤه هنا — وهو ما كان يحدث — يترك نيّة حيّة تقبض لطلب ملغى: مالٌ بلا طلب، ودفعة
+    //     Failed لا يقبلها أي مسار استرداد.
+    private async Task<Result<OrderConfirmedDto>> UnpaidAsync(
+        Order order, PaymentConfirmationResult confirmation, CancellationToken ct)
+    {
+        var reason = confirmation.FailureReason ?? PaymentFailedNote;
+        if (confirmation.State == PaymentIntentState.Processing)
+            return Result<OrderConfirmedDto>.Failure(
+                Error.BusinessRule("PaymentProcessing", "الدفع قيد المعالجة الآن؛ حاول بعد قليل"));
+
+        if (confirmation.State == PaymentIntentState.Cancelled)
+            await CancelAsync(order, reason, expired: false, OrderActor.PaymentGateway, ct);
+
+        return Result<OrderConfirmedDto>.Failure(Error.BusinessRule("PaymentFailed", reason));
+    }
+
+    // طلب حُسم مصيره والتأكيد يصل الآن: مضمون التكرار. لكن "ملغى بنيّة دفع" حالة تستحقّ سؤال البوّابة: إن كانت قد قبضت
+    // فالمال خارج النظام على طلب لا يُنفَّذ. نسجّل الحقيقة على الدفعة (تصير ناجحة ⇒ قابلة للاسترداد) ونرفع خطأً في السجلّ —
+    // ولا نستردّ تلقائياً: إخراج المال قرار المتجر، بصلاحية store.payments.manage من شاشة الطلب.
+    private async Task<Result<OrderConfirmedDto>> SettledAsync(Order order, CancellationToken ct)
+    {
+        if (order.Status != OrderStatus.Cancelled || order.PaymentIntentId is not { } intentId)
+            return Result<OrderConfirmedDto>.Success(ToDto(order, order.Status));
+
+        if (!(await _payment.ConfirmAsync(intentId, ct)).Succeeded)
+            return Result<OrderConfirmedDto>.Success(ToDto(order, order.Status));
+
+        if (await _payments.MarkCapturedAfterCloseAsync(order.Id, ct))
+        {
+            await _uow.SaveChangesAsync(ct);
+            _logger.LogError(
+                "Order {OrderId} was cancelled but its payment intent succeeded at the gateway; the payment is now recorded "
+                + "as Succeeded so it can be refunded. Reconcile: payment Succeeded on a Cancelled order", order.Id);
+        }
+
+        return Result<OrderConfirmedDto>.Failure(Error.BusinessRule(
+            "PaymentCapturedOnCancelledOrder", "قُبض مال هذا الطلب بعد إلغائه — يلزم استرداده من شاشة الطلب"));
     }
 
     // إلغاء طلب لم يُدفع بمبادرة شخص (صاحبه أو الإدارة): نطلب من البوّابة إلغاء نيّته أولاً، خارج أي معاملة (ADR-0021) —

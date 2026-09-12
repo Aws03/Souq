@@ -1,4 +1,5 @@
 using AwesomeAssertions;
+using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 using Souq.Application.Common.Exceptions;
@@ -35,7 +36,8 @@ public class ConfirmOrderPaymentHandlerTests
     // الطلبات في هذه الاختبارات يملكها العميل 1 (انظر PendingOrderWithIntent).
     private ConfirmOrderPaymentHandler CreateHandler(ICurrentUser? user = null) => new(
         _orders,
-        new OrderPaymentConfirmation(_orders, _reservations, _couponRedemptions, _orderPayments, _baskets, _payment, _uow),
+        new OrderPaymentConfirmation(_orders, _reservations, _couponRedemptions, _orderPayments, _baskets, _payment, _uow,
+            NullLogger<OrderPaymentConfirmation>.Instance),
         user ?? TestCurrentUser.Customer(1));
 
     private static Order PendingOrderWithIntent(string paymentIntentId = "pi_123", int quantity = 2)
@@ -79,7 +81,7 @@ public class ConfirmOrderPaymentHandlerTests
     {
         var order = PendingOrderWithIntent();
         _orders.GetWithItemsAsync(1, Arg.Any<CancellationToken>()).Returns(order);
-        _payment.ConfirmAsync("pi_123", Arg.Any<CancellationToken>()).Returns(new PaymentConfirmationResult(true, null));
+        _payment.ConfirmAsync("pi_123", Arg.Any<CancellationToken>()).Returns(PaymentConfirmationResult.Ok());
 
         var result = await CreateHandler(TestCurrentUser.Admin()).Handle(new ConfirmOrderPaymentCommand(1), CancellationToken.None);
 
@@ -102,12 +104,12 @@ public class ConfirmOrderPaymentHandlerTests
     }
 
     [Fact]
-    public async Task فشل_الدفع_يُلغي_الطلب_ويحرّر_حجزه_في_معاملة_واحدة_ولا_يرسل_بريداً()
+    public async Task نيّة_ألغتها_البوّابة_تُلغي_الطلب_وتحرّر_حجزه_في_معاملة_واحدة_ولا_ترسل_بريداً()
     {
         var order = PendingOrderWithIntent();
         _orders.GetWithItemsAsync(1, Arg.Any<CancellationToken>()).Returns(order);
         _payment.ConfirmAsync("pi_123", Arg.Any<CancellationToken>())
-            .Returns(new PaymentConfirmationResult(false, "بطاقة مرفوضة"));
+            .Returns(new PaymentConfirmationResult(PaymentIntentState.Cancelled, "بطاقة مرفوضة"));
 
         var result = await CreateHandler().Handle(new ConfirmOrderPaymentCommand(1), CancellationToken.None);
 
@@ -132,7 +134,7 @@ public class ConfirmOrderPaymentHandlerTests
         order.ApplyCoupon(coupon.Code, coupon.CalculateDiscount(order.Subtotal));
 
         _orders.GetWithItemsAsync(1, Arg.Any<CancellationToken>()).Returns(order);
-        _payment.ConfirmAsync("pi_123", Arg.Any<CancellationToken>()).Returns(new PaymentConfirmationResult(true, null));
+        _payment.ConfirmAsync("pi_123", Arg.Any<CancellationToken>()).Returns(PaymentConfirmationResult.Ok());
 
         var result = await CreateHandler().Handle(new ConfirmOrderPaymentCommand(1), CancellationToken.None);
 
@@ -151,13 +153,86 @@ public class ConfirmOrderPaymentHandlerTests
             new OrderStatusChanged(9, 1, OrderStatus.Pending, OrderStatus.Paid, OrderActorKind.PaymentGateway));
     }
 
+    // ── R-02: "ليس ناجحاً" ليست حالة واحدة ──────────────────────────────────
+    // بطاقة مرفوضة تُعيد نيّة Stripe إلى requires_payment_method: نيّة حيّة يعيد العميل المحاولة عليها بالسرّ نفسه.
+    // إلغاء الطلب هنا (السلوك السابق) كان يترك تلك النيّة حيّة فتقبض لطلب ملغى — والدفعة Failed لا يقبلها أي استرداد.
+    [Fact]
+    public async Task بطاقة_مرفوضة_ونيّتها_حيّة_لا_تُلغي_الطلب_كي_يعيد_العميل_المحاولة()
+    {
+        var order = PendingOrderWithIntent();
+        _orders.GetWithItemsAsync(1, Arg.Any<CancellationToken>()).Returns(order);
+        _payment.ConfirmAsync("pi_123", Arg.Any<CancellationToken>())
+            .Returns(new PaymentConfirmationResult(PaymentIntentState.Retryable, "بطاقة مرفوضة"));
+
+        var result = await CreateHandler().Handle(new ConfirmOrderPaymentCommand(1), CancellationToken.None);
+
+        result.ErrorCode.Should().Be("PaymentFailed");
+        order.Status.Should().Be(OrderStatus.Pending, "النيّة ما زالت تقبل محاولة أخرى — منسّق انتهاء المهلة يتولّاه إن هُجر");
+        await _reservations.DidNotReceive().CancelAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<CancellationToken>());
+        await _couponRedemptions.DidNotReceive().ReleaseAsync(Arg.Any<int>(), Arg.Any<CancellationToken>());
+        await _orderPayments.DidNotReceive().MarkClosedAsync(Arg.Any<int>(), Arg.Any<bool>(), Arg.Any<CancellationToken>());
+        order.PendingDomainEvents().Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task دفع_قيد_المعالجة_لا_يُلغي_الطلب_ولا_يؤكّده()
+    {
+        var order = PendingOrderWithIntent();
+        _orders.GetWithItemsAsync(1, Arg.Any<CancellationToken>()).Returns(order);
+        _payment.ConfirmAsync("pi_123", Arg.Any<CancellationToken>())
+            .Returns(new PaymentConfirmationResult(PaymentIntentState.Processing, "processing"));
+
+        var result = await CreateHandler().Handle(new ConfirmOrderPaymentCommand(1), CancellationToken.None);
+
+        result.ErrorCode.Should().Be("PaymentProcessing");
+        order.Status.Should().Be(OrderStatus.Pending);
+        await _reservations.DidNotReceive().CancelAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<CancellationToken>());
+        await _reservations.DidNotReceive().CommitAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    // دفاع في العمق: مهما كان السبب (خطأ بوّابة أثناء الإلغاء، بيانات قديمة)، طلب ملغى نجحت نيّته يعني مالاً خارج النظام.
+    // يُسجَّل على الدفعة ناجحاً كي يقبله مسار الاسترداد، ولا يُبتلع بنجاح صامت.
+    [Fact]
+    public async Task نجاح_متأخّر_على_طلب_ملغى_يُسجَّل_ناجحاً_ليُستردّ_ولا_يُبتلع_بصمت()
+    {
+        var order = PendingOrderWithIntent();
+        order.Cancel("أُلغي");
+        _orders.GetWithItemsAsync(1, Arg.Any<CancellationToken>()).Returns(order);
+        _payment.ConfirmAsync("pi_123", Arg.Any<CancellationToken>()).Returns(PaymentConfirmationResult.Ok());
+        _orderPayments.MarkCapturedAfterCloseAsync(9, Arg.Any<CancellationToken>()).Returns(true);
+
+        var result = await CreateHandler().Handle(new ConfirmOrderPaymentCommand(1), CancellationToken.None);
+
+        result.ErrorCode.Should().Be("PaymentCapturedOnCancelledOrder");
+        order.Status.Should().Be(OrderStatus.Cancelled, "الطلب لا يعود للحياة — المال يُستردّ");
+        await _orderPayments.Received(1).MarkCapturedAfterCloseAsync(9, Arg.Any<CancellationToken>());
+        await _uow.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+        await _reservations.DidNotReceive().CommitAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task طلب_ملغى_لم_تقبض_نيّته_يبقى_ملغى_بلا_أثر()
+    {
+        var order = PendingOrderWithIntent();
+        order.Cancel("أُلغي");
+        _orders.GetWithItemsAsync(1, Arg.Any<CancellationToken>()).Returns(order);
+        _payment.ConfirmAsync("pi_123", Arg.Any<CancellationToken>())
+            .Returns(new PaymentConfirmationResult(PaymentIntentState.Cancelled, "canceled"));
+
+        var result = await CreateHandler().Handle(new ConfirmOrderPaymentCommand(1), CancellationToken.None);
+
+        result.Value!.Status.Should().Be(nameof(OrderStatus.Cancelled));
+        await _orderPayments.DidNotReceive().MarkCapturedAfterCloseAsync(Arg.Any<int>(), Arg.Any<CancellationToken>());
+        await _uow.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
     [Fact]
     public async Task سباق_تأكيدين_متزامنين_الخاسر_يرى_الطلب_مدفوعاً_فينجح_بلا_التزام_ولا_بريد_ثانٍ()
     {
         // العميل والـ Webhook يؤكّدان معاً: الفائز حفظ أولاً (والتزم الحجز)، وrowversion رفض نسختنا.
         var order = PendingOrderWithIntent();
         _orders.GetWithItemsAsync(1, Arg.Any<CancellationToken>()).Returns(order);
-        _payment.ConfirmAsync("pi_123", Arg.Any<CancellationToken>()).Returns(new PaymentConfirmationResult(true, null));
+        _payment.ConfirmAsync("pi_123", Arg.Any<CancellationToken>()).Returns(PaymentConfirmationResult.Ok());
         _uow.SaveChangesAsync(Arg.Any<CancellationToken>()).ThrowsAsync(new ConcurrencyConflictException());
         _orders.GetStatusAsync(order.Id, Arg.Any<CancellationToken>()).Returns(OrderStatus.Paid);
 
@@ -175,7 +250,7 @@ public class ConfirmOrderPaymentHandlerTests
         // التعارض لم يأتِ من تأكيد آخر (مثلاً كوبون مشترك، أو مخزون استنفد محاولاته) — لا ندّعي نجاحاً غير حقيقي.
         var order = PendingOrderWithIntent();
         _orders.GetWithItemsAsync(1, Arg.Any<CancellationToken>()).Returns(order);
-        _payment.ConfirmAsync("pi_123", Arg.Any<CancellationToken>()).Returns(new PaymentConfirmationResult(true, null));
+        _payment.ConfirmAsync("pi_123", Arg.Any<CancellationToken>()).Returns(PaymentConfirmationResult.Ok());
         _reservations.CommitAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).ThrowsAsync(new ConcurrencyConflictException());
         _orders.GetStatusAsync(order.Id, Arg.Any<CancellationToken>()).Returns(OrderStatus.Pending);
 

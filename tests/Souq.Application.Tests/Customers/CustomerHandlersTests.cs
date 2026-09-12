@@ -167,7 +167,8 @@ public class CreateOrderCustomerRulesTests
         Substitute.For<Souq.Application.Features.Payments.Contracts.IOrderPayments>(), _reservations, _availability, _payment,
         new OrderPaymentConfirmation(_orders, _reservations,
             Substitute.For<Souq.Application.Features.Coupons.Contracts.ICouponRedemptions>(),
-            Substitute.For<Souq.Application.Features.Payments.Contracts.IOrderPayments>(), _baskets, _payment, _uow),
+            Substitute.For<Souq.Application.Features.Payments.Contracts.IOrderPayments>(), _baskets, _payment, _uow,
+            NullLogger<OrderPaymentConfirmation>.Instance),
         TestCurrentUser.Customer(1), TestTenant.Context(), _uow, new FixedClock(), NullLogger<CreateOrderHandler>.Instance);
 
     private static CreateOrderCommand Command(string? address = "عمّان", int? addressId = null) =>

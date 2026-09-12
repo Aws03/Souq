@@ -128,6 +128,47 @@ public class PaymentsAndRefundsTests
             && h.Status == OrderStatus.Paid))).Should().Be(1);
     }
 
+    // ============================================================================
+    // R-02: نجاح متأخّر على طلب أُلغي. قبل الإصلاح كان التأكيد يعود بنجاح صامت لأن الطلب ليس Pending، فتبقى الدفعة
+    // غير ناجحة ويرفض كل مسار استرداد ردّ المال — يُستردّ من لوحة Stripe يدوياً وحدها. الآن: الحقيقة تُسجَّل على
+    // الدفعة فتصير قابلة للاسترداد من شاشة الطلب، والطلب يبقى ملغى.
+    // ============================================================================
+    [Fact]
+    public async Task نجاح_نيّة_بعد_إلغاء_الطلب_يُسجَّل_على_الدفعة_فيُستردّ_ولا_يبقى_المال_خارج_النظام()
+    {
+        var store = await _factory.CreateStoreAsync();
+        var storeApi = _api.ForStore(store);
+        var storeAdmin = await storeApi.AdminAsync();
+        var (customer, _) = await storeApi.NewCustomerAsync();
+        var orderId = await PlacedOrderAsync(storeApi, customer, await storeApi.CreateProductAsync(storeAdmin, price: 25m, stock: 3));
+        var intentId = await storeApi.WithDbAsync(db => db.Orders.Where(o => o.Id == orderId).Select(o => o.PaymentIntentId!).SingleAsync());
+
+        (await customer.PostAsJsonAsync($"/api/orders/{orderId}/cancel", new { reason = "غيّرت رأيي" }))
+            .StatusCode.Should().Be(HttpStatusCode.NoContent);
+        (await PaymentAsync(storeApi, orderId)).Status.Should().Be(PaymentStatus.Cancelled);
+
+        // البوّابة تقول بعدها إن النيّة نجحت (بطاقة أُعيدت المحاولة عليها قبل أن يصل الإلغاء).
+        var payload = JsonSerializer.Serialize(new
+        {
+            type = "payment_intent.succeeded", paymentIntentId = intentId, orderReference = orderId.ToString(), tenantId = store.Tenant.Id,
+        });
+        (await PostWebhookAsync(storeApi.Anonymous(), payload, FakeGateway.Sign(payload, SouqApiFactory.FakeWebhookSecret)))
+            .StatusCode.Should().Be(HttpStatusCode.OK, "الإشعار يُقرّ به كي لا تعيد البوّابة إرساله إلى الأبد");
+
+        (await OrderStatusAsync(storeApi, orderId)).Should().Be(OrderStatus.Cancelled, "الطلب لا يعود للحياة");
+        (await PaymentAsync(storeApi, orderId)).Status.Should().Be(PaymentStatus.Succeeded, "المال قُبض فعلاً — تُسجَّل الحقيقة");
+
+        // وهذا هو المكسب: المال صار قابلاً للاسترداد من مسار الاسترداد العادي بصلاحيته.
+        (await RefundAsync(storeAdmin, orderId, new { })).Should().Be(("Succeeded", 25m));
+        var settled = await PaymentAsync(storeApi, orderId);
+        (settled.RefundedAmount, settled.Refundable.Amount).Should().Be((25m, 0m));
+
+        // تكرار الإشعار لا يسجّل قبضاً ثانياً ولا يغيّر شيئاً.
+        (await PostWebhookAsync(storeApi.Anonymous(), payload, FakeGateway.Sign(payload, SouqApiFactory.FakeWebhookSecret)))
+            .StatusCode.Should().Be(HttpStatusCode.OK);
+        (await PaymentAsync(storeApi, orderId)).Refunds.Should().ContainSingle();
+    }
+
     [Fact]
     public async Task حساب_المتجر_يُحفظ_مشفّراً_ولا_يعود_سرّه_ويُدقَّق_والمنصّة_تضبطه_داخل_نطاقه()
     {

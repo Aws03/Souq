@@ -61,7 +61,8 @@ public class CreateOrderHandlerTests
     private CreateOrderHandler CreateHandler() => new(
         _orders, _customers, new PricingService(_products, _coupons, _couponUses, _shipping, TestTenant.Context(), new FixedClock()), _baskets,
         _numbers, _couponRedemptions, _orderPayments, _reservations, _availability, _payment,
-        new OrderPaymentConfirmation(_orders, _reservations, _couponRedemptions, _orderPayments, _baskets, _payment, _uow),
+        new OrderPaymentConfirmation(_orders, _reservations, _couponRedemptions, _orderPayments, _baskets, _payment, _uow,
+            NullLogger<OrderPaymentConfirmation>.Instance),
         TestCurrentUser.Customer(1), TestTenant.Context(), _uow, new FixedClock(), NullLogger<CreateOrderHandler>.Instance);
 
     private static Customer NewCustomer() => new(userId: 1, "عميل", "customer@souq.com");

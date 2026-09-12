@@ -93,8 +93,12 @@ public class ApplyPaymentEventHandler : IRequestHandler<ApplyPaymentEventCommand
             return Result.Success();
         }
 
-        // نتيجة التأكيد (نجاح/فشل دفع) تُطبَّق على الطلب؛ للبوّابة يكفي أننا عالجنا الحدث.
-        await _confirmation.ConfirmAsync(order, ct);
+        // نتيجة التأكيد (نجاح/فشل دفع) تُطبَّق على الطلب؛ للبوّابة يكفي أننا عالجنا الحدث — إقرار بالاستلام كي لا تُعيد
+        // الإرسال إلى الأبد. ما لم يُطبَّق يُسجَّل برمزه: PaymentCapturedOnCancelledOrder يعني مالاً يحتاج تسوية (R-02).
+        var applied = await _confirmation.ConfirmAsync(order, ct);
+        if (!applied.IsSuccess)
+            _logger.LogWarning("Payment event for order {OrderId} was acknowledged without confirming it: {ErrorCode}",
+                orderId, applied.Error!.Code);
         return Result.Success();
     }
 }

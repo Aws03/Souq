@@ -1,4 +1,5 @@
 using AwesomeAssertions;
+using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using Souq.Application.Features.Inventory.Contracts;
 using Souq.Application.Features.Orders;
@@ -30,7 +31,8 @@ public class UpdateOrderStatusHandlerTests
         var coupons = Substitute.For<Souq.Application.Features.Coupons.Contracts.ICouponRedemptions>();
         return new(_orders, _reservations, coupons, _payments,
             new OrderPaymentConfirmation(_orders, _reservations, coupons, _payments,
-                Substitute.For<Souq.Application.Features.Baskets.Contracts.IBasketCheckout>(), _gateway, _uow),
+                Substitute.For<Souq.Application.Features.Baskets.Contracts.IBasketCheckout>(), _gateway, _uow,
+                NullLogger<OrderPaymentConfirmation>.Instance),
             TestCurrentUser.Admin(), _uow);
     }
 
@@ -154,7 +156,7 @@ public class UpdateOrderStatusHandlerTests
         _gateway.CancelIntentAsync("pi_race", Arg.Any<CancellationToken>())
             .Returns(Souq.Application.Common.Interfaces.PaymentIntentState.Succeeded);
         _gateway.ConfirmAsync("pi_race", Arg.Any<CancellationToken>())
-            .Returns(new Souq.Application.Common.Interfaces.PaymentConfirmationResult(true, null));
+            .Returns(Souq.Application.Common.Interfaces.PaymentConfirmationResult.Ok());
 
         var result = await CreateHandler().Handle(new UpdateOrderStatusCommand(4, OrderStatusAction.Cancel), CancellationToken.None);
 

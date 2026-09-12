@@ -52,7 +52,7 @@ public sealed class FakeGateway : IPaymentGateway
     }
 
     public Task<PaymentConfirmationResult> ConfirmAsync(string paymentIntentId, CancellationToken ct) =>
-        Task.FromResult(new PaymentConfirmationResult(true, null));
+        Task.FromResult(PaymentConfirmationResult.Ok());
 
     // لا نيّة حقيقية تُلغى: "الدفع" هنا زرّ الإتمام، فطلب هُجر قبله يُلغى محلياً عند انتهاء مهلته.
     public Task<PaymentIntentState> CancelIntentAsync(string paymentIntentId, CancellationToken ct) =>

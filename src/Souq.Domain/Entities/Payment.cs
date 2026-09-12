@@ -61,6 +61,17 @@ public class Payment : Entity, ITenantOwned
     public void MarkFailed() => Settle(PaymentStatus.Failed);
     public void MarkCancelled() => Settle(PaymentStatus.Cancelled);
 
+    // البوّابة قبضت المال بعد أن أُغلقت الدفعة: طلب أُلغي ثم نجحت نيّته (R-02). هذا الباب الوحيد الذي ينقض الحسم، لأن
+    // البوّابة هي صاحبة الحقيقة في أمر المال: رفضُ تسجيل ما حدث فعلاً يترك المال خارج النظام بلا مسار استرداد —
+    // والاسترداد لا يقبل إلا دفعة ناجحة. بعدها تظهر الدفعة ناجحةً على طلب ملغى، وهي إشارة التسوية التي يبحث عنها المشغّل.
+    // يعيد ما إذا تغيّر شيء (مضمون التكرار: إشعاران متأخّران لا يسجّلان مرّتين).
+    public bool MarkCapturedAfterClose()
+    {
+        if (Status == PaymentStatus.Succeeded) return false;
+        Status = PaymentStatus.Succeeded;
+        return true;
+    }
+
     public Refund RequestRefund(Money amount, string? reason, int? requestedByUserId)
     {
         if (Status != PaymentStatus.Succeeded)

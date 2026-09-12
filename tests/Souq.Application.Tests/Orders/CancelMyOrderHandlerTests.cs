@@ -1,4 +1,5 @@
 using AwesomeAssertions;
+using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using Souq.Application.Common.Interfaces;
 using Souq.Application.Features.Baskets.Contracts;
@@ -26,7 +27,7 @@ public class CancelMyOrderHandlerTests
         new OrderPaymentConfirmation(_orders, _reservations,
             Substitute.For<Souq.Application.Features.Coupons.Contracts.ICouponRedemptions>(),
             Substitute.For<Souq.Application.Features.Payments.Contracts.IOrderPayments>(),
-            Substitute.For<IBasketCheckout>(), _payment, _uow),
+            Substitute.For<IBasketCheckout>(), _payment, _uow, NullLogger<OrderPaymentConfirmation>.Instance),
         TestCurrentUser.Customer(customerId));
 
     private Order Arrange(string? intent = null, bool paid = false)
@@ -80,7 +81,7 @@ public class CancelMyOrderHandlerTests
     {
         var order = Arrange(intent: "pi_1");
         _payment.CancelIntentAsync("pi_1", Arg.Any<CancellationToken>()).Returns(PaymentIntentState.Succeeded);
-        _payment.ConfirmAsync("pi_1", Arg.Any<CancellationToken>()).Returns(new PaymentConfirmationResult(true, null));
+        _payment.ConfirmAsync("pi_1", Arg.Any<CancellationToken>()).Returns(PaymentConfirmationResult.Ok());
 
         (await Handler().Handle(new CancelMyOrderCommand(9), CancellationToken.None)).ErrorCode.Should().Be("OrderAlreadyPaid");
 

@@ -134,7 +134,7 @@ public class ApplyPaymentEventHandlerTests
             Substitute.For<Souq.Application.Features.Coupons.Contracts.ICouponRedemptions>(),
             Substitute.For<Souq.Application.Features.Payments.Contracts.IOrderPayments>(),
             Substitute.For<Souq.Application.Features.Baskets.Contracts.IBasketCheckout>(),
-            _payment, _uow),
+            _payment, _uow, NullLogger<OrderPaymentConfirmation>.Instance),
         NullLogger<ApplyPaymentEventHandler>.Instance);
 
     [Fact]
@@ -144,7 +144,7 @@ public class ApplyPaymentEventHandlerTests
         order.AddItem(1, "سماعات", new Money(50, "JOD"), 1);
         order.SetPaymentIntent("pi_42");
         _orders.GetWithItemsAsync(42, Arg.Any<CancellationToken>()).Returns(order);
-        _payment.ConfirmAsync("pi_42", Arg.Any<CancellationToken>()).Returns(new PaymentConfirmationResult(true, null));
+        _payment.ConfirmAsync("pi_42", Arg.Any<CancellationToken>()).Returns(PaymentConfirmationResult.Ok());
 
         var result = await CreateHandler().Handle(new ApplyPaymentEventCommand("42"), CancellationToken.None);
 

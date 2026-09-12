@@ -24,7 +24,7 @@
 [BusinessRules](01-REQUIREMENTS/BusinessRules.md) — every rule the system enforces, with where it lives and which test proves it.
 
 ### 02 · Architecture
-[Architecture](02-ARCHITECTURE/Architecture.md) (the target) · [ArchitectureEvaluation](02-ARCHITECTURE/ArchitectureEvaluation.md) (why this and not the alternatives) · [ModuleBoundaries](02-ARCHITECTURE/ModuleBoundaries.md) (who owns what) · [DependencyRules](02-ARCHITECTURE/DependencyRules.md) (what may reference what) · [MultiTenancy](02-ARCHITECTURE/MultiTenancy.md) · [CQRS](02-ARCHITECTURE/CQRS.md) · [Events](02-ARCHITECTURE/Events.md) · [ExplicitNonGoals](02-ARCHITECTURE/ExplicitNonGoals.md) (what we deliberately do not use) · [RiskRegister](02-ARCHITECTURE/RiskRegister.md) · [ModuleDomainDependencies](02-ARCHITECTURE/ModuleDomainDependencies.md) *(generated)*
+[Architecture](02-ARCHITECTURE/Architecture.md) (the target) · [ArchitectureEvaluation](02-ARCHITECTURE/ArchitectureEvaluation.md) (why this and not the alternatives) · [ModuleBoundaries](02-ARCHITECTURE/ModuleBoundaries.md) (who owns what) · [ModuleBoundaryAudit](02-ARCHITECTURE/ModuleBoundaryAudit.md) (every crossing, classified) · [DependencyRules](02-ARCHITECTURE/DependencyRules.md) (what may reference what) · [MultiTenancy](02-ARCHITECTURE/MultiTenancy.md) · [CQRS](02-ARCHITECTURE/CQRS.md) · [Events](02-ARCHITECTURE/Events.md) · [ExplicitNonGoals](02-ARCHITECTURE/ExplicitNonGoals.md) (what we deliberately do not use) · [RiskRegister](02-ARCHITECTURE/RiskRegister.md) · [ModuleDomainDependencies](02-ARCHITECTURE/ModuleDomainDependencies.md) *(generated)*
 
 ### 03 · Domain
 [DDD](03-DOMAIN/DDD.md) — the aggregates, and where the modelling is deliberately lightweight.
@@ -48,7 +48,7 @@ One folder per module, each with a `README.md` and most with a `ChangeGuide.md`:
 [FrontendGuide](08-FRONTEND/FrontendGuide.md) (the practical guide) · [FrontendArchitecture](08-FRONTEND/FrontendArchitecture.md) (structure and the migration plan) · [WhiteLabel](08-FRONTEND/WhiteLabel.md) (how one build serves every store)
 
 ### 09 · Operations
-[DevelopmentGuide](09-OPERATIONS/DevelopmentGuide.md) (run it locally) · [Configuration](09-OPERATIONS/Configuration.md) (every setting) · [Deployment](09-OPERATIONS/Deployment.md) · [Troubleshooting](09-OPERATIONS/Troubleshooting.md) · [ScalingStrategy](09-OPERATIONS/ScalingStrategy.md)
+[DevelopmentGuide](09-OPERATIONS/DevelopmentGuide.md) (run it locally) · [Configuration](09-OPERATIONS/Configuration.md) (every setting) · [Deployment](09-OPERATIONS/Deployment.md) · [Troubleshooting](09-OPERATIONS/Troubleshooting.md) · [ScalingStrategy](09-OPERATIONS/ScalingStrategy.md) · [ReleaseReadiness](09-OPERATIONS/ReleaseReadiness.md) (what stops a release, triaged) · [ProductionReleaseChecklist](09-OPERATIONS/ProductionReleaseChecklist.md) · [DeveloperQualityGates](09-OPERATIONS/DeveloperQualityGates.md)
 
 ### 10 · Testing
 [TestingStrategy](10-TESTING/TestingStrategy.md) (what each suite is for and the gate) · [Traceability](10-TESTING/Traceability.md) (capability → tests) · [TestInventory](10-TESTING/TestInventory.md) *(generated)*

@@ -233,7 +233,7 @@ Only the payment gateway, and only through `IPaymentService`: `CreateIntentAsync
 | Architecture | `ModuleAndContractRuleTests`, `DependencyRuleTests`, `TenancyRuleTests` | contracts, layering, tenancy |
 | Frontend | `frontend/src/features/orders/orderView.test.js` | the tracking link is built from the token, actor labels, empty admin filters dropped |
 
-Gaps worth knowing: no test asserts the total printed in the order email (see Known limitations); no test covers a failed-payment webhook followed by a successful retry of the same intent; the hosted sweep service's timer is never exercised — tests send `ExpireStaleCheckoutsCommand` directly.
+Gaps worth knowing: the hosted sweep service's timer is never exercised — tests send `ExpireStaleCheckoutsCommand` directly.
 
 ## Failure modes
 
@@ -254,7 +254,9 @@ Gaps worth knowing: no test asserts the total printed in the order email (see Kn
 | Store's payment account unusable | `PaymentsUnavailable` | 503 | `PaymentGatewayUnavailableException` → `GlobalExceptionHandler`; at checkout it is caught and compensated as above |
 | Confirming an order you don't own | `NotFound` | 404 | indistinguishable from a missing order |
 | Confirming an order with no intent | `NoPaymentIntent` | 422 | — |
-| Gateway says the intent is not succeeded | `PaymentFailed` | 422 | the order is cancelled, stock and coupon released, payment marked Failed |
+| Gateway says the intent was cancelled | `PaymentFailed` | 422 | the order is cancelled, stock and coupon released, payment marked Failed |
+| Gateway says the card was declined but the intent is still retryable | `PaymentFailed` | 422 | **nothing is released**: the order stays Pending so the shopper can retry on the same intent; the expiry sweep settles it if abandoned ([ADR-0036](../../11-ADR/0036-payment-intent-state-machine.md)) |
+| Confirming an order that was already cancelled, and the gateway captured the money | `PaymentCapturedOnCancelledOrder` | 422 | the payment is recorded as Succeeded so staff can refund it from the order screen; logged at error level; the webhook still acknowledges with 200 |
 | Two confirmations race, order still Pending | `ConcurrencyConflict` | 409 | client retries |
 | Customer cancels a paid order | `InvalidOrderOperation` | 422 | told to contact the store |
 | Payment still processing at the gateway | `PaymentProcessing` | 422 | try again shortly |
@@ -272,7 +274,7 @@ Add a status · change cancellation rules · change what happens on payment succ
 
 ## Known limitations
 
-1. **A failed confirmation cancels the order locally but leaves the intent alive at the gateway.** `OrderPaymentConfirmation.ConfirmAsync` treats every non-succeeded intent status — including `requires_payment_method` after a declined card and `processing` — as a failure, and calls `CancelAsync` without calling `CancelIntentAsync`. If a `payment_intent.payment_failed` webhook arrives while the customer retries with another card on the same client secret, the order is already Cancelled when the money succeeds. The later confirmation then returns an idempotent success with status Cancelled, the `Payment` row stays Failed, and neither refund path accepts a payment that is not Succeeded — the money can only be returned from the Stripe dashboard. The cancel paths (`CancelUnpaidAsync`, the sweep) do ask the gateway first; this path does not.
+1. **A declined order holds its stock reservation until the checkout expiry window elapses.** Since [ADR-0036](../../11-ADR/0036-payment-intent-state-machine.md) a decline whose intent is still alive (`PaymentIntentState.Retryable`) leaves the order `Pending` so the shopper can retry on the same client secret, instead of cancelling it and releasing the stock immediately. `ExpireStaleCheckoutsHandler` settles it afterwards if it is abandoned. This is the deliberate trade: an abandoned decline occupies stock for `Inventory:ReservationMinutes`, and in exchange a mistyped card no longer destroys the order — and no path can leave a cancelled order with an intent that is still able to capture.
 2. **The order confirmation email can print the wrong total, or fail outright.** `OrderEmailHandler` loads the order with `IOrderRepository.GetByIdAsync`, which is `FindAsync` — the root only, with no lines, and nothing configures auto-include. `Order.TotalAmount` therefore sums an empty line collection: the email shows only the shipping cost, and for an order with a coupon `Subtotal.Subtract(DiscountAmount)` goes negative and throws `InvalidMoneyException`, so the message is retried until the outbox marks it dead. The frozen `PlacedTotal` is what the email should use.
 3. A staff member with `orders.manage` alone can trigger a full refund by cancelling a paid order (see Security).
 4. The refund after an admin cancellation happens **after** the cancellation commits and its result is ignored: a refused or unanswered refund leaves the order cancelled with the money still out. It shows on the order's payment, and staff retry from there. A crash between the two leaves no `Refund` row at all, and nothing sweeps for that.

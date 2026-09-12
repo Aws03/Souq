@@ -14,7 +14,8 @@ public interface IPaymentService
     // ينشئ نيّة دفع بمبلغ محدَّد ويعيد سرّاً (ClientSecret) تستخدمه الواجهة لإتمام الدفع من المتصفّح، والحساب الذي أنشأها.
     Task<PaymentIntentResult> CreateIntentAsync(Money amount, string orderReference, CancellationToken ct = default);
 
-    // يتحقّق من حالة نيّة دفع لدى بوّابة الدفع نفسها (لا نثق بادّعاء العميل وحده).
+    // يتحقّق من حالة نيّة دفع لدى بوّابة الدفع نفسها (لا نثق بادّعاء العميل وحده). النتيجة تحمل الحالة لا مجرّد
+    // "نجح/لم ينجح": ما يُفعَل بالطلب يختلف جذرياً بين نيّة أُلغيت ونيّة ما زالت تقبل محاولة أخرى (R-02).
     Task<PaymentConfirmationResult> ConfirmAsync(string paymentIntentId, CancellationToken ct = default);
 
     // يلغي نيّة دفع لم تكتمل (طلب انتهت مهلته — المرحلة 6) ويعيد حالتها الحقيقية: ملغاة، أو نجحت قبل الإلغاء (سباق
@@ -36,7 +37,14 @@ public interface IPaymentService
 
 // Gateway: الحساب الذي أنشأ النيّة (يُسجَّل على الدفعة ولا يفسّره Application).
 public record PaymentIntentResult(string PaymentIntentId, string ClientSecret, string Gateway = "deployment");
-public record PaymentConfirmationResult(bool Succeeded, string? FailureReason);
+
+// نتيجة سؤال البوّابة عن نيّة دفع. State هي الحقيقة التي يُبنى عليها القرار؛ Succeeded اختصار قراءة.
+public record PaymentConfirmationResult(PaymentIntentState State, string? FailureReason = null)
+{
+    public bool Succeeded => State == PaymentIntentState.Succeeded;
+
+    public static PaymentConfirmationResult Ok() => new(PaymentIntentState.Succeeded);
+}
 public record PaymentRefundResult(bool Succeeded, string? ProviderRefundId, string? FailureReason);
 public record PaymentClientConfig(string? PublishableKey);
 
@@ -45,4 +53,11 @@ public record PaymentClientConfig(string? PublishableKey);
 public record PaymentWebhookEvent(
     string OrderReference, string? PaymentIntentId = null, int? TenantId = null, bool VerifiedByStoreAccount = false);
 
-public enum PaymentIntentState { Cancelled, Succeeded, Processing }
+// حالة نيّة الدفع لدى البوّابة:
+//   Cancelled  — نهائية: لا تقبض بعد الآن، فيُؤمَن إلغاء طلبها.
+//   Succeeded  — نهائية: قُبض المال.
+//   Processing — لم تُحسم بعد؛ لا تُلغى ولا تُؤكَّد الآن.
+//   Retryable  — حيّة وتقبل محاولة أخرى على السرّ نفسه (بطاقة مرفوضة تُعيد نيّة Stripe إلى requires_payment_method).
+//                إلغاء طلبها مع تركها حيّة هو بالضبط ما يسمح بقبض مال على طلب ملغى (R-02).
+// CancelIntentAsync لا تعيد Retryable أبداً: هي تُلغي ما كان كذلك.
+public enum PaymentIntentState { Cancelled, Succeeded, Processing, Retryable }

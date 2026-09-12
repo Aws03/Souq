@@ -29,7 +29,7 @@ public class ExpireStaleCheckoutsHandlerTests
             Substitute.For<Souq.Application.Features.Coupons.Contracts.ICouponRedemptions>(),
             Substitute.For<Souq.Application.Features.Payments.Contracts.IOrderPayments>(),
             Substitute.For<Souq.Application.Features.Baskets.Contracts.IBasketCheckout>(),
-            _payment, _uow),
+            _payment, _uow, NullLogger<OrderPaymentConfirmation>.Instance),
         NullLogger<ExpireStaleCheckoutsHandler>.Instance);
 
     private Order PendingOrder(int id, string? intent = null)
@@ -78,7 +78,7 @@ public class ExpireStaleCheckoutsHandlerTests
         var order = PendingOrder(5, "pi_1");
         Expired(OrderStockReference.For(5));
         _payment.CancelIntentAsync("pi_1", Arg.Any<CancellationToken>()).Returns(PaymentIntentState.Succeeded);
-        _payment.ConfirmAsync("pi_1", Arg.Any<CancellationToken>()).Returns(new PaymentConfirmationResult(true, null));
+        _payment.ConfirmAsync("pi_1", Arg.Any<CancellationToken>()).Returns(PaymentConfirmationResult.Ok());
 
         await Sweep();
 

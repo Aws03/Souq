@@ -53,18 +53,22 @@ public sealed class StripeGateway : IPaymentGateway
                 [TenantKey] = tenantId.ToString(CultureInfo.InvariantCulture),
             },
             AutomaticPaymentMethods = new PaymentIntentAutomaticPaymentMethodsOptions { Enabled = true },
-        }, cancellationToken: ct);
+            // مفتاح عدم تكرار مشتقّ من الطلب: انقطاع الشبكة بعد أن أنشأت Stripe النيّة وقبل وصول جوابها كان يترك نيّة
+            // يتيمة لا نعرف معرّفها؛ إعادة المحاولة بالمفتاح نفسه تعيد النيّة الأولى بدل إنشاء ثانية.
+        }, new RequestOptions { IdempotencyKey = $"souq-intent-{tenantId}-{orderReference}" }, ct);
 
         return new PaymentIntentResult(intent.Id, intent.ClientSecret, Name);
     }
 
+    // الحالة كما هي، لا "نجح/لم ينجح": requires_payment_method بعد رفض البطاقة نيّة حيّة يعيد العميل المحاولة عليها،
+    // وليست فشلاً نهائياً يُلغى طلبه (R-02). ما ليس حالة نهائية معروفة ⇒ Retryable.
     public async Task<PaymentConfirmationResult> ConfirmAsync(string paymentIntentId, CancellationToken ct)
     {
         var intent = await new PaymentIntentService(_client).GetAsync(paymentIntentId, cancellationToken: ct);
+        var state = StateOf(intent.Status) ?? PaymentIntentState.Retryable;
 
-        return intent.Status == "succeeded"
-            ? new PaymentConfirmationResult(true, null)
-            : new PaymentConfirmationResult(false, $"حالة الدفع لدى البوّابة: {intent.Status}");
+        return new PaymentConfirmationResult(state,
+            state == PaymentIntentState.Succeeded ? null : $"حالة الدفع لدى البوّابة: {intent.Status}");
     }
 
     public async Task<PaymentIntentState> CancelIntentAsync(string paymentIntentId, CancellationToken ct)

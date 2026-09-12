@@ -97,6 +97,25 @@ public class PaymentTests
         payment.Invoking(p => p.FailRefund(accepted, "متأخّر", Now)).Should().Throw<InvalidPaymentOperationException>();
     }
 
+    // R-02: البوّابة قبضت بعد إغلاق الدفعة (طلب أُلغي ثم نجحت نيّته). الحقيقة عند البوّابة تحسم — وإلا بقي المال خارج
+    // النظام بلا مسار استرداد، لأن الاسترداد لا يقبل إلا دفعة ناجحة.
+    [Theory]
+    [InlineData(PaymentStatus.Failed)]
+    [InlineData(PaymentStatus.Cancelled)]
+    [InlineData(PaymentStatus.Pending)]
+    public void قبضٌ_بعد_إغلاق_الدفعة_يجعلها_ناجحة_فتقبل_الاسترداد(PaymentStatus closedAs)
+    {
+        var payment = Pending(50);
+        if (closedAs == PaymentStatus.Failed) payment.MarkFailed();
+        if (closedAs == PaymentStatus.Cancelled) payment.MarkCancelled();
+
+        payment.MarkCapturedAfterClose().Should().BeTrue();
+
+        payment.Status.Should().Be(PaymentStatus.Succeeded);
+        payment.RequestRefund(new Money(50, "JOD"), "قُبض على طلب ملغى", 7).Amount.Amount.Should().Be(50m);
+        payment.MarkCapturedAfterClose().Should().BeFalse("إشعاران متأخّران لا يسجّلان مرّتين");
+    }
+
     [Theory]
     [InlineData(PaymentStatus.Pending)]
     [InlineData(PaymentStatus.Failed)]

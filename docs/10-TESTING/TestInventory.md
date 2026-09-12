@@ -7,10 +7,10 @@
 
 | Suite | Files | Facts | Theories |
 |---|---|---|---|
-| [`Souq.Domain.Tests`](#souqdomaintests) | 23 | 163 | 33 |
-| [`Souq.Application.Tests`](#souqapplicationtests) | 39 | 263 | 11 |
+| [`Souq.Domain.Tests`](#souqdomaintests) | 23 | 163 | 34 |
+| [`Souq.Application.Tests`](#souqapplicationtests) | 39 | 267 | 11 |
 | [`Souq.ArchitectureTests`](#souqarchitecturetests) | 8 | 35 | 3 |
-| [`Souq.IntegrationTests`](#souqintegrationtests) | 32 | 161 | 14 |
+| [`Souq.IntegrationTests`](#souqintegrationtests) | 32 | 162 | 14 |
 | [frontend (Vitest)](#frontend-vitest) | 23 | 98 | — |
 
 ## Souq.Domain.Tests
@@ -29,7 +29,7 @@
 | `tests/Souq.Domain.Tests/OrderLifecycleTests.cs` | `OrderLifecycleTests` | 6 | 1 |
 | `tests/Souq.Domain.Tests/OrderShippingTests.cs` | `OrderShippingTests` | 5 | 0 |
 | `tests/Souq.Domain.Tests/OrderTests.cs` | `OrderTests` | 23 | 1 |
-| `tests/Souq.Domain.Tests/PaymentTests.cs` | `PaymentTests` | 5 | 2 |
+| `tests/Souq.Domain.Tests/PaymentTests.cs` | `PaymentTests` | 5 | 3 |
 | `tests/Souq.Domain.Tests/ProductTests.cs` | `ProductTests`, `CategoryTests` | 10 | 1 |
 | `tests/Souq.Domain.Tests/RefreshTokenTests.cs` | `RefreshTokenTests` | 3 | 0 |
 | `tests/Souq.Domain.Tests/ReviewTests.cs` | `ReviewTests` | 8 | 1 |
@@ -64,7 +64,7 @@
 | `tests/Souq.Application.Tests/Inventory/InventoryReservationsTests.cs` | `InventoryReservationsTests` | 9 | 0 |
 | `tests/Souq.Application.Tests/Notifications/NotificationHandlersTests.cs` | `OutboxPolicyTests`, `IdentityEmailHandlersTests`, `OrderNotificationHandlersTests`, `NotificationUseCasesTests` | 12 | 1 |
 | `tests/Souq.Application.Tests/Orders/CancelMyOrderHandlerTests.cs` | `CancelMyOrderHandlerTests` | 5 | 0 |
-| `tests/Souq.Application.Tests/Orders/ConfirmOrderPaymentHandlerTests.cs` | `ConfirmOrderPaymentHandlerTests` | 8 | 0 |
+| `tests/Souq.Application.Tests/Orders/ConfirmOrderPaymentHandlerTests.cs` | `ConfirmOrderPaymentHandlerTests` | 12 | 0 |
 | `tests/Souq.Application.Tests/Orders/CreateOrderHandlerTests.cs` | `CreateOrderHandlerTests` | 11 | 0 |
 | `tests/Souq.Application.Tests/Orders/ExpireStaleCheckoutsHandlerTests.cs` | `ExpireStaleCheckoutsHandlerTests` | 6 | 0 |
 | `tests/Souq.Application.Tests/Orders/GetOrderByIdHandlerTests.cs` | `GetOrderByIdHandlerTests` | 7 | 1 |
@@ -121,7 +121,7 @@
 | `tests/Souq.IntegrationTests/OrderLifecycleTests.cs` | `OrderLifecycleTests` | 6 | 0 |
 | `tests/Souq.IntegrationTests/PaymentAdapterTests.cs` | `SecretProtectorTests`, `FakeGatewayTests` | 6 | 1 |
 | `tests/Souq.IntegrationTests/PaymentDataRulesTests.cs` | `PaymentDataRulesTests` | 2 | 0 |
-| `tests/Souq.IntegrationTests/PaymentsAndRefundsTests.cs` | `PaymentsAndRefundsTests` | 5 | 0 |
+| `tests/Souq.IntegrationTests/PaymentsAndRefundsTests.cs` | `PaymentsAndRefundsTests` | 6 | 0 |
 | `tests/Souq.IntegrationTests/PlatformAdministrationTests.cs` | `PlatformAdministrationTests` | 7 | 0 |
 | `tests/Souq.IntegrationTests/QueryServiceTests.cs` | `QueryServiceTests` | 9 | 1 |
 | `tests/Souq.IntegrationTests/ReviewModerationTests.cs` | `ReviewModerationTests` | 4 | 0 |
