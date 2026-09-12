@@ -68,9 +68,16 @@ internal sealed class PlatformQueries : IPlatformQueries, IPlatformReports
         .Map(AccountQueries.ToDto);
 
     // "هل للمتجر نشاط تجاري؟" — يقفل تغيير العملة (Tenant.ChangeCurrency).
+    //
+    // الكوبونات وطرق الشحن صفوف مُسعَّرة أيضاً (R-09): كانت خارج الحساب، فيغيّر متجر عملته بعد إنشائها فتبقى بعملتها
+    // القديمة. أثر ذلك مختلف بين الاثنين — طريقة الشحن تُخفى (BR-SHP-05) وRateFor ترمي، أما الكوبون فمبلغه الثابت
+    // decimal بلا عملة إطلاقاً، فيصير "خصم 5 دنانير" خصمَ 5 دولارات بصمت. المنع عند المصدر أرخص من كشفه لاحقاً،
+    // وعلّة القاعدة نفسها (BR-TEN-18) تشملهما: سعر كُتب بالعملة القديمة يتغيّر معناه.
     public async Task<bool> HasCommercialActivityAsync(int tenantId, CancellationToken ct) =>
         await _db.Products.IgnoreQueryFilters(TenantFilter).AnyAsync(p => p.TenantId == tenantId, ct)
-        || await _db.Orders.IgnoreQueryFilters(TenantFilter).AnyAsync(o => o.TenantId == tenantId, ct);
+        || await _db.Orders.IgnoreQueryFilters(TenantFilter).AnyAsync(o => o.TenantId == tenantId, ct)
+        || await _db.Coupons.IgnoreQueryFilters(TenantFilter).AnyAsync(c => c.TenantId == tenantId, ct)
+        || await _db.ShippingMethods.IgnoreQueryFilters(TenantFilter).AnyAsync(s => s.TenantId == tenantId, ct);
 
     public async Task<PaginatedList<AuditEntryDto>> ListAuditAsync(AuditFilter filter, PageRequest page, CancellationToken ct)
     {

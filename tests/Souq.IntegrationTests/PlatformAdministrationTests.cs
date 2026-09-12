@@ -189,6 +189,30 @@ public class PlatformAdministrationTests
             .Should().Be((HttpStatusCode.UnprocessableEntity, "InvalidTenantOperation"));
     }
 
+    // R-09: الكوبون صفّ مُسعَّر أيضاً، ومبلغه الثابت decimal بلا عملة — فتغيير العملة بعد إنشائه كان يحوّل "خصم 5
+    // دنانير" إلى خصم 5 بعملة أخرى بصمت. القفل كان يعدّ المنتجات والطلبات وحدها.
+    [Fact]
+    public async Task كوبون_وحده_يقفل_عملة_المتجر_بلا_منتج_ولا_طلب()
+    {
+        var owner = await _api.PlatformOwnerAsync();
+        var store = await _factory.CreateStoreAsync();
+        var url = $"/api/platform/tenants/{store.Tenant.Id}";
+        var storeApi = _api.ForStore(store);
+        var storeAdmin = await storeApi.AdminAsync();
+
+        // بلا أي نشاط تجاري: العملة تتغيّر كما كانت دائماً.
+        (await owner.PutAsJsonAsync(url, new { name = "متجر الكوبون", currency = "USD" }))
+            .StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        // كوبون فقط — لا منتج ولا طلب.
+        (await storeAdmin.PostAsJsonAsync("/api/coupons",
+                new { code = $"CUR{Guid.NewGuid():N}"[..12].ToUpperInvariant(), type = "Percentage", value = 10m }))
+            .StatusCode.Should().Be(HttpStatusCode.Created);
+
+        (await ProblemAsync(await owner.PutAsJsonAsync(url, new { name = "متجر الكوبون", currency = "EUR" })))
+            .Should().Be((HttpStatusCode.UnprocessableEntity, "InvalidTenantOperation"));
+    }
+
     [Fact]
     public async Task حسابات_المنصّة_للمالك_وحده_والإيقاف_يُسقط_الجلسة_فوراً()
     {

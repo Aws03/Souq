@@ -65,8 +65,18 @@ public class Coupon : Entity, ITenantOwned
             throw new InvalidCouponException("استُنفد عدد مرات استخدام الكوبون");
         if (MaxUsesPerCustomer is not null && customerUses >= MaxUsesPerCustomer)
             throw new InvalidCouponException("استخدمت هذا الكوبون الحدّ المسموح لكل عميل");
-        if (MinOrderAmount is not null && subtotal.Amount < MinOrderAmount.Amount)
-            throw new InvalidCouponException($"الحد الأدنى للطلب لاستخدام هذا الكوبون {MinOrderAmount}");
+        if (MinOrderAmount is not null)
+        {
+            // المقارنة بالمبلغ وحده كانت تتجاهل العملة (R-09): حدّ أدنى "50 JOD" يُقاس على مجموع بالدولار كأنّه 50
+            // دولاراً. Money يحرس عملته في الجمع والطرح، لكن قراءة Amount مباشرةً تتجاوز ذلك الحارس — فالعملة تُفحص
+            // هنا صراحةً. بعد قفل العملة على الكوبونات أيضاً لا ينبغي أن يقع هذا أصلاً؛ يبقى ليُظهر تضارب بيانات
+            // بصوت عالٍ بدل جواب خاطئ صامت.
+            if (subtotal.Currency != MinOrderAmount.Currency)
+                throw new InvalidCouponException(
+                    $"عملة حدّ الكوبون ({MinOrderAmount.Currency}) لا تطابق عملة الطلب ({subtotal.Currency})");
+            if (subtotal.Amount < MinOrderAmount.Amount)
+                throw new InvalidCouponException($"الحد الأدنى للطلب لاستخدام هذا الكوبون {MinOrderAmount}");
+        }
     }
 
     // يحسب قيمة الخصم الفعلية على إجمالي فرعي معيّن، بلا تجاوز الإجمالي نفسه

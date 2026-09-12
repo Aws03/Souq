@@ -7,10 +7,10 @@
 
 | Suite | Files | Facts | Theories |
 |---|---|---|---|
-| [`Souq.Domain.Tests`](#souqdomaintests) | 23 | 164 | 34 |
+| [`Souq.Domain.Tests`](#souqdomaintests) | 23 | 165 | 34 |
 | [`Souq.Application.Tests`](#souqapplicationtests) | 39 | 272 | 11 |
 | [`Souq.ArchitectureTests`](#souqarchitecturetests) | 8 | 36 | 3 |
-| [`Souq.IntegrationTests`](#souqintegrationtests) | 32 | 166 | 15 |
+| [`Souq.IntegrationTests`](#souqintegrationtests) | 32 | 167 | 15 |
 | [frontend (Vitest)](#frontend-vitest) | 24 | 102 | — |
 
 ## Souq.Domain.Tests
@@ -19,7 +19,7 @@
 |---|---|---|---|
 | `tests/Souq.Domain.Tests/BasketTests.cs` | `BasketTests` | 8 | 1 |
 | `tests/Souq.Domain.Tests/CouponRuleMatrixTests.cs` | `CouponRuleMatrixTests` | 2 | 2 |
-| `tests/Souq.Domain.Tests/CouponTests.cs` | `CouponTests` | 11 | 1 |
+| `tests/Souq.Domain.Tests/CouponTests.cs` | `CouponTests` | 12 | 1 |
 | `tests/Souq.Domain.Tests/CustomerProfileTests.cs` | `CustomerProfileTests` | 9 | 1 |
 | `tests/Souq.Domain.Tests/DomainEventTests.cs` | `DomainEventTests` | 5 | 0 |
 | `tests/Souq.Domain.Tests/DomainExceptionCodeTests.cs` | `DomainExceptionCodeTests` | 1 | 1 |
@@ -122,7 +122,7 @@
 | `tests/Souq.IntegrationTests/PaymentAdapterTests.cs` | `SecretProtectorTests`, `FakeGatewayTests` | 6 | 1 |
 | `tests/Souq.IntegrationTests/PaymentDataRulesTests.cs` | `PaymentDataRulesTests` | 2 | 0 |
 | `tests/Souq.IntegrationTests/PaymentsAndRefundsTests.cs` | `PaymentsAndRefundsTests` | 6 | 0 |
-| `tests/Souq.IntegrationTests/PlatformAdministrationTests.cs` | `PlatformAdministrationTests` | 7 | 0 |
+| `tests/Souq.IntegrationTests/PlatformAdministrationTests.cs` | `PlatformAdministrationTests` | 8 | 0 |
 | `tests/Souq.IntegrationTests/QueryServiceTests.cs` | `QueryServiceTests` | 9 | 1 |
 | `tests/Souq.IntegrationTests/ReviewModerationTests.cs` | `ReviewModerationTests` | 4 | 0 |
 | `tests/Souq.IntegrationTests/ShippingTests.cs` | `ShippingTests` | 3 | 0 |

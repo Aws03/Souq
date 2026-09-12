@@ -104,6 +104,19 @@ public class CouponTests
         act.Should().Throw<InvalidCouponException>();
     }
 
+    // R-09: الحدّ الأدنى كان يُقارَن بالمبلغ وحده، فيقيس حدّاً بالدينار على مجموع بالدولار كأنّهما عملة واحدة.
+    [Fact]
+    public void EnsureUsable_حدّ_أدنى_بعملة_أخرى_يُرفض_بدل_أن_يُقارَن_بالرقم()
+    {
+        var coupon = new Coupon("MIN50", DiscountType.Percentage, 10, new Money(50, "JOD"), null, null);
+
+        // 100 أكبر من 50 رقمياً، فكان يمرّ — والعملتان مختلفتان، فلا معنى للمقارنة أصلاً.
+        var act = () => coupon.EnsureUsable(new Money(100, "USD"), DateTime.UtcNow);
+
+        act.Should().Throw<InvalidCouponException>().WithMessage("*USD*");
+        coupon.EnsureUsable(new Money(100, "JOD"), DateTime.UtcNow);   // العملة نفسها تمرّ كما كانت
+    }
+
     [Fact]
     public void EnsureUsable_كوبون_صالح_لا_يرمي()
     {

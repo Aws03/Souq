@@ -25,7 +25,7 @@
 
 | # | Risk | Confidence | Impact | What to do |
 |---|---|---|---|---|
-| R-09 | **Currency changes are not fully guarded.** A store's currency locks only after a product or an order exists; coupons and shipping methods created before that keep their old currency, and a fixed-amount coupon is a bare decimal applied in the basket's currency | Observed | "5 JOD off" silently becomes "5 USD off" | Compare `Money` with its currency in the coupon rules; extend the currency lock to any priced row |
+| R-09 | **A coupon's fixed discount still carries no currency.** `Coupon.Value` is a bare `decimal` and `CalculateDiscount` stamps the basket's currency onto it. The way in is closed — the currency lock now counts coupons and shipping methods, and `Coupon.EnsureUsable` compares currencies — so a store can no longer change currency after creating a coupon. The asymmetry in the row itself remains | Observed | None reachable today; it becomes live again only if the currency lock is ever relaxed | Give `Value` its own currency column, or model the fixed discount as `Money`. Both are schema changes, so they wait for a migration that has another reason to exist |
 
 ## 3. Tenant isolation and security
 
