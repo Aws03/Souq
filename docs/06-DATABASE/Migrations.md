@@ -213,18 +213,20 @@ The insert deliberately runs **after** the unique indexes are created, so a dupl
 
 `src/Souq.Infrastructure/Persistence/DbSeeder.cs`, called from `Program.cs` at every startup, in every environment, immediately after `MigrateAsync`. It is written to be idempotent: each step checks before it writes.
 
+**Two of the five steps are demo content and are environment-gated** (R-17, fixed in Phase 17). `DbSeeder.ShouldSeedDemoData` resolves `Seed:DemoData` if it is set, and otherwise follows the environment — Development and Testing only. When it is off, the seeder logs `Demo data not seeded (Seed:DemoData is off for this environment)` and a production database gets only what was configured deliberately: the platform owner, the first store administrator and the host binding.
+
 | Step | What it seeds | Where it applies | Idempotency |
 |---|---|---|---|
 | `BindDefaultTenantHostsAsync` | Binds the hosts in `Seed:DefaultTenantHosts` to the default store `marka` (the Docker stack passes `localhost`) | Any environment where the setting is present | Skips a host already bound **to any store** (it never steals another store's domain); an invalid host is logged and ignored |
-| `ApplyDefaultStoreLookAsync` | Gives the default store the "Marka" look: enabled cultures, brand colours, typography, storefront texts, contact and SEO — through the Domain's own rules | Any environment | Runs **only while `Tenant.HasCustomSettings` is false**; once an admin saves settings, the seeder never touches them again |
+| `ApplyDefaultStoreLookAsync` | Gives the default store the "Marka" look: enabled cultures, brand colours, typography, storefront texts, contact and SEO — through the Domain's own rules | **Only when `Seed:DemoData` resolves true** (Development and Testing, unless set explicitly) | Runs **only while `Tenant.HasCustomSettings` is false**; once an admin saves settings, the seeder never touches them again |
 | `SeedPlatformOwnerAsync` | The platform owner account (`PlatformOwner`, no store), in platform scope | Any environment, from `Seed:PlatformOwnerEmail` / `Seed:PlatformOwnerPassword`; the `DevelopmentPlatformOwnerEmail` / `DevelopmentPlatformOwnerPassword` constants apply **only** in Development | An existing account is never given a new password; only a legacy non-BCrypt hash is replaced (`UpgradePasswordHash`) |
-| `SeedCatalogAsync` | Three categories and eight demo products in the store's currency, plus an `InventoryItem` and an opening `Purchase` movement for each | The default store, **in every environment** — it is not gated on Development | Skipped entirely if the default store already has any category |
+| `SeedCatalogAsync` | Three categories and eight demo products in the store's currency, plus an `InventoryItem` and an opening `Purchase` movement for each | The default store, **only when `Seed:DemoData` resolves true** | Skipped entirely if the default store already has any category |
 | `SeedAccountAsync` (store admin) | The first `TenantAdmin` of the default store | Any environment, from `Seed:AdminEmail` / `Seed:AdminPassword`; `DevelopmentAdminEmail` / `DevelopmentAdminPassword` **only** in Development | Same rule as the platform owner |
 
 Two safety rules worth knowing before a production deployment:
 
 - **No account is created without explicit configuration outside Development**, and a configured password shorter than `MinimumAdminPasswordLength` (12) — or equal to the development password — **throws at startup**. A loud failure beats a privileged account with a weak password (the Phase 0 finding B1: an admin with a published password used to be seeded in every environment).
-- **The demo store exists in every database.** `Phase2MultiTenancy` creates tenant 1 "Marka Demo" and the seeder then gives it the Marka look and the demo catalogue, in production too. It is reachable only from a host bound to it, but the rows are there. That is decision P-04; treat it as data to clean up when onboarding a real first client.
+- **The default store row exists in every database, but its contents no longer do.** `Phase2MultiTenancy` creates tenant 1 "Marka Demo" in every database, because a migration cannot be environment-gated and every pre-tenant row had to belong to something (decision P-04). Since Phase 17 the seeder only gives it the Marka look and the demo catalogue when `Seed:DemoData` resolves true, so a production database starts with an **empty** default store rather than a furnished demo one. It is reachable only from a host bound to it. Treat the row as something to adopt, rename or archive deliberately when onboarding a real first client.
 
 ## 9. Known gaps
 
