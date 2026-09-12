@@ -77,9 +77,11 @@ public class DependencyRuleTests
     public void Controllers_لا_تستقبل_كيانات_المجال_مباشرة()
     {
         // الكيانات ليست عقود API: تستقبل الـ Controllers أوامر/طلبات (DTOs) فقط.
+        // بالوراثة لا بالمساحة الاسمية، للسبب نفسه أعلاه: بالمطابقة النصّية كان Controller يستقبل User أو Tenant
+        // مباشرةً ويمرّ البناء.
         var entityParameters = ControllerActions()
             .SelectMany(m => m.GetParameters().Select(p => (Action: m, p.ParameterType)))
-            .Where(x => x.ParameterType.Namespace == "Souq.Domain.Entities")
+            .Where(x => x.ParameterType.IsSubclassOf(typeof(Souq.Domain.Common.Entity)))
             .Select(x => $"{x.Action.DeclaringType!.Name}.{x.Action.Name}({x.ParameterType.Name})")
             .ToList();
 
@@ -103,8 +105,14 @@ public class DependencyRuleTests
     {
         // التغليف (CLAUDE.md: "الكيانات تحرس قواعدها بنفسها"): الحالة تتغيّر عبر دوال
         // محروسة فقط، لا product.StockQuantity = -5 من الخارج.
+        //
+        // الشرط بالوراثة لا بالمساحة الاسمية عمداً: المطابقة النصّية "Souq.Domain.Entities" كانت تترك أربعة كيانات
+        // خارج القاعدة — User وRefreshToken في Souq.Domain.Identity، وTenant وTenantDomain في Souq.Domain.Platform —
+        // أي الحسابات والجلسات والمتاجر: أخطر ما في النظام. لم يكن أيٌّ منها مخالفاً، لكن القاعدة لم تكن تحرسه.
+        // IsSubclassOf هو ما تستعمله TenancyRuleTests أصلاً، ويستثني إعدادات المتجر (StoreSettings وأخواتها) لأنها
+        // ليست كيانات.
         var publicSetters = Domain.GetTypes()
-            .Where(t => t.Namespace == "Souq.Domain.Entities" && t.IsClass)
+            .Where(t => t is { IsClass: true, IsAbstract: false } && t.IsSubclassOf(typeof(Souq.Domain.Common.Entity)))
             .SelectMany(t => t.GetProperties(BindingFlags.Public | BindingFlags.Instance)
                 .Where(p => p.SetMethod?.IsPublic == true)
                 .Select(p => $"{t.Name}.{p.Name}"))
