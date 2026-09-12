@@ -29,8 +29,10 @@ public class TenantResolutionTests
         (await ProblemCodeAsync(response)).Should().Be("StoreNotFound");
     }
 
+    // R-08: المتجر يُغلق على زبائنه، لا على صاحبه. قبل الإصلاح كان 503 يشمل إعداد الواجهة والدخول معاً، فيرى صاحب المتجر
+    // صفحة خطأ عارية ولا يستطيع الدخول ليعرف لماذا أُوقف متجره.
     [Fact]
-    public async Task متجر_موقوف_غير_متاح_للزوّار_ولا_للدخول()
+    public async Task متجر_موقوف_يُغلق_على_الزوّار_ويبقي_إعداد_الواجهة_ودخول_إدارته()
     {
         var store = await _factory.CreateStoreAsync(TenantStatus.Suspended);
         var api = _api.ForStore(store);
@@ -39,7 +41,18 @@ public class TenantResolutionTests
         catalog.StatusCode.Should().Be(HttpStatusCode.ServiceUnavailable);
         (await ProblemCodeAsync(catalog)).Should().Be("StoreUnavailable");
 
-        (await api.Anonymous().PostAsJsonAsync("/api/auth/login", new { email = store.AdminEmail, password = store.AdminPassword }))
+        // إعداد الواجهة يجيب: به وحده تعرض الواجهة صفحة "المتجر غير متاح" بهويّة المتجر.
+        (await api.Anonymous().GetAsync("/api/storefront/config")).StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // الدخول متاح لإدارته، وما وراءه يبقى مغلقاً: الصلاحية لا تفتح متجراً موقوفاً.
+        var admin = await api.AdminAsync();
+        (await admin.GetAsync("/api/auth/me")).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await admin.GetAsync("/api/admin/inventory")).StatusCode.Should().Be(HttpStatusCode.ServiceUnavailable);
+        (await admin.GetAsync("/api/orders")).StatusCode.Should().Be(HttpStatusCode.ServiceUnavailable);
+
+        // ولا يفتح التسجيل ولا الشراء: الإتاحة نقطةً نقطةً، لا للمتحكّم كله.
+        (await api.Anonymous().PostAsJsonAsync("/api/auth/register",
+                new { fullName = "زائر", email = $"x-{Guid.NewGuid():N}@souq.test", password = "Customer-Pass-1" }))
             .StatusCode.Should().Be(HttpStatusCode.ServiceUnavailable);
     }
 

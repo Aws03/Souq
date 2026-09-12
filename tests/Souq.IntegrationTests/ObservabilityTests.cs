@@ -71,6 +71,27 @@ public class ObservabilityTests
             .And.OnlyContain(e => Equals(e.Scope["UserId"], userId) && Equals(e.Scope["UseCase"], "GetMyOrdersQuery"));
     }
 
+    // R-10: الرمز جزء من المسار، فكان سطر الطلب يكتبه كاملاً — ومن يقرأ السجلّ يفتح صفحة تتبّع أي عميل.
+    [Fact]
+    public async Task رمز_تتبّع_الطلب_يُنقَّح_من_سطر_السجلّ_ويبقى_القالب_للتشخيص()
+    {
+        var admin = await _api.AdminAsync();
+        var productId = await _api.CreateProductAsync(admin, price: 5m, stock: 2);
+        var (customer, _) = await _api.NewCustomerAsync();
+        var placed = await _api.PlaceOrderAsync(customer, productId, 1);
+        var orderId = (await placed.Content.ReadFromJsonAsync<TestApi.OrderCreatedBody>(TestApi.Json))!.OrderId;
+        var token = await _api.WithDbAsync(db => db.Orders.Where(o => o.Id == orderId).Select(o => o.TrackingToken).SingleAsync());
+
+        var response = await _api.Anonymous().GetAsync($"/api/orders/track/{token}");
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var correlationId = response.Headers.GetValues(CorrelationHeader).Single();
+
+        var line = RequestLines(correlationId).Should().ContainSingle().Subject;
+        line.Properties["Path"].Should().Be("/api/orders/track/***");
+        line.Properties["Route"].Should().Be("api/Orders/track/{token}", "القالب يبقى كما هو للتجميع والتشخيص");
+        _factory.Logs.Entries.Should().NotContain(e => e.Message.Contains(token), "الرمز لا يظهر في أي سجلّ");
+    }
+
     [Fact]
     public async Task لا_كلمة_مرور_ولا_توكن_ولا_ترويسة_تفويض_في_أي_سجل()
     {

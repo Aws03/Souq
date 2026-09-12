@@ -18,9 +18,10 @@ namespace Souq.Infrastructure.Persistence;
 //   PlatformOwnerEmail/PlatformOwnerPassword — مالك المنصّة (PlatformOwner، بلا متجر) — ADR-0010.
 //   DefaultTenantHosts                       — مضيفون يُربطون بالمتجر الافتراضي إن لم يكونوا مربوطين.
 // بيانات تطوير افتراضية في Development فقط؛ خارجها لا حساب بلا إعداد صريح، ولا كلمة مرور ضعيفة.
+//   SeedDemoData                             — بيانات العرض (كتالوج المتجر الافتراضي ومظهره). انظر DbSeeder.ShouldSeedDemoData.
 public sealed record SeedOptions(
     string? AdminEmail, string? AdminPassword, bool IsDevelopment, IReadOnlyList<string> DefaultTenantHosts,
-    string? PlatformOwnerEmail = null, string? PlatformOwnerPassword = null);
+    string? PlatformOwnerEmail = null, string? PlatformOwnerPassword = null, bool SeedDemoData = false);
 
 // يطبّق الهجرات ثم يبذر مالك المنصّة (نطاق المنصّة) والمتجر الافتراضي (نطاقه) — كل صف في نطاقه.
 public static class DbSeeder
@@ -37,6 +38,12 @@ public static class DbSeeder
     public const string DevelopmentPlatformOwnerPassword = "Owner@12345";
     public const int MinimumAdminPasswordLength = 12;
 
+    // بيانات العرض تُبذَر في التطوير والاختبار وحدهما، أو بطلب صريح (Seed:DemoData). قاعدة إنتاج جديدة كانت تُبذَر بمتجر
+    // تجريبي بكتالوجه ومظهره وبيانات تواصله بلا أن يطلب أحد ذلك — بيانات غريبة في متجر زبون حقيقي (R-17). الإعداد الصريح
+    // يغلب البيئة في الاتجاهين: true لعرض توضيحي على خادم، وfalse لقاعدة تطوير نظيفة.
+    public static bool ShouldSeedDemoData(string environmentName, bool? configured) =>
+        configured ?? PaymentProviderSelector.IsLocal(environmentName);
+
     public static async Task SeedAsync(IServiceProvider services, SeedOptions options, ILogger logger)
     {
         TenantInfo? defaultTenant;
@@ -45,7 +52,7 @@ public static class DbSeeder
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
             await db.Database.MigrateAsync();               // يطبّق الهجرات تلقائياً
             await BindDefaultTenantHostsAsync(db, options.DefaultTenantHosts, logger);
-            await ApplyDefaultStoreLookAsync(db, logger);
+            if (options.SeedDemoData) await ApplyDefaultStoreLookAsync(db, logger);
             defaultTenant = await scope.ServiceProvider.GetRequiredService<ITenantDirectory>()
                 .FindBySlugAsync(DefaultTenantSlug);
         }
@@ -61,7 +68,8 @@ public static class DbSeeder
         await TenantScopes.RunAsync(services, defaultTenant, async tenantServices =>
         {
             var db = tenantServices.GetRequiredService<AppDbContext>();
-            await SeedCatalogAsync(db, defaultTenant.Currency);
+            if (options.SeedDemoData) await SeedCatalogAsync(db, defaultTenant.Currency);
+            else logger.LogInformation("Demo data not seeded (Seed:DemoData is off for this environment)");
             await SeedAccountAsync(db, tenantServices.GetRequiredService<IPasswordHasher>(), logger,
                 options.AdminEmail, options.AdminPassword, options.IsDevelopment,
                 DevelopmentAdminEmail, DevelopmentAdminPassword, "مدير المتجر", Roles.TenantAdmin, "Seed:AdminEmail/Seed:AdminPassword");

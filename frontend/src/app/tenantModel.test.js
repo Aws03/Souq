@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
-  bootOutcome, contrastRatio, currencyDecimals, documentTitle, fontStylesheetUrl, formatMoney, isModuleEnabled,
-  mutedText, pickText, readableOn, storeName, supportedLanguage, themeVariables,
+  bootModeForConfig, bootOutcome, contrastRatio, currencyDecimals, documentTitle, fontStylesheetUrl, formatMoney,
+  isModuleEnabled, mutedText, pickText, readableOn, storeName, supportedLanguage, themeVariables,
 } from './tenantModel';
 
 // متجران بهويّتين وعملتين ووحدات مختلفة — البناء نفسه يرسم كلاً منهما بما في إعداده (معيار خروج المرحلة 15).
@@ -81,5 +81,16 @@ describe('tenant runtime', () => {
     expect(bootOutcome({ status: 404, code: 'StoreNotFound' })).toBe('unknown');
     expect(bootOutcome({ status: 404, code: 'NotFound' })).toBe('platform');
     expect(bootOutcome(new TypeError('Failed to fetch'))).toBe('error');
+  });
+
+  // المتجر المغلق يردّ إعداده بنجاح كي تُعرض شاشته بهويّته — فالحالة لا رمز الخطأ هي ما يقرّر (R-08).
+  it('closes the store from its configured status, so the closed screen keeps its identity', () => {
+    expect(bootModeForConfig({ ...storeA, status: 'Active' })).toBe('store');
+    expect(bootModeForConfig({ ...storeA, status: 'Suspended' })).toBe('closed');
+    expect(bootModeForConfig({ ...storeA, status: 'Provisioning' })).toBe('closed');
+    expect(bootModeForConfig({ ...storeA, status: 'Archived' })).toBe('closed');
+    expect(bootModeForConfig(storeA)).toBe('store');
+    // وهويّته تبقى متاحة للشاشة: الاسم والألوان من الإعداد نفسه.
+    expect(storeName({ ...storeA, status: 'Suspended' }, 'ar')).toBe('متجر أ');
   });
 });

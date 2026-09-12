@@ -18,6 +18,12 @@ public sealed class RequestLoggingMiddleware
 {
     private const int ClientClosedRequest = 499;
 
+    // قيم مسار سرّية بطبيعتها: من يحملها يفتح المورد بلا مصادقة. رمز تتبّع الطلب جزء من المسار
+    // (/api/orders/track/{token})، فكان يُكتب كاملاً في سطر السجلّ — ومن يقرأ السجلّ يفتح صفحة تتبّع أي عميل (R-10).
+    // يُنقَّح بالقيمة لا بموضعها في المسار، فيبقى السطر مفيداً للتشخيص (الطريقة والقالب والرمز والمدّة).
+    private static readonly string[] SensitiveRouteValues = ["token"];
+    private const string Redacted = "***";
+
     private readonly RequestDelegate _next;
     private readonly ILogger<RequestLoggingMiddleware> _logger;
 
@@ -50,10 +56,21 @@ public sealed class RequestLoggingMiddleware
             var status = statusOverride ?? context.Response.StatusCode;
             _logger.Log(status >= StatusCodes.Status500InternalServerError ? LogLevel.Error : LogLevel.Information,
                 "HTTP {Method} {Path} responded {StatusCode} in {ElapsedMs:0.0} ms (route {Route})",
-                context.Request.Method, context.Request.Path.Value, status,
+                context.Request.Method, RedactedPath(context), status,
                 Stopwatch.GetElapsedTime(started).TotalMilliseconds,
                 (context.GetEndpoint() as RouteEndpoint)?.RoutePattern.RawText ?? "(none)");
         }
+    }
+
+    // يعمل بعد التوجيه، فقيم المسار متاحة. لا مطابقة نصّية عمياء: نستبدل قيمة المعامل الحسّاس نفسها وحدها.
+    private static string RedactedPath(HttpContext context)
+    {
+        var path = context.Request.Path.Value ?? "";
+        foreach (var name in SensitiveRouteValues)
+            if (context.Request.RouteValues.TryGetValue(name, out var value)
+                && value is string secret && secret.Length > 0)
+                path = path.Replace(secret, Redacted, StringComparison.Ordinal);
+        return path;
     }
 
     private static Dictionary<string, object?> ScopeFor(HttpContext context, ICurrentUser currentUser, ITenantContext tenancy)

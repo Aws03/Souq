@@ -177,3 +177,10 @@ export function bootOutcome(error) {
   if (error?.status === 404) return 'platform';
   return 'error';
 }
+
+// المتجر المغلق صار يُخدَم إعدادُه (R-08): الخادم يردّ 200 بهويّته وحالته كي تُعرض شاشة الإغلاق بهويّة المتجر لا صفحة
+// خطأ عارية — فلم يعد الخطأ وحده إشارةَ الإغلاق. الحالة الوحيدة التي تفتح المتجر هي Active؛ ما عداها (قيد التجهيز،
+// موقوف، مؤرشف) شاشة إغلاق. إعداد بلا حالة (خادم أقدم) يُعتبر مفتوحاً كما كان.
+const OPEN_STATUS = 'Active';
+
+export const bootModeForConfig = (config) => ((config?.status ?? OPEN_STATUS) === OPEN_STATUS ? 'store' : 'closed');

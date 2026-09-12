@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using Souq.API.Http;
 using Souq.API.Security;
+using Souq.API.Tenancy;
 using Souq.Application.Common.Models;
 using Souq.Application.Common.Security;
 using Souq.Application.Features.Staff;
@@ -119,8 +120,11 @@ public class StorefrontController : ControllerBase
         _mediator = mediator; _json = json.Value.JsonSerializerOptions;
     }
 
+    // متاحة والمتجر مغلق (موقوف/مؤرشف/قيد التجهيز): هذه أول ما تطلبه الواجهة، وبها وحدها تعرض صفحة "المتجر غير متاح"
+    // بهويّة المتجر بدل صفحة خطأ عارية. لا تكشف إلا بيانات العرض (R-08).
     [HttpGet("config")]
     [AllowAnonymous]
+    [AvailableWhenStoreClosed]
     public async Task<IActionResult> Config()
     {
         var config = await _mediator.Send(new GetStorefrontConfigQuery());

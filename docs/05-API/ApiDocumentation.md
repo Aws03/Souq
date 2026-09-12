@@ -105,7 +105,7 @@ Every error is RFC 7807 `application/problem+json`:
     - The `X-Tenant: <slug>` header overrides both.
     - `admin.localhost` is the platform host.
   - **Availability:**
-    - `Suspended`/`Archived` stores answer `503 StoreUnavailable` for **every** endpoint. The `AvailableWhenStoreClosedAttribute` that would exempt one (for example the storefront configuration, so the SPA could show a branded "closed" page) is honoured by the middleware but applied nowhere today ([RiskRegister.md](../02-ARCHITECTURE/RiskRegister.md), R-08).
+    - `Suspended`/`Archived` stores answer `503 StoreUnavailable` for every endpoint **except the five marked `AvailableWhenStoreClosedAttribute`**: `GET /api/storefront/config` (so the SPA can render the store's own branded "unavailable" screen) and `POST /api/auth/login`, `POST /api/auth/refresh`, `POST /api/auth/logout`, `GET /api/auth/me` (so the store's administrators can sign in and see why). Registration, password reset and every permission-protected endpoint stay `503`.
     - `Provisioning` stores also serve auth and admin endpoints.
     - `[PlatformEndpoint]` endpoints exist only on platform hosts; every other endpoint exists only on store hosts (404 otherwise).
   - **Tokens:**

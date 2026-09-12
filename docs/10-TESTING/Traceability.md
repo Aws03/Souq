@@ -17,7 +17,7 @@
 | A request is bound to exactly one store, from its host | `TenantResolutionMiddleware`, `TenantDirectory` | I: `TenantResolutionMiddlewareTests`, `TenantResolutionTests` · Ar: `TenancyRuleTests` | — |
 | One store can never read or write another's data | `AppDbContext` query filter + `TenantWriteGuardInterceptor`, composite keys | I: `TenantIsolationTests` · Ar: `TenancyRuleTests` | Cross-module *domain* access is counted, not prevented ([ModuleDomainDependencies.md](../02-ARCHITECTURE/ModuleDomainDependencies.md)) |
 | Another owner's id answers 404, not 403 | Ownership checks in the use cases (`ICurrentUser.CanAccessOwnedBy`) | I: `AuthorizationMatrixTests`, `AuthorizationBoundaryTests`, `TenantIsolationTests` | — |
-| A store's status gates its endpoints | `TenantAvailabilityMiddleware` | I: `TenantResolutionTests`, `PlatformAdministrationTests` | A closed store answers 503 to *everything* — the "available when closed" attribute is applied nowhere (R-08) |
+| A store's status gates its endpoints | `TenantAvailabilityMiddleware` | I: `TenantResolutionTests`, `PlatformAdministrationTests` | A closed store still serves its storefront configuration and the four session endpoints, so it can render its own "unavailable" screen and its admins can sign in; everything else is 503. How much administration a *suspended* store should retain is an open product decision |
 | Optional modules can be turned off per store | `RequiresModuleAttribute`, plus checks inside the coupon use cases | I: `PlatformAdministrationTests`, `ReviewModerationTests`, `WishlistTests` | Reviews and wishlist are gated only at the endpoint, not inside their use cases |
 | Platform actions are audited | `AuditBehavior` over `IAuditable` | Ar: every platform request must be auditable · I: `PlatformAdministrationTests` | Store-side actions (order status, coupons, shipping) are **not** audited |
 | Store settings drive the storefront | `UpdateStoreSettingsCommand`, `GetStorefrontConfigQuery`, the directory cache | I: `StoreAdministrationTests`, `PlatformAdministrationTests` · F: `tenantModel.test.js` | Cache invalidation is per process (R-23) |
@@ -55,7 +55,7 @@
 | Shipping is chosen, priced and snapshotted | `StoreShippingRates`, `Order.ApplyShipping` | D: `ShippingMethodTests`, `OrderShippingTests` · A: `StoreShippingRatesTests` · I: `ShippingTests` | — |
 | Orders are numbered per store and immutable after placement | `Order`, `OrderNumbers` | D: `OrderTests`, `OrderLifecycleTests` · I: `OrderLifecycleTests` | — |
 | Only allowed status transitions happen, with the actor recorded | `OrderTransitions` | D: `OrderLifecycleTests` · A: `UpdateOrderStatusHandlerTests` · I: `OrderLifecycleTests` | Order-status changes are not audited |
-| Payment confirmation is idempotent from both doors | `OrderPaymentConfirmation` | A: `ConfirmOrderPaymentHandlerTests`, `ProcessPaymentWebhookHandlerTests` · I: `PaymentsAndRefundsTests` | A failed payment does not cancel the intent at the gateway (R-02) |
+| Payment confirmation is idempotent from both doors, and reads the intent's state rather than a boolean | `OrderPaymentConfirmation`, `PaymentIntentState` | A: `ConfirmOrderPaymentHandlerTests`, `ProcessPaymentWebhookHandlerTests` · I: `PaymentsAndRefundsTests` | The mapping of real Stripe statuses onto the four states is unverified against a live account ([ADR-0036](../11-ADR/0036-payment-intent-state-machine.md)) |
 | Refunds cannot exceed the capture and are retry-safe | `Payment`, `OrderPayments` | D: `PaymentTests` · A: `OrderPaymentsTests` · I: `PaymentsAndRefundsTests` | The Stripe adapter itself has no test (TD-33) |
 | Money keeps its currency and minor units | `Money`, `CurrencyInfo`, `StripeAmountConverter` | D: `MoneyTests` · I: `StripeAmountConverterTests`, `InventoryAndOrderTests` | **JOD minor units at Stripe are unverified against a real account (P-05, R-01)** |
 
@@ -70,7 +70,7 @@
 | Reviews require a verified purchase, one per product | `Review`, `CreateReviewHandler` | D: `ReviewTests` · A: `CreateReviewHandlerTests` · I: `ReviewModerationTests` | — |
 | Moderation follows the store's policy and is audited | `ReviewModeration`, `Tenant.ReviewsAutoApprove` | A: `ReviewModerationHandlersTests` · I: `ReviewModerationTests` | No moderation notifications (deferred) |
 | Nothing is lost or sent twice after a commit | the outbox | A: `OutboxPolicyTests` · I: `NotificationTests` | Purge, lease expiry and concurrent dispatchers are untested (TD-34) |
-| No token or personal data reaches the logs | `LogRedaction`, the handlers | I: `NotificationTests`, `ObservabilityTests` | The public tracking token is logged as part of the request path (R-10) |
+| No token or personal data reaches the logs | `LogRedaction`, `RequestLoggingMiddleware`, the handlers | I: `NotificationTests`, `ObservabilityTests` | The API redacts sensitive route values; the proxy's own access log still records token-bearing SPA query strings (G-03) |
 
 ## 6. Cross-cutting guarantees
 

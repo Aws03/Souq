@@ -46,15 +46,21 @@ public class AuthController : ControllerBase
         Session(await _mediator.Send(command));
 
     // POST /api/auth/login — خطأ الاعتماد ⇒ 401 InvalidCredentials؛ مقفل ⇒ 401 AccountLocked.
+    // متاحة والمتجر مغلق: إدارة متجر موقوف تدخل لترى حالته وتتواصل مع المنصّة — متجر موقوف كان يردّ 503 حتى على الدخول،
+    // فيصير صفحةً بيضاء لصاحبه كما لزائره (R-08). ما وراء الدخول يبقى مغلقاً: نقاط الإدارة محروسة بصلاحية، والصلاحية
+    // لا تفتح متجراً موقوفاً (TenantAvailabilityMiddleware.IsOpen).
     [HttpPost("login")]
     [AllowAnonymous]
+    [AvailableWhenStoreClosed]
     [EnableRateLimiting(RateLimitPolicies.Auth)]
     public async Task<IActionResult> Login([FromBody] LoginCommand command) =>
         Session(await _mediator.Send(command));
 
-    // POST /api/auth/refresh — الرمز من ملف تعريف الارتباط فقط؛ يُدوَّر مع كل تجديد.
+    // POST /api/auth/refresh — الرمز من ملف تعريف الارتباط فقط؛ يُدوَّر مع كل تجديد. متاحة والمتجر مغلق كي لا تنقطع جلسة
+    // إدارته بعد دقائق من إيقافه.
     [HttpPost("refresh")]
     [AllowAnonymous]
+    [AvailableWhenStoreClosed]
     [EnableRateLimiting(RateLimitPolicies.Refresh)]
     public async Task<IActionResult> Refresh()
     {
@@ -63,9 +69,11 @@ public class AuthController : ControllerBase
         return Session(result);
     }
 
-    // POST /api/auth/logout — يُبطل جلسة هذا الجهاز ويمسح ملف تعريف الارتباط. 204 دائماً.
+    // POST /api/auth/logout — يُبطل جلسة هذا الجهاز ويمسح ملف تعريف الارتباط. 204 دائماً. متاحة والمتجر مغلق: الخروج
+    // إجراء أمان لا يجوز حجبه.
     [HttpPost("logout")]
     [AllowAnonymous]
+    [AvailableWhenStoreClosed]
     public async Task<IActionResult> Logout()
     {
         await _mediator.Send(new LogoutCommand(Request.Cookies[RefreshCookieName]));
@@ -73,9 +81,11 @@ public class AuthController : ControllerBase
         return NoContent();
     }
 
-    // GET /api/auth/me — الحساب الحالي كما هو الآن (الدور، الصلاحيات، تأكيد البريد).
+    // GET /api/auth/me — الحساب الحالي كما هو الآن (الدور، الصلاحيات، تأكيد البريد). متاحة والمتجر مغلق كي تعرف الواجهة
+    // من الداخل بعد دخوله.
     [HttpGet("me")]
     [Authorize]
+    [AvailableWhenStoreClosed]
     public async Task<IActionResult> Me()
     {
         var result = await _mediator.Send(new GetCurrentUserQuery());

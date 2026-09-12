@@ -10,8 +10,8 @@
 | [`Souq.Domain.Tests`](#souqdomaintests) | 23 | 163 | 34 |
 | [`Souq.Application.Tests`](#souqapplicationtests) | 39 | 267 | 11 |
 | [`Souq.ArchitectureTests`](#souqarchitecturetests) | 8 | 35 | 3 |
-| [`Souq.IntegrationTests`](#souqintegrationtests) | 32 | 162 | 14 |
-| [frontend (Vitest)](#frontend-vitest) | 23 | 98 | — |
+| [`Souq.IntegrationTests`](#souqintegrationtests) | 32 | 163 | 15 |
+| [frontend (Vitest)](#frontend-vitest) | 23 | 99 | — |
 
 ## Souq.Domain.Tests
 
@@ -108,7 +108,7 @@
 | `tests/Souq.IntegrationTests/AuthorizationMatrixTests.cs` | `AuthorizationMatrixTests` | 2 | 0 |
 | `tests/Souq.IntegrationTests/BasketTests.cs` | `BasketTests` | 5 | 0 |
 | `tests/Souq.IntegrationTests/CatalogTests.cs` | `CatalogTests`, `ProductCommandCounter` | 8 | 0 |
-| `tests/Souq.IntegrationTests/ConfigurationTests.cs` | `ConfigurationTests`, `ConfiguredFactory` | 5 | 3 |
+| `tests/Souq.IntegrationTests/ConfigurationTests.cs` | `ConfigurationTests`, `ConfiguredFactory` | 5 | 4 |
 | `tests/Souq.IntegrationTests/CouponRedemptionTests.cs` | `CouponRedemptionTests` | 3 | 0 |
 | `tests/Souq.IntegrationTests/CustomerAccountTests.cs` | `CustomerAccountTests` | 6 | 0 |
 | `tests/Souq.IntegrationTests/ErrorContractTests.cs` | `ErrorContractTests` | 7 | 1 |
@@ -117,7 +117,7 @@
 | `tests/Souq.IntegrationTests/LocalFileStorageTests.cs` | `LocalFileStorageTests` | 2 | 2 |
 | `tests/Souq.IntegrationTests/MigrationRehearsalTests.cs` | `MigrationRehearsalTests` | 1 | 0 |
 | `tests/Souq.IntegrationTests/NotificationTests.cs` | `NotificationTests` | 6 | 0 |
-| `tests/Souq.IntegrationTests/ObservabilityTests.cs` | `ObservabilityTests` | 4 | 0 |
+| `tests/Souq.IntegrationTests/ObservabilityTests.cs` | `ObservabilityTests` | 5 | 0 |
 | `tests/Souq.IntegrationTests/OrderLifecycleTests.cs` | `OrderLifecycleTests` | 6 | 0 |
 | `tests/Souq.IntegrationTests/PaymentAdapterTests.cs` | `SecretProtectorTests`, `FakeGatewayTests` | 6 | 1 |
 | `tests/Souq.IntegrationTests/PaymentDataRulesTests.cs` | `PaymentDataRulesTests` | 2 | 0 |
@@ -142,7 +142,7 @@
 | `frontend/src/api/client.test.js` | 6 |
 | `frontend/src/api/problem.test.js` | 6 |
 | `frontend/src/api/query.test.js` | 4 |
-| `frontend/src/app/tenantModel.test.js` | 6 |
+| `frontend/src/app/tenantModel.test.js` | 7 |
 | `frontend/src/features/account/addressForm.test.js` | 4 |
 | `frontend/src/features/admin/categories/categoryForm.test.js` | 5 |
 | `frontend/src/features/admin/coupons/couponForm.test.js` | 4 |

@@ -34,7 +34,7 @@ Health: only `db` has one (`sqlcmd … SELECT 1`, every 10 s, 10 retries, 25 s s
 | Location | Behaviour |
 |---|---|
 | `/api/` | proxied to `http://api:8080/api/` with `Host: $http_host` (the browser's host, including port — this is what makes host-based tenant resolution and email links work), `X-Forwarded-For`, `X-Forwarded-Proto: $scheme`, and `client_max_body_size 55m` to match the API's largest upload limit |
-| `/uploads/` | proxied to `http://api:8080/uploads/` — **with no `Host` header override**, so nginx sends `Host: api:8080`. See the risks in §10 |
+| `/uploads/` | proxied to `http://api:8080/uploads/` with the same `Host`, `X-Forwarded-For` and `X-Forwarded-Proto` headers as `/api/` — tenant resolution runs on this path too, so the original host is what makes a store's media resolvable |
 | `/` | `try_files $uri /index.html` for the SPA |
 
 nginx terminates plain http on port 80 only. TLS, HSTS and security headers are not configured anywhere in this repository ([Security.md](../07-SECURITY/Security.md) §4 states TLS is expected at a reverse proxy; automated TLS for custom domains is **PLANNED** for Phase 23).
@@ -62,7 +62,7 @@ Order matters: nothing touches the database until the configuration is proven go
 Consequences to keep in mind:
 
 - **Migrations run at application startup, not as a deployment step.** Moving them to a migration bundle is **PLANNED** for Phase 23, explicitly so replicas do not race ([DatabaseDesign.md](../06-DATABASE/DatabaseDesign.md) §10).
-- **Seeding runs on every start** and is idempotent, but it is not environment-gated: a fresh production database also gets the demo store's catalog and the demo look (`DbSeeder` seeds the default store's categories, products, inventory and contact details). Decide deliberately whether to keep, edit or archive that store.
+- **Seeding runs on every start** and is idempotent. Demo content is environment-gated: the default store's catalog and demo look are applied only when `Seed:DemoData` resolves true, which outside Development and Testing means asking for it explicitly (`DbSeeder.ShouldSeedDemoData`). A production database therefore starts with the default store row but no demo products; decide deliberately whether to adopt, rename or archive that store.
 - Swagger is Development-only, so the compose stack on port 5201 serves the API but **no** Swagger UI, despite the comment in `docker-compose.yml` and the table in the root `README.md`.
 
 ## 3. Background services
@@ -218,14 +218,12 @@ Read from the code; none of these were reproduced by running the stack.
 
 | Risk | Where | Impact |
 |---|---|---|
-| `/uploads/` is proxied without a `Host` header override, so the API sees `Host: api:8080` | `frontend/nginx.conf` | in Production that host maps to no store, so uploaded images and branding assets very likely answer `404 StoreNotFound` through nginx. Add `proxy_set_header Host $http_host;` to that location |
 | `X-Forwarded-Proto` is set from nginx's own scheme | `frontend/nginx.conf` | behind an outer TLS terminator the API believes it is on http: email links, and any scheme-derived URL, come out as `http://` |
 | The API port `5201` is published | `docker-compose.yml` | a direct client bypasses nginx and is seen from the Docker bridge range, which the default `TRUSTED_PROXY_NETWORKS` trusts, so `X-Forwarded-For` can be forged to evade rate limits |
 | The app connects as `sa` | `docker-compose.yml` | full server privileges for the application; a SQL injection or a leaked connection string is unbounded |
 | The API container runs as root | `src/Souq.API/Dockerfile` | no `USER` instruction; a container escape starts from root |
 | Floating image tags (`2022-latest`, `sdk:10.0`, `aspnet:10.0`, `nginx:1.27-alpine`, `node:20-alpine`) | both Dockerfiles and compose | two deployments from the same commit can differ |
-| Demo data in production | `DbSeeder` | a fresh production database is seeded with the demo store's catalog, colours and contact details (`support@marka.example`) |
-| `.env.example` ships a non-empty `GMAIL_APP_PASSWORD` placeholder | `.env.example` | defeats the "no email provider" fail-fast; messages die in the outbox instead of stopping the start |
+| The default store row exists in every database | the `Phase2MultiTenancy` migration | production starts with an empty default store (no demo catalog since `Seed:DemoData` is off there). Adopt, rename or archive it deliberately |
 | No health check, no HSTS or security headers, no TLS in the repository | — | Phases 20 and 23 |
 
 ## 11. Rollback

@@ -1,6 +1,7 @@
 using AwesomeAssertions;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Souq.Infrastructure.Persistence;
 using Souq.Infrastructure.Services;
 
 namespace Souq.IntegrationTests;
@@ -35,6 +36,19 @@ public class ConfigurationTests
         var act = () => PaymentProviderSelector.Select(configured, key, environment);
 
         act.Should().Throw<InvalidOperationException>().Which.Message.Should().Contain(mentions);
+    }
+
+    // R-17: قاعدة إنتاج جديدة كانت تُبذَر بمتجر تجريبي وكتالوجه ومظهره بلا أن يطلب أحد ذلك.
+    [Theory]
+    [InlineData("Development", null, true)]
+    [InlineData("Testing", null, true)]
+    [InlineData("Production", null, false)]
+    [InlineData("Staging", null, false)]
+    [InlineData("Production", true, true)]    // عرض توضيحي على خادم: بطلب صريح وحده
+    [InlineData("Development", false, false)] // قاعدة تطوير نظيفة: الإعداد الصريح يغلب البيئة في الاتجاهين
+    public void بيانات_العرض_لا_تُبذَر_خارج_التطوير_إلا_بطلب_صريح(string environment, bool? configured, bool expected)
+    {
+        DbSeeder.ShouldSeedDemoData(environment, configured).Should().Be(expected);
     }
 
     [Theory]

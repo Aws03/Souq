@@ -71,8 +71,12 @@ public class PlatformAdministrationTests
         (await _api.Authorized(bossToken, SouqApiFactory.PlatformHost).GetAsync("/api/platform/tenants")).StatusCode
             .Should().Be(HttpStatusCode.Unauthorized);
 
-        // (5) الواجهة العامة مغلقة حتى التفعيل، ثم تعكس ما ضبطته المنصّة.
-        (await _api.Client(host).GetAsync("/api/storefront/config")).StatusCode.Should().Be(HttpStatusCode.ServiceUnavailable);
+        // (5) المتجر لا يبيع حتى التفعيل — لكن إعداده يُخدَم معلناً حالته، كي ترسم الواجهة شاشة "غير متاح" بهويّته
+        //     بدل صفحة خطأ عارية (R-08). ثم بعد التفعيل يعكس ما ضبطته المنصّة.
+        (await ProblemAsync(await _api.Client(host).GetAsync("/api/products")))
+            .Should().Be((HttpStatusCode.ServiceUnavailable, "StoreUnavailable"));
+        (await _api.Client(host).GetFromJsonAsync<ConfigBody>("/api/storefront/config", TestApi.Json))!.Status
+            .Should().Be("Provisioning");
         (await owner.PostAsJsonAsync($"/api/platform/tenants/{tenantId}/status", new { action = "Activate" })).StatusCode
             .Should().Be(HttpStatusCode.NoContent);
         var config = (await _api.Client(host).GetFromJsonAsync<ConfigBody>("/api/storefront/config", TestApi.Json))!;
@@ -90,11 +94,13 @@ public class PlatformAdministrationTests
         (await ProblemAsync(await _api.Client(host).GetAsync("/api/products/1/reviews")))
             .Should().Be((HttpStatusCode.NotFound, "ModuleDisabled"));
 
-        // (7) الإيقاف يغلق الواجهة فوراً على هذه النسخة.
+        // (7) الإيقاف يغلق المتجر فوراً على هذه النسخة — وإعداده يبقى ليعلن الإغلاق بهويّته.
         (await owner.PostAsJsonAsync($"/api/platform/tenants/{tenantId}/status", new { action = "Suspend" })).StatusCode
             .Should().Be(HttpStatusCode.NoContent);
-        (await ProblemAsync(await _api.Client(host).GetAsync("/api/storefront/config")))
+        (await ProblemAsync(await _api.Client(host).GetAsync("/api/products")))
             .Should().Be((HttpStatusCode.ServiceUnavailable, "StoreUnavailable"));
+        var closed = (await _api.Client(host).GetFromJsonAsync<ConfigBody>("/api/storefront/config", TestApi.Json))!;
+        (closed.Status, closed.Slug).Should().Be(("Suspended", slug));
 
         // (8) كل خطوة في سجلّ التدقيق بفاعلها (المالك) ومنطقتها ومتجرها.
         var ownerId = (await owner.GetFromJsonAsync<TestApi.UserBody>("/api/auth/me", TestApi.Json))!.Id;

@@ -159,7 +159,7 @@
 - A blocked cross-tenant write and a blocked audit mutation are logged at **Critical**. Refresh-token reuse is a warning with the user id only. Refresh tokens appear only in the `Set-Cookie` header, never in a body or a log.
 - Integration tests prove that no password, JWT or `Authorization` value appears in any log, and that no reset token or address appears in the logs or in a stored outbox error.
 
-**Known gap:** secrets that travel in a URL escape these rules — the order tracking token is a path segment and is written into the request log line, and the SPA's token-bearing pages (`/reset-password`, `/verify-email`, `/accept-invitation`) are requested through nginx, whose default access log records the query string (SEC-LOG-07, G-03).
+**Secrets that travel in a URL** are handled by redacting the value, not the position: `RequestLoggingMiddleware` replaces any route value named in its sensitive list — today the order tracking token — with `***` before the line is written, while keeping the route template for aggregation. **Remaining gap:** the SPA's token-bearing pages (`/reset-password`, `/verify-email`, `/accept-invitation`) are requested through nginx, whose default access log records the full request line including the query string (SEC-LOG-07, G-03).
 
 ## 10. Audit logging
 

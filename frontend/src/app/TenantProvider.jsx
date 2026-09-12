@@ -4,7 +4,7 @@ import { api } from '../api/client';
 import { setLanguage } from '../i18n';
 import { BootScreen } from './BootScreens';
 import { applyStoreTheme } from './storeTheme';
-import { bootOutcome, isModuleEnabled, setStoreCurrency, supportedLanguage } from './tenantModel';
+import { bootModeForConfig, bootOutcome, isModuleEnabled, setStoreCurrency, supportedLanguage } from './tenantModel';
 
 // ============================================================================
 // TenantProvider (المرحلة 15، WhiteLabel.md §3، ADR-0035): أول ما يطلبه التطبيق على أيّ مضيف هو إعداد متجره — الهوية واللغات
@@ -30,7 +30,8 @@ export function TenantProvider({ children }) {
         setStoreCurrency(config.settings?.locale?.currency);
         const language = supportedLanguage(config, i18n.language);
         if (language !== i18n.language) setLanguage(language);
-        setState({ mode: 'store', config });
+        // متجر مغلق يردّ إعداده بنجاح (R-08): الحالة تقرّر الشاشة، والإعداد يبقى كي تحمل شاشة الإغلاق هويّته.
+        setState({ mode: bootModeForConfig(config), config });
       })
       .catch((error) => { if (active) setState({ mode: bootOutcome(error), config: null }); });
     return () => { active = false; };
@@ -38,9 +39,10 @@ export function TenantProvider({ children }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [attempt]);
 
-  // الهوية على المستند، وتتبع تبديل اللغة (العنوان والوصف بلغة الزائر).
+  // الهوية على المستند، وتتبع تبديل اللغة (العنوان والوصف بلغة الزائر). تُطبَّق كلّما وُجد إعداد — بما فيه متجر مغلق،
+  // كي تظهر شاشة إغلاقه بألوانه وخطّه لا بمظهر محايد.
   useEffect(() => {
-    if (state.mode === 'store') applyStoreTheme(state.config, i18n.language);
+    if (state.config) applyStoreTheme(state.config, i18n.language);
   }, [state, i18n.language]);
 
   const retry = useCallback(() => {
@@ -53,7 +55,7 @@ export function TenantProvider({ children }) {
 
   return (
     <TenantContext.Provider value={value}>
-      {ready ? children : <BootScreen mode={state.mode} onRetry={retry} />}
+      {ready ? children : <BootScreen mode={state.mode} config={state.config} onRetry={retry} />}
     </TenantContext.Provider>
   );
 }

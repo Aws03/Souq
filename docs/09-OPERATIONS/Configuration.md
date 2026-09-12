@@ -126,15 +126,17 @@ Read directly from configuration in `Program.cs` into `SeedOptions` and applied 
 | `Seed:PlatformOwnerEmail` | Development only: `owner@souq.com` | to get a platform owner | personal data | — |
 | `Seed:PlatformOwnerPassword` | Development only: `Owner@12345` | with the email | **yes** | same rule |
 | `Seed:DefaultTenantHosts` | empty | no | no | each value must normalize as a host (`TenantDomain.TryNormalizeHost`); invalid entries are logged and skipped |
+| `Seed:DemoData` | unset = Development and Testing only | no | no | the demo catalog and the default store's demo look. Unset follows the environment (`DbSeeder.ShouldSeedDemoData`); `true` or `false` overrides it in either direction |
 
 Behaviour worth knowing before you rely on it:
 
 - **Nothing is created without explicit configuration outside Development.** A missing pair logs `No {Role} account seeded: set {Settings} (environment variables/user-secrets)` — including on every later start after you remove the variables, which is expected, not an error.
+- **Demo data is never seeded into a production database by accident.** The demo catalog and the default store's demo look are applied only when `Seed:DemoData` resolves true, which outside Development and Testing means setting it explicitly. When it is off the seeder logs `Demo data not seeded (Seed:DemoData is off for this environment)`. Migrations still create the default store row itself — only its contents and look are gated.
 - **Seeding never changes an existing account's password.** It only upgrades a stored hash that is not BCrypt. Changing `SEED_ADMIN_PASSWORD` later does nothing; reset the password through the app.
 - A weak password fails the start with `كلمة مرور البذرة (Seed:AdminEmail/Seed:AdminPassword) ضعيفة: يلزم 12 حرفاً على الأقل ولا تساوي كلمة مرور التطوير.` — this happens **after** migrations have been applied.
 - `Seed:DefaultTenantHosts` accepts an array (numbered environment entries) or one comma-separated value; a host already bound to any store is left alone, so it never steals another store's domain.
 
-docker-compose: `Seed__AdminEmail`, `Seed__AdminPassword`, `Seed__PlatformOwnerEmail`, `Seed__PlatformOwnerPassword` (`.env`: `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD`, `SEED_PLATFORM_OWNER_EMAIL`, `SEED_PLATFORM_OWNER_PASSWORD`) and `Seed__DefaultTenantHosts: ${DEFAULT_TENANT_HOSTS:-localhost}`.
+docker-compose: `Seed__AdminEmail`, `Seed__AdminPassword`, `Seed__PlatformOwnerEmail`, `Seed__PlatformOwnerPassword` (`.env`: `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD`, `SEED_PLATFORM_OWNER_EMAIL`, `SEED_PLATFORM_OWNER_PASSWORD`), `Seed__DefaultTenantHosts: ${DEFAULT_TENANT_HOSTS:-localhost}` and `Seed__DemoData: ${SEED_DEMO_DATA:-}`.
 
 ## 8. Email and providers
 
@@ -169,7 +171,7 @@ Provider HTTP calls use `IHttpClientFactory` clients with a 15-second timeout; f
 
 docker-compose: `Email__Provider`, `Resend__ApiKey`, `Brevo__ApiKey`, `Brevo__SenderEmail`, `Gmail__AppPassword`, `Gmail__Username`, `Gmail__Port` (`.env`: `EMAIL_PROVIDER`, `RESEND_API_KEY`, `BREVO_API_KEY`, `BREVO_SENDER_EMAIL`, `GMAIL_APP_PASSWORD`, `GMAIL_USERNAME`, `GMAIL_SMTP_PORT`). `Resend:From`, `Brevo:SenderName`, `Gmail:Host` and `Gmail:EnableSsl` are **not** exposed by compose.
 
-> `.env.example` ships `GMAIL_APP_PASSWORD=your-16-char-app-password`, a non-empty placeholder. Copied as-is, it selects the Gmail adapter, so the "no email provider" fail-fast never triggers and every message dies in the outbox instead. Clear it unless you are really using Gmail.
+> `.env.example` ships `GMAIL_APP_PASSWORD` **empty**, and it must stay that way unless Gmail is genuinely the provider. Any non-empty value — a placeholder included — selects the Gmail adapter, so the "no email provider" fail-fast never triggers: the API starts and every message then dies in the outbox after eight attempts instead.
 
 ## 9. Payments and Stripe
 

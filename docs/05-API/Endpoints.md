@@ -65,10 +65,10 @@
 | PUT | `/api/admin/store/settings` | `store.settings.manage` | store | — | — | `UpdateStoreSettingsCommand` | Platform |
 | POST | `/api/auth/change-password` | signed in | store + platform, during provisioning | — | `auth` | `ChangePasswordCommand` | Identity |
 | POST | `/api/auth/forgot-password` | anonymous | store + platform, during provisioning | — | `auth` | `ForgotPasswordCommand` | Identity |
-| POST | `/api/auth/login` | anonymous | store + platform, during provisioning | — | `auth` | `LoginCommand` | Identity |
-| POST | `/api/auth/logout` | anonymous | store + platform, during provisioning | — | — | `LogoutCommand` | Identity |
-| GET | `/api/auth/me` | signed in | store + platform, during provisioning | — | — | `GetCurrentUserQuery` | Identity |
-| POST | `/api/auth/refresh` | anonymous | store + platform, during provisioning | — | `auth-refresh` | `RefreshSessionCommand` | Identity |
+| POST | `/api/auth/login` | anonymous | store + platform, even when closed | — | `auth` | `LoginCommand` | Identity |
+| POST | `/api/auth/logout` | anonymous | store + platform, even when closed | — | — | `LogoutCommand` | Identity |
+| GET | `/api/auth/me` | signed in | store + platform, even when closed | — | — | `GetCurrentUserQuery` | Identity |
+| POST | `/api/auth/refresh` | anonymous | store + platform, even when closed | — | `auth-refresh` | `RefreshSessionCommand` | Identity |
 | POST | `/api/auth/register` | anonymous | store + platform, during provisioning | — | `auth` | `RegisterCommand` | Identity |
 | POST | `/api/auth/resend-verification` | signed in | store + platform, during provisioning | — | `auth` | `ResendVerificationCommand` | Identity |
 | POST | `/api/auth/reset-password` | anonymous | store + platform, during provisioning | — | `auth` | `ResetPasswordCommand` | Identity |
@@ -138,7 +138,7 @@
 | POST | `/api/products/{id:int}/video` | `catalog.manage` | store | — | — | `UploadProductVideoCommand` | Catalog |
 | GET | `/api/products/{productId:int}/reviews` | anonymous | store | `reviews` | — | `GetProductReviewsQuery` | Reviews |
 | POST | `/api/products/{productId:int}/reviews` | signed in | store | `reviews` | — | `CreateReviewCommand` | Reviews |
-| GET | `/api/storefront/config` | anonymous | store | — | — | `GetStorefrontConfigQuery` | Platform |
+| GET | `/api/storefront/config` | anonymous | store, even when closed | — | — | `GetStorefrontConfigQuery` | Platform |
 | GET | `/api/wishlist` | signed in | store | `wishlist` | — | `GetWishlistQuery` | Shopping |
 | POST | `/api/wishlist/merge` | signed in | store | `wishlist` | — | `MergeWishlistCommand` | Shopping |
 | PUT | `/api/wishlist/{productId:int}` | signed in | store | `wishlist` | — | `AddToWishlistCommand` | Shopping |

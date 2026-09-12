@@ -160,7 +160,8 @@ await DbSeeder.SeedAsync(app.Services,
     new SeedOptions(
         app.Configuration["Seed:AdminEmail"], app.Configuration["Seed:AdminPassword"], app.Environment.IsDevelopment(),
         ReadList(app.Configuration, "Seed:DefaultTenantHosts"),
-        app.Configuration["Seed:PlatformOwnerEmail"], app.Configuration["Seed:PlatformOwnerPassword"]),
+        app.Configuration["Seed:PlatformOwnerEmail"], app.Configuration["Seed:PlatformOwnerPassword"],
+        DbSeeder.ShouldSeedDemoData(app.Environment.EnvironmentName, app.Configuration.GetValue<bool?>("Seed:DemoData"))),
     app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Souq.Seeding"));
 
 // ── خط أنابيب الطلب (Request Pipeline) — الترتيب مهم ──────────────────────
