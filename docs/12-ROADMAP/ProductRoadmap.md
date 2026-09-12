@@ -751,7 +751,7 @@ Status legend: ✅ done · 🟡 in progress · ⏳ planned · ⏸ awaiting appro
 
     The development default store now comes from the seeder, not from committed configuration.
 - **Deferred:**
-  - **D-19** (TypeScript + TanStack Query). It is proposed for approval, and its trigger is Phase 16 or a CI type-check.
+  - **D-19** (TypeScript + TanStack Query). It was proposed for approval with a trigger of Phase 16 or a CI type-check; *decided in Phase 17* ([ADR-0037](../11-ADR/0037-frontend-server-state-and-types.md)).
   - **Moving existing screens into `features/*`** and splitting `api/client.js` per feature. Each screen moves when it is rebuilt (Phases 16–17).
   - **Colour presets in a branding editor** (Phases 17–18) and per-host SEO heads (Phase 16).
 - **Scope.**
@@ -762,7 +762,7 @@ Status legend: ✅ done · 🟡 in progress · ⏳ planned · ⏸ awaiting appro
   - Server-state management (D-19).
   - **TenantProvider** (bootstraps from the config endpoint), **ThemeProvider** (semantic design tokens and presets), and **ModuleGate**.
   - Remove the hard-coded brand, currency, and contact details (A4, A5). Replace the visitor theme switcher (A7).
-- **Decisions needed.** D-19: deferred with a trigger.
+- **Decisions needed.** D-19: deferred with a trigger at the time; taken in Phase 17 ([ADR-0037](../11-ADR/0037-frontend-server-state-and-types.md)).
 - **Exit criteria** (both met).
   - The same build renders two tenants with different branding, currency, and modules.
   - The source contains no brand or currency literals, enforced by a check.
@@ -882,7 +882,7 @@ Each decision is argued in full (options, recommendation, rationale) in Architec
 | D-15 | Background jobs | ✅ **Implemented in Phase 6:** a .NET hosted service (checkout expiry sweep per store); Hangfire only when needed — [ADR-0026](../11-ADR/0026-inventory-reservations.md) | 6 |
 | **D-13** | Payment tenancy | 🟡 **Mechanism built in Phase 11** ([ADR-0031](../11-ADR/0031-payments-and-refunds.md)): per-store gateway resolution, AES-GCM-encrypted store keys, routing by the account that took each payment, per-store webhook secrets. A store may connect its own Stripe account; the others use the deployment account. **Still to decide:** require every store to connect its own account (merchant of record), or adopt Stripe Connect (another adapter behind the same router) | before multi-store live payments |
 | D-14 | Notifications | ✅ **Resolved in Phase 14** ([ADR-0034](../11-ADR/0034-notifications-outbox.md)): a transactional outbox with a leased hosted dispatcher and bounded retries; domain events in the same save; localized emails with the store's identity; in-app notifications | 14 |
-| D-19 | Frontend stack | ⏸ **Deferred in Phase 15** ([ADR-0035](../11-ADR/0035-white-label-runtime.md)): incremental TypeScript + TanStack Query, proposed for approval. The trigger is the start of Phase 16 or a CI type-check | 16 |
+| D-19 | Frontend stack | ✅ **Decided in Phase 17** ([ADR-0037](../11-ADR/0037-frontend-server-state-and-types.md)) after measuring the frontend: 24 of 29 fetching components have no cancellation guard, 80 hand-rolled async-state declarations, 92 endpoint functions with no types. TanStack Query (MIT, verified) is the target for server state, adopted at the first screen rebuilt or newly written together with a jsdom environment and a rendering library — not installed during a hardening phase. TypeScript deferred until a CI pipeline exists to enforce a type-check. Until adoption, every touched screen guards its effects with the existing `useCatalog` idiom | 17 |
 | P-03 | Source license and repository visibility | The repo is MIT-licensed and has a GitHub remote. Decide before the first sale. | before 23 |
 | P-06 | Tax model | No tax exists in the product, and no phase plans one. Decide: prices tax-inclusive or exclusive, a per-store rate, and whether invoices must show tax (Jordan GST). The pricing pipeline has a zero tax stage ready for it ([ADR-0028](../11-ADR/0028-basket-and-pricing-pipeline.md)) | before the first sale |
 
@@ -971,3 +971,4 @@ The earlier `AUDIT.md` (Arabic, 8-phase program) and the engineering-thinking gu
 | 2026-09-11 | Phase 13 completed (review moderation under a per-store auto-approve policy, approved-only aggregates with a per-star distribution, an audited moderation API, a server-side wishlist that absorbs the guest list at sign-in, both features behind their module flags); ADR-0033 |
 | 2026-09-11 | Phase 14 completed (a transactional outbox with a leased dispatcher and bounded retries, tokens issued at dispatch, domain events for order status and low stock, localized emails with the store's identity, in-app notifications with a bell, no silent console email fallback outside development); ADR-0034, D-14 resolved |
 | 2026-09-11 | Phase 15 completed (the SPA boots from the host's store configuration with closed, unknown-store and retry screens; semantic tokens and fonts from the store's branding; the visitor theme switcher removed; the store's name, currency, languages and footer content from its configuration; module gates; four areas with route-level code splitting; tests forbid brand and currency literals in the frontend and backend); ADR-0035, D-19 deferred with a trigger |
+| 2026-09-12 | Phase 17 (production hardening) under way on `phase/17-production-hardening`. Closed so far: R-02 (a declined card could capture against a cancelled order — ADR-0036), R-06 (the order email's totals and lines), R-07/TD-07 (a product in a disabled category was hidden but still purchasable), R-08 (a suspended store could not show a branded closed page or let its admins sign in), R-10 (the tracking token in the request log), R-13 (uploads 404 through the shipped proxy), R-17 (demo data seeded into production), R-22 (the Gmail placeholder), TD-26 (a transient failure disabled card payment for a session). **D-19 decided** — ADR-0037. Release readiness triaged in `docs/09-OPERATIONS/ReleaseReadiness.md`; all 79 module crossings classified in `docs/02-ARCHITECTURE/ModuleBoundaryAudit.md` |

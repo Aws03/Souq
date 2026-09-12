@@ -39,7 +39,7 @@
 |---|---|---|---|
 | Products exist per store with per-language text and one default variant | `Product`, `CreateProductCommand` | D: `ProductTests` · A: `ProductHandlersTests` · I: `CatalogTests` | — |
 | Slugs and SKUs are unique per store | `Product`, unique indexes | I: `CatalogTests` | — |
-| Only published products are sellable | `Product.IsActive` checks in pricing and the basket | A: `PricingServiceTests` | **A product in a disabled category is hidden but still purchasable** (R-07) |
+| Only published products in an active category are sellable | `Product.IsSellable` (active product **and** active category) in the pricing pipeline, the basket and the wishlist | D: `ProductTests`; A: `PricingServiceTests`, `BasketHandlersTests`, `WishlistHandlersTests`; I: `CatalogTests` | Closed in Phase 17 (was R-07): sellability is one Domain rule, so visibility and purchasability can no longer disagree (BR-CAT-17) |
 | Stock never goes negative; every change is ledgered | `InventoryItem` | D: `InventoryItemTests` · A: `InventoryCommandsTests` · I: `InventoryAndOrderTests` | — |
 | Checkout reserves, payment commits, cancellation releases | `InventoryReservations`, `OrderPaymentConfirmation` | A: `InventoryReservationsTests`, `ConfirmOrderPaymentHandlerTests` · I: `InventoryAndOrderTests` | — |
 | Abandoned checkouts are settled | `ExpireStaleCheckoutsCommand` + the hosted sweep | A: `ExpireStaleCheckoutsHandlerTests` · I: `InventoryAndOrderTests` | The sweep skips stores that are not Active (R-24) |

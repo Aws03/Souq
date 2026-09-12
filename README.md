@@ -91,7 +91,7 @@ The architecture tests fail the build when a layer, a module boundary, tenant is
 
 Honest and maintained, rather than discovered later:
 
-- **Open product decisions:** JOD minor units at Stripe (P-05), the payment-account model (D-13), tax (P-06), licensing (P-03), the frontend stack (D-19) — see [the roadmap's decision log](docs/12-ROADMAP/ProductRoadmap.md).
+- **Open product decisions:** JOD minor units at Stripe (P-05), the payment-account model (D-13), tax (P-06), licensing (P-03) — see [the roadmap's decision log](docs/12-ROADMAP/ProductRoadmap.md). The frontend stack (D-19) was decided in Phase 17 ([ADR-0037](docs/11-ADR/0037-frontend-server-state-and-types.md)).
 - **Not built yet:** the storefront rebuild, the store dashboard and the platform console (roadmap Phases 16–18; the platform area is a shell today).
 - **Operations gaps:** no CI pipeline, no health checks, no automated backups.
 - **Everything else:** [docs/12-ROADMAP/TechnicalDebt.md](docs/12-ROADMAP/TechnicalDebt.md) and [docs/02-ARCHITECTURE/RiskRegister.md](docs/02-ARCHITECTURE/RiskRegister.md).

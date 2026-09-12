@@ -126,7 +126,8 @@
 
 These are *not* non-goals; they are scheduled or waiting on a decision, and belong to the roadmap rather than this page:
 
-- TypeScript and TanStack Query in the frontend (decision D-19, deferred with a trigger, [ADR-0035](../11-ADR/0035-white-label-runtime.md)).
+- A query library for frontend server state (TanStack Query): **decided, not deferred** — it is the target, adopted at the first screen that is rebuilt rather than installed as a separate migration ([ADR-0037](../11-ADR/0037-frontend-server-state-and-types.md)).
+- TypeScript in the frontend: deferred until a CI pipeline exists to enforce a type-check, which is the only thing that makes it a control rather than a convention ([ADR-0037](../11-ADR/0037-frontend-server-state-and-types.md)).
 - A CI pipeline running the existing suites (no pipeline exists today).
 - Cloud blob storage for uploads, and per-store email sending domains (roadmap Phase 23).
 - The platform owner's console and the store dashboard (roadmap Phases 17–18).

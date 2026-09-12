@@ -81,7 +81,7 @@ These cannot be made from the code; they are commercial or legal:
 | **D-13** | Every store connects its own Stripe account, or the platform adopts Stripe Connect | A second store taking live payments |
 | **P-06** | Tax: inclusive or exclusive prices, per-store rates, invoice requirements | Selling where tax must be shown |
 | **P-03** | License and repository visibility (MIT today, with a public remote) | Selling the product |
-| **D-19** | TypeScript and a server-state library for the frontend | Every new screen built meanwhile |
+| ~~D-19~~ | ~~TypeScript and a server-state library for the frontend~~ | **Decided in Phase 17** ([ADR-0037](../11-ADR/0037-frontend-server-state-and-types.md)): a query library is the target, adopted at the first screen rebuilt; TypeScript waits for a CI pipeline |
 
 ## 10. What must never be changed casually
 

@@ -73,7 +73,8 @@
 | ADR | Decision | Validity |
 |---|---|---|
 | [0011](0011-white-label-architecture.md) | One build, configuration-driven branding; the platform owner controls contracts, the tenant controls presentation; no arbitrary CSS or scripts | Partially stale (§4) |
-| [0035](0035-white-label-runtime.md) | The SPA boots from the storefront configuration, writes semantic tokens, gates modules, and splits four areas with lazy routes; D-19 deferred with a trigger | Accurate; **the D-19 trigger is now due** (§4) |
+| [0035](0035-white-label-runtime.md) | The SPA boots from the storefront configuration, writes semantic tokens, gates modules, and splits four areas with lazy routes; D-19 deferred with a trigger | Superseded in part by [0037](0037-frontend-server-state-and-types.md), which takes the D-19 decision it deferred |
+| [0037](0037-frontend-server-state-and-types.md) | D-19 decided: a query library (TanStack Query) is the target for server state, adopted at the first screen rebuilt rather than installed now; TypeScript deferred until a CI pipeline exists to enforce it | Accurate |
 
 ### Operations
 
@@ -107,6 +108,7 @@
 | [0028](0028-basket-and-pricing-pipeline.md) checkout source and stages | [0029](0029-orders-lifecycle.md), [0032](0032-shipping-methods.md) | Checkout reads the basket server-side; shipping became a charged stage |
 | [0021](0021-transaction-boundaries.md) residual risks | [0026](0026-inventory-reservations.md), [0034](0034-notifications-outbox.md) | The abandoned-checkout sweeper and the outbox closed both risks it listed |
 | [0031](0031-payments-and-refunds.md) confirmation path | [0036](0036-payment-intent-state-machine.md) | A non-succeeded confirmation no longer cancels the order unconditionally: it reads the intent's state, and a capture against a closed order is recorded instead of ignored |
+| [0035](0035-white-label-runtime.md) deferring D-19 with a trigger | [0037](0037-frontend-server-state-and-types.md) | The trigger fired without producing a decision, so D-19 was split and taken: a query library is the target for server state with a named adoption point, and TypeScript's trigger became "a CI pipeline exists" rather than a date that had already passed |
 
 ## 4. Statements inside ADRs that no longer match the code
 
@@ -131,10 +133,10 @@ The decisions stand; these *descriptions* have drifted. Living documents are aut
 | 0028 | Shipping and tax stay at zero | Shipping is charged since Phase 12; only tax is still zero (open decision P-06) |
 | 0033 | Phase 14 will notify staff of pending reviews and customers of decisions | Not built; only order status, new order and low stock exist |
 | 0034 | One email provider plus a log fallback | The chain is Resend → Brevo → Gmail SMTP by which key is present; the startup rule is unchanged |
-| 0035 | D-19 trigger: "the start of Phase 16" | The trigger has arrived. TypeScript and TanStack Query need a decision, or the trigger needs rewording. Note that the branch `phase/16-engineering-knowledge-and-handoff` is this documentation pass, not the roadmap's Phase 16 (Storefront) |
+| 0035 | D-19 trigger: "the start of Phase 16" | Taken in Phase 17 by [0037](0037-frontend-server-state-and-types.md): the query library is decided and its adoption point named, and the TypeScript trigger is re-worded to a condition that can actually fire (a CI pipeline exists). Note that the branch `phase/16-engineering-knowledge-and-handoff` is this documentation pass, not the roadmap's Phase 16 (Storefront) |
 
 ## 5. Numbering and lifecycle
 
-- ADRs are numbered sequentially and never renumbered. The next one is **0037**.
+- ADRs are numbered sequentially and never renumbered. The next one is **0038**.
 - A superseded ADR keeps its text; its `Status` line says what replaced it, and the replacement links back through `Related ADRs`.
 - Rejected proposals are worth an ADR too: "we considered X and chose not to" saves the next person the same investigation ([ExplicitNonGoals.md](../02-ARCHITECTURE/ExplicitNonGoals.md) collects the big ones).

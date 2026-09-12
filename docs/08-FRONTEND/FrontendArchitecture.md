@@ -1,6 +1,6 @@
 # Souq: frontend architecture
 
-> **Status:** target adopted 2026-09-11. **Phase 15 delivered the runtime** ([ADR-0035](../11-ADR/0035-white-label-runtime.md)): the store configuration at boot, semantic theming, module gates, four areas and route-level code splitting. Existing screens move into feature folders in the phases that rebuild them (16–17). D-19 is deferred with a trigger.
+> **Status:** target adopted 2026-09-11. **Phase 15 delivered the runtime** ([ADR-0035](../11-ADR/0035-white-label-runtime.md)): the store configuration at boot, semantic theming, module gates, four areas and route-level code splitting. Existing screens move into feature folders in the phases that rebuild them (16–17). D-19 was **decided in Phase 17** ([ADR-0037](../11-ADR/0037-frontend-server-state-and-types.md)): a query library is the target for server state, adopted at the first screen rebuilt rather than installed as its own migration; TypeScript waits for a CI pipeline that can enforce it.
 > **Stack:** React 18 · Vite 5 · React Router 6 · i18next · CSS Modules with design tokens · Stripe.js. Tests: Vitest, introduced in Phase 1A for pure logic.
 >
 > **This page is the target shape and the history.** For what exists today and how to change it — structure, boot, routing, state, API, i18n, styling, testing, debt — read [FrontendGuide.md](FrontendGuide.md). Branding and what a store may customize are in [WhiteLabel.md](WhiteLabel.md).
@@ -66,7 +66,7 @@ Differences from today worth naming, because they are the work items: guards liv
 | **Feature components** | today `frontend/src/components`, target *features/…/components* | Presentational plus local UI state |
 | **UI kit** | `frontend/src/components/common` | Knows nothing about business or API; styled only with semantic tokens |
 | **API clients** | today the single `frontend/src/api/client.js`; target one module per feature over an http core | The shared client handles the auth header, token refresh and error normalization. |
-| **Server state** | today each screen's own `useEffect` and `useState`; target a query layer | TARGET: TanStack Query for caching, de-duplication and retries. D-19 is **DEFERRED** ([ADR-0035](../11-ADR/0035-white-label-runtime.md)); the trigger is Phase 16 or a CI type-check. |
+| **Server state** | today each screen's own `useEffect` and `useState`; target a query layer | TARGET: TanStack Query for caching, de-duplication and retries. D-19 is **DECIDED** ([ADR-0037](../11-ADR/0037-frontend-server-state-and-types.md)): it is adopted at the first screen rebuilt or newly written, with the test environment, not as a separate migration. Until then every touched screen guards its effects with a local `active` flag. |
 | **Client state** | contexts or local state | Session, tenant config, toasts. The cart became *server* state in Phase 8. |
 | **Authentication** | `frontend/src/context/AuthContext.jsx` with `frontend/src/api/client.js` | Access token in module memory; refresh through the `HttpOnly` cookie with a single-flight silent refresh. What the UI shows follows `user.permissions`. Route guards are UX only. |
 | **Tenant context** | `frontend/src/app/TenantProvider.jsx` | Populated from the config endpoint, read-only: `useTenant`, `useStoreConfig`, `useModule`. Components never send a tenant id to the API. |
@@ -212,9 +212,9 @@ Historical record: each table describes what changed **in that phase**, not nece
 1. **Done — `frontend/src/app` introduced without moving features.** It holds `TenantProvider` (the boot from GET `/api/storefront/config`), `frontend/src/app/storeTheme.js` and `frontend/src/app/tenantModel.js` (theme, formatting and module logic, unit-tested), `frontend/src/app/BootScreens.jsx` (closed store, unknown store, retry), `frontend/src/app/StoreBrand.jsx` (the store's logo or name) and `frontend/src/app/PlatformLayout.jsx` (the platform shell).
    The guards stayed in `frontend/src/components/ProtectedRoute.jsx`, which gained `RequireModule` and `PlatformRoute`. The customer account pages still render inside the storefront layout behind `ProtectedRoute`; their own shell comes with the account rebuild (Phase 16).
 2. **Deferred to Phases 16–17 — moving features.** Each screen moves with `git mv` when it is rebuilt, so its history is preserved and the diff stays reviewable.
-3. **Deferred with D-19 — splitting `frontend/src/api/client.js`** into per-feature modules. The query layer decides their shape. The shared client already normalizes the error contract and refreshes the session silently (Phase 3).
+3. **Waits on the query layer — splitting `frontend/src/api/client.js`** into per-feature modules. The query layer decides their shape, and D-19 now names when it arrives ([ADR-0037](../11-ADR/0037-frontend-server-state-and-types.md)). The shared client already normalizes the error contract and refreshes the session silently (Phase 3).
 4. **Done — theming.** Brand-named tokens were replaced by semantic tokens everywhere. The theme comes from the store, and the visitor theme switcher is gone.
-5. **Deferred with D-19 — TypeScript**, with a trigger ([ADR-0035](../11-ADR/0035-white-label-runtime.md)).
+5. **Deferred — TypeScript**, with a trigger that can now actually fire: a CI pipeline exists to enforce the type-check ([ADR-0037](../11-ADR/0037-frontend-server-state-and-types.md)).
 6. **Done — route-level lazy loading.** Every page except the home and product pages is lazy.
    - Baseline measured in Phase 15: about 381 KB of JavaScript in the first bundle (122 KB gzipped), with about 144 KB loading on demand.
    - Budgets will be enforced once a CI pipeline exists (**PLANNED**, Phase 21).

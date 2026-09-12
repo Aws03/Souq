@@ -34,7 +34,7 @@
 | R-11 | **Rate limits are per process and partition by a forwarded client address.** With `TRUSTED_PROXY_NETWORKS` covering the Docker bridge and the API port published, a direct client may be able to forge `X-Forwarded-For` and evade limits | Unverified (depends on the deployment's networking) | Brute-force protection weaker than it looks | Only trust the proxy's own address; do not publish the API port when a proxy fronts it; move limits to the edge when scaling out |
 | R-12 | **The application connects to SQL Server as `sa`** | Known | No blast-radius limit if the app is compromised | Create a least-privilege login before any real deployment |
 | R-13 | **Uploads are served from local disk**, so the files live on one instance | Known | Several API instances need the same mount, or images 404 depending on which instance answers | Move to blob storage behind `IFileStorage` before scaling out |
-| R-14 | **Cross-module domain access is not prevented, only counted** (78 crossings today) | Known | Boundaries erode silently; extraction gets harder | The ratchet in [ModuleDomainDependencies.md](ModuleDomainDependencies.md) plus the contracts listed in [ModuleBoundaries.md](ModuleBoundaries.md) |
+| R-14 | **Cross-module domain access is not prevented, only counted** (79 crossings today) | Known | Boundaries erode silently; extraction gets harder | The ratchet in [ModuleDomainDependencies.md](ModuleDomainDependencies.md) plus the contracts listed in [ModuleBoundaries.md](ModuleBoundaries.md); every crossing is now classified with a reason in [ModuleBoundaryAudit.md](ModuleBoundaryAudit.md) |
 | R-15 | **Identity and Customers depend on each other**, a cycle the target graph forbids | Known | Neither module can be reasoned about, tested or extracted alone | Decide which side owns account provisioning and erasure; expose one contract |
 | R-16 | **No TLS, HSTS or security headers in the repository's own deployment**, and the proxy overwrites `X-Forwarded-Proto` with its own scheme, so generated links can come out `http://` | Known | Cookies and tokens over plaintext if deployed as-is; wrong links in emails | Terminate TLS in front, pass the scheme through, and add the headers before any public launch |
 
@@ -56,7 +56,6 @@
 | R-25 | **No tax model exists (P-06)**, and the pricing pipeline's tax stage is a fixed zero | Known | Cannot sell legally where tax must be shown or collected | Decide inclusive/exclusive pricing, per-store rates, and invoice requirements |
 | R-26 | **The payment account model is undecided (D-13)**: every store connects its own account, or the platform adopts Stripe Connect | Known | Blocks the second store taking live payments; affects liability and fees | Decide before onboarding a second paying store |
 | R-27 | **The repository is MIT-licensed with a public remote (P-03)** | Known | Anyone receiving the code may resell it | Decide the license and repository visibility before the first sale |
-| R-28 | **The frontend stack decision (D-19) is deferred**, and its trigger has arrived | Known | Each further screen built without the decision is a screen to migrate twice | Decide TypeScript and a query library now, or reword the trigger |
 
 ## How to use this register
 

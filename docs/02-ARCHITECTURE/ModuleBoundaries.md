@@ -88,7 +88,7 @@ Everything else between feature folders fails the build, and a separate test rej
 
 Repository ports live in `Souq.Domain.Interfaces` and most entities in `Souq.Domain.Entities`. Those namespaces are outside the test's scope, so **a handler in one module can load another module's aggregate directly and no test objects.** That is how the system actually works today in several places, for reasons that were often deliberate.
 
-Rather than pretend otherwise, every such crossing is generated into [ModuleDomainDependencies.md](ModuleDomainDependencies.md) from the compiled code: **78 crossings across 16 module pairs** at the time of writing. That file is committed, so:
+Rather than pretend otherwise, every such crossing is generated into [ModuleDomainDependencies.md](ModuleDomainDependencies.md) from the compiled code: **79 crossings across 16 module pairs** at the time of writing, every one of them classified in [ModuleBoundaryAudit.md](ModuleBoundaryAudit.md). That file is committed, so:
 
 - a **new** crossing changes it and fails `GeneratedDocsTests` — it becomes a decision made in review, not a quiet import;
 - **removing** one also changes it, and the count goes down.

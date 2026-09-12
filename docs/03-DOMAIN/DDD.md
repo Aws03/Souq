@@ -94,5 +94,5 @@ Recorded rather than hidden; each is in [TechnicalDebt.md](../12-ROADMAP/Technic
 
 - **`Customer` has no concurrency token**, so "at most 20 addresses" and "exactly one default" are enforced in memory only.
 - **Some rules live outside the aggregate that owns the concept**: a coupon's minimum-order comparison ignores currency; sellability is checked in the pricing service rather than in `Product`.
-- **Cross-module domain access** (78 crossings) means aggregates from one module are loaded inside another module's handler — the boundary is documented and counted, not enforced.
+- **Cross-module domain access** (79 crossings) means aggregates from one module are loaded inside another module's handler — the boundary is documented and counted, not enforced.
 - **The order's shipping address is a single-line snapshot**, not the structured `PostalAddress` the model can produce; the destination country is stored separately.
