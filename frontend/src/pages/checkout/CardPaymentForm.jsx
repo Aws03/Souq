@@ -83,20 +83,40 @@ function DirectPayForm({ order, onPaid }) {
 }
 
 // خطوة الدفع: تنتظر تحميل Stripe.js (بمفتاحه من الخادم) ثم تعرض حقل البطاقة.
-// إن غاب المفتاح (Stripe غير مُهيّأ) نتراجع صامتين لزرّ الإتمام المباشر بلا تحذير.
+// ثلاث نتائج لا نتيجتان (TD-26): مفتاح ⇒ حقل البطاقة؛ بلا مفتاح ⇒ تراجع صامت لزرّ الإتمام المباشر (المتجر بلا بوّابة
+// مهيّأة، والخادم يستخدم البوّابة التجريبية)؛ وتعذّر السؤال ⇒ خطأ بإعادة محاولة. الأخيرة كانت تُخلط بالثانية فيُعرض
+// للمشتري زرّ دفع بلا حقل بطاقة بسبب عطل شبكة لحظي.
 export default function CardPaymentForm({ order, onPaid }) {
   const { t } = useTranslation();
-  const [stripePromise, setStripePromise] = useState(undefined);
+  const [attempt, setAttempt] = useState(0);
+  const [gateway, setGateway] = useState({ status: 'loading' });
 
-  useEffect(() => { getStripePromise().then(setStripePromise); }, []);
+  useEffect(() => {
+    let active = true;
+    setGateway({ status: 'loading' });
+    getStripePromise()
+      .then((stripe) => { if (active) setGateway({ status: 'ready', stripe }); })
+      .catch((e) => { if (active) setGateway({ status: 'failed', message: e.message }); });
+    return () => { active = false; };
+  }, [attempt]);
 
-  if (stripePromise === undefined) return null;
-  if (stripePromise === null) return <DirectPayForm order={order} onPaid={onPaid} />;
+  if (gateway.status === 'loading') return null;
+
+  if (gateway.status === 'failed') {
+    return (
+      <div className={styles.panel}>
+        <h2 className={styles.panelTitle}>{t('checkout.cardTitle')}</h2>
+        <ErrorBanner message={gateway.message} onRetry={() => setAttempt((n) => n + 1)} />
+      </div>
+    );
+  }
+
+  if (gateway.stripe === null) return <DirectPayForm order={order} onPaid={onPaid} />;
 
   return (
     <div className={styles.panel}>
       <h2 className={styles.panelTitle}>{t('checkout.cardTitle')}</h2>
-      <Elements stripe={stripePromise}>
+      <Elements stripe={gateway.stripe}>
         <InnerForm order={order} onPaid={onPaid} />
       </Elements>
     </div>

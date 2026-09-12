@@ -11,7 +11,7 @@
 | [`Souq.Application.Tests`](#souqapplicationtests) | 39 | 272 | 11 |
 | [`Souq.ArchitectureTests`](#souqarchitecturetests) | 8 | 35 | 3 |
 | [`Souq.IntegrationTests`](#souqintegrationtests) | 32 | 164 | 15 |
-| [frontend (Vitest)](#frontend-vitest) | 23 | 99 | — |
+| [frontend (Vitest)](#frontend-vitest) | 24 | 102 | — |
 
 ## Souq.Domain.Tests
 
@@ -161,4 +161,5 @@
 | `frontend/src/features/reviews/ratingSummary.test.js` | 3 |
 | `frontend/src/features/wishlist/wishlistModel.test.js` | 5 |
 | `frontend/src/i18n/locales.test.js` | 2 |
+| `frontend/src/pages/checkout/stripeClient.test.js` | 3 |
 | `frontend/src/whiteLabel.test.js` | 1 |
