@@ -275,17 +275,17 @@ Add a status · change cancellation rules · change what happens on payment succ
 ## Known limitations
 
 1. **A declined order holds its stock reservation until the checkout expiry window elapses.** Since [ADR-0036](../../11-ADR/0036-payment-intent-state-machine.md) a decline whose intent is still alive (`PaymentIntentState.Retryable`) leaves the order `Pending` so the shopper can retry on the same client secret, instead of cancelling it and releasing the stock immediately. `ExpireStaleCheckoutsHandler` settles it afterwards if it is abandoned. This is the deliberate trade: an abandoned decline occupies stock for `Inventory:ReservationMinutes`, and in exchange a mistyped card no longer destroys the order — and no path can leave a cancelled order with an intent that is still able to capture.
-2. **The order confirmation email can print the wrong total, or fail outright.** `OrderEmailHandler` loads the order with `IOrderRepository.GetByIdAsync`, which is `FindAsync` — the root only, with no lines, and nothing configures auto-include. `Order.TotalAmount` therefore sums an empty line collection: the email shows only the shipping cost, and for an order with a coupon `Subtotal.Subtract(DiscountAmount)` goes negative and throws `InvalidMoneyException`, so the message is retried until the outbox marks it dead. The frozen `PlacedTotal` is what the email should use.
-3. A staff member with `orders.manage` alone can trigger a full refund by cancelling a paid order (see Security).
-4. The refund after an admin cancellation happens **after** the cancellation commits and its result is ignored: a refused or unanswered refund leaves the order cancelled with the money still out. It shows on the order's payment, and staff retry from there. A crash between the two leaves no `Refund` row at all, and nothing sweeps for that.
-5. A crash between checkout's two saves leaves a Pending order with no intent, holding stock until the sweep — the residual that [ADR-0021](../../11-ADR/0021-transaction-boundaries.md) names.
-6. The sweep only visits active stores, so a suspended store's unpaid orders keep their reservations until it is active again.
-7. The sweep assumes a single instance; two are safe but do duplicate work. A distributed lock is **PLANNED** for Phase 23.
-8. Order numbers are unique but not contiguous: a rolled-back checkout returns its number, a cancelled order keeps it.
-9. Checkout includes a gateway round trip, so it routinely exceeds `UseCaseLoggingBehavior.SlowThreshold` and logs a slow-use-case warning.
-10. There is no payment method other than the gateway: no cash on delivery, no bank transfer, no partial capture. Adding one means a new way to reach Paid, which today only the gateway can cause.
-11. A refund never changes the order status, and never gives back a coupon use or stock ([ADR-0031](../../11-ADR/0031-payments-and-refunds.md), [ADR-0030](../../11-ADR/0030-coupon-redemptions.md)).
-12. The customer's free-text cancellation reason is stored and shown to staff.
+2. A staff member with `orders.manage` alone can trigger a full refund by cancelling a paid order (see Security).
+3. The refund after an admin cancellation happens **after** the cancellation commits and its result is ignored: a refused or unanswered refund leaves the order cancelled with the money still out. It shows on the order's payment, and staff retry from there. A crash between the two leaves no `Refund` row at all, and nothing sweeps for that.
+4. A crash between checkout's two saves leaves a Pending order with no intent, holding stock until the sweep — the residual that [ADR-0021](../../11-ADR/0021-transaction-boundaries.md) names.
+5. The sweep only visits active stores, so a suspended store's unpaid orders keep their reservations until it is active again.
+6. The sweep assumes a single instance; two are safe but do duplicate work. A distributed lock is **PLANNED** for Phase 23.
+7. Order numbers are unique but not contiguous: a rolled-back checkout returns its number, a cancelled order keeps it.
+8. Checkout includes a gateway round trip, so it routinely exceeds `UseCaseLoggingBehavior.SlowThreshold` and logs a slow-use-case warning.
+9. There is no payment method other than the gateway: no cash on delivery, no bank transfer, no partial capture. Adding one means a new way to reach Paid, which today only the gateway can cause.
+10. A refund never changes the order status, and never gives back a coupon use or stock ([ADR-0031](../../11-ADR/0031-payments-and-refunds.md), [ADR-0030](../../11-ADR/0030-coupon-redemptions.md)).
+11. The customer's free-text cancellation reason is stored and shown to staff.
+12. The order email shows each line's **purchased** name and price, not the catalogue's current ones — deliberate, because the invoice must not change when the catalogue does.
 
 ## Future evolution
 

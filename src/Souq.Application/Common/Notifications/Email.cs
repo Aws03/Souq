@@ -25,9 +25,14 @@ public enum EmailTemplate
 // هوية المتجر في الرسالة: الاسم المعروض بلغة الرسالة، الشعار (رابط مطلق)، لونا الترويسة، وبريد التواصل.
 public sealed record EmailBranding(string StoreName, string? LogoUrl, string PrimaryColor, string OnPrimaryColor, string? ContactEmail);
 
+// سطر في رسالة طلب: لقطة الاسم والكمية وإجمالي السطر كما جُمّدت على الطلب لحظة الشراء — لا يُحسب شيء عند الإرسال.
+public sealed record EmailLine(string Name, int Quantity, string LineTotal);
+
 // Values: قيم القالب (رقم الطلب، الإجمالي، اسم الجهة الداعية…) نصوصاً خاماً — القالب يرمّزها لـ HTML.
+// Lines: أسطر الطلب حين تعني الرسالة طلباً؛ فارغة لغيرها.
 public sealed record EmailContent(
-    EmailTemplate Template, string Culture, EmailBranding Branding, string? ActionUrl, IReadOnlyDictionary<string, string> Values);
+    EmailTemplate Template, string Culture, EmailBranding Branding, string? ActionUrl, IReadOnlyDictionary<string, string> Values,
+    IReadOnlyList<EmailLine>? Lines = null);
 
 public sealed record ComposedEmail(string Subject, string HtmlBody, string TextBody);
 

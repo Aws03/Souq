@@ -23,13 +23,38 @@ internal sealed class EmailComposer : IEmailComposer
         var body = Fill(text.Body);
         var footer = Fill(content.Branding.ContactEmail is null ? Footers[culture].Generic : Footers[culture].Reply);
         var details = Details(culture, content).ToList();
+        var lines = content.Lines ?? [];
+        var totals = Totals(culture, content).ToList();
         var subject = new string($"{Fill(text.Subject)} — {content.Branding.StoreName}".Where(c => !char.IsControl(c)).ToArray());
 
         return new ComposedEmail(
             subject,
-            Html(culture, content.Branding, title, body, details, text.Action is null ? null : (Fill(text.Action), content.ActionUrl), Fill(text.Note), footer),
-            Plain(title, body, details, content.ActionUrl, Fill(text.Note), footer));
+            Html(culture, content.Branding, title, body, details, lines, totals,
+                text.Action is null ? null : (Fill(text.Action), content.ActionUrl), Fill(text.Note), footer),
+            Plain(culture, title, body, details, lines, totals, content.ActionUrl, Fill(text.Note), footer));
     }
+
+    // إجماليات الطلب بالترتيب الذي تُقرأ به الفاتورة. الخصم والشحن يظهران حين أرسلهما المعالج فقط.
+    private static IEnumerable<(string Label, string Value)> Totals(string culture, EmailContent content)
+    {
+        var labels = OrderLabels[culture];
+        var currency = content.Values.GetValueOrDefault("currency", "");
+        string Money(string key) => $"{content.Values[key]} {currency}".Trim();
+
+        if (!content.Values.ContainsKey("total")) yield break;
+        if (content.Values.ContainsKey("subtotal")) yield return (labels.Subtotal, Money("subtotal"));
+        if (content.Values.ContainsKey("discount")) yield return (labels.Discount, $"-{Money("discount")}");
+        if (content.Values.ContainsKey("shipping")) yield return (labels.Shipping, Money("shipping"));
+        yield return (labels.Total, Money("total"));
+    }
+
+    private sealed record OrderText(string Items, string Subtotal, string Discount, string Shipping, string Total);
+
+    private static readonly IReadOnlyDictionary<string, OrderText> OrderLabels = new Dictionary<string, OrderText>
+    {
+        ["ar"] = new("ما طلبته", "الإجمالي الفرعي", "الخصم", "الشحن", "الإجمالي"),
+        ["en"] = new("What you ordered", "Subtotal", "Discount", "Shipping", "Total"),
+    };
 
     // تفاصيل الشحن تحت نصّ رسالة الشحن حين تتوفّر.
     private static IEnumerable<(string Label, string Value)> Details(string culture, EmailContent content)
@@ -43,6 +68,7 @@ internal sealed class EmailComposer : IEmailComposer
 
     private static string Html(
         string culture, EmailBranding brand, string title, string body, IReadOnlyList<(string Label, string Value)> details,
+        IReadOnlyList<EmailLine> lines, IReadOnlyList<(string Label, string Value)> totals,
         (string Label, string? Url)? action, string note, string footer)
     {
         static string E(string value) => WebUtility.HtmlEncode(value);
@@ -67,6 +93,22 @@ internal sealed class EmailComposer : IEmailComposer
         foreach (var (label, value) in details)
             html.Append($@"
           <p style=""margin:0 0 6px;""><b>{E(label)}:</b> <span dir=""ltr"">{E(value)}</span></p>");
+        if (lines.Count > 0)
+        {
+            html.Append($@"
+          <h3 style=""margin:24px 0 8px;font-size:15px;color:#1A2421;"">{E(OrderLabels[culture].Items)}</h3>
+          <table width=""100%"" cellpadding=""0"" cellspacing=""0"" style=""border-collapse:collapse;font-size:14px;"">");
+            foreach (var line in lines)
+                html.Append($@"
+            <tr><td style=""padding:6px 0;border-bottom:1px solid #EFEDE8;text-align:{align};"">{E(line.Name)} × {line.Quantity}</td>
+                <td style=""padding:6px 0;border-bottom:1px solid #EFEDE8;text-align:{(rtl ? "left" : "right")};"" dir=""ltr"">{E(line.LineTotal)}</td></tr>");
+            foreach (var (label, value) in totals)
+                html.Append($@"
+            <tr><td style=""padding:6px 0;text-align:{align};color:#6b736f;"">{E(label)}</td>
+                <td style=""padding:6px 0;text-align:{(rtl ? "left" : "right")};"" dir=""ltr"">{E(value)}</td></tr>");
+            html.Append(@"
+          </table>");
+        }
         if (action is { Url: { } url } button)
             html.Append($@"
           <div style=""text-align:center;margin:28px 0;"">
@@ -87,10 +129,18 @@ internal sealed class EmailComposer : IEmailComposer
     }
 
     private static string Plain(
-        string title, string body, IReadOnlyList<(string Label, string Value)> details, string? url, string note, string footer)
+        string culture, string title, string body, IReadOnlyList<(string Label, string Value)> details,
+        IReadOnlyList<EmailLine> lines, IReadOnlyList<(string Label, string Value)> totals,
+        string? url, string note, string footer)
     {
         var text = new StringBuilder().AppendLine(title).AppendLine().AppendLine(body);
         foreach (var (label, value) in details) text.AppendLine($"{label}: {value}");
+        if (lines.Count > 0)
+        {
+            text.AppendLine().AppendLine(OrderLabels[culture].Items);
+            foreach (var line in lines) text.AppendLine($"- {line.Name} × {line.Quantity}: {line.LineTotal}");
+            foreach (var (label, value) in totals) text.AppendLine($"{label}: {value}");
+        }
         if (url is not null) text.AppendLine().AppendLine(url);
         if (note.Length > 0) text.AppendLine().AppendLine(note);
         return text.AppendLine().AppendLine(footer).ToString();

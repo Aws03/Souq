@@ -25,7 +25,6 @@
 
 | # | Risk | Confidence | Impact | What to do |
 |---|---|---|---|---|
-| R-06 | **Order emails can show the wrong total or never arrive.** `OrderEmailHandler` loads the order without its lines, so the computed total reflects shipping only; a discounted order can throw and be retried until the outbox marks it dead | Observed | Customers receive a wrong or missing order confirmation | Use the frozen `PlacedTotal`; add a handler test with lines and a discount |
 | R-07 | **A product in a disabled category is invisible but still purchasable.** The storefront hides it, but the basket and checkout check only the product's own status | Known | A store "removes" a category and still sells from it | Decide where sellability is defined, enforce it in the pricing pipeline and at checkout, and test it |
 | R-09 | **Currency changes are not fully guarded.** A store's currency locks only after a product or an order exists; coupons and shipping methods created before that keep their old currency, and a fixed-amount coupon is a bare decimal applied in the basket's currency | Observed | "5 JOD off" silently becomes "5 USD off" | Compare `Money` with its currency in the coupon rules; extend the currency lock to any priced row |
 

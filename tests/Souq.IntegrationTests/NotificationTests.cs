@@ -109,7 +109,8 @@ public class NotificationTests
         var created = await _factory.CreateStoreAsync();
         var store = _api.ForStore(created);
         var admin = await store.AdminAsync();
-        var productId = await store.CreateProductAsync(admin, price: 20m, stock: 6);   // حدّ التنبيه الافتراضي 5
+        // اسم صريح كي يُتحقَّق من ظهور السطر نفسه في بريد التأكيد (R-06). حدّ التنبيه الافتراضي 5.
+        var productId = await store.CreateProductAsync(admin, price: 20m, stock: 6, name: "سمّاعة الاختبار");
         var (customer, email) = await store.NewCustomerAsync();
         await _factory.DispatchNotificationsAsync();
 
@@ -130,6 +131,9 @@ public class NotificationTests
         var confirmation = _factory.Emails.LastTo(email, EmailTemplate.OrderConfirmed)!;
         confirmation.FromName.Should().Be(created.Tenant.Name);
         confirmation.Subject.Should().Contain(paid.Data["orderNumber"]);
+        // R-06 من طرف إلى طرف: السطر المشترى بكميته وإجماليه، والإجمالي المجمّد (20 × 2) — لا صفر ولا شحن وحده.
+        confirmation.TextBody.Should().Contain("سمّاعة الاختبار").And.Contain("40.00");
+        confirmation.HtmlBody.Should().Contain("40.00");
         var tracking = new Uri(confirmation.ActionUrl!);
         (tracking.Host, tracking.AbsolutePath.StartsWith("/track/", StringComparison.Ordinal)).Should().Be((created.Host, true));
 

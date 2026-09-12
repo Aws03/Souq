@@ -123,21 +123,37 @@ public sealed class OrderEmailHandler : INotificationMessageHandler<OrderEmailRe
             OrderStatus.Cancelled => EmailTemplate.OrderCancelled,
             _ => null,
         };
-        var order = template is null ? null : await _orders.GetByIdAsync(request.OrderId, ct);
+        // التجمّع كاملاً: بلا أسطره كان الإجمالي يُجمع من صفر سطر — رسالة بقيمة الشحن وحدها، وطلب بخصم يرمي
+        // (خصم أكبر من فرعي صفر) فتموت الرسالة بعد آخر محاولة (R-06).
+        var order = template is null ? null : await _orders.GetWithItemsAsync(request.OrderId, ct);
         var customer = order is null ? null : await _customers.GetByIdAsync(order.CustomerId, ct);
         if (order is null || customer is not { ErasedAt: null }) return;
 
         var origin = await _origins.ForStoreAsync(_tenant.RequireTenant().Id, ct);
+
+        // الإجماليات المجمّدة لحظة التثبيت (PlacedSubtotal/PlacedTotal) لا محسوبة الآن: الفاتورة لا تتغيّر بتغيّر الكتالوج.
         var values = new Dictionary<string, string>
         {
             ["orderNumber"] = order.OrderNumber.ToString(CultureInfo.InvariantCulture),
-            ["total"] = order.TotalAmount.Amount.ToString("0.00#", CultureInfo.InvariantCulture),
+            ["subtotal"] = Amount(order.PlacedSubtotal),
+            ["total"] = Amount(order.PlacedTotal),
             ["currency"] = order.Currency,
             ["trackingNumber"] = order.TrackingNumber ?? "",
             ["carrier"] = order.ShippingCarrier ?? "",
         };
-        await _emails.SendAsync(customer.Email, template!.Value, origin, StorefrontLinks.OrderTracking(origin, order.TrackingToken), values, ct);
+        // الخصم والشحن يُعرضان حين يوجدان فقط — القالب لا يقرّر، والصفر لا يُطبع سطراً.
+        if (order.DiscountAmount is { Amount: > 0 } discount) values["discount"] = Amount(discount.Amount);
+        if (order.ShippingAmount > 0) values["shipping"] = Amount(order.ShippingAmount);
+
+        var lines = order.Items
+            .Select(item => new EmailLine(item.ProductName, item.Quantity, Amount(item.LineTotal.Amount)))
+            .ToList();
+
+        await _emails.SendAsync(customer.Email, template!.Value, origin, StorefrontLinks.OrderTracking(origin, order.TrackingToken),
+            values, ct, lines);
     }
+
+    private static string Amount(decimal value) => value.ToString("0.00#", CultureInfo.InvariantCulture);
 }
 
 internal static class NotificationData

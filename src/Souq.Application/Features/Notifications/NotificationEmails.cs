@@ -28,10 +28,10 @@ public sealed class NotificationEmails
 
     public async Task SendAsync(
         string to, EmailTemplate template, string origin, string? actionUrl, IReadOnlyDictionary<string, string> values,
-        CancellationToken ct)
+        CancellationToken ct, IReadOnlyList<EmailLine>? lines = null)
     {
         var (branding, culture) = await BrandingAsync(origin, ct);
-        var email = _composer.Compose(new EmailContent(template, culture, branding, actionUrl, values));
+        var email = _composer.Compose(new EmailContent(template, culture, branding, actionUrl, values, lines));
         await _sender.SendAsync(new EmailMessage(
             to, email.Subject, email.HtmlBody, email.TextBody, branding.StoreName, branding.ContactEmail, template.ToString(), actionUrl), ct);
     }

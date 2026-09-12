@@ -167,7 +167,9 @@ public class OrderNotificationHandlersTests
     {
         _order.AddItem(1, "سماعات", new Money(50, "JOD"), 1);
         _order.AssignNumber(1001);
+        _order.Place(new DateTime(2026, 9, 12, 0, 0, 0, DateTimeKind.Utc));   // الإجماليات المجمّدة مصدر البريد (R-06)
         _orders.GetByIdAsync(9, Arg.Any<CancellationToken>()).Returns(_order);
+        _orders.GetWithItemsAsync(9, Arg.Any<CancellationToken>()).Returns(_order);
         _customers.GetByIdAsync(3, Arg.Any<CancellationToken>()).Returns(_customer);
         _users.ListActiveIdsByRolesAsync(Arg.Any<IReadOnlyCollection<string>>(), Arg.Any<CancellationToken>()).Returns([20, 21]);
         _notifications.AddAsync(Arg.Do<Notification>(_added.Add), Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
@@ -252,6 +254,58 @@ public class OrderNotificationHandlersTests
         composed.ActionUrl.Should().Be($"https://elite.test/track/{_order.TrackingToken}");
         (composed.Values["orderNumber"], composed.Values["total"], composed.Values["currency"]).Should().Be(("1001", "50.00", "JOD"));
         await sender.Received(1).SendAsync(Arg.Is<EmailMessage>(m => m.To == "sara@souq.test"), Arg.Any<CancellationToken>());
+    }
+
+    // R-06: المعالج كان يحمّل الجذر بلا أسطره (GetByIdAsync = FindAsync بلا Include)، فيُجمع الفرعي من صفر سطر —
+    // بريد بقيمة الشحن وحدها، وطلب بخصم يرمي InvalidMoneyException (خصم أكبر من فرعي صفر) فتموت رسالته بعد آخر محاولة.
+    [Fact]
+    public async Task بريد_الطلب_يحمل_أسطره_وإجمالياته_المجمّدة_لا_محسوبة_من_تجمّع_ناقص()
+    {
+        var order = TestCatalog.WithId(new Order(customerId: 3, "عمّان", "JOD"), 11);
+        order.AddItem(1, "سماعات", new Money(50, "JOD"), 2);
+        order.ApplyCoupon("SAVE10", new Money(10, "JOD"));
+        order.ApplyShipping("توصيل", new Money(5, "JOD"), "Aramex", null, 2, 4, "JO");
+        order.AssignNumber(1042);
+        order.Place(new DateTime(2026, 9, 12, 0, 0, 0, DateTimeKind.Utc));
+        _orders.GetWithItemsAsync(11, Arg.Any<CancellationToken>()).Returns(order);
+
+        var tenants = Substitute.For<ITenantRepository>();
+        tenants.GetByIdAsync(1, Arg.Any<CancellationToken>()).Returns(new Tenant("متجر النخبة", "elite", "JOD", "ar", "Asia/Amman"));
+        var composer = Substitute.For<IEmailComposer>();
+        EmailContent? composed = null;
+        composer.Compose(Arg.Do<EmailContent>(c => composed = c)).Returns(new ComposedEmail("s", "h", "t"));
+        var origins = Substitute.For<IStoreOrigins>();
+        origins.ForStoreAsync(1, Arg.Any<CancellationToken>()).Returns("https://elite.test");
+        var emails = new NotificationEmails(tenants, TestTenant.Context(id: 1), composer, Substitute.For<IEmailSender>());
+
+        await new OrderEmailHandler(_orders, _customers, origins, TestTenant.Context(id: 1), emails)
+            .HandleAsync(new OrderEmailRequested(11, OrderStatus.Paid), CancellationToken.None);
+
+        // كل سطر بكميته وإجمالي سطره كما جُمّد على الطلب.
+        composed!.Lines.Should().ContainSingle().Which.Should().Be(new EmailLine("سماعات", 2, "100.00"));
+        // 100 فرعي − 10 خصم + 5 شحن = 95 — من الأعمدة المثبَّتة لا من حساب لحظة الإرسال.
+        (composed.Values["subtotal"], composed.Values["discount"], composed.Values["shipping"], composed.Values["total"])
+            .Should().Be(("100.00", "10.00", "5.00", "95.00"));
+        composed.Values["orderNumber"].Should().Be("1042");
+    }
+
+    [Fact]
+    public async Task بريد_طلب_بلا_خصم_ولا_شحن_لا_يعرض_سطريهما()
+    {
+        var composer = Substitute.For<IEmailComposer>();
+        EmailContent? composed = null;
+        composer.Compose(Arg.Do<EmailContent>(c => composed = c)).Returns(new ComposedEmail("s", "h", "t"));
+        var tenants = Substitute.For<ITenantRepository>();
+        tenants.GetByIdAsync(1, Arg.Any<CancellationToken>()).Returns(new Tenant("متجر النخبة", "elite", "JOD", "ar", "Asia/Amman"));
+        var origins = Substitute.For<IStoreOrigins>();
+        origins.ForStoreAsync(1, Arg.Any<CancellationToken>()).Returns("https://elite.test");
+        var emails = new NotificationEmails(tenants, TestTenant.Context(id: 1), composer, Substitute.For<IEmailSender>());
+
+        await new OrderEmailHandler(_orders, _customers, origins, TestTenant.Context(id: 1), emails)
+            .HandleAsync(new OrderEmailRequested(9, OrderStatus.Paid), CancellationToken.None);
+
+        composed!.Values.Should().NotContainKey("discount").And.NotContainKey("shipping");
+        composed.Values["subtotal"].Should().Be("50.00");
     }
 }
 
