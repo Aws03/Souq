@@ -3,6 +3,7 @@ using FluentValidation;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 using Souq.API.Http;
+using Souq.API.Observability;
 using Souq.Application.Common.Exceptions;
 using Souq.Domain.Exceptions;
 
@@ -35,6 +36,17 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
 
     public async ValueTask<bool> TryHandleAsync(HttpContext httpContext, Exception exception, CancellationToken ct)
     {
+        // العميل أغلق الاتصال قبل انتهاء الطلب (تنقّل، إغلاق تبويب، انقطاع شبكة): ليس خطأ خادم، ولا أحد ينتظر جواباً.
+        // بلا هذا الفحص يسقط الإلغاء على الحالة العامة: سطر ERROR بمكدّسه في السجلّ ومحاولة كتابة 500 على اتصال مغلق —
+        // فيغرق معدّل الأخطاء بضجيج يخفي الأعطال الحقيقية. بقية الشيفرة تميّز الإلغاء أصلاً (OutboxProcessor،
+        // StoreSweepService، CreateOrderHandler)؛ هذه الطبقة الأبعد وحدها كانت لا تميّزه.
+        if (exception is OperationCanceledException && httpContext.RequestAborted.IsCancellationRequested)
+        {
+            _logger.LogInformation("Request aborted by the client: {Method} {Path}",
+                httpContext.Request.Method, SensitivePath.Redact(httpContext));
+            return true;
+        }
+
         var problem = ToProblem(exception);
         var status = problem.Status!.Value;
         Log(httpContext, exception, status);
@@ -94,14 +106,15 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
     private static string ToJsonPath(string propertyName) =>
         string.Join('.', propertyName.Split('.').Select(JsonNamingPolicy.CamelCase.ConvertName));
 
+    // المسار يمرّ بالتنقيح نفسه الذي يمرّ به سطر الطلب: رمز التتبّع جزء من المسار، ومسار الخطأ كان ينسخه خاماً (R-10).
     private void Log(HttpContext httpContext, Exception exception, int status)
     {
         if (status >= StatusCodes.Status500InternalServerError)
             _logger.LogError(exception, "Unhandled exception while processing {Method} {Path}",
-                httpContext.Request.Method, httpContext.Request.Path.Value);
+                httpContext.Request.Method, SensitivePath.Redact(httpContext));
         else if (status == StatusCodes.Status409Conflict)
             _logger.LogWarning("Persistence conflict {ConflictType} on {Method} {Path}",
-                exception.GetType().Name, httpContext.Request.Method, httpContext.Request.Path.Value);
+                exception.GetType().Name, httpContext.Request.Method, SensitivePath.Redact(httpContext));
         else
             _logger.LogDebug("Request rejected with {StatusCode}: {ExceptionType}", status, exception.GetType().Name);
     }

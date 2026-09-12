@@ -4,11 +4,13 @@ using FluentValidation;
 using FluentValidation.Results;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Souq.API.Http;
 using Souq.API.Middleware;
 using Souq.Application.Common.Exceptions;
 using Souq.Domain.Exceptions;
+using Souq.IntegrationTests.Infrastructure;
 
 namespace Souq.IntegrationTests;
 
@@ -70,7 +72,57 @@ public class GlobalExceptionHandlerTests
         json.GetProperty("detail").GetString().Should().NotBeNullOrWhiteSpace();
     }
 
+    // العميل يغلق الاتصال باستمرار (تنقّل، إغلاق تبويب، شبكة جوّال): بلا تمييزه يصير كل انقطاع سطرَ ERROR بمكدّسه
+    // ومحاولةَ كتابة 500 على اتصال مغلق — فيخفي معدّلُ الأخطاء الأعطالَ الحقيقية.
+    [Fact]
+    public async Task طلب_ألغاه_العميل_ليس_خطأ_خادم_ولا_يُكتب_له_جواب()
+    {
+        var logs = new CapturingLoggerProvider();
+        var context = NewContext();
+        using var aborted = new CancellationTokenSource();
+        await aborted.CancelAsync();
+        context.RequestAborted = aborted.Token;
+
+        var handled = await HandlerFor(context, logs)
+            .TryHandleAsync(context, new OperationCanceledException(), CancellationToken.None);
+
+        handled.Should().BeTrue();
+        context.Response.StatusCode.Should().NotBe(StatusCodes.Status500InternalServerError);
+        context.Response.Body.Length.Should().Be(0, "لا أحد ينتظر جواباً على اتصال أغلقه صاحبه");
+        logs.Entries.Should().NotContain(e => e.Level == LogLevel.Error, "الانقطاع ليس عطلاً في الخادم");
+    }
+
+    // R-10 مرّة أخرى: التنقيح كان في سطر الطلب وحده، ومسار الخطأ ينسخ المسار خاماً — فيتسرّب الرمز من طريق الخطأ.
+    [Fact]
+    public async Task رمز_التتبّع_يُنقَّح_من_سجلّ_معالج_الاستثناءات_أيضاً()
+    {
+        var logs = new CapturingLoggerProvider();
+        const string token = "0123456789abcdef0123456789abcdef";
+        var context = NewContext();
+        context.Request.Path = $"/api/orders/track/{token}";
+        context.Request.RouteValues["token"] = token;
+
+        await HandlerFor(context, logs).TryHandleAsync(context, new InvalidOperationException("boom"), CancellationToken.None);
+
+        context.Response.StatusCode.Should().Be(StatusCodes.Status500InternalServerError);
+        logs.Entries.Should().NotBeEmpty()
+            .And.NotContain(e => e.Message.Contains(token), "من يقرأ السجلّ يفتح صفحة تتبّع صاحب الرمز بلا مصادقة");
+        logs.Entries.Should().Contain(e => e.Message.Contains("/api/orders/track/***"), "القالب يبقى مفيداً للتشخيص");
+    }
+
     private static async Task<(int Status, JsonElement Json)> HandleAsync(Exception exception)
+    {
+        var context = NewContext();
+
+        (await HandlerFor(context).TryHandleAsync(context, exception, CancellationToken.None)).Should().BeTrue();
+
+        context.Response.ContentType.Should().StartWith("application/problem+json");
+        context.Response.Body.Position = 0;
+        using var document = await JsonDocument.ParseAsync(context.Response.Body);
+        return (context.Response.StatusCode, document.RootElement.Clone());
+    }
+
+    private static DefaultHttpContext NewContext()
     {
         var services = new ServiceCollection()
             .AddLogging()
@@ -80,14 +132,15 @@ public class GlobalExceptionHandlerTests
         context.Request.Method = "POST";
         context.Request.Path = "/api/test";
         context.Response.Body = new MemoryStream();
+        return context;
+    }
 
-        var handler = new GlobalExceptionHandler(
-            services.GetRequiredService<IProblemDetailsService>(), NullLogger<GlobalExceptionHandler>.Instance);
-        (await handler.TryHandleAsync(context, exception, CancellationToken.None)).Should().BeTrue();
-
-        context.Response.ContentType.Should().StartWith("application/problem+json");
-        context.Response.Body.Position = 0;
-        using var document = await JsonDocument.ParseAsync(context.Response.Body);
-        return (context.Response.StatusCode, document.RootElement.Clone());
+    private static GlobalExceptionHandler HandlerFor(HttpContext context, CapturingLoggerProvider? logs = null)
+    {
+        ILogger<GlobalExceptionHandler> logger = logs is null
+            ? NullLogger<GlobalExceptionHandler>.Instance
+            : LoggerFactory.Create(b => b.AddProvider(logs)).CreateLogger<GlobalExceptionHandler>();
+        return new GlobalExceptionHandler(
+            context.RequestServices.GetRequiredService<IProblemDetailsService>(), logger);
     }
 }
