@@ -9,7 +9,7 @@
 |---|---|---|---|
 | [`Souq.Domain.Tests`](#souqdomaintests) | 23 | 164 | 34 |
 | [`Souq.Application.Tests`](#souqapplicationtests) | 39 | 272 | 11 |
-| [`Souq.ArchitectureTests`](#souqarchitecturetests) | 8 | 35 | 3 |
+| [`Souq.ArchitectureTests`](#souqarchitecturetests) | 8 | 36 | 3 |
 | [`Souq.IntegrationTests`](#souqintegrationtests) | 32 | 166 | 15 |
 | [frontend (Vitest)](#frontend-vitest) | 24 | 102 | — |
 
@@ -95,7 +95,7 @@
 | `tests/Souq.ArchitectureTests/EndpointRuleTests.cs` | `EndpointRuleTests` | 3 | 0 |
 | `tests/Souq.ArchitectureTests/GeneratedDocsTests.cs` | `GeneratedDocsTests` | 5 | 1 |
 | `tests/Souq.ArchitectureTests/ModuleAndContractRuleTests.cs` | `ModuleAndContractRuleTests` | 8 | 1 |
-| `tests/Souq.ArchitectureTests/TenancyRuleTests.cs` | `TenancyRuleTests` | 6 | 0 |
+| `tests/Souq.ArchitectureTests/TenancyRuleTests.cs` | `TenancyRuleTests` | 7 | 0 |
 | `tests/Souq.ArchitectureTests/WhiteLabelSourceTests.cs` | `WhiteLabelSourceTests` | 1 | 0 |
 
 ## Souq.IntegrationTests

@@ -56,7 +56,7 @@ Every rule below is enforced by a test unless the last column says otherwise. Br
 | 7 | No `IQueryable` crosses the Application or Domain surface | `ModuleAndContractRuleTests` |
 | 8 | No client-bindable request carries a `TenantId` (outside the platform area) | `ModuleAndContractRuleTests` |
 | 9 | Every tenant-owned entity has the tenant query filter and a foreign key to `Tenants`; cross-row foreign keys carry the tenant | `TenancyRuleTests` |
-| 10 | `IgnoreQueryFilters` only in the reviewed platform read path; no raw SQL outside migrations | `TenancyRuleTests` |
+| 10 | `IgnoreQueryFilters` only in the reviewed platform read path; no raw SQL outside migrations; `ExecuteUpdate`/`ExecuteDelete` only in reviewed places, because they skip `SaveChanges` and therefore the write guard | `TenancyRuleTests` |
 | 11 | Use cases read the tenant, never set it | `TenancyRuleTests` |
 | 12 | Every platform-area request is audited (`IAuditable`) | `ModuleAndContractRuleTests` |
 | 13 | No direct clock reads (`DateTime.UtcNow`); inject `TimeProvider` | `ClockRuleTests` |

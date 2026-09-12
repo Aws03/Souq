@@ -105,6 +105,7 @@ Being honest about the gaps is part of the contract.
 An exception is a written, reviewed list — never a quiet call.
 
 - `TenancyRuleTests.ReviewedFilterBypasses` is the only place where `IgnoreQueryFilters` is allowed (`PlatformQueries`, the audited platform read path).
+- `TenancyRuleTests.ReviewedBulkWrites` is the equivalent list for `ExecuteUpdate`/`ExecuteDelete`. Those translate to a single UPDATE or DELETE and never pass through `SaveChanges`, so neither `TenantWriteGuardInterceptor` nor `AuditTimestampsInterceptor` runs: the tenant query filter is the only thing isolating them. Three types are listed today (`OrderNumbers`, `NotificationRepository`, `OutboxProcessor`); a fourth fails the build until it is reviewed.
 - `WhiteLabelSourceTests.Allowed` lists the two files that may name the demo store or a currency (`DbSeeder`, `CurrencyInfo`).
 - Raw SQL is allowed only inside migrations.
 

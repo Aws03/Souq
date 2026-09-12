@@ -36,6 +36,25 @@ public class TenancyRuleTests
         "ExecuteSqlInterpolated", "ExecuteSqlInterpolatedAsync",
     };
 
+    // كتابة مجمّعة: تُترجَم إلى UPDATE/DELETE واحد ولا تمرّ بـ SaveChanges إطلاقاً — فلا
+    // TenantWriteGuardInterceptor يفحصها ولا AuditTimestampsInterceptor يختمها. عزلها يقوم على مرشّح
+    // المستأجر وحده.
+    private static readonly HashSet<string> BulkWriteMethods = new(StringComparer.Ordinal)
+    {
+        "ExecuteUpdate", "ExecuteUpdateAsync", "ExecuteDelete", "ExecuteDeleteAsync",
+    };
+
+    // المواضع الستّة المراجَعة اليوم (F-1). إضافة نوع هنا قرار يُراجَع كتوأمه أعلاه — لا طريق مختصر لأداء:
+    //   • OrderNumbers — زيادة عدّاد المتجر بلا Where إطلاقاً: المرشّح وحده يختار الصفّ.
+    //   • NotificationRepository — "اقرأ الكلّ" بشرط المستلم وحده؛ المتجر من المرشّح.
+    //   • OutboxProcessor — جدول غير مُرشَّح عمداً، وخدمة واحدة بنطاق المنصّة تقرؤه ثم تدخل نطاق كل رسالة.
+    private static readonly HashSet<string> ReviewedBulkWrites = new(StringComparer.Ordinal)
+    {
+        "Souq.Infrastructure.Persistence.OrderNumbers",
+        "Souq.Infrastructure.Persistence.Repositories.NotificationRepository",
+        "Souq.Infrastructure.Persistence.Outbox.OutboxProcessor",
+    };
+
     [Fact]
     public void كل_كيان_تجاري_ملك_لمتجر_وجداول_المنصّة_وحدها_بلا_متجر()
     {
@@ -123,6 +142,22 @@ public class TenancyRuleTests
             .ToList();
 
         offenders.Should().BeEmpty("SQL خام لا يمرّ بمرشّح المستأجر — استعلامات LINQ فقط");
+    }
+
+    // F-1: الكتابة المجمّعة تتجاوز حارس الكتابة وختم الطوابع معاً، فيبقى مرشّح المستأجر دفاعها الوحيد.
+    // المرشّح يُطبَّق فعلاً على هذه العمليات، فالمواضع القائمة سليمة — لكن الموضع التالي لن يكون له دفاع ولا اختبار
+    // ما لم يُكتشف عند البناء. هذا الاختبار يجعله يُكتشف.
+    [Fact]
+    public void الكتابة_المجمّعة_تتجاوز_حارس_الكتابة_فمواضعها_مراجَعة()
+    {
+        var offenders = CallersOf(m => BulkWriteMethods.Contains(m.Name)
+                                       && m.DeclaringType.Namespace == "Microsoft.EntityFrameworkCore")
+            .Where(type => !ReviewedBulkWrites.Contains(type))
+            .ToList();
+
+        offenders.Should().BeEmpty(
+            "ExecuteUpdate/ExecuteDelete لا تمرّ بـ SaveChanges: لا حارس كتابة ولا طوابع. موضع جديد يحتاج مراجعة"
+            + " ويُضاف إلى ReviewedBulkWrites عمداً — مع شرط TenantId صريح إن لم يكن الكيان مُرشَّحاً");
     }
 
     [Fact]

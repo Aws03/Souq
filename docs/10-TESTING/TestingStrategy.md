@@ -39,7 +39,7 @@ These are executable architecture. They fail the build when a boundary moves wit
 |---|---|
 | `tests/Souq.ArchitectureTests/DependencyRuleTests.cs` | The layer rule, thin controllers, no entity setters, handlers only in Application |
 | `tests/Souq.ArchitectureTests/ModuleAndContractRuleTests.cs` | Module contracts and cycles, no entities in contracts, no `IQueryable` leaks, platform requests audited, no client-bound `TenantId` |
-| `tests/Souq.ArchitectureTests/TenancyRuleTests.cs` | Tenant ownership, query filters, composite keys, the single reviewed filter bypass, no raw SQL |
+| `tests/Souq.ArchitectureTests/TenancyRuleTests.cs` | Tenant ownership, query filters, composite keys, the single reviewed filter bypass, no raw SQL, and bulk writes only in reviewed places |
 | `tests/Souq.ArchitectureTests/ClockRuleTests.cs` | No direct clock reads anywhere (IL scan) |
 | `tests/Souq.ArchitectureTests/EndpointRuleTests.cs` | Every endpoint declares its access; platform endpoints need a platform permission; one handler per request |
 | `tests/Souq.ArchitectureTests/WhiteLabelSourceTests.cs` | No brand or currency literal in product code or committed configuration |

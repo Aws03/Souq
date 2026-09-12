@@ -134,6 +134,7 @@ The harness exists since Phase 1A. It already proves **user-level** isolation: c
 |---|---|
 | A new entity forgets `ITenantOwned` | Architecture test: every entity in a tenant-owned module implements it (Phase 2). The isolation suite fails. |
 | Someone uses `IgnoreQueryFilters()` in a feature | Architecture/grep test: only allowed inside `IPlatformQueries` |
+| Someone adds a bulk `ExecuteUpdate()` / `ExecuteDelete()` | Architecture test: only the types in `ReviewedBulkWrites`. These never reach `SaveChanges`, so the write guard cannot catch a mistake at runtime — the build has to |
 | A background job runs without a tenant | Querying tenant data without context throws, so the failure is loud |
 | A cache entry is served to the wrong tenant | Tenant-prefixed keys; the cache wrapper requires a tenant id |
 | A URL to another tenant's upload is shared | Storage keys are unguessable; storefronts reference only their own tenant prefix |
@@ -150,6 +151,7 @@ The harness exists since Phase 1A. It already proves **user-level** isolation: c
 | Store status and endpoint-area gating | `TenantAvailabilityMiddleware` + `PlatformEndpointAttribute`, `AvailableDuringProvisioningAttribute`, `AvailableOnAllHostsAttribute`, `AvailableWhenStoreClosedAttribute` (the storefront configuration and the four session endpoints) | `TenantResolutionTests` (suspended, provisioning, platform host) |
 | Token ↔ host binding (`tid`) | `AccessTokenValidation` (`src/Souq.API/Security/AccessTokenValidation.cs`), on token validation | `TenantIsolationTests` (A's token on B's host → 401, both ways) |
 | Named query filter `"Tenant"` that throws without a tenant | `AppDbContext.ConfigureTenantOwned` (reflection) | `TenancyRuleTests` (every entity has it), `TenantIsolationTests` (no-tenant and platform scope throw) |
+| Bulk writes (`ExecuteUpdate` / `ExecuteDelete`) only in reviewed places — they skip `SaveChanges`, so the write guard and the timestamp interceptor never see them and the filter is the only isolation | `TenancyRuleTests.ReviewedBulkWrites` (three types today) | `TenancyRuleTests` (IL scan; a new call site fails the build) |
 | Write guard: stamp, reject cross-tenant writes, Critical log | `Persistence/Interceptors/TenantWriteGuardInterceptor` | `TenantIsolationTests` (modify foreign row; add with an explicit foreign tenant) |
 | Tenant-scoped composite FKs `(TenantId, XId) → (TenantId, Id)` | Entity configurations + migration | `TenancyRuleTests`; `TenantIsolationTests` (foreign category, parent, product, coupon, review rejected) |
 | Per-tenant uniqueness, `TenantId`-leading indexes | Configurations + `Phase2MultiTenancy` | `TenantIsolationTests` (same slug, code and email in two stores) |
