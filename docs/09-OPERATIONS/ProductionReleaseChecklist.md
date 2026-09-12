@@ -147,6 +147,16 @@
 - [ ] **REQUIRED** A manual pass over the money path on the real deployment: browse, add to basket, check out, pay, receive the email, track the order, refund it.
 - [ ] **RECOMMENDED** The same pass as a **second** store on its own domain, to prove isolation and branding in the deployed stack rather than in tests.
 
+## 18. Commercial and legal
+
+Four decisions are the owner's, not engineering's, and none of them fails a test. Two are reachable through the Sign-off rule below because they are open **P0** items; **two are P1 and nothing else on this page would stop a release**, which is why they are written here — the person working through this list is the last one positioned to notice.
+
+- [ ] **REQUIRED** **The licence and repository visibility are settled (P-03).** `LICENSE` is MIT today and the repository has a public remote, so anyone who receives the code may resell it. [README.md](../../README.md) already marks this "under review before the first sale". Decide before the first sale, not after — relicensing does not reach copies already taken ([ReleaseReadiness.md](ReleaseReadiness.md) R-27).
+- [ ] **REQUIRED** **The tax position is settled (P-06).** No tax model exists and the pricing pipeline's tax stage is an explicit zero. In most jurisdictions this is a legal bar on selling, not a missing feature. Tracked as a P0, so the Sign-off rule already blocks on it (R-25).
+- [ ] **REQUIRED** **JOD minor units are verified against the real Stripe account (P-05)** — already required in §7, repeated here because it is a commercial exposure rather than a configuration step: getting it wrong collects a tenth of every price. A P0 (R-01).
+- [ ] **REQUIRED (before a second paying store)** **The payment account model is chosen (D-13):** every store connects its own Stripe account, or the platform adopts Stripe Connect. The mechanism for both exists; the choice does not. It decides who is merchant of record, and therefore who carries liability, fees and chargebacks. A P1, so **the Sign-off rule below does not catch it** (R-26).
+- [ ] **RECOMMENDED** The demo store shipped by the Phase 2 migration has been adopted, renamed or archived deliberately. Its row exists in every database; only its contents are environment-gated ([Migrations.md](../06-DATABASE/Migrations.md) §8).
+
 ---
 
 ## Sign-off
