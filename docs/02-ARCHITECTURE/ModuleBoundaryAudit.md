@@ -2,7 +2,7 @@
 
 > **What this page is:** every one of the cross-module domain crossings in [ModuleDomainDependencies.md](ModuleDomainDependencies.md), read in the code and given a class and a reason. The generated file *counts* crossings; this page says which ones are fine, which are accidents, and which are architectural violations.
 > **Read with:** [ModuleBoundaries.md](ModuleBoundaries.md) (who owns what) · [DependencyRules.md](DependencyRules.md) (what enforces what) · [ADR-0004](../11-ADR/0004-module-boundaries.md).
-> **Audited:** Phase 17, against 78 crossings across 16 module pairs.
+> **Audited:** Phase 17, against 79 crossings across 16 module pairs. Row 79 was added during the phase itself — the ratchet caught it — and is recorded at the end of the table rather than renumbering the rest.
 
 ## The goal is not zero
 
@@ -14,7 +14,7 @@ A crossing is not a defect by itself. This is a modular monolith: one transactio
 |---|---|---|
 | **A** | Goes through a published contract | **0** — see below |
 | **B** | A legitimate shared primitive: a published domain event, or a store setting the owning module publishes | **13** |
-| **C** | Accidental coupling: a read that a narrow contract would serve just as well | **45** |
+| **C** | Accidental coupling: a read that a narrow contract would serve just as well | **46** |
 | **D** | Architectural violation: one module **writes** another module's aggregate, or the crossing forms a cycle | **20** |
 | **E** | Unclear, needs an owner decision | **0** |
 
@@ -47,7 +47,7 @@ Two observations worth carrying:
 | Shopping → Catalog | 0 | 12 | 0 | *ISellableItems* — a snapshot (id, default variant id, name, names by culture, image, price, sellable) |
 | Notifications → Identity | 0 | 5 | 6 | *IAccountTokens* (issue and persist, return the raw token) plus *IStaffRecipients* for the two role lookups |
 | Customers → Identity | 0 | 2 | 6 | *IAccountLifecycle* — rename, verify password, erase |
-| Notifications → Ordering | 4 | 4 | 0 | *IOrderNotificationView*, or carry the fields on the event |
+| Notifications → Ordering | 4 | 5 | 0 | *IOrderNotificationView*, or carry the fields on the event |
 | Notifications → Platform | 6 | 0 | 0 | none needed — deliberate store-identity read |
 | Platform → Payments | 0 | 3 | 2 | no contract — **move the files** into `Features/Payments` |
 | Customers → Shopping | 0 | 0 | 4 | *IForgetsCustomer*, implemented by baskets and wishlist, or an erasure event |
@@ -173,6 +173,7 @@ The target graph keeps **Customers → Identity**, so the Identity → Customers
 | 76 | Notifications | Platform | `StoreContact` | `NotificationEmails` | B | R | Reply-to address |
 | 77 | Notifications | Platform | `StoreSettings` | `NotificationEmails` | B | R | Display name, branding, contact |
 | 78 | Notifications | Platform | `Tenant` | `NotificationEmails` | B | R | Store identity, never written |
+| 79 | Notifications | Ordering | `OrderItem` | `OrderEmailHandler` | C | R | **Added in Phase 17 by the R-06 fix**, and caught by the ratchet rather than slipping in. The order email is now itemised, so the handler reads each line's frozen name, quantity and total. Same character as rows 65–68: a read to compose a message, and part of the cluster *IOrderNotificationView* would close |
 
 ## What to do with this
 
