@@ -23,10 +23,13 @@ public static class TestCatalog
     }
 
     // id يُعطى للمنتج ولمتغيّره الافتراضي معاً (كما بعد الحفظ فعلياً) — أسطر الحجز تحمل معرّف المتغيّر.
+    // categoryActive: قابلية البيع تعتمد على الفئة أيضاً (Product.IsSellable، R-07)، ومستودع الكتابة يحمّلها دائماً —
+    // فالبديل يحاكي ذلك بفئة مفعّلة افتراضياً.
     public static Product Product(string name = "سماعات", decimal price = 50, int categoryId = 1,
-        string currency = "JOD", int? id = null)
+        string currency = "JOD", int? id = null, bool categoryActive = true)
     {
         var product = new Product($"p-{Guid.NewGuid():N}"[..12], categoryId, Texts(name), new Money(price, currency));
+        WithCategory(product, TestCatalog.Category($"فئة {categoryId}", $"c-{categoryId}", categoryId, categoryActive));
         if (id is int value)
         {
             WithId(product, value);
@@ -35,11 +38,20 @@ public static class TestCatalog
         return product;
     }
 
-    public static Category Category(string name, string slug, int? id = null)
+    public static Category Category(string name, string slug, int? id = null, bool isActive = true)
     {
         var category = new Category(slug, Texts(name));
+        if (!isActive) category.Deactivate();
         if (id is int value) WithId(category, value);
         return category;
+    }
+
+    // علاقة التنقّل التي يملؤها EF عند التحميل — تُضبط هنا بالمُحدِّد الخاص كما يفعل المستودع.
+    public static Product WithCategory(Product product, Category category)
+    {
+        typeof(Product).GetProperty(nameof(Souq.Domain.Entities.Product.Category))!
+            .GetSetMethod(nonPublic: true)!.Invoke(product, [category]);
+        return product;
     }
 
     // مخزون متغيّر بكمية موجودة (حركة التوريد تُهمَل هنا — اختبارات الكيان تغطّيها).

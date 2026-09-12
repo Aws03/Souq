@@ -17,7 +17,10 @@ public class ProductRepository : RepositoryBase<Product>, IProductRepository
     public async Task<IReadOnlyList<Product>> GetManyAsync(IReadOnlyCollection<int> ids, CancellationToken ct = default) =>
         ids.Count == 0 ? [] : await WithChildren().Where(p => ids.Contains(p.Id)).ToListAsync(ct);
 
+    // الفئة مُضمَّنة لأن قابلية البيع تعتمد عليها (Product.IsSellable، R-07) — لا استعلام إضافي لكل منتج: الفئة انضمام
+    // واحد على الجذر، والأبناء استعلاماتهم المنفصلة كما كانت.
     private IQueryable<Product> WithChildren() => Db.Products
+        .Include(p => p.Category)
         .Include(p => p.Translations)
         .Include(p => p.Images)
         .Include(p => p.Variants)

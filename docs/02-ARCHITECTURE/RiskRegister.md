@@ -25,7 +25,6 @@
 
 | # | Risk | Confidence | Impact | What to do |
 |---|---|---|---|---|
-| R-07 | **A product in a disabled category is invisible but still purchasable.** The storefront hides it, but the basket and checkout check only the product's own status | Known | A store "removes" a category and still sells from it | Decide where sellability is defined, enforce it in the pricing pipeline and at checkout, and test it |
 | R-09 | **Currency changes are not fully guarded.** A store's currency locks only after a product or an order exists; coupons and shipping methods created before that keep their old currency, and a fixed-amount coupon is a bare decimal applied in the basket's currency | Observed | "5 JOD off" silently becomes "5 USD off" | Compare `Money` with its currency in the coupon rules; extend the currency lock to any priced row |
 
 ## 3. Tenant isolation and security

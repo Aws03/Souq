@@ -87,7 +87,7 @@ public class AddToWishlistHandler : IRequestHandler<AddToWishlistCommand, Result
         if (await _wishlist.FindAsync(customerId, cmd.ProductId, ct) is null)
         {
             var product = await _products.GetByIdAsync(cmd.ProductId, ct);
-            if (product is not { IsActive: true })
+            if (product is not { IsSellable: true })
                 return Result<WishlistDto>.Failure(Error.NotFound("المنتج غير موجود"));
             if (!WishlistItem.HasRoom(await _wishlist.CountForCustomerAsync(customerId, ct)))
                 return Result<WishlistDto>.Failure(Error.BusinessRule("WishlistFull",
@@ -155,7 +155,7 @@ public class MergeWishlistHandler : IRequestHandler<MergeWishlistCommand, Result
 
         if (candidates.Count > 0 && room > 0)
         {
-            var published = (await _products.GetManyAsync(candidates, ct)).Where(p => p.IsActive).Select(p => p.Id).ToHashSet();
+            var published = (await _products.GetManyAsync(candidates, ct)).Where(p => p.IsSellable).Select(p => p.Id).ToHashSet();
             var added = 0;
             foreach (var productId in candidates.Where(published.Contains).Take(room))
             {

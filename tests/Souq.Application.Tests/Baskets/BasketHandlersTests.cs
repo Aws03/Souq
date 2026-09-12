@@ -87,6 +87,21 @@ public class BasketHandlersTests
         await _uow.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
+    // R-07: المنتج في فئة معطّلة مخفيّ من المتجر — ولا يُضاف للسلة بمعرّفه أيضاً.
+    [Fact]
+    public async Task منتج_في_فئة_معطّلة_لا_يُضاف_للسلة()
+    {
+        _products.GetByIdAsync(8, Arg.Any<CancellationToken>())
+            .Returns(TestCatalog.Product(price: 10, id: 8, categoryActive: false));
+
+        var result = await AddHandler(TestCurrentUser.Anonymous())
+            .Handle(new AddBasketItemCommand(null, 8, 1), CancellationToken.None);
+
+        result.ErrorCode.Should().Be("NotFound");
+        _added.Should().BeNull();
+        await _uow.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
     [Fact]
     public async Task دخول_العميل_يدمج_سلة_الزائر_ويحذفها_ويمسح_الرمز()
     {

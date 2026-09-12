@@ -41,6 +41,11 @@ public class Product : Entity, ITenantOwned
     public Money? CompareAtPrice => DefaultVariant.CompareAtPrice;
     public string? Sku => DefaultVariant.Sku;
     public bool IsActive => Status == ProductStatus.Active;
+
+    // القابلية للبيع ليست حالة المنتج وحدها: فئة معطّلة تُخفي منتجاتها من واجهة المتجر، لكن الشراء كان يفحص حالة المنتج
+    // وحدها — فيبقى منتج فئةٍ "أزالها" المتجر قابلاً للشراء بمعرّفه من السلة والدفع (R-07). القاعدة هنا كي تكون واحدة
+    // لكل مسار شراء. الفئة تُحمَّل دائماً مع المنتج في مستودع الكتابة (ProductRepository): بلا فئة محمّلة لا بيع.
+    public bool IsSellable => IsActive && Category is { IsActive: true };
     public string? PrimaryImageUrl => _images.OrderBy(i => i.SortOrder).ThenBy(i => i.Id).FirstOrDefault()?.Url;
 
     // اسم للرسائل والسجلات؛ اللقطات التجارية تستخدم NameIn(لغة المتجر).

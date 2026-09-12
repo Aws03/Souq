@@ -7,10 +7,10 @@
 
 | Suite | Files | Facts | Theories |
 |---|---|---|---|
-| [`Souq.Domain.Tests`](#souqdomaintests) | 23 | 163 | 34 |
-| [`Souq.Application.Tests`](#souqapplicationtests) | 39 | 269 | 11 |
+| [`Souq.Domain.Tests`](#souqdomaintests) | 23 | 164 | 34 |
+| [`Souq.Application.Tests`](#souqapplicationtests) | 39 | 272 | 11 |
 | [`Souq.ArchitectureTests`](#souqarchitecturetests) | 8 | 35 | 3 |
-| [`Souq.IntegrationTests`](#souqintegrationtests) | 32 | 163 | 15 |
+| [`Souq.IntegrationTests`](#souqintegrationtests) | 32 | 164 | 15 |
 | [frontend (Vitest)](#frontend-vitest) | 23 | 99 | — |
 
 ## Souq.Domain.Tests
@@ -30,7 +30,7 @@
 | `tests/Souq.Domain.Tests/OrderShippingTests.cs` | `OrderShippingTests` | 5 | 0 |
 | `tests/Souq.Domain.Tests/OrderTests.cs` | `OrderTests` | 23 | 1 |
 | `tests/Souq.Domain.Tests/PaymentTests.cs` | `PaymentTests` | 5 | 3 |
-| `tests/Souq.Domain.Tests/ProductTests.cs` | `ProductTests`, `CategoryTests` | 10 | 1 |
+| `tests/Souq.Domain.Tests/ProductTests.cs` | `ProductTests`, `CategoryTests` | 11 | 1 |
 | `tests/Souq.Domain.Tests/RefreshTokenTests.cs` | `RefreshTokenTests` | 3 | 0 |
 | `tests/Souq.Domain.Tests/ReviewTests.cs` | `ReviewTests` | 8 | 1 |
 | `tests/Souq.Domain.Tests/ShippingMethodTests.cs` | `ShippingMethodTests` | 4 | 1 |
@@ -47,8 +47,8 @@
 |---|---|---|---|
 | `tests/Souq.Application.Tests/Auth/AuthHandlersTests.cs` | `AuthRig`, `RegisterHandlerTests`, `LoginHandlerTests`, `RefreshSessionHandlerTests`, `LogoutHandlerTests`, `ChangePasswordHandlerTests`, `ForgotPasswordHandlerTests`, `ResetPasswordHandlerTests`, `VerifyEmailHandlerTests` | 22 | 0 |
 | `tests/Souq.Application.Tests/Baskets/BasketCheckoutTests.cs` | `BasketCheckoutTests` | 2 | 0 |
-| `tests/Souq.Application.Tests/Baskets/BasketHandlersTests.cs` | `BasketHandlersTests` | 8 | 0 |
-| `tests/Souq.Application.Tests/Baskets/PricingServiceTests.cs` | `PricingServiceTests` | 7 | 0 |
+| `tests/Souq.Application.Tests/Baskets/BasketHandlersTests.cs` | `BasketHandlersTests` | 9 | 0 |
+| `tests/Souq.Application.Tests/Baskets/PricingServiceTests.cs` | `PricingServiceTests` | 8 | 0 |
 | `tests/Souq.Application.Tests/Categories/CategoryHandlersTests.cs` | `CreateCategoryHandlerTests`, `UpdateCategoryHandlerTests`, `DeleteCategoryHandlerTests` | 13 | 0 |
 | `tests/Souq.Application.Tests/Common/AccountsTests.cs` | `AccountsTests` | 7 | 0 |
 | `tests/Souq.Application.Tests/Common/AuditBehaviorTests.cs` | `AuditBehaviorTests` | 5 | 0 |
@@ -83,7 +83,7 @@
 | `tests/Souq.Application.Tests/Shipping/StoreShippingRatesTests.cs` | `StoreShippingRatesTests` | 2 | 0 |
 | `tests/Souq.Application.Tests/Stores/ReviewSettingsHandlersTests.cs` | `ReviewSettingsHandlersTests` | 2 | 0 |
 | `tests/Souq.Application.Tests/Stores/StorePaymentAccountEditorTests.cs` | `StorePaymentAccountEditorTests` | 5 | 1 |
-| `tests/Souq.Application.Tests/Wishlist/WishlistHandlersTests.cs` | `WishlistHandlersTests` | 8 | 1 |
+| `tests/Souq.Application.Tests/Wishlist/WishlistHandlersTests.cs` | `WishlistHandlersTests` | 9 | 1 |
 
 ## Souq.ArchitectureTests
 
@@ -107,7 +107,7 @@
 | `tests/Souq.IntegrationTests/AuthorizationBoundaryTests.cs` | `AuthorizationBoundaryTests` | 7 | 0 |
 | `tests/Souq.IntegrationTests/AuthorizationMatrixTests.cs` | `AuthorizationMatrixTests` | 2 | 0 |
 | `tests/Souq.IntegrationTests/BasketTests.cs` | `BasketTests` | 5 | 0 |
-| `tests/Souq.IntegrationTests/CatalogTests.cs` | `CatalogTests`, `ProductCommandCounter` | 8 | 0 |
+| `tests/Souq.IntegrationTests/CatalogTests.cs` | `CatalogTests`, `ProductCommandCounter` | 9 | 0 |
 | `tests/Souq.IntegrationTests/ConfigurationTests.cs` | `ConfigurationTests`, `ConfiguredFactory` | 5 | 4 |
 | `tests/Souq.IntegrationTests/CouponRedemptionTests.cs` | `CouponRedemptionTests` | 3 | 0 |
 | `tests/Souq.IntegrationTests/CustomerAccountTests.cs` | `CustomerAccountTests` | 6 | 0 |

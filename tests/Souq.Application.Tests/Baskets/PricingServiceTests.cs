@@ -55,6 +55,19 @@ public class PricingServiceTests
         (quote.Subtotal.Amount, quote.Total.Amount).Should().Be((8m, 8m));
     }
 
+    // R-07: خطّ التسعير هو الحدّ الموثوق للشراء (السلة والدفع يمرّان به) — فالفئة المعطّلة تُخرج منتجها من المجموع هنا.
+    [Fact]
+    public async Task منتج_في_فئة_معطّلة_غير_قابل_للبيع_وخارج_المجموع()
+    {
+        Catalog(TestCatalog.Product("مخفي بفئته", price: 30m, id: 1, categoryActive: false),
+                TestCatalog.Product("ظاهر", price: 4m, id: 2));
+
+        var quote = await Pricing().QuoteAsync([new(1, 1), new(2, 1)], null, null, null, CancellationToken.None);
+
+        quote.Lines.Select(l => (l.ProductId, l.Sellable)).Should().Equal((1, false), (2, true));
+        (quote.Subtotal.Amount, quote.Total.Amount).Should().Be((4m, 4m));
+    }
+
     [Fact]
     public async Task الكوبون_المقبول_يخصم_من_الفرعي()
     {

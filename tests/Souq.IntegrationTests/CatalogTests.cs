@@ -178,6 +178,47 @@ public class CatalogTests
         (await AdminListAsync(admin, $"categoryId={category}")).Should().Equal(new[] { (product, "Active") }, "المنتج نفسه لم يُمسّ");
     }
 
+    // ============================================================================
+    // R-07: إخفاء الفئة كان يُخفي منتجاتها من العرض وحده — والشراء بمعرّف المنتج يمرّ. الآن الخادم يرفض في كل مسار
+    // شراء: سلّة موجودة من قبل التعطيل، إضافة جديدة، ودفع مباشر.
+    // ============================================================================
+    [Fact]
+    public async Task تعطيل_الفئة_يمنع_الشراء_لا_العرض_وحده_حتى_لما_في_السلة_قبله()
+    {
+        var admin = await _api.AdminAsync();
+        var slug = $"off-{Guid.NewGuid():N}"[..20];
+        var category = await _api.CreateCategoryAsync(admin, slug);
+        var product = await _api.CreateProductAsync(admin, price: 12m, stock: 5, categoryId: category);
+        var (customer, _) = await _api.NewCustomerAsync();
+
+        // السلة تُملأ والفئة مفعّلة.
+        (await customer.PostAsJsonAsync("/api/basket/items", new { productId = product, quantity = 1 }))
+            .StatusCode.Should().Be(HttpStatusCode.OK);
+
+        (await admin.PutAsJsonAsync($"/api/categories/{category}", new
+        {
+            slug, translations = Arabic("مخفية"), parentId = (int?)null, sortOrder = 0, isActive = false,
+        })).IsSuccessStatusCode.Should().BeTrue();
+
+        // ما كان في السلة يصير غير قابل للبيع، والسلة غير جاهزة للدفع.
+        var basket = (await customer.GetFromJsonAsync<TestApi.BasketBody>("/api/basket", TestApi.Json))!;
+        basket.Lines.Should().ContainSingle().Which.Sellable.Should().BeFalse();
+        basket.ReadyForCheckout.Should().BeFalse();
+
+        // ولا يُضاف من جديد، ولا يُشترى مباشرةً بمعرّفه.
+        (await ProblemAsync(await customer.PostAsJsonAsync("/api/basket/items", new { productId = product, quantity = 1 })))
+            .Should().Be((HttpStatusCode.NotFound, "NotFound"));
+        (await ProblemAsync(await _api.PlaceOrderAsync(customer, product, 1)))
+            .Should().Be((HttpStatusCode.BadRequest, "ProductNotFound"));
+
+        // وإعادة تفعيل الفئة تعيده للبيع بلا لمس المنتج نفسه.
+        (await admin.PutAsJsonAsync($"/api/categories/{category}", new
+        {
+            slug, translations = Arabic("ظاهرة"), parentId = (int?)null, sortOrder = 0, isActive = true,
+        })).IsSuccessStatusCode.Should().BeTrue();
+        (await _api.PlaceOrderAsync(customer, product, 1)).StatusCode.Should().Be(HttpStatusCode.Created);
+    }
+
     [Fact]
     public async Task معرض_الصور_يُرتَّب_وتُزال_صوره_والرئيسية_أولاها()
     {

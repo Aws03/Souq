@@ -78,7 +78,7 @@ public class AddBasketItemHandler : IRequestHandler<AddBasketItemCommand, Result
     public async Task<Result<BasketResult>> Handle(AddBasketItemCommand cmd, CancellationToken ct)
     {
         var product = await _products.GetByIdAsync(cmd.ProductId, ct);
-        if (product is null || !product.IsActive)
+        if (product is not { IsSellable: true })
             return Result<BasketResult>.Failure(Error.NotFound("المنتج غير متاح"));
 
         var resolved = await _resolver.ResolveAsync(cmd.GuestToken, ct);

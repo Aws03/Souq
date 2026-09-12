@@ -107,6 +107,32 @@ public class ProductTests
         product.Status.Should().Be(ProductStatus.Draft);
     }
 
+    // R-07: الفئة المعطّلة تُخفي منتجاتها من المتجر، وكان الشراء يفحص حالة المنتج وحدها — فيبقى منتجها قابلاً للشراء بمعرّفه.
+    [Fact]
+    public void القابلية_للبيع_تتطلّب_منتجاً_نشطاً_في_فئة_مفعّلة()
+    {
+        var category = new Category("electronics", new Dictionary<string, CatalogText> { ["ar"] = new("إلكترونيات") });
+        var product = WithCategory(NewProduct(), category);
+
+        product.IsSellable.Should().BeTrue();
+
+        category.Deactivate();
+        product.IsSellable.Should().BeFalse("فئة معطّلة لا تُباع منتجاتها");
+        product.IsActive.Should().BeTrue("حالة المنتج نفسها لم تتغيّر — الإخفاء قرار الفئة");
+
+        category.Activate();
+        product.ChangeStatus(ProductStatus.Draft);
+        product.IsSellable.Should().BeFalse("المسودّة لا تُباع ولو كانت فئتها مفعّلة");
+
+        NewProduct().IsSellable.Should().BeFalse("بلا فئة محمّلة لا بيع — المستودع يحمّلها دائماً");
+    }
+
+    private static Product WithCategory(Product product, Category category)
+    {
+        typeof(Product).GetProperty(nameof(Product.Category))!.GetSetMethod(nonPublic: true)!.Invoke(product, [category]);
+        return product;
+    }
+
     [Fact]
     public void معرض_الصور_مرتّب_ومحدود_والترتيب_يشمل_كل_صورة_مرّة()
     {

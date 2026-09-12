@@ -78,6 +78,20 @@ public class WishlistHandlersTests
         await _uow.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
+    // R-07: الفئة المعطّلة تُخفي منتجها من المفضّلة كما من المتجر — إضافةً ودمجاً.
+    [Fact]
+    public async Task منتج_في_فئة_معطّلة_لا_يُضاف_للمفضّلة_ولا_يُدمَج()
+    {
+        _products.GetByIdAsync(7, Arg.Any<CancellationToken>()).Returns(TestCatalog.Product(id: 7, categoryActive: false));
+        _products.GetManyAsync(Arg.Any<IReadOnlyCollection<int>>(), Arg.Any<CancellationToken>())
+            .Returns(new List<Product> { TestCatalog.Product(id: 7, categoryActive: false) });
+
+        (await Add().Handle(new AddToWishlistCommand(7), CancellationToken.None)).ErrorCode.Should().Be("NotFound");
+        (await Merge().Handle(new MergeWishlistCommand([7]), CancellationToken.None)).IsSuccess.Should().BeTrue();
+
+        await _wishlist.DidNotReceive().AddAsync(Arg.Any<WishlistItem>(), Arg.Any<CancellationToken>());
+    }
+
     [Fact]
     public async Task المفضّلة_الممتلئة_ترفض_الإضافة()
     {

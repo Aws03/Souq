@@ -113,7 +113,7 @@ public sealed class PricingService : IPricing
     private static PricedLine Price(Product product, int quantity, string culture) => new(
         product.Id, product.DefaultVariant.Id, product.NameIn(culture),
         product.Translations.ToDictionary(t => t.Culture, t => t.Name), product.PrimaryImageUrl,
-        product.Price, quantity, product.Price.Multiply(quantity), product.IsActive);
+        product.Price, quantity, product.Price.Multiply(quantity), product.IsSellable);
 
     private static PricedLine Missing(PricingLine line, Money zero) => new(
         line.ProductId, 0, "", new Dictionary<string, string>(), null, zero, line.Quantity, zero, Sellable: false);
