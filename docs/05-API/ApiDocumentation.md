@@ -5,7 +5,7 @@
 ## 1. Style
 
 - **REST over HTTPS with JSON.** Resources are nouns; HTTP methods are the verbs. Enums travel as strings (`"Shipped"`).
-- Commands that don't map to CRUD become **sub-resource actions**, for example `POST /api/orders/{id}/confirm-payment` and `PUT /api/admin/orders/{id}/status`. Invented verb endpoints are avoided.
+- Commands that don't map to CRUD become **sub-resource actions**, for example `POST /api/orders/{id}/confirm-payment` and `PUT /api/orders/{id}/status`. Invented verb endpoints are avoided — the distinction is that the action hangs off the resource it changes, rather than becoming a verb of its own.
 - **Controllers are thin.** A controller:
   - binds the request;
   - applies authorization attributes;
@@ -83,7 +83,10 @@ Every error is RFC 7807 `application/problem+json`:
   - Repeated keys for arrays. Comma-separated lists are not used.
 - **Sorting:** a `sortBy` enum per resource (an allowlist). Raw column names from the client are never accepted.
 - **Search:** `keyword`, bilingual `LIKE` today. A search port will abstract it if a search engine arrives.
-- **Every list endpoint is paged** — including `/api/orders/mine` (default 20) and the admin inventory lists (inventory 50, low stock 20, stock movements 50). A badge that only needs a count asks for `pageSize=1` and reads `totalCount`.
+- **Every *paged* list carries the same envelope and the same limits** — including `/api/orders/mine` (default 20) and the admin inventory lists (inventory 50, low stock 20, stock movements 50). A badge that only needs a count asks for `pageSize=1` and reads `totalCount`.
+- **Five lists are deliberately not paged, and two exports are unbounded.** Corrected in Phase 17 — this page previously claimed every list was paged, which was never true:
+  - bounded by a domain rule, so paging would add nothing: `/api/wishlist` (200 items per customer) and `/api/account/addresses` (20).
+  - **unbounded today:** `/api/categories` and `/api/admin/categories` (depth is capped at 5, breadth is not), `/api/admin/shipping-methods`, and both `/export` endpoints, which return every order a customer ever placed with all of its lines plus every review. See F-21 in [ReleaseReadiness.md](../09-OPERATIONS/ReleaseReadiness.md).
 - **Implementation (1B):**
   - The query implements `IPagedQuery`; its validator inherits `PagedQueryValidator<T>` (one place for the limits).
   - The use case passes typed criteria and a `PageRequest` to the module's query service (`ICatalogQueries`, `IOrderQueries`, …).

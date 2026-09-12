@@ -92,11 +92,25 @@ public class QueryServiceTests
     [InlineData("/api/admin/inventory?pageSize=101", "admin")]
     [InlineData("/api/admin/inventory/low-stock?page=0", "admin")]
     [InlineData("/api/admin/inventory/1/movements?pageSize=0", "admin")]
+    [InlineData("/api/orders/mine?page=1000&pageSize=100", "customer")]   // F-18: إزاحة 99,900
     public async Task القوائم_التي_كانت_بلا_حدّ_ترفض_حجم_صفحة_خارج_الحدود(string url, string who)
     {
         var client = who == "admin" ? await _api.AdminAsync() : (await _api.NewCustomerAsync()).Client;
 
         (await client.GetAsync(url)).StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    // F-18: حجم الصفحة كان محدوداً والإزاحة لا. /api/products مجهول الهوية وبلا حدّ معدّل، فيقرأ page=100000 ملايين
+    // الصفوف ويرميها — وبترتيب "الأكثر مبيعاً" يجمع فوقها تاريخ الطلبات المُسلَّمة كلّه (F-17).
+    [Fact]
+    public async Task إزاحة_ترقيم_عميقة_تُرفض_والتصفّح_الطبيعي_يمرّ()
+    {
+        var anonymous = _api.Anonymous();
+
+        (await anonymous.GetAsync("/api/products?page=100000&pageSize=100")).StatusCode
+            .Should().Be(HttpStatusCode.BadRequest, "الإزاحة وحدها ~10 ملايين صفّ");
+        (await anonymous.GetAsync("/api/products?page=1&pageSize=12")).StatusCode
+            .Should().Be(HttpStatusCode.OK, "الحدّ لا يمسّ التصفّح الحقيقي");
     }
 
     [Fact]

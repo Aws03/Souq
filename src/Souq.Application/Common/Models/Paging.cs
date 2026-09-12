@@ -29,6 +29,15 @@ public abstract class PagedQueryValidator<T> : AbstractValidator<T> where T : IP
     {
         RuleFor(x => x.Page).GreaterThanOrEqualTo(1);
         RuleFor(x => x.PageSize).InclusiveBetween(1, PagingRules.MaxPageSize);
+
+        // عمق الترقيم (F-18): الحساب بـ long عمداً — (Page-1)*PageSize بـ int يفيض عند أرقام الصفحات الكبيرة
+        // فيصير سالباً ويجتاز الفحص، أي أن أضخم طلب وحده هو ما يفلت. الشرط When يمنع رسالةً ثانية مربكة حين
+        // تكون الصفحة أو حجمها خارج حدّه أصلاً.
+        RuleFor(x => x)
+            .Must(q => (long)(q.Page - 1) * q.PageSize <= PagingRules.MaxOffset)
+            .When(q => q.Page >= 1 && q.PageSize >= 1)
+            .OverridePropertyName(nameof(IPagedQuery.Page))
+            .WithMessage($"عمق الترقيم يتجاوز الحدّ ({PagingRules.MaxOffset} صفّاً). ضيّق التصفية بدل التعمّق في الصفحات.");
     }
 }
 
