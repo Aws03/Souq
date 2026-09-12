@@ -12,6 +12,7 @@
 - **Not now because:** one team, one deployment, and the hardest problem in this product — cross-module consistency at checkout (stock, coupon, order, payment) — is currently solved by one database transaction. Splitting would replace that with sagas and compensations for no business gain.
 - **Evidence that would justify it:** several teams blocked on one another's releases; one capability needing a fundamentally different scaling or compliance profile (PCI isolation for Payments, flash-sale load for Inventory); a module whose failure must not touch the rest.
 - **Already prepared:** modules own their tables and talk through contracts; no cross-module foreign keys except `TenantId`; reserve → commit/release contracts for Inventory and Promotions, which become saga steps unchanged; the outbox makes Notifications extractable today.
+- **Re-checked in Phase 17:** the transaction audit confirmed the argument is still true rather than merely asserted. Every multi-save use case runs inside one transaction, and **no transaction spans a network call** — the payment intent is created after the commit, the refund is sent after the commit, the gateway confirmation happens before one opens. So the gateway, e-mail and storage calls already sit outside the consistency boundary, while stock, coupon, order and payment stay inside it. That inner atomicity is exactly what a split would have to replace with sagas and compensations, and today it costs nothing.
 - **Requires:** a new ADR that names the service, its data, its contract, and the consistency it gives up. See [ADR-0012](../11-ADR/0012-service-extraction-strategy.md) for the extraction order.
 
 ## 2. Event sourcing
@@ -20,6 +21,7 @@
 - **Not now because:** the business needs *records*, not replays. Orders already keep an immutable status history with actors, inventory keeps an append-only ledger, and platform actions are audited. Event sourcing would add projections, versioning and rebuild tooling to every read.
 - **Evidence that would justify it:** a regulatory requirement to reconstruct any entity's state at any past time; or analytical demand that the current histories cannot answer.
 - **Already prepared:** `OrderStatusHistories` and `StockMovements` are append-only; domain events exist for the facts that matter.
+- **Re-checked in Phase 17:** the histories that stand in for a replay were verified, not assumed. `OrderStatusHistories` and `StockMovements` are append-only and written through their aggregate root, `AuditEntries` is append-only and enforced in the write interceptor, and an outbox row is written in the same `SaveChanges` as the fact that caused it — and detached if that save loses a concurrency race. Every defect the phase's audits found was diagnosable from these records; none of them needed a replay.
 - **Requires:** an ADR covering the event store, versioning, snapshots, and how reads are rebuilt. Note that event sourcing, CQRS and Kafka are three separate decisions — adopting one does not imply the others.
 
 ## 3. Kafka or any message broker
@@ -28,6 +30,7 @@
 - **Not now because:** there is one process. The transactional outbox already guarantees that a message written in a business transaction is delivered at least once, with bounded retries and a dead-letter state, and nothing consumes those messages except this application.
 - **Evidence that would justify it:** a second independent consumer (an extracted service, a data platform, a partner integration); message volume that a database-backed outbox cannot keep up with; a need to replay a stream.
 - **Already prepared:** `OutboxMessage` stores references only, with an allow-listed type registry, so the payloads are already broker-shaped; dispatch is a hosted service that could publish instead of handling.
+- **Re-checked in Phase 17:** the outbox's delivery guarantees were audited rather than trusted. The conditional lease makes two dispatchers safe, retries are bounded with a dead-letter state, and a rolled-back save detaches the unsent row. One genuine at-least-once defect was found and fixed — the success write recorded `ProcessedAt` with the dispatch token, so a shutdown between "e-mail sent" and "row marked processed" left the message to be re-sent, duplicating one notification per in-flight message on every deployment. It was a one-token fix in our own code; a broker would not have prevented it, because the same window exists between any consumer's side effect and its acknowledgement. There is still exactly one consumer.
 - **Requires:** an ADR covering the broker, delivery semantics, schema versioning and operations. Adding a broker without a second consumer buys operational cost and nothing else.
 
 ## 4. A database per module, or per tenant
