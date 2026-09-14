@@ -3,7 +3,7 @@
 # عكسي لـ /api و/uploads نحو حاوية الـ API (nginx.conf). لا حاجة لضبط CORS في
 # الخادم لهذا المسار: المتصفح يرى أصلاً واحداً فقط (Nginx)، والتوكيل داخلي.
 # ============================================================================
-FROM node:20-alpine AS build
+FROM node:22-alpine AS build
 WORKDIR /app
 
 COPY package.json package-lock.json ./
