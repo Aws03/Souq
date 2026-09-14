@@ -250,35 +250,24 @@ Every item is verifiable before you let customers in. "Log" means the API's star
 
 **Data**
 
-- [ ] A database backup exists and a restore has been rehearsed (§9 — today nothing is automated).
+- [ ] A database backup exists and a restore has been rehearsed (§9; the drill is `scripts/rehearse-restore.sh`).
 - [ ] The `souq_uploads` volume is part of the same backup.
 - [ ] SQL Server has at least 2 GB of memory available in the Docker VM or host.
 
 ## 9. Backups and restore
 
-**CURRENT: nothing is automated.** There is no backup job, no retention policy and no rehearsed restore in this repository. Backups plus a restore drill are **PLANNED** for Phase 23, and the roadmap's risk R4 already asks for a backup before each migration phase.
+Full contract, runbook and the recorded restore drill: **[BackupAndRestore.md](BackupAndRestore.md)**. In short:
 
-What must be captured together, or a restore is incomplete:
+| | |
+|---|---|
+| Mechanism | `scripts/backup.sh`, `scripts/restore.sh`, `scripts/rehearse-restore.sh` — provider-neutral, rehearsed |
+| Captures | the `SouqDb` database **and** the uploads volume as one dated set, with a manifest and SHA-256 sums |
+| Never captures | secrets — deliberately, so a leaked backup is not also a leaked key ([BackupAndRestore.md](BackupAndRestore.md) §3) |
+| Proven | a set was restored onto a clean server after its source stack was destroyed, and the API served traffic from it |
+| **Still missing** | the off-site copy, the schedule, and alerting on failure — all deployment-specific (§7 there). R-19 stays open until they exist |
 
-| Asset | Where | Note |
-|---|---|---|
-| `SouqDb` database | `souq_db_data` volume | orders, tenants, users, outbox, encrypted store payment keys |
-| Uploaded media | `souq_uploads` volume | product images and branding; not in the database |
-| Secrets | `.env` / the environment | `JWT_KEY`, `SECRETS_KEY`, DB password, provider keys. `SECRETS_KEY` is unrecoverable: without it, stored store payment keys are permanently unreadable |
-
-Manual procedure (standard SQL Server commands, **not scripted here and not rehearsed** — test it on a copy first):
-
-```bash
-# 1. Database backup inside the db container, then copy it out
-docker compose exec db sh -c '/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$MSSQL_SA_PASSWORD" -C \
-  -Q "BACKUP DATABASE [SouqDb] TO DISK = N'"'"'/var/opt/mssql/data/SouqDb.bak'"'"' WITH INIT, COMPRESSION"'
-docker compose cp db:/var/opt/mssql/data/SouqDb.bak ./SouqDb.bak
-
-# 2. Uploaded media
-docker compose cp api:/app/wwwroot/uploads ./uploads-backup
-```
-
-Restore, in this order: stop `api` (so migrations and background jobs cannot write during the restore) → copy the `.bak` back into the db container and `RESTORE DATABASE [SouqDb] … WITH REPLACE` → copy the uploads back → start `api`, which will apply any migrations the restored database is missing. Check the startup log for the adapters line and for migration errors.
+A database backup alone is an incomplete restore: product images and branding live in `souq_uploads`, and
+`SECRETS_KEY` is unrecoverable — without it every stored store payment key stays permanently unreadable.
 
 ## 10. Known risks in the current stack
 
@@ -297,7 +286,7 @@ Read from the code; none of these were reproduced by running the stack.
 ## 11. Rollback
 
 - **Schema.** Migrations are applied by the application at startup, so deploying an older image does **not** roll the schema back: `Migrate` only moves forward. An older image keeps working only if every newer migration was additive. Reverting a data-reshaping migration is not rehearsed — `MigrationRehearsalTests` shows that migrations drop columns after moving their data (for example the pre-Phase-5 product columns and the credentials that moved out of `Customers`), so a `Down()` cannot restore that data even though every migration has one.
-- **Preferred rollback:** restore the database backup taken before the deployment, then deploy the matching image.
+- **Preferred rollback:** restore the database backup taken before the deployment, then deploy the matching image ([BackupAndRestore.md](BackupAndRestore.md) §6 — stop `api` first, or its startup migration writes during the restore).
 - **If you must step the schema back** (with a backup in hand):
 
   ```bash
@@ -323,7 +312,6 @@ Read from the code; none of these were reproduced by running the stack.
 |---|---|---|
 | CI/CD and defined environments | **PLANNED** Phase 23 | roadmap |
 | Migrations as a deployment step (migration bundle) instead of at startup | **PLANNED** Phase 23 | roadmap, [DatabaseDesign.md](../06-DATABASE/DatabaseDesign.md) §10 |
-| Backups plus a restore drill | **PLANNED** Phase 23 | roadmap |
 | Metrics, traces, alerting (OpenTelemetry over the existing trace ids) | **PLANNED** Phase 23 | [ADR-0018](../11-ADR/0018-observability.md) |
 | Automated TLS for custom domains, and DNS/TLS domain verification | **PLANNED** Phase 23 | roadmap, risk R7 |
 | Per-store sending domains with SPF/DKIM | **PLANNED** Phase 23 | [ADR-0034](../11-ADR/0034-notifications-outbox.md), risk R9 |

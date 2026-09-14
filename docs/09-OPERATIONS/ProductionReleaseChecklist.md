@@ -125,7 +125,9 @@
 
 ## 14. Backups
 
-- [ ] **REQUIRED** A backup exists and covers **all three** together: the database, the uploads volume, and the secrets. Any one alone is an incomplete restore.
+- [ ] **REQUIRED** A backup exists and covers **all three** together: the database, the uploads volume, and the secrets. Any one alone is an incomplete restore. `scripts/backup.sh` captures the first two as one set; the secrets are deliberately **not** in it and must be backed up separately ([BackupAndRestore.md](BackupAndRestore.md) §3).
+- [ ] **REQUIRED** The backup job is scheduled, its output is copied **off this host**, and a failure alerts a human. The scripts do none of these — they are the deployment-specific step ([BackupAndRestore.md](BackupAndRestore.md) §7).
+- [ ] **REQUIRED** `SECRETS_KEY` is recoverable from somewhere that is not the backup set and not this host. Losing it permanently disables every store's saved payment keys.
 - [ ] **REQUIRED** A restore has been **rehearsed** onto a separate environment, and the result was checked by signing in and opening an order.
 - [ ] **REQUIRED** A retention period is decided and the backups are stored off the host.
 - [ ] **RECOMMENDED** The restore procedure is written where an on-call person will find it at 3 a.m.

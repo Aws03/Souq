@@ -230,7 +230,7 @@ Two safety rules worth knowing before a production deployment:
 
 ## 9. Known gaps
 
-- **No automated backup and no restore drill.** `docker-compose.yml` keeps the database in the named volume `souq_db_data` and nothing more. Backups plus a restore drill are **PLANNED** for Phase 23; §6 rule 10 is therefore a manual discipline today.
+- **Backups are not scheduled.** A rehearsed backup/restore procedure now exists ([BackupAndRestore.md](../09-OPERATIONS/BackupAndRestore.md)), so §6 rule 10 has a command to run — but nothing runs it for you, and nothing copies it off the host.
 - **No migration bundle and no deployment step** — migrations still run at startup (Phase 23).
 - **No CI check** that a generated migration matches the model, and no test exercises `Down()`.
 - **No batching for large backfills.** Every data migration here is a single statement per table inside the migration's transaction.

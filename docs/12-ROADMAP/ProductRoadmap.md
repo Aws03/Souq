@@ -847,7 +847,7 @@ Status legend: ✅ done · 🟡 in progress · ⏳ planned · ⏸ awaiting appro
 - **Scope.**
   - CI/CD and environments.
   - Migrations as a deployment step (a migration bundle) instead of running at app startup.
-  - Backups plus a restore drill.
+  - Backups plus a restore drill. **Delivered early** by the operational readiness engineering mission — the procedure and the drill exist ([BackupAndRestore.md](../09-OPERATIONS/BackupAndRestore.md)); scheduling and the off-site copy remain deployment work.
   - Observability: structured logs, metrics, traces, and alerts.
   - Health checks. **Delivered early** by the operational readiness engineering mission — `/health/live` and `/health/ready`; see [ReleaseReadiness.md](../09-OPERATIONS/ReleaseReadiness.md) R-20.
   - Automated TLS for custom domains.

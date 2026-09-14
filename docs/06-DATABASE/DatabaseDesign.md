@@ -177,12 +177,13 @@ Known index gaps, all small today and left for the Phase 21 performance review (
 
 ## 12. Backups and recovery
 
-Nothing automated exists today. Stated plainly, so that nobody assumes otherwise:
+Full contract and runbook: [BackupAndRestore.md](../09-OPERATIONS/BackupAndRestore.md). Stated plainly, so that nobody assumes more than is true:
 
-- **No backup job, no retention schedule, no restore drill, no point-in-time recovery.** `docker-compose.yml` keeps the database files in the named Docker volume `souq_db_data`; deleting the volume deletes the database.
-- **The only recovery mechanism in the repository is a migration's `Down()`**, and most of them lose data ([Migrations.md](Migrations.md) §7).
-- **Manual discipline until then:** take a backup before applying a phase migration (the roadmap's own R4 mitigation), and rehearse the migration on a copy.
-- Backups plus a restore drill are **PLANNED** for Phase 23, together with the migration bundle and an incident runbook.
+- **A rehearsed procedure exists** (`scripts/backup.sh` / `restore.sh` / `rehearse-restore.sh`), and a restore has been performed onto a clean server and verified by running the application against it.
+- **No backup job, no retention schedule and no off-site copy.** `docker-compose.yml` keeps the database files in the named Docker volume `souq_db_data`; deleting the volume still deletes the database, and nothing runs the backup for you.
+- **No point-in-time recovery.** Full backups only, so the exposure is one backup interval. Log backups would change that and are a deliberate future step.
+- **A migration's `Down()` is not a recovery mechanism**, and most of them lose data ([Migrations.md](Migrations.md) §7).
+- **Manual discipline until the job is scheduled:** take a backup before applying a phase migration (the roadmap's own R4 mitigation), and rehearse the migration on a copy.
 
 ## 13. Known gaps
 
