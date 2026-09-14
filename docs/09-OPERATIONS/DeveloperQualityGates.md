@@ -3,7 +3,7 @@
 > **What this page is:** what must pass, and when. Four gates — a finished feature, a finished review, a release candidate, a production deployment — each listing exactly what is run and what it proves.
 > **Read with:** [AGENTS.md](../../AGENTS.md) §7 (the commands) · [TestingStrategy.md](../10-TESTING/TestingStrategy.md) (what each suite is for) · [ProductionReleaseChecklist.md](ProductionReleaseChecklist.md) (the deployment itself).
 >
-> **There is no CI in this repository.** Every gate below is run by a person, on their machine. That is a known weakness, not a style choice: a red suite can be committed and nobody is told. §5 states what a pipeline must do when one is built.
+> **A pipeline now runs these gates** — [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml), implementing §5. Run them locally anyway before you push: the pipeline is the backstop, not the first place you find out. **One step is still manual and cannot live in this repository:** requiring the checks to pass before a merge is a branch-protection setting in GitHub (§5, requirement 4).
 
 ## The suites
 
@@ -70,17 +70,31 @@ Everything in gate 3, plus [ProductionReleaseChecklist.md](ProductionReleaseChec
 
 ## 5. What a CI pipeline must do
 
-**PLANNED.** No pipeline exists; this is the specification for the one that should.
+**IMPLEMENTED** in [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) as four parallel jobs, so the fast
+suites answer in minutes without waiting on the integration run. Two places where the implementation departs from the
+specification below, both deliberate:
+
+- **No SQL Server *service container*.** The suite uses Testcontainers — `SouqApiFactory` starts its own `MsSqlContainer`
+  and hands the test its connection string — so a service container would sit unused beside the one the tests start.
+  What the job needs is Docker, which `ubuntu-latest` has.
+- **The npm audit is split.** `dependencies` are blocking at high; `devDependencies` are reported but do not fail the
+  build. Vite and Vitest are a build tool and a test runner: their current advisories (including a high) are in the dev
+  server or are Windows-specific, and none of them runs in production, where nginx serves static files. Failing the
+  build on those would force either a threshold quietly lowered later, or major version bumps imposed by the pipeline
+  instead of proposed ([AGENTS.md](../../AGENTS.md)). They stay visible on every run instead of being silently excluded.
+
+A third requirement still cannot live in this repository: **requiring the checks before a merge is a GitHub
+branch-protection setting**, and until someone turns it on the pipeline reports but does not block.
 
 | Stage | Runs | Fails the build when |
 |---|---|---|
 | Build | `dotnet build` with warnings as errors | anything does not compile |
 | Fast tests | Domain, Application, Architecture | a rule, a use case or a boundary broke |
 | Frontend | `npx vitest run`, `npx vite build` | logic or the build broke |
-| Integration | the integration suite with a SQL Server service container | behaviour over the real engine broke |
+| Integration | the integration suite over a real SQL Server | behaviour over the real engine broke |
 | Documentation | the architecture suite already covers it | a link, a path, a code name, an ADR's structure or a generated inventory drifted |
-| Secret scan | a scanner over the diff | a key, a connection string or a token appears |
-| Dependencies | vulnerability audit for NuGet and npm | a known-vulnerable package is introduced |
+| Secret scan | `gitleaks` over the working tree, plus a check for live payment keys that no allowlist can suppress | a key, a connection string or a token appears |
+| Dependencies | NuGet audit; npm audit split into shipped vs tooling | a vulnerable package reaches **shipped** code (tooling advisories are reported, not blocking) |
 
 Requirements that matter more than the tool chosen:
 

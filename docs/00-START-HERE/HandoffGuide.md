@@ -60,7 +60,8 @@ One deployable application, split into thirteen business modules that own their 
 **Be aware, before your first production deployment:**
 
 - Migrations run automatically at startup, in every environment. Back up first.
-- There is **no CI pipeline, and no scheduled backup**. A rehearsed backup/restore procedure exists ([BackupAndRestore.md](../09-OPERATIONS/BackupAndRestore.md)) but nothing runs it for you — wire up the schedule and an off-site copy before real data exists. Health checks exist (`/health/live`, `/health/ready` — [Deployment.md](../09-OPERATIONS/Deployment.md) §6); nothing outside the stack watches them yet.
+- **CI runs but does not block merges yet** — switch on branch protection for `main` so a red run cannot be merged ([`.github/workflows/ci.yml`](../../.github/workflows/ci.yml)).
+- There is **no scheduled backup**. A rehearsed backup/restore procedure exists ([BackupAndRestore.md](../09-OPERATIONS/BackupAndRestore.md)) but nothing runs it for you — wire up the schedule and an off-site copy before real data exists. Health checks exist (`/health/live`, `/health/ready` — [Deployment.md](../09-OPERATIONS/Deployment.md) §6); nothing outside the stack watches them yet.
 - The application connects to SQL Server as `sa`, the API container runs as root, and the repository contains no TLS or security-header configuration. Fix before public traffic.
 - The seeder creates a demo store and demo catalog in any fresh database.
 
@@ -69,7 +70,7 @@ One deployable application, split into thirteen business modules that own their 
 - **Roadmap:** [ProductRoadmap.md](../12-ROADMAP/ProductRoadmap.md) — Phases 2–15 are implemented; the storefront rebuild, the tenant admin dashboard and the platform console (Phases 16–18) are not. The platform area today is a shell: sign-in and a placeholder.
 - **Debt:** [TechnicalDebt.md](../12-ROADMAP/TechnicalDebt.md) — 39 recorded items, prioritized.
 - **Risks:** [RiskRegister.md](../02-ARCHITECTURE/RiskRegister.md) — read §1 (money) before taking real payments.
-- **Tests:** no CI, no frontend component tests, no adapter tests for Stripe or email, no load test.
+- **Tests:** no frontend component tests, no adapter tests for Stripe or email, no load test. CI exists but does not yet block merges.
 - **Release blockers:** [ReleaseReadiness.md](../09-OPERATIONS/ReleaseReadiness.md) — what actually stops a first paying customer, triaged. Five P0 items are open. Two engineering missions have run outside the roadmap (a knowledge pass, then production hardening, which completed at `6a520b7`); the next recommended one is **operational readiness**, and it is not a roadmap phase.
 
 ## 9. Decisions waiting for an owner

@@ -12,6 +12,7 @@
 | `tests/` | Four .NET test projects; frontend tests live beside the code they test |
 | `docs/` | This knowledge system, numbered by purpose |
 | `scripts/` | Operational scripts (backup, restore, restore drill) — `bash` + `sqlcmd`, no build step |
+| `.github/` | The CI pipeline — build, the five suites, dependency audit and secret scan |
 | `docker-compose.yml` | The three-container stack: database, API, web |
 | `.env.example` | Every environment variable the stack reads, documented. The real `.env` is the owner's and is never read or committed |
 | `AGENTS.md` | The engineering contract for humans and AI agents. Read before changing anything |

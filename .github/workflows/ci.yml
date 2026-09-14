@@ -1,0 +1,178 @@
+# ============================================================================
+# خط التكامل المستمر — تنفيذ المواصفة المكتوبة في docs/09-OPERATIONS/DeveloperQualityGates.md §5.
+# المواصفة سبقت الخط، وهذا الملف يحقّقها لا يعيد تعريفها.
+#
+# أربع مهام متوازية عمداً: الاختبارات السريعة تردّ خلال دقائق، ولا تنتظر مجموعة التكامل
+# التي تُشغّل SQL Server حقيقياً. الفشل في أيّها يُفشل الخط كلّه.
+# ============================================================================
+name: CI
+
+on:
+  push:
+    branches: [main, 'phase/**']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# دفعة جديدة على المرجع نفسه تُلغي سابقتها: لا طابور من عمليات تشغيل قديمة لا يقرأها أحد.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+# أقل صلاحية ممكنة للرمز: هذا الخط يقرأ الشيفرة ولا يكتب شيئاً.
+permissions:
+  contents: read
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+
+jobs:
+  # ── البناء والمجموعات السريعة (بلا Docker) ────────────────────────────────
+  fast:
+    name: Build + fast suites
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Cache NuGet
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - run: dotnet restore
+      # التحذيرات أخطاء هنا وإن لم تكن كذلك محلياً: تحذير يمرّ مرّة يمرّ دائماً.
+      - run: dotnet build --no-restore -warnaserror
+
+      - run: dotnet test tests/Souq.Domain.Tests --no-build
+      - run: dotnet test tests/Souq.Application.Tests --no-build
+      # المجموعة المعمارية تشمل اختبارات التوثيق والقوائم المولَّدة.
+      # SOUQ_UPDATE_DOCS غير مضبوط هنا عمداً (المتطلّب 3): القوائم تُتحقَّق ولا تُولَّد في الخط.
+      - run: dotnet test tests/Souq.ArchitectureTests --no-build
+
+      # وهذا ما يُثبت ذلك فعلاً: لو ولّد أي شيء قائمةً أو عدّل ملفاً، لن تكون الشجرة نظيفة.
+      # يلتقط أيضاً انحراف قائمة مولَّدة نُسي تحديثها في نفس التغيير.
+      - name: Working tree must be clean (nothing regenerated, nothing drifted)
+        run: git diff --exit-code
+
+  # ── الواجهة ───────────────────────────────────────────────────────────────
+  frontend:
+    name: Frontend tests + build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'          # نفس إصدار frontend/Dockerfile
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+
+  # ── مجموعة التكامل: SQL Server حقيقي ─────────────────────────────────────
+  integration:
+    name: Integration suite (real SQL Server)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Cache NuGet
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      # لا services: هنا عمداً. المجموعة تستخدم Testcontainers (SouqApiFactory تبني
+      # MsSqlContainer بنفسها وتمرّر سلسلة اتصالها)، فحاوية خدمة من GitHub ستبقى بلا
+      # مستخدم بينما تُشغّل الاختبارات حاويتها الخاصة. المطلوب هنا هو Docker فقط،
+      # وهو متاح على ubuntu-latest. صورة mssql تُسحب عند أول تشغيل: المهلة سخيّة لذلك.
+      - run: dotnet test tests/Souq.IntegrationTests
+
+  # ── سلسلة التوريد: اعتماديات معروفة الثغرات، وأسرار مسرّبة ───────────────
+  supply-chain:
+    name: Dependency audit + secret scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      # dotnet list package --vulnerable يخرج بـ 0 دائماً، حتى حين يجد ثغرات —
+      # فالخرج هو النتيجة لا رمز الخروج. (رموز الخروج كذبت في هذا المستودع من قبل.)
+      - name: NuGet vulnerability audit
+        run: |
+          set -o pipefail
+          dotnet restore
+          report="$(dotnet list package --vulnerable --include-transitive 2>&1)"
+          printf '%s\n' "$report"
+          if printf '%s' "$report" | grep -q "has the following vulnerable packages"; then
+            echo "::error::حزم NuGet ذات ثغرات معروفة."
+            exit 1
+          fi
+
+      # فحصان، لأن "ثغرة في الاعتماديات" ليست شيئاً واحداً هنا:
+      #
+      #   ما يُشحن (dependencies)  ⇒ يُفشل البناء. هذا ما يصل إلى متصفّح الزبون.
+      #   ما لا يُشحن (devDependencies) ⇒ يُعرض ولا يُفشل. vite و vitest أدوات بناء
+      #     واختبار؛ ثغراتها الحالية (بينها high) كلّها في خادم التطوير أو على Windows،
+      #     ولا يعمل أيٌّ منها في الإنتاج — nginx يخدم ملفات ساكنة. إسقاط البناء عليها
+      #     يعني إمّا خفض الحدّ بعد أسبوع (فيصبح الفحص زينة) أو ترقيات رئيسية مفروضة
+      #     بالخط بدل أن تُقترح (AGENTS.md).
+      #
+      # الحدّ high لما يُشحن: التحذيران المتوسّطان على react-router محلَّلان ومسجَّلان
+      # (F-23 — مسار إعادة التوجيه مغلق بـ safeRedirect، وثغرة SSR غير قابلة للوصول
+      # أصلاً بلا SSR). أي high أو critical جديد فيما يُشحن يُفشل البناء فوراً.
+      - name: npm audit — shipped dependencies (blocking)
+        working-directory: frontend
+        run: |
+          npm ci
+          npm audit --omit=dev --audit-level=high
+
+      - name: npm audit — build and test tooling (report only)
+        working-directory: frontend
+        continue-on-error: true
+        run: npm audit --audit-level=high
+
+      # فحص لا يمكن استثناؤه من .gitleaks.toml: مفتاح دفع حيّ في أي مكان، الاختبارات ضمنه.
+      # المهمّة تمنع صراحةً اعتمادات الإنتاج في الاختبارات، واستثناء مسارات الاختبار في
+      # ذلك الملف كان سيخفي هذا بالذات. القيم النائبة (sk_live_51Habc) أقصر من أن تطابق.
+      - name: No live payment keys anywhere (tests included)
+        run: |
+          if grep -rnE '(sk|rk)_live_[A-Za-z0-9]{20,}' \
+               --include='*.cs' --include='*.js' --include='*.jsx' --include='*.json' \
+               --include='*.yml' --include='*.yaml' --include='*.md' . \
+               | grep -v '/obj/\|/bin/\|/node_modules/'; then
+            echo "::error::مفتاح دفع حيّ موجود في المستودع."
+            exit 1
+          fi
+          echo "no live payment keys found"
+
+      # فحص الأسرار على شجرة العمل لا على التاريخ: التاريخ لا يُعاد كتابته في هذا
+      # المستودع، فإفشال كل دفعة على شيء لا يمكن إصلاحه يحوّل الفحص إلى ضجيج يُتجاهل.
+      - name: Secret scan
+        run: |
+          docker run --rm -v "${{ github.workspace }}:/repo:ro" \
+            zricethezav/gitleaks:v8.21.2 detect \
+            --source=/repo --no-git --redact --config=/repo/.gitleaks.toml
