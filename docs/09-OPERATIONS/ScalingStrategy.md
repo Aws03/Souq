@@ -10,6 +10,60 @@ Before any stage below: know which requests are slow, and why. Today the API log
 
 **Missing today (do this before scaling):** no metrics backend, no tracing, no alerting, no load test. A capacity decision without a measurement is a guess. Adding application metrics and a load test of checkout is the cheapest first investment.
 
+## Measured: the "best selling" ranking (F-17)
+
+The storefront home page asks for `sortBy=BestSelling` on every anonymous visit, and that ranking sums
+quantities across the store's entire delivered order history. It was recorded as needing measurement rather
+than a guess. Here are the numbers.
+
+**Method.** The real application over a real SQL Server, on a database created and dropped for the run,
+seeded to the stated size; seven requests per sort, median reported, after a warm-up request.
+`BestSellingPerformanceTests` is the harness.
+
+| Catalogue | Orders | Order items | Default sort (median) | Best-selling (median) | Ratio |
+|---|---|---|---|---|---|
+| 200 products | 2,000 | 4,000 | 8.8 ms | 96 ms | 11× |
+| 200 products | 20,000 | 40,000 | 24.6 ms | 539 ms | 22× |
+
+**Read the ratio, not the milliseconds.** These runs used an `amd64` SQL Server emulated on an `arm64`
+laptop, so the absolute figures are pessimistic and varied between runs (one repetition of the large case
+reported a 1.2 s worst sample). The ratio between the two sorts, measured in the same process against the same
+data, is the part that is stable — and it grew from 11× to 22× when order history grew ten-fold while the
+catalogue stayed the same size. **The cost tracks order history, not catalogue size.**
+
+**Two candidate fixes were measured and rejected, which is what makes the conclusion useful.**
+
+- *A covering index* on `OrderItems (TenantId, ProductId) INCLUDE (OrderId, Quantity)` — the existing index
+  lacks both included columns, so this looked like the obvious fix. Measured: no decisive improvement
+  (298–414 ms with it against 330–539 ms without, inside the run-to-run noise).
+- *Rewriting the LINQ* to pre-aggregate with a `GROUP BY` and join, instead of a correlated subquery per
+  product. Measured on an isolated server with `SET STATISTICS IO`: **both shapes produce identical logical
+  reads** (OrderItems 146, Orders 47). SQL Server's optimiser already collapses the correlated form, so the
+  rewrite would change the source and nothing else.
+
+**What it actually costs.** Stripped of emulation and of the product projection, the ranking is ~195 logical
+reads and ~20 ms of CPU at 40,000 order items — a linear scan of the delivered items, once, not once per
+product. That is why an index cannot fix it: the work is proportional to how much has been sold, and no
+ordering of that data makes the sum cheaper.
+
+**Decision: acceptable for launch, with a defined trigger.** A first store's order history is in the hundreds,
+where this is roughly 100 ms on emulated hardware and less on real hardware. It is not worth denormalising the
+order lifecycle before a single customer exists, and caching would hide the growth rather than remove it.
+
+**Revisit when any of these becomes true**, whichever comes first:
+
+1. A store passes **~20,000 delivered orders**, or
+2. the home page's server time exceeds **200 ms** in production, or
+3. `/api/products` starts taking meaningful anonymous traffic (it has no rate-limit policy — see F-18's
+   interaction with deep paging).
+
+**The fix when the trigger fires** is a precomputed total — a *UnitsSold* counter per product maintained when
+an order reaches Delivered, plus a backfill — which turns the scan into one indexed read. Not Redis: the data
+is small, store-scoped, and already lives in the database that must be consulted anyway.
+
+Until then `BestSellingPerformanceTests` guards the shape rather than the timing: it fails if the ranking ever
+degrades into a query per product, which is the regression a well-meaning refactor would actually introduce.
+
 ## Stage 1 — One instance, one database *(CURRENT)*
 
 What runs today: one API container, one SQL Server, one nginx container serving the built frontend ([Deployment.md](Deployment.md)).
