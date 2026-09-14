@@ -10,7 +10,7 @@
 | [`Souq.Domain.Tests`](#souqdomaintests) | 23 | 165 | 34 |
 | [`Souq.Application.Tests`](#souqapplicationtests) | 39 | 272 | 11 |
 | [`Souq.ArchitectureTests`](#souqarchitecturetests) | 10 | 40 | 4 |
-| [`Souq.IntegrationTests`](#souqintegrationtests) | 37 | 194 | 19 |
+| [`Souq.IntegrationTests`](#souqintegrationtests) | 38 | 196 | 19 |
 | [frontend (Vitest)](#frontend-vitest) | 25 | 107 | — |
 
 ## Souq.Domain.Tests
@@ -118,6 +118,7 @@
 | `tests/Souq.IntegrationTests/GlobalExceptionHandlerTests.cs` | `GlobalExceptionHandlerTests` | 4 | 1 |
 | `tests/Souq.IntegrationTests/HealthCheckTests.cs` | `HealthCheckTests` | 7 | 0 |
 | `tests/Souq.IntegrationTests/InventoryAndOrderTests.cs` | `InventoryAndOrderTests` | 9 | 0 |
+| `tests/Souq.IntegrationTests/LastAdministratorConcurrencyTests.cs` | `LastAdministratorConcurrencyTests` | 2 | 0 |
 | `tests/Souq.IntegrationTests/LocalFileStorageTests.cs` | `LocalFileStorageTests` | 2 | 2 |
 | `tests/Souq.IntegrationTests/MigrationRehearsalTests.cs` | `MigrationRehearsalTests` | 1 | 0 |
 | `tests/Souq.IntegrationTests/MigrationRollbackTests.cs` | `MigrationRollbackTests` | 1 | 0 |

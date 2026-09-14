@@ -208,16 +208,37 @@ public class AppDbContext : DbContext, IUnitOfWork
     }
 
     // معاملة صريحة لعدّة حفظات متتابعة (ADR-0021). داخل معاملة قائمة ⇒ تنضمّ إليها.
+    //
+    // الجمود (deadlock، خطأ 1205) يُترجَم هنا كما تُترجَم بقية أخطاء التزامن: معاملتان تقرأ كلّ
+    // منهما صفّاً كتبته الأخرى ولم تلتزم بعد — وهو ما يحدث فعلاً حين يوقف طلبان متزامنان مديرَين
+    // مختلفين (F-7). الضحية تُرجَع كاملةً، فلا بيانات ناقصة؛ والمطلوب من المتصل إعادة المحاولة،
+    // وهذا بالضبط معنى ConcurrencyConflictException في هذا المستودع. بلا الترجمة يخرج الخطأ
+    // نوعاً تقنياً من SQL Server عبر حدود الطبقة ويصير 500، وهي رسالة خاطئة لسباق قابل للإعادة.
     public async Task<T> InTransactionAsync<T>(Func<Task<T>> work, CancellationToken ct = default)
     {
         if (Database.CurrentTransaction is not null)
             return await work();
 
         await using var transaction = await Database.BeginTransactionAsync(ct);
-        var result = await work();
+        T result;
+        try
+        {
+            result = await work();
+        }
+        catch (Exception ex) when (IsDeadlock(ex))
+        {
+            throw new ConcurrencyConflictException(ex);
+        }
         await transaction.CommitAsync(ct);
         return result;
     }
+
+    private static bool IsDeadlock(Exception exception) => exception switch
+    {
+        SqlException { Number: 1205 } => true,
+        { InnerException: { } inner } => IsDeadlock(inner),
+        _ => false,
+    };
 
     public Task InTransactionAsync(Func<Task> work, CancellationToken ct = default) =>
         InTransactionAsync(async () => { await work(); return true; }, ct);

@@ -47,6 +47,28 @@ dotnet test tests/Souq.Domain.Tests tests/Souq.Application.Tests tests/Souq.Arch
 
 **Safe fix.** Start Docker, pre-pull the image once, and re-run. Remember the suite starts one container per run (a collection fixture in `tests/Souq.IntegrationTests/Infrastructure/SouqApiFactory.cs`) and creates unique data per test rather than resetting the database, so a single slow first run is expected.
 
+**A second, more confusing shape of the same problem: the suite passes one test at a time but fails in bulk.**
+
+**Symptom.** Dozens of tests fail partway through a full run — often four or five minutes in — while each of them passes on its own, and the failures carry no assertion message. In the container log:
+
+```
+Failed allocate pages: FAIL_PAGE_ALLOCATION
+There is insufficient system memory in resource pool 'default' to run this query
+ContainerNotRunningException: ... exited with code 114
+```
+
+**Likely cause.** Docker's memory limit, shared with whatever else you are running. Several tests create their own databases on the shared server (migration rehearsal and rollback, seed safety, the best-selling measurement), so the run's peak demand is well above the steady state, and SQL Server gives up rather than degrading gracefully.
+
+**Diagnostics.**
+
+```bash
+docker stats --no-stream --format '{{.Name}}\t{{.MemUsage}}'   # what else is holding memory
+```
+
+Observed in practice: an unrelated build container holding 1.2 GB of a 2.8 GB Docker allocation was enough to take the suite from 270 passing to 151 failing, and the same suite passed completely once that container exited. **Check this before reading the failures as real** — and never stop containers you did not start.
+
+**Safe fix.** Give Docker more memory (4 GB is comfortable), or wait for the other workload to finish.
+
 **Not this.** Do not point the tests at your development database — the factory builds its own container and deletes it, and its seeding path deliberately mirrors production.
 
 ## 3. The API refuses to start with a configuration message

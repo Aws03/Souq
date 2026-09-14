@@ -4,6 +4,7 @@ using Souq.Application.Common.Notifications;
 using Souq.Application.Common.Security;
 using Souq.Domain.Identity;
 using Souq.Domain.Interfaces;
+using Souq.Application.Common.Exceptions;
 
 namespace Souq.Application.Common.Accounts;
 
@@ -119,16 +120,58 @@ public sealed class AccountStatusChanger
 
         if (user.Id == _currentUser.UserId)
             return Result.Failure(Error.BusinessRule("CannotDisableSelf", "لا يمكنك إيقاف حسابك بنفسك"));
-        if (user.Role == lastStandingRole && user is { Status: UserStatus.Active, IsInvitationPending: false }
-            && await _users.CountActiveByRoleAsync(lastStandingRole, ct) <= 1)
+
+        // الحساب الذي يحرسه شرط "آخر مدير": فعّال، بالدور الأعلى، ودعوته ليست معلّقة.
+        var guarded = user.Role == lastStandingRole && user is { Status: UserStatus.Active, IsInvitationPending: false };
+
+        // المسار السريع: الحالة الشائعة (آخر مدير فعلاً) تُرفض برسالة واضحة بلا معاملة.
+        if (guarded && await _users.CountActiveByRoleAsync(lastStandingRole, ct) <= 1)
             return Result.Failure(Error.BusinessRule("LastAdministrator", "لا يمكن إيقاف آخر حساب فعّال بهذا الدور"));
 
-        user.Disable();
-        var now = _clock.GetUtcNow().UtcDateTime;
-        foreach (var token in await _tokens.ListActiveForUserAsync(user.Id, ct))
-            token.Revoke("Disabled", now);
-        await _uow.SaveChangesAsync(ct);
+        // ── F-7: الفحص أعلاه وحده لا يكفي ────────────────────────────────────────────
+        // طلبان متزامنان يوقفان مديرَين مختلفين: كلاهما يعدّ 2 قبل أن يكتب أيٌّ منهما، فيمرّان،
+        // فيبقى المتجر بلا مدير. وrowversion على User لا يُنقذ لأن كلاً منهما يكتب صفّاً *آخر*.
+        //
+        // الحلّ هنا: نوقف الحساب ثم نعيد العدّ داخل المعاملة نفسها. تحت READ COMMITTED القافل —
+        // وهو افتراضي SQL Server، ولا يُفعّل هذا المستودع RCSI في أي مكان — يضطرّ العدّ الثاني
+        // إلى قراءة صفّ الطلب الآخر، فيحجزه قفله الحصري حتى يلتزم، فيرى النتيجة النهائية لا
+        // القديمة. من يخسر السباق يرى صفراً ويتراجع كلياً.
+        //
+        // لماذا لا SERIALIZABLE: العدّ يمسح مدى الدور، فطلبان متزامنان يأخذان أقفال مدى مشتركة
+        // ثم يطلبان الحصري — جمود (deadlock) يُنهي أحدهما بخطأ خادم بدل رفض عمل واضح. ولماذا لا
+        // sp_getapplock: قفل مسمّى خاص بـ SQL Server يضيف مفهوماً جديداً لحلّ ما تحلّه المعاملة.
+        try
+        {
+            await _uow.InTransactionAsync(async () =>
+            {
+                user.Disable();
+                var now = _clock.GetUtcNow().UtcDateTime;
+                foreach (var token in await _tokens.ListActiveForUserAsync(user.Id, ct))
+                    token.Revoke("Disabled", now);
+                await _uow.SaveChangesAsync(ct);
+
+                if (guarded && await _users.CountActiveByRoleAsync(lastStandingRole, ct) == 0)
+                    throw new LastAdministratorRace();
+            }, ct);
+        }
+        catch (LastAdministratorRace)
+        {
+            return Result.Failure(Error.BusinessRule("LastAdministrator", "لا يمكن إيقاف آخر حساب فعّال بهذا الدور"));
+        }
+        catch (ConcurrencyConflictException) when (guarded)
+        {
+            // خسرنا السباق بجمود: معاملتنا رُجِعت كاملةً وحسابنا ما زال فعّالاً، والطلب الآخر
+            // التزم. لا نخمّن النتيجة — نعيد العدّ الآن وقد استقرّ كل شيء: إن بقي واحد فنحن
+            // نحاول إيقاف الأخير فعلاً، وهذا رفض عمل واضح لا خطأ خادم.
+            if (await _users.CountActiveByRoleAsync(lastStandingRole, ct) <= 1)
+                return Result.Failure(Error.BusinessRule("LastAdministrator", "لا يمكن إيقاف آخر حساب فعّال بهذا الدور"));
+            throw;   // جمود لسبب آخر: يبقى 409 ورسالته "أعد المحاولة"
+        }
+
         _sessions.Forget(user.Id);
         return Result.Success();
     }
+
+    // إشارة داخلية للتراجع عن المعاملة وحدها — لا تعبر حدود هذا الصنف.
+    private sealed class LastAdministratorRace : Exception;
 }
