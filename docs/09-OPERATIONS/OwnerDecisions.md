@@ -1,0 +1,190 @@
+# Decisions only the owner can make
+
+> **What this page is for.** Engineering has taken every one of these as far as it can and then stopped on
+> purpose. Each entry states the exact question, what it costs to answer it wrongly, what evidence already
+> exists, what evidence is still missing, and precisely what is blocked until it is answered.
+>
+> **Nothing here is a task engineering forgot.** Four of them are commercial or legal, one needs an external
+> account nobody in this repository can reach, and the rest are product choices where two answers are both
+> defensible and the difference is felt by customers.
+>
+> Read with [ReleaseReadiness.md](ReleaseReadiness.md) (what stops a release, triaged) and
+> [ProductionReleaseChecklist.md](ProductionReleaseChecklist.md) §18 (the sign-off).
+
+## How to read the blocking columns
+
+| Column | Means |
+|---|---|
+| **Engineering** | Is further engineering work blocked until this is answered? |
+| **Deployment** | Can the system be deployed at all without an answer? |
+| **First paying customer** | Can the first real customer be served without an answer? |
+
+---
+
+## P-03 — Licence and repository visibility
+
+**The question.** `LICENSE` is MIT and the repository has a public remote. Does it stay that way?
+
+**Why it matters.** MIT permits anyone who receives the code to use, modify and **resell** it. If the plan is to
+sell Souq — as a product, a licence, or a hosted service — MIT gives that away. Relicensing is not retroactive:
+any copy already taken keeps its MIT rights forever, so the cost of deciding late is unbounded and unrecoverable.
+
+**Affected code.** `LICENSE`, the repository's visibility setting, and the notice in `README.md` (which already
+says "under review before the first sale").
+
+| Engineering | Deployment | First paying customer |
+|---|---|---|
+| No | No | **Yes** — selling under the wrong licence cannot be undone |
+
+**Evidence that exists.** The file, the remote, and the README note. **Evidence still required:** none —
+this is a commercial and legal choice, not a finding.
+
+**Who decides.** The owner, with legal advice if the product is to be sold.
+
+---
+
+## P-05 — JOD minor units at Stripe
+
+**The question.** Does the real Stripe account treat JOD as a three-decimal currency (1 JOD = 1000 fils) or
+two-decimal?
+
+**Why it matters.** This is the single most expensive thing on the page to get wrong, and it fails silently.
+Send a JOD amount in the wrong unit and every charge is out by a factor of ten — collecting a tenth of every
+price, or ten times it, with no error anywhere. It is only visible in the settlement report.
+
+**Affected code.** `StripeAmountConverter` and its tests, which already encode a three-decimal assumption; every
+store whose currency is JOD or another three-decimal currency (KWD, BHD, OMR, TND).
+
+| Engineering | Deployment | First paying customer |
+|---|---|---|
+| No | No | **Yes, if that customer's store prices in JOD** |
+
+**Evidence that exists.** `StripeAmountConverterTests` covers the conversion logic in both shapes, so the code
+is ready for either answer. **Evidence still required:** one test charge on the **real** account in the target
+currency, and the amount read back from the Stripe dashboard. Nothing in this repository can produce that
+evidence — it needs the account.
+
+**Who decides.** Nobody *decides* this one; it is discovered. The owner (or whoever holds the Stripe account)
+runs the test charge and reports what Stripe actually did.
+
+> **Do not record P-05 as resolved on the basis of documentation, a support article, or a sandbox result that
+> was not run on the account that will take real money.**
+
+---
+
+## P-06 — Tax
+
+**The question.** Are prices tax-inclusive or tax-exclusive, what rates apply to whom, and what must an invoice
+show?
+
+**Why it matters.** The pricing pipeline has an explicit zero where tax belongs. In most jurisdictions selling
+without handling tax correctly is a legal bar, not a missing feature — and the liability accrues from the first
+sale, not from the first audit.
+
+**Affected code.** The pricing pipeline (`PricingService`), the frozen order totals, the invoice/receipt
+content, and the storefront's displayed prices.
+
+| Engineering | Deployment | First paying customer |
+|---|---|---|
+| **Yes** — the rules must exist before they can be built | No | **Yes**, wherever tax must be shown or collected |
+
+**Evidence that exists.** The zero is deliberate and documented rather than an oversight. **Evidence still
+required:** the jurisdictions to be sold into, the rates, the inclusive/exclusive convention and the invoice
+requirements. **Engineering must not invent any of these.**
+
+**Who decides.** The owner, with an accountant.
+
+---
+
+## D-13 — Who is the merchant of record
+
+**The question.** Does every store connect its own Stripe account, or does the platform adopt Stripe Connect
+and settle on their behalf?
+
+**Why it matters.** It decides who holds the customer relationship with Stripe, who carries chargeback
+liability, who pays the fees, and who is legally the seller. It is very hard to reverse once stores have been
+onboarded under one model.
+
+**Affected code.** `PaymentGatewayRouter` and the per-store payment account (`StorePaymentAccountEditor`,
+`Secrets:*`). Both mechanisms already work; the *choice* is what is missing.
+
+| Engineering | Deployment | First paying customer |
+|---|---|---|
+| No | No | No — **but yes for the second paying store** |
+
+**Evidence that exists.** `PaymentsAndRefundsTests` exercises both routing paths, so either answer is
+implementable. **Evidence still required:** the commercial model and Stripe's own requirements for the chosen
+one.
+
+**Who decides.** The owner. This is a business-model decision with legal consequences.
+
+---
+
+## R-03 — May a refund be issued with `orders.manage` alone?
+
+**The question.** Cancelling a paid order refunds it in full. `TenantStaff` holds `orders.manage` but not
+`store.payments.manage`, so a daily operator can move money out. Should refunding require the payments
+permission?
+
+**Why it matters.** Tightening it is safer but changes who can do the job: if operators cannot refund, every
+refund waits for someone who can, which may be unacceptable for a small store where one person does everything.
+
+**Affected code.** `UpdateOrderStatusHandler` (the refund runs after the cancellation commits) and the
+permission matrix.
+
+| Engineering | Deployment | First paying customer |
+|---|---|---|
+| No | No | No — it is a control question, not a correctness one |
+
+**Evidence that exists.** `UpdateOrderStatusHandlerTests` and `AuthorizationMatrixTests` cover the current
+behaviour. **Evidence still required:** how the owner wants the shop floor to work.
+
+**Who decides.** The owner. Engineering can implement either in a small change.
+
+---
+
+## F-8 — What should a duplicate checkout return?
+
+**The question.** When a shopper submits checkout twice, should the second submission **replay** the original
+order (`200`) or be **rejected** (`409`)?
+
+**Why it matters.** Replay is invisible to the shopper and makes a retrying mobile client harmless. Rejection
+is explicit and surfaces client bugs instead of hiding them, but shows an error for something that actually
+worked. Both are defensible; the difference is felt by customers.
+
+**Affected code.** `CreateOrderHandler` and the checkout page. The full implementation design — key ownership,
+scope, persistence, expiry, replay, concurrency, failure handling, payment and order interaction, tenant
+isolation — is written and ready in [the Ordering module's document](../04-MODULES/Ordering/README.md).
+
+| Engineering | Deployment | First paying customer |
+|---|---|---|
+| **Yes** — the design is complete but the behaviour is not chosen | No | No — measured: no double charge, and the duplicate order expires |
+
+**Evidence that exists.** `CheckoutIdempotencyTests` measures exactly what happens today: two orders, stock
+reserved twice, **but** separate client secrets so no double charge, and both orders expire.
+**Evidence still required:** none. Only the choice.
+
+**Who decides.** The owner, as a customer-experience call.
+
+---
+
+## Smaller choices that are also not engineering's
+
+| Decision | The question | Consequence of leaving it |
+|---|---|---|
+| **Backup schedule and retention** | How often, how many copies, kept how long? ([BackupAndRestore.md](BackupAndRestore.md) §4) | Your exposure equals the interval. Retention is also a legal question where customer data is involved |
+| **The default store** | Adopt, rename or archive the store the Phase 2 migration writes into every database? ([SeedAndBootstrap.md](SeedAndBootstrap.md) §3) | Production serves an Active store named after the demo. The startup log warns on every boot until it is resolved |
+| **HSTS scope** | Raise `Security:HstsMaxAgeDays` past 30, add `includeSubDomains` or `preload`? | Longer is safer for you and a longer commitment to a domain you may hand back. Deliberately conservative by default |
+| **react-router 7** | Upgrade the router to clear two advisories with no reachable path? | A runtime major upgrade against a measured-unreachable risk — see R-27's neighbour F-23 in [ReleaseReadiness.md](ReleaseReadiness.md) |
+
+---
+
+## What engineering will not do
+
+To be explicit, because these are the ways this page could quietly stop being true:
+
+- **Not invent a tax rule**, not even a "reasonable default" — a wrong rate is worse than an obvious gap.
+- **Not pick a licence**, and not leave MIT in place by inertia and call it a decision.
+- **Not mark P-05 verified** from documentation, a support article, or a sandbox that is not the real account.
+- **Not choose the payment ownership model** by shipping whichever path is easier to code.
+- **Not choose F-8's behaviour** by implementing the one that is simpler to write.

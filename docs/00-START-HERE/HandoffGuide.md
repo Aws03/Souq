@@ -75,7 +75,7 @@ One deployable application, split into thirteen business modules that own their 
 
 ## 9. Decisions waiting for an owner
 
-These cannot be made from the code; they are commercial or legal:
+These cannot be made from the code; they are commercial or legal. Each one's full record — the exact question, what it costs to get wrong, what evidence exists and what is still missing — is in [OwnerDecisions.md](../09-OPERATIONS/OwnerDecisions.md):
 
 | ID | Decision | Blocks |
 |---|---|---|
