@@ -83,7 +83,7 @@ Read [IncidentResponse.md](../09-OPERATIONS/IncidentResponse.md) and [Troublesho
 - **Debt:** [TechnicalDebt.md](../12-ROADMAP/TechnicalDebt.md) — 39 recorded items, prioritized.
 - **Risks:** [RiskRegister.md](../02-ARCHITECTURE/RiskRegister.md) — read §1 (money) before taking real payments.
 - **Tests:** no frontend component tests, no adapter tests for Stripe or email, no load test. CI exists but does not yet block merges.
-- **Release blockers:** [ReleaseReadiness.md](../09-OPERATIONS/ReleaseReadiness.md) — what actually stops a first paying customer, triaged. Read its **final assessment** first: a full area-by-area matrix with evidence, and twenty-one plain answers including whether this is ready for a first deployment (conditionally yes) and for a first paying customer (no, and exactly why). Three engineering missions have run outside the roadmap — a knowledge pass, production hardening (`6a520b7`), then **operational readiness** (`33603c6`) — and none of them is a roadmap phase. The next one is **enforcement and monitoring**, and it is entirely operational.
+- **Release blockers:** [ReleaseReadiness.md](../09-OPERATIONS/ReleaseReadiness.md) — what actually stops a first paying customer, triaged. Read its **final assessment** first: a full area-by-area matrix with evidence, and twenty-one plain answers including whether this is ready for a first deployment (conditionally yes) and for a first paying customer (no, and exactly why). Three engineering missions have run outside the roadmap — a knowledge pass, production hardening (`6a520b7`), then **operational readiness** (`1bd8ace`) — and none of them is a roadmap phase. The next one is **enforcement and monitoring**, and it is entirely operational.
 
 ## 9. Decisions waiting for an owner
 
