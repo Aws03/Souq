@@ -83,8 +83,29 @@ specification below, both deliberate:
   build on those would force either a threshold quietly lowered later, or major version bumps imposed by the pipeline
   instead of proposed ([AGENTS.md](../../AGENTS.md)). They stay visible on every run instead of being silently excluded.
 
-A third requirement still cannot live in this repository: **requiring the checks before a merge is a GitHub
-branch-protection setting**, and until someone turns it on the pipeline reports but does not block.
+### The one manual step, precisely
+
+A third requirement cannot live in this repository at all: **requiring the checks before a merge is a GitHub
+branch-protection setting**. Until it is switched on the pipeline reports and does not block, which is
+requirement 4 unmet. In *Settings → Branches → Add branch ruleset* for `main`, require a pull request, require
+status checks to pass, and select all four — `Build + fast suites`, `Frontend tests + build`,
+`Integration suite (real SQL Server)` and `Dependency audit + secret scan`. The job names are stable; they are
+the `name:` values in the workflow.
+
+### Does this pipeline support adopting TypeScript?
+
+[ADR-0037](../11-ADR/0037-frontend-server-state-and-types.md) deferred TypeScript with one trigger — "a CI
+pipeline exists" — on the reasoning that "a type-check nobody runs is not a control". **That trigger has now
+fired**, so the objection recorded there no longer holds.
+
+But existing is not the same as sufficient, and the difference matters here: the frontend job runs
+`vite build`, and Vite strips types with esbuild **without checking them**. A TypeScript migration landing today
+would compile and ship with type errors intact, which is precisely the "enforcement deferred indefinitely"
+outcome ADR-0037 was avoiding. Adopting TypeScript therefore requires **one addition to this pipeline** — a
+`tsc --noEmit` step in the frontend job, blocking — alongside the *tsconfig.json* the repository does not yet
+have. That step is deliberately not added now, because a type-check with zero TypeScript files is theatre.
+
+Nothing else is missing: the suites, the audits and the secret scan already cover what a migration would touch.
 
 | Stage | Runs | Fails the build when |
 |---|---|---|
