@@ -12,6 +12,36 @@
 | **Unverified** | Depends on something outside this repository (a provider, a runtime, a network) |
 | **Future** | Not a problem today; becomes one under a named condition |
 
+## Classification — what kind of thing each open risk is
+
+Reconciled in full during the operational readiness mission: every remaining row was re-read against the code,
+not carried forward. The class matters more than the number, because it says **who can close it** — and four of
+these cannot be closed by engineering at all.
+
+| Class | Meaning | Risks |
+|---|---|---|
+| **Operational action** | Engineering is done; a deployment must apply it | R-11, R-12, R-16, R-19, R-20 |
+| **Owner decision** | A commercial, legal or policy choice ([OwnerDecisions.md](../09-OPERATIONS/OwnerDecisions.md)) | R-03, R-25, R-26, R-27 |
+| **External verification** | Needs an account or system outside this repository | R-01 |
+| **Accepted** | Understood, bounded, and deliberately not fixed | R-04, R-05, R-09, R-14, R-15, R-18 |
+| **Deferred — a named trigger** | Not a problem yet; becomes one under a stated condition | R-13, R-23, R-24 |
+| **Product / policy work** | Needs a feature or a written policy, not a patch | R-21 |
+
+### Does it block a release?
+
+| Blocks | Risks | Why |
+|---|---|---|
+| **The first paying customer** | R-01, R-25, R-27 | money collected wrongly and silently; selling where tax is required; selling under a licence that permits resale |
+| **A public deployment** | R-12, R-16, R-19, R-20 | connecting as `sa`; no TLS; no scheduled backup; nothing watching, and a red pipeline that cannot block a merge |
+| **The second paying store** | R-26 | who is merchant of record decides liability, and it is hard to reverse once stores are onboarded |
+| **Nothing today** | R-03, R-04, R-05, R-09, R-11, R-13, R-14, R-15, R-18, R-21, R-23, R-24 | each is accepted, deferred with a trigger, or a control question — see its row |
+
+**What changed in this mission.** R-12, R-16, R-19 and R-20 were all engineering problems and are now all
+*operational* ones: the mechanisms exist, are tested, and in three cases were rehearsed against real
+infrastructure. None of them is closed, because a mechanism nobody has applied is not protection — and saying
+otherwise is how a register stops being true. R-02, R-06, R-07, R-08, R-10, R-17, R-22 and R-28 are absent
+because they were closed; their history is in [ReleaseReadiness.md](../09-OPERATIONS/ReleaseReadiness.md).
+
 ## 1. Money and payments
 
 | # | Risk | Confidence | Impact | What to do |
@@ -42,7 +72,7 @@
 
 | # | Risk | Confidence | Impact | What to do |
 |---|---|---|---|---|
-| R-18 | **Migrations run automatically at startup, in every environment** | Known | A bad migration is applied by the act of deploying; two instances starting together race | Back up first; consider a deliberate migration step before rollout |
+| R-18 | **Migrations run automatically at startup, in every environment**, so deploying *is* migrating | Known | A bad migration is applied by the act of deploying; two instances starting together race. **Measured consequence:** the data-moving migrations expand, migrate and contract in one step, so two application versions cannot share the database across one — rolling and blue-green deployments are unsafe, and a `Down()` loses whatever the old schema cannot represent ([Migrations.md](../06-DATABASE/Migrations.md) §7) | Deploy stop-then-start, never rolling. Back up before any of the five destructive migrations, and rehearse the restore rather than only taking it. A deliberate migration step before rollout remains the better end state |
 | R-19 | **No scheduled backups and no off-site copy.** The procedure now exists and is rehearsed ([BackupAndRestore.md](../09-OPERATIONS/BackupAndRestore.md)); nothing runs it automatically | Known | Data loss is bounded only by how recently someone ran the script by hand | Wire up the schedule, the off-site copy and failure alerting — the deployment-specific step (§7 there) |
 | R-20 | **CI does not block merges, and nothing watches the health endpoints** | Known | A red run can still be merged; a broken deploy is detected by a customer | Health endpoints and a full pipeline now exist. Still needed: GitHub branch protection (a repository setting, not a file), and an external monitor that alerts a human |
 | R-21 | **Several tables grow without any purge:** refresh tokens, stock reservations, in-app notifications, audit entries, dead outbox rows | Known | Slow, unbounded growth; personal data kept longer than necessary | Define retention per table in [OwnershipMap.md](../06-DATABASE/OwnershipMap.md) and implement the sweeps |
