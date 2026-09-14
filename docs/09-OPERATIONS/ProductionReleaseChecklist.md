@@ -98,7 +98,9 @@
 - [ ] **REQUIRED** TLS terminates in front of the stack and the browser reaches the storefront over https.
 - [ ] **REQUIRED** The API sees `https`. nginx sets `X-Forwarded-Proto` from **its own** plain-http listener, which overwrites an outer terminator's header — verify by requesting a password reset and reading the link's scheme.
 - [ ] **REQUIRED** `Auth:RefreshCookie:Secure` stays `true`. The refresh and basket cookies are `Secure` and will not be sent over plain http.
-- [ ] **RECOMMENDED** HSTS and the security header set are configured at the terminator (none is set by this repository).
+- [ ] **REQUIRED** The terminator passes `X-Forwarded-Proto: https` through. Without it the API believes it is on plaintext: no HSTS, and `http://` links in emails.
+- [ ] **RECOMMENDED** The SPA's CSP has been confirmed in a browser (storefront **and** checkout, console clean) and switched from `Content-Security-Policy-Report-Only` to `Content-Security-Policy` in `frontend/nginx.conf`.
+- [ ] **OPTIONAL** `Security:HstsMaxAgeDays` raised beyond 30, and `includeSubDomains`/`preload` considered — both are commitments that outlive your control of a store's domain.
 
 ## 11. Uploads
 

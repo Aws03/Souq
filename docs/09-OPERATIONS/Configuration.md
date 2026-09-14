@@ -49,6 +49,7 @@ Configuration warning: {ConfigurationWarning}
 |---|---|---|---|---|
 | `ConnectionStrings:Default` | empty in `appsettings.json` | every environment | yes | present and non-blank, in `AddInfrastructure`, before the host is built |
 | `ConnectionStrings:Migrations` | unset — falls back to `Default` | production, once least-privilege logins exist | no | none; if unset, migrations use the runtime identity exactly as before |
+| `Security:HstsMaxAgeDays` | 30 | any deployment behind TLS | no | none; HSTS is sent only on requests the API sees as https, and never for `localhost` |
 
 Missing value:
 

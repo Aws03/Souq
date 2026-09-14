@@ -36,7 +36,7 @@
 | R-13 | **Uploads are served from local disk**, so the files live on one instance | Known | Several API instances need the same mount, or images 404 depending on which instance answers | Move to blob storage behind `IFileStorage` before scaling out |
 | R-14 | **Cross-module domain access is not prevented, only counted** (79 crossings today) | Known | Boundaries erode silently; extraction gets harder | The ratchet in [ModuleDomainDependencies.md](ModuleDomainDependencies.md) plus the contracts listed in [ModuleBoundaries.md](ModuleBoundaries.md); every crossing is now classified with a reason in [ModuleBoundaryAudit.md](ModuleBoundaryAudit.md) |
 | R-15 | **Identity and Customers depend on each other**, a cycle the target graph forbids | Known | Neither module can be reasoned about, tested or extracted alone | Decide which side owns account provisioning and erasure; expose one contract |
-| R-16 | **No TLS, HSTS or security headers in the repository's own deployment**, and the proxy overwrites `X-Forwarded-Proto` with its own scheme, so generated links can come out `http://` | Known | Cookies and tokens over plaintext if deployed as-is; wrong links in emails | Terminate TLS in front, pass the scheme through, and add the headers before any public launch |
+| R-16 | **No TLS in the repository's own deployment.** The header set and HSTS now exist, and the proxy passes the outer scheme through ([Security.md](../07-SECURITY/Security.md) §4); the SPA's CSP is still report-only | Known | Cookies and tokens over plaintext if deployed as-is | Terminate TLS in front; then confirm the SPA CSP in a browser and enforce it |
 
 ## 4. Data and operations
 

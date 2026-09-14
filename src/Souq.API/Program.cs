@@ -115,6 +115,12 @@ builder.Services.Configure<ForwardedHeadersOptions>(o =>
         o.KnownIPNetworks.Add(System.Net.IPNetwork.Parse(network));
 });
 
+// ── HSTS (R-16): المدّة قابلة للضبط، وبلا includeSubDomains ولا preload افتراضاً.
+// السبب ليس الكسل: المتاجر تأتي بنطاقاتها الخاصة، وHSTS التزام يبقى في متصفّحات الزوّار
+// بعد انتهاء العلاقة بالنطاق — و preload شبه دائم. توسيعه قرار نشر يُتَّخذ بعلم، لا افتراض.
+builder.Services.AddHsts(o =>
+    o.MaxAge = TimeSpan.FromDays(builder.Configuration.GetValue<int?>("Security:HstsMaxAgeDays") ?? 30));
+
 builder.Services.AddEndpointsApiExplorer();
 
 // ── Swagger مع دعم زرّ "Authorize" لاختبار النقاط المحمية بالتوكن ─────────
@@ -175,6 +181,10 @@ await DbSeeder.SeedAsync(app.Services,
 // ── خط أنابيب الطلب (Request Pipeline) — الترتيب مهم ──────────────────────
 app.UseForwardedHeaders();   // أولاً: عنوان العميل ومخطّطه من الوكيل الموثوق قبل أي قرار
 app.UseMiddleware<CorrelationHeaderMiddleware>(); // X-Correlation-Id على كل استجابة، حتى الأخطاء (ADR-0018)
+app.UseMiddleware<SecurityHeadersMiddleware>();   // ترويسات الأمان على كل استجابة، بما فيها الأخطاء
+// HSTS خارج التطوير فقط: الترويسة لا تُرسَل إلا على https (المخطّط من الوكيل الموثوق عبر
+// UseForwardedHeaders أعلاه)، وإرسالها في التطوير يثبّت localhost على https في متصفّح المطوّر.
+if (!app.Environment.IsDevelopment()) app.UseHsts();
 app.UseExceptionHandler();   // الاستثناءات ⇒ ProblemDetails (GlobalExceptionHandler)
 app.UseStatusCodePages();    // 401/403/404/405 بجسم فارغ من الإطار ⇒ ProblemDetails بنفس العقد
 if (app.Environment.IsDevelopment())

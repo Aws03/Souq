@@ -275,13 +275,13 @@ Read from the code; none of these were reproduced by running the stack.
 
 | Risk | Where | Impact |
 |---|---|---|
-| `X-Forwarded-Proto` is set from nginx's own scheme | `frontend/nginx.conf` | behind an outer TLS terminator the API believes it is on http: email links, and any scheme-derived URL, come out as `http://` |
+| ~~`X-Forwarded-Proto` is set from nginx's own scheme~~ **fixed** | `frontend/nginx.conf` | nginx now preserves an incoming `X-Forwarded-Proto` and falls back to its own scheme. If nginx is itself the internet-facing edge, drop that `map` — see [Security.md](../07-SECURITY/Security.md) §4 |
 | The API port `5201` is published | `docker-compose.yml` | a direct client bypasses nginx and is seen from the Docker bridge range, which the default `TRUSTED_PROXY_NETWORKS` trusts, so `X-Forwarded-For` can be forged to evade rate limits |
 | The app connects as `sa` | `docker-compose.yml` | full server privileges for the application; a SQL injection or a leaked connection string is unbounded. Fix for real deployments, with measured permissions: [DatabasePrivileges.md](../07-SECURITY/DatabasePrivileges.md) |
 | The API container runs as root | `src/Souq.API/Dockerfile` | no `USER` instruction; a container escape starts from root |
 | Floating image tags (`2022-latest`, `sdk:10.0`, `aspnet:10.0`, `nginx:1.27-alpine`, `node:20-alpine`) | both Dockerfiles and compose | two deployments from the same commit can differ |
 | The default store row exists in every database | the `Phase2MultiTenancy` migration | production starts with an empty default store (no demo catalog since `Seed:DemoData` is off there). Adopt, rename or archive it deliberately |
-| No HSTS or security headers, no TLS in the repository | — | Phases 20 and 23 |
+| No TLS in the repository (the header set and HSTS now exist) | — | terminate TLS at the edge; automated TLS for custom domains is Phase 23 |
 
 ## 11. Rollback
 
