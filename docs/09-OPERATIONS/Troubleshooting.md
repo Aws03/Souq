@@ -1,5 +1,7 @@
 # Troubleshooting
 
+> **Mid-incident?** Start with [IncidentResponse.md](IncidentResponse.md) — it decides *which layer* is broken and what must not be touched while you find out. This page diagnoses a symptom once you have named it.
+
 > Symptom first. Each entry: what you see, the likely cause, the commands that confirm it, the safe fix, and what not to do.
 > Settings referenced here are documented in [Configuration.md](Configuration.md); the running stack is described in [Deployment.md](Deployment.md).
 >

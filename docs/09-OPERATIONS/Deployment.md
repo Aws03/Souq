@@ -336,6 +336,10 @@ Read from the code; none of these were reproduced by running the stack.
 
   Both API levers take effect immediately on the instance that served them and within about 60 seconds elsewhere (the tenant directory cache).
 
+## 11a. When it goes wrong
+
+[IncidentResponse.md](IncidentResponse.md) is the runbook: which layer is broken, what to capture before changing anything, the two meanings of a failing readiness check, money incidents (where an unrecorded payment matters more than an outage), security incidents, and what this repository deliberately does not provide — no alerting, no metrics, no on-call rotation.
+
 ## 12. Planned and future work
 
 | Item | Status | Source |
