@@ -27,6 +27,16 @@ public sealed class JwtSettingsValidator : IValidateOptions<JwtSettings>
 {
     public const int MinimumKeyBytes = 32;
 
+    // القيم النائبة في .env.example طويلة بما يكفي لتجتاز فحص الطول: نسخ الملف كما هو كان
+    // ينتج نشراً مفتاحُ توقيعه منشور في المستودع — أي أحد يزوّر توكن أي مستأجر. الطول وحده
+    // لا يكشف ذلك، فالعلامة النصّية هي ما يكشفه. احتمال ظهور هذه الكلمات في مفتاح عشوائي
+    // حقيقي مهمَل عملياً (نحو 10⁻⁹).
+    private static readonly string[] PlaceholderMarkers =
+        ["REPLACE", "CHANGE_ME", "CHANGEME", "PLACEHOLDER", "YOUR_SECRET", "YOUR_KEY"];
+
+    public static bool LooksLikePlaceholder(string value) =>
+        PlaceholderMarkers.Any(marker => value.Contains(marker, StringComparison.OrdinalIgnoreCase));
+
     public ValidateOptionsResult Validate(string? name, JwtSettings settings)
     {
         var failures = new List<string>();
@@ -34,6 +44,9 @@ public sealed class JwtSettingsValidator : IValidateOptions<JwtSettings>
             failures.Add("Jwt:Key غير مضبوط — اضبطه في user-secrets أو متغيّرات البيئة (Jwt__Key).");
         else if (Encoding.UTF8.GetByteCount(settings.Key) < MinimumKeyBytes)
             failures.Add($"Jwt:Key أقصر من {MinimumKeyBytes} بايت (256 بت) — الحدّ الأدنى لتوقيع HS256.");
+        else if (LooksLikePlaceholder(settings.Key))
+            failures.Add("Jwt:Key ما زال القيمة النائبة من .env.example — وهي منشورة في المستودع، " +
+                         "فمن يقرأها يزوّر توكن أي مستأجر. ولّد مفتاحاً: openssl rand -base64 48");
         if (string.IsNullOrWhiteSpace(settings.Issuer))
             failures.Add("Jwt:Issuer مطلوب.");
         if (string.IsNullOrWhiteSpace(settings.Audience))

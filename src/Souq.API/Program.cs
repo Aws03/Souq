@@ -147,9 +147,13 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
-// ── CORS للواجهة حين تعمل كخادم منفصل (التطوير المحلي). النشر خلف Nginx أصل واحد. ──
-var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
-    ?? new[] { "http://localhost:5173" };
+// ── CORS. الواجهة تطلب مسارات نسبية (/api) ويمرّرها وكيل Vite في التطوير وnginx في النشر،
+// فكل بيئة أحادية الأصل ولا تحتاج CORS أصلاً. الاحتياطي على http://localhost:5173 كان يُطبَّق
+// في *كل* بيئة: أصل تطوير مسموح به بصمت في الإنتاج، وهو نوع التسرّب الذي يمنعه بقية هذا الملف.
+// خارج التطوير/الاختبار: لا أصل افتراضي. من يحتاج أصلاً خارجياً حقاً يعلنه في Cors:AllowedOrigins.
+var localEnvironment = builder.Environment.IsDevelopment() || builder.Environment.IsEnvironment("Testing");
+var allowedOrigins = CorsOrigins.For(
+    builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>(), localEnvironment);
 builder.Services.AddCors(o => o.AddPolicy("frontend", p =>
     p.WithOrigins(allowedOrigins).AllowAnyHeader().AllowAnyMethod()
      .WithExposedHeaders(RequestCorrelation.HeaderName)));   // تقرؤه الواجهة لعرضه عند الدعم
@@ -166,6 +170,14 @@ startupLog.LogInformation("Adapters selected: payments {PaymentProvider}, email 
     startupReport.PaymentProvider, startupReport.EmailProvider);
 foreach (var warning in startupReport.Warnings)
     startupLog.LogWarning("Configuration warning: {ConfigurationWarning}", warning);
+
+// تحذيرات طبقة الـ API نفسها (نظيرة تحذيرات AddInfrastructure، لكنها تخصّ خط الطلب لا المحوّلات).
+startupLog.LogInformation("CORS origins allowed: {CorsOriginCount} (same-origin deployments need none)",
+    allowedOrigins.Length);
+if (!localEnvironment && !app.Services.GetRequiredService<IOptions<RefreshCookieOptions>>().Value.Secure)
+    startupLog.LogWarning("Configuration warning: {ConfigurationWarning}",
+        "Auth:RefreshCookie:Secure=false خارج التطوير — رمز التجديد سيُرسَل على http. " +
+        "لا تستخدمه إلا لنشر محلي على شبكة موثوقة.");
 
 // ── الهجرات + البذر عند الإقلاع. المدير الافتراضي في Development فقط؛ خارجها يُنشأ أول مدير
 // من Seed:AdminEmail/Seed:AdminPassword إن ضُبطا (Phase 0 B1). Seed:DefaultTenantHosts يربط

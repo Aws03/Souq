@@ -43,6 +43,16 @@ Configuration warning: {ConfigurationWarning}
 
 `tests/Souq.IntegrationTests/ConfigurationTests.cs` proves that a missing connection string, a short `Jwt:Key` and a missing payment provider all stop the startup **before the database is touched**, and that failure messages never print a secret's value.
 
+### Placeholder values are rejected
+
+`Jwt:Key` is checked for length **and** for placeholder text. This is not defensive decoration: the placeholder
+shipped in `.env.example` is 33 bytes, so it passed the 32-byte minimum. Copying that file to `.env` without
+editing it produced a working deployment whose signing key is published in this repository — and anyone holding
+it can mint a valid token for any store. The startup validator now refuses any `Jwt:Key` containing `REPLACE`,
+`CHANGE_ME`, `PLACEHOLDER` or `YOUR_KEY`, and `.env.example`'s database password was changed to a value SQL
+Server's own password policy rejects, so the demo stack fails loudly instead of running on a published password.
+`ConfigurationSourceTests` keeps both properties true as the files change.
+
 ## 3. Connection string
 
 | Key | Default | Required | Secret | Validated |
@@ -294,9 +304,11 @@ Counters live in the process, so N instances mean roughly N times the configured
 
 | Key | Default | Notes |
 |---|---|---|
-| `Cors:AllowedOrigins` | `["http://localhost:5173"]` when unset | bound with `Get<string[]>()`, so it must be an array (numbered environment entries). Unlike `Seed:DefaultTenantHosts`, a single comma-separated value is not split |
+| `Cors:AllowedOrigins` | `["http://localhost:5173"]` in **Development/Testing only**; **empty** everywhere else | bound with `Get<string[]>()`, so it must be an array (numbered environment entries). Unlike `Seed:DefaultTenantHosts`, a single comma-separated value is not split |
 
-The policy allows any header and method for those origins and exposes `X-Correlation-Id`. The Docker deployment is same-origin behind nginx and needs none.
+The policy allows any header and method for those origins and exposes `X-Correlation-Id`.
+
+**Every deployment of this system is same-origin and needs no CORS at all:** the SPA calls relative `/api` paths, proxied by Vite in development and nginx in production. The localhost fallback used to apply in *every* environment, which meant a production API quietly allowed a development origin — the kind of leak the rest of this page exists to prevent. `CorsOrigins.For` now returns the development origin only in Development/Testing, and nothing otherwise; an explicit `Cors:AllowedOrigins` still wins everywhere. The startup log records how many origins are allowed.
 
 ### Forwarded headers
 
@@ -325,7 +337,7 @@ Read as `FRONTEND_URL` first, then `App:FrontendUrl`, then the hard-coded `http:
 
 | Key | Default | Notes |
 |---|---|---|
-| `AllowedHosts` | `*` | host filtering is off; unknown hosts are rejected by tenant resolution with `404 StoreNotFound` instead |
+| `AllowedHosts` | `*` | **deliberate, not an oversight.** Host filtering matches a fixed list decided at startup, but this platform's valid hosts are its stores' domains, which live in `TenantDomains` and change while the process runs. Host validation is therefore done by `TenantResolutionMiddleware`, which rejects an unknown host with `404 StoreNotFound` on `/api` and `/uploads`. Narrowing this key would break custom domains without adding protection |
 | `ASPNETCORE_ENVIRONMENT` | `Development` from `launchSettings.json`, `Production` from compose | decides every "local only" behaviour |
 | `ASPNETCORE_HTTP_PORTS` | `8080` (set in `src/Souq.API/Dockerfile`) | container listen port; the local profile uses `applicationUrl` 5200 instead |
 
@@ -338,10 +350,10 @@ Honest list of what a wrong value does **not** stop at startup:
 | `Brevo:SenderEmail` / `Gmail:Username` | every message fails at send time (`Brevo مضبوط بلا عنوان مرسِل (Brevo:SenderEmail)`), retries 8 times, then dies in the outbox |
 | `Resend:From` | Resend rejects at send time; the error is logged and retried |
 | `Tenancy:PlatformHosts` | an empty list in production simply means there is no platform area; no warning |
-| `Cors:AllowedOrigins` | a wrong shape silently falls back to the localhost default |
+| `Cors:AllowedOrigins` | a wrong shape falls back to the environment default — the localhost origin in Development/Testing, nothing elsewhere |
 | `FRONTEND_URL` / `App:FrontendUrl` | a malformed URL throws when notifications are dispatched |
 | `RateLimiting:*` | not validated at all |
-| `Auth:RefreshCookie:Secure` | no check that it matches the deployment's scheme |
+| `Auth:RefreshCookie:Secure` | still not enforced, but setting it to `false` outside Development/Testing now logs a startup **warning** naming the risk (the refresh token would travel over http). It stays permitted because a local http deployment on a LAN address is a legitimate, if rare, use |
 | `ForwardedHeaders:KnownNetworks` | a value that is not CIDR fails when the pipeline builds it, not in the startup validator |
 
 ## 15. Configuration in the test suites

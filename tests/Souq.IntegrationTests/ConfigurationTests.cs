@@ -117,6 +117,96 @@ public class ConfigurationTests
         act.Should().Throw<Exception>().Which.ToString().Should().Contain("ConnectionStrings:Default");
     }
 
+    // ── M6: القيم النائبة المنشورة في .env.example لا يجوز أن تُنتج نشراً عاملاً ─────────
+    [Theory]
+    [InlineData("REPLACE_WITH_A_LONG_RANDOM_SECRET")]           // القيمة الحرفية في .env.example
+    [InlineData("change_me_change_me_change_me_change_me")]
+    [InlineData("YOUR_SECRET_KEY_GOES_HERE_1234567890123")]
+    public void مفتاح_JWT_النائب_يُرفض_رغم_أنه_طويل_بما_يكفي(string placeholder)
+    {
+        // الخطر الحقيقي: هذه القيم تتجاوز حدّ الـ32 بايت، فنسخ .env.example كما هو كان يُنتج
+        // نشراً مفتاحُ توقيعه منشور في المستودع — ومن يقرؤه يزوّر توكن أي مستأجر.
+        System.Text.Encoding.UTF8.GetByteCount(placeholder).Should()
+            .BeGreaterThanOrEqualTo(JwtSettingsValidator.MinimumKeyBytes, "وإلا لكان فحص الطول كافياً");
+
+        var result = new JwtSettingsValidator().Validate(null,
+            new JwtSettings { Key = placeholder, Issuer = "Souq", Audience = "SouqClient", ExpiryMinutes = 15 });
+
+        result.Failed.Should().BeTrue();
+        result.FailureMessage.Should().Contain("Jwt:Key");
+    }
+
+    [Fact]
+    public void مفتاح_عشوائي_حقيقي_لا_يُخطئ_به_الفحص()
+    {
+        var real = Convert.ToBase64String(System.Security.Cryptography.RandomNumberGenerator.GetBytes(48));
+
+        new JwtSettingsValidator().Validate(null,
+                new JwtSettings { Key = real, Issuer = "Souq", Audience = "SouqClient", ExpiryMinutes = 15 })
+            .Succeeded.Should().BeTrue();
+    }
+
+    [Fact]
+    public void ملف_env_example_نفسه_لا_يحوي_قيمة_صالحة_للاستعمال()
+    {
+        // الملف جزء من العقد: لو صار أحد أمثلته صالحاً، عاد الخطر نفسه.
+        var example = File.ReadAllLines(RepositoryRoot() + "/.env.example");
+        var jwt = example.First(l => l.StartsWith("JWT_KEY=", StringComparison.Ordinal))["JWT_KEY=".Length..];
+
+        JwtSettingsValidator.LooksLikePlaceholder(jwt).Should().BeTrue("المثال يجب أن يبقى مرفوضاً عند الإقلاع");
+    }
+
+    // ── M6: لا بريد طرفي صامت خارج التطوير ──────────────────────────────────────────
+    [Fact]
+    public void بلا_مزوّد_بريد_خارج_التطوير_يُرفض_الإقلاع_ويُسمّى_المفتاح()
+    {
+        using var factory = new ConfiguredFactory("Production",
+            ("Jwt:Key", ValidKey), ("Payments:Provider", "Fake"));
+
+        var act = () => factory.CreateClient();
+
+        act.Should().Throw<Exception>().Which.ToString().Should().Contain("Resend:ApiKey");
+    }
+
+    [Fact]
+    public void بريد_السجل_مقبول_خارج_التطوير_بطلب_صريح_وحده()
+    {
+        // Email:Provider=Log يمرّ، لكن الإقلاع يستمر حتى القاعدة (غير موجودة هنا) — فالفشل
+        // المتوقّع صار فشل اتصال لا فشل إعداد. هذا هو الفرق الذي نثبته.
+        using var factory = new ConfiguredFactory("Production",
+            ("Jwt:Key", ValidKey), ("Payments:Provider", "Fake"), ("Email:Provider", "Log"));
+
+        var act = () => factory.CreateClient();
+
+        act.Should().Throw<Exception>().Which.ToString().Should().NotContain("Resend:ApiKey");
+    }
+
+    // ── M6: أصل تطويري لا يتسرّب إلى الإنتاج ────────────────────────────────────────
+    [Theory]
+    [InlineData(true, 1)]    // تطوير/اختبار: أصل Vite المحلي
+    [InlineData(false, 0)]   // غيرهما: لا أصل افتراضي إطلاقاً
+    public void أصول_CORS_الافتراضية_تتبع_البيئة(bool local, int expected)
+    {
+        Souq.API.Http.CorsOrigins.For(null, local).Should().HaveCount(expected);
+        Souq.API.Http.CorsOrigins.For([], local).Should().HaveCount(expected);
+    }
+
+    [Fact]
+    public void إعداد_CORS_الصريح_يغلب_في_كل_البيئات()
+    {
+        string[] configured = ["https://store.example"];
+
+        Souq.API.Http.CorsOrigins.For(configured, localEnvironment: false).Should().BeEquivalentTo(configured);
+        Souq.API.Http.CorsOrigins.For(configured, localEnvironment: true).Should().BeEquivalentTo(configured);
+    }
+
+    private static string RepositoryRoot()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "Souq.sln"))) dir = dir.Parent;
+        return dir?.FullName ?? throw new InvalidOperationException("جذر المستودع غير موجود");
+    }
+
     // مصنع بإعداد يُحدَّد لكل اختبار. سلسلة اتصال لخادم غير موجود: إن وصل الإقلاع للقاعدة لفشل
     // الاختبار بخطأ اتصال لا برسالة الإعداد المتوقّعة.
     private sealed class ConfiguredFactory(string environment, params (string Key, string Value)[] settings)

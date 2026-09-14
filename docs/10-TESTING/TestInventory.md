@@ -9,8 +9,8 @@
 |---|---|---|---|
 | [`Souq.Domain.Tests`](#souqdomaintests) | 23 | 165 | 34 |
 | [`Souq.Application.Tests`](#souqapplicationtests) | 39 | 272 | 11 |
-| [`Souq.ArchitectureTests`](#souqarchitecturetests) | 8 | 36 | 3 |
-| [`Souq.IntegrationTests`](#souqintegrationtests) | 34 | 181 | 16 |
+| [`Souq.ArchitectureTests`](#souqarchitecturetests) | 9 | 37 | 4 |
+| [`Souq.IntegrationTests`](#souqintegrationtests) | 34 | 186 | 18 |
 | [frontend (Vitest)](#frontend-vitest) | 25 | 107 | — |
 
 ## Souq.Domain.Tests
@@ -90,6 +90,7 @@
 | File | Classes | Facts | Theories |
 |---|---|---|---|
 | `tests/Souq.ArchitectureTests/ClockRuleTests.cs` | `ClockRuleTests` | 0 | 1 |
+| `tests/Souq.ArchitectureTests/ConfigurationSourceTests.cs` | `ConfigurationSourceTests` | 1 | 1 |
 | `tests/Souq.ArchitectureTests/DependencyRuleTests.cs` | `DependencyRuleTests` | 8 | 0 |
 | `tests/Souq.ArchitectureTests/DocumentationTests.cs` | `DocumentationTests` | 4 | 0 |
 | `tests/Souq.ArchitectureTests/EndpointRuleTests.cs` | `EndpointRuleTests` | 3 | 0 |
@@ -108,7 +109,7 @@
 | `tests/Souq.IntegrationTests/AuthorizationMatrixTests.cs` | `AuthorizationMatrixTests` | 2 | 0 |
 | `tests/Souq.IntegrationTests/BasketTests.cs` | `BasketTests` | 5 | 0 |
 | `tests/Souq.IntegrationTests/CatalogTests.cs` | `CatalogTests`, `ProductCommandCounter` | 9 | 0 |
-| `tests/Souq.IntegrationTests/ConfigurationTests.cs` | `ConfigurationTests`, `ConfiguredFactory` | 5 | 4 |
+| `tests/Souq.IntegrationTests/ConfigurationTests.cs` | `ConfigurationTests`, `ConfiguredFactory` | 10 | 6 |
 | `tests/Souq.IntegrationTests/CouponRedemptionTests.cs` | `CouponRedemptionTests` | 3 | 0 |
 | `tests/Souq.IntegrationTests/CustomerAccountTests.cs` | `CustomerAccountTests` | 6 | 0 |
 | `tests/Souq.IntegrationTests/ErrorContractTests.cs` | `ErrorContractTests` | 8 | 1 |
