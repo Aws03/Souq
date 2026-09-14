@@ -168,7 +168,24 @@ The permissions were **measured**, not assumed: `scripts/verify-least-privilege.
 - A blocked cross-tenant write and a blocked audit mutation are logged at **Critical**. Refresh-token reuse is a warning with the user id only. Refresh tokens appear only in the `Set-Cookie` header, never in a body or a log.
 - Integration tests prove that no password, JWT or `Authorization` value appears in any log, and that no reset token or address appears in the logs or in a stored outbox error.
 
-**Secrets that travel in a URL** are handled by redacting the value, not the position: `RequestLoggingMiddleware` replaces any route value named in its sensitive list — today the order tracking token — with `***` before the line is written, while keeping the route template for aggregation. **Remaining gap:** the SPA's token-bearing pages (`/reset-password`, `/verify-email`, `/accept-invitation`) are requested through nginx, whose default access log records the full request line including the query string (SEC-LOG-07, G-03).
+**Secrets that travel in a URL** are handled on both sides of the proxy.
+
+In the API, `SensitivePath.Redact` replaces the value of any sensitive route parameter — today the order
+tracking token — with `***`, keeping the route template for aggregation. It redacts by **value**, so the token
+cannot survive elsewhere in the path, and it is shared by the request logger and the exception handler because
+the first version of this fix redacted only the former and left the error path leaking. It also has a
+**pre-routing fallback**: route values do not exist until `UseRouting` has run, so an exception thrown in an
+earlier middleware used to reach the exception handler with the raw path, token included.
+
+In nginx, the default `combined` format logs the whole request line including the query string, and the email
+links carry their tokens there (`/reset-password?token=…`, `/verify-email?token=…`,
+`/accept-invitation?token=…`). The `souq_safe` format now strips the query string, redacts `/track/…`, and
+never writes `Referer` — because a same-origin asset request made from `/reset-password?token=…` carries that
+full URL in the header, which would reintroduce the leak by another door. It keeps the real path rather than
+the rewritten one, so SPA pages remain visible for diagnosis.
+
+**Still yours:** an outer load balancer, CDN or ingress in front of this stack keeps its own access log, and
+nothing here can configure it. Apply the same rule wherever TLS terminates.
 
 ## 10. Audit logging
 

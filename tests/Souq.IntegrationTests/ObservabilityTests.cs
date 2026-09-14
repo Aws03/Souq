@@ -116,4 +116,38 @@ public class ObservabilityTests
     private IEnumerable<CapturedLog> RequestLines(string correlationId) =>
         _factory.Logs.Entries.Where(e => e.Category == RequestLogCategory
                                          && Equals(e.Scope.GetValueOrDefault("CorrelationId"), correlationId));
+
+    // ── M10: التنقيح قبل التوجيه ────────────────────────────────────────────────────
+    // Redact يقرأ RouteValues، وهي لا تُملأ إلا بعد UseRouting. استثناء في وسيط مبكّر (تعثّر
+    // القاعدة أثناء تحديد المستأجر مثلاً) يصل لمعالج الاستثناءات بمسار خام يحمل الرمز كاملاً.
+    [Fact]
+    public void رمز_التتبّع_يُنقَّح_حتى_قبل_أن_يُحسب_التوجيه()
+    {
+        var context = new Microsoft.AspNetCore.Http.DefaultHttpContext();
+        context.Request.Path = "/api/orders/track/9f3ca1d24b7e4f0a8c5d6e7f80123456";
+
+        var redacted = Souq.API.Observability.SensitivePath.Redact(context);
+
+        redacted.Should().Be("/api/orders/track/***");
+        redacted.Should().NotContain("9f3ca1d2");
+    }
+
+    [Fact]
+    public void المسارات_العادية_لا_تُنقَّح_فيبقى_السجلّ_مفيداً()
+    {
+        var context = new Microsoft.AspNetCore.Http.DefaultHttpContext();
+        context.Request.Path = "/api/products/42";
+
+        Souq.API.Observability.SensitivePath.Redact(context).Should().Be("/api/products/42");
+    }
+
+    [Fact]
+    public void قيمة_المسار_من_التوجيه_تُنقَّح_أينما_وردت()
+    {
+        var context = new Microsoft.AspNetCore.Http.DefaultHttpContext();
+        context.Request.Path = "/api/orders/track/secret-token-value";
+        context.Request.RouteValues["token"] = "secret-token-value";
+
+        Souq.API.Observability.SensitivePath.Redact(context).Should().Be("/api/orders/track/***");
+    }
 }
