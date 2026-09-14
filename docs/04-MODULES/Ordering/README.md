@@ -187,6 +187,60 @@ Migrations that shaped these tables: `src/Souq.Infrastructure/Migrations/2026091
 
 No order route carries `RequiresModule`: ordering is not an optional store module. None carries `AvailableWhenStoreClosed` either, so every route answers `503 StoreUnavailable` unless the store is Active — except that routes with `HasPermission` also work while the store is Provisioning. No rate-limit policy is applied to order routes.
 
+## Checkout idempotency (F-8) — measured, designed, awaiting one decision
+
+**What happens today**, proven by `CheckoutIdempotencyTests` rather than inferred:
+
+| Submitting checkout twice | Result |
+|---|---|
+| Orders created | **two** — no idempotency key, and no precondition on an existing `Pending` order |
+| Stock | **reserved twice** — a shopper who wanted one item holds two |
+| Coupon | a second use spent from one basket |
+| Payment intents | two, with **different client secrets** |
+| Card charged | **once** — the SPA renders one secret, so the duplicate intent is never confirmed |
+| Eventual state | both orders `Pending`; `ExpireStaleCheckouts` reclaims the second's stock and coupon |
+
+This holds for a genuine double-click too: two simultaneous submissions both succeed, because nothing
+serialises them.
+
+**Do not read the payment guarantees as covering this.** They are strong and separate: intent creation uses the
+idempotency key `souq-intent-{tenantId}-{orderReference}`, webhook redelivery is idempotent, and a `succeeded`
+event arriving after cancellation is recorded rather than swallowed ([ADR-0036](../../11-ADR/0036-payment-intent-state-machine.md)).
+All of that makes the *money* safe. None of it stops *order creation* from happening twice — the second order
+is a legitimately different order reference, so the provider key does exactly what it should and still lets a
+duplicate through. Payment-provider idempotency and application checkout idempotency are different problems.
+
+### The design, ready to implement
+
+Every question answered except the last one, which is not engineering's to answer.
+
+| Question | Answer |
+|---|---|
+| **Key ownership** | The **client** mints it (a UUID per checkout attempt, regenerated when the shopper edits the basket) and sends it as `Idempotency-Key`. A server-derived key — hashing customer + basket contents — would wrongly collapse two *deliberate* identical orders |
+| **Scope** | `(TenantId, CustomerId, Key)`. Tenant-scoped like every other row, so one store's key can never collide with another's |
+| **Persistence** | A *CheckoutAttempts* row written in the **same transaction** as the order, with a unique index on the scope above. The unique index *is* the concurrency control: the second writer loses and is translated to the existing `UniqueConstraintViolationException` |
+| **Concurrent requests** | The loser reads the winner's row and replays its response. No lock, no isolation change — the same pattern F-7 now uses |
+| **Expiration** | Keep for the reservation window plus a margin (24 h is ample), then purge with the other sweeps. A key older than the window is a new checkout, not a replay |
+| **Response replay** | Store the created `OrderId` only, and re-project the response from the order. Storing the serialised body would replay a stale total after a price change |
+| **Failure handling** | Only a **successful** creation writes the row. A failed attempt leaves no key, so a retry after a genuine failure is allowed to proceed |
+| **Payment interaction** | A replay returns the original order's client secret; the intent key is already per order reference, so no second intent is created |
+| **Order interaction** | No change to the order state machine. This prevents a second order; it does not alter what an order does |
+| **Tenant isolation** | Enforced by the composite key and the standard query filter, like every other tenant-owned table |
+
+### The one decision that is not engineering's
+
+**What should the second submission return?**
+
+- **Replay (`200` with the original order)** — invisible to the shopper, the usual choice, and it makes a
+  retrying mobile client harmless.
+- **Reject (`409`)** — explicit, and it surfaces client bugs instead of hiding them, but a shopper on a flaky
+  connection sees an error for something that actually worked.
+
+Both are defensible and the difference is felt by customers, not by code. Recorded as an owner decision in
+[ReleaseReadiness.md](../../09-OPERATIONS/ReleaseReadiness.md); the table above is implementable the day it is
+answered, and `CheckoutIdempotencyTests` is written so that it inverts into the specification of the new
+behaviour rather than being deleted.
+
 ## Security and permissions
 
 - The identity always comes from `ICurrentUser`; no command carries a customer id (Phase 0 finding B7 in [ArchitectureAssessment.md](../../archive/ArchitectureAssessment.md)).
