@@ -111,6 +111,32 @@ These are named in the mission and not yet re-verified in code; they carry no se
 - **Idempotency.** Duplicate Stripe webhooks, duplicate `confirm-payment`, refund retries and coupon reserve/confirm/release are all protected, and the mechanism is worth knowing: the webhook handler **discards the event's payload and type** and re-asks the gateway for the intent's live state, which is what makes both redelivery and out-of-order delivery safe without a processed-events table. Order creation (F-8) is the one unprotected entry point.
 - **Tenant isolation.** Audited across all 13 modules against the controllers rather than the generated inventory: no cross-tenant or cross-customer path was found. Every mechanism ADR-0022 claims was confirmed present and applied by reflection across the model, and `TenantIsolationTests` enumerates the live endpoint list so the matrix cannot silently drift. The residual items are F-1 and F-2, both already recorded.
 
+## The next engineering mission: operational readiness
+
+The production hardening mission completed at commit `6a520b7`. What remains between this repository and a first paying customer is
+**not more product capability** — it is the operational and commercial work below. Recording it here because the previous mission's
+recommendation lived only in a conversation, and was lost when the session ended.
+
+This is an engineering mission, not a roadmap phase. It does **not** take the number 18: Phase 18 in
+[ProductRoadmap.md](../12-ROADMAP/ProductRoadmap.md) is the Platform owner dashboard, a product capability, and it stays that.
+
+The open blockers are four different kinds of thing, and conflating them is how a release slips:
+
+| Kind | Items | Who can close it |
+|---|---|---|
+| **Engineering / operational** | R-12 (the application connects as `sa`), R-16 (no TLS, HSTS or security headers), R-19 (no automated backups and no rehearsed restore), R-20 (no health endpoint, no CI), R-11 (rate limits trust a forwarded address) | Engineering, on a plan — these are the mission |
+| **External verification** | R-01 / P-05 (whether the real Stripe account treats JOD as three-decimal; getting it wrong collects a tenth of every price) | Nobody, until someone runs a test charge on the real account. It cannot be reasoned out from this repository |
+| **Owner / business decision** | R-25 / P-06 (tax), R-27 / P-03 (licence and repository visibility), R-26 / D-13 (merchant of record), R-03 (whether refunding needs the payments permission), F-8 (what a duplicate checkout should do), F-7 (how to serialize the last-administrator check) | The owner. Engineering can present options; it must not choose |
+| **Product feature work** | The storefront rebuild, the tenant admin dashboard, the platform owner dashboard (roadmap Phases 16–18) | Product — and none of it makes a release safe on its own |
+
+**Recommended order:** backups and a rehearsed restore first (R-19 — it is the only one whose absence is unrecoverable), then a
+least-privilege database login (R-12), then TLS and the security headers (R-16), then health checks and a pipeline (R-20 — which also
+unblocks the TypeScript half of D-19 in [ADR-0037](../11-ADR/0037-frontend-server-state-and-types.md)). The owner decisions should go
+to the owner as one batch rather than one at a time; [ProductionReleaseChecklist.md](ProductionReleaseChecklist.md) §18 lists them
+where a release is signed off.
+
+Nothing above is scheduled here. Scheduling is the roadmap's job, and this is not a roadmap phase.
+
 ## How to use this page
 
 1. **Before a release:** everything in P0 is either `FIXED` or has a deliberate, written acceptance from the owner. No exceptions — P0 is defined as "money, data, deployment or law".

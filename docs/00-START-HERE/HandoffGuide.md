@@ -70,6 +70,7 @@ One deployable application, split into thirteen business modules that own their 
 - **Debt:** [TechnicalDebt.md](../12-ROADMAP/TechnicalDebt.md) — 39 recorded items, prioritized.
 - **Risks:** [RiskRegister.md](../02-ARCHITECTURE/RiskRegister.md) — read §1 (money) before taking real payments.
 - **Tests:** no CI, no frontend component tests, no adapter tests for Stripe or email, no load test.
+- **Release blockers:** [ReleaseReadiness.md](../09-OPERATIONS/ReleaseReadiness.md) — what actually stops a first paying customer, triaged. Five P0 items are open. Two engineering missions have run outside the roadmap (a knowledge pass, then production hardening, which completed at `6a520b7`); the next recommended one is **operational readiness**, and it is not a roadmap phase.
 
 ## 9. Decisions waiting for an owner
 

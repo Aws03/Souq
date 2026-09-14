@@ -88,6 +88,7 @@ Every rule below is enforced by a test unless the last column says otherwise. Br
 - **Comments are in Arabic** and explain *why*, an invariant, a security concern, or non-obvious behaviour — never what the line already says ([code comment policy](docs/00-START-HERE/CodeReviewGuide.md#comment-policy)).
 - **Frontend:** the server is authoritative; guards are UX only; no business rules; every user-visible string goes through i18n; no brand or currency literals ([FrontendGuide.md](docs/08-FRONTEND/FrontendGuide.md)).
 - **Dependencies:** MediatR stays pinned to 12.x (13+ is commercially licensed). A new dependency is a decision — propose it, don't add it quietly.
+- **Phases:** roadmap phases in [ProductRoadmap.md](docs/12-ROADMAP/ProductRoadmap.md) §6 describe **product capability** and are never renumbered or reused. Engineering missions — hardening, release readiness, knowledge passes — are separate: they run on their own branch, close against the registers, and **take no roadmap number**. Give such a mission a name, not the next free phase. The number in a branch like `phase/17-production-hardening` is a branch sequence; roadmap Phase 17 is a different thing and is still ⏳.
 - **Commits:** Conventional Commits (`feat(module): …`). One coherent change per commit; the repository must build at every commit.
 
 ## 6. Before you change code: inspect
