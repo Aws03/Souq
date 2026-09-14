@@ -188,6 +188,35 @@ SPA, confirming the warning above. `dotnet Souq.API.dll --health-check` inside t
 **What is still missing:** nothing outside the stack polls these endpoints or alerts a human (R-20). The
 endpoints are the mechanism; the monitoring is not built.
 
+## 6a. The first-deployment smoke test
+
+```bash
+./scripts/smoke-test.sh --base-url https://yourstore.example --api-url http://api-host:8080 \
+                        --store-host yourstore.example --compose-project souq
+```
+
+Thirty-one automated checks, in a deliberate order: the ones that write nothing first (liveness, readiness,
+tenant resolution, an unknown host getting 404 while liveness on that same host still answers), then a real
+customer registration, basket and order tagged with a unique run id, then the proxy's own behaviour, and
+finally a search of the logs for what the run itself just created.
+
+It **fails the deployment** rather than reporting politely: any failed check exits non-zero with "do not open
+the store". Verified in both directions — a healthy stack passes 31 checks, and with the API stopped it still
+runs every check, reports 17 failures and refuses.
+
+Three things it deliberately will not do:
+
+- **It never fakes a successful payment.** If a real gateway is configured it says so and stops at order
+  creation, because completing a payment needs a real test card on the real account. A smoke test that fakes
+  the money path lies in exactly the situation it exists for.
+- **It does not assert email delivery.** It reads which adapter the API actually selected from the startup log
+  and tells you whether anything can arrive at all.
+- **It does not take or restore a backup.** It confirms the database container is reachable for
+  `scripts/backup.sh` and points at `scripts/rehearse-restore.sh`, which is a separate deliberate act.
+
+The checks marked **◆** in its output are the ones no script can close — a real payment, a real email, and the
+restore rehearsal.
+
 ## 7. File storage
 
 `LocalFileStorage` writes to `{Storage:Local:RootPath}/tenants/{tenantId}/{folder}/{guid}{ext}` and returns `/uploads/tenants/{tenantId}/…`. The API serves that folder read-only with an allow-list of media types, `nosniff` and a sandboxing CSP, and `TenantResolutionMiddleware` refuses to serve one store's files on another store's host.
