@@ -51,6 +51,7 @@
 ## 5. Migrations
 
 - [ ] **REQUIRED** A backup exists **before** the deployment that will apply migrations. Migrations run at startup, so deploying *is* migrating.
+- [ ] **REQUIRED** The application does **not** connect as `sa`. `ConnectionStrings:Default` uses the runtime identity (`db_datareader` + `db_datawriter`) and `ConnectionStrings:Migrations` the migration identity ([DatabasePrivileges.md](../07-SECURITY/DatabasePrivileges.md)). The database is created by an administrator first — neither identity can create it.
 - [ ] **REQUIRED** The migration set has been applied once to a copy of production data, not only to an empty database.
 - [ ] **REQUIRED** Exactly one API instance starts first on a release that carries migrations. Two instances starting together race.
 - [ ] **RECOMMENDED** The startup log shows no migration error, and the expected migration is the last applied one.

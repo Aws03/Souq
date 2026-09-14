@@ -96,6 +96,14 @@
 - **Product gallery:** up to 10 images per product, each through the same pipeline, into the store's prefix. **Removing an image does not delete the file** and no cleanup job exists or is scheduled (**FUTURE**); the file keeps its unguessable name and is still served only on the owning store's host.
 - **PLANNED (Phase 23):** cloud blob storage. Re-encoding images to strip metadata and neutralize polyglots was considered in ADR-0016 and is **FUTURE** — no phase schedules it.
 
+## 5a. Database privileges
+
+The application connected as `sa` — full control of every database on the server, which sets the blast radius of every other vulnerability here. Three identities now exist instead (runtime: `db_datareader` + `db_datawriter`; migration: `db_ddladmin` + read/write, used only at startup; administrative: never in an application's configuration), created by `scripts/sql/least-privilege-logins.sql`.
+
+The permissions were **measured**, not assumed: `scripts/verify-least-privilege.sh` runs the real application against them on throwaway infrastructure, greps the log for permission denials (which is how background-job failures surface at all), and then proves the runtime identity is refused when it tries to create a table, drop `Orders`, add itself to `db_owner`, create a database, or read another application's database on the same server.
+
+**Not yet applied anywhere.** The Compose bundle is a demo and still uses `sa`. See [DatabasePrivileges.md](DatabasePrivileges.md) §6 for what remains, and R-12 in [ReleaseReadiness.md](../09-OPERATIONS/ReleaseReadiness.md).
+
 ## 6. Secret management
 
 | Secret | Development | Docker / production |

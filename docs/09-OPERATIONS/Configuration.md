@@ -48,6 +48,7 @@ Configuration warning: {ConfigurationWarning}
 | Key | Default | Required | Secret | Validated |
 |---|---|---|---|---|
 | `ConnectionStrings:Default` | empty in `appsettings.json` | every environment | yes | present and non-blank, in `AddInfrastructure`, before the host is built |
+| `ConnectionStrings:Migrations` | unset — falls back to `Default` | production, once least-privilege logins exist | no | none; if unset, migrations use the runtime identity exactly as before |
 
 Missing value:
 
@@ -55,7 +56,9 @@ Missing value:
 سلسلة الاتصال 'Default' غير مضبوطة (ConnectionStrings:Default). للتطوير: dotnet user-secrets set "ConnectionStrings:Default" "..." --project src/Souq.API
 ```
 
-docker-compose builds it from the SQL container's password: `ConnectionStrings__Default: "Server=db,1433;Database=SouqDb;User Id=sa;Password=${DB_SA_PASSWORD};TrustServerCertificate=True"`, with `DB_SA_PASSWORD` in `.env`. There is no separate variable for the host, database name or login — change the line in `docker-compose.yml` to use a least-privilege login (see [Deployment.md](Deployment.md), risks).
+docker-compose builds it from the SQL container's password: `ConnectionStrings__Default: "Server=db,1433;Database=SouqDb;User Id=sa;Password=${DB_SA_PASSWORD};TrustServerCertificate=True"`, with `DB_SA_PASSWORD` in `.env`. There is no separate variable for the host, database name or login — change the line in `docker-compose.yml` to use a least-privilege login (see [DatabasePrivileges.md](../07-SECURITY/DatabasePrivileges.md)).
+
+**`ConnectionStrings:Migrations`** is used by the startup migrator and by nothing else, so the running application can hold an identity that cannot change the schema. Unset, it falls back to `Default` and behaviour is identical to before the split — an existing deployment upgrades without touching its configuration. The startup log records which identity applied the migrations. Full rationale and the measured permissions: [DatabasePrivileges.md](../07-SECURITY/DatabasePrivileges.md).
 
 ## 4. Jwt
 

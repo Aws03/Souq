@@ -42,7 +42,7 @@ One folder per module, each with a `README.md` and most with a `ChangeGuide.md`:
 [DatabaseDesign](06-DATABASE/DatabaseDesign.md) · [OwnershipMap](06-DATABASE/OwnershipMap.md) (who owns each table) · [Migrations](06-DATABASE/Migrations.md)
 
 ### 07 · Security
-[Security](07-SECURITY/Security.md) (assets, threats, controls) · [AuthenticationAndAuthorization](07-SECURITY/AuthenticationAndAuthorization.md) · [SecurityControls](07-SECURITY/SecurityControls.md) (control → implementation → test → gap)
+[Security](07-SECURITY/Security.md) (assets, threats, controls) · [DatabasePrivileges](07-SECURITY/DatabasePrivileges.md) (the three database identities, measured) · [AuthenticationAndAuthorization](07-SECURITY/AuthenticationAndAuthorization.md) · [SecurityControls](07-SECURITY/SecurityControls.md) (control → implementation → test → gap)
 
 ### 08 · Frontend
 [FrontendGuide](08-FRONTEND/FrontendGuide.md) (the practical guide) · [FrontendArchitecture](08-FRONTEND/FrontendArchitecture.md) (structure and the migration plan) · [WhiteLabel](08-FRONTEND/WhiteLabel.md) (how one build serves every store)

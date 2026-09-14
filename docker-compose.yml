@@ -30,6 +30,11 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ConnectionStrings__Default: "Server=db,1433;Database=SouqDb;User Id=sa;Password=${DB_SA_PASSWORD};TrustServerCertificate=True"
+      # هوية الهجرات (R-12): بلا قيمة تعمل الهجرات بهوية التشغيل نفسها — سلوك هذه الحزمة التجريبية.
+      # في نشر حقيقي: طبّق scripts/sql/least-privilege-logins.sql ثم اضبط السلسلتين على souq_app
+      # و souq_migrator. هذه الحزمة تُنشئ قاعدتها بنفسها عند أول إقلاع، وهو ما لا تستطيعه هوية
+      # مقيَّدة — لذلك تبقى هنا sa عمداً. docs/07-SECURITY/DatabasePrivileges.md
+      ConnectionStrings__Migrations: ${DB_MIGRATIONS_CONNECTION:-}
       Jwt__Key: ${JWT_KEY}
       Jwt__Issuer: Souq
       Jwt__Audience: SouqClient

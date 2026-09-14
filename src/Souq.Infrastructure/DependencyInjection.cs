@@ -75,6 +75,13 @@ public static class DependencyInjection
                 "سلسلة الاتصال 'Default' غير مضبوطة (ConnectionStrings:Default). للتطوير: " +
                 "dotnet user-secrets set \"ConnectionStrings:Default\" \"...\" --project src/Souq.API");
 
+        // هوية الهجرات (R-12): سلسلة اختيارية تُستخدم لتطبيق الهجرات وحدها. غيابها يعني
+        // "نفس هوية التشغيل" — سلوك ما قبل الفصل بالضبط.
+        var migrationConnectionString = config.GetConnectionString("Migrations");
+        services.AddSingleton(new MigrationConnection(
+            string.IsNullOrWhiteSpace(migrationConnectionString) ? connectionString : migrationConnectionString,
+            !string.IsNullOrWhiteSpace(migrationConnectionString)));
+
         // الساعة الوحيدة في النظام (Phase 0 D12) — TryAdd: قد تكون Application سجّلتها أولاً.
         services.TryAddSingleton(TimeProvider.System);
 

@@ -46,11 +46,22 @@ public static class DbSeeder
 
     public static async Task SeedAsync(IServiceProvider services, SeedOptions options, ILogger logger)
     {
+        // ── الهجرات أولاً، بهويّتها هي (R-12) ──────────────────────────────────
+        // سياق منفصل بسلسلة الهجرات: هي وحدها تحتاج صلاحيات تغيير المخطّط، وبعدها يعمل كل شيء
+        // بهوية التشغيل. بلا ConnectionStrings:Migrations السلسلتان واحدة ولا يتغيّر شيء.
+        var migration = services.GetRequiredService<MigrationConnection>();
+        await using (var migrationDb = new AppDbContext(
+            new DbContextOptionsBuilder<AppDbContext>().UseSqlServer(migration.Value).Options, new TenantContext()))
+        {
+            await migrationDb.Database.MigrateAsync();
+        }
+        logger.LogInformation("Migrations applied using {MigrationIdentity} identity",
+            migration.IsSeparateIdentity ? "a dedicated migration" : "the runtime");
+
         TenantInfo? defaultTenant;
         await using (var scope = services.GetRequiredService<IServiceScopeFactory>().CreateAsyncScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-            await db.Database.MigrateAsync();               // يطبّق الهجرات تلقائياً
             await BindDefaultTenantHostsAsync(db, options.DefaultTenantHosts, logger);
             if (options.SeedDemoData) await ApplyDefaultStoreLookAsync(db, logger);
             defaultTenant = await scope.ServiceProvider.GetRequiredService<ITenantDirectory>()
