@@ -111,33 +111,79 @@ These are named in the mission and not yet re-verified in code; they carry no se
 - **Idempotency.** Duplicate Stripe webhooks, duplicate `confirm-payment`, refund retries and coupon reserve/confirm/release are all protected, and the mechanism is worth knowing: the webhook handler **discards the event's payload and type** and re-asks the gateway for the intent's live state, which is what makes both redelivery and out-of-order delivery safe without a processed-events table. Order creation (F-8) is the one unprotected entry point.
 - **Tenant isolation.** Audited across all 13 modules against the controllers rather than the generated inventory: no cross-tenant or cross-customer path was found. Every mechanism ADR-0022 claims was confirmed present and applied by reflection across the model, and `TenantIsolationTests` enumerates the live endpoint list so the matrix cannot silently drift. The residual items are F-1 and F-2, both already recorded.
 
-## The next engineering mission: operational readiness
+## Final assessment after the operational readiness mission
 
-The production hardening mission completed at commit `6a520b7`. What remains between this repository and a first paying customer is
-**not more product capability** — it is the operational and commercial work below. Recording it here because the previous mission's
-recommendation lived only in a conversation, and was lost when the session ended.
+Assessed fresh on 2026-09-15 against the code and against evidence produced by running things, not by carrying
+forward the previous conclusion. **Status words mean exactly one thing each:** *Done* — implemented and
+verified here; *Mechanism ready* — built and tested, but no deployment has applied it, so it protects nobody
+yet; *Accepted* — understood and deliberately not fixed; *Owner* / *External* — not engineering's to close.
 
-This is an engineering mission, not a roadmap phase. It does **not** take the number 18: Phase 18 in
-[ProductRoadmap.md](../12-ROADMAP/ProductRoadmap.md) is the Platform owner dashboard, a product capability, and it stays that.
+| Area | Status | Evidence | Remaining action | Owner |
+|---|---|---|---|---|
+| Architecture | **Done** | 58 architecture tests; **zero** NuGet changes across the mission; no Redis/Kafka/broker introduced | — | — |
+| Tenant isolation | **Done** | `TenancyRuleTests`, `TenantIsolationTests`; health endpoints verified not to weaken host resolution | — | — |
+| Authentication / authorization | **Done** | `AuthorizationMatrixTests`, `AuthorizationBoundaryTests`; every endpoint declares access | — | — |
+| Payment state machine | **Done** | [ADR-0036](../11-ADR/0036-payment-intent-state-machine.md); `PaymentsAndRefundsTests` | — | — |
+| Payment idempotency | **Done** | Intent key `souq-intent-{tenantId}-{orderReference}`; redelivery and out-of-order events handled | — | — |
+| **Checkout idempotency** | **Designed, not built** | `CheckoutIdempotencyTests` measures it: two orders, stock twice, **no double charge**, duplicate expires | Implement the design once the behaviour is chosen | **Owner** (F-8) |
+| Inventory concurrency | **Done** | `InventoryAndOrderTests`: 5 buyers on the last item → exactly one sale | — | — |
+| Database integrity | **Done** | Composite tenant keys, rowversion on contended aggregates, no untrusted constraints after restore | — | — |
+| Migrations | **Done + ratcheted** | `MigrationSafetyTests` records the 5 destructive migrations and fails on a new unrecorded one | — | — |
+| Backup | **Mechanism ready** | `scripts/backup.sh`; `CHECKSUM` + `VERIFYONLY` + SHA-256 | Schedule it, copy off-host, alert on failure | Deployment (R-19) |
+| Restore | **Rehearsed** | Source stack destroyed, set restored on a clean server, API served the restored catalogue | Re-run after schema or image changes | Deployment |
+| Runtime DB privileges | **Mechanism ready** | Measured: zero permission denials; 5 escalation attempts refused | Apply the logins in a real deployment | Deployment (R-12) |
+| Secrets | **Done** | Placeholder keys rejected at startup; `ConfigurationSourceTests`; backups exclude secrets by design | — | — |
+| Configuration | **Done** | Fail-closed proven for payments, email, JWT, connection string; CORS no longer leaks a dev origin | — | — |
+| TLS | **Not provided** | This repository ships no certificate; nginx listens on 80 | Terminate TLS at the edge | Deployment (R-16) |
+| HSTS | **Done** | Verified end-to-end: absent on http, present when the proxy declares https | Widen `max-age`/preload knowingly | Deployment |
+| Security headers | **Done (API)** | `SecurityHeadersTests`: present on 200, 404 and 401; uploads policy not weakened | Enforce the SPA's report-only CSP after one browser pass | Deployment |
+| Reverse proxy | **Done** | Forwarded-scheme fix verified; exactly one CSP header; access log sanitised | — | — |
+| Uploads | **Accepted** | Served with `nosniff` + sandbox CSP; on local disk (R-13) | Blob storage before a second instance | Deferred |
+| Health checks | **Done** | Container observed `Waiting → Healthy` before `web` started; readiness rejects a stale schema | Point a monitor at them | Deployment (R-20) |
+| CI | **Done, not enforcing** | 4 jobs: build/warnings-as-errors, suites, integration over real SQL Server, audits, secret scan | **Switch on branch protection** | Owner (a GitHub setting) |
+| Frontend build | **Done** | Bundle coherent: 22 references, 50 chunks, 0 unresolved imports; served through the stack | — | — |
+| Frontend dependencies | **Done** | vite 8 / vitest 5 upgrade measured; audit 6 → 2 findings | Router major upgrade is optional — advisories unreachable | Owner (TD-41/F-23) |
+| Observability | **Done** | Correlation id on every response and in the log; use-case scope; no bodies or headers logged | Metrics/traces remain future | — |
+| Logging redaction | **Done** | Token redaction now covers pre-routing; nginx log sanitised — verified with planted secrets | Apply the same at any outer proxy | Deployment |
+| Performance | **Measured** | F-17: 11× at 2k orders, 22× at 20k; index and rewrite both measured and rejected | Revisit at the recorded trigger | Deferred |
+| Seed safety | **Done** | Fresh production-shaped database: no catalogue, no accounts, untouched settings | Adopt or archive the default store | Deployment |
+| Deployment reproducibility | **Done** | `SeedAndBootstrap.md` §4 — eight ordered steps from empty database to first boot | — | — |
+| Rollback | **Done** | Measured: a one-step round trip silently loses a third language and a second image | — | — |
+| Smoke testing | **Done** | 31 checks; verified it refuses when the API is stopped | Run it on every deployment | Deployment |
+| Documentation | **Done** | 58 documentation/architecture tests; incident runbook added | — | — |
+| Legal / licence | **Open** | MIT with a public remote | Decide before the first sale | **Owner** (P-03) |
+| Tax | **Open** | Pricing pipeline's tax stage is an explicit zero | Provide the rules | **Owner** (P-06) |
+| Payment ownership | **Open** | Both routing paths work; the choice does not exist | Decide before a second paying store | **Owner** (D-13) |
+| Stripe / JOD | **Open** | Converter handles both shapes; the account's behaviour is unknown | One test charge on the real account | **External** (P-05) |
 
-The open blockers are four different kinds of thing, and conflating them is how a release slips:
+### The twenty-one questions, answered
 
-| Kind | Items | Who can close it |
-|---|---|---|
-| **Engineering / operational** | R-12 (deployments still connect as `sa`, though the identities and their measured permissions now exist), R-16 (TLS termination; headers and HSTS are now done), R-19 (backups rehearsed but not scheduled or off-site), R-20 (no CI, no monitoring — the health endpoints themselves are now done), R-11 (rate limits trust a forwarded address) | Engineering, on a plan — these are the mission |
-| **External verification** | R-01 / P-05 (whether the real Stripe account treats JOD as three-decimal; getting it wrong collects a tenth of every price) | Nobody, until someone runs a test charge on the real account. It cannot be reasoned out from this repository |
-| **Owner / business decision** | R-25 / P-06 (tax), R-27 / P-03 (licence and repository visibility), R-26 / D-13 (merchant of record), R-03 (whether refunding needs the payments permission), F-8 (what a duplicate checkout should do) | The owner. Engineering can present options; it must not choose |
-| **Product feature work** | The storefront rebuild, the tenant admin dashboard, the platform owner dashboard (roadmap Phases 16–18) | Product — and none of it makes a release safe on its own |
+1. **Can the database be recovered?** Yes — `scripts/backup.sh` + `restore.sh`, checksum-verified.
+2. **Has restoration actually been rehearsed?** Yes. The source stack was **destroyed first**, the set restored onto a clean server, row counts and migration head matched, and the API served the restored catalogue.
+3. **Can the runtime app operate without `sa`?** Yes, measured: zero permission denials across every exercised path, and five escalation attempts refused. No deployment uses it yet.
+4. **Is production HTTPS/proxy behaviour safe?** The behaviour is correct and verified; **TLS itself is not provided** and must terminate at the edge.
+5. **Are health checks usable?** Yes — liveness and readiness are distinct, readiness rejects a stale schema, and the container probe needs no `curl`.
+6. **Does CI enforce meaningful quality?** It runs everything meaningful. It **enforces** nothing until branch protection is switched on.
+7. **Can a new engineer deploy from repository documentation?** Yes — `SeedAndBootstrap.md` §4, `Deployment.md`, `DatabasePrivileges.md`, then the smoke test.
+8. **Is rollback understood and safe?** Understood and measured. Safe only as *restore the backup and deploy the matching image*; a schema `Down()` loses data, and rolling deployments are unsafe across the data-moving migrations.
+9. **Can demo data enter production accidentally?** No — proven on a fresh production-shaped database. The default store row still arrives from the migration, and the startup log warns until it is adopted or archived.
+10. **Are secrets and sensitive logs protected?** Yes — placeholder keys refuse to boot, committed configuration cannot hold a secret, and the token leak through the proxy log is closed and verified with planted secrets.
+11. **Has F-17 been measured?** Yes: 11× at 2,000 orders, 22× at 20,000; a covering index and a query rewrite were both measured and both rejected; accepted with a recorded trigger.
+12. **Has F-7 been classified/resolved?** **Resolved**, and its misclassification as an owner decision corrected. A store can no longer be left without an administrator.
+13. **Has F-8 been classified/resolved?** Measured and fully designed; **not implemented**, because the behaviour is a customer-facing choice.
+14. **What remains external?** P-05 only — one test charge on the real Stripe account.
+15. **What remains owner/business/legal?** P-03 (licence), P-06 (tax), D-13 (payment ownership), R-03 (refund permission), F-8 (duplicate behaviour), plus branch protection and the backup schedule/retention.
+16. **What remains purely product functionality?** Roadmap Phases 16–18 — the storefront rebuild, the tenant admin dashboard, the platform owner dashboard.
+17. **Is Souq technically ready for a first deployment?** **Yes, conditionally** — with TLS terminated in front, the least-privilege logins applied, and the backup scheduled. Every one of those is a deployment action with a tested mechanism behind it.
+18. **Is Souq commercially ready for the first paying customer?** **No.**
+19. **If not, exactly what prevents it?** Four things, none of them code: the licence (P-03), tax (P-06), the JOD verification (P-05), and — operationally — TLS, the least-privilege logins and a scheduled off-site backup.
+20. **What is the next engineering mission?** **Enforcement and monitoring**: switch on branch protection, put a monitor on `/health/ready` with an alert, schedule the backup with an off-site copy, apply the least-privilege logins, terminate TLS, and enforce the SPA's CSP after a browser pass. Small, entirely operational, and it converts every *Mechanism ready* above into *Done*.
+21. **What is the next product roadmap capability?** **Phase 16 — the storefront rebuild**, unchanged. Operational readiness took no roadmap number and changed none.
 
-**Recommended order:** backups and a rehearsed restore first (R-19 — it is the only one whose absence is unrecoverable; the mechanism is now done and rehearsed, the scheduling is deployment work), then a
-least-privilege database login (R-12), then TLS termination (the rest of R-16 — the headers and HSTS are done), then a pipeline (the rest of R-20 — which also
-unblocks the TypeScript half of D-19 in [ADR-0037](../11-ADR/0037-frontend-server-state-and-types.md)). The health endpoints that R-20
-also covered are done, and readiness is a prerequisite for both the pipeline's smoke step and the restore rehearsal, which is why they
-came first. The owner decisions should go
-to the owner as one batch rather than one at a time; [ProductionReleaseChecklist.md](ProductionReleaseChecklist.md) §18 lists them
-where a release is signed off.
-
-Nothing above is scheduled here. Scheduling is the roadmap's job, and this is not a roadmap phase.
+> **Not production-ready, and not a step away either.** The engineering is in good shape and the evidence is
+> real, but three deployment actions and four owner decisions stand between this repository and a paying
+> customer. Nothing above is marked *Done* on the strength of a document; where the word appears, something was
+> run and observed.
 
 ## How to use this page
 
