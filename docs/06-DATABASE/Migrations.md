@@ -203,11 +203,67 @@ The insert deliberately runs **after** the unique indexes are created, so a dupl
 
 ## 7. Rollback
 
-- **Every migration has a `Down()`**, and none of them is exercised by a test.
+- **Every migration has a `Down()`** (`MigrationSafetyTests` keeps that true), and exactly one round trip is exercised by a test — see the measurement below.
 - **Most `Down()`s lose data**, and the file says so: `Phase3Identity` (accounts without a purchase profile), `Phase5Catalog` (extra languages, extra images, SKUs, compare-at prices, Draft vs Archived), `Phase6Inventory` (reservations), `Phase7Customers` (address book, statuses), `Phase9Orders` (numbers, tokens), `Phase11Payments` (payments, refunds, encrypted store keys), `Phase12Shipping`, `Phase13ReviewsWishlist`, `Phase14Notifications` (outbox and notifications). `Phase1AIntegrityPrecisionConcurrency` narrows money back to `decimal(18,2)`, which cannot keep a three-decimal JOD amount. `Phase2MultiTenancy`'s `Down()` is only safe while all data belongs to one store.
 - **Treat `Down()` as a development convenience, not a production rollback plan.** The production answer is: restore a backup, or roll forward with a corrective migration.
 - Rolling back the application image does **not** roll back the schema: the previous build starts, finds nothing pending, and runs against the newer schema.
 - To step back locally: `dotnet ef database update <PreviousMigration>` runs the `Down()`s between the two points; `dotnet ef migrations script <From> <To>` shows exactly what that would execute.
+
+### Measured, on a throwaway database
+
+`MigrationRollbackTests` takes a realistic product — three languages, a default variant, two images — steps back
+one migration past `Phase5Catalog`, and steps forward again. What comes back:
+
+| Before | After a one-step round trip |
+|---|---|
+| `ar`, `en`, `fr` translations | `ar`, `en` — **French silently gone** |
+| two images | one — **the second silently gone** |
+| Arabic name, first image | intact and correct |
+
+No error, no warning, no row in any log: the old schema has one `NameAr`, one `NameEn` and one `ImageUrl`, so
+anything beyond them has nowhere to go. That is the point — `Down()` is not broken, it is **lossy by
+construction**, and it cannot be fixed without inventing columns the old application would not read anyway.
+
+A detail worth knowing before trusting a `Down()`: the restoring `UPDATE` joins `ProductVariants` on
+`IsDefault = 1`. A product that somehow has no default variant is skipped entirely and comes back with an empty
+name. Found while writing the test, by giving it unrealistic data.
+
+### Which migrations actually destroy data
+
+`MigrationSafetyTests` records these, and **fails the build if a new one appears unrecorded** — so the decision
+below has to be made again each time, rather than inherited by accident:
+
+| Migration | What it destroys |
+|---|---|
+| `AddProductBilingualNames` | renames `Products.Name` to `NameAr` |
+| `Phase1AIntegrityPrecisionConcurrency` | narrows money types, makes foreign keys required — an orphan row blocks it |
+| `Phase3Identity` | drops the credential columns from `Customers` after moving them to `Users` |
+| `Phase5Catalog` | drops eight product and category columns after moving them to translations, variants and images |
+| `Phase6Inventory` | drops `StockQuantity` and `LowStockThreshold` after moving them to `InventoryItems` |
+
+### Why there is no rolling deployment
+
+These migrations **expand, migrate and contract in a single step** — new tables created, data copied, old
+columns dropped, all in one migration, applied at startup. That is what makes them irreversible, and it has a
+second consequence that matters more in practice:
+
+**Two versions of the application cannot run against the same database at once.** The moment the new instance
+applies `Phase5Catalog`, `Products.NameAr` no longer exists, and any still-running old instance breaks on its
+next product query. So a rolling or blue-green deployment across such a migration is unsafe, and the supported
+sequence is: stop the old version → deploy the new one (which migrates on start) → verify `/health/ready`.
+
+Additive migrations (most of the later phases) do not have this problem, but nothing in the pipeline currently
+distinguishes them at deploy time, so treat every deployment as stop-then-start unless you have checked.
+
+### A backup is mandatory when
+
+1. The deployment crosses **any** migration in the table above.
+2. The deployment crosses a migration you have not read.
+3. Always, for a first production deployment.
+
+"Mandatory" means the backup is taken **and its restore rehearsed**, not merely taken
+([BackupAndRestore.md](../09-OPERATIONS/BackupAndRestore.md) §8). The rollback that actually works is: restore
+the backup, then deploy the image that matches it.
 
 ## 8. Seed data
 

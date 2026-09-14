@@ -9,8 +9,8 @@
 |---|---|---|---|
 | [`Souq.Domain.Tests`](#souqdomaintests) | 23 | 165 | 34 |
 | [`Souq.Application.Tests`](#souqapplicationtests) | 39 | 272 | 11 |
-| [`Souq.ArchitectureTests`](#souqarchitecturetests) | 9 | 37 | 4 |
-| [`Souq.IntegrationTests`](#souqintegrationtests) | 35 | 190 | 18 |
+| [`Souq.ArchitectureTests`](#souqarchitecturetests) | 10 | 40 | 4 |
+| [`Souq.IntegrationTests`](#souqintegrationtests) | 36 | 191 | 18 |
 | [frontend (Vitest)](#frontend-vitest) | 25 | 107 | — |
 
 ## Souq.Domain.Tests
@@ -95,6 +95,7 @@
 | `tests/Souq.ArchitectureTests/DocumentationTests.cs` | `DocumentationTests` | 4 | 0 |
 | `tests/Souq.ArchitectureTests/EndpointRuleTests.cs` | `EndpointRuleTests` | 3 | 0 |
 | `tests/Souq.ArchitectureTests/GeneratedDocsTests.cs` | `GeneratedDocsTests` | 5 | 1 |
+| `tests/Souq.ArchitectureTests/MigrationSafetyTests.cs` | `MigrationSafetyTests` | 3 | 0 |
 | `tests/Souq.ArchitectureTests/ModuleAndContractRuleTests.cs` | `ModuleAndContractRuleTests` | 8 | 1 |
 | `tests/Souq.ArchitectureTests/TenancyRuleTests.cs` | `TenancyRuleTests` | 7 | 0 |
 | `tests/Souq.ArchitectureTests/WhiteLabelSourceTests.cs` | `WhiteLabelSourceTests` | 1 | 0 |
@@ -118,6 +119,7 @@
 | `tests/Souq.IntegrationTests/InventoryAndOrderTests.cs` | `InventoryAndOrderTests` | 9 | 0 |
 | `tests/Souq.IntegrationTests/LocalFileStorageTests.cs` | `LocalFileStorageTests` | 2 | 2 |
 | `tests/Souq.IntegrationTests/MigrationRehearsalTests.cs` | `MigrationRehearsalTests` | 1 | 0 |
+| `tests/Souq.IntegrationTests/MigrationRollbackTests.cs` | `MigrationRollbackTests` | 1 | 0 |
 | `tests/Souq.IntegrationTests/NotificationTests.cs` | `NotificationTests` | 6 | 0 |
 | `tests/Souq.IntegrationTests/ObservabilityTests.cs` | `ObservabilityTests` | 5 | 0 |
 | `tests/Souq.IntegrationTests/OrderLifecycleTests.cs` | `OrderLifecycleTests` | 6 | 0 |
