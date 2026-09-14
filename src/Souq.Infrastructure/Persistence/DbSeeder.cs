@@ -30,6 +30,10 @@ public static class DbSeeder
     // تجريبي) — كل البيانات السابقة للمرحلة 2 تنتمي إليه.
     public const string DefaultTenantSlug = "marka";
 
+    // الاسم الذي تكتبه هجرة المرحلة 2 للمتجر الافتراضي. يُقارَن به لاكتشاف متجر لم يتبنّه أحد
+    // بعد (أدناه) — ولهذا السبب وحده يعيش هذا النصّ هنا (WhiteLabelSourceTests يسمح لهذا الملف).
+    public const string DefaultTenantSeededName = "Marka Demo";
+
     // بيانات التطوير المحلي فقط — لا تُستخدم خارج Development أبداً. قبل Phase 1A كان مدير بكلمة
     // مرور منشورة يُبذَر في كل البيئات بما فيها Production (Phase 0 B1): باب خلفي في كل نشر.
     public const string DevelopmentAdminEmail = "admin@souq.com";
@@ -84,7 +88,33 @@ public static class DbSeeder
             await SeedAccountAsync(db, tenantServices.GetRequiredService<IPasswordHasher>(), logger,
                 options.AdminEmail, options.AdminPassword, options.IsDevelopment,
                 DevelopmentAdminEmail, DevelopmentAdminPassword, "مدير المتجر", Roles.TenantAdmin, "Seed:AdminEmail/Seed:AdminPassword");
+
+            if (!options.SeedDemoData) await WarnAboutUnadoptedDefaultStoreAsync(db, defaultTenant, logger);
         });
+    }
+
+    // ============================================================================
+    // المتجر الافتراضي في قاعدة لم تُبذَر ببيانات عرض (أي: إنتاج/تجهيز).
+    //
+    // هجرة المرحلة 2 تكتب المتجر رقم 1 في *كل* قاعدة — فهو الوعاء الذي انتقلت إليه بيانات ما
+    // قبل تعدّد المتاجر، ولا يمكن حذفه من الهجرة بأثر رجعي (نشرٌ قائم قد يكون تبنّاه وملأه).
+    // لكن قاعدة إنتاج جديدة تبدأ إذن بمتجر *فعّال* اسمه اسم العرض التوضيحي، وقد يُربط بنطاق
+    // حقيقي عبر Seed:DefaultTenantHosts فيخدم زبائن باسم لم يختره أحد.
+    //
+    // لا نغيّره ولا نعطّله تلقائياً: كلاهما قرار مالك (قد يكون هذا متجره فعلاً). نقول ما نراه،
+    // بوضوح، عند كل إقلاع حتى يُتَّخذ القرار — وخطوات تبنّيه أو أرشفته في SeedAndBootstrap.md.
+    // ============================================================================
+    private static async Task WarnAboutUnadoptedDefaultStoreAsync(AppDbContext db, TenantInfo tenant, ILogger logger)
+    {
+        if (tenant.Name == DefaultTenantSeededName)
+            logger.LogWarning("Configuration warning: {ConfigurationWarning}",
+                $"المتجر الافتراضي ما زال باسم البذر '{DefaultTenantSeededName}' وحالته {tenant.Status}. " +
+                "تبنّه (غيّر اسمه وعملته ونطاقه) أو أرشفه قبل استقبال زبائن — docs/09-OPERATIONS/SeedAndBootstrap.md");
+
+        if (tenant.Status == TenantStatus.Active && !await db.Users.AnyAsync(u => u.Role == Roles.TenantAdmin))
+            logger.LogWarning("Configuration warning: {ConfigurationWarning}",
+                "المتجر الافتراضي فعّال وبلا أي مدير: لا أحد يستطيع إدارته. " +
+                "اضبط Seed:AdminEmail و Seed:AdminPassword عند أول إقلاع، أو أنشئ مديره من منطقة المنصّة.");
     }
 
     // مالك المنصّة في نطاق المنصّة (TenantId = null) — لا يرى متجراً إلا عبر مسار المنصّة المُدقَّق.

@@ -280,7 +280,7 @@ Read from the code; none of these were reproduced by running the stack.
 | The app connects as `sa` | `docker-compose.yml` | full server privileges for the application; a SQL injection or a leaked connection string is unbounded. Fix for real deployments, with measured permissions: [DatabasePrivileges.md](../07-SECURITY/DatabasePrivileges.md) |
 | The API container runs as root | `src/Souq.API/Dockerfile` | no `USER` instruction; a container escape starts from root |
 | Floating image tags (`2022-latest`, `sdk:10.0`, `aspnet:10.0`, `nginx:1.27-alpine`, `node:20-alpine`) | both Dockerfiles and compose | two deployments from the same commit can differ |
-| The default store row exists in every database | the `Phase2MultiTenancy` migration | production starts with an empty default store (no demo catalog since `Seed:DemoData` is off there). Adopt, rename or archive it deliberately |
+| The default store row exists in every database | the `Phase2MultiTenancy` migration | production starts with an **Active** store still carrying the seeded demo name, with no catalog and possibly no administrator. The startup log now warns until it is adopted or archived — the procedure is [SeedAndBootstrap.md](SeedAndBootstrap.md) §3 |
 | No TLS in the repository (the header set and HSTS now exist) | — | terminate TLS at the edge; automated TLS for custom domains is Phase 23 |
 
 ## 11. Rollback

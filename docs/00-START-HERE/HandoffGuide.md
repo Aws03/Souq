@@ -63,7 +63,7 @@ One deployable application, split into thirteen business modules that own their 
 - **CI runs but does not block merges yet** — switch on branch protection for `main` so a red run cannot be merged ([`.github/workflows/ci.yml`](../../.github/workflows/ci.yml)).
 - There is **no scheduled backup**. A rehearsed backup/restore procedure exists ([BackupAndRestore.md](../09-OPERATIONS/BackupAndRestore.md)) but nothing runs it for you — wire up the schedule and an off-site copy before real data exists. Health checks exist (`/health/live`, `/health/ready` — [Deployment.md](../09-OPERATIONS/Deployment.md) §6); nothing outside the stack watches them yet.
 - The application connects to SQL Server as `sa`, the API container runs as root, and the repository contains no TLS or security-header configuration. Fix before public traffic.
-- The seeder creates a demo store and demo catalog in any fresh database.
+- A fresh database always contains store id 1, and outside Development it keeps the seeded demo name with no catalog until you adopt or archive it ([SeedAndBootstrap.md](../09-OPERATIONS/SeedAndBootstrap.md)). The demo *catalog* is seeded only in Development/Testing, or on explicit request.
 
 ## 8. What is incomplete
 
