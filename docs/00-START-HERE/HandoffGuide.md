@@ -60,7 +60,7 @@ One deployable application, split into thirteen business modules that own their 
 **Be aware, before your first production deployment:**
 
 - Migrations run automatically at startup, in every environment. Back up first.
-- There are **no health checks, no automated backups and no CI pipeline**. Add them early.
+- There are **no automated backups and no CI pipeline**. Add them early. Health checks exist (`/health/live`, `/health/ready` — [Deployment.md](../09-OPERATIONS/Deployment.md) §6); nothing outside the stack watches them yet.
 - The application connects to SQL Server as `sa`, the API container runs as root, and the repository contains no TLS or security-header configuration. Fix before public traffic.
 - The seeder creates a demo store and demo catalog in any fresh database.
 

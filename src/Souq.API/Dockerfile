@@ -29,4 +29,11 @@ ENV ASPNETCORE_HTTP_PORTS=8080
 EXPOSE 8080
 
 COPY --from=build /app .
+
+# فحص صحّة الحاوية بالتطبيق نفسه (HealthProbe في Observability/Health.cs): هذه الصورة بلا curl
+# ولا wget عمداً — إضافتهما تمنح المهاجم عميل HTTP جاهزاً بعد أي اختراق، وزمن تشغيل .NET
+# الموجود أصلاً يكفي. المهلة الأولى سخيّة: الهجرات والبذر تجري عند الإقلاع قبل قبول أي طلب.
+HEALTHCHECK --interval=30s --timeout=10s --start-period=90s --retries=3 \
+    CMD ["dotnet", "Souq.API.dll", "--health-check"]
+
 ENTRYPOINT ["dotnet", "Souq.API.dll"]

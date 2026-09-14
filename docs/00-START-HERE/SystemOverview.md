@@ -145,7 +145,7 @@ The frontend is **never** authoritative: guards, hidden menus and disabled butto
 - The API **refuses to start** when something that must be configured is missing: a weak JWT key, no payment provider (unless the fake is explicitly chosen), no email provider (unless logging is explicitly chosen), an invalid secrets key.
 - Secrets never live in committed configuration; store payment keys are encrypted in the database.
 - Background services: outbox dispatch, checkout expiry, basket cleanup.
-- What to do when something breaks: [Troubleshooting.md](../09-OPERATIONS/Troubleshooting.md). How it is deployed and what is still missing (health checks, backups, CI): [Deployment.md](../09-OPERATIONS/Deployment.md).
+- What to do when something breaks: [Troubleshooting.md](../09-OPERATIONS/Troubleshooting.md). How it is deployed and what is still missing (backups, CI): [Deployment.md](../09-OPERATIONS/Deployment.md).
 
 ## 11. What is deliberately not here
 

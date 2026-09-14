@@ -362,3 +362,41 @@ curl -i http://127.0.0.1:5200/api/storefront/config -H "Host: localhost"
 **Safe fix.** Use Swagger against a locally run API (http://localhost:5200/swagger), or call the deployed API with `curl` and the right Host header.
 
 **Not this.** Do not enable Swagger in production by changing the environment name — that would also re-enable the development tenant resolution, the default admin, the implicit fake gateway and log-only email.
+
+## 20. The `api` container never becomes healthy (and `web` never starts)
+
+**Symptom.** `docker compose ps` shows `api` as `starting` and then `unhealthy`; `web` never starts at all,
+because it waits on `condition: service_healthy`.
+
+**First, read the probe's own output** — it records every attempt:
+
+```bash
+docker inspect --format '{{json .State.Health}}' souq-api-1 | python3 -m json.tool
+docker compose logs api | tail -50
+```
+
+**Likely causes, in the order worth checking.**
+
+- **It is still starting.** Migrations and seeding run before the first request is served, so early failures are
+  normal; the 90 s `start_period` exists for exactly this and failures inside it do not count against the
+  retries. A fresh database on a slow machine can need longer than 90 s — raise the start period rather than
+  the retry count.
+- **The API never started.** A configuration failure stops the process before any endpoint exists (§3). The
+  probe then reports "not ready" for a cause that has nothing to do with readiness — the logs say which key.
+- **The database is unreachable or its schema is older than the image.** Both make `/health/ready` fail while
+  `/health/live` still answers. Compare them:
+
+  ```bash
+  curl -s -o /dev/null -w '%{http_code}\n' http://localhost:5201/health/live    # 200 = process is fine
+  curl -s http://localhost:5201/health/ready                                     # {"status":"Unhealthy",...}
+  ```
+
+  Live 200 + ready unhealthy means the process is healthy and its database is not. A **stale schema** is the
+  case to take seriously: it usually means the database was restored from a backup older than the deployed
+  image ([Deployment.md](Deployment.md) §6 and §11). The reason is deliberately kept out of the HTTP body —
+  `docker compose logs api | grep Readiness` names it.
+
+**Not this.** Do not delete the `HEALTHCHECK` or drop `web`'s `service_healthy` condition to get the stack up:
+that restores the old behaviour where nginx starts first and answers the first visitor with `502`, and it hides
+a real failure rather than fixing it. Do not "fix" a stale schema by pointing the API at a different database.
+

@@ -849,7 +849,7 @@ Status legend: ✅ done · 🟡 in progress · ⏳ planned · ⏸ awaiting appro
   - Migrations as a deployment step (a migration bundle) instead of running at app startup.
   - Backups plus a restore drill.
   - Observability: structured logs, metrics, traces, and alerts.
-  - Health checks.
+  - Health checks. **Delivered early** by the operational readiness engineering mission — `/health/live` and `/health/ready`; see [ReleaseReadiness.md](../09-OPERATIONS/ReleaseReadiness.md) R-20.
   - Automated TLS for custom domains.
   - Per-tenant email-domain authentication (SPF/DKIM).
   - A data-retention policy and an incident runbook.

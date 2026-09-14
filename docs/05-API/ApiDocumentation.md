@@ -25,7 +25,7 @@
 | Tenant back-office | `/api/admin`: `/api/admin/inventory` (on hand, reserved, available; Phase 6 adds `POST /{productId}/adjustments` and `PUT /{productId}/threshold`, `inventory.manage`), `/api/admin/store/*` and `/api/admin/staff` (Phase 4), `/api/admin/products` (every status, full detail, `/{id}/status`, `/{id}/images/order`, `/{id}/images/{imageId}`) and `/api/admin/categories` (Phase 5), `/api/admin/customers` (Phase 7: list and detail with `customers.view`; `/{id}/status`, `/{id}/export` and `/{id}/erase` also need `customers.manage`), plus admin writes still on shared routes (`POST/PUT/DELETE /api/products`, `/api/categories`) | required | tenant admin/staff + permission |
 | Platform | `/api/platform/tenants`, `/api/platform/users`, `/api/platform/stats`, `/api/platform/audit` (Phase 4) | none | platform owner/admin, platform host only, every request audited |
 | Webhooks | `/api/payments/webhook` (target `/api/webhooks/{provider}`) | from provider metadata | signature |
-| Health | `/health/live`, `/health/ready` (Phase 23) | — | infrastructure |
+| Health | `/health/live`, `/health/ready` | none (outside `/api`, so no store is resolved) | anonymous — restrict at the network edge |
 
 Routes move into these areas in the phase that rebuilds each module. The frontend API client changes in the same commit, so there are no long-lived compatibility shims (we own the only client).
 

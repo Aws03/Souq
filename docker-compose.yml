@@ -92,8 +92,11 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+    # الجاهزية لا مجرّد الإقلاع: الـ API يطبّق الهجرات ويبذر قبل أن يخدم أي طلب، وبلا هذا
+    # الشرط يبدأ الوكيل بإرجاع 502 للزائر الأول. الفحص مُعرَّف في src/Souq.API/Dockerfile.
     depends_on:
-      - api
+      api:
+        condition: service_healthy
     ports:
       - "8081:80"
 

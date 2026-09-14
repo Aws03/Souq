@@ -115,7 +115,10 @@
 
 ## 13. Health checks and monitoring
 
-- [ ] **REQUIRED** Something outside the stack checks that the storefront answers, and alerts a human when it does not. The API exposes **no health endpoint**; the closest smoke check is `GET /api/storefront/config` for a known store host.
+- [ ] **REQUIRED** Something outside the stack polls `GET /health/ready` on the **API** service and alerts a human when it fails. Nothing in this repository does that — the endpoint is the mechanism, the monitoring is yours ([Deployment.md](Deployment.md) §6).
+- [ ] **REQUIRED** The probe does **not** point at the web/nginx container: `/health/ready` there falls through to the SPA and answers 200 forever.
+- [ ] **REQUIRED** `/health/live` and `/health/ready` are not reachable from the public internet (they are unauthenticated by design).
+- [ ] **RECOMMENDED** A storefront smoke check as well: `GET /api/storefront/config` for a known store host, which exercises tenant resolution too.
 - [ ] **RECOMMENDED** An alert fires on a sustained rise in 5xx responses.
 - [ ] **RECOMMENDED** Someone reviews dead outbox rows periodically — there is no screen and no alert for them.
 - [ ] **RECOMMENDED** A query watches for the reconciliation signal "a `Succeeded` payment on a `Cancelled` order" ([ADR-0036](../11-ADR/0036-payment-intent-state-machine.md)).

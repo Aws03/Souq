@@ -22,6 +22,10 @@ using Souq.Infrastructure;
 using Souq.Infrastructure.Persistence;
 using Souq.Infrastructure.Services;
 
+// ── مسبار الحاوية (Health.cs): `dotnet Souq.API.dll --health-check` يسأل هذه النسخة عن جاهزيتها
+// ويخرج بـ 0/1. قبل بناء أي خدمة: لا إعداد ولا قاعدة ولا أسرار — لأن صورة الإنتاج بلا curl. ──
+if (args.Contains(HealthProbe.Argument)) return await HealthProbe.RunAsync();
+
 var builder = WebApplication.CreateBuilder(args);
 
 // ── تجميع الطبقات (كل طبقة تسجّل نفسها) ──────────────────────────────────
@@ -96,6 +100,10 @@ builder.Services.AddScoped<IStorefrontLinks, RequestStorefrontLinks>();
 builder.Services.AddScoped<IClientInfo, RequestClientInfo>();   // عنوان العميل لسطر التدقيق (D-17)
 builder.Services.Configure<RefreshCookieOptions>(builder.Configuration.GetSection(RefreshCookieOptions.SectionName));
 builder.Services.AddSouqRateLimiting(builder.Configuration);
+
+// ── الفحوص الصحّية (Health.cs): الجاهزية وحدها تلمس القاعدة؛ الحيوية بلا أي تبعية. ──
+builder.Services.AddHealthChecks()
+    .AddCheck<DatabaseHealthCheck>("database", tags: [HealthEndpoints.ReadyTag]);
 
 // ── عنوان العميل ومخطّط الطلب الحقيقيان خلف Nginx (لحدّ المعدّل والسجلات وروابط البريد) — من
 // الشبكات الموثوقة في ForwardedHeaders:KnownNetworks فقط؛ ترويسة X-Forwarded-For من عميل مباشر
@@ -175,6 +183,11 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+// الفحوص الصحّية قبل تحديد المستأجر وحدّ المعدّل والمصادقة عمداً (Health.cs): مسبار المنظّم
+// يصل بمضيف الحاوية لا بمضيف متجر، والحيوية يجب أن تجيب حتى وقد تعطّل دليل المتاجر أو القاعدة.
+app.UseHealthChecks(HealthEndpoints.Live, HealthEndpoints.Liveness());
+app.UseHealthChecks(HealthEndpoints.Ready, HealthEndpoints.Readiness());
+
 // المستأجر أولاً (قبل الملفات والمصادقة): المضيف ⇒ المتجر؛ مضيف مجهول ⇒ 404 قبل أي منطق.
 app.UseMiddleware<TenantResolutionMiddleware>();
 
@@ -209,6 +222,7 @@ app.UseAuthorization();      // هل يُسمح لك؟ (يفرض [Authorize])
 app.MapControllers();
 
 app.Run();
+return 0;   // مسار المسبار أعلاه يعيد رمز خروج، فالنقطة كلها تعيد int.
 
 // قائمة من الإعداد بصيغتيها: مصفوفة (Seed:DefaultTenantHosts:0) أو نص مفصول بفواصل (متغيّر بيئة واحد).
 static string[] ReadList(IConfiguration configuration, string key) =>

@@ -23,11 +23,11 @@ flowchart LR
 |---|---|---|---|---|
 | `db` | mcr.microsoft.com/mssql/server:2022-latest, forced to `linux/amd64` | none published (deliberately isolated from any SQL Server already on the host) | `souq_db_data` → `/var/opt/mssql` | — |
 | `api` | built from `src/Souq.API/Dockerfile` (SDK 10.0 build stage → aspnet 10.0 runtime), listens on 8080 | `5201:8080`, for direct diagnostics | `souq_uploads` → `/app/wwwroot/uploads` | `db`, condition `service_healthy` |
-| `web` | built from `frontend/Dockerfile` (node:20-alpine build → nginx:1.27-alpine runtime) | `8081:80` | — | `api` (start only — no health condition, because the API has no health check) |
+| `web` | built from `frontend/Dockerfile` (node:20-alpine build → nginx:1.27-alpine runtime) | `8081:80` | — | `api`, condition `service_healthy` |
 
-Health: only `db` has one (`sqlcmd … SELECT 1`, every 10 s, 10 retries, 25 s start period). It is what makes the API wait for a usable database.
+Health: `db` has one (`sqlcmd … SELECT 1`, every 10 s, 10 retries, 25 s start period), which makes the API wait for a usable database; `api` has one (§6), which makes `web` wait for an API that has finished migrating and can actually answer.
 
-**The API image.** Multi-stage: `csproj` files are copied and restored first so a code change does not re-download packages; the runtime stage carries no SDK and no sources. `ASPNETCORE_HTTP_PORTS=8080` is set explicitly. No `USER` instruction, so the container runs as root.
+**The API image.** Multi-stage: `csproj` files are copied and restored first so a code change does not re-download packages; the runtime stage carries no SDK and no sources. `ASPNETCORE_HTTP_PORTS=8080` is set explicitly. A `HEALTHCHECK` runs the image's own binary with `--health-check` (§6). No `USER` instruction, so the container runs as root.
 
 **The web image and nginx** (`frontend/nginx.conf`):
 
@@ -110,15 +110,83 @@ Support flow: ask for the `X-Correlation-Id` (or the `traceId` in the error body
 
 ## 6. Health checks
 
-**There are none in the API.** No health-check services are registered and no health endpoint is mapped (verified by searching the source). `web` therefore waits only for the API container to *start*, not to be ready, and no orchestrator can currently tell a live instance from a wedged one. Health checks are **PLANNED** for Phase 23.
+Two endpoints, with deliberately different meanings. Confusing them is the usual way a health check makes an
+outage worse.
 
-Closest usable smoke check today, for a store host you know:
+| Endpoint | Question | Checks | A failure means |
+|---|---|---|---|
+| `/health/live` | Is the process alive? | **none** | restart this container |
+| `/health/ready` | Can this instance serve a real request? | `database` | stop sending it traffic — do **not** restart |
 
-```bash
-curl -i -H "Host: localhost" http://localhost:5201/api/storefront/config
+**Why liveness checks nothing.** If liveness touched the database, then one database hiccup would fail it on
+every instance at once and the orchestrator would restart the whole API tier — turning a partial, self-healing
+fault into a full outage. Liveness answers for the process and nothing else.
+
+**What readiness actually checks.** `DatabaseHealthCheck` asks two questions, both cheap and neither of them
+touching tenant data (so the check runs with no store in context, which is exactly the state a probe arrives in):
+
+1. Can it connect to the database? If not → `Unhealthy`.
+2. Are there pending migrations? If so → `Unhealthy`. Migrations are applied at startup (§2), so a pending
+   migration after startup means the schema is older than the code — most plausibly **a restored backup that
+   predates the deployed image**. Serving orders against a schema the code does not expect is worse than
+   refusing traffic, so this is a hard failure, not a warning.
+
+**They sit outside `/api`, before tenant resolution, on purpose.** A probe arrives on the container's own host
+name, which is not a registered store domain, and `TenantResolutionMiddleware` answers 404 for unknown hosts —
+but only on `/api` and `/uploads`. Health lives outside both, and is mapped before tenant resolution, rate
+limiting and authentication, so a probe is never rate-limited and liveness still answers when the tenant
+directory or the database is broken. `HealthCheckTests` pins this by asking the same unknown host for both
+`/health/live` (200) and an `/api` route (404); if these endpoints ever move under `/api`, that test fails
+instead of production.
+
+**The response body is deliberately thin** — the overall status and each check's status by name, with no
+description, exception or timing:
+
+```json
+{"status":"Unhealthy","checks":{"database":"Unhealthy"}}
 ```
 
-200 means the pipeline, tenant resolution and (unless the answer came from the 60-second tenant cache) the database are working. Treat it as a smoke test, not as a liveness probe.
+The reason (unreachable vs. stale schema) goes to the log, not to an anonymous caller. These endpoints are
+unauthenticated: **restrict them at the network edge**.
+
+> **Probe the API, never the web container.** `frontend/nginx.conf` proxies only `/api/` and `/uploads/`;
+> everything else falls through to `try_files $uri /index.html`. So `http://web/health/ready` returns the SPA's
+> `index.html` with **200 OK** — a load balancer pointed there would report a permanently healthy stack no
+> matter what the API is doing. Probe the API service directly (`http://api:8080/health/ready`, or
+> `http://localhost:5201/health/ready` from the host).
+
+**The container probe.** `mcr.microsoft.com/dotnet/aspnet:10.0` ships with neither `curl` nor `wget`, and
+installing one would put a general-purpose HTTP client in the production image for the sake of a health check —
+a ready-made tool for an attacker who gets a shell. Instead the image probes itself with the runtime it already
+has:
+
+```bash
+dotnet Souq.API.dll --health-check    # exit 0 = ready, 1 = not
+```
+
+That path runs before any service is built — no configuration, no database, no secrets — and just asks this
+instance for `/health/ready`. It is wired as `HEALTHCHECK` in `src/Souq.API/Dockerfile` (every 30 s, 10 s
+timeout, 3 retries, 90 s start period — generous because migrations and seeding run before the first answer),
+which is what lets `web` wait on `condition: service_healthy` instead of merely on the API container starting.
+
+Check it from the host:
+
+```bash
+curl -fsS http://localhost:5201/health/ready && echo READY
+docker compose ps          # the api service shows (healthy) once it is
+```
+
+**Verified, not just written** (2026-09-14, on a throwaway compose project with its own volumes, never against
+the real `souq_db_data`): `web` was observed waiting — compose reported `api Waiting → Healthy` before
+`web Starting`. The first probe failed while migrations ran and the second passed 5 s later, inside the start
+period, so the container reached healthy with a failing streak of 0. On the API port, `/health/live` returned
+`{"status":"Healthy","checks":{}}` and `/health/ready` returned `{"status":"Healthy","checks":{"database":"Healthy"}}`
+with `Cache-Control: no-store`; on a host name with no store, `/health/live` answered 200 while
+`/api/storefront/config` answered 404. Through nginx on 8081 the same path returned **200 `text/html`** — the
+SPA, confirming the warning above. `dotnet Souq.API.dll --health-check` inside the container exited 0.
+
+**What is still missing:** nothing outside the stack polls these endpoints or alerts a human (R-20). The
+endpoints are the mechanism; the monitoring is not built.
 
 ## 7. File storage
 
@@ -224,7 +292,7 @@ Read from the code; none of these were reproduced by running the stack.
 | The API container runs as root | `src/Souq.API/Dockerfile` | no `USER` instruction; a container escape starts from root |
 | Floating image tags (`2022-latest`, `sdk:10.0`, `aspnet:10.0`, `nginx:1.27-alpine`, `node:20-alpine`) | both Dockerfiles and compose | two deployments from the same commit can differ |
 | The default store row exists in every database | the `Phase2MultiTenancy` migration | production starts with an empty default store (no demo catalog since `Seed:DemoData` is off there). Adopt, rename or archive it deliberately |
-| No health check, no HSTS or security headers, no TLS in the repository | — | Phases 20 and 23 |
+| No HSTS or security headers, no TLS in the repository | — | Phases 20 and 23 |
 
 ## 11. Rollback
 
@@ -256,7 +324,6 @@ Read from the code; none of these were reproduced by running the stack.
 | CI/CD and defined environments | **PLANNED** Phase 23 | roadmap |
 | Migrations as a deployment step (migration bundle) instead of at startup | **PLANNED** Phase 23 | roadmap, [DatabaseDesign.md](../06-DATABASE/DatabaseDesign.md) §10 |
 | Backups plus a restore drill | **PLANNED** Phase 23 | roadmap |
-| Health checks | **PLANNED** Phase 23 | roadmap |
 | Metrics, traces, alerting (OpenTelemetry over the existing trace ids) | **PLANNED** Phase 23 | [ADR-0018](../11-ADR/0018-observability.md) |
 | Automated TLS for custom domains, and DNS/TLS domain verification | **PLANNED** Phase 23 | roadmap, risk R7 |
 | Per-store sending domains with SPF/DKIM | **PLANNED** Phase 23 | [ADR-0034](../11-ADR/0034-notifications-outbox.md), risk R9 |

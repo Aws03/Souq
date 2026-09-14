@@ -38,7 +38,7 @@ Headroom before anything else is needed:
   | **In-memory rate limits** | Limits become per-instance, so the effective limit multiplies by instance count | A distributed limiter, or enforce at the edge |
   | **Recurring jobs** | Checkout expiry and basket cleanup would run on every instance: safe (each operation is idempotent and guarded) but wasteful | Leader election or a distributed lock (deferred, [ADR-0026](../11-ADR/0026-inventory-reservations.md)) |
   | **Outbox dispatch** | Already safe: rows are claimed under a two-minute lease with a conditional update | None |
-- **Cost and risk:** a load balancer and health checks (health endpoints do not exist yet); deployment becomes rolling; log aggregation becomes necessary rather than nice.
+- **Cost and risk:** a load balancer pointed at `/health/ready` (which exists, and already reports a stale schema as not ready); deployment becomes rolling; log aggregation becomes necessary rather than nice.
 
 ## Stage 3 — Database capacity
 
