@@ -11,7 +11,7 @@
 | [`Souq.Application.Tests`](#souqapplicationtests) | 39 | 272 | 11 |
 | [`Souq.ArchitectureTests`](#souqarchitecturetests) | 8 | 36 | 3 |
 | [`Souq.IntegrationTests`](#souqintegrationtests) | 32 | 170 | 15 |
-| [frontend (Vitest)](#frontend-vitest) | 24 | 102 | — |
+| [frontend (Vitest)](#frontend-vitest) | 25 | 107 | — |
 
 ## Souq.Domain.Tests
 
@@ -152,6 +152,7 @@
 | `frontend/src/features/admin/products/productQuery.test.js` | 4 |
 | `frontend/src/features/admin/reviews/reviewModeration.test.js` | 2 |
 | `frontend/src/features/admin/shipping/shippingForm.test.js` | 4 |
+| `frontend/src/features/auth/safeRedirect.test.js` | 5 |
 | `frontend/src/features/basket/basketModel.test.js` | 4 |
 | `frontend/src/features/catalog/catalogText.test.js` | 5 |
 | `frontend/src/features/checkout/shippingChoice.test.js` | 4 |

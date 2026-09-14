@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth, canManageStore } from '../../context/AuthContext';
+import { safeRedirect } from '../../features/auth/safeRedirect';
 import FormField, { inputClass } from '../../components/common/FormField';
 import PasswordInput from '../../components/common/PasswordInput';
 import Button from '../../components/common/Button';
@@ -15,7 +16,9 @@ export default function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const from = location.state?.from?.pathname;
+  // الوجهة يختارها الزائر (ProtectedRoute ينقل الموقع كما طلبه)، فتُفحص قبل استعمالها: تحويل خارجي هنا يقع
+  // بعد نجاح الدخول مباشرةً. انظر safeRedirect.
+  const from = safeRedirect(location.state?.from?.pathname);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -37,7 +40,7 @@ export default function Login() {
     setBusy(true); setServerError(null);
     try {
       const user = await login(email.trim(), password);
-      navigate(canManageStore(user) ? '/admin' : (from && from !== '/login' ? from : '/'), { replace: true });
+      navigate(canManageStore(user) ? '/admin' : from, { replace: true });
     } catch (err) {
       setServerError(err.message || t('auth.loginFailed'));
     } finally { setBusy(false); }
