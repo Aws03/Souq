@@ -304,7 +304,9 @@ FROM OutboxMessages WHERE FailedAt IS NOT NULL ORDER BY FailedAt DESC;
 
 **Symptom.** Product images and branding assets 404 through http://localhost:8081 while the API serves them on its own port.
 
-**Likely cause.** In `frontend/nginx.conf` the `/uploads/` location proxies without overriding `Host`, so nginx sends `Host: api:8080`. Tenant resolution runs on `/uploads` too, that host maps to no store, and the answer in Production is `404 StoreNotFound`.
+**Likely cause.** A `/uploads/` location that proxies without overriding `Host`: nginx then sends `Host: api:8080`, tenant resolution runs on `/uploads` too, that host maps to no store, and the answer in Production is `404 StoreNotFound`.
+
+The shipped `frontend/nginx.conf` **no longer has this defect** — it was fixed in Phase 17 (F-24 in [ReleaseReadiness.md](ReleaseReadiness.md)), and the `/uploads/` location now forwards `Host`, `X-Forwarded-For` and `X-Forwarded-Proto` exactly as `/api/` does. So if you see this symptom, you are looking at a customised proxy, an older image, or a TLS terminator in front that drops the header.
 
 **Diagnostics.**
 
@@ -314,7 +316,7 @@ curl -i -H "Host: localhost" http://localhost:5201/uploads/tenants/1/images/<fil
 docker compose logs api | grep "No store is mapped to host"
 ```
 
-**Safe fix.** Add `proxy_set_header Host $http_host;` to the `/uploads/` location, exactly as the `/api/` location already does, and rebuild the web image.
+**Safe fix.** Ensure `proxy_set_header Host $http_host;` is on the `/uploads/` location, exactly as on `/api/`, and rebuild the web image. Check every hop: a TLS terminator or load balancer ahead of nginx can replace `Host` before nginx ever sees it.
 
 **Not this.** Do not bind `api` as a store domain to make the wrong host resolve, and do not exempt `/uploads` from tenant resolution — that check is what stops one store's host from serving another store's files.
 
