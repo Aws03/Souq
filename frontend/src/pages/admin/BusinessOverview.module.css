@@ -1,0 +1,87 @@
+/* نظرة العمل: أقلّ كثافة من لوحة المدير عمداً — قارئها ينظر لا يشتغل. */
+.page { display: flex; flex-direction: column; gap: var(--space-6); padding-bottom: var(--space-12); }
+
+.head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-4); flex-wrap: wrap; }
+.title { font-size: var(--fs-heading-lg); color: var(--color-text); }
+.subtitle { color: var(--color-text-muted); font-size: var(--fs-body-sm); margin-top: var(--space-1); }
+
+.ranges { display: flex; gap: var(--space-1); background: var(--color-surface-alt); padding: var(--space-1); border-radius: var(--radius-pill); }
+.rangeBtn {
+  padding: var(--space-2) var(--space-4); border-radius: var(--radius-pill);
+  font-size: var(--fs-body-sm); font-weight: 600; color: var(--color-text-muted); min-height: 36px;
+}
+.rangeActive { background: var(--color-surface); color: var(--color-text); box-shadow: var(--shadow-sm); }
+
+/* ── الحكم ── */
+.verdict {
+  display: flex; align-items: center; gap: var(--space-4); flex-wrap: wrap;
+  padding: var(--space-5) var(--space-6); border-radius: var(--radius);
+  border-inline-start: 4px solid var(--color-border); background: var(--color-surface);
+}
+.verdictBadge {
+  font-family: var(--font-display); font-size: var(--fs-heading); font-weight: 700;
+  padding: var(--space-1) var(--space-3); border-radius: var(--radius-pill);
+}
+.verdictReason { color: var(--color-text); font-size: var(--fs-body); }
+
+.healthy { border-inline-start-color: var(--color-success); }
+.healthy .verdictBadge { color: var(--color-success); background: var(--color-success-soft); }
+.watch { border-inline-start-color: var(--color-accent); }
+.watch .verdictBadge { color: var(--color-text); background: var(--color-accent-soft); }
+.attention { border-inline-start-color: var(--color-danger); }
+.attention .verdictBadge { color: var(--color-danger); background: var(--color-danger-soft); }
+.unknown .verdictBadge { color: var(--color-text-muted); background: var(--color-surface-alt); }
+
+/* ── المؤشّرات: بطاقة أعرض بشرح تحت الرقم ── */
+.metricRow { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: var(--space-4); }
+.metric {
+  background: var(--color-surface); border: 1px solid var(--color-border);
+  border-radius: var(--radius); padding: var(--space-5);
+  display: flex; flex-direction: column; gap: var(--space-2); min-width: 0;
+}
+.metricLabel { color: var(--color-text-muted); font-size: var(--fs-caption); }
+.metricValue {
+  font-family: var(--font-display); font-size: var(--fs-heading-lg);
+  font-variant-numeric: tabular-nums; overflow-wrap: anywhere;
+}
+.metricTrend { font-size: var(--fs-caption); font-weight: 700; }
+.metricHint { color: var(--color-text-muted); font-size: var(--fs-caption); line-height: 1.5; }
+.up { color: var(--color-success); }
+.down { color: var(--color-danger); }
+.flat { color: var(--color-text-muted); }
+
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: var(--space-4); align-items: start; }
+.wide { grid-column: 1 / -1; }
+
+.panel {
+  background: var(--color-surface); border: 1px solid var(--color-border);
+  border-radius: var(--radius); padding: var(--space-5);
+  display: flex; flex-direction: column; gap: var(--space-3); min-width: 0;
+}
+.panelTitle { font-size: var(--fs-heading); color: var(--color-text); }
+.loyalty { font-size: var(--fs-body); color: var(--color-text); }
+.noRisks { color: var(--color-text-muted); font-size: var(--fs-body-sm); }
+
+.riskList { list-style: none; display: flex; flex-direction: column; gap: var(--space-3); }
+.riskList li {
+  padding: var(--space-3) var(--space-4); border-radius: var(--radius-sm);
+  font-size: var(--fs-body-sm); border-inline-start: 3px solid var(--color-border);
+  background: var(--color-surface-alt);
+}
+.risk-high { border-inline-start-color: var(--color-danger); color: var(--color-danger); }
+.risk-medium { border-inline-start-color: var(--color-accent); color: var(--color-text); }
+
+/* الحدود معروضة لا مطويّة: قارئ غير تقنيّ قد يفترض أن الإيراد ربح. */
+.limits {
+  background: var(--color-surface-alt); border: 1px solid var(--color-border);
+  border-radius: var(--radius); padding: var(--space-5);
+  display: flex; flex-direction: column; gap: var(--space-3);
+}
+.limits ul { list-style: none; display: flex; flex-direction: column; gap: var(--space-2); }
+.limits li { color: var(--color-text-muted); font-size: var(--fs-body-sm); line-height: 1.6; }
+
+@media (max-width: 720px) {
+  .head { flex-direction: column; }
+  .metricRow { grid-template-columns: 1fr; }
+  .grid { grid-template-columns: 1fr; }
+}

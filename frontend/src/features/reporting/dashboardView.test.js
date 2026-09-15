@@ -87,7 +87,8 @@ describe('الحالات الفارغة', () => {
       ordersByStatus: { Pending: 0, Paid: 0, Shipped: 0, Delivered: 0, Cancelled: 0 },
     });
     expect(hasNoActivity(quiet)).toBe(true);
-    expect(isBrandNewStore(quiet)).toBe(false, 'له عملاء ومخزون — هادئ لا جديد');
+    // له عملاء ومخزون: هادئ لا جديد — والفرق يقرّر أي رسالة تُعرض.
+    expect(isBrandNewStore(quiet)).toBe(false);
   });
 
   it('متجر جديد تماماً يُميَّز عن متجر هادئ', () => {

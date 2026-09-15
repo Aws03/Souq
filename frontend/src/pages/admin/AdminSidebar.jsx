@@ -5,13 +5,15 @@ import { useStoreConfig } from '../../app/TenantProvider';
 import StoreBrand from '../../app/StoreBrand';
 import { isModuleEnabled } from '../../app/tenantModel';
 import {
-  GridIcon, PackageIcon, InventoryIcon, TagIcon, ReceiptIcon, PercentIcon, UserIcon, CardIcon, TruckIcon, StarIcon,
+  GridIcon, PackageIcon, InventoryIcon, TagIcon, ReceiptIcon, PercentIcon, UserIcon, CardIcon, TruckIcon,
+  StarIcon, TrendIcon,
 } from '../../components/icons/Icons';
 import styles from './AdminLayout.module.css';
 
 // روابط لوحة الإدارة بصلاحياتها ووحداتها — مشتركة بين الشريط الجانبي (سطح المكتب) والشريط السفلي (الجوال).
 export const ADMIN_NAV = [
   { to: '/admin', end: true, label: 'admin.nav.dashboard', shortLabel: 'admin.nav.home', icon: GridIcon },
+  { to: '/admin/business', label: 'admin.nav.business', icon: TrendIcon, permission: 'store.reports.view' },
   { to: '/admin/products', label: 'admin.nav.products', icon: PackageIcon, permission: 'catalog.manage' },
   { to: '/admin/inventory', label: 'admin.nav.inventory', icon: InventoryIcon, permission: 'inventory.view' },
   { to: '/admin/categories', label: 'admin.nav.categories', icon: TagIcon, permission: 'catalog.manage' },

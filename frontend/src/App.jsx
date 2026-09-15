@@ -47,6 +47,7 @@ const ResetPassword = lazy(() => import('./pages/auth/ResetPassword'));
 const VerifyEmail = lazy(() => import('./pages/auth/VerifyEmail'));
 const AdminLayout = lazy(() => import('./pages/admin/AdminLayout'));
 const Dashboard = lazy(() => import('./pages/admin/Dashboard'));
+const BusinessOverview = lazy(() => import('./pages/admin/BusinessOverview'));
 const Products = lazy(() => import('./pages/admin/Products'));
 const Inventory = lazy(() => import('./pages/admin/Inventory'));
 const Categories = lazy(() => import('./pages/admin/Categories'));
@@ -119,6 +120,8 @@ function StoreRoutes() {
       {/* ── لوحة المتجر (مدير/موظّف) — تخطيط منفصل، وكل صفحة بصلاحيتها ── */}
       <Route path="/admin" element={<AdminRoute><AdminLayout /></AdminRoute>}>
         <Route index element={<Dashboard />} />
+        {/* نظرة العمل: نفس البيانات ونفس الصلاحية، وسؤال مختلف — لمالك أو شريك لا لمن يشغّل المتجر. */}
+        <Route path="business" element={guarded(<BusinessOverview />, 'store.reports.view')} />
         <Route path="products" element={guarded(<Products />, 'catalog.manage')} />
         <Route path="inventory" element={guarded(<Inventory />, 'inventory.view')} />
         <Route path="categories" element={guarded(<Categories />, 'catalog.manage')} />

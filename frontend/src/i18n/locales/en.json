@@ -289,7 +289,8 @@
       "customers": "Customers",
       "payments": "Payments",
       "shipping": "Shipping",
-      "reviews": "Reviews"
+      "reviews": "Reviews",
+      "business": "Business"
     },
     "dashboard": {
       "greeting": "Welcome, {{name}}",
@@ -808,6 +809,51 @@
       "notMeasured": "What this dashboard does not show",
       "noProfit": "Profit and margin are not shown: products carry no cost price, so any margin here would be invented.",
       "noConversion": "Conversion rate is not shown: the platform does not track visits, so there is no number to divide by."
+    },
+    "business": {
+      "title": "Business overview",
+      "subtitle": "How the business is doing, in plain terms.",
+      "health": {
+        "healthy": "Healthy",
+        "watch": "Worth watching",
+        "attention": "Needs attention",
+        "unknown": "Not enough data yet"
+      },
+      "reason": {
+        "revenueUp": "Revenue is up {{percent}}% on the previous period.",
+        "revenueDown": "Revenue is down {{percent}}% on the previous period.",
+        "steady": "Revenue is steady against the previous period.",
+        "refunds": "{{percent}}% of revenue was refunded.",
+        "cancellations": "{{percent}}% of orders were cancelled.",
+        "unpaid": "{{percent}}% of orders were never paid for.",
+        "concentration": "{{percent}}% of sales come from one product ({{name}}).",
+        "outOfStock": "{{count}} products are out of stock.",
+        "noSales": "No sales have been recorded yet.",
+        "noData": "No data available."
+      },
+      "metric": {
+        "netRevenue": "Revenue after refunds",
+        "orders": "Completed purchases",
+        "averageOrderValue": "Average basket",
+        "newCustomers": "New customers"
+      },
+      "metricHint": {
+        "netRevenue": "Money taken on paid orders, less anything refunded.",
+        "orders": "Orders that were paid for. Abandoned and cancelled ones are excluded.",
+        "averageOrderValue": "What a typical customer spends per order.",
+        "newCustomers": "People who created an account in this period."
+      },
+      "loyaltyTitle": "Customer loyalty",
+      "repeatRate": "{{percent}}% of customers bought more than once",
+      "repeatUnknown": "No customers yet, so loyalty cannot be measured.",
+      "risksTitle": "Risks",
+      "noRisks": "No risks stand out in this period.",
+      "revenueTrend": "Revenue over time",
+      "topProducts": "What sells",
+      "limitsTitle": "What this page cannot tell you",
+      "noProfit": "This is revenue, not profit. The platform holds no cost prices, so margin cannot be calculated — and showing revenue as profit would be wrong.",
+      "noConversion": "There is no conversion rate: visits are not tracked, so there is nothing to compare orders against.",
+      "noForecast": "Nothing here is a forecast. Every number describes a period that has already happened."
     }
   },
   "wishlist": {

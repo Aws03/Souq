@@ -232,3 +232,12 @@ export const RowsIcon = ({ size = 18 }) => (
     <path d="M4 7h16M4 12h16M4 17h16" />
   </svg>
 );
+
+// اتجاه صاعد — تقارير العمل.
+export const TrendIcon = ({ size = 18 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <polyline points="3 17 9 11 13 15 21 7" />
+    <polyline points="15 7 21 7 21 13" />
+  </svg>
+);
