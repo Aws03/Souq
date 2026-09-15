@@ -79,7 +79,10 @@ PRODUCT_ID="$(body | sed -n 's/.*"id":\([0-9]*\).*/\1/p' | head -1)"
 [[ -n "$PRODUCT_ID" ]] && pass "منتج للاختبار: #$PRODUCT_ID" || skip "لا منتجات — تخطّي فحوص السلة والطلب"
 
 step "6 · المصادقة"
-EMAIL="$RUN_ID@souq.test"; PASSWORD="Smoke-Test-2026"
+# كلمة مرور تُولَّد لكل تشغيل: الحساب مؤقّت أصلاً، وكلمة ثابتة في نصّ مُتتبَّع تبقى اعتماداً
+# مكتوباً في المستودع — وهو ما يرفضه فحص الأسرار في الخط، وهو محقّ.
+EMAIL="$RUN_ID@souq.test"
+PASSWORD="Smoke-$(od -An -N6 -tx1 /dev/urandom | tr -d ' \n')-aA1!"
 REGISTER_BODY='{"fullName":"smoke","email":"'"$EMAIL"'","password":"'"$PASSWORD"'"}'
 LOGIN_BODY='{"email":"'"$EMAIL"'","password":"'"$PASSWORD"'"}'
 REG="$(api -X POST "$API_URL/api/auth/register" "${JSON[@]}" -d "$REGISTER_BODY")"
