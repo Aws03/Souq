@@ -28,7 +28,9 @@ export default defineConfig({
     locale: 'en-US',
   },
   projects: [
-    { name: 'desktop', use: { ...devices['Desktop Chrome'] } },
+    // فحوص الهاتف لمشروع الهاتف وحده: تشغيلها على سطح المكتب يفحص تخطيطاً لا وجود له هناك
+    // (تبديل اللغة مثلاً في الشريط العلوي لا في القائمة المنسدلة) فتسقط بلا عيب حقيقي.
+    { name: 'desktop', use: { ...devices['Desktop Chrome'] }, testIgnore: /responsive\.spec\.js/ },
     { name: 'phone', use: { ...devices['Pixel 7'] }, testMatch: /responsive\.spec\.js/ },
   ],
 });
