@@ -185,8 +185,39 @@ with `Cache-Control: no-store`; on a host name with no store, `/health/live` ans
 `/api/storefront/config` answered 404. Through nginx on 8081 the same path returned **200 `text/html`** — the
 SPA, confirming the warning above. `dotnet Souq.API.dll --health-check` inside the container exited 0.
 
+### The monitoring contract
+
+What an orchestrator or monitor should do with each answer. **Drilled on a running stack**, not inferred:
+
+| Observed | Meaning | Correct response |
+|---|---|---|
+| `live` 200, `ready` 200 | serving normally | nothing |
+| `live` 200, `ready` **503** | the process is fine, a dependency is not | **remove from the load balancer, do not restart** |
+| `live` 200, `ready` 503 for a long time | the dependency is not coming back | page a human; restarting the API changes nothing |
+| **neither answers** | the process never started, or died | this is the restart/crash-loop case (§3 of [IncidentResponse.md](IncidentResponse.md)) |
+
+**Measured, with the database stopped under a running API:** `live` stayed 200, `ready` returned 503 with
+`{"status":"Unhealthy","checks":{"database":"Unhealthy"}}`, and real requests returned 500. When the database
+came back, readiness returned to 200 in about 11 seconds **with zero container restarts**. That is the whole
+argument for separating the two: a liveness probe that touched the database would have restarted every
+instance during a blip that healed itself.
+
+**One asymmetry worth knowing before it confuses you.** The database being unavailable produces *two different
+shapes* depending on when:
+
+- **After startup** — the graceful case above: live 200, ready 503, self-healing.
+- **At startup** — migrations and seeding run before the first request is served, so the process fails there and
+  **no endpoint answers at all**. The only signal is the startup exception in the log, and the container's
+  `HEALTHCHECK` marks it unhealthy once the start period expires. An orchestrator sees a failing container, not
+  a 503 — which is correct, because an instance that never migrated must not take traffic.
+
+**Deliberately not health checks:** the payment gateway and the email provider. Their outage must not remove a
+store from the load balancer — customers can still browse, and the outbox holds what cannot be sent. Readiness
+answers "can this instance serve a request", not "is every downstream service well". Adding them would
+manufacture an outage from a supplier's bad afternoon.
+
 **What is still missing:** nothing outside the stack polls these endpoints or alerts a human (R-20). The
-endpoints are the mechanism; the monitoring is not built.
+endpoints and their contract are the mechanism; the monitor is a deployment action.
 
 ## 6a. The first-deployment smoke test
 

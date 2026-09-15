@@ -9,7 +9,7 @@
 |---|---|---|---|
 | [`Souq.Domain.Tests`](#souqdomaintests) | 23 | 165 | 34 |
 | [`Souq.Application.Tests`](#souqapplicationtests) | 39 | 272 | 11 |
-| [`Souq.ArchitectureTests`](#souqarchitecturetests) | 11 | 47 | 5 |
+| [`Souq.ArchitectureTests`](#souqarchitecturetests) | 12 | 50 | 5 |
 | [`Souq.IntegrationTests`](#souqintegrationtests) | 40 | 200 | 21 |
 | [frontend (Vitest)](#frontend-vitest) | 25 | 107 | — |
 
@@ -92,6 +92,7 @@
 | `tests/Souq.ArchitectureTests/BackupVerificationScriptTests.cs` | `BackupVerificationScriptTests`, `TempDirectory` | 7 | 1 |
 | `tests/Souq.ArchitectureTests/ClockRuleTests.cs` | `ClockRuleTests` | 0 | 1 |
 | `tests/Souq.ArchitectureTests/ConfigurationSourceTests.cs` | `ConfigurationSourceTests` | 1 | 1 |
+| `tests/Souq.ArchitectureTests/ContentSecurityPolicyTests.cs` | `ContentSecurityPolicyTests` | 3 | 0 |
 | `tests/Souq.ArchitectureTests/DependencyRuleTests.cs` | `DependencyRuleTests` | 8 | 0 |
 | `tests/Souq.ArchitectureTests/DocumentationTests.cs` | `DocumentationTests` | 4 | 0 |
 | `tests/Souq.ArchitectureTests/EndpointRuleTests.cs` | `EndpointRuleTests` | 3 | 0 |
