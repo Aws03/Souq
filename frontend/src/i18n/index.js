@@ -26,6 +26,27 @@ function applyDocumentDirection(lang) {
   document.documentElement.lang = lang;
 }
 
+// ============================================================================
+// عزل الاتجاه (bidi) لِما يكتبه التاجر.
+//
+// اسم منتج عربي داخل جملة إنجليزية — أو العكس — يُحسب اتجاهه من محيطه لا من نفسه، فتنزلق
+// علامات الترقيم المجاورة إلى الطرف الخطأ: "(كوب حراري)." تُرسم ".(كوب حراري)". ليس خطأ
+// خطّ ولا ترجمة، بل خوارزمية bidi في يونيكود تفعل ما طُلب منها بالضبط.
+//
+// FSI…PDI يعزل المقطع: يُحسب اتجاهه من محتواه هو، ولا يمسّ ما حوله. والصياغة `{{name, bidi}}`
+// تجعل ذلك مرئياً في ملفّ الترجمة نفسه — المترجم يرى أن هذا الموضع يستقبل نصّاً غريباً.
+//
+// لماذا لا نعزل كل شيء تلقائياً؟ لأن ما نكتبه نحن معروف الاتجاه سلفاً؛ ما يحتاج العزل هو
+// ما يأتي من بيانات المتجر: اسم منتج، أو فئة، أو مستخدم.
+// ============================================================================
+const FIRST_STRONG_ISOLATE = '\u2068';
+const POP_DIRECTIONAL_ISOLATE = '\u2069';
+
+export const isolateBidi = (value) => {
+  const text = value == null ? '' : String(value);
+  return text === '' ? text : FIRST_STRONG_ISOLATE + text + POP_DIRECTIONAL_ISOLATE;
+};
+
 i18n.use(initReactI18next).init({
   resources: {
     ar: { translation: ar },
@@ -35,6 +56,9 @@ i18n.use(initReactI18next).init({
   fallbackLng: 'ar',
   interpolation: { escapeValue: false }, // React يهرّب المخرجات أصلاً — لا حاجة لتكرار ذلك هنا
 });
+
+// التسجيل بعد init: i18next 26 يبني خدمة المنسّقات أثناء التهيئة، فالإضافة تأتي بعدها.
+i18n.services.formatter.add('bidi', (value) => isolateBidi(value));
 
 applyDocumentDirection(initialLanguage);
 

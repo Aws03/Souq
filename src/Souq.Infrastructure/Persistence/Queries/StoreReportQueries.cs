@@ -176,16 +176,29 @@ internal sealed class StoreReportQueries : IStoreReports
     }
 
     // الفئة تأتي من المنتج الحالي: سطر لمنتج حُذف سجلّه لا فئة له، فيُترك خارج التقرير بدل نسبته لفئة خاطئة.
+    //
+    // والاسم اسمٌ مترجم لا Slug. كان التقرير يعرض "home" — وهو معرّف داخلي في الرابط، لا شيء
+    // يراه مدير متجر عربي في تقريره. والسلسلة نفسها المستعملة في الكتالوج: ترجمة لغة المتجر
+    // الافتراضية، فأيّ ترجمة موجودة، فالـSlug أخيراً — فئة بلا ترجمة إطلاقاً تبقى مميَّزة بشيء.
     private async Task<IReadOnlyList<CategoryPerformanceDto>> TopCategoriesAsync(DateTime from, DateTime to, CancellationToken ct)
     {
+        var culture = _tenant.RequireTenant().DefaultCulture;
+
         var rows = await CountedItems(from, to)
             .Join(_db.Products, i => i.ProductId, p => p.Id, (i, p) => new { i, p.CategoryId })
-            .Join(_db.Categories, x => x.CategoryId, c => c.Id, (x, c) => new { x.i, c.Id, c.Slug })
-            .GroupBy(x => new { x.Id, x.Slug })
+            .Join(_db.Categories, x => x.CategoryId, c => c.Id, (x, c) => new
+            {
+                x.i,
+                c.Id,
+                Name = c.Translations.Where(t => t.Culture == culture).Select(t => t.Name).FirstOrDefault()
+                    ?? c.Translations.OrderBy(t => t.Culture).Select(t => t.Name).FirstOrDefault()
+                    ?? c.Slug,
+            })
+            .GroupBy(x => new { x.Id, x.Name })
             .Select(g => new
             {
                 CategoryId = g.Key.Id,
-                g.Key.Slug,
+                g.Key.Name,
                 Units = g.Sum(x => x.i.Quantity),
                 Revenue = g.Sum(x => x.i.UnitPrice.Amount * x.i.Quantity),
             })
@@ -193,7 +206,7 @@ internal sealed class StoreReportQueries : IStoreReports
             .Take(TopCount)
             .ToListAsync(ct);
 
-        return rows.Select(r => new CategoryPerformanceDto(r.CategoryId, r.Slug, r.Units, r.Revenue)).ToList();
+        return rows.Select(r => new CategoryPerformanceDto(r.CategoryId, r.Name, r.Units, r.Revenue)).ToList();
     }
 
     // المخزون حالةٌ آنيّة لا تاريخية: المتاح = ما في اليد ناقص المحجوز (نفس تعريف وحدة Inventory).

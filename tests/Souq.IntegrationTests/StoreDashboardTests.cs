@@ -96,6 +96,38 @@ public class StoreDashboardTests
     }
 
     [Fact]
+    public async Task أداء_الفئات_يعرض_اسمها_المترجم_لا_معرّفها_في_الرابط()
+    {
+        // كانت اللوحة تعرض Slug الفئة ("home") — معرّف داخلي لا اسم، ويُقرأ كخللٍ في تقرير
+        // بالعربية. لا يظهر ذلك في اختبار يقارن أرقاماً، فهو مذكور هنا صراحةً.
+        var store = await _factory.CreateStoreAsync();
+        var api = _api.ForStore(store);
+        var admin = await api.AdminAsync();
+
+        var slug = $"it-{Guid.NewGuid():N}"[..24];
+        var createCategory = await admin.PostAsJsonAsync(
+            "/api/categories", TestApi.CategoryBody(slug, name: "أدوات المطبخ"), TestApi.Json);
+        createCategory.StatusCode.Should().Be(HttpStatusCode.Created, await createCategory.Content.ReadAsStringAsync());
+        var categoryId = (await createCategory.Content.ReadFromJsonAsync<IdRow>(TestApi.Json))!.Id;
+
+        var productId = await api.CreateProductAsync(admin, price: 30m, stock: 10, categoryId: categoryId);
+
+        var (customer, _) = await api.NewCustomerAsync();
+        var created = await api.PlaceOrderAsync(customer, productId, 1);
+        var orderId = (await created.Content.ReadFromJsonAsync<Dictionary<string, object>>(TestApi.Json))!["orderId"].ToString();
+        (await customer.PostAsync($"/api/orders/{orderId}/confirm-payment", null))
+            .StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var dashboard = await ReadAsync(admin);
+
+        dashboard.TopCategories.Should().ContainSingle()
+            .Which.Name.Should().Be("أدوات المطبخ")
+            .And.NotBe(slug, "المعرّف في الرابط ليس اسماً يُعرض");
+    }
+
+    private sealed record IdRow(int Id);
+
+    [Fact]
     public async Task لوحة_متجر_لا_ترى_شيئاً_من_مبيعات_متجر_آخر()
     {
         // الحدّ الذي لا يجوز أن ينكسر: الأرقام مجمَّعة، لكن تسرّبها يكشف أعمال متجر آخر.
