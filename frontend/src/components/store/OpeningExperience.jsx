@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useStoreConfig } from '../../app/TenantProvider';
 import { useStoreName } from '../../app/StoreBrand';
@@ -33,11 +33,14 @@ export default function OpeningExperience() {
     userAgent: navigator.userAgent,
   }));
 
+  const skipRef = useRef(null);
   const dismiss = () => { markOpeningSeen(); setPlaying(false); };
 
   useEffect(() => {
     if (!playing) return undefined;
     markOpeningSeen();                       // تُحسب مرئية فور بدئها لا بعد انتهائها
+    // التركيز يُنقل بالشيفرة لا بخاصّية autoFocus: نفس ما يفعله الدرج، ويتيح التحكّم بالتوقيت.
+    skipRef.current?.focus();
     const timer = setTimeout(() => setPlaying(false), OPENING_DURATION_MS);
     const onKey = (event) => { if (event.key === 'Escape') dismiss(); };
     document.addEventListener('keydown', onKey);
@@ -50,7 +53,7 @@ export default function OpeningExperience() {
   const style = resolveOpeningStyle(opening?.style);
 
   return (
-    <div className={`${styles.stage} ${styles[style]}`} data-testid="opening-experience" onClick={dismiss}>
+    <div className={`${styles.stage} ${styles[style]}`} data-testid="opening-experience">
       {/* الستارتان والاسم زخرفة: المتجر نفسه مرسوم خلفهما ومقروء، فلا تُعلَن للقارئ الصوتي.
           أمّا زرّ التخطّي فيبقى معلَناً — طبقةٌ تُخفي زرّ الخروج معها تصير سجناً لمن لا يرى. */}
       <div className={`${styles.panel} ${styles.start}`} aria-hidden="true" />
@@ -58,7 +61,12 @@ export default function OpeningExperience() {
       <div className={styles.mark} aria-hidden="true">
         <span className={styles.markName}>{storeName}</span>
       </div>
-      <button type="button" className={styles.skip} onClick={dismiss} autoFocus>
+
+      {/* النقر في أي مكان يتخطّى — عنصر <button> لا <div> بمستمع نقر، لكنه مخفيّ عن شجرة
+          الإتاحة وخارج ترتيب التنقّل: راحةٌ للمؤشّر فقط. زرّ التخطّي الظاهر هو الضابط
+          الوحيد المُعلَن، فلا يسمع قارئ الشاشة "تخطٍّ" مرّتين. */}
+      <button type="button" className={styles.backdrop} onClick={dismiss} aria-hidden="true" tabIndex={-1} />
+      <button type="button" ref={skipRef} className={styles.skip} onClick={dismiss}>
         {t('store.skipIntro')}
       </button>
     </div>

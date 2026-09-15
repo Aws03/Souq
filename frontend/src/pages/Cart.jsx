@@ -22,12 +22,11 @@ import styles from './Cart.module.css';
 // هنا يعني تسعيراً ثانياً قد يخالف ما يُنشئ به الطلب (TD-06 هو ما يحدث حين يتكرّر التسعير).
 // ============================================================================
 export default function Cart() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { basket, items, loaded, inc, dec, remove } = useCart();
   usePageMetadata({ title: t('cart.title') });
 
-  const backDir = i18n.dir() === 'rtl' ? 'end' : 'start';
 
   return (
     <div className={`souq-layout ${styles.wrap}`}>
@@ -58,7 +57,7 @@ export default function Cart() {
             <h2 className={styles.summaryTitle}>{t('cart.summaryTitle')}</h2>
             <CartSummary basket={basket} blocked={hasProblems(items)} onCheckout={() => navigate('/checkout')} />
             <Link to="/" className={styles.continue}>
-              <ChevronIcon dir={backDir} size={16} /> {t('cart.continueShopping')}
+              <ChevronIcon dir="start" size={16} /> {t('cart.continueShopping')}
             </Link>
           </aside>
         </div>

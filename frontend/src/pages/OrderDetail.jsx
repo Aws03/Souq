@@ -17,7 +17,7 @@ import styles from './OrderDetail.module.css';
 // صفحة طلب العميل (المرحلة 9، محمية): رقم الطلب، أسطره وإجمالياته كما ثُبّتت، العنوانان، رقم تتبّع الشحنة، الخط الزمني،
 // رابط التتبّع العام لمشاركته (بالرمز العشوائي لا بالمعرّف)، والإلغاء قبل الدفع. الخادم يقرّر الملكية (404 لغير صاحبه).
 export default function OrderDetail() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const { id } = useParams();
   const navigate = useNavigate();
   const toast = useToast();
@@ -26,7 +26,6 @@ export default function OrderDetail() {
   const [confirmingCancel, setConfirmingCancel] = useState(false);
   const [cancelling, setCancelling] = useState(false);
 
-  const backDir = i18n.dir() === 'rtl' ? 'end' : 'start';
 
   const { data: order, error } = useQuery({
     queryKey: queryKeys.order(id),
@@ -65,7 +64,7 @@ export default function OrderDetail() {
   return (
     <div className="souq-layout">
       <button type="button" className={styles.backLink} onClick={() => navigate('/orders')}>
-        <ChevronIcon dir={backDir} size={16} /> {t('orders.backToOrders')}
+        <ChevronIcon dir="start" size={16} /> {t('orders.backToOrders')}
       </button>
 
       <div className={styles.grid}>

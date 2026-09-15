@@ -27,7 +27,8 @@
 }
 .iconBtn:hover { background: var(--color-accent-soft); transform: translateY(-1px); }
 .iconBadge {
-  position: absolute; top: -4px; left: -4px; background: var(--color-danger); color: #fff; border-radius: 50%;
+  /* شارة العدد عند الزاوية الخارجية للأيقونة في الاتجاهين. */
+  position: absolute; top: -4px; inset-inline-end: -4px; background: var(--color-danger); color: #fff; border-radius: 50%;
   width: 19px; height: 19px; display: grid; place-items: center; font-size: 11px; font-weight: 700;
 }
 

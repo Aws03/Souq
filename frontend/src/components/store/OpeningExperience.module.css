@@ -51,3 +51,10 @@ html[dir='rtl'] .end { animation-name: door-start; }
 @media (prefers-reduced-motion: reduce) {
   .stage { display: none; }
 }
+
+/* طبقة النقر للتخطّي: زرّ يملأ المسرح تحت زرّ التخطّي الظاهر. */
+.backdrop {
+  position: absolute; inset: 0; z-index: 1;
+  appearance: none; border: 0; padding: 0; background: none; cursor: default;
+}
+.skip { z-index: 2; }

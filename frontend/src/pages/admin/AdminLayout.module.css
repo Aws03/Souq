@@ -13,12 +13,13 @@
 .nav { display: flex; flex-direction: column; padding: 14px 0; flex: 1; gap: 2px; }
 .navLink {
   display: flex; align-items: center; gap: 10px; color: var(--color-bg); text-decoration: none;
-  padding: 12px 22px; opacity: .78; border-right: 3px solid transparent; transition: all var(--ease-hover);
+  /* مؤشّر القسم الحالي على الحافّة الداخلية للشريط الجانبي — منطقي فيتبع الاتجاه. */
+  padding: 12px 22px; opacity: .78; border-inline-start: 3px solid transparent; transition: all var(--ease-hover);
 }
 .navLink:hover { opacity: 1; background: rgba(255, 255, 255, .06); }
-.navLink.active { opacity: 1; background: rgba(232, 163, 61, .14); border-right-color: var(--color-accent); color: var(--color-accent-soft); }
+.navLink.active { opacity: 1; background: rgba(232, 163, 61, .14); border-inline-start-color: var(--color-accent); color: var(--color-accent-soft); }
 .sidebarFoot { padding: 14px 22px 0; border-top: 1px solid rgba(255, 255, 255, .12); display: flex; flex-direction: column; gap: 10px; }
-.logout { background: none; color: var(--color-bg); opacity: .8; text-align: right; padding: 0; font-weight: 500; }
+.logout { background: none; color: var(--color-bg); opacity: .8; text-align: start; padding: 0; font-weight: 500; }
 .logout:hover { opacity: 1; text-decoration: underline; }
 
 /* ── المحتوى ── */

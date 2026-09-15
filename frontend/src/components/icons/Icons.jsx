@@ -32,8 +32,17 @@ export const TrashIcon = ({ size = 16 }) => (
   </svg>
 );
 
+// ============================================================================
+// السهم. down/up فيزيائيان، أمّا start/end فمنطقيّان: يتبعان اتجاه القراءة.
+//
+// كانا رقمَي دوران ثابتين باسمين منطقيين — فكان كل مستدعٍ يعوّض الاتجاه بنفسه
+// (isRtl ? 'end' : 'start')، ومن ينسى التعويض يحصل على سهم يشير عكس القراءة في العربية.
+// المعنى الآن في مكان واحد، والمستدعي يقول ما يريد: "نحو البداية" أو "نحو النهاية".
+// ============================================================================
 export const ChevronIcon = ({ size = 16, dir = 'down' }) => {
-  const rotate = { down: 0, up: 180, start: 90, end: -90 }[dir];
+  const rtl = typeof document !== 'undefined' && document.documentElement.dir === 'rtl';
+  const logical = { start: rtl ? -90 : 90, end: rtl ? 90 : -90 };
+  const rotate = { down: 0, up: 180, ...logical }[dir];
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" style={{ transform: `rotate(${rotate}deg)` }} {...base}>
       <path d="m6 9 6 6 6-6" />

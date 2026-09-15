@@ -103,6 +103,20 @@ describe('الإتاحة', () => {
     expect(screen.getByRole('button', { name: 'store.skipIntro' })).toBeInTheDocument();
   });
 
+  it('ضابط واحد معلَن لا اثنان — طبقة النقر راحةٌ للمؤشّر فقط', () => {
+    // زرّان بالاسم نفسه يعنيان أن قارئ الشاشة يسمع "تخطٍّ" مرّتين.
+    render(<OpeningExperience />);
+    expect(screen.getAllByRole('button', { name: 'store.skipIntro' })).toHaveLength(1);
+  });
+
+  it('النقر في أي مكان يتخطّى أيضاً', async () => {
+    const { container } = render(<OpeningExperience />);
+
+    await userEvent.click(container.querySelector('[aria-hidden="true"][tabindex="-1"]'));
+
+    expect(screen.queryByTestId('opening-experience')).toBeNull();
+  });
+
   it('التركيز يذهب إلى زرّ التخطّي فور ظهوره', () => {
     render(<OpeningExperience />);
     expect(document.activeElement).toBe(screen.getByRole('button', { name: 'store.skipIntro' }));

@@ -23,13 +23,12 @@ import styles from './OrderTracking.module.css';
 // الزائر هنا قد لا يكون عميل المتجر أصلاً.
 // ============================================================================
 export default function OrderTracking() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const { token } = useParams();
   const toast = useToast();
   const [copied, setCopied] = useState(false);
   usePageMetadata({ title: t('orders.trackTitle') });
 
-  const backDir = i18n.dir() === 'rtl' ? 'end' : 'start';
 
   const { data: tracking, error, isPending } = useQuery({
     queryKey: queryKeys.orderTracking(token),
@@ -53,7 +52,7 @@ export default function OrderTracking() {
   return (
     <div className="souq-layout">
       <Link to="/" className={styles.backLink}>
-        <ChevronIcon dir={backDir} size={16} /> {t('orders.backToStore')}
+        <ChevronIcon dir="start" size={16} /> {t('orders.backToStore')}
       </Link>
 
       <div className={styles.panel}>
