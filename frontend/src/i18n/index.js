@@ -1,8 +1,6 @@
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import { dateLocale, dateOptions, getStoreCulture } from '../app/dateLocale';
-import ar from './locales/ar.json';
-import en from './locales/en.json';
 
 // ============================================================================
 // تهيئة i18next مرة واحدة عند إقلاع التطبيق. اللغة المحفوظة في localStorage
@@ -11,6 +9,27 @@ import en from './locales/en.json';
 // ============================================================================
 const STORAGE_KEY = 'souq_lang';
 const SUPPORTED = ['ar', 'en'];
+
+// ============================================================================
+// حزمة الترجمة تُحمَّل للغة الزائر وحدها.
+//
+// كانت اللغتان تُستوردان استيراداً ساكناً، فتُجمَّعان في أوّل حزمة تصل المتصفّح: ١٥٤ كيلوبايت
+// (٥٣ مضغوطة) — أكبر من react-dom نفسها، ونصفها لغة لا يقرؤها هذا الزائر إطلاقاً.
+//
+// الاستيراد الديناميكي يجعل كلاً منهما حزمة مستقلّة، فلا تصل إلّا حين تُطلب: عند الإقلاع
+// للغة المختارة، وعند التبديل للأخرى. الثمن انتظارٌ قصير قبل أول رسم — وهو ما كان يقع
+// أصلاً، لكن للغتين معاً.
+// ============================================================================
+const BUNDLES = {
+  ar: () => import('./locales/ar.json'),
+  en: () => import('./locales/en.json'),
+};
+
+async function ensureLanguage(language) {
+  if (i18n.hasResourceBundle?.(language, 'translation')) return;
+  const module = await BUNDLES[language]();
+  i18n.addResourceBundle(language, 'translation', module.default, true, true);
+}
 
 function detectLanguage() {
   const stored = localStorage.getItem(STORAGE_KEY);
@@ -47,26 +66,37 @@ export const isolateBidi = (value) => {
   return text === '' ? text : FIRST_STRONG_ISOLATE + text + POP_DIRECTIONAL_ISOLATE;
 };
 
-i18n.use(initReactI18next).init({
-  resources: {
-    ar: { translation: ar },
-    en: { translation: en },
-  },
-  lng: initialLanguage,
-  fallbackLng: 'ar',
-  interpolation: { escapeValue: false }, // React يهرّب المخرجات أصلاً — لا حاجة لتكرار ذلك هنا
-});
+/**
+ * وعد التهيئة. من يعرض نصّاً مترجَماً ينتظره أولاً — `main.jsx` قبل أول رسم، وإعداد
+ * الاختبارات قبل أول عرض. الانتظار هنا استيراد حزمة واحدة لا رحلة شبكة إلى خادم.
+ *
+ * ولغة الاحتياط هي لغة الإقلاع نفسها لا 'ar' ثابتة: الإحالة إلى حزمة غير محمّلة تُخرج اسم
+ * المفتاح للزبون. (وتطابق المفاتيح بين اللغتين يحرسه `translationKeys.test.js`.)
+ */
+export const i18nReady = (async () => {
+  const initial = await BUNDLES[initialLanguage]();
 
-// التسجيل بعد init: i18next 26 يبني خدمة المنسّقات أثناء التهيئة، فالإضافة تأتي بعدها.
-i18n.services.formatter.add('bidi', (value) => isolateBidi(value));
+  await i18n.use(initReactI18next).init({
+    resources: { [initialLanguage]: { translation: initial.default } },
+    lng: initialLanguage,
+    fallbackLng: initialLanguage,
+    interpolation: { escapeValue: false }, // React يهرّب المخرجات أصلاً — لا حاجة لتكرار ذلك هنا
+  });
 
-applyDocumentDirection(initialLanguage);
+  // التسجيل بعد init: i18next 26 يبني خدمة المنسّقات أثناء التهيئة، فالإضافة تأتي بعدها.
+  i18n.services.formatter.add('bidi', (value) => isolateBidi(value));
+
+  applyDocumentDirection(initialLanguage);
+  return i18n;
+})();
 
 // نقطة الدخول الوحيدة لتبديل اللغة: تُحدّث i18next، تحفظ الاختيار، وتضبط
 // اتجاه الصفحة (dir) ولغتها (lang) على عنصر <html> فوراً.
-export function setLanguage(lang) {
+export async function setLanguage(lang) {
   if (!SUPPORTED.includes(lang)) return;
-  i18n.changeLanguage(lang);
+  // الحزمة أولاً: تبديلٌ قبل وصولها يعرض أسماء المفاتيح للحظة.
+  await ensureLanguage(lang);
+  await i18n.changeLanguage(lang);
   localStorage.setItem(STORAGE_KEY, lang);
   applyDocumentDirection(lang);
 }

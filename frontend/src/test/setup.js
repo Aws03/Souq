@@ -11,4 +11,9 @@ import '@testing-library/jest-dom/vitest';
 if (typeof document !== 'undefined') {
   const { cleanup } = await import('@testing-library/react');
   afterEach(cleanup);
+
+  // حزمة الترجمة تُحمَّل للغة الزائر وحدها (استيراد ديناميكي)، فالتهيئة صارت غير متزامنة.
+  // انتظارها هنا مرّة واحدة يعفي كل اختبار مكوّن من انتظارها — وبلا ذلك يعرض `t` اسم
+  // المفتاح بدل نصّه فتسقط الاختبارات على شيء لا علاقة له بما تفحصه.
+  await (await import('../i18n')).i18nReady;
 }
