@@ -164,8 +164,9 @@ The breakpoints are 560px, 767px and 861px, and management UI is the harder half
 
 | Measure | Value | How it was measured |
 |---|---|---|
-| First load, Arabic | 136.5 kB gzip over 17 files | Production build served by `vite preview`, all JS/CSS/HTML responses gzip-measured |
-| First load, English | 134.2 kB gzip | Same |
+| First load, before this work | 142.1 kB gzip over 17 files, identical in both languages | Production build served by `vite preview`, every JS/CSS/HTML response of a cold load measured gzipped |
+| First load, Arabic | **136.5 kB gzip** | Same method |
+| First load, English | **134.2 kB gzip** | Same method |
 | Manager dashboard | 1 reporting request, 2.4 kB, page rendered in ~460 ms | Dev stack against SQL Server, timed from navigation to the last panel |
 | Business overview | 1 reporting request, 1.0 kB, ~290 ms | Same |
 
@@ -173,6 +174,8 @@ Two decisions produced those numbers:
 
 1. **No chart library.** The candidates cost roughly 90 kB gzip — about two thirds of the entire first load — to draw three chart types.
 2. **One translation bundle per visitor.** Both languages used to be imported statically, which put 154 kB (53 kB gzip) of text into the first chunk — larger than React DOM, and half of it a language the visitor cannot read. They are dynamic imports now: the visitor's language at boot, the other only if they switch.
+
+The net is that the first load **fell** while this work added dark mode, three chart primitives, two dashboards, four card layouts and the opening reveal.
 
 The measurements above include React StrictMode's duplicate effects in development (the storefront config and the unread count each appear twice); production mounts effects once.
 
