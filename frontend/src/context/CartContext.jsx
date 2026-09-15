@@ -52,7 +52,6 @@ export function CartProvider({ children }) {
       inc: (id) => change(id, 1),
       dec: (id) => change(id, -1),
       remove: (id) => run(() => api.removeFromBasket(id)),
-      clear: () => run(async () => { await api.clearBasket(); return EMPTY_BASKET; }),
       reload,
     };
   }, [basket, items, loaded, run, reload]);

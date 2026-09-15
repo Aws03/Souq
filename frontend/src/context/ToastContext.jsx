@@ -26,7 +26,6 @@ export function ToastProvider({ children }) {
     dismiss,
     success: (m) => notify(m, 'success'),
     error: (m) => notify(m, 'error'),
-    info: (m) => notify(m, 'info'),
   };
 
   return <ToastContext.Provider value={value}>{children}</ToastContext.Provider>;

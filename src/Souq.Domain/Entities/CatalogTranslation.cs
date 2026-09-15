@@ -33,7 +33,6 @@ public abstract class CatalogTranslation : Entity, ITenantOwned
         MetaDescription = text.MetaDescription;
     }
 
-    public CatalogText ToText() => new(Name, Description, MetaTitle, MetaDescription);
 
     // يستبدل ترجمات جذر بالمجموعة المُطبَّعة: يحدّث الموجود، يضيف الجديد، ويحذف لغة لم تعد مُدخلة.
     internal static void Replace<T>(List<T> current, IReadOnlyDictionary<string, CatalogText> texts, Func<string, CatalogText, T> create)

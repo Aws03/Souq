@@ -140,7 +140,6 @@ export const api = {
   setBasketQuantity: (productId, quantity) =>
     request(`/basket/items/${productId}`, { method: 'PUT', body: JSON.stringify({ quantity }) }),
   removeFromBasket: (productId) => request(`/basket/items/${productId}`, { method: 'DELETE' }),
-  clearBasket: () => request('/basket', { method: 'DELETE' }),
   // تتبّع بلا مصادقة (رابط قابل للمشاركة) — نفس نقطة الخادم العامة تُستخدم هنا
   // وفي صفحة تفصيل الطلب داخل التطبيق معاً (لا فرق بين الحالتين من الواجهة).
   // رابط التتبّع العام بالرمز العشوائي (المرحلة 9 — لا بالمعرّف التسلسلي، B8).
@@ -194,7 +193,6 @@ export const api = {
     request(`/admin/products/${id}/images/order`, { method: 'PUT', body: JSON.stringify({ imageIds }) }),
   createProduct: (payload) => request('/products', { method: 'POST', body: JSON.stringify(payload) }),
   updateProduct: (id, payload) => request(`/products/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
-  deleteProduct: (id) => request(`/products/${id}`, { method: 'DELETE' }),
   uploadProductImage: (id, file) => {
     const form = new FormData();
     form.append('file', file);

@@ -84,17 +84,9 @@ export function WishlistProvider({ children }) {
     return sync(() => (has(product.id) ? api.removeFromWishlist(product.id) : api.addToWishlist(product.id)));
   }, [onServer, has, sync]);
 
-  const remove = useCallback((id) => {
-    if (!onServer) {
-      setItems((list) => list.filter((i) => i.id !== id));
-      return Promise.resolve();
-    }
-    return sync(() => api.removeFromWishlist(id));
-  }, [onServer, sync]);
-
   const value = useMemo(
-    () => ({ items, count: items.length, has, toggle, remove, onServer }),
-    [items, has, toggle, remove, onServer]);
+    () => ({ items, count: items.length, has, toggle }),
+    [items, has, toggle]);
   return <WishlistContext.Provider value={value}>{children}</WishlistContext.Provider>;
 }
 

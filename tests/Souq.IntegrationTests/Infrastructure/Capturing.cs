@@ -15,7 +15,6 @@ public sealed class CapturingEmailSender : IEmailSender
     private int _failuresLeft;
     private volatile TaskCompletionSource? _gate;
 
-    public IReadOnlyCollection<EmailMessage> Sent => _sent.ToArray();
 
     public async Task SendAsync(EmailMessage message, CancellationToken ct)
     {
