@@ -9,6 +9,9 @@ import react from '@vitejs/plugin-react';
 export default defineConfig({
   plugins: [react()],
   test: {
+    // ملفّات e2e تخصّ Playwright لا Vitest (كلاهما يلتقط *.spec.js افتراضياً): مجموعة
+    // الوحدات تعمل بلا مكدّس، وتلك تحتاج خادماً وقاعدة بيانات — خلطهما يُفشل الاثنتين.
+    include: ['src/**/*.{test,spec}.{js,jsx}'],
     environment: 'node',
     setupFiles: ['./src/test/setup.js'],
     globals: false,

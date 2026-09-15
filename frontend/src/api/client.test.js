@@ -9,7 +9,7 @@ const problem = (status, code) => json(status, { status, code, title: code });
 const user = { id: 7, fullName: 'Test', permissions: [], area: 'Store' };
 
 // خادم وهمي: توكن الوصول الصالح حالياً، وعدد مرّات التجديد، وكل طلب بترويسة توكنه.
-function fakeServer({ refreshOk = true } = {}) {
+function fakeServer({ refreshOk = true, refreshStatus = 401 } = {}) {
   const state = { valid: 'token-1', refreshes: 0, seen: [] };
   vi.stubGlobal('fetch', vi.fn(async (url, init = {}) => {
     const auth = init.headers?.Authorization;
@@ -20,7 +20,7 @@ function fakeServer({ refreshOk = true } = {}) {
     }
     if (url === '/api/auth/refresh') {
       state.refreshes += 1;
-      if (!refreshOk) return problem(401, 'InvalidRefreshToken');
+      if (!refreshOk) return problem(refreshStatus, refreshStatus === 429 ? 'TooManyRequests' : 'InvalidRefreshToken');
       state.valid = `token-${state.refreshes + 1}`;
       return json(200, { accessToken: state.valid, user });
     }
@@ -96,9 +96,67 @@ describe('session handling', () => {
   it('restores a session from the refresh cookie', async () => {
     const server = fakeServer();
 
-    expect(await client.refreshSession()).toEqual(user);
+    expect(await client.refreshSession()).toEqual({ user, outcome: 'active' });
     await client.api.getMyOrders();
 
     expect(server.seen.at(-1)).toBe('/api/orders/mine Bearer token-2');
+  });
+});
+
+// ============================================================================
+// "فشل التجديد" ليس شيئاً واحداً (المرحلة 16 §22): 401 انتهاء مؤكّد، و429/5xx/شبكة ظرفٌ
+// عابر. خلطُهما كان يُخرج زبوناً خلف عنوان مشترك من جلسته — وربما في منتصف الدفع.
+// ============================================================================
+describe('a refresh that fails for a transient reason', () => {
+  it('429 لا تُنهي الجلسة — النتيجة "غير معروف" لا "منتهية"', async () => {
+    fakeServer({ refreshOk: false, refreshStatus: 429 });
+
+    expect(await client.refreshSession()).toEqual({ user: null, outcome: client.REFRESH_UNKNOWN });
+  });
+
+  it('عطل خادم لا يُنهي الجلسة', async () => {
+    fakeServer({ refreshOk: false, refreshStatus: 503 });
+
+    expect((await client.refreshSession()).outcome).toBe(client.REFRESH_UNKNOWN);
+  });
+
+  it('شبكة مقطوعة لا تُنهي الجلسة', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('Failed to fetch'); }));
+
+    expect((await client.refreshSession()).outcome).toBe(client.REFRESH_UNKNOWN);
+  });
+
+  it('401 وحدها تُنهي الجلسة', async () => {
+    fakeServer({ refreshOk: false, refreshStatus: 401 });
+
+    expect((await client.refreshSession()).outcome).toBe(client.REFRESH_EXPIRED);
+  });
+
+  it('حدّ معدّل على تجديدٍ بعد 401 لا يُطلق حدث انتهاء الجلسة', async () => {
+    // الحالة الحقيقية: طلبٌ يحمل توكناً منتهياً، وتجديدُه يُرفض بحدّ معدّل. الواجهة كانت
+    // تعلن انتهاء الجلسة وتُخرج الزبون؛ الصحيح أن تُبقيها وتُعيد المحاولة لاحقاً.
+    fakeServer();
+    await signIn();
+    let expired = 0;
+    client.authEvents.addEventListener(client.SESSION_EXPIRED, () => { expired += 1; });
+
+    vi.stubGlobal('fetch', vi.fn(async (url) => (
+      url === '/api/auth/refresh' ? problem(429, 'TooManyRequests') : problem(401, 'Unauthenticated'))));
+
+    await expect(client.api.getMyOrders()).rejects.toThrow();
+    expect(expired).toBe(0);
+  });
+
+  it('401 على التجديد يُطلق الحدث كما كان', async () => {
+    fakeServer();
+    await signIn();
+    let expired = 0;
+    client.authEvents.addEventListener(client.SESSION_EXPIRED, () => { expired += 1; });
+
+    vi.stubGlobal('fetch', vi.fn(async (url) => (
+      url === '/api/auth/refresh' ? problem(401, 'InvalidRefreshToken') : problem(401, 'Unauthenticated'))));
+
+    await expect(client.api.getMyOrders()).rejects.toThrow();
+    expect(expired).toBe(1);
   });
 });

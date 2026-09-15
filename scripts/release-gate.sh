@@ -95,10 +95,15 @@ if [[ $RUN_SUITES -eq 1 ]]; then
     else
         failed "اختبارات فاشلة:"; grep -E 'Failed!' /tmp/gate-test.out | sed 's/^/      /' >&2
     fi
-    if (cd "$ROOT/frontend" && npm test >/tmp/gate-fe.out 2>&1 && npm run build >>/tmp/gate-fe.out 2>&1); then
-        passed "اختبارات الواجهة وبناؤها"
+    # المدقّق وفحص الأنواع ضمن البوّابة منذ المرحلة 16: كلاهما أمسك عيوباً لا يراها البناء —
+    # خطأ تحليل في JSX، وصفحتين تسقطان وقت التشغيل باستعمال متغيّر قبل تعريفه.
+    if (cd "$ROOT/frontend" && npm run lint >/tmp/gate-fe.out 2>&1 \
+          && npm run typecheck >>/tmp/gate-fe.out 2>&1 \
+          && npm test >>/tmp/gate-fe.out 2>&1 \
+          && npm run build >>/tmp/gate-fe.out 2>&1); then
+        passed "الواجهة: مدقّق، أنواع، اختبارات، بناء"
     else
-        failed "الواجهة:"; tail -5 /tmp/gate-fe.out | sed 's/^/      /' >&2
+        failed "الواجهة:"; tail -8 /tmp/gate-fe.out | sed 's/^/      /' >&2
     fi
 else
     skipped "لم يُطلب --suites: البناء والاختبارات غير مُشغَّلة"

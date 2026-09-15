@@ -66,8 +66,10 @@ export default [
 
   // ملفات الاختبار: بيئة Node وأدوات الاختبار، وnode: مسموح في فحوص المصدر.
   {
-    files: ['**/*.test.{js,jsx}', 'src/test/**', 'vitest.config.js', 'vite.config.js', 'eslint.config.js'],
+    files: ['**/*.test.{js,jsx}', 'src/test/**', 'e2e/**', 'vitest.config.js', 'vite.config.js',
+      'eslint.config.js', 'playwright.config.js'],
     languageOptions: { globals: { ...globals.node } },
-    rules: { 'no-console': 'off' },
+    // تشخيص تحقّق المتصفّح يُطبع عمداً: الأثر عند السقوط هو المعلومة كلّها.
+    rules: { 'no-console': 'off', 'no-empty-pattern': 'off' },
   },
 ];

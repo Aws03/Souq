@@ -27,12 +27,34 @@ function startSession(auth) {
   return auth?.user ?? null;
 }
 
+// ============================================================================
 // تجديد صامت: المستخدم إن بقيت جلسة، وإلا null. طلب واحد مهما تزامن المتصلون — كل تجديد يدوّر الرمز،
 // وتجديدان متوازيان بالرمز نفسه يبدوان للخادم إعادة استخدام (سرقة) خارج مهلة السباق.
+//
+// "فشل التجديد" ليس شيئاً واحداً، وخلطُ الاثنين كان عيباً حقيقياً ظهر في تحقّق المتصفّح
+// (المرحلة 16 §22): 401 تعني أن الجلسة انتهت فعلاً، بينما 429 أو 503 أو انقطاع شبكة تعني
+// أننا *لا نعرف*. الشيفرة كانت تعامل كل ما ليس ok كانتهاء، فحدُّ معدّل عابر على /auth/refresh
+// كان يُخرج الزبون من جلسته ويرميه إلى صفحة الدخول — وهو أمر يُصيب زبوناً خلف عنوان مشترك
+// (مكتب، مشغّل جوّال) بلا أي خطأ منه، وقد يقع في منتصف الدفع.
+//
+// النتيجة الآن ثلاثية: مستخدم، أو انتهاء مؤكّد، أو "غير معروف" — والأخيرة لا تُسقط جلسة.
+// ============================================================================
+export const REFRESH_EXPIRED = 'expired';       // الخادم قال: لا جلسة
+export const REFRESH_UNKNOWN = 'unknown';       // حدّ معدّل، عطل خادم، أو شبكة — لا حكم
+
 export function refreshSession() {
   if (!refreshing) {
     refreshing = fetch(`${BASE}/auth/refresh`, { method: 'POST', credentials: 'same-origin' })
-      .then(async (res) => startSession(res.ok ? await res.json() : null))
+      .then(async (res) => {
+        if (res.ok) return { user: startSession(await res.json()), outcome: 'active' };
+        // 401/403 فقط جواب نهائي؛ ما عداها ظرف لا حكم.
+        const expired = res.status === 401 || res.status === 403;
+        // انتهاء مؤكّد ⇒ يُسقَط التوكن القديم فلا يُرسل بعدها. "غير معروف" ⇒ يبقى كما هو،
+        // فالمحاولة التالية قد تنجح ولا داعي لهدم جلسة قد تكون حيّة.
+        if (expired) startSession(null);
+        return { user: null, outcome: expired ? REFRESH_EXPIRED : REFRESH_UNKNOWN };
+      })
+      .catch(() => ({ user: null, outcome: REFRESH_UNKNOWN }))   // شبكة مقطوعة ليست خروجاً
       .finally(() => { refreshing = null; });
   }
   return refreshing;
@@ -59,8 +81,10 @@ async function send(path, init, { fallbackKey = 'errors.connection', anonymous =
   const sentToken = accessToken !== null && !anonymous;
   let res = await attempt();
   if (res.status === 401 && sentToken) {
-    if (await refreshSession()) res = await attempt();
-    else authEvents.dispatchEvent(new Event(SESSION_EXPIRED));
+    const { user, outcome } = await refreshSession();
+    if (user) res = await attempt();
+    // الحدث يُطلق على الانتهاء المؤكّد وحده: "لا نعرف" تترك الجلسة كما هي ويُعاد المحاولة لاحقاً.
+    else if (outcome === REFRESH_EXPIRED) authEvents.dispatchEvent(new Event(SESSION_EXPIRED));
   }
 
   if (!res.ok) throw await readApiError(res, fallbackKey);
