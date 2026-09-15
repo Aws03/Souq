@@ -6,7 +6,7 @@
   padding: 8px 18px; border-radius: 999px; background: var(--color-surface-alt); color: var(--color-text-muted);
   font-weight: 600; font-size: var(--fs-body-sm); transition: background var(--ease-hover), color var(--ease-hover);
 }
-.tabActive { background: var(--color-primary); color: var(--color-bg); }
+.tabActive { background: var(--color-primary); color: var(--color-on-primary); }
 
 .video {
   width: 100%; aspect-ratio: 1; border-radius: var(--card-radius); background: #000;

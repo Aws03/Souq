@@ -4,7 +4,7 @@
 }
 
 /* بلا صورة متجر: تدرّج من ألوان هويته هو — لا لون دخيل. */
-.hero__gradient { background: linear-gradient(135deg, var(--color-primary), var(--color-primary-strong)); }
+.hero__gradient { background: linear-gradient(135deg, var(--color-panel), var(--color-panel-strong)); }
 
 .hero__image { position: absolute; inset: 0; background-size: cover; background-position: center; }
 

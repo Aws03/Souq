@@ -108,14 +108,34 @@ export function themeVariables(branding, mode = 'light') {
   const primaryReadable = dark ? readableAgainst(primary, background) : primary;
   const accentReadable = dark ? readableAgainst(accent, background) : accent;
 
+  // ── اللوحة المقلوبة ───────────────────────────────────────────────────────
+  // التذييل، والرأسية، وشريط الإدارة الجانبي، وشريط الإعلان: أسطح داكنة عمداً بنصّ فاتح.
+  // كانت تُبنى من `--color-primary` خلفيةً و`--color-bg` نصّاً — وهو صحيح في الفاتح فقط.
+  // في الداكن ينقلب الرمزان معاً: الهوية تُفتَح لتبقى مقروءة على خلفية داكنة، والخلفية
+  // تسودّ. فتصير اللوحة فاتحة بنصٍّ داكن: شريط الإدارة ظهر رمادياً باهتاً وعلامته لا تُقرأ.
+  //
+  // فلها رمزها المستقلّ: داكنة في الوضعين. في الفاتح هي لون الهوية نفسه (وهذا ما يجعل
+  // كل متجر يبدو متجره)، وفي الداكن سطحٌ داكن مصبوغ بهويته لا أسود محايد.
+  const panel = dark ? mix(DARK_SURFACE, primary, 0.22) : primary;
+
   return {
     '--color-primary': primaryReadable,
     '--color-primary-strong': dark ? mix(primaryReadable, '#FFFFFF', 0.18) : mix(primary, '#000000', 0.25),
-    '--color-on-primary': hex(colors.onPrimary, readableOn(primaryReadable)),
+    // في الداكن يُشتقّ النصّ من اللون بعد تحويله لا من إعداد المتجر: التاجر ضبط onPrimary
+    // مقابل هويته الفاتحة، وهنا صارت الهوية أفتح لتُقرأ على خلفية داكنة — فالأبيض المحفوظ
+    // يصير أبيض على رمادي فاتح، وزرّ "أضف إلى السلّة" يبدو معطّلاً.
+    '--color-on-primary': dark ? readableOn(primaryReadable) : hex(colors.onPrimary, readableOn(primary)),
     '--color-secondary': dark ? primaryReadable : hex(colors.secondary, primary),
     '--color-accent': accentReadable,
     '--color-accent-soft': mix(accentReadable, dark ? background : '#FFFFFF', 0.45),
-    '--color-on-accent': hex(colors.onAccent, readableOn(accentReadable)),
+    '--color-on-accent': dark ? readableOn(accentReadable) : hex(colors.onAccent, readableOn(accent)),
+    '--color-panel': panel,
+    '--color-panel-strong': dark ? mix(panel, '#000000', 0.25) : mix(primary, '#000000', 0.25),
+    // النصّ على اللوحة: في الفاتح هو ما تحقّق Domain من قراءته على الهوية نفسها.
+    '--color-on-panel': dark ? DARK_TEXT_ON : hex(colors.onPrimary, readableOn(primary)),
+    // واللوحة داكنة دائماً، فلون التمييز عليها يُفتَح نحو الأبيض لا نحو الخلفية.
+    '--color-accent-on-panel': readableAgainst(accent, panel),
+
     '--color-bg': background,
     '--color-surface': surface,
     '--color-surface-alt': dark ? mix(background, '#FFFFFF', 0.04) : mix(background, text, 0.05),

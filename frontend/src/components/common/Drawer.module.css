@@ -32,11 +32,11 @@
 @keyframes slide-in-right { from { transform: translateX(16px); opacity: 0; } }
 
 .head {
-  background: var(--color-primary); color: var(--color-bg); padding: 18px 22px;
+  background: var(--color-panel); color: var(--color-on-panel); padding: 18px 22px;
   display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;
 }
 .title { font-size: var(--fs-heading); }
-.close { color: var(--color-bg); opacity: .85; }
+.close { color: var(--color-on-panel); opacity: .85; }
 .close:hover { opacity: 1; }
 
 /* min-height: 0 ضروري هنا: بلا هذا، عنصر flex بـ overflow-y:auto يتمدّد

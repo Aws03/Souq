@@ -7,7 +7,7 @@
 .toast {
   display: flex; align-items: center; gap: 10px; padding: 13px 16px;
   border-radius: var(--radius-sm); box-shadow: var(--shadow-lg);
-  background: var(--color-primary); color: var(--color-bg);
+  background: var(--color-panel); color: var(--color-on-panel);
   animation: rise .25s ease;
 }
 .toast.success { background: var(--color-primary); }

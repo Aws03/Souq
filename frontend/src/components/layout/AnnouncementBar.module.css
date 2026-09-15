@@ -1,5 +1,5 @@
 .announcement {
-  background: var(--color-primary); color: var(--color-bg); height: var(--announcement-height);
+  background: var(--color-panel); color: var(--color-on-panel); height: var(--announcement-height);
   display: flex; align-items: center; overflow: hidden;
 }
 

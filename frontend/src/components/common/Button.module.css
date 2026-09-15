@@ -10,7 +10,7 @@
 .md { padding: 10px 18px; font-size: var(--fs-body-sm); }
 .lg { padding: 14px 22px; font-size: var(--fs-body); border-radius: 12px; }
 
-.primary { background: var(--color-primary); color: var(--color-bg); }
+.primary { background: var(--color-primary); color: var(--color-on-primary); }
 .primary:hover:not(:disabled) { background: var(--color-accent); color: var(--color-primary-strong); }
 
 /* اسمه كان saffron — لون لوحة أوّل متجر لا دوره. الاسم الآن دورُه في نظام التصميم. */

@@ -13,6 +13,11 @@
   --color-accent: #D97706;
   --color-accent-soft: #ECB47D;
   --color-on-accent: #111827;
+  /* اللوحة المقلوبة: سطح داكن بنصّ فاتح في الوضعين (التذييل، الرأسية، شريط الإدارة). */
+  --color-panel: #1F2937;
+  --color-panel-strong: #171F29;
+  --color-on-panel: #FFFFFF;
+  --color-accent-on-panel: #E8A33D;
   --color-danger: #C4674E;
   --color-bg: #F9FAFB;          /* خلفية الصفحة */
   --color-surface-alt: #F0F1F2; /* أسطح ثانوية (أقسام، لصائق) */
@@ -104,6 +109,10 @@ html[data-theme='dark'] {
   --color-text: #ECEFF4;
   --color-text-muted: #A8B0BC;
   --color-border: #2B323C;
+  --color-panel: #1C222B;
+  --color-panel-strong: #151A21;
+  --color-on-panel: #ECEFF4;
+  --color-accent-on-panel: #E8A33D;
   --shadow: 0 1px 0 rgb(255 255 255 / 0.06), 0 8px 24px rgb(0 0 0 / 0.45);
 }
 

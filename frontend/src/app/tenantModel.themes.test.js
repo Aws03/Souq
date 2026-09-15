@@ -95,3 +95,64 @@ describe('الرموز التي تعتمد عليها المكوّنات', () =>
     expect(themeVariables(brand(), 'dark')['--shadow']).toContain('255, 255, 255');
   });
 });
+
+// ============================================================================
+// اللوحة المقلوبة — التذييل، والرأسية، وشريط الإدارة الجانبي.
+//
+// هذه كانت تُبنى من رمزين عامّين: `--color-primary` خلفيةً و`--color-bg` نصّاً. وهو صحيح في
+// الفاتح ومكسور في الداكن، لأن الرمزين ينقلبان معاً — الهوية تُفتَح لتبقى مقروءة على خلفية
+// داكنة، والخلفية تسودّ. فظهر شريط الإدارة رمادياً باهتاً باسم متجرٍ لا يكاد يُقرأ عليه.
+//
+// ولا يُمسك ذلك بفحص تباينٍ على الرموز العامّة: كلٌّ منهما سليم وحده، والعطب في اقترانهما.
+// ============================================================================
+describe('اللوحة المقلوبة', () => {
+  it('تبقى داكنة في الوضعين — لا تنقلب مع انقلاب الخلفية', () => {
+    for (const mode of ['light', 'dark']) {
+      const v = themeVariables(brand(), mode);
+      // أدكن من الأبيض بفارق واضح: لوحة فاتحة بنصّ فاتح هي بالضبط العطب المقصود.
+      expect(contrastRatio(v['--color-panel'], '#FFFFFF')).toBeGreaterThan(3);
+    }
+  });
+
+  it('نصّ اللوحة يبلغ 4.5:1 عليها في الوضعين', () => {
+    for (const mode of ['light', 'dark']) {
+      const v = themeVariables(brand(), mode);
+      expect(contrastRatio(v['--color-on-panel'], v['--color-panel'])).toBeGreaterThanOrEqual(AA);
+    }
+  });
+
+  it('لون التمييز على اللوحة يُقرأ عليها لا على خلفية الصفحة', () => {
+    for (const mode of ['light', 'dark']) {
+      const v = themeVariables(brand(), mode);
+      expect(contrastRatio(v['--color-accent-on-panel'], v['--color-panel'])).toBeGreaterThanOrEqual(AA);
+    }
+  });
+
+  it('هوية فاتحة جداً لا تُنتج لوحة بيضاء', () => {
+    // متجر لونه الأساسي أبيض تقريباً: اللوحة تبقى صالحة سطحاً للنصّ الفاتح أو تُقرأ بنصٍّ داكن.
+    for (const mode of ['light', 'dark']) {
+      const v = themeVariables(brand({ primary: '#FAFAFA' }), mode);
+      expect(contrastRatio(v['--color-on-panel'], v['--color-panel'])).toBeGreaterThanOrEqual(AA);
+    }
+  });
+});
+
+// ============================================================================
+// التعبئة: زرٌّ ممتلئ بلون الهوية. النصّ عليه يُشتقّ من اللون *بعد* تحويله للوضع، لا من إعداد
+// المتجر — التاجر ضبط onPrimary مقابل هويته الفاتحة، وفي الداكن صارت أفتح، فالأبيض المحفوظ
+// يصير أبيض على رمادي: زرٌّ يبدو معطّلاً وهو الزرّ الرئيسي في المتجر.
+// ============================================================================
+describe('النصّ على التعبئة', () => {
+  it('نصّ الزرّ الأساسي يبلغ 4.5:1 على تعبئته في الوضعين', () => {
+    for (const mode of ['light', 'dark']) {
+      const v = themeVariables(brand(), mode);
+      expect(contrastRatio(v['--color-on-primary'], v['--color-primary'])).toBeGreaterThanOrEqual(AA);
+      expect(contrastRatio(v['--color-on-accent'], v['--color-accent'])).toBeGreaterThanOrEqual(AA);
+    }
+  });
+
+  it('حتى حين يضبط المتجر onPrimary بما لا يصلح للوضع الداكن', () => {
+    const v = themeVariables(brand({ onPrimary: '#FFFFFF' }), 'dark');
+    expect(contrastRatio(v['--color-on-primary'], v['--color-primary'])).toBeGreaterThanOrEqual(AA);
+  });
+});
