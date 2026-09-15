@@ -8,10 +8,12 @@
 // القاعدة: اللغة من الزائر (هو من يقرأ)، والإقليم والمنطقة الزمنية من المتجر (هو من يسجّل).
 // متجر ثقافته 'ar-SA' وزائر يقرأ الإنجليزية ⇒ 'en-SA': أرقام إنجليزية وتقويم المتجر.
 // ============================================================================
+// أرقام لاتينية دائماً (nu-latn) كما يفعل منسّق المال: كانت الأسعار تُعرض ٤ والتواريخ ٤،
+// فتظهر في الصفحة الواحدة منظومتا أرقام. اختيار النظام واحد، فليكن واحداً.
 export function dateLocale(uiLanguage, storeCulture) {
   const language = String(uiLanguage || '').split('-')[0] || 'en';
   const region = String(storeCulture || '').split('-')[1];
-  return region ? `${language}-${region}` : language;
+  return `${region ? `${language}-${region}` : language}-u-nu-latn`;
 }
 
 let storeCulture = '';
