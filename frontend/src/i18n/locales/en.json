@@ -868,7 +868,12 @@
       "ShippingNotAvailable": "No delivery method serves this address.",
       "InvalidShippingMethod": "The shipping method isn't valid.",
       "WishlistFull": "Your wishlist is full — remove some products first."
-    }
+    },
+    "boundaryTitle": "Something went wrong on this page",
+    "boundaryMessage": "The page could not be displayed. You can try again, or go back to the store.",
+    "boundaryHome": "Back to the store",
+    "notFoundTitle": "Page not found",
+    "notFoundMessage": "The page you are looking for may have been moved, or the link may be incorrect."
   },
   "account": {
     "title": "My account",

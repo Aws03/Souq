@@ -15,7 +15,9 @@ import CategoryNav from './components/layout/CategoryNav';
 import Footer from './components/layout/Footer';
 import CartDrawer from './components/cart/CartDrawer';
 import ToastContainer from './components/common/ToastContainer';
+import ErrorBoundary from './components/common/ErrorBoundary';
 import Store from './pages/Store';
+import NotFound from './pages/NotFound';
 import ProductDetail from './pages/ProductDetail';
 import './styles.css';
 
@@ -136,9 +138,10 @@ function StoreRoutes() {
         <Route path="/track/:token" element={<OrderTracking />} />
         <Route path="/checkout" element={<ProtectedRoute><Checkout /></ProtectedRoute>} />
         <Route path="/confirmation" element={<ProtectedRoute><Confirmation /></ProtectedRoute>} />
+        {/* مسار مجهول داخل تخطيط المتجر: 404 صريحة مع إبقاء التنقّل والسلّة في متناول الزائر.
+            التحويل الصامت للرئيسية كان يُخفي الروابط المكسورة عن الزائر وعن محرّكات البحث معاً. */}
+        <Route path="*" element={<NotFound />} />
       </Route>
-
-      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }
@@ -161,9 +164,11 @@ export default function App() {
   const { mode } = useTenant();
   return (
     <>
-      <Suspense fallback={<PagePending />}>
-        {mode === 'platform' ? <PlatformRoutes /> : <StoreRoutes />}
-      </Suspense>
+      <ErrorBoundary>
+        <Suspense fallback={<PagePending />}>
+          {mode === 'platform' ? <PlatformRoutes /> : <StoreRoutes />}
+        </Suspense>
+      </ErrorBoundary>
       <ToastContainer />
     </>
   );

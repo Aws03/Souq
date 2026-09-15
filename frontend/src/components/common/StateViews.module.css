@@ -21,3 +21,33 @@
   transition: background var(--ease-hover);
 }
 .retry:hover { background: #fbe4dc; }
+
+/* ── حدّ الأخطاء: شاشة تعافٍ، لا صفحة بيضاء ── */
+.boundary {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-8) var(--space-4);
+  text-align: center;
+}
+
+.boundaryTitle { margin: 0; font-size: var(--text-lg); color: var(--color-text); }
+.boundaryMsg { margin: 0; max-width: 48ch; color: var(--color-text-muted); }
+.boundaryActions { display: flex; flex-wrap: wrap; gap: var(--space-2); justify-content: center; }
+
+.boundaryPrimary,
+.boundarySecondary {
+  min-height: 44px;
+  padding: var(--space-2) var(--space-5);
+  border-radius: var(--radius-md);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+}
+
+.boundaryPrimary { border: none; background: var(--color-primary); color: var(--color-on-primary); }
+.boundarySecondary { border: 1px solid var(--color-border); background: transparent; color: var(--color-text); }

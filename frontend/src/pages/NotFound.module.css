@@ -1,0 +1,36 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  min-height: 60vh;
+  padding: var(--space-6) var(--space-4);
+  text-align: center;
+}
+
+.code {
+  margin: 0;
+  font-size: clamp(3rem, 12vw, 5rem);
+  font-weight: 800;
+  line-height: 1;
+  color: var(--color-accent);
+}
+
+.title { margin: 0; font-size: var(--text-xl); color: var(--color-text); }
+.message { margin: 0; max-width: 46ch; color: var(--color-text-muted); }
+
+.action {
+  margin-top: var(--space-2);
+  padding: var(--space-3) var(--space-5);
+  border-radius: var(--radius-md);
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  font-weight: 600;
+  text-decoration: none;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.action:hover { filter: brightness(1.08); }
