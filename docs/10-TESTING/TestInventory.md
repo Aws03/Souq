@@ -11,7 +11,7 @@
 | [`Souq.Application.Tests`](#souqapplicationtests) | 39 | 272 | 11 |
 | [`Souq.ArchitectureTests`](#souqarchitecturetests) | 13 | 54 | 7 |
 | [`Souq.IntegrationTests`](#souqintegrationtests) | 41 | 203 | 21 |
-| [frontend (Vitest)](#frontend-vitest) | 43 | 228 | — |
+| [frontend (Vitest)](#frontend-vitest) | 45 | 236 | — |
 
 ## Souq.Domain.Tests
 
@@ -160,6 +160,7 @@
 | `frontend/src/app/dateLocale.test.js` | 7 |
 | `frontend/src/app/moduleInvariants.test.js` | 2 |
 | `frontend/src/app/pageMetadata.test.js` | 11 |
+| `frontend/src/app/robots.test.js` | 5 |
 | `frontend/src/app/structuredData.test.js` | 8 |
 | `frontend/src/app/tenantModel.test.js` | 7 |
 | `frontend/src/components/ProtectedRoute.test.jsx` | 11 |
@@ -195,4 +196,5 @@
 | `frontend/src/pages/ProductDetail.test.jsx` | 9 |
 | `frontend/src/pages/account/AccountLayout.test.jsx` | 6 |
 | `frontend/src/pages/checkout/stripeClient.test.js` | 3 |
+| `frontend/src/pages/storefrontPages.test.jsx` | 3 |
 | `frontend/src/whiteLabel.test.js` | 1 |

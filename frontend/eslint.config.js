@@ -39,6 +39,11 @@ export default [
       'react/prop-types': 'off',
 
       'no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
+
+      // ليست في recommended، وكان في الشجرة موضع حقيقي تُستعمل فيه t قبل تعريفها بسطر
+      // (صفحة المفضّلة): const في منطقة الموت المؤقّت ⇒ ReferenceError وقت التشغيل وحده.
+      // البناء يمرّ، والاختبارات لا تلمس الصفحة، والزائر يرى حدّ الأخطاء.
+      'no-use-before-define': ['error', { functions: false, classes: true, variables: true }],
       'react-hooks/exhaustive-deps': 'warn',
 
       // تحذير لا خطأ، ومؤقّت: النمط الذي يشتكي منه (setState داخل effect قبل جلب البيانات) هو

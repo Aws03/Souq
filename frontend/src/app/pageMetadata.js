@@ -51,7 +51,10 @@ export function socialTags({ title, description, image, url, type = 'website' })
 }
 
 // الصفحات التي لا يجوز فهرستها: كل ما هو خاصّ بزائر بعينه أو بلا قيمة بحثية.
-export const PRIVATE_ROUTES = ['/account', '/orders', '/checkout', '/confirmation', '/wishlist', '/track'];
+// المسارات التي لا تُفهرَس. /cart منها منذ المرحلة 16: صفحة سلّة مفهرسة نتيجة بحث فارغة لأي
+// زائر غيره. القائمة نفسها يعكسها public/robots.txt — ويحرس اختبارٌ تطابقهما، لأن وسم
+// noindex لا يراه إلّا زاحف ينفّذ JavaScript، بينما robots.txt يقرؤه الجميع.
+export const PRIVATE_ROUTES = ['/account', '/orders', '/cart', '/checkout', '/confirmation', '/wishlist', '/track'];
 
 export function robotsFor(pathname) {
   return PRIVATE_ROUTES.some((route) => pathname === route || pathname.startsWith(`${route}/`))

@@ -11,9 +11,9 @@ import { usePageMetadata } from '../app/usePageMetadata';
 // صفحة المفضّلة: تعرض ما في WishlistContext — للعميل من الخادم بأسعار الكتالوج الحيّة (المرحلة 13)، وللزائر من متصفّحه.
 // فارغة افتراضياً حتى يضغط أيقونة القلب على بطاقة منتج.
 export default function Wishlist() {
-  usePageMetadata({ title: t('wishlist.title') });
   const { t } = useTranslation();
   const navigate = useNavigate();
+  usePageMetadata({ title: t('wishlist.title') });
   const { items } = useWishlist();
   const toast = useToast();
 
