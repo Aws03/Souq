@@ -9,7 +9,7 @@
 |---|---|---|---|
 | [`Souq.Domain.Tests`](#souqdomaintests) | 23 | 165 | 34 |
 | [`Souq.Application.Tests`](#souqapplicationtests) | 39 | 272 | 11 |
-| [`Souq.ArchitectureTests`](#souqarchitecturetests) | 12 | 50 | 5 |
+| [`Souq.ArchitectureTests`](#souqarchitecturetests) | 13 | 53 | 7 |
 | [`Souq.IntegrationTests`](#souqintegrationtests) | 40 | 200 | 21 |
 | [frontend (Vitest)](#frontend-vitest) | 25 | 107 | — |
 
@@ -99,6 +99,7 @@
 | `tests/Souq.ArchitectureTests/GeneratedDocsTests.cs` | `GeneratedDocsTests` | 5 | 1 |
 | `tests/Souq.ArchitectureTests/MigrationSafetyTests.cs` | `MigrationSafetyTests` | 3 | 0 |
 | `tests/Souq.ArchitectureTests/ModuleAndContractRuleTests.cs` | `ModuleAndContractRuleTests` | 8 | 1 |
+| `tests/Souq.ArchitectureTests/OperationalScriptTests.cs` | `OperationalScriptTests`, `TempEnv` | 3 | 2 |
 | `tests/Souq.ArchitectureTests/TenancyRuleTests.cs` | `TenancyRuleTests` | 7 | 0 |
 | `tests/Souq.ArchitectureTests/WhiteLabelSourceTests.cs` | `WhiteLabelSourceTests` | 1 | 0 |
 

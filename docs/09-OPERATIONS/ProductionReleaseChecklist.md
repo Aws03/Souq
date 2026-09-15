@@ -170,6 +170,28 @@ These decisions are the owner's, not engineering's, and none of them fails a tes
 
 ---
 
+## Running the gate instead of reading it
+
+Most of the boxes above are assertions about a deployment, and assertions can be executed:
+
+```bash
+./scripts/release-gate.sh \
+  --env-file .env --environment Production \
+  --backup-dir /var/backups/souq --drill-days 30 \
+  --api-url http://api:8080 --base-url https://store.example --store-host store.example \
+  --compose-project souq --suites --require-all
+```
+
+Five sections, each testing an invariant rather than the presence of a file: the target deployment's
+configuration would actually be safe ([audit-config.sh](../../scripts/audit-config.sh)), the backups are fresh,
+complete, checksum-clean and recently rehearsed, the repository builds with warnings as errors and every suite
+is green, no vulnerable package reaches the browser, and the deployed stack answers its 31 smoke checks.
+
+**The rule that makes it worth running:** anything not given is reported as *unchecked*, never as passing. Run
+without arguments it reports four skipped sections and says so; `--require-all` turns every skip into a
+failure, which is the mode to use before a real release. A gate that passes because you gave it nothing is
+worse than no gate, because it hands out confidence nobody earned.
+
 ## Sign-off
 
 A release is ready when every **REQUIRED** box is ticked, every skipped **RECOMMENDED** box has a written reason, and [ReleaseReadiness.md](ReleaseReadiness.md) shows no open P0. Record who signed off and against which commit.
