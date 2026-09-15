@@ -45,7 +45,7 @@ function InnerForm({ order, onPaid }) {
     <form onSubmit={pay}>
       {error && <ErrorBanner message={error} />}
       <div className={styles.cardBox}><CardElement options={options} /></div>
-      <Button type="submit" variant="saffron" size="lg" loading={busy} disabled={!stripe} className={styles.submit}>
+      <Button type="submit" variant="accent" size="lg" loading={busy} disabled={!stripe} className={styles.submit}>
         {t('checkout.payNow')}
       </Button>
     </form>
@@ -74,7 +74,7 @@ function DirectPayForm({ order, onPaid }) {
     <div className={styles.panel}>
       <h2 className={styles.panelTitle}>{t('checkout.completeOrderTitle')}</h2>
       {error && <ErrorBanner message={error} />}
-      <Button variant="saffron" size="lg" loading={busy} onClick={pay} className={styles.submit}>
+      <Button variant="accent" size="lg" loading={busy} onClick={pay} className={styles.submit}>
         {t('checkout.payNow')}
       </Button>
     </div>

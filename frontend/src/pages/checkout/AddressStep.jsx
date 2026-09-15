@@ -111,7 +111,7 @@ export default function AddressStep({
       )}
 
       {blocked && <p className={styles.blockedNote}>{t('cart.fixItems')}</p>}
-      <Button type="submit" variant="saffron" size="lg" loading={busy}
+      <Button type="submit" variant="accent" size="lg" loading={busy}
         disabled={savedAddresses === null || blocked || shippingIssue === 'unavailable'} className={styles.submit}>
         {t('checkout.continueToPayment')}
       </Button>

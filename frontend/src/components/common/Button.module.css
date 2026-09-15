@@ -13,8 +13,9 @@
 .primary { background: var(--color-primary); color: var(--color-bg); }
 .primary:hover:not(:disabled) { background: var(--color-accent); color: var(--color-primary-strong); }
 
-.saffron { background: var(--color-accent); color: var(--color-primary-strong); }
-.saffron:hover:not(:disabled) { background: var(--color-accent-soft); }
+/* اسمه كان saffron — لون لوحة أوّل متجر لا دوره. الاسم الآن دورُه في نظام التصميم. */
+.accent { background: var(--color-accent); color: var(--color-primary-strong); }
+.accent:hover:not(:disabled) { background: var(--color-accent-soft); }
 
 .ghost { background: var(--color-surface); color: var(--color-primary); border: 1px solid var(--color-border); }
 .ghost:hover:not(:disabled) { border-color: var(--color-primary); }

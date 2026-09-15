@@ -74,7 +74,7 @@ export default function Register() {
             onChange={set('confirm')} onBlur={blur('confirm')} placeholder={t('auth.confirmPasswordPlaceholder')} />
         </FormField>
 
-        <Button type="submit" variant="saffron" size="lg" loading={busy} className={styles.submit}>{t('auth.registerSubmit')}</Button>
+        <Button type="submit" variant="accent" size="lg" loading={busy} className={styles.submit}>{t('auth.registerSubmit')}</Button>
 
         <p className={styles.switch}>{t('auth.haveAccount')} <Link to="/login">{t('auth.signIn')}</Link></p>
       </form>

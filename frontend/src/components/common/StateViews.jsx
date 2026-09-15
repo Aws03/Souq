@@ -14,7 +14,7 @@ export function EmptyState({ title, message, actionLabel, onAction, icon: Icon =
       <h3 className={styles.emptyTitle}>{title}</h3>
       {message && <p className={styles.emptyMsg}>{message}</p>}
       {actionLabel && onAction && (
-        <Button variant="saffron" size="sm" onClick={onAction}>{actionLabel}</Button>
+        <Button variant="accent" size="sm" onClick={onAction}>{actionLabel}</Button>
       )}
     </div>
   );

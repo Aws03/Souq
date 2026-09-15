@@ -17,7 +17,7 @@ export default function Button({
       aria-busy={loading}
       {...rest}
     >
-      {loading && <Spinner size={size === 'sm' ? 14 : 16} inverted={variant === 'primary' || variant === 'saffron'} />}
+      {loading && <Spinner size={size === 'sm' ? 14 : 16} inverted={variant === 'primary' || variant === 'accent'} />}
       <span className={loading ? styles.hiddenLabel : ''}>{children}</span>
     </button>
   );

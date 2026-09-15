@@ -50,7 +50,7 @@ export default function ForgotPassword() {
               placeholder="you@example.com" />
           </FormField>
 
-          <Button type="submit" variant="saffron" size="lg" loading={busy} className={styles.submit}>
+          <Button type="submit" variant="accent" size="lg" loading={busy} className={styles.submit}>
             {t('auth.forgotPasswordSubmit')}
           </Button>
 

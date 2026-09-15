@@ -53,7 +53,7 @@ export default function VerifyEmail() {
       {status === 'failed' && isAuthenticated && (resend === 'sent'
         ? <p className={styles.successBox}>{t('auth.verificationSent')}</p>
         : (
-          <Button type="button" variant="saffron" size="lg" loading={resend === 'busy'} className={styles.submit}
+          <Button type="button" variant="accent" size="lg" loading={resend === 'busy'} className={styles.submit}
             onClick={requestNewLink}>
             {t('auth.resendVerification')}
           </Button>

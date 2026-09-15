@@ -90,7 +90,7 @@ export default function ResetPassword({ mode = 'reset' }) {
               placeholder={t('auth.confirmPasswordPlaceholder')} />
           </FormField>
 
-          <Button type="submit" variant="saffron" size="lg" loading={busy} className={styles.submit}>
+          <Button type="submit" variant="accent" size="lg" loading={busy} className={styles.submit}>
             {t(text.submit)}
           </Button>
         </form>

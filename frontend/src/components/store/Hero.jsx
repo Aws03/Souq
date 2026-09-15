@@ -40,7 +40,7 @@ export default function Hero({ targetId = 'catalog' }) {
       <div className={styles.hero__inner}>
         <h1 className={styles.hero__headline}>{name}</h1>
         {tagline && <p className={styles.hero__subline}>{tagline}</p>}
-        <Button variant="saffron" size="lg" onClick={scrollToGrid}>{t('store.heroCta')}</Button>
+        <Button variant="accent" size="lg" onClick={scrollToGrid}>{t('store.heroCta')}</Button>
       </div>
     </section>
   );

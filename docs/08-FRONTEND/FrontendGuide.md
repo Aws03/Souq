@@ -267,7 +267,8 @@ Client validation exists for fast feedback; the server is the authority and its 
 
 - **Derived colours keep text readable** (`frontend/src/app/tenantModel.js`): the strong primary is a darkened mix, `on-primary` and `on-accent` are black or white by contrast, and muted text is the lightest mix of text and background that still reaches 4.5:1. The unit test asserts that last rule for both sample stores.
 - **One CSS Module per component**, imported as `styles`, so class names never collide. Only `.souq-layout` (the page container) and `.souq-visually-hidden` are global.
-- **`Button` variants** are `primary`, `saffron`, `ghost` and `danger` — `saffron` is the accent-coloured button and the name is a leftover of the first store's palette, not a brand colour: it resolves to `--color-accent`.
+- **`Button` variants** are `primary`, `accent`, `ghost` and `danger`. The accent variant was called `saffron` until Phase 16 — the first store's palette name leaking into the component API of a white-label kit. It resolves to `--color-accent`, which is whatever the store set.
+- **There is no spacing scale.** Colours, radii, shadows, the type scale and easings are tokens; padding and gaps are raw pixels in each CSS module. Adding `--space-*` is worth doing, but only as a change that converts every module at once — a half-adopted scale is worse than none, because a reader cannot tell which number is deliberate. It is not in Phase 16.
 - **Rules when you add styles:** use tokens, not hex; put the style in the component's module; if a value must come from the store, derive it in `themeVariables` and cover it with a test. Twenty-one of the 58 CSS modules still contain hex literals, mostly for shadows, overlays and status tints.
 
 ## 14. Testing

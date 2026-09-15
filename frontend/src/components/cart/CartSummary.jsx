@@ -24,7 +24,7 @@ export default function CartSummary({ basket, blocked, onCheckout }) {
         <span>{t('cart.total')}</span><span>{formatPrice(basket.total, currency)}</span>
       </div>
       {blocked && <p className={styles.blocked}>{t('cart.fixItems')}</p>}
-      <Button variant="saffron" size="lg" className={styles.cta} onClick={onCheckout} disabled={blocked}>{t('cart.checkoutCta')}</Button>
+      <Button variant="accent" size="lg" className={styles.cta} onClick={onCheckout} disabled={blocked}>{t('cart.checkoutCta')}</Button>
     </div>
   );
 }
