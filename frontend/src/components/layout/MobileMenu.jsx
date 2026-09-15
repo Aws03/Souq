@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../context/AuthContext';
 import { useModule } from '../../app/TenantProvider';
+import { useDialog } from '../common/useDialog';
 import SearchBar from './SearchBar';
 import styles from './MobileMenu.module.css';
 
@@ -13,12 +14,13 @@ export default function MobileMenu({
   const { t } = useTranslation();
   const { user, isAuthenticated, canManageStore, logout } = useAuth();
   const wishlist = useModule('wishlist');
+  const sheetRef = useDialog(open, onClose);
   if (!open) return null;
 
   return (
     <>
-      <div className={styles.overlay} onClick={onClose} />
-      <div className={styles.sheet} role="dialog" aria-modal="true">
+      <button type="button" className={styles.overlay} aria-label={t('common.close')} onClick={onClose} />
+      <div ref={sheetRef} tabIndex={-1} className={styles.sheet} role="dialog" aria-modal="true">
         <SearchBar value={search.value} onChange={search.setValue}
           onSubmit={() => { search.submit(); onClose(); }} className={styles.search} />
         <nav className={styles.links}>

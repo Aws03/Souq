@@ -52,8 +52,13 @@ export default function ProductZoom({ images, videoUrl, productName }) {
 
   // Escape يغلق، الأسهم تتنقّل بين الصور، ونمنع تمرير الصفحة خلف الصندوق —
   // كلّه يعمل فقط حين الصندوق مفتوحاً (وتُستعاد حالة التمرير عند الإغلاق).
+  //
+  // المرحلة 16: والتركيز ينتقل إلى الصندوق عند فتحه ويعود إلى ما فتحه عند إغلاقه. بدونه كان
+  // مستعمل لوحة المفاتيح يفتح عرضاً كاملاً وتركيزُه ما يزال في الصفحة تحته.
+  const lightboxRef = useRef(null);
   useEffect(() => {
-    if (!lightboxOpen) return;
+    if (!lightboxOpen) return undefined;
+    const opener = document.activeElement;
     const onKeyDown = (e) => {
       if (e.key === 'Escape') setLightboxOpen(false);
       else if (e.key === 'ArrowRight') setActiveIndex((i) => (i + 1) % galleryImages.length);
@@ -62,9 +67,11 @@ export default function ProductZoom({ images, videoUrl, productName }) {
     window.addEventListener('keydown', onKeyDown);
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
+    lightboxRef.current?.focus();
     return () => {
       window.removeEventListener('keydown', onKeyDown);
       document.body.style.overflow = prevOverflow;
+      if (opener instanceof HTMLElement && document.contains(opener)) opener.focus();
     };
   }, [lightboxOpen, galleryImages.length]);
 
@@ -86,6 +93,9 @@ export default function ProductZoom({ images, videoUrl, productName }) {
       )}
 
       {activeTab === 'video' && hasVideo ? (
+        // لا مسار ترجمة: الفيديو يرفعه التاجر ولا تملك المنصّة نصّه. مسار فارغ يُعلن ترجمةً
+        // غير موجودة لقارئ الشاشة — أسوأ من غيابه. رفعُ ملفّات ترجمة قدرةٌ ناقصة، لا وسمٌ ناقص.
+        // eslint-disable-next-line jsx-a11y/media-has-caption
         <video className={styles.video} controls autoPlay={false} loop={false}
           poster={hasImages ? activeImage : undefined} src={videoUrl} />
       ) : (
@@ -93,16 +103,20 @@ export default function ProductZoom({ images, videoUrl, productName }) {
           {/* صندوق الصورة كله قابل للنقر لفتح العرض الكامل (سطح مكتب وجوال معاً)
               — لا نعتمد على كشف اللمس الهشّ. تكبير التمرير مجرّد طبقة بصرية
               (pointer-events: none) فلا يعترض النقر. */}
+          {/* الصندوق نفسه ليس عنصر تفاعل: التكبير بالتمرير طبقة بصرية، والنقر يخصّ الصورة.
+              الصورة داخل زرّ حقيقي — فيفتح العرض الكامل بالفأرة وبمفتاح الإدخال معاً. */}
           <div
             ref={imageBoxRef}
             className={styles.mainBox}
-            onClick={hasImages ? openLightbox : undefined}
             onMouseMove={!isTouchDevice ? handleMouseMove : undefined}
             onMouseEnter={!isTouchDevice ? () => setHovering(true) : undefined}
             onMouseLeave={!isTouchDevice ? () => setHovering(false) : undefined}
           >
             {hasImages ? (
-              <img src={activeImage} alt={productName} className={styles.mainImg} />
+              <button type="button" className={styles.imageButton} onClick={openLightbox}
+                aria-label={t('product.openGallery', { name: productName })}>
+                <img src={activeImage} alt={productName} className={styles.mainImg} />
+              </button>
             ) : (
               <div className={styles.fallback} aria-hidden="true"><CameraIcon size={48} /></div>
             )}
@@ -161,18 +175,19 @@ export default function ProductZoom({ images, videoUrl, productName }) {
       )}
 
       {/* العرض الكامل يُرسَم عبر Portal على body — خارج أي حاوية بـ overflow/
-          transform قد تقصّه أو تحبس ترتيب طبقاته، فيبقى زر الإغلاق والخلفية
-          فوق كل شيء ويعملان بموثوقية. النقر على الخلفية يغلق؛ النقر على الصورة
-          (stage) يوقف الانتشار فلا يغلق؛ زر X يغلق صراحةً. */}
+          transform قد تقصّه أو تحبس ترتيب طبقاته، فيبقى زر الإغلاق والخلفية فوق كل شيء.
+          الخلفية زرّ شقيق للمسرح لا أبٌ له: النقر عليها يغلق بلا حاجة إلى إيقاف الانتشار من
+          الصورة، وEscape يغلق أيضاً. */}
       {lightboxOpen && hasImages && createPortal(
-        <div className={styles.lightboxOverlay} onClick={() => setLightboxOpen(false)}
-          role="dialog" aria-modal="true">
+        <div ref={lightboxRef} tabIndex={-1} className={styles.lightboxOverlay} role="dialog" aria-modal="true">
+          <button type="button" className={styles.lightboxBackdrop}
+            onClick={() => setLightboxOpen(false)} aria-label={t('common.close')} />
           <button type="button" className={styles.lightboxClose}
             onClick={() => setLightboxOpen(false)} aria-label={t('common.close')}>
             <CloseIcon size={22} />
           </button>
 
-          <div className={styles.lightboxStage} onClick={(e) => e.stopPropagation()}>
+          <div className={styles.lightboxStage}>
             <img src={activeImage} alt={productName} className={styles.lightboxImg} />
 
             {galleryImages.length > 1 && (

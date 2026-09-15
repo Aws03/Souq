@@ -77,6 +77,11 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
+
+      # المدقّق قبل الاختبارات: أخطاؤه أرخص وأسرع، وأوّل ما أمسكه كان خطأ تحليل في JSX
+      # يمرّ من vite بلا شكوى. التحذيرات (نمط setState داخل effect) لا تُفشل — تختفي مع
+      # هجرة طبقة الاستعلام، وإفشالها اليوم يعني 27 تعطيلاً موضعياً تُنسى.
+      - run: npm run lint
       - run: npm test
       - run: npm run build
 

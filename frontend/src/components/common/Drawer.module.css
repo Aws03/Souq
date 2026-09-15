@@ -1,4 +1,8 @@
-.overlay { position: fixed; inset: 0; background: rgba(15, 59, 58, .4); z-index: 100; }
+.overlay {
+  /* الخلفية زرّ حقيقي (إتاحة) — فتُنزع عنه هيئة الزرّ. */
+  appearance: none; border: 0; padding: 0; cursor: default;
+  position: fixed; inset: 0; background: rgba(15, 59, 58, .4); z-index: 100;
+}
 
 .panel {
   position: fixed; top: 0; bottom: 0; background: var(--color-bg); z-index: 101;

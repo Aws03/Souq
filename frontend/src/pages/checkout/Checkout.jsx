@@ -98,8 +98,11 @@ export default function Checkout() {
   const applyCoupon = () => requote(couponCode.trim());
 
   // تغيّرت السلة بعد تطبيق الكوبون (درج السلة متاح هنا أيضاً) ⇒ إعادة التحقّق من الكوبون نفسه.
+  // المرجع يُحدَّث في تأثير لا في جسم العرض: كتابة ref أثناء العرض تكسر ضمانات React
+  // (وتُعطّل العرض المتزامن)، والغرض هنا واحد — قراءة أحدث نسخة من requote بلا إعادة تشغيل
+  // التأثير التالي كلّما تغيّرت هويتها.
   const requoteRef = useRef(requote);
-  requoteRef.current = requote;
+  useEffect(() => { requoteRef.current = requote; }, [requote]);
   useEffect(() => {
     if (appliedCode.current) requoteRef.current(appliedCode.current);
   }, [basket.subtotal, basket.itemCount]);

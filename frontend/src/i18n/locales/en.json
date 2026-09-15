@@ -79,7 +79,8 @@
     "tabPhotos": "Photos",
     "tabVideo": "Video",
     "relatedTitle": "Related products",
-    "breadcrumbAria": "Breadcrumb"
+    "breadcrumbAria": "Breadcrumb",
+    "openGallery": "View images of {{name}}"
   },
   "reviews": {
     "addTitle": "Add your review",
@@ -775,15 +776,8 @@
   },
   "footer": {
     "quickLinks": "Quick Links",
-    "customerService": "Customer Service",
     "contactUs": "Contact Us",
     "home": "Home",
-    "faq": "FAQ",
-    "shipping": "Shipping Policy",
-    "returns": "Return Policy",
-    "contactLink": "Contact Us",
-    "privacyPolicy": "Privacy Policy",
-    "terms": "Terms & Conditions",
     "copyright": "© {{year}} {{store}}. All rights reserved."
   },
   "errors": {

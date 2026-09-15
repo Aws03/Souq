@@ -11,7 +11,7 @@
 | [`Souq.Application.Tests`](#souqapplicationtests) | 39 | 272 | 11 |
 | [`Souq.ArchitectureTests`](#souqarchitecturetests) | 13 | 54 | 7 |
 | [`Souq.IntegrationTests`](#souqintegrationtests) | 41 | 203 | 21 |
-| [frontend (Vitest)](#frontend-vitest) | 40 | 209 | — |
+| [frontend (Vitest)](#frontend-vitest) | 41 | 215 | — |
 
 ## Souq.Domain.Tests
 
@@ -161,6 +161,7 @@
 | `frontend/src/app/structuredData.test.js` | 8 |
 | `frontend/src/app/tenantModel.test.js` | 7 |
 | `frontend/src/components/ProtectedRoute.test.jsx` | 11 |
+| `frontend/src/components/common/Drawer.test.jsx` | 6 |
 | `frontend/src/components/common/ErrorBoundary.test.jsx` | 5 |
 | `frontend/src/features/account/addressForm.test.js` | 4 |
 | `frontend/src/features/admin/categories/categoryForm.test.js` | 5 |

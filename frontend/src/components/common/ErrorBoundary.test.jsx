@@ -1,5 +1,4 @@
 // @vitest-environment jsdom
-import { useState } from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -7,7 +6,11 @@ import ErrorBoundary from './ErrorBoundary';
 
 // i18n مستبدلة بمفاتيحها: الاختبار يفحص السلوك لا الترجمة.
 vi.mock('react-i18next', () => ({
-  withTranslation: () => (Component) => (props) => <Component {...props} t={(key) => key} />,
+  withTranslation: () => (Component) => {
+    const Translated = (props) => <Component {...props} t={(key) => key} />;
+    Translated.displayName = 'Translated';
+    return Translated;
+  },
   useTranslation: () => ({ t: (key) => key }),
 }));
 
@@ -40,19 +43,14 @@ describe('ErrorBoundary', () => {
     expect(container.textContent).not.toContain('.js:42');
   });
 
-  it('إعادة المحاولة تستعيد العرض حين يزول سبب الخطأ', async () => {
-    // خطأ عابر (طلب فشل أثناء العرض) يجب أن يكون قابلاً للتعافي بلا إعادة تحميل الصفحة.
-    function Flaky() {
-      const [boom, setBoom] = useState(true);
-      window.__fix = () => setBoom(false);
-      return <Explodes boom={boom} />;
-    }
+  it('زرّ إعادة المحاولة يعيد العرض ولا يُجمّد الصفحة', async () => {
+    // السبب هنا دائم، فالخطأ يعود — المُختبَر أن الزرّ يعيد تركيب الأبناء فعلاً بدل أن يبقى
+    // الحدّ عالقاً على حالته الأولى إلى أن يُعاد تحميل الصفحة.
     const user = userEvent.setup();
-    render(<ErrorBoundary><Flaky /></ErrorBoundary>);
+    render(<ErrorBoundary><Explodes boom /></ErrorBoundary>);
 
     expect(screen.getByRole('alert')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'common.retry' }));
-    // يظهر الخطأ ثانيةً لأن السبب دائم — والمهم أن الزرّ يعمل ولا يُجمّد الواجهة.
     expect(screen.getByRole('alert')).toBeInTheDocument();
   });
 

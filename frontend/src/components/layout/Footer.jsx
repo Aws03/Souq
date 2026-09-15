@@ -10,6 +10,11 @@ const SOCIAL_ICONS = { facebook: FacebookIcon, instagram: InstagramIcon, x: XIco
 
 // تذييل المتجر (المرحلة 15، A4): الهوية ووصفها وروابط الشبكات وبيانات التواصل كلها من إعداد المتجر — لا اسم ولا هاتف ولا بريد
 // مكتوب هنا. ما لا يضبطه المتجر لا يُرسم. يظهر أسفل صفحات المتجر (لا لوحة الإدارة).
+//
+// المرحلة 16: حُذف عمودا "خدمة العملاء" و"السياسات" — ستّة روابط <a href="#"> لا تذهب إلى شيء
+// (أسئلة شائعة، شحن، إرجاع، تواصل، سياسة خصوصية، شروط). المنصّة لا تملك صفحات محتوى للمتجر
+// أصلاً، فالروابط كانت زينة تُوهم المشتري بوجود صفحة. الغياب أصدق من رابط ميّت، والنقص مسجّل
+// في سجلّ الدين (صفحات محتوى المتجر).
 export default function Footer() {
   const { t, i18n } = useTranslation();
   const config = useStoreConfig();
@@ -53,16 +58,6 @@ export default function Footer() {
           </nav>
         </div>
 
-        <div className={styles.footer__col}>
-          <h4 className={styles.footer__heading}>{t('footer.customerService')}</h4>
-          <nav className={styles.footer__links}>
-            <a href="#">{t('footer.faq')}</a>
-            <a href="#">{t('footer.shipping')}</a>
-            <a href="#">{t('footer.returns')}</a>
-            <a href="#">{t('footer.contactLink')}</a>
-          </nav>
-        </div>
-
         {(phone || email || address) && (
           <div className={styles.footer__col}>
             <h4 className={styles.footer__heading}>{t('footer.contactUs')}</h4>
@@ -78,10 +73,6 @@ export default function Footer() {
       <div className={styles.footer__bottom}>
         <div className={`souq-layout ${styles.footer__bottomInner}`}>
           <span>{t('footer.copyright', { year, store: name })}</span>
-          <div className={styles.footer__legal}>
-            <a href="#">{t('footer.privacyPolicy')}</a>
-            <a href="#">{t('footer.terms')}</a>
-          </div>
         </div>
       </div>
     </footer>

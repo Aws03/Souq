@@ -71,10 +71,11 @@
   position: fixed; inset: 0; z-index: 300; background: rgb(10 20 20 / 0.92);
   display: flex; align-items: center; justify-content: center; padding: 24px;
 }
-.lightboxStage { position: relative; max-width: min(900px, 92vw); max-height: 88vh; touch-action: pinch-zoom; }
+.lightboxStage { position: relative; z-index: 1; max-width: min(900px, 92vw); max-height: 88vh; touch-action: pinch-zoom; }
 .lightboxImg { max-width: min(900px, 92vw); max-height: 88vh; object-fit: contain; border-radius: 8px; display: block; }
 
 .lightboxClose {
+  z-index: 2;
   position: absolute; top: 18px; inset-inline-end: 18px; z-index: 10;
   width: 42px; height: 42px; border-radius: 50%; background: rgb(255 255 255 / 0.12); color: var(--color-bg);
   display: grid; place-items: center; transition: background var(--ease-hover);
@@ -96,4 +97,16 @@
 
 @media (max-width: 480px) {
   .mainBox { max-width: 100%; }
+}
+
+/* الصورة الرئيسية زرّ (إتاحة: تُفتح بالإدخال كما بالنقر) — بلا هيئة زرّ. */
+.imageButton {
+  appearance: none; border: 0; padding: 0; background: none;
+  display: block; width: 100%; height: 100%; cursor: zoom-in;
+}
+
+/* خلفية العرض الكامل: زرّ شقيق للمسرح، تحته في ترتيب الطبقات. */
+.lightboxBackdrop {
+  appearance: none; border: 0; padding: 0; cursor: default;
+  position: absolute; inset: 0; background: none; z-index: 0;
 }

@@ -148,21 +148,25 @@ export default function ProductFormDrawer({ product, categories, onSave, onImage
           </section>
         )}
 
+        {/* منطقة الإفلات كانت <div> بمستمع نقر يضغط حقلاً مخفياً: لا يصلها Tab ولا يعرفها قارئ
+            الشاشة. الآن <label> فوق حقل ملفّ حقيقي مخفيّ بصرياً لا عن المتصفّح — النقر واللمس
+            ولوحة المفاتيح كلها تفتح منتقي الملفّات، والإفلات يبقى كما هو. */}
         {galleryFull ? <p className={styles.galleryFull}>{t('admin.productForm.galleryFull')}</p> : (
           <div className={`${styles.dropzone} ${dragOver ? styles.dragOver : ''}`}
             onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
             onDragLeave={() => setDragOver(false)}
-            onDrop={(e) => { e.preventDefault(); setDragOver(false); pickFile(e.dataTransfer.files?.[0]); }}
-            onClick={() => document.getElementById('product-image-input').click()}>
-            {preview ? <img src={preview} alt={t('admin.productForm.previewAlt')} className={styles.preview} /> : (
-              <div className={styles.dropHint}>
-                <CameraIcon />
-                <span>{t('admin.productForm.dropHint')}</span>
-                <small>{t('admin.productForm.dropHintSub')}</small>
-              </div>
-            )}
+            onDrop={(e) => { e.preventDefault(); setDragOver(false); pickFile(e.dataTransfer.files?.[0]); }}>
+            <label htmlFor="product-image-input" className={styles.dropLabel}>
+              {preview ? <img src={preview} alt={t('admin.productForm.previewAlt')} className={styles.preview} /> : (
+                <div className={styles.dropHint}>
+                  <CameraIcon />
+                  <span>{t('admin.productForm.dropHint')}</span>
+                  <small>{t('admin.productForm.dropHintSub')}</small>
+                </div>
+              )}
+            </label>
             <input id="product-image-input" type="file" accept="image/jpeg,image/png,image/webp,image/gif"
-              hidden onChange={(e) => pickFile(e.target.files?.[0])} />
+              className="souq-visually-hidden" onChange={(e) => pickFile(e.target.files?.[0])} />
           </div>
         )}
 
@@ -170,24 +174,28 @@ export default function ProductFormDrawer({ product, categories, onSave, onImage
           <div className={`${styles.dropzone} ${videoDragOver ? styles.dragOver : ''}`}
             onDragOver={(e) => { e.preventDefault(); setVideoDragOver(true); }}
             onDragLeave={() => setVideoDragOver(false)}
-            onDrop={(e) => { e.preventDefault(); setVideoDragOver(false); pickVideo(e.dataTransfer.files?.[0]); }}
-            onClick={() => document.getElementById('product-video-input').click()}>
+            onDrop={(e) => { e.preventDefault(); setVideoDragOver(false); pickVideo(e.dataTransfer.files?.[0]); }}>
             {videoPreview ? (
+              // المعاينة ليست منطقة اختيار: الفيديو له مشغّله، والاستبدال يمرّ بالحذف أوّلاً.
               <div className={styles.videoPreviewWrap}>
-                <video src={videoPreview} className={styles.videoPreview} controls onClick={(e) => e.stopPropagation()} />
+                {/* لا مسار ترجمة: الملفّ يرفعه التاجر ولا تملك المنصّة نصّه (كما في ProductZoom). */}
+                {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+                <video src={videoPreview} className={styles.videoPreview} controls />
                 <button type="button" className={styles.removeVideoBtn} onClick={removeVideo}>
                   <CloseIcon size={14} /> {t('admin.productForm.removeVideo')}
                 </button>
               </div>
             ) : (
-              <div className={styles.dropHint}>
-                <VideoIcon />
-                <span>{t('admin.productForm.videoDropHint')}</span>
-                <small>{t('admin.productForm.videoDropHintSub')}</small>
-              </div>
+              <label htmlFor="product-video-input" className={styles.dropLabel}>
+                <div className={styles.dropHint}>
+                  <VideoIcon />
+                  <span>{t('admin.productForm.videoDropHint')}</span>
+                  <small>{t('admin.productForm.videoDropHintSub')}</small>
+                </div>
+              </label>
             )}
             <input id="product-video-input" type="file" accept="video/mp4,video/webm"
-              hidden onChange={(e) => pickVideo(e.target.files?.[0])} />
+              className="souq-visually-hidden" onChange={(e) => pickVideo(e.target.files?.[0])} />
           </div>
         </FormField>
 

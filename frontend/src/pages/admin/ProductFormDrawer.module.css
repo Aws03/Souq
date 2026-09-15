@@ -46,3 +46,6 @@
 @media (max-width: 390px) {
   .row { grid-template-columns: 1fr; }
 }
+
+/* التسمية تغطّي منطقة الإفلات: النقر عليها يفتح منتقي الملفّات (إتاحة). */
+.dropLabel { display: block; width: 100%; cursor: pointer; }

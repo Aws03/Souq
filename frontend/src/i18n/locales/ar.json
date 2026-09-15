@@ -79,7 +79,8 @@
     "tabPhotos": "صور",
     "tabVideo": "فيديو",
     "relatedTitle": "منتجات ذات صلة",
-    "breadcrumbAria": "مسار التصفّح"
+    "breadcrumbAria": "مسار التصفّح",
+    "openGallery": "عرض صور {{name}}"
   },
   "reviews": {
     "addTitle": "أضف تقييمك",
@@ -775,15 +776,8 @@
   },
   "footer": {
     "quickLinks": "روابط سريعة",
-    "customerService": "خدمة العملاء",
     "contactUs": "تواصل معنا",
     "home": "الرئيسية",
-    "faq": "الأسئلة الشائعة",
-    "shipping": "سياسة الشحن",
-    "returns": "سياسة الإرجاع",
-    "contactLink": "اتصل بنا",
-    "privacyPolicy": "سياسة الخصوصية",
-    "terms": "الشروط والأحكام",
     "copyright": "© {{year}} {{store}}. جميع الحقوق محفوظة."
   },
   "errors": {
