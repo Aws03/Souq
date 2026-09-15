@@ -31,7 +31,9 @@ internal static class StoreSettingsJson
             new(s.DisplayName), [.. s.EnabledCultures],
             new BrandingDocument(
                 new ColorsDocument(colors.Primary, colors.Secondary, colors.Accent, colors.Background, colors.Text),
-                s.Branding.Typography, s.Branding.ThemePreset, s.Branding.LogoUrl, s.Branding.FaviconUrl, s.Branding.SocialImageUrl),
+                s.Branding.Typography, s.Branding.ThemePreset, s.Branding.LogoUrl, s.Branding.FaviconUrl,
+                s.Branding.SocialImageUrl, s.Branding.ThemeMode,
+                new OpeningDocument(s.Branding.Opening.Enabled, s.Branding.Opening.Style)),
             new ContactDocument(s.Contact.Email, s.Contact.Phone, new(s.Contact.Address)),
             [.. s.Social.Select(l => new SocialDocument(l.Network, l.Url))],
             new SeoDocument(new(s.Seo.Title), new(s.Seo.Description)),
@@ -51,7 +53,12 @@ internal static class StoreSettingsJson
             document.DisplayName ?? new(),
             document.EnabledCultures ?? [],
             new StoreBranding(colors, branding?.Typography ?? BrandPresets.DefaultTypography,
-                branding?.ThemePreset ?? BrandPresets.DefaultTheme, branding?.LogoUrl, branding?.FaviconUrl, branding?.SocialImageUrl),
+                branding?.ThemePreset ?? BrandPresets.DefaultTheme, branding?.LogoUrl, branding?.FaviconUrl,
+                branding?.SocialImageUrl, branding?.ThemeMode,
+                // مستند أقدم بلا هذا الحقل ⇒ الافتراضي (معطّل)، لا كشف يظهر فجأةً لمتجر لم يطلبه.
+                branding?.Opening is { } opening
+                    ? new StoreOpening(opening.Enabled, opening.Style ?? BrandPresets.DefaultOpeningStyle)
+                    : StoreOpening.Disabled),
             new StoreContact(document.Contact?.Email, document.Contact?.Phone, document.Contact?.Address ?? new()),
             (document.Social ?? []).Select(l => new SocialLink(l.Network, l.Url)).ToList(),
             new SeoSettings(document.Seo?.Title ?? new(), document.Seo?.Description ?? new()),
@@ -63,7 +70,10 @@ internal static class StoreSettingsJson
         ContactDocument? Contact, List<SocialDocument>? Social, SeoDocument? Seo, Dictionary<string, string>? Announcement);
 
     internal sealed record BrandingDocument(
-        ColorsDocument? Colors, string? Typography, string? ThemePreset, string? LogoUrl, string? FaviconUrl, string? SocialImageUrl);
+        ColorsDocument? Colors, string? Typography, string? ThemePreset, string? LogoUrl, string? FaviconUrl,
+        string? SocialImageUrl, string? ThemeMode = null, OpeningDocument? Opening = null);
+
+    internal sealed record OpeningDocument(bool Enabled, string? Style);
 
     internal sealed record ColorsDocument(string Primary, string Secondary, string Accent, string Background, string Text);
 
