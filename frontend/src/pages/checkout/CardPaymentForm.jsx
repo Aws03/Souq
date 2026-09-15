@@ -1,19 +1,16 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { CardElement, Elements, useElements, useStripe } from '@stripe/react-stripe-js';
 import { useTranslation } from 'react-i18next';
 
 import { api } from '../../api/client';
 import Button from '../../components/common/Button';
+import Skeleton from '../../components/common/Skeleton';
 import { ErrorBanner } from '../../components/common/StateViews';
+import { useStoreConfig } from '../../app/TenantProvider';
+import { fontStylesheetUrl } from '../../app/tenantModel';
+import { cardAppearance, cardFonts, readCssVariable } from '../../features/checkout/cardAppearance';
 import { getStripePromise } from './stripeClient';
 import styles from './Checkout.module.css';
-
-const CARD_ELEMENT_OPTIONS = {
-  style: {
-    base: { fontSize: '15px', fontFamily: 'Tajawal, sans-serif', color: '#1A2421', '::placeholder': { color: '#6b736f' } },
-    invalid: { color: '#C4674E' },
-  },
-};
 
 // نموذج الدفع الفعلي — يعمل داخل <Elements> فقط (useStripe/useElements يحتاجانها).
 function InnerForm({ order, onPaid }) {
@@ -22,6 +19,8 @@ function InnerForm({ order, onPaid }) {
   const elements = useElements();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
+
+  const options = useMemo(() => cardAppearance(readCssVariable), []);
 
   const pay = async (e) => {
     e.preventDefault();
@@ -45,7 +44,7 @@ function InnerForm({ order, onPaid }) {
   return (
     <form onSubmit={pay}>
       {error && <ErrorBanner message={error} />}
-      <div className={styles.cardBox}><CardElement options={CARD_ELEMENT_OPTIONS} /></div>
+      <div className={styles.cardBox}><CardElement options={options} /></div>
       <Button type="submit" variant="saffron" size="lg" loading={busy} disabled={!stripe} className={styles.submit}>
         {t('checkout.payNow')}
       </Button>
@@ -88,6 +87,7 @@ function DirectPayForm({ order, onPaid }) {
 // للمشتري زرّ دفع بلا حقل بطاقة بسبب عطل شبكة لحظي.
 export default function CardPaymentForm({ order, onPaid }) {
   const { t } = useTranslation();
+  const config = useStoreConfig();
   const [attempt, setAttempt] = useState(0);
   const [gateway, setGateway] = useState({ status: 'loading' });
 
@@ -100,7 +100,15 @@ export default function CardPaymentForm({ order, onPaid }) {
     return () => { active = false; };
   }, [attempt]);
 
-  if (gateway.status === 'loading') return null;
+  // فراغ أبيض مكان حقل البطاقة كان يبدو عطلاً في أكثر خطوة يقلق فيها المشتري.
+  if (gateway.status === 'loading') {
+    return (
+      <div className={styles.panel}>
+        <h2 className={styles.panelTitle}>{t('checkout.cardTitle')}</h2>
+        <Skeleton height={120} radius={12} />
+      </div>
+    );
+  }
 
   if (gateway.status === 'failed') {
     return (
@@ -113,10 +121,13 @@ export default function CardPaymentForm({ order, onPaid }) {
 
   if (gateway.stripe === null) return <DirectPayForm order={order} onPaid={onPaid} />;
 
+  const storeFonts = cardFonts(fontStylesheetUrl(config?.settings?.branding?.typography));
+
+  // خطّ المتجر يُحمَّل داخل إطار Stripe أيضاً: تسميته وحدها لا تكفي، والإطار لا يرى أوراق أنماط صفحتنا.
   return (
     <div className={styles.panel}>
       <h2 className={styles.panelTitle}>{t('checkout.cardTitle')}</h2>
-      <Elements stripe={gateway.stripe}>
+      <Elements stripe={gateway.stripe} options={{ fonts: storeFonts }}>
         <InnerForm order={order} onPaid={onPaid} />
       </Elements>
     </div>

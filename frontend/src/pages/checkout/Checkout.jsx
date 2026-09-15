@@ -126,7 +126,8 @@ export default function Checkout() {
   // الخادم استهلك المشترى من السلة عند تأكيد الدفع (المرحلة 9) — نعيد قراءتها بدل تفريغها محلياً.
   const onPaid = () => {
     reload();
-    navigate('/confirmation', {
+    // رقم الطلب في الرابط أيضاً: تحديث صفحة التأكيد بعد الدفع يجب ألّا يمحو التأكيد (المرحلة 16).
+    navigate(`/confirmation?order=${order.orderId}`, {
       replace: true,
       state: { order: { orderId: order.orderId, orderNumber: order.orderNumber, total: order.totalAmount, currency: order.currency } },
     });
@@ -167,7 +168,12 @@ export default function Checkout() {
             busy={busy} blocked={blocked} onSubmit={createOrder}
           />
         ) : (
-          <CardPaymentForm order={order} onPaid={onPaid} />
+          <>
+            {/* الطلب أُنشئ وحُجز مخزونه ولم يُدفع بعد. قول ذلك صراحةً أصدق من خطوة دفع بلا رجعة
+                ظاهرة: المشتري الذي أخطأ عنوانه يعرف أن له مخرجاً، ومن أين. */}
+            <p className={styles.placedNote}>{t('checkout.orderPlacedNote', { number: order.orderNumber })}</p>
+            <CardPaymentForm order={order} onPaid={onPaid} />
+          </>
         )}
       </div>
     </div>

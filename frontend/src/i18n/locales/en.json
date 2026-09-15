@@ -242,12 +242,12 @@
       "chooseMethod": "Choose a method",
       "unavailable": "No delivery method serves this address.",
       "needsSavedAddress": "Delivery depends on the country: choose a saved address, or add one in your account."
-    }
+    },
+    "orderPlacedNote": "Order #{{number}} is being held for you and nothing has been charged yet. If you need to change something, cancel it from My orders and start again."
   },
   "confirmation": {
     "title": "Your order was received successfully",
     "orderNumber": "Order number",
-    "deliveryWindow": "Estimated delivery within {{min}}–{{max}} business days",
     "amountPaid": "Amount paid",
     "continueShopping": "Continue shopping",
     "trackOrder": "Track your order"

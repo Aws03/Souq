@@ -22,3 +22,6 @@
 }
 
 .actions { display: flex; flex-direction: column; gap: 10px; }
+
+/* اسم طريقة الشحن بجانب المدّة — معلومة ثانوية لا تنافس الوعد نفسه. */
+.method { color: var(--color-text-muted); font-size: var(--fs-caption); }

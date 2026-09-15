@@ -82,3 +82,10 @@
   /* حشو أخفّ داخل البطاقتين على الجوال — 26px يهدر جزءاً كبيراً من عرض 390px. */
   .panel, .summary { padding: 20px 16px; }
 }
+
+/* ملاحظة "الطلب محجوز ولم يُدفع" فوق خطوة الدفع. */
+.placedNote {
+  background: var(--color-info-soft); color: var(--color-primary);
+  border-radius: var(--radius-sm); padding: 12px 16px; margin-bottom: 16px;
+  font-size: var(--fs-body-sm); font-weight: 600;
+}
