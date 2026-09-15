@@ -269,13 +269,14 @@ Add a field to products · add attributes or real variant options · change the 
 9. **Search is a plain substring match** with no full-text index, ranking, or diacritic handling, and case behaviour follows the database collation.
 10. **`Newest` means id descending in the storefront but `CreatedAt` in the admin list** — the two lists can disagree for rows created in the same transaction.
 11. **`POST /api/products` returns a Location header pointing at the public detail route**, which answers 404 while the product is a draft.
-12. **The storefront routes by numeric id** (`/products/:id` in `frontend/src/App.jsx`); `api.getProductBySlug` exists but is unused. Slug routing is PLANNED for Phase 16.
-13. **The Offers page does not filter on sale.** `frontend/src/pages/Offers.jsx` renders the normal catalog with the sort locked to newest, and `useCatalog` never sends `onSale`, although the API and the compare-at data support it. The roadmap lists the offers filter as delivered in Phase 5.
+12. ~~The storefront routes by numeric id.~~ **Resolved in Phase 16:** the route is `/products/:handle` and accepts either. A slug loads through `api.getProductBySlug`; a numeric id still loads and is then replaced in the address bar with the slug form, so links shared before the change keep working. Product links are built by `productPath` in `frontend/src/features/catalog/productRouting.js`.
+13. ~~The Offers page does not filter on sale.~~ **Resolved in Phase 16:** `frontend/src/pages/Offers.jsx` passes `onSale`, `useCatalog` forwards it, and the home page's offers row asks for the same filter.
 14. **Descriptions are plain text** (DEFERRED: a sanitizer dependency, to be decided when Phase 16 renders rich text).
 15. **`PUT /api/products/{id}` replaces every translation**, so a client that omits a language deletes it.
 
 ## Future evolution
 
 - **DEFERRED** ([ADR-0025](../../11-ADR/0025-catalog-model.md)): attributes and the variant option matrix (no current use case; the model admits them); a sanitized rich description; image resizing/re-encoding (a dependency decision); the orphaned-file cleanup job.
-- **PLANNED** ([ProductRoadmap.md](../../12-ROADMAP/ProductRoadmap.md)): storefront routes by slug, per-tenant SEO and a sitemap (Phase 16); catalog caching, image optimisation and a CDN (Phase 21); cloud blob storage (D-18, Phase 23).
+- **PLANNED** ([ProductRoadmap.md](../../12-ROADMAP/ProductRoadmap.md)): per-tenant SEO beyond the page (a sitemap, and server rendering so a crawler that runs no JavaScript sees the metadata at all); catalog caching, image optimisation and a CDN (Phase 21); cloud blob storage (D-18, Phase 23).
+- **Not buildable in the storefront today:** a variant picker. Every product sells through exactly one default variant (D-21) and `ProductDto` exposes no variant list, so a size/colour selector would have nothing to select. This is an API and model change, not a screen.
 - **FUTURE** (not scheduled): a catalog read contract for Shopping and Notifications so they stop loading the `Product` aggregate; moving the best-selling sort behind an Ordering contract or a Reporting read model; extracting search ([Architecture.md](../../02-ARCHITECTURE/Architecture.md)).

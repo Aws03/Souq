@@ -130,7 +130,8 @@ function StoreRoutes() {
       <Route element={<CustomerLayout />}>
         <Route index element={<Store />} />
         <Route path="/offers" element={<Offers />} />
-        <Route path="/products/:id" element={<ProductDetail />} />
+        {/* المقبض قد يكون الاسم (القانوني) أو المعرّف — روابط قديمة تبقى تعمل وتُحوَّل. */}
+        <Route path="/products/:handle" element={<ProductDetail />} />
         <Route path="/wishlist" element={<RequireModule module="wishlist"><Wishlist /></RequireModule>} />
         {/* السلة بصفحتها إلى جانب الدرج — بلا حارس: الزائر له سلة أيضاً (ملف تعريف ارتباط HttpOnly من الخادم). */}
         <Route path="/cart" element={<Cart />} />

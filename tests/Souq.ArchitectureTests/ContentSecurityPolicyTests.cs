@@ -21,6 +21,13 @@ public class ContentSecurityPolicyTests
     // وإطاراتها عند الدفع. مذكورة هنا كي يبقى الفحص أعلى من "ما يظهر في grep".
     private static readonly string[] RuntimeInjectedOrigins = ["js.stripe.com", "api.stripe.com", "hooks.stripe.com"];
 
+    // معرّفات مفردات لا أصول تُحمَّل: "https://schema.org" في البيانات المنظّمة اسمُ مفردة داخل
+    // JSON، لا شيء يُجلب منه. ذكره في السياسة يمنح إذناً لا يُستعمل. ولئلّا يصير الاستثناء ثغرة،
+    // الاختبار التالي يثبّت أنه لا يظهر إلّا في بانية البيانات المنظّمة.
+    private static readonly string[] VocabularyOrigins = ["schema.org"];
+
+    private const string StructuredDataBuilder = "frontend/src/app/structuredData.js";
+
     private static string Policy() =>
         File.ReadAllText(RepositoryPaths.Combine("frontend/nginx.conf"));
 
@@ -36,6 +43,7 @@ public class ContentSecurityPolicyTests
             .SelectMany(f => Origin.Matches(File.ReadAllText(f)).Select(m => m.Groups["host"].Value))
             .Concat(RuntimeInjectedOrigins)
             .Where(host => !host.EndsWith(".example", StringComparison.OrdinalIgnoreCase))
+            .Where(host => !VocabularyOrigins.Contains(host, StringComparer.OrdinalIgnoreCase))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
 
@@ -43,6 +51,23 @@ public class ContentSecurityPolicyTests
 
         referenced.Where(host => !policy.Contains(host, StringComparison.OrdinalIgnoreCase))
             .Should().BeEmpty("أصل تستعمله الواجهة وليس في السياسة سيُحجب لحظة تفعيلها");
+    }
+
+    [Fact]
+    public void معرّفات_المفردات_لا_تظهر_خارج_بانية_البيانات_المنظّمة()
+    {
+        // الاستثناء أعلاه مشروط: schema.org معرّف داخل JSON-LD. ظهوره في شيفرة أخرى يعني
+        // على الأرجح جلباً حقيقياً — وعندها يجب أن يُذكر في السياسة أو يُحذف، لا أن يمرّ باستثناء.
+        var elsewhere = RepositoryPaths.Walk("frontend/src")
+            .Where(f => f.EndsWith(".js", StringComparison.Ordinal) || f.EndsWith(".jsx", StringComparison.Ordinal))
+            .Where(f => !f.Contains(".test.", StringComparison.Ordinal))
+            .Where(f => !f.EndsWith(Path.GetFileName(StructuredDataBuilder), StringComparison.Ordinal))
+            .Where(f => VocabularyOrigins.Any(v =>
+                File.ReadAllText(f).Contains($"https://{v}", StringComparison.OrdinalIgnoreCase)))
+            .Select(f => Path.GetFileName(f))
+            .ToList();
+
+        elsewhere.Should().BeEmpty("أصل مستثنى من السياسة يجب أن يبقى معرّفاً في مكانه الواحد، لا أن ينتشر");
     }
 
     [Fact]

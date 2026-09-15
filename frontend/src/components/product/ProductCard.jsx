@@ -8,6 +8,7 @@ import Button from '../common/Button';
 import ProductImage from './ProductImage';
 import { HeartIcon } from '../icons/Icons';
 import { PriceTag, getProductName } from './ProductBadges';
+import { productPath } from '../../features/catalog/productRouting';
 import styles from './ProductCard.module.css';
 
 // بطاقة منتج نظيفة (نمط الكتالوج المرجعي): صورة كاملة بلا قصّ، الاسم، السعر،
@@ -33,7 +34,7 @@ export default function ProductCard({ product, onAdded, isNew = false, layout = 
 
   return (
     <article className={`${styles.card} ${layout === 'list' ? styles.cardList : ''}`}>
-      <Link to={`/products/${product.id}`} className={styles.media} aria-label={name}>
+      <Link to={productPath(product)} className={styles.media} aria-label={name}>
         <ProductImage product={product} fit="contain" />
         {isNew && <span className={styles.badge}>{t('product.badgeNew')}</span>}
       </Link>
@@ -47,7 +48,7 @@ export default function ProductCard({ product, onAdded, isNew = false, layout = 
 
       <div className={styles.body}>
         <h3 className={styles.name}>
-          <Link to={`/products/${product.id}`} className={styles.nameLink}>{name}</Link>
+          <Link to={productPath(product)} className={styles.nameLink}>{name}</Link>
         </h3>
         <div className={styles.foot}>
           <PriceTag amount={product.price} currency={product.currency} compareAt={product.compareAtPrice} />

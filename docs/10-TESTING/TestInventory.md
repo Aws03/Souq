@@ -9,9 +9,9 @@
 |---|---|---|---|
 | [`Souq.Domain.Tests`](#souqdomaintests) | 23 | 165 | 34 |
 | [`Souq.Application.Tests`](#souqapplicationtests) | 39 | 272 | 11 |
-| [`Souq.ArchitectureTests`](#souqarchitecturetests) | 13 | 53 | 7 |
+| [`Souq.ArchitectureTests`](#souqarchitecturetests) | 13 | 54 | 7 |
 | [`Souq.IntegrationTests`](#souqintegrationtests) | 41 | 203 | 21 |
-| [frontend (Vitest)](#frontend-vitest) | 37 | 185 | — |
+| [frontend (Vitest)](#frontend-vitest) | 40 | 209 | — |
 
 ## Souq.Domain.Tests
 
@@ -92,7 +92,7 @@
 | `tests/Souq.ArchitectureTests/BackupVerificationScriptTests.cs` | `BackupVerificationScriptTests`, `TempDirectory` | 7 | 1 |
 | `tests/Souq.ArchitectureTests/ClockRuleTests.cs` | `ClockRuleTests` | 0 | 1 |
 | `tests/Souq.ArchitectureTests/ConfigurationSourceTests.cs` | `ConfigurationSourceTests` | 1 | 1 |
-| `tests/Souq.ArchitectureTests/ContentSecurityPolicyTests.cs` | `ContentSecurityPolicyTests` | 3 | 0 |
+| `tests/Souq.ArchitectureTests/ContentSecurityPolicyTests.cs` | `ContentSecurityPolicyTests` | 4 | 0 |
 | `tests/Souq.ArchitectureTests/DependencyRuleTests.cs` | `DependencyRuleTests` | 8 | 0 |
 | `tests/Souq.ArchitectureTests/DocumentationTests.cs` | `DocumentationTests` | 4 | 0 |
 | `tests/Souq.ArchitectureTests/EndpointRuleTests.cs` | `EndpointRuleTests` | 3 | 0 |
@@ -158,6 +158,7 @@
 | `frontend/src/api/query.test.js` | 4 |
 | `frontend/src/app/moduleInvariants.test.js` | 2 |
 | `frontend/src/app/pageMetadata.test.js` | 11 |
+| `frontend/src/app/structuredData.test.js` | 8 |
 | `frontend/src/app/tenantModel.test.js` | 7 |
 | `frontend/src/components/ProtectedRoute.test.jsx` | 11 |
 | `frontend/src/components/common/ErrorBoundary.test.jsx` | 5 |
@@ -173,6 +174,7 @@
 | `frontend/src/features/auth/safeRedirect.test.js` | 5 |
 | `frontend/src/features/basket/basketModel.test.js` | 4 |
 | `frontend/src/features/catalog/catalogText.test.js` | 5 |
+| `frontend/src/features/catalog/productRouting.test.js` | 7 |
 | `frontend/src/features/catalog/searchRouting.test.js` | 7 |
 | `frontend/src/features/checkout/cardAppearance.test.js` | 5 |
 | `frontend/src/features/checkout/shippingChoice.test.js` | 4 |
@@ -187,6 +189,7 @@
 | `frontend/src/pages/Confirmation.test.jsx` | 7 |
 | `frontend/src/pages/MyOrders.test.jsx` | 7 |
 | `frontend/src/pages/OrderTracking.test.jsx` | 6 |
+| `frontend/src/pages/ProductDetail.test.jsx` | 9 |
 | `frontend/src/pages/account/AccountLayout.test.jsx` | 6 |
 | `frontend/src/pages/checkout/stripeClient.test.js` | 3 |
 | `frontend/src/whiteLabel.test.js` | 1 |

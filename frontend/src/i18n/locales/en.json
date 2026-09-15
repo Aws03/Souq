@@ -68,7 +68,6 @@
     "reviewsTitle": "Reviews",
     "ratingSummary": "{{count}} reviews",
     "signInToReview": "to be able to review this product.",
-    "backToStore": "← Back to store",
     "viewProduct": "View product",
     "badgeNew": "New",
     "wishlistAdd": "Add to wishlist",
@@ -79,7 +78,8 @@
     "viewFullscreen": "Fullscreen",
     "tabPhotos": "Photos",
     "tabVideo": "Video",
-    "relatedTitle": "Related products"
+    "relatedTitle": "Related products",
+    "breadcrumbAria": "Breadcrumb"
   },
   "reviews": {
     "addTitle": "Add your review",

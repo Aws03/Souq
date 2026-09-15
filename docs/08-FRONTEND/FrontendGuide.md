@@ -81,7 +81,7 @@ The browser cannot *choose* to be the platform: the platform routes only appear 
 | Store admin | store host, `/admin/*` | `AdminLayout` with `AdminSidebar` and `AdminMobileTabBar` | `AdminRoute`, then `RequirePermission` and `RequireModule` per page | lazy |
 | Platform | platform host, `/platform/*` | `PlatformLayout` (placeholder shell) | `PlatformRoute` | lazy |
 
-**Storefront and account routes:** `/` (`Store`), `/offers`, `/products/:id`, `/cart`, `/wishlist` (behind the `wishlist` module), `/track/:token`, `/checkout`, `/confirmation`, `/orders/:id`, and — inside the account shell — `/account` (`Profile`), `/account/addresses` (`Addresses`) and `/orders` (`MyOrders`). Anything the shell holds, plus checkout, confirmation and the order page, requires a session; an unknown path under the storefront renders `NotFound`, not a silent redirect home.
+**Storefront and account routes:** `/` (`Store`), `/offers`, `/products/:handle` (slug or id), `/cart`, `/wishlist` (behind the `wishlist` module), `/track/:token`, `/checkout`, `/confirmation`, `/orders/:id`, and — inside the account shell — `/account` (`Profile`), `/account/addresses` (`Addresses`) and `/orders` (`MyOrders`). Anything the shell holds, plus checkout, confirmation and the order page, requires a session; an unknown path under the storefront renders `NotFound`, not a silent redirect home.
 
 The shell is one `Route` carrying `ProtectedRoute` and `AccountLayout`, so the guard and the navigation are declared once. `/orders/:id` stays outside it: the order page has its own back link and a full-width layout, and its URL is the one that email and notification links point at.
 

@@ -2,8 +2,9 @@ import { useTranslation } from 'react-i18next';
 import { PlusIcon, MinusIcon } from '../icons/Icons';
 import styles from './Stepper.module.css';
 
-// مُنقّص/مُزيد كمية — يُستخدم في سلّة المشتريات. min يمنع النزول تحت حدّ معيّن.
-export default function Stepper({ value, onInc, onDec, min = 1 }) {
+// مُنقّص/مُزيد كمية — السلّة وصفحة المنتج. min يمنع النزول تحت حدّ، وmax يوقف الزيادة عند المتاح
+// (السلّة لا تمرّره: هناك يُعلَّم تجاوز المتاح برسالة بدل منعه، فيرى المشتري سبب توقّف الدفع).
+export default function Stepper({ value, onInc, onDec, min = 1, max = Infinity }) {
   const { t } = useTranslation();
   return (
     <div className={styles.stepper}>
@@ -11,7 +12,7 @@ export default function Stepper({ value, onInc, onDec, min = 1 }) {
         <MinusIcon />
       </button>
       <span className={styles.value}>{value}</span>
-      <button type="button" onClick={onInc} aria-label={t('common.increaseQty')}>
+      <button type="button" onClick={onInc} disabled={value >= max} aria-label={t('common.increaseQty')}>
         <PlusIcon />
       </button>
     </div>

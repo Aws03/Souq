@@ -18,3 +18,12 @@
 .sectionTitle { font-size: var(--fs-heading-lg); color: var(--color-primary); margin-bottom: 20px; }
 .signInHint { color: var(--color-text-muted); margin-bottom: 24px; font-size: var(--fs-body-sm); }
 .signInHint a { color: var(--color-primary); font-weight: 700; }
+
+/* فتات الخبز أعلى صفحة المنتج (المرحلة 16) — يحلّ محلّ زرّ "رجوع للمتجر" وحده. */
+.breadcrumb {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 6px;
+  margin: 20px 0 8px; color: var(--color-text-muted); font-size: var(--fs-caption); font-weight: 600;
+}
+.breadcrumb a { color: var(--color-text-muted); }
+.breadcrumb a:hover { color: var(--color-primary); }
+.breadcrumb [aria-current='page'] { color: var(--color-text); overflow-wrap: anywhere; }

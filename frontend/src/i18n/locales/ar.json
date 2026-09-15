@@ -68,7 +68,6 @@
     "reviewsTitle": "التقييمات",
     "ratingSummary": "{{count}} تقييم",
     "signInToReview": "لتتمكّن من تقييم هذا المنتج.",
-    "backToStore": "← العودة للمتجر",
     "viewProduct": "عرض المنتج",
     "badgeNew": "جديد",
     "wishlistAdd": "أضف للمفضّلة",
@@ -79,7 +78,8 @@
     "viewFullscreen": "عرض كامل",
     "tabPhotos": "صور",
     "tabVideo": "فيديو",
-    "relatedTitle": "منتجات ذات صلة"
+    "relatedTitle": "منتجات ذات صلة",
+    "breadcrumbAria": "مسار التصفّح"
   },
   "reviews": {
     "addTitle": "أضف تقييمك",
