@@ -192,6 +192,19 @@ test.describe('لوحة المدير', () => {
     await expect(page.getByRole('heading', { name: /store performance|أداء المتجر/i })).toBeVisible();
   });
 
+  test('الخروج والعودة إلى المتجر يبقيان مرئيَّين على شاشة قصيرة', async ({ page }) => {
+    // الشريط الجانبي بارتفاع الشاشة وأقسامه أحد عشر: على 600 بكسل كان مجموعها يتجاوزه
+    // فيُقصّ آخره — وآخره زرّ الخروج. لا يظهر ذلك على شاشة مطوّر بارتفاع 1080.
+    await signInAsAdmin(page);
+    await page.setViewportSize({ width: 1280, height: 600 });
+    await page.goto('/admin');
+
+    const logout = page.getByRole('button', { name: /log out|تسجيل الخروج/i }).first();
+    await expect(logout).toBeVisible();
+    const box = await logout.boundingBox();
+    expect(box.y + box.height).toBeLessThanOrEqual(600);
+  });
+
   test('كل مخطّط له بديل نصّي مقروء', async ({ page }) => {
     await signInAsAdmin(page);
     await page.goto('/admin');
