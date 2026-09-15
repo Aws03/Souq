@@ -86,6 +86,12 @@ test.describe('الاتجاه', () => {
     expect(['rtl', 'ltr']).toContain(initial.dir);
 
     await page.getByRole('button', { name: /toggle language|تبديل اللغة/i }).first().click();
+
+    // الاتجاه ينقلب مع النصّ لا قبله: حزمة اللغة تُحمَّل عند الطلب (تقسيم الترجمة لكل لغة)،
+    // وقلب الاتجاه قبل وصولها يترك صفحةً بتخطيط لغة ونصّ أخرى. فالانتظار هنا للسلوك الصحيح.
+    await page.waitForFunction(
+      (before) => document.documentElement.dir !== before, initial.dir, { timeout: 10_000 },
+    );
     const switched = await readTokens(page);
 
     expect(switched.dir).not.toBe(initial.dir);
