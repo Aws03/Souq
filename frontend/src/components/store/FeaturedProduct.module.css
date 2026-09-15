@@ -10,7 +10,9 @@
 .rail { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: var(--space-4); min-width: 0; }
 
 @media (min-width: 861px) {
-  /* الصدارة ثلثا العرض والبقية ثلث — لا مناصفة: النسبة هي ما يجعل أحدهما صدارة. */
+  /* الصدارة ثلثا العرض والبقية ثلث — لا مناصفة: النسبة هي ما يجعل أحدهما صدارة.
+     والثلاثة المرافقة صفوف أفقية لا بطاقات مربّعة: ثلاث بطاقات مربّعة في عمود ضيّق
+     تصير عموداً أطول من الصدارة بمرّتين، فينكسر التوازن الذي يجعل القسم صدارة أصلاً. */
   .grid { grid-template-columns: 2fr 1fr; align-items: start; }
-  .rail { grid-template-columns: 1fr; }
+  .rail { grid-template-columns: 1fr; align-content: start; }
 }

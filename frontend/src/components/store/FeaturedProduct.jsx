@@ -46,7 +46,7 @@ export default function FeaturedProduct({ title, products, loading, onAdded }) {
           </div>
           <div className={styles.rail}>
             {rest.map((product) => (
-              <ProductCard key={product.id} product={product} onAdded={onAdded} layout="compact" />
+              <ProductCard key={product.id} product={product} onAdded={onAdded} layout="list" />
             ))}
           </div>
         </div>

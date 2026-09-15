@@ -25,13 +25,15 @@
   padding: 3px 10px; border-radius: 50px;
 }
 
+/* السطح لا الأبيض الصريح: قرصٌ أبيض على بطاقة داكنة نقطةُ ضوء تسرق النظر من الصورة. */
 .wishBtn {
   position: absolute; top: 8px; inset-inline-end: 8px; z-index: 2;
-  width: 32px; height: 32px; border-radius: 50%; background: rgb(255 255 255 / 0.92); color: var(--color-danger);
+  width: 32px; height: 32px; border-radius: 50%; background: var(--color-surface); color: var(--color-danger);
+  border: 1px solid var(--color-border);
   display: grid; place-items: center; box-shadow: var(--shadow);
   transition: transform var(--ease-hover), background var(--ease-hover);
 }
-.wishBtn:hover { background: #fff; transform: scale(1.08); }
+.wishBtn:hover { background: var(--color-surface-alt); transform: scale(1.08); }
 
 .body { padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 12px; flex: 1; }
 .name { font-size: 15px; font-weight: 600; line-height: 1.45; }
@@ -48,8 +50,11 @@
 
 /* أفقية (وضع القائمة): الصورة إلى الجانب، والنصّ يملأ الباقي. */
 .list { flex-direction: row; }
-.list .media { width: 180px; flex-shrink: 0; border-bottom: none; border-inline-end: 3px solid var(--color-accent); }
+/* الصورة تتناسب مع عرض الحاوية: 180px في قائمة كاملة العرض، وأقلّ في عمود جانبي ضيّق —
+   بلا هذا كانت الصورة تبتلع صفّاً عرضه 380px فلا يبقى للاسم والسعر شيء. */
+.list .media { inline-size: clamp(96px, 30%, 180px); flex-shrink: 0; border-bottom: none; border-inline-end: 3px solid var(--color-accent); }
 .list .body { justify-content: center; }
+.list .name { -webkit-line-clamp: 2; }
 
 /* مضغوطة: لصفوف جانبية ضيّقة — بلا زرّ، وخطّ أصغر، وحدّ رفيع بدل ظلّ ثقيل. */
 .compact { box-shadow: none; border: 1px solid var(--color-border); }
@@ -64,14 +69,16 @@
 .featured .name { font-size: var(--fs-heading); }
 
 @media (min-width: 861px) {
-  /* المميّزة أفقية على الشاشات الواسعة: صورة كبيرة إلى الجانب ونصّ يتنفّس. */
+  /* المميّزة أفقية على الشاشات الواسعة: صورة كبيرة إلى الجانب ونصّ يتنفّس.
+     والنسبة تبقى على الصورة (4/3) لا تُلغى: البطاقة صفّ، وارتفاع الصفّ يأتي من أطول
+     أبنائه — فبـ`aspect-ratio: auto` كان ارتفاع الصورة صفراً وانكمشت البطاقة كلّها إلى
+     شريط رفيع، وتركت فجوةً كبيرة بجانب عمود جانبي طويل. */
   .featured { flex-direction: row; align-items: stretch; }
-  .featured .media { inline-size: 55%; aspect-ratio: auto; border-bottom: none; border-inline-end: 3px solid var(--color-accent); }
+  .featured .media {
+    inline-size: 55%; flex-shrink: 0; aspect-ratio: 4 / 3;
+    border-bottom: none; border-inline-end: 3px solid var(--color-accent);
+  }
   .featured .body { justify-content: center; }
-}
-.cardList .name { -webkit-line-clamp: 3; }
-@media (max-width: 520px) {
-  .cardList .media { width: 120px; }
 }
 
 /* ============================================================================
