@@ -172,12 +172,26 @@ reserved twice, **but** separate client secrets so no double charge, and both or
 
 | Decision | The question | Consequence of leaving it |
 |---|---|---|
-| **Backup schedule and retention** | How often, how many copies, kept how long? ([BackupAndRestore.md](BackupAndRestore.md) §4) | Your exposure equals the interval. Retention is also a legal question where customer data is involved |
+| **Backup schedule and retention** | How often, how many copies, kept how long? ([BackupAndRestore.md](BackupAndRestore.md) §4) | Your exposure equals the interval. Retention is also a legal question where customer data is involved. The job and its health check both exist — `scripts/backup.sh` and `scripts/backup-verify.sh` — so what is missing is the schedule and the alert, not the tooling |
 | **The default store** | Adopt, rename or archive the store the Phase 2 migration writes into every database? ([SeedAndBootstrap.md](SeedAndBootstrap.md) §3) | Production serves an Active store named after the demo. The startup log warns on every boot until it is resolved |
 | **HSTS scope** | Raise `Security:HstsMaxAgeDays` past 30, add `includeSubDomains` or `preload`? | Longer is safer for you and a longer commitment to a domain you may hand back. Deliberately conservative by default |
 | **react-router 7** | Upgrade the router to clear two advisories with no reachable path? | A runtime major upgrade against a measured-unreachable risk — see R-27's neighbour F-23 in [ReleaseReadiness.md](ReleaseReadiness.md) |
 
 ---
+
+## Branch protection — the exact setting
+
+Not a judgement call, but it can only be done by someone with repository admin rights, so it is recorded here
+rather than left in a commit message.
+
+**GitHub → Settings → Branches → add a ruleset for `main`:** require a pull request before merging, require
+status checks to pass, and select all four by the names the workflow declares —
+`Build + fast suites`, `Frontend tests + build`, `Integration suite (real SQL Server)`,
+`Dependency audit + secret scan`.
+
+Until this is on, CI reports and does not block: a red run can still be merged. The checks themselves were
+verified step by step, and the secret scan has already earned its place by catching a literal password in a
+tracked script.
 
 ## What engineering will not do
 

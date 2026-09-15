@@ -62,8 +62,8 @@ One deployable application, split into thirteen business modules that own their 
 | 1. Understand the shape | [Deployment.md](../09-OPERATIONS/Deployment.md) — topology, startup sequence, health checks, rollback |
 | 2. Set it up | [Configuration.md](../09-OPERATIONS/Configuration.md) (every setting) · [DatabasePrivileges.md](../07-SECURITY/DatabasePrivileges.md) (the three database identities) |
 | 3. First run | [SeedAndBootstrap.md](../09-OPERATIONS/SeedAndBootstrap.md) — what a fresh database gets, and the eight-step bootstrap |
-| 4. Before opening | [ProductionReleaseChecklist.md](../09-OPERATIONS/ProductionReleaseChecklist.md) · `./scripts/smoke-test.sh` |
-| 5. Keep it recoverable | [BackupAndRestore.md](../09-OPERATIONS/BackupAndRestore.md) — and rehearse the restore, do not just schedule the backup |
+| 4. Before opening | [ProductionReleaseChecklist.md](../09-OPERATIONS/ProductionReleaseChecklist.md) · `./scripts/release-gate.sh --require-all` (config, backups, suites, audits, smoke in one verdict) |
+| 5. Keep it recoverable | [BackupAndRestore.md](../09-OPERATIONS/BackupAndRestore.md) — rehearse the restore, and put `./scripts/backup-verify.sh` on a schedule so silence is detected |
 | 6. When it breaks | [IncidentResponse.md](../09-OPERATIONS/IncidentResponse.md) (which layer, and what not to touch) · [Troubleshooting.md](../09-OPERATIONS/Troubleshooting.md) (named symptoms) |
 | 7. Before it grows | [ScalingStrategy.md](../09-OPERATIONS/ScalingStrategy.md) — including the measured limits |
 

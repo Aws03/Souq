@@ -111,79 +111,94 @@ These are named in the mission and not yet re-verified in code; they carry no se
 - **Idempotency.** Duplicate Stripe webhooks, duplicate `confirm-payment`, refund retries and coupon reserve/confirm/release are all protected, and the mechanism is worth knowing: the webhook handler **discards the event's payload and type** and re-asks the gateway for the intent's live state, which is what makes both redelivery and out-of-order delivery safe without a processed-events table. Order creation (F-8) is the one unprotected entry point.
 - **Tenant isolation.** Audited across all 13 modules against the controllers rather than the generated inventory: no cross-tenant or cross-customer path was found. Every mechanism ADR-0022 claims was confirmed present and applied by reflection across the model, and `TenantIsolationTests` enumerates the live endpoint list so the matrix cannot silently drift. The residual items are F-1 and F-2, both already recorded.
 
-## Final assessment after the operational readiness mission
+## Control matrix — what enforces each operational control
 
-Assessed fresh on 2026-09-15 against the code and against evidence produced by running things, not by carrying
-forward the previous conclusion. **Status words mean exactly one thing each:** *Done* — implemented and
-verified here; *Mechanism ready* — built and tested, but no deployment has applied it, so it protects nobody
-yet; *Accepted* — understood and deliberately not fixed; *Owner* / *External* — not engineering's to close.
+Rebuilt from evidence after the **enforcement and monitoring** mission. The column that matters is
+*Enforcement point*: a control whose only enforcement is "someone remembers" is not a control.
 
-| Area | Status | Evidence | Remaining action | Owner |
-|---|---|---|---|---|
-| Architecture | **Done** | 58 architecture tests; **zero** NuGet changes across the mission; no Redis/Kafka/broker introduced | — | — |
-| Tenant isolation | **Done** | `TenancyRuleTests`, `TenantIsolationTests`; health endpoints verified not to weaken host resolution | — | — |
-| Authentication / authorization | **Done** | `AuthorizationMatrixTests`, `AuthorizationBoundaryTests`; every endpoint declares access | — | — |
-| Payment state machine | **Done** | [ADR-0036](../11-ADR/0036-payment-intent-state-machine.md); `PaymentsAndRefundsTests` | — | — |
-| Payment idempotency | **Done** | Intent key `souq-intent-{tenantId}-{orderReference}`; redelivery and out-of-order events handled | — | — |
-| **Checkout idempotency** | **Designed, not built** | `CheckoutIdempotencyTests` measures it: two orders, stock twice, **no double charge**, duplicate expires | Implement the design once the behaviour is chosen | **Owner** (F-8) |
-| Inventory concurrency | **Done** | `InventoryAndOrderTests`: 5 buyers on the last item → exactly one sale | — | — |
-| Database integrity | **Done** | Composite tenant keys, rowversion on contended aggregates, no untrusted constraints after restore | — | — |
-| Migrations | **Done + ratcheted** | `MigrationSafetyTests` records the 5 destructive migrations and fails on a new unrecorded one | — | — |
-| Backup | **Mechanism ready** | `scripts/backup.sh`; `CHECKSUM` + `VERIFYONLY` + SHA-256 | Schedule it, copy off-host, alert on failure | Deployment (R-19) |
-| Restore | **Rehearsed** | Source stack destroyed, set restored on a clean server, API served the restored catalogue | Re-run after schema or image changes | Deployment |
-| Runtime DB privileges | **Mechanism ready** | Measured: zero permission denials; 5 escalation attempts refused | Apply the logins in a real deployment | Deployment (R-12) |
-| Secrets | **Done** | Placeholder keys rejected at startup; `ConfigurationSourceTests`; backups exclude secrets by design | — | — |
-| Configuration | **Done** | Fail-closed proven for payments, email, JWT, connection string; CORS no longer leaks a dev origin | — | — |
-| TLS | **Not provided** | This repository ships no certificate; nginx listens on 80 | Terminate TLS at the edge | Deployment (R-16) |
-| HSTS | **Done** | Verified end-to-end: absent on http, present when the proxy declares https | Widen `max-age`/preload knowingly | Deployment |
-| Security headers | **Done (API)** | `SecurityHeadersTests`: present on 200, 404 and 401; uploads policy not weakened | Enforce the SPA's report-only CSP after one browser pass | Deployment |
-| Reverse proxy | **Done** | Forwarded-scheme fix verified; exactly one CSP header; access log sanitised | — | — |
-| Uploads | **Accepted** | Served with `nosniff` + sandbox CSP; on local disk (R-13) | Blob storage before a second instance | Deferred |
-| Health checks | **Done** | Container observed `Waiting → Healthy` before `web` started; readiness rejects a stale schema | Point a monitor at them | Deployment (R-20) |
-| CI | **Done, not enforcing** | 4 jobs: build/warnings-as-errors, suites, integration over real SQL Server, audits, secret scan | **Switch on branch protection** | Owner (a GitHub setting) |
-| Frontend build | **Done** | Bundle coherent: 22 references, 50 chunks, 0 unresolved imports; served through the stack | — | — |
-| Frontend dependencies | **Done** | vite 8 / vitest 5 upgrade measured; audit 6 → 2 findings | Router major upgrade is optional — advisories unreachable | Owner (TD-41/F-23) |
-| Observability | **Done** | Correlation id on every response and in the log; use-case scope; no bodies or headers logged | Metrics/traces remain future | — |
-| Logging redaction | **Done** | Token redaction now covers pre-routing; nginx log sanitised — verified with planted secrets | Apply the same at any outer proxy | Deployment |
-| Performance | **Measured** | F-17: 11× at 2k orders, 22× at 20k; index and rewrite both measured and rejected | Revisit at the recorded trigger | Deferred |
-| Seed safety | **Done** | Fresh production-shaped database: no catalogue, no accounts, untouched settings | Adopt or archive the default store | Deployment |
-| Deployment reproducibility | **Done** | `SeedAndBootstrap.md` §4 — eight ordered steps from empty database to first boot | — | — |
-| Rollback | **Done** | Measured: a one-step round trip silently loses a third language and a second image | — | — |
-| Smoke testing | **Done** | 31 checks; verified it refuses when the API is stopped | Run it on every deployment | Deployment |
-| Documentation | **Done** | 58 documentation/architecture tests; incident runbook added | — | — |
-| Legal / licence | **Open** | MIT with a public remote | Decide before the first sale | **Owner** (P-03) |
-| Tax | **Open** | Pricing pipeline's tax stage is an explicit zero | Provide the rules | **Owner** (P-06) |
-| Payment ownership | **Open** | Both routing paths work; the choice does not exist | Decide before a second paying store | **Owner** (D-13) |
-| Stripe / JOD | **Open** | Converter handles both shapes; the account's behaviour is unknown | One test charge on the real account | **External** (P-05) |
+| Control | Mechanism | Enforcement point | Monitoring | Test evidence | Deployment action | Status |
+|---|---|---|---|---|---|---|
+| Backups exist and are fresh | `scripts/backup.sh` | — (no in-repo scheduler) | `scripts/backup-verify.sh` — exit code + `RESULT` line | `BackupVerificationScriptTests` (9) | schedule, off-site copy, alert | MECHANISM READY |
+| A backup can be restored | `scripts/restore.sh` | guards: no default target, checksums first | `LAST-RESTORE-DRILL`, age-checked | drill executed; source stack destroyed first | re-run after schema/image change | MECHANISM READY |
+| Runtime DB least privilege | `scripts/sql/least-privilege-logins.sql` | **startup check reads the identity from the database** | startup warning naming the roles held | `EnforcementDiagnosticsTests` | apply the logins | MECHANISM READY |
+| Migration identity is separate | `ConnectionStrings:Migrations` | startup warns on a *nominal* split (same login) | startup log names which identity migrated | `EnforcementDiagnosticsTests` | set the second connection string | MECHANISM READY |
+| Proxy trust boundary | `ForwardedHeaders:KnownNetworks` | **runtime detection of an unhonoured `X-Forwarded-Proto`** | one warning per process, naming the cause | predicate tests + verified both ways on the stack | set the proxy network | DONE / ENFORCED |
+| HSTS | `UseHsts` | sent only when the request is https | — | `SecurityHeadersTests`; verified through nginx | terminate TLS | DONE / ENFORCED |
+| TLS | none in repository | — | — | — | **terminate TLS at the edge** | DEPLOYMENT ACTION REQUIRED |
+| API security headers | `SecurityHeadersMiddleware` | `OnStarting`, so errors carry them too | — | `SecurityHeadersTests` (200/404/401) | — | DONE / ENFORCED |
+| SPA content policy | `frontend/nginx.conf` | report-only, **drift blocked at build time** | — | `ContentSecurityPolicyTests` | one browser pass, then enforce | MECHANISM READY |
+| Cookie / CSRF defence | `SameSite=Strict`, `HttpOnly`, path scope | the attributes themselves | — | `CookieSecurityTests` on real `Set-Cookie` | — | DONE / ENFORCED |
+| Health endpoints | `/health/live`, `/health/ready` | readiness rejects a stale schema | **contract documented and drilled** | `HealthCheckTests`; DB-down drill | point a monitor at `/health/ready` | DONE / ENFORCED |
+| Configuration safety | startup validators | boot fails closed on unsafe config | `scripts/audit-config.sh` | `ConfigurationTests`, `OperationalScriptTests` | run the audit before deploying | DONE / ENFORCED |
+| Seed safety | environment-gated seeding | production-shaped DB proven empty | startup warns on an unadopted store | `SeedSafetyTests` | adopt or archive store 1 | DONE / ENFORCED |
+| Secrets not committed | `.gitleaks.toml` + CI scan | **CI, on every push** | scan output | `ConfigurationSourceTests`; CI job | — | DONE / ENFORCED |
+| Logging redaction | `SensitivePath`, `souq_safe` log format | pre-routing fallback included | — | `ObservabilityTests` | same rule at any outer proxy | DONE / ENFORCED |
+| Migration safety | `MigrationSafetyTests` | **build fails on a new destructive migration** | — | ratchet + measured rollback loss | back up before the five | DONE / ENFORCED |
+| Script portability | — | every script executed under the system shell | — | `OperationalScriptTests` | — | DONE / ENFORCED |
+| Release gate | `scripts/release-gate.sh` | unchecked sections count as unchecked | its own exit code | run against a live stack | run with `--require-all` | DONE / ENFORCED |
+| Smoke test | `scripts/smoke-test.sh` | refuses on any failure | 31 checks | verified pass and refuse | run on every deployment | DONE / ENFORCED |
+| CI quality gate | `.github/workflows/ci.yml` | four jobs, warnings as errors | — | run locally, step for step | **switch on branch protection** | OWNER DECISION REQUIRED |
+
+## Release gate
+
+Status words mean exactly one thing each. **DONE / ENFORCED** — implemented, tested, and something fails if it
+regresses. **MECHANISM READY** — built and tested; a named real-world action remains. **OWNER** / **EXTERNAL** —
+not engineering's to close.
+
+| Item | Status | Evidence | Remaining action |
+|---|---|---|---|
+| Architecture, tenancy, authz, payments | DONE / ENFORCED | 84 architecture tests; zero NuGet changes in two missions | — |
+| Configuration safety | DONE / ENFORCED | fail-closed boot; `audit-config.sh` refuses `.env.example` | run the audit before each deploy |
+| Seed safety | DONE / ENFORCED | fresh production-shaped database proven empty | adopt or archive store 1 |
+| Proxy / scheme handling | DONE / ENFORCED | misconfiguration warns; verified both directions | set the proxy network |
+| Security headers, HSTS, cookies | DONE / ENFORCED | header, HSTS and cookie tests; verified through nginx | — |
+| Logging redaction | DONE / ENFORCED | planted secrets absent from API and proxy logs | same rule at an outer proxy |
+| Health checks | DONE / ENFORCED | DB-down drill: 503 + self-heal, **zero restarts** | attach a monitor |
+| Migrations & rollback | DONE / ENFORCED | ratchet test; measured rollback data loss | back up before the five |
+| CI checks | DONE / ENFORCED | every step run locally; a real tracked credential caught | **branch protection** |
+| Secret scanning | DONE / ENFORCED | gitleaks: only the untracked local `.env` remains | — |
+| Backups | MECHANISM READY | rehearsed; freshness/integrity/drill all checkable | schedule, off-site, alert |
+| Runtime DB privileges | MECHANISM READY | measured; startup now reports the real identity | apply the logins |
+| SPA content policy | MECHANISM READY | drift blocked at build time | one browser pass, then enforce |
+| TLS | DEPLOYMENT ACTION REQUIRED | no certificate ships here | terminate at the edge |
+| Monitoring / alerting | DEPLOYMENT ACTION REQUIRED | endpoints and contract exist | a monitor and a pager |
+| Checkout idempotency (F-8) | OWNER DECISION REQUIRED | measured; design complete | choose replay or reject |
+| Refund permission (R-03) | OWNER DECISION REQUIRED | current behaviour tested | choose the permission model |
+| Licence (P-03) | OWNER DECISION REQUIRED | MIT, public remote | decide before the first sale |
+| Tax (P-06) | OWNER DECISION REQUIRED | pricing tax stage is an explicit zero | supply the rules |
+| Payment ownership (D-13) | OWNER DECISION REQUIRED | both routing paths work | decide before store two |
+| JOD minor units (P-05) | EXTERNAL VERIFICATION REQUIRED | converter handles both shapes | one charge on the real account |
+| Metrics / traces | NOT APPLICABLE (for a first release) | structured logs + correlation ids suffice | — |
+| Per-tenant restore | NOT APPLICABLE | one database serves every store | needs a design if it becomes a requirement |
 
 ### The twenty-one questions, answered
 
-1. **Can the database be recovered?** Yes — `scripts/backup.sh` + `restore.sh`, checksum-verified.
-2. **Has restoration actually been rehearsed?** Yes. The source stack was **destroyed first**, the set restored onto a clean server, row counts and migration head matched, and the API served the restored catalogue.
-3. **Can the runtime app operate without `sa`?** Yes, measured: zero permission denials across every exercised path, and five escalation attempts refused. No deployment uses it yet.
-4. **Is production HTTPS/proxy behaviour safe?** The behaviour is correct and verified; **TLS itself is not provided** and must terminate at the edge.
-5. **Are health checks usable?** Yes — liveness and readiness are distinct, readiness rejects a stale schema, and the container probe needs no `curl`.
-6. **Does CI enforce meaningful quality?** It runs everything meaningful. It **enforces** nothing until branch protection is switched on.
-7. **Can a new engineer deploy from repository documentation?** Yes — `SeedAndBootstrap.md` §4, `Deployment.md`, `DatabasePrivileges.md`, then the smoke test.
-8. **Is rollback understood and safe?** Understood and measured. Safe only as *restore the backup and deploy the matching image*; a schema `Down()` loses data, and rolling deployments are unsafe across the data-moving migrations.
-9. **Can demo data enter production accidentally?** No — proven on a fresh production-shaped database. The default store row still arrives from the migration, and the startup log warns until it is adopted or archived.
-10. **Are secrets and sensitive logs protected?** Yes — placeholder keys refuse to boot, committed configuration cannot hold a secret, and the token leak through the proxy log is closed and verified with planted secrets.
-11. **Has F-17 been measured?** Yes: 11× at 2,000 orders, 22× at 20,000; a covering index and a query rewrite were both measured and both rejected; accepted with a recorded trigger.
-12. **Has F-7 been classified/resolved?** **Resolved**, and its misclassification as an owner decision corrected. A store can no longer be left without an administrator.
-13. **Has F-8 been classified/resolved?** Measured and fully designed; **not implemented**, because the behaviour is a customer-facing choice.
-14. **What remains external?** P-05 only — one test charge on the real Stripe account.
-15. **What remains owner/business/legal?** P-03 (licence), P-06 (tax), D-13 (payment ownership), R-03 (refund permission), F-8 (duplicate behaviour), plus branch protection and the backup schedule/retention.
-16. **What remains purely product functionality?** Roadmap Phases 16–18 — the storefront rebuild, the tenant admin dashboard, the platform owner dashboard.
-17. **Is Souq technically ready for a first deployment?** **Yes, conditionally** — with TLS terminated in front, the least-privilege logins applied, and the backup scheduled. Every one of those is a deployment action with a tested mechanism behind it.
+1. **Can the database be recovered?** Yes — and its freshness, integrity and drill age are now checkable by a command.
+2. **Has restoration actually been rehearsed?** Yes, with the source stack destroyed first. The rehearsal writes `LAST-RESTORE-DRILL`, so "when did we last prove it?" is answerable without asking anyone.
+3. **Can the runtime app operate without `sa`?** Yes, measured. And a deployment that ignores it now **says so at every boot**, naming the roles the identity holds.
+4. **Is production HTTPS/proxy behaviour safe?** The behaviour is correct and the commonest misconfiguration is now detected at runtime. **TLS itself is still not provided.**
+5. **Are health checks usable?** Yes, with a documented contract drilled on a running stack: database down → 503 while liveness stays 200, self-healing in ~11 s with zero restarts.
+6. **Does CI enforce meaningful quality?** The checks are meaningful and were verified step by step — one caught a real tracked credential. It **enforces** nothing until branch protection is on.
+7. **Can a new engineer deploy from repository documentation?** Yes; a clean deploy from no images and no volumes reached healthy in 95 s.
+8. **Is rollback understood and safe?** Understood, measured, and a new destructive migration now fails the build until recorded.
+9. **Can demo data enter production accidentally?** No — proven on a production-shaped database, and `audit-config.sh` refuses `SEED_DEMO_DATA=true` for production.
+10. **Are secrets and sensitive logs protected?** Yes, and the secret scan proved its worth by finding a literal password in a tracked script.
+11. **Has F-17 been measured?** Yes; accepted for launch with a recorded trigger.
+12. **Has F-7 been classified/resolved?** Resolved.
+13. **Has F-8 been classified/resolved?** Measured and designed; **awaiting one owner decision**.
+14. **What remains external?** P-05 only.
+15. **What remains owner/business/legal?** P-03, P-06, D-13, R-03, F-8, branch protection, and the backup schedule/retention.
+16. **What remains purely product functionality?** Roadmap Phases 16–18.
+17. **Is Souq technically ready for a first deployment?** **Yes, conditionally** — TLS terminated, least-privilege logins applied, backup scheduled. All three are deployment actions with tested mechanisms, and two of the three now announce themselves if skipped.
 18. **Is Souq commercially ready for the first paying customer?** **No.**
-19. **If not, exactly what prevents it?** Four things, none of them code: the licence (P-03), tax (P-06), the JOD verification (P-05), and — operationally — TLS, the least-privilege logins and a scheduled off-site backup.
-20. **What is the next engineering mission?** **Enforcement and monitoring**: switch on branch protection, put a monitor on `/health/ready` with an alert, schedule the backup with an off-site copy, apply the least-privilege logins, terminate TLS, and enforce the SPA's CSP after a browser pass. Small, entirely operational, and it converts every *Mechanism ready* above into *Done*.
-21. **What is the next product roadmap capability?** **Phase 16 — the storefront rebuild**, unchanged. Operational readiness took no roadmap number and changed none.
+19. **If not, exactly what prevents it?** The licence (P-03), tax (P-06), the JOD verification (P-05), and the three deployment actions above.
+20. **What is the next engineering mission?** None is required before a deployment. What remains in this repository is **product work**; everything operational left is a deployment or owner action, each named above.
+21. **What is the next product roadmap capability?** **Phase 16 — the storefront rebuild**, unchanged.
 
-> **Not production-ready, and not a step away either.** The engineering is in good shape and the evidence is
-> real, but three deployment actions and four owner decisions stand between this repository and a paying
-> customer. Nothing above is marked *Done* on the strength of a document; where the word appears, something was
-> run and observed.
+> **Two missions have moved this from "documented" to "enforced", and neither closed a deployment action.**
+> Where this page says DONE / ENFORCED, something in the repository fails when it regresses. Where it says
+> MECHANISM READY, the work is finished and a person must still act — and in three of those cases the
+> application now says so out loud every time it starts.
 
 ## How to use this page
 

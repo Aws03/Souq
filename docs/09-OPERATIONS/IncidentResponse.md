@@ -22,6 +22,12 @@ docker compose ps                                                   # what is ac
 | no answer | — | The process is down or never started | §3 |
 | 200 on the web container but the store is broken | — | You are probing nginx, not the API. `/health/ready` there returns the SPA with 200 forever | [Deployment.md](Deployment.md) §6 |
 
+**Check the backups before you touch anything you might need to undo:**
+
+```bash
+./scripts/backup-verify.sh --dir /var/backups/souq --require-drill-within-days 30
+```
+
 **Then run the smoke test** — it is faster than guessing, and it says which of thirty-one things is wrong:
 
 ```bash
@@ -137,4 +143,10 @@ Said plainly so nobody discovers it mid-incident:
 - **No metrics or traces**, only structured logs with correlation ids.
 - **No on-call rotation, escalation path or status page** — those are the owner's to define.
 - **No automated backup.** If nobody scheduled `scripts/backup.sh`, the most recent backup is the last one a
-  person took (R-19).
+  person took (R-19) — `scripts/backup-verify.sh` will tell you which, and how old it is.
+
+**What the application does tell you, at every start.** Read the first lines of the log before assuming a
+misconfiguration is invisible: it names the payment and email adapters actually chosen, warns if the database
+identity can change the schema (least privilege not applied), warns if the default store is still unadopted,
+and warns once if a proxy sent `X-Forwarded-Proto` that was not trusted — which is the silent cause of missing
+HSTS and `http://` links in email.
