@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
+import { withQueryClient } from '../test/queryWrapper';
 
 // ============================================================================
 // "طلباتي": الصفحة التي كان ملفّها فارغاً في المستودع (انظر app/moduleInvariants.test.js).
@@ -29,12 +30,12 @@ const page = (items, overrides = {}) =>
 
 function renderAt(path = '/orders') {
   const Probe = () => <span data-testid="url">{useLocation().search}</span>;
-  return render(
+  return render(withQueryClient(
     <MemoryRouter initialEntries={[path]}>
       <Probe />
       <Routes><Route path="/orders" element={<MyOrders />} /></Routes>
     </MemoryRouter>
-  );
+  ));
 }
 
 beforeEach(() => { client.getMyOrders.mockReset(); });
@@ -90,7 +91,7 @@ describe('MyOrders', () => {
   });
 
   it('يعرض خطأ الخادم قابلاً لإعادة المحاولة', async () => {
-    client.getMyOrders.mockRejectedValueOnce(new Error('boom'));
+    client.getMyOrders.mockRejectedValue(new Error('boom'));
     renderAt();
 
     expect(await screen.findByRole('alert')).toHaveTextContent('boom');

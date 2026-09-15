@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
+import { queryKeys } from '../app/queryKeys';
 import { useToast } from '../context/ToastContext';
 import Button from '../components/common/Button';
 import Skeleton from '../components/common/Skeleton';
@@ -19,19 +21,17 @@ export default function OrderDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const toast = useToast();
-  const [order, setOrder] = useState(null);
-  const [error, setError] = useState(null);
+  const queryClient = useQueryClient();
   const [copied, setCopied] = useState(false);
   const [confirmingCancel, setConfirmingCancel] = useState(false);
   const [cancelling, setCancelling] = useState(false);
 
   const backDir = i18n.dir() === 'rtl' ? 'end' : 'start';
 
-  const load = useCallback(() => {
-    api.getOrder(id).then((o) => { setOrder(o); setError(null); }).catch((e) => setError(e.message));
-  }, [id]);
-
-  useEffect(() => { setOrder(null); load(); }, [load]);
+  const { data: order, error } = useQuery({
+    queryKey: queryKeys.order(id),
+    queryFn: () => api.getOrder(id),
+  });
 
   const copyLink = async () => {
     try {
@@ -50,12 +50,16 @@ export default function OrderDetail() {
       await api.cancelMyOrder(order.id);
       toast.success(t('orders.cancelledToast'));
       setConfirmingCancel(false);
-      load();
+      // الطلب تغيّرت حالته، وقائمة الطلبات تعرض تلك الحالة — كلاهما يُبطَل.
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.order(id) }),
+        queryClient.invalidateQueries({ queryKey: ['my-orders'] }),
+      ]);
     } catch (e) { toast.error(e.message); }
     finally { setCancelling(false); }
   };
 
-  if (error) return <div className="souq-layout"><ErrorBanner message={error} /></div>;
+  if (error) return <div className="souq-layout"><ErrorBanner message={error.message} /></div>;
   if (!order) return <div className="souq-layout"><Skeleton height={420} radius={14} /></div>;
 
   return (

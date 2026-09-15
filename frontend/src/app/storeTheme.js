@@ -18,7 +18,7 @@ export function applyStoreTheme(config, language) {
 }
 
 function setMeta(name, content) {
-  let element = document.head.querySelector(`meta[name="${name}"]`);
+  let element = /** @type {HTMLMetaElement|null} */ (document.head.querySelector(`meta[name="${name}"]`));
   if (!content) {
     element?.remove();
     return;
@@ -32,7 +32,7 @@ function setMeta(name, content) {
 }
 
 function setLink(rel, href) {
-  let element = document.head.querySelector(`link[rel="${rel}"]`);
+  let element = /** @type {HTMLLinkElement|null} */ (document.head.querySelector(`link[rel="${rel}"]`));
   if (!element) {
     element = document.createElement('link');
     element.rel = rel;
@@ -42,7 +42,7 @@ function setLink(rel, href) {
 }
 
 function setStylesheet(id, href) {
-  let element = document.getElementById(id);
+  let element = /** @type {HTMLLinkElement|null} */ (document.getElementById(id));
   if (!element) {
     element = document.createElement('link');
     element.id = id;

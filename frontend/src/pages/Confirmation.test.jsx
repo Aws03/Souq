@@ -2,6 +2,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { withQueryClient } from '../test/queryWrapper';
 
 // ============================================================================
 // شاشة التأكيد. حالتان كانتا خاطئتين وتُختبران هنا إلى الأبد:
@@ -29,7 +30,7 @@ const serverOrder = (overrides = {}) => ({
 });
 
 function renderAt(entry) {
-  return render(
+  return render(withQueryClient(
     <MemoryRouter initialEntries={[entry]}>
       <Routes>
         <Route path="/confirmation" element={<Confirmation />} />
@@ -37,7 +38,7 @@ function renderAt(entry) {
         <Route path="/orders" element={<p>my orders</p>} />
       </Routes>
     </MemoryRouter>
-  );
+  ));
 }
 
 const placed = { order: { orderId: 12, orderNumber: 1042, total: 55, currency: 'USD' } };
@@ -84,11 +85,11 @@ describe('Confirmation', () => {
 
   it('يرسم فوراً من حالة التوجيه ولا ينتظر الخادم', () => {
     client.getOrder.mockReturnValue(new Promise(() => {})); // لا يردّ أبداً
-    render(
+    render(withQueryClient(
       <MemoryRouter initialEntries={[{ pathname: '/confirmation', search: '?order=12', state: placed }]}>
         <Routes><Route path="/confirmation" element={<Confirmation />} /></Routes>
       </MemoryRouter>
-    );
+    ));
 
     expect(screen.getByText('#1042')).toBeInTheDocument();
     expect(screen.getByText('55 USD')).toBeInTheDocument();
@@ -96,14 +97,14 @@ describe('Confirmation', () => {
 
   it('عطل شبكة بعد دفع ناجح لا يمحو التأكيد', async () => {
     client.getOrder.mockRejectedValue(new Error('offline'));
-    render(
+    render(withQueryClient(
       <MemoryRouter initialEntries={[{ pathname: '/confirmation', search: '?order=12', state: placed }]}>
         <Routes>
           <Route path="/confirmation" element={<Confirmation />} />
           <Route path="/orders" element={<p>my orders</p>} />
         </Routes>
       </MemoryRouter>
-    );
+    ));
 
     expect(await screen.findByText('#1042')).toBeInTheDocument();
     expect(screen.queryByText('my orders')).toBeNull();

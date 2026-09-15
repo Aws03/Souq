@@ -12,6 +12,13 @@ import { formToTexts } from '../../catalog/catalogText';
 
 const optionalNumber = (value) => (value === '' || value === null || value === undefined ? null : Number(value));
 
+/**
+ * جسم إنشاء/تعديل منتج كما يقبله الخادم. التعديل لا يرسل المخزون ولا الحالة (تصحيحات المخزون
+ * وحدة أخرى)، فالشكل المعاد يختلف بين الحالتين — ولذلك النوع اتحاد لا كائن واحد.
+ * @param {Record<string, any>} form
+ * @param {Record<string, any>} [original]
+ * @returns {Record<string, any>}
+ */
 export function buildProductPayload(form, original) {
   const slug = form.slug?.trim().toLowerCase() || null;
   const payload = {

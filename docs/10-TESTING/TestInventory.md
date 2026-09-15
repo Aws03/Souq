@@ -11,7 +11,7 @@
 | [`Souq.Application.Tests`](#souqapplicationtests) | 39 | 272 | 11 |
 | [`Souq.ArchitectureTests`](#souqarchitecturetests) | 13 | 54 | 7 |
 | [`Souq.IntegrationTests`](#souqintegrationtests) | 41 | 203 | 21 |
-| [frontend (Vitest)](#frontend-vitest) | 42 | 224 | — |
+| [frontend (Vitest)](#frontend-vitest) | 43 | 228 | — |
 
 ## Souq.Domain.Tests
 
@@ -156,6 +156,7 @@
 | `frontend/src/api/client.test.js` | 6 |
 | `frontend/src/api/problem.test.js` | 6 |
 | `frontend/src/api/query.test.js` | 4 |
+| `frontend/src/app/QueryProvider.test.jsx` | 4 |
 | `frontend/src/app/dateLocale.test.js` | 7 |
 | `frontend/src/app/moduleInvariants.test.js` | 2 |
 | `frontend/src/app/pageMetadata.test.js` | 11 |

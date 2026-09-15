@@ -10,7 +10,7 @@ A **white-label, multi-tenant e-commerce platform**: one ASP.NET Core API, one S
 | | |
 |---|---|
 | Backend | .NET 10, ASP.NET Core, EF Core 10, SQL Server 2022, MediatR 12, FluentValidation |
-| Frontend | React 18, Vite 5, React Router 6, i18next, plain JavaScript, CSS Modules |
+| Frontend | React 18, Vite 8, React Router 6, TanStack Query, i18next, JavaScript type-checked with JSDoc, CSS Modules |
 | Integrations | Stripe (payments), Resend / Brevo / Gmail SMTP (email), local disk (uploads) |
 | Tests | five suites; the boundaries and the documentation are themselves tested |
 | Documentation | `docs/`, numbered by purpose; this is the primary knowledge base |

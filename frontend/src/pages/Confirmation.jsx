@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
 import { Navigate, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client';
+import { queryKeys } from '../app/queryKeys';
 import { usePageMetadata } from '../app/usePageMetadata';
 import Button from '../components/common/Button';
 import Skeleton from '../components/common/Skeleton';
@@ -32,23 +33,18 @@ export default function Confirmation() {
   const placed = location.state?.order ?? null;
   const orderId = placed?.orderId ?? (Number(searchParams.get('order')) || null);
 
-  const [detail, setDetail] = useState(null);
-  const [unreachable, setUnreachable] = useState(false);
-
-  useEffect(() => {
-    if (!orderId) return undefined;
-    let active = true;
-    api.getOrder(orderId)
-      .then((order) => { if (active) setDetail(order); })
-      .catch(() => { if (active) setUnreachable(true); });
-    return () => { active = false; };
-  }, [orderId]);
+  // نفس مفتاح صفحة الطلب: الضغط على "تتبّع طلبك" بعدها يعرضها فوراً بلا طلب ثانٍ.
+  const { data: detail, isError: unreachable, isPending } = useQuery({
+    queryKey: queryKeys.order(orderId),
+    queryFn: () => api.getOrder(orderId),
+    enabled: orderId !== null,
+  });
 
   if (!orderId) return <Navigate to="/" replace />;
   // رابط تأكيد لطلب ليس له (أو لم يعد موجوداً) ⇒ قائمة طلباته، لا تأكيد فارغ.
   if (unreachable && !placed) return <Navigate to="/orders" replace />;
 
-  if (!detail && !placed) {
+  if (isPending && !placed) {
     return <div className="souq-layout"><Skeleton height={320} radius={14} /></div>;
   }
 

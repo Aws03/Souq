@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { api } from '../api/client';
+import { queryKeys } from '../app/queryKeys';
 import { usePageMetadata } from '../app/usePageMetadata';
 import Skeleton from '../components/common/Skeleton';
 import Pagination from '../components/common/Pagination';
@@ -26,24 +27,16 @@ export default function MyOrders() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [result, setResult] = useState(null);
-  const [error, setError] = useState(null);
   usePageMetadata({ title: t('orders.myOrdersTitle') });
 
   const page = Math.max(1, Number(searchParams.get('page')) || 1);
 
-  // حارس الإلغاء (TD-25): تنقّل سريع بين الصفحات لا يرسم نتيجة صفحة سابقة فوق الحالية.
-  const load = useCallback(() => {
-    const request = { cancelled: false };
-    setResult(null);
-    setError(null);
-    api.getMyOrders({ page, pageSize: PAGE_SIZE })
-      .then((data) => { if (!request.cancelled) setResult(data); })
-      .catch((e) => { if (!request.cancelled) setError(e.message); });
-    return () => { request.cancelled = true; };
-  }, [page]);
-
-  useEffect(load, [load]);
+  // طبقة الاستعلام (ADR-0037) تتكفّل بالإلغاء وبإبقاء الصفحة السابقة معروضة أثناء جلب التالية.
+  const { data: result, error, refetch, isPending } = useQuery({
+    queryKey: queryKeys.myOrders(page, PAGE_SIZE),
+    queryFn: () => api.getMyOrders({ page, pageSize: PAGE_SIZE }),
+    placeholderData: keepPreviousData,
+  });
 
   const goToPage = (next) => {
     const params = new URLSearchParams(searchParams);
@@ -55,9 +48,9 @@ export default function MyOrders() {
     <section>
       <h2 className={styles.title}>{t('orders.myOrdersTitle')}</h2>
 
-      {error && <ErrorBanner message={error} onRetry={load} />}
+      {error && <ErrorBanner message={error.message} onRetry={refetch} />}
 
-      {!error && !result && (
+      {!error && isPending && (
         <div className={styles.list}>
           {Array.from({ length: 3 }, (_, i) => <Skeleton key={i} height={84} radius={14} />)}
         </div>

@@ -1,11 +1,13 @@
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { Routes, Route, Outlet, Navigate, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { useQuery } from '@tanstack/react-query';
 import { CartProvider } from './context/CartContext';
 import { WishlistProvider } from './context/WishlistContext';
 import { useToast } from './context/ToastContext';
 import { useTenant } from './app/TenantProvider';
 import { api } from './api/client';
+import { queryKeys } from './app/queryKeys';
 import {
   AdminRoute, PagePending, PlatformRoute, ProtectedRoute, RequireModule, RequirePermission,
 } from './components/ProtectedRoute';
@@ -71,18 +73,20 @@ function CustomerLayout() {
   const { t } = useTranslation();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
-  const [categories, setCategories] = useState([]);
   const navigate = useNavigate();
   const toast = useToast();
 
   const showToast = (name) => toast.success(t('cart.added', { name }));
   const refreshProducts = () => setRefreshKey((k) => k + 1);
 
-  // الفئات تُجلب مرّة واحدة هنا (تخطيط المتجر) وتُشارَك مع شريط الفئات وكل
-  // الصفحات عبر سياق الـ Outlet — بدل جلبها في كل صفحة على حدة.
-  useEffect(() => {
-    api.getCategories().then(setCategories).catch(() => setCategories([]));
-  }, []);
+  // الفئات تُجلب مرّة واحدة هنا (تخطيط المتجر) وتُشارَك مع شريط الفئات وكل الصفحات عبر سياق
+  // الـ Outlet — بدل جلبها في كل صفحة على حدة. شجرة الفئات تتغيّر نادراً (تعديل إداري)، فلها
+  // مهلة طزاجة صريحة: خمس دقائق بلا إعادة سؤال، على خلاف الافتراض في بقية المتجر.
+  const { data: categories = [] } = useQuery({
+    queryKey: queryKeys.categories(),
+    queryFn: api.getCategories,
+    staleTime: 5 * 60 * 1000,
+  });
 
   return (
     <CartProvider>

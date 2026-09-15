@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Outlet, Route, Routes, useLocation } from 'react-router-dom';
+import { withQueryClient } from '../test/queryWrapper';
 
 // ============================================================================
 // صفحة المنتج بعد أن صار رابطها بالاسم. الخطر الحقيقي في هذا التحويل ليس الشكل: كل ما يُطلب
@@ -58,7 +59,7 @@ function Layout() {
 }
 
 function renderAt(path) {
-  return render(
+  return render(withQueryClient(
     <MemoryRouter initialEntries={[path]}>
       <Routes>
         <Route element={<Layout />}>
@@ -66,7 +67,7 @@ function renderAt(path) {
         </Route>
       </Routes>
     </MemoryRouter>
-  );
+  ));
 }
 
 beforeEach(() => {
@@ -87,15 +88,19 @@ describe('ProductDetail routing', () => {
     expect(client.getProduct).not.toHaveBeenCalled();
   });
 
-  it('رابط قديم بالمعرّف يعمل ثم يُحوَّل إلى الاسم', async () => {
+  it('رابط قديم بالمعرّف يعمل ثم يُحوَّل إلى الاسم بلا شاشة فارغة', async () => {
     client.getProduct.mockResolvedValue(product());
+    client.getProductBySlug.mockResolvedValue(product());
     renderAt('/products/7');
 
     await screen.findByRole('heading', { level: 1, name: 'Blue shirt' });
     expect(client.getProduct).toHaveBeenCalledWith('7');
     await waitFor(() => expect(screen.getByTestId('url').textContent).toBe('/products/blue-shirt'));
-    // التحويل ليس تحميلاً ثانياً: المنتج الذي وصل هو نفسه صاحب الرابط الجديد.
-    expect(client.getProductBySlug).not.toHaveBeenCalled();
+
+    // المهمّ أن المنتج يبقى معروضاً عبر التحويل: ما وصل بالمعرّف يُنسخ إلى مفتاح الاسم، فلا
+    // يعود المستخدم إلى هيكل عظمي. التحقّق الخلفي بالاسم يجري بعدها ولا يُرى.
+    expect(screen.getByRole('heading', { level: 1, name: 'Blue shirt' })).toBeInTheDocument();
+    expect(client.getProductBySlug).toHaveBeenCalledTimes(1);
   });
 
   it('منتج بلا اسم لا يدخل حلقة تحويل', async () => {

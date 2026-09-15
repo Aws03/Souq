@@ -11,6 +11,9 @@ import { canonicalUrl, pageTitle, robotsFor, socialTags } from './pageMetadata';
 // الوسوم تُكتب مباشرةً على <head>: لا عرض من الخادم في هذا التطبيق، وزاحف لا ينفّذ
 // JavaScript لن يراها — وهذا حدّ معماري موثّق لا يُخفى (FrontendArchitecture).
 // ============================================================================
+/**
+ * @param {{title?: string, description?: string, image?: string, type?: string, robots?: string}} [page]
+ */
 export function usePageMetadata({ title, description, image, type, robots } = {}) {
   const { config } = useTenant();
   const { i18n } = useTranslation();
@@ -66,7 +69,7 @@ function setMeta(attribute, key, content) {
 }
 
 function setCanonical(href) {
-  let element = document.head.querySelector('link[rel="canonical"]');
+  let element = /** @type {HTMLLinkElement|null} */ (document.head.querySelector('link[rel="canonical"]'));
   if (!href) {
     element?.remove();
     return;

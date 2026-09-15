@@ -1,8 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useOutletContext, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { api } from '../api/client';
+import { queryKeys } from '../app/queryKeys';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import { useModule } from '../app/TenantProvider';
@@ -26,6 +28,8 @@ import { canonicalUrl } from '../app/pageMetadata';
 import { usePageMetadata } from '../app/usePageMetadata';
 import styles from './ProductDetail.module.css';
 
+const REVIEWS_PAGE_SIZE = 5;
+
 // صفحة تفصيل منتج: صورة كبيرة + بيانات كاملة + إضافة للسلة، وأسفلها التقييمات
 // (متوسط + قائمة مرقّمة + نموذج إضافة تقييم لمن يحقّ له).
 export default function ProductDetail() {
@@ -36,17 +40,26 @@ export default function ProductDetail() {
   const { add } = useCart();
   const { showToast } = useOutletContext();
 
-  const [product, setProduct] = useState(null);
-  const [productError, setProductError] = useState(null);
+  const queryClient = useQueryClient();
   const [adding, setAdding] = useState(false);
   const [quantity, setQuantity] = useState(1);
-
-  const [reviews, setReviews] = useState(null);
-  const [reviewsError, setReviewsError] = useState(null);
   const [page, setPage] = useState(1);
 
-  const [related, setRelated] = useState(null);
-  const [relatedLoading, setRelatedLoading] = useState(true);
+  // الرابط قد يحمل الاسم (القانوني) أو المعرّف (روابط قديمة ومشاركات سابقة) — كلاهما يعمل.
+  const { data: product, error: productError } = useQuery({
+    queryKey: queryKeys.product(handle),
+    queryFn: () => (isProductId(handle) ? api.getProduct(handle) : api.getProductBySlug(handle)),
+  });
+
+  // وصل المنتج بمعرّفه ⇒ نُبدّل الرابط إلى شكله القانوني بلا إضافة خطوة في سجلّ الرجوع، وننسخ
+  // ما وصل إلى مفتاح الرابط الجديد كي لا يُطلب المنتج نفسه مرّة ثانية باسمه.
+  useEffect(() => {
+    if (!needsCanonicalRedirect(handle, product)) return;
+    queryClient.setQueryData(queryKeys.product(product.slug), product);
+    navigate(productPath(product), { replace: true });
+  }, [handle, product, navigate, queryClient]);
+
+  useEffect(() => { setQuantity(1); setPage(1); }, [handle]);
 
   // أهمّ صفحة للاكتشاف: عنوانها اسم المنتج، ووصفها وصفه، وصورة مشاركتها صورته.
   // كانت كل صفحات المتجر تحمل عنوان المتجر ووصفه نفسيهما، فلا منتج يُصنَّف على اسمه
@@ -58,53 +71,26 @@ export default function ProductDetail() {
     type: 'product',
   });
 
-  // الرابط قد يحمل الاسم (القانوني) أو المعرّف (روابط قديمة ومشاركات سابقة) — كلاهما يعمل.
-  // والمنتج الذي بين أيدينا يُعرَف بأيّهما، فالتحويل إلى الشكل القانوني لا يُعيد تحميله.
-  const held = useRef(null);
-  useEffect(() => {
-    const current = held.current;
-    if (current && (current.slug === handle || String(current.id) === String(handle))) return undefined;
-
-    let active = true;
-    held.current = null;
-    setProduct(null); setProductError(null); setQuantity(1);
-    const load = isProductId(handle) ? api.getProduct(handle) : api.getProductBySlug(handle);
-    load.then((p) => { if (active) { held.current = p; setProduct(p); } })
-      .catch((e) => { if (active) setProductError(e.message); });
-    return () => { active = false; };
-  }, [handle]);
-
-  // وصل المنتج بمعرّفه ⇒ نُبدّل الرابط إلى شكله القانوني بلا إضافة خطوة في سجلّ الرجوع.
-  useEffect(() => {
-    if (needsCanonicalRedirect(handle, product)) navigate(productPath(product), { replace: true });
-  }, [handle, product, navigate]);
 
   // ما بعد التحميل يُطلب بمعرّف المنتج لا بما في الرابط: نقاط التقييمات والمشابهات تعرف المعرّف وحده.
   const productId = product?.id ?? null;
 
-  useEffect(() => {
-    if (productId === null) return undefined;
-    let active = true;
-    setRelated(null); setRelatedLoading(true);
-    api.getRelatedProducts(productId)
-      .then((list) => { if (active) setRelated(list); })
-      .catch(() => { if (active) setRelated([]); })
-      .finally(() => { if (active) setRelatedLoading(false); });
-    return () => { active = false; };
-  }, [productId]);
+  const { data: related, isPending: relatedLoading } = useQuery({
+    queryKey: queryKeys.relatedProducts(productId),
+    queryFn: () => api.getRelatedProducts(productId).catch(() => []),
+    enabled: productId !== null,
+  });
 
   // وحدة التقييمات معطّلة في المتجر (المرحلة 15) ⇒ لا قسم ولا طلب يرفضه الخادم بـ 404 ModuleDisabled.
   const reviewsEnabled = useModule('reviews');
-  const loadReviews = () => {
-    if (productId === null) return;
-    setReviewsError(null);
-    api.getProductReviews(productId, { page, pageSize: 5 }).then(setReviews).catch((e) => setReviewsError(e.message));
-  };
-  useEffect(() => {
-    setReviews(null);
-    if (reviewsEnabled) loadReviews();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [productId, page, reviewsEnabled]);
+  const reviewsQuery = useQuery({
+    queryKey: queryKeys.productReviews(productId, page, REVIEWS_PAGE_SIZE),
+    queryFn: () => api.getProductReviews(productId, { page, pageSize: REVIEWS_PAGE_SIZE }),
+    enabled: reviewsEnabled && productId !== null,
+  });
+  const reviews = reviewsQuery.data ?? null;
+  const reviewsError = reviewsQuery.error?.message ?? null;
+  const reloadReviews = () => queryClient.invalidateQueries({ queryKey: ['product', String(productId), 'reviews'] });
 
   // الخادم يؤكّد الإضافة — الإشعار بعد نجاحها فقط؛ خطؤها (نفاد المتاح) يعرضه سياق السلة.
   const handleAdd = async () => {
@@ -137,7 +123,7 @@ export default function ProductDetail() {
     breadcrumbStructuredData(trail),
   );
 
-  if (productError) return <div className="souq-layout"><ErrorBanner message={productError} /></div>;
+  if (productError) return <div className="souq-layout"><ErrorBanner message={productError.message} /></div>;
   if (!product) {
     return (
       <div className="souq-layout">
@@ -199,7 +185,7 @@ export default function ProductDetail() {
         </div>
       </div>
 
-      <ProductSection title={t('product.relatedTitle')} products={related} loading={relatedLoading}
+      <ProductSection title={t('product.relatedTitle')} products={related ?? null} loading={relatedLoading}
         onAdded={showToast} showViewAll={false} />
 
       {reviewsEnabled && (
@@ -210,15 +196,15 @@ export default function ProductDetail() {
           )}
 
           {isAuthenticated ? (
-            <ReviewForm productId={productId} onSubmitted={() => { setPage(1); loadReviews(); }} />
+            <ReviewForm productId={productId} onSubmitted={() => { setPage(1); reloadReviews(); }} />
           ) : (
             <p className={styles.signInHint}>
               <Link to="/login">{t('auth.signIn')}</Link> {t('product.signInToReview')}
             </p>
           )}
 
-          <ReviewList reviews={reviews?.items ?? []} loading={!reviews && !reviewsError}
-            error={reviewsError} onRetry={loadReviews} />
+          <ReviewList reviews={reviews?.items ?? []} loading={reviewsQuery.isPending}
+            error={reviewsError} onRetry={reloadReviews} />
           <Pagination page={page} totalPages={totalPages} onChange={setPage} />
         </section>
       )}

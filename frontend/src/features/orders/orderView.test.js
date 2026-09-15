@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { toQueryString } from '../../api/query';
 import { actorLabel, buildOrderQuery, trackingUrl } from './orderView';
 
+/** @type {(key: string, options?: {defaultValue?: string}) => string} */
 const t = (key, { defaultValue } = {}) => ({ 'admin.orders.actor.PaymentGateway': 'بوّابة الدفع' }[key] ?? defaultValue);
 
 describe('order view', () => {

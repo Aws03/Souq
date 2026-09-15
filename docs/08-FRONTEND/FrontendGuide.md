@@ -159,6 +159,8 @@ Everything lives in `frontend/src/api/client.js`, with two pure helpers beside i
 
 **Build UI logic on `code`, never on the message text.** `error.code` is the contract; the text is not.
 
+**Server state** goes through TanStack Query since Phase 16 ([ADR-0038](../11-ADR/0038-query-layer-adopted-and-type-checking.md)). `QueryProvider` sits under `AuthProvider` in `main.jsx` so that a change of user id resets every query — without that, signing out and in as someone else on the same device would paint the first customer's orders for the second before the server was asked. Keys live in `frontend/src/app/queryKeys.js`; `staleTime` is 0 everywhere except the category tree, because a shop must not present a stale price as current. The admin screens still hand-roll fetching until Phase 17 rebuilds them.
+
 **The `api` object** exposes 92 named functions grouped by feature — authentication, customer account, storefront config, catalog, orders, basket, payments, coupons, reviews, wishlist, notifications, and the admin groups for products, categories, inventory, customers, orders, store payments and shipping. They hide HTTP from the rest of the application: a screen calls `api.getMyOrders({ page })`, not a URL.
 
 **Query strings** are built by `toQueryString` in `frontend/src/api/query.js`: empty values (`null`, `undefined`, `''`) are dropped so no `keyword=` reaches the server, `0` and `false` are kept because they are real values, and arrays are emitted as a repeated key (`categoryIds=1&categoryIds=2`), which is the shape ASP.NET model binding turns into a list.

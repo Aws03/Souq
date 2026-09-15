@@ -10,7 +10,12 @@ export const NOTE_MAX_LENGTH = 500;
 // صنف شارة الحالة في Admin.module.css.
 export const STATUS_BADGE = { Pending: 'pending', Approved: 'delivered', Rejected: 'cancelled' };
 
+/**
+ * @param {{status?: string, productId?: number|string, page?: number, pageSize?: number}} [filters]
+ * @returns {{page: number, pageSize: number, status?: string, productId?: number}}
+ */
 export function buildReviewQuery({ status, productId, page = 1, pageSize = 20 } = {}) {
+  /** @type {{page: number, pageSize: number, status?: string, productId?: number}} */
   const query = { page, pageSize };
   if (REVIEW_STATUSES.includes(status)) query.status = status;
   const id = Number(productId);

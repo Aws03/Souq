@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client';
+import { queryKeys } from '../app/queryKeys';
 import { useToast } from '../context/ToastContext';
 import { usePageMetadata } from '../app/usePageMetadata';
 import Skeleton from '../components/common/Skeleton';
@@ -24,25 +26,18 @@ export default function OrderTracking() {
   const { t, i18n } = useTranslation();
   const { token } = useParams();
   const toast = useToast();
-  const [tracking, setTracking] = useState(null);
-  const [error, setError] = useState(null);
-  const [notFound, setNotFound] = useState(false);
   const [copied, setCopied] = useState(false);
   usePageMetadata({ title: t('orders.trackTitle') });
 
   const backDir = i18n.dir() === 'rtl' ? 'end' : 'start';
 
-  useEffect(() => {
-    let active = true;
-    setTracking(null); setError(null); setNotFound(false);
-    api.trackOrder(token)
-      .then((data) => { if (active) setTracking(data); })
-      .catch((e) => {
-        if (!active) return;
-        if (e.status === 404) setNotFound(true); else setError(e.message);
-      });
-    return () => { active = false; };
-  }, [token]);
+  const { data: tracking, error, isPending } = useQuery({
+    queryKey: queryKeys.orderTracking(token),
+    queryFn: () => api.trackOrder(token),
+  });
+
+  // 404 ليس عطلاً بل جواب: رمز خاطئ أو طلب لم يعد موجوداً — رسالة مترجمة لا لافتة خطأ.
+  const notFound = error?.status === 404;
 
   const copyTrackingNumber = async () => {
     try {
@@ -62,13 +57,13 @@ export default function OrderTracking() {
       </Link>
 
       <div className={styles.panel}>
-        {error && <ErrorBanner message={error} />}
+        {error && !notFound && <ErrorBanner message={error.message} />}
 
         {notFound && (
           <EmptyState title={t('orders.trackNotFoundTitle')} message={t('orders.trackNotFoundMessage')} />
         )}
 
-        {!error && !notFound && !tracking && <Skeleton height={320} radius={14} />}
+        {isPending && <Skeleton height={320} radius={14} />}
 
         {tracking && (
           <>

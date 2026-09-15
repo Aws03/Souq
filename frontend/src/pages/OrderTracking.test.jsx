@@ -2,6 +2,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { withQueryClient } from '../test/queryWrapper';
 
 // ============================================================================
 // صفحة التتبّع العامّة — الصفحة الوحيدة بلا مصادقة، وملفّها أيضاً كان فارغاً في المستودع.
@@ -29,11 +30,11 @@ const tracking = (overrides = {}) => ({
   ...overrides,
 });
 
-const renderToken = (token) => render(
+const renderToken = (token) => render(withQueryClient(
   <MemoryRouter initialEntries={[`/track/${token}`]}>
     <Routes><Route path="/track/:token" element={<OrderTracking />} /></Routes>
   </MemoryRouter>
-);
+));
 
 beforeEach(() => { client.trackOrder.mockReset(); });
 

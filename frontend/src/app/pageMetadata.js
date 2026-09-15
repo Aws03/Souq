@@ -36,6 +36,9 @@ export function canonicalUrl(origin, pathname, search) {
 
 // وسوم المشاركة الاجتماعية. صورة المتجر (socialImageUrl) هي الافتراضي، وصفحة المنتج
 // تمرّر صورتها — فيظهر المنتج نفسه حين يُشارَك رابطه.
+/**
+ * @param {{title: string, description?: string, image?: string, url?: string, type?: string}} page
+ */
 export function socialTags({ title, description, image, url, type = 'website' }) {
   return [
     ['og:title', title],

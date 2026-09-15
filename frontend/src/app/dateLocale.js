@@ -17,6 +17,7 @@ export function dateLocale(uiLanguage, storeCulture) {
 let storeCulture = '';
 let storeTimeZone = '';
 
+/** @param {{culture?: string, timeZone?: string}} [locale] */
 export function setStoreDateSettings({ culture, timeZone } = {}) {
   storeCulture = typeof culture === 'string' ? culture : '';
   storeTimeZone = typeof timeZone === 'string' ? timeZone : '';

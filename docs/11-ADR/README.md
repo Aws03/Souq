@@ -74,7 +74,8 @@
 |---|---|---|
 | [0011](0011-white-label-architecture.md) | One build, configuration-driven branding; the platform owner controls contracts, the tenant controls presentation; no arbitrary CSS or scripts | Partially stale (§4) |
 | [0035](0035-white-label-runtime.md) | The SPA boots from the storefront configuration, writes semantic tokens, gates modules, and splits four areas with lazy routes; D-19 deferred with a trigger | Superseded in part by [0037](0037-frontend-server-state-and-types.md), which takes the D-19 decision it deferred |
-| [0037](0037-frontend-server-state-and-types.md) | D-19 decided: a query library (TanStack Query) is the target for server state, adopted at the first screen rebuilt rather than installed now; TypeScript deferred until a CI pipeline exists to enforce it | Accurate |
+| [0037](0037-frontend-server-state-and-types.md) | D-19 decided: a query library (TanStack Query) is the target for server state, adopted at the first screen rebuilt rather than installed now; TypeScript deferred until a CI pipeline exists to enforce it | Completed by [0038](0038-query-layer-adopted-and-type-checking.md), which takes both adoptions at the points this record named |
+| [0038](0038-query-layer-adopted-and-type-checking.md) | Both of ADR-0037's triggers fired: TanStack Query is installed and the storefront read paths migrated, with the cache reset on any identity change; types arrive as `checkJs` plus JSDoc on `.js` boundaries, enforced in CI, instead of a TypeScript conversion | Accurate |
 
 ### Operations
 
@@ -109,6 +110,7 @@
 | [0021](0021-transaction-boundaries.md) residual risks | [0026](0026-inventory-reservations.md), [0034](0034-notifications-outbox.md) | The abandoned-checkout sweeper and the outbox closed both risks it listed |
 | [0031](0031-payments-and-refunds.md) confirmation path | [0036](0036-payment-intent-state-machine.md) | A non-succeeded confirmation no longer cancels the order unconditionally: it reads the intent's state, and a capture against a closed order is recorded instead of ignored |
 | [0035](0035-white-label-runtime.md) deferring D-19 with a trigger | [0037](0037-frontend-server-state-and-types.md) | The trigger fired without producing a decision, so D-19 was split and taken: a query library is the target for server state with a named adoption point, and TypeScript's trigger became "a CI pipeline exists" rather than a date that had already passed |
+| [0037](0037-frontend-server-state-and-types.md) naming two adoption points | [0038](0038-query-layer-adopted-and-type-checking.md) | Both points arrived in Phase 16 — six storefront screens rebuilt, and a CI pipeline in place — so the library was installed and migrated, and the TypeScript question was answered with checked JSDoc rather than deferred a third time |
 
 ## 4. Statements inside ADRs that no longer match the code
 

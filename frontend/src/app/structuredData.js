@@ -10,6 +10,16 @@
 // ============================================================================
 const SCHEMA = 'https://schema.org';
 
+/**
+ * ما تعرفه واجهة المتجر عن منتج (ProductDto من الخادم) — الحقول التي يقرؤها هذا الملف فقط.
+ * @typedef {{price?: number, currency?: string, stockQuantity?: number,
+ *            brand?: string|null, categoryName?: string|null} & Record<string, any>} StorefrontProduct
+ */
+
+/**
+ * @param {{product: StorefrontProduct|null, url: string, name: string, description?: string,
+ *          image?: string, rating?: {average: number, count: number}|null}} input
+ */
 export function productStructuredData({ product, url, name, description, image, rating }) {
   if (!product) return null;
 

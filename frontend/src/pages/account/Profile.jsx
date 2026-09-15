@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../api/client';
+import { queryKeys } from '../../app/queryKeys';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { usePageMetadata } from '../../app/usePageMetadata';
@@ -19,32 +20,33 @@ export default function Profile() {
   const { t } = useTranslation();
   const toast = useToast();
   const { reloadUser } = useAuth();
-  const [profile, setProfile] = useState(null);
-  const [error, setError] = useState(null);
+  const queryClient = useQueryClient();
   usePageMetadata({ title: t('account.profileTitle') });
 
-  const load = useCallback(
-    () => api.getMyProfile().then((p) => { setProfile(p); setError(null); }).catch((e) => setError(e.message)),
-    []);
+  const { data: profile, error, refetch, isPending } = useQuery({
+    queryKey: queryKeys.myProfile(),
+    queryFn: api.getMyProfile,
+  });
 
-  useEffect(() => { load(); }, [load]);
-
-  const saveProfile = async (payload) => {
-    try {
-      setProfile(await api.updateMyProfile(payload));
+  // الحفظ يكتب ردّ الخادم في الذاكرة المؤقّتة مباشرةً بدل جلبٍ ثانٍ: الردّ هو الملف بعد الحفظ.
+  const save = useMutation({
+    mutationFn: api.updateMyProfile,
+    onSuccess: (updated) => {
+      queryClient.setQueryData(queryKeys.myProfile(), updated);
       toast.success(t('account.profileSaved'));
       reloadUser().catch(() => {}); // الاسم في شريط التنقّل
-    } catch (e) { toast.error(e.message); }
-  };
+    },
+    onError: (e) => toast.error(e.message),
+  });
 
-  if (error) return <ErrorBanner message={error} onRetry={load} />;
-  if (!profile) return <Skeleton height={280} radius={14} />;
+  if (error) return <ErrorBanner message={error.message} onRetry={refetch} />;
+  if (isPending || !profile) return <Skeleton height={280} radius={14} />;
 
   return (
     <div className={styles.stack}>
       {/* حساب موقوف: يرى بياناته ويُنزّلها لكنه لا يطلب ولا يقيّم (CustomerStatus.Blocked). */}
       {profile.status === 'Blocked' && <div className={styles.notice}>{t('account.blockedNotice')}</div>}
-      <ProfileForm key={profile.id} profile={profile} onSave={saveProfile} />
+      <ProfileForm key={profile.id} profile={profile} onSave={save.mutateAsync} />
       <PrivacyPanel />
     </div>
   );

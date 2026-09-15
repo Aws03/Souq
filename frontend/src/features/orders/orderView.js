@@ -7,6 +7,10 @@ export const ORDER_STATUSES = ['Pending', 'Paid', 'Shipped', 'Delivered', 'Cance
 export const trackingUrl = (origin, token) => `${String(origin).replace(/\/+$/, '')}/track/${token}`;
 
 // موظّف باسمه، وإلا نوع الفاعل مترجماً (النظام، العميل، بوّابة الدفع). بلا فاعل (عرض العميل) ⇒ لا شيء.
+/**
+ * @param {{changedBy?: string, changedByName?: string}|null} entry
+ * @param {(key: string, options?: Record<string, any>) => string} t
+ */
 export function actorLabel(entry, t) {
   if (!entry?.changedBy) return null;
   if (entry.changedBy === 'Staff' && entry.changedByName) return entry.changedByName;
