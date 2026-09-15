@@ -24,10 +24,22 @@ describe('address form', () => {
 
     expect(form.region).toBe('');
     expect(form).not.toHaveProperty('id');
-    expect(form.country).toBe('JO');
+    // لا دولة مفترضة: المنصّة لا تعرف دولة المتجر، وافتراض دولةٍ يمرّرها الزبون دون انتباه.
+    expect(form.country).toBe('');
+  });
+
+  it('keeps the country a saved address already has', () => {
+    expect(addressToForm({ recipientName: 'سارة', country: 'SA' }).country).toBe('SA');
   });
 
   it('formats a one-line summary skipping empty parts', () => {
-    expect(formatAddressLine({ line1: 'شارع 1', line2: null, city: 'عمّان', region: '', country: 'JO' })).toBe('شارع 1، عمّان، JO');
+    const address = { line1: 'شارع 1', line2: null, city: 'عمّان', region: '', country: 'JO' };
+    expect(formatAddressLine(address, 'ar')).toBe('شارع 1، عمّان، JO');
+  });
+
+  it('uses the reading system\'s comma, not always the Arabic one', () => {
+    const address = { line1: 'Street 1', city: 'Amman', country: 'JO' };
+    expect(formatAddressLine(address, 'en')).toBe('Street 1, Amman, JO');
+    expect(formatAddressLine(address, 'ar')).toBe('Street 1، Amman، JO');
   });
 });

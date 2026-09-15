@@ -21,7 +21,7 @@ export default function AddressStep({
   couponCode, setCouponCode, couponPreview, couponError, couponBusy, onApplyCoupon,
   busy, blocked, onSubmit,
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const couponsEnabled = useModule('promotions');   // وحدة الكوبونات (المرحلة 15): معطّلة ⇒ لا حقل كوبون
   const choiceClass = (selected) => `${styles.addressChoice} ${selected ? styles.addressChoiceActive : ''}`;
 
@@ -39,7 +39,7 @@ export default function AddressStep({
                     onChange={() => setShippingChoice(a.id)} />
                   <span className={styles.addressChoiceText}>
                     <b>{a.label || a.recipientName}</b>
-                    <span className={styles.addressChoiceLine}>{formatAddressLine(a)}</span>
+                    <span className={styles.addressChoiceLine}>{formatAddressLine(a, i18n.language)}</span>
                   </span>
                 </label>
               ))}

@@ -18,6 +18,11 @@ const FORBIDDEN = [
   { name: 'store brand', pattern: /\bmarka\b|ماركة/i },
   { name: 'hard-coded currency', pattern: /\bJOD\b|د\.أ|دينار/ },
   { name: 'store contact detail', pattern: /\+962|marka\.example/i },
+
+  // أُضيفت في المرحلة 16 بعد إصلاح ما كانت تمسكه (TD-27): موضع تاريخ مكتوب حرفياً
+  // ('ar-JO' لكل متجر)، ودولة مفترضة في نموذج العنوان. كلاهما يجعل متجراً يرث عُرف متجر آخر.
+  { name: 'hard-coded date locale', pattern: /['"][a-z]{2}-[A-Z]{2}['"]/, except: ['./app/dateLocale.js'] },
+  { name: 'assumed country', pattern: /country:\s*['"][A-Za-z]{2}['"]/ },
 ];
 
 describe('white-label source check', () => {
@@ -25,8 +30,11 @@ describe('white-label source check', () => {
     expect(Object.keys(sources).length).toBeGreaterThan(150);
   });
 
-  it.each(FORBIDDEN)('contains no $name literal', ({ pattern }) => {
+  it.each(FORBIDDEN)('contains no $name literal', ({ pattern, except = [] }) => {
+    // الاستثناء بالاسم لا بالصمت: الملفّ الوحيد المسموح له بذكر مواضع التواريخ هو الذي يشرح
+    // قاعدتها، وذكره هناك في تعليق. أي ملفّ آخر يذكرها يفشل.
     const offenders = Object.entries({ ...sources, '../index.html': indexHtml })
+      .filter(([file]) => !except.includes(file))
       .filter(([, text]) => pattern.test(text))
       .map(([file]) => file);
     expect(offenders).toEqual([]);

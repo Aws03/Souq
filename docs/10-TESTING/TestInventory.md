@@ -11,7 +11,7 @@
 | [`Souq.Application.Tests`](#souqapplicationtests) | 39 | 272 | 11 |
 | [`Souq.ArchitectureTests`](#souqarchitecturetests) | 13 | 54 | 7 |
 | [`Souq.IntegrationTests`](#souqintegrationtests) | 41 | 203 | 21 |
-| [frontend (Vitest)](#frontend-vitest) | 41 | 215 | — |
+| [frontend (Vitest)](#frontend-vitest) | 42 | 224 | — |
 
 ## Souq.Domain.Tests
 
@@ -156,6 +156,7 @@
 | `frontend/src/api/client.test.js` | 6 |
 | `frontend/src/api/problem.test.js` | 6 |
 | `frontend/src/api/query.test.js` | 4 |
+| `frontend/src/app/dateLocale.test.js` | 7 |
 | `frontend/src/app/moduleInvariants.test.js` | 2 |
 | `frontend/src/app/pageMetadata.test.js` | 11 |
 | `frontend/src/app/structuredData.test.js` | 8 |
@@ -163,7 +164,7 @@
 | `frontend/src/components/ProtectedRoute.test.jsx` | 11 |
 | `frontend/src/components/common/Drawer.test.jsx` | 6 |
 | `frontend/src/components/common/ErrorBoundary.test.jsx` | 5 |
-| `frontend/src/features/account/addressForm.test.js` | 4 |
+| `frontend/src/features/account/addressForm.test.js` | 6 |
 | `frontend/src/features/admin/categories/categoryForm.test.js` | 5 |
 | `frontend/src/features/admin/coupons/couponForm.test.js` | 4 |
 | `frontend/src/features/admin/customers/customerActions.test.js` | 4 |

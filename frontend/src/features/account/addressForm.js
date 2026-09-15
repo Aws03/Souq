@@ -4,8 +4,11 @@
 // ============================================================================
 export const REQUIRED_ADDRESS_FIELDS = ['recipientName', 'phone', 'country', 'city', 'line1'];
 
+// الدولة تبدأ فارغة عمداً: كانت 'JO' مكتوبة هنا، فكان كل متجر على المنصّة يقترح على زبونه
+// دولةَ متجرٍ آخر — والمنصّة لا تعرف دولة المتجر أصلاً (ليست في إعداده). حقلٌ مطلوب فارغ أصدق
+// من قيمة مفترضة يمرّرها الزبون دون أن ينتبه إلى أنها خاطئة.
 export const emptyAddress = () => ({
-  label: '', recipientName: '', phone: '', country: 'JO', city: '', region: '', line1: '', line2: '', postalCode: '',
+  label: '', recipientName: '', phone: '', country: '', city: '', region: '', line1: '', line2: '', postalCode: '',
 });
 
 export function addressToForm(address) {
@@ -32,5 +35,10 @@ export function formToAddress(form) {
 
 export const missingAddressFields = (form) => REQUIRED_ADDRESS_FIELDS.filter((field) => !(form?.[field] ?? '').trim());
 
-export const formatAddressLine = (address) =>
-  [address?.line1, address?.line2, address?.city, address?.region, address?.country].filter(Boolean).join('، ');
+// الفاصلة تتبع لغة العرض: كانت الفاصلة العربية مكتوبة دائماً، فيقرأ زبون الواجهة الإنجليزية
+// "Street 1، Amman، JO". لا ترجمة هنا — علامة ترقيم واحدة تختلف بين نظامَي الكتابة.
+export const formatAddressLine = (address, language = 'ar') => {
+  const separator = String(language).startsWith('ar') ? '، ' : ', ';
+  return [address?.line1, address?.line2, address?.city, address?.region, address?.country]
+    .filter(Boolean).join(separator);
+};

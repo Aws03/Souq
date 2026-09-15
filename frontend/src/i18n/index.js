@@ -1,5 +1,6 @@
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
+import { dateLocale, dateOptions, getStoreCulture } from '../app/dateLocale';
 import ar from './locales/ar.json';
 import en from './locales/en.json';
 
@@ -46,17 +47,18 @@ export function setLanguage(lang) {
   applyDocumentDirection(lang);
 }
 
-// تهيئة التاريخ حسب اللغة الحالية — الأماكن التي تعرض تاريخاً (تقييمات،
-// كوبونات، طلبات) تستدعي هذه بدل تكرار منطق اللغة/التقويم في كل مكوّن.
+// تهيئة التاريخ — الأماكن التي تعرض تاريخاً (تقييمات، كوبونات، طلبات) تستدعي هذه بدل تكرار
+// منطق اللغة/التقويم في كل مكوّن. الموضع والمنطقة الزمنية من إعداد المتجر لا من ثابت مكتوب
+// (app/dateLocale.js يشرح القاعدة، وTenantProvider يضبطهما عند الإقلاع).
 export function formatDate(iso) {
-  const locale = i18n.language === 'ar' ? 'ar-JO' : 'en-US';
-  return new Date(iso).toLocaleDateString(locale);
+  return new Date(iso).toLocaleDateString(dateLocale(i18n.language, getStoreCulture()), dateOptions());
 }
 
-// تاريخ + وقت معاً (خط زمني تتبّع الطلب) — نفس منطق اللغة/التقويم أعلاه.
+// تاريخ + وقت معاً (خط زمني تتبّع الطلب) — نفس القاعدة.
 export function formatDateTime(iso) {
-  const locale = i18n.language === 'ar' ? 'ar-JO' : 'en-US';
-  return new Date(iso).toLocaleString(locale, { dateStyle: 'medium', timeStyle: 'short' });
+  return new Date(iso).toLocaleString(
+    dateLocale(i18n.language, getStoreCulture()),
+    dateOptions({ dateStyle: 'medium', timeStyle: 'short' }));
 }
 
 export default i18n;

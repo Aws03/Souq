@@ -20,7 +20,7 @@ const RECENT_ORDERS = 5;
 // درج تفاصيل عميل: الملف والإحصاء والعناوين وآخر الطلبات (من /orders?customerId= لمن يملك orders.view)، وإجراءات
 // customers.manage. الحذف يمرّ بتأكيد صريح داخل الدرج لأنه لا رجعة فيه.
 export default function CustomerDetailDrawer({ customerId, onClose, onChanged }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const toast = useToast();
   const { can } = useAuth();
   const canSeeOrders = can('orders.view');
@@ -119,7 +119,7 @@ export default function CustomerDetailDrawer({ customerId, onClose, onChanged })
               {customer.addresses.map((a) => (
                 <li key={a.id} className={styles.item}>
                   <b>{a.label || a.recipientName}</b>
-                  <span>{formatAddressLine(a)}</span>
+                  <span>{formatAddressLine(a, i18n.language)}</span>
                   <span className={styles.meta}>
                     {a.recipientName} · <bdi dir="ltr">{a.phone}</bdi>
                     {a.isDefaultShipping && ` · ${t('account.defaultShipping')}`}

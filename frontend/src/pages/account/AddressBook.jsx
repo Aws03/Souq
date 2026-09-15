@@ -14,7 +14,7 @@ const MAX_ADDRESSES = 20; // Customer.MaxAddresses في Domain
 // دفتر العناوين: إضافة وتعديل وحذف وتعيين الافتراضي للشحن/الفوترة. بعد كل تغيير يُعاد تحميل الملف — الخادم هو من
 // ينقل صفة الافتراضي عند حذف عنوان افتراضي، فلا تتكرّر تلك القاعدة هنا.
 export default function AddressBook({ addresses, onChanged }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const toast = useToast();
   const [editing, setEditing] = useState(null); // null=مغلق، {}=إضافة، عنوان=تعديل
   const [busyId, setBusyId] = useState(null);
@@ -62,7 +62,7 @@ export default function AddressBook({ addresses, onChanged }) {
                   {a.isDefaultShipping && <span className={styles.badge}>{t('account.defaultShipping')}</span>}
                   {a.isDefaultBilling && <span className={styles.badge}>{t('account.defaultBilling')}</span>}
                 </div>
-                <span className={styles.addressLine}>{formatAddressLine(a)}</span>
+                <span className={styles.addressLine}>{formatAddressLine(a, i18n.language)}</span>
                 <span className={styles.addressMeta}>{a.recipientName} · <bdi dir="ltr">{a.phone}</bdi></span>
                 <div className={styles.addressActions}>
                   <Button variant="link" size="sm" disabled={busy} onClick={() => setEditing(a)}>{t('common.edit')}</Button>

@@ -1,34 +1,19 @@
 .hero {
-  position: relative; height: clamp(320px, 52vw, 480px); overflow: hidden;
+  position: relative; height: clamp(280px, 44vw, 420px); overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
 }
 
-.hero__slide {
-  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
-  opacity: 0; visibility: hidden; transition: opacity 600ms ease;
-}
-.hero__slideActive { opacity: 1; visibility: visible; }
+/* بلا صورة متجر: تدرّج من ألوان هويته هو — لا لون دخيل. */
+.hero__gradient { background: linear-gradient(135deg, var(--color-primary), var(--color-primary-strong)); }
 
-.hero__bg0 { background: linear-gradient(135deg, var(--color-primary), var(--color-primary-strong)); }
-.hero__bg1 { background: linear-gradient(135deg, var(--color-danger), var(--color-primary-strong)); }
-.hero__bg2 { background: linear-gradient(135deg, var(--color-accent), var(--color-primary)); }
+.hero__image { position: absolute; inset: 0; background-size: cover; background-position: center; }
 
-.hero__overlay {
-  position: absolute; inset: 0; opacity: .12; pointer-events: none;
-  background: radial-gradient(circle at 85% 20%, #fff 0, transparent 45%);
-}
+/* طبقة تعتيم فوق الصورة كي يبقى النصّ مقروءاً مهما كانت الصورة. */
+.hero__overlay { position: absolute; inset: 0; background: rgb(17 24 39 / 0.45); pointer-events: none; }
 
-.hero__inner { max-width: 640px; margin: 0 auto; text-align: center; position: relative; padding: 0 20px; color: var(--color-bg); }
-.hero__headline { font-size: var(--fs-display); margin-bottom: 14px; }
-.hero__headline b { color: var(--color-accent); }
-.hero__subline { opacity: .9; margin-bottom: 26px; font-size: var(--fs-body); }
-
-.hero__dots {
-  position: absolute; bottom: 18px; left: 0; right: 0; z-index: 2;
-  display: flex; align-items: center; justify-content: center; gap: 10px;
+.hero__inner {
+  max-width: 640px; margin: 0 auto; text-align: center; position: relative;
+  padding: 0 20px; color: #fff;
 }
-.hero__dot {
-  width: 9px; height: 9px; border-radius: 50%; background: rgb(255 255 255 / 0.45);
-  transition: background var(--ease-hover), transform var(--ease-hover);
-}
-.hero__dot:hover { background: rgb(255 255 255 / 0.7); }
-.hero__dotActive { background: var(--color-accent); transform: scale(1.25); }
+.hero__headline { font-size: var(--fs-display); margin-bottom: 14px; overflow-wrap: anywhere; }
+.hero__subline { opacity: .92; margin-bottom: 26px; font-size: var(--fs-body); }

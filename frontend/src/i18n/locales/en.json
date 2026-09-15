@@ -97,25 +97,6 @@
   },
   "store": {
     "heroCta": "Shop now",
-    "heroDotsAria": "Slideshow navigation",
-    "heroSlideAria": "Slide {{n}}",
-    "heroSlides": [
-      {
-        "headline": "Shop with confidence, with authentic Arabian identity",
-        "subline": "Carefully curated products — from electronics to authentic handicrafts, fast delivery and quality guaranteed.",
-        "cta": "Shop now"
-      },
-      {
-        "headline": "Season deals are waiting for you",
-        "subline": "Discounts across a wide range of products for a limited time.",
-        "cta": "Discover deals"
-      },
-      {
-        "headline": "Quality that lasts, prices that fit",
-        "subline": "Every product passes strict selection standards before it reaches you.",
-        "cta": "Start shopping"
-      }
-    ],
     "shopNow": "Shop now",
     "viewAll": "View all",
     "newArrivals": "New Arrivals",

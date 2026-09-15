@@ -4,6 +4,7 @@ import { api } from '../api/client';
 import { setLanguage } from '../i18n';
 import { BootScreen } from './BootScreens';
 import { applyStoreTheme } from './storeTheme';
+import { setStoreDateSettings } from './dateLocale';
 import { bootModeForConfig, bootOutcome, isModuleEnabled, setStoreCurrency, supportedLanguage } from './tenantModel';
 
 // ============================================================================
@@ -26,8 +27,12 @@ export function TenantProvider({ children }) {
     api.getStorefrontConfig()
       .then((config) => {
         if (!active) return;
-        // قبل أول رسم: عملة الأسعار بلا عملة صريحة، ولغة يفعّلها المتجر.
+        // قبل أول رسم: عملة الأسعار بلا عملة صريحة، وموضع التاريخ ومنطقته، ولغة يفعّلها المتجر.
         setStoreCurrency(config.settings?.locale?.currency);
+        setStoreDateSettings({
+          culture: config.settings?.locale?.defaultCulture,
+          timeZone: config.settings?.locale?.timeZone,
+        });
         const language = supportedLanguage(config, i18n.language);
         if (language !== i18n.language) setLanguage(language);
         // متجر مغلق يردّ إعداده بنجاح (R-08): الحالة تقرّر الشاشة، والإعداد يبقى كي تحمل شاشة الإغلاق هويّته.
