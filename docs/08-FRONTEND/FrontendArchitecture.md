@@ -1,7 +1,7 @@
 # Souq: frontend architecture
 
-> **Status:** target adopted 2026-09-11. **Phase 15 delivered the runtime** ([ADR-0035](../11-ADR/0035-white-label-runtime.md)): the store configuration at boot, semantic theming, module gates, four areas and route-level code splitting. Existing screens move into feature folders in the phases that rebuild them (16–17). D-19 was **decided in Phase 17** ([ADR-0037](../11-ADR/0037-frontend-server-state-and-types.md)): a query library is the target for server state, adopted at the first screen rebuilt rather than installed as its own migration; TypeScript waits for a CI pipeline that can enforce it.
-> **Stack:** React 18 · Vite 5 · React Router 6 · i18next · CSS Modules with design tokens · Stripe.js. Tests: Vitest, introduced in Phase 1A for pure logic.
+> **Status:** target adopted 2026-09-11. **Phase 15 delivered the runtime** ([ADR-0035](../11-ADR/0035-white-label-runtime.md)): the store configuration at boot, semantic theming, module gates, four areas and route-level code splitting. **Phase 16 (storefront rebuild)** took both of D-19's adoptions ([ADR-0038](../11-ADR/0038-query-layer-adopted-and-type-checking.md)): TanStack Query manages storefront server state, and types arrive as `checkJs` plus JSDoc on the `.js` boundaries rather than a TypeScript conversion. The feature-folder move is still outstanding and is the largest remaining item in §6.
+> **Stack:** React 18 · Vite 8 · React Router 6 · TanStack Query · i18next · CSS Modules with design tokens · Stripe.js. Tests: Vitest (pure logic since Phase 1A, components and accessibility since Phase 16), ESLint and `tsc --noEmit` over JSDoc-typed `.js`.
 >
 > **This page is the target shape and the history.** For what exists today and how to change it — structure, boot, routing, state, API, i18n, styling, testing, debt — read [FrontendGuide.md](FrontendGuide.md). Branding and what a store may customize are in [WhiteLabel.md](WhiteLabel.md).
 
@@ -207,16 +207,40 @@ Historical record: each table describes what changed **in that phase**, not nece
 
 **Phase 15 (white-label runtime)** is summarized in §6 and detailed in [ADR-0035](../11-ADR/0035-white-label-runtime.md).
 
-## 6. Phase 15 migration plan: status
+**Phase 16 (storefront rebuild):**
+
+| Change | Reason |
+|---|---|
+| **Two routed pages existed only as zero-byte files** — `MyOrders.jsx` and `OrderTracking.jsx`, empty since Phase 9 with their CSS fully written. Both are implemented against the existing contracts | `/orders` and the public tracking link from shipping emails threw at runtime. An empty module builds without complaint |
+| **Two more pages crashed on open** — `/offers` and `/wishlist` called `usePageMetadata({ title: t(...) })` a line above `const { t } = ...` | Const temporal dead zone. Found by enabling `no-use-before-define`, which is not in ESLint's recommended set |
+| A **linter** (ESLint 9: react-hooks, jsx-a11y, language basics) and `tsc --noEmit` over JSDoc-typed `.js`, both in CI | The frontend had neither. The first thing the linter caught was a JSX parse error Vite had compiled silently |
+| **TanStack Query** for storefront server state, with the cache reset on any identity change | [ADR-0038](../11-ADR/0038-query-layer-adopted-and-type-checking.md). Without the reset, signing out and in as another customer on one device paints the first customer's orders for the second |
+| An **account shell** (`AccountLayout`) over profile, addresses, orders and wishlist; `/account/addresses` is new, `/orders` and `/orders/:id` unchanged | The account was three unlinked pages; the order URLs are in emails and notifications |
+| A **cart page** at `/cart` beside the drawer | A URL for a basket you can keep, share and come back to |
+| **Product URLs by slug** — `/products/:handle` takes either, ids redirect to the canonical form | `api.getProductBySlug` existed and was unused; the module doc recorded the gap |
+| Breadcrumbs, a quantity stepper, and **schema.org structured data** with a real price, availability and (only when there are ratings) an aggregate rating | Discovery and a commerce-quality product page |
+| **A real 404** and an error boundary that never prints an exception | A silent redirect home hid broken links from visitors and crawlers alike |
+| **robots.txt**, tied by test to `PRIVATE_ROUTES` | The app renders in the browser, so a crawler that runs no JavaScript never sees a `noindex` meta tag |
+| **Dialog behaviour**: Escape, focus in and back out, scroll lock, named backdrop buttons | Every drawer claimed `role="dialog" aria-modal` while offering none of it |
+| **Six dead footer links removed** (FAQ, shipping, returns, contact, privacy, terms) | They pointed at `href="#"`. The platform has no content pages — recorded as TD-42 rather than faked |
+| **White-label leaks closed** (TD-27): the invented 3–5 day delivery promise, one store's hero copy on every storefront, `ar-JO` dates, an assumed `JO` country, and the Stripe field's hard-coded font and colours | A white-label storefront that ships one store's identity to every tenant is not white-label |
+| The confirmation page reads its order from the server via `?order=`, and its delivery estimate from the order | Refreshing after payment used to send the buyer back to the storefront as if nothing had happened |
+| **Component, accessibility and source-invariant tests** — 110 → 249 | The empty files, the crashes and the cache leak were all found by writing tests, not by reading code |
+
+
+## 6. Migration plan: status
+
+**Phase 16 (storefront rebuild) closed four of these and left one open.** Taken in order below; what changed in the storefront itself is in the Phase 16 entry of §5.
 
 1. **Done — `frontend/src/app` introduced without moving features.** It holds `TenantProvider` (the boot from GET `/api/storefront/config`), `frontend/src/app/storeTheme.js` and `frontend/src/app/tenantModel.js` (theme, formatting and module logic, unit-tested), `frontend/src/app/BootScreens.jsx` (closed store, unknown store, retry), `frontend/src/app/StoreBrand.jsx` (the store's logo or name) and `frontend/src/app/PlatformLayout.jsx` (the platform shell).
    The guards stayed in `frontend/src/components/ProtectedRoute.jsx`, which gained `RequireModule` and `PlatformRoute`. The customer account pages still render inside the storefront layout behind `ProtectedRoute`; their own shell comes with the account rebuild (Phase 16).
-2. **Deferred to Phases 16–17 — moving features.** Each screen moves with `git mv` when it is rebuilt, so its history is preserved and the diff stays reviewable.
-3. **Waits on the query layer — splitting `frontend/src/api/client.js`** into per-feature modules. The query layer decides their shape, and D-19 now names when it arrives ([ADR-0037](../11-ADR/0037-frontend-server-state-and-types.md)). The shared client already normalizes the error contract and refreshes the session silently (Phase 3).
+2. **Still open, and now the largest remaining item — moving features.** Phase 16 rebuilt the storefront screens in place rather than moving them, and that was a deliberate order-of-work choice, not an oversight: the move is pure churn with no behaviour change, and the phase's remaining budget went to defects that only failed in a browser. The bundle argument for it was **measured and found weak**: the admin half of `frontend/src/api/client.js` is 780 bytes gzipped, 0.54% of a 141 KB first load, so splitting the client buys structure, not speed. Each screen still moves with `git mv` when it is rebuilt, so its history survives.
+3. **Unblocked, not yet done — splitting `frontend/src/api/client.js`** into per-feature modules. The query layer has arrived and decided their shape ([ADR-0038](../11-ADR/0038-query-layer-adopted-and-type-checking.md)); the split now travels with item 2. The shared client already normalizes the error contract and refreshes the session silently (Phase 3), and its `ApiError` shape is declared in JSDoc since Phase 16.
 4. **Done — theming.** Brand-named tokens were replaced by semantic tokens everywhere. The theme comes from the store, and the visitor theme switcher is gone.
-5. **Deferred — TypeScript**, with a trigger that can now actually fire: a CI pipeline exists to enforce the type-check ([ADR-0037](../11-ADR/0037-frontend-server-state-and-types.md)).
+5. **Answered in Phase 16 — types without a conversion** ([ADR-0038](../11-ADR/0038-query-layer-adopted-and-type-checking.md)). The trigger fired and the answer is `checkJs` with JSDoc at the boundaries, scoped to `.js` because the same check over `.jsx` produced 248 mostly-inferred errors against 52 real ones. `npm run typecheck` runs in CI. Components join when their props are declared.
 6. **Done — route-level lazy loading.** Every page except the home and product pages is lazy.
    - Baseline measured in Phase 15: about 381 KB of JavaScript in the first bundle (122 KB gzipped), with about 144 KB loading on demand.
+   - **Re-measured in Phase 16: 141.3 KB gzipped across 17 files** (453 KB raw), of which React and React-DOM are 86 KB — 61% of the payload. The rise over the Phase 15 baseline is the query layer (~9 KB) plus the storefront work itself. Making the product page lazy would save 5.4 KB, measured; it stays eager because it is the page search engines land on and a round-trip there costs more than it saves.
    - Budgets will be enforced once a CI pipeline exists (**PLANNED**, Phase 21).
 
 **Also delivered in Phase 15:**
@@ -224,4 +248,4 @@ Historical record: each table describes what changed **in that phase**, not nece
 - Wishlist, reviews and coupons are hidden when their module is off.
 - `frontend/src/whiteLabel.test.js` fails on any brand, currency or contact literal in the frontend source.
 
-**Still open**, with the evidence for each item in [FrontendGuide.md](FrontendGuide.md) §17: the feature-folder move, the per-feature API modules, the query layer and types, an error boundary, component and route tests, admin list state in the URL, and a handful of store-specific literals that the white-label test does not catch.
+**Still open**, with the evidence for each item in [FrontendGuide.md](FrontendGuide.md) §17: the feature-folder move and the per-feature API modules (item 2), admin list state in the URL, and the admin screens' own migration to the query layer. Closed in Phase 16: the query layer, types, the error boundary, component and route tests, and the store-specific literals the white-label test did not catch (TD-27).
