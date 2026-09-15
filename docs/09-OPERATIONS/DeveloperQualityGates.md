@@ -13,7 +13,7 @@
 | Domain | `dotnet test tests/Souq.Domain.Tests` | — | ~1 s | Business rules and invariants |
 | Application | `dotnet test tests/Souq.Application.Tests` | — | ~1 s | Use cases against doubles |
 | Architecture | `dotnet test tests/Souq.ArchitectureTests` | — | seconds | Layers, module boundaries, tenancy, endpoints, documentation, generated inventories |
-| Integration | `dotnet test tests/Souq.IntegrationTests` | Docker, ~2 GB free | minutes | The real API over real SQL Server |
+| Integration | `dotnet test tests/Souq.IntegrationTests` | Docker, **3 GiB+ free** (measured: SQL Server alone holds 1.085 GiB idle) | minutes | The real API over real SQL Server |
 | Frontend | `cd frontend && npx vitest run` | npm install | seconds | Pure frontend logic |
 | Frontend build | `cd frontend && npx vite build` | npm install | seconds | The SPA actually builds |
 

@@ -79,7 +79,20 @@ SOUQ_UPDATE_DOCS=1 dotnet test tests/Souq.ArchitectureTests --filter "FullyQuali
 
 A change that touches money, stock, permissions or tenancy without an integration test is not complete.
 
-**Docker memory:** the integration suite needs roughly 2 GB free for SQL Server. When it is short, SQL Server fails with error 701 or a pre-login handshake error and *every* test fails with a 500 — an environment problem, not a code problem. Check with `docker run --rm alpine free -m` and never stop containers you did not start ([Troubleshooting.md](../09-OPERATIONS/Troubleshooting.md)).
+**Docker memory, measured rather than estimated.** A single idle SQL Server container of the image this suite
+uses holds **1.085 GiB**, and the suite pushes it higher: several tests create their own databases on that
+server (migration rehearsal and rollback, seed safety, the best-selling measurement) so peak demand is well
+above steady state. **Give Docker at least 3 GiB, and 4 GiB is comfortable.**
+
+The failure is unmistakable once you have seen it and baffling before: SQL Server reports error 701, a
+pre-login handshake failure, or `FAIL_PAGE_ALLOCATION`, and dozens of tests fail at once while each passes
+alone. **Observed on this machine:** an unrelated build container holding 1.2 GiB of a 2.842 GiB allocation
+took the suite from 270 passing to 151 failing; the same suite passed completely once that container exited.
+Check with `docker stats --no-stream` before reading the failures as a regression, and never stop containers
+you did not start ([Troubleshooting.md](../09-OPERATIONS/Troubleshooting.md) §2).
+
+**Do not "fix" this by disabling parallelism or trimming suites.** The tests are not the defect — the machine
+is short of memory, and the same suite passes on a machine that has it.
 
 ## 4. Writing a good test here
 
