@@ -11,7 +11,7 @@
 | [`Souq.Application.Tests`](#souqapplicationtests) | 39 | 272 | 11 |
 | [`Souq.ArchitectureTests`](#souqarchitecturetests) | 13 | 54 | 7 |
 | [`Souq.IntegrationTests`](#souqintegrationtests) | 41 | 203 | 21 |
-| [frontend (Vitest)](#frontend-vitest) | 46 | 245 | — |
+| [frontend (Vitest)](#frontend-vitest) | 47 | 252 | — |
 
 ## Souq.Domain.Tests
 
@@ -196,6 +196,7 @@
 | `frontend/src/pages/OrderTracking.test.jsx` | 6 |
 | `frontend/src/pages/ProductDetail.test.jsx` | 9 |
 | `frontend/src/pages/account/AccountLayout.test.jsx` | 6 |
+| `frontend/src/pages/checkout/Checkout.test.jsx` | 7 |
 | `frontend/src/pages/checkout/stripeClient.test.js` | 3 |
 | `frontend/src/pages/storefrontPages.test.jsx` | 3 |
 | `frontend/src/whiteLabel.test.js` | 1 |
