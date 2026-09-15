@@ -10,7 +10,7 @@
 | [`Souq.Domain.Tests`](#souqdomaintests) | 23 | 165 | 34 |
 | [`Souq.Application.Tests`](#souqapplicationtests) | 39 | 272 | 11 |
 | [`Souq.ArchitectureTests`](#souqarchitecturetests) | 13 | 53 | 7 |
-| [`Souq.IntegrationTests`](#souqintegrationtests) | 40 | 200 | 21 |
+| [`Souq.IntegrationTests`](#souqintegrationtests) | 41 | 203 | 21 |
 | [frontend (Vitest)](#frontend-vitest) | 25 | 107 | — |
 
 ## Souq.Domain.Tests
@@ -116,6 +116,7 @@
 | `tests/Souq.IntegrationTests/CatalogTests.cs` | `CatalogTests`, `ProductCommandCounter` | 9 | 0 |
 | `tests/Souq.IntegrationTests/CheckoutIdempotencyTests.cs` | `CheckoutIdempotencyTests` | 3 | 0 |
 | `tests/Souq.IntegrationTests/ConfigurationTests.cs` | `ConfigurationTests`, `ConfiguredFactory` | 10 | 6 |
+| `tests/Souq.IntegrationTests/CookieSecurityTests.cs` | `CookieSecurityTests` | 3 | 0 |
 | `tests/Souq.IntegrationTests/CouponRedemptionTests.cs` | `CouponRedemptionTests` | 3 | 0 |
 | `tests/Souq.IntegrationTests/CustomerAccountTests.cs` | `CustomerAccountTests` | 6 | 0 |
 | `tests/Souq.IntegrationTests/EnforcementDiagnosticsTests.cs` | `EnforcementDiagnosticsTests` | 1 | 2 |
