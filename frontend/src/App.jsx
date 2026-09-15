@@ -68,7 +68,6 @@ function CustomerLayout() {
   const { t } = useTranslation();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
-  const [searchTerm, setSearchTerm] = useState('');
   const [categories, setCategories] = useState([]);
   const navigate = useNavigate();
   const toast = useToast();
@@ -86,10 +85,10 @@ function CustomerLayout() {
     <CartProvider>
       <WishlistProvider>
         <AnnouncementBar />
-        <Navbar onCartClick={() => setDrawerOpen(true)} searchTerm={searchTerm} onSearchChange={setSearchTerm} />
+        <Navbar onCartClick={() => setDrawerOpen(true)} />
         <CategoryNav categories={categories} />
         <Suspense fallback={<PagePending />}>
-          <Outlet context={{ showToast, refreshProducts, refreshKey, searchTerm, categories }} />
+          <Outlet context={{ showToast, refreshProducts, refreshKey, categories }} />
         </Suspense>
         <Footer />
         <CartDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)}

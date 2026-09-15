@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import Storefront from './Storefront';
 import { api } from '../api/client';
+import { usePageMetadata } from '../app/usePageMetadata';
 
 const HOME_SECTION_SIZE = 10;
 
@@ -9,7 +10,9 @@ const HOME_SECTION_SIZE = 10;
 // لعرض Storefront مع الفئات (من تخطيط المتجر). الكتالوج نفسه يجلب صفحته بنفسه
 // (Catalog) اعتماداً على فلاتر الرابط. refreshKey يُعيد الجلب بعد إتمام طلب.
 export default function Store() {
-  const { showToast, refreshKey, searchTerm, categories } = useOutletContext();
+  // الرئيسية تحمل هوية المتجر نفسها؛ الخطّاف يضيف الرابط القانوني ووسوم المشاركة.
+  usePageMetadata();
+  const { showToast, refreshKey, categories } = useOutletContext();
 
   const [newArrivals, setNewArrivals] = useState([]);
   const [newArrivalsLoading, setNewArrivalsLoading] = useState(true);
@@ -40,12 +43,13 @@ export default function Store() {
     return () => { active = false; };
   }, [refreshKey]);
 
-  // "العروض" (مؤقّت): كل المنتجات النشطة بترتيب الأحدث حتى تُضاف راية عرض حقيقية
-  // للمنتجات — نعرض دفعة ثانية كي لا يطابق صفّها صفّ "وصل حديثاً" بصرياً.
+  // "العروض": المنتجات التي عليها تخفيض فعلاً — الخادم يعرّفها بسعر مقارنة أعلى من
+  // السعر (onSale). كان هذا الصفّ يعرض "الصفحة الثانية من الأحدث" باسم عروض: محتوى
+  // نائب يعد الزائر بتخفيض غير موجود.
   useEffect(() => {
     let active = true;
     setOffersLoading(true);
-    api.getProducts({ page: 2, pageSize: HOME_SECTION_SIZE })
+    api.getProducts({ page: 1, pageSize: HOME_SECTION_SIZE, onSale: true })
       .then((res) => { if (active) setOffers(res.items.length ? res.items : []); })
       .catch(() => { if (active) setOffers([]); })
       .finally(() => { if (active) setOffersLoading(false); });
@@ -54,7 +58,7 @@ export default function Store() {
 
   return (
     <Storefront
-      categories={categories} onAdded={showToast} searchTerm={searchTerm} refreshKey={refreshKey}
+      categories={categories} onAdded={showToast} refreshKey={refreshKey}
       newArrivals={newArrivals} newArrivalsLoading={newArrivalsLoading}
       bestSellers={bestSellers} bestSellersLoading={bestSellersLoading}
       offers={offers} offersLoading={offersLoading}

@@ -11,13 +11,14 @@ import { setLanguage } from '../../i18n';
 import { CartIcon, HeartIcon, MenuIcon } from '../icons/Icons';
 import NotificationBell from '../notifications/NotificationBell';
 import SearchBar from './SearchBar';
+import { useStoreSearch } from '../../features/catalog/useStoreSearch';
 import MobileMenu from './MobileMenu';
 import styles from './Navbar.module.css';
 
 // شريط تنقّل المتجر: خلفية بيضاء ثابتة أعلى الصفحة (تحت شريط الإعلان)، اسم المتجر أو شعاره يميناً (RTL)، البحث وسطاً، أيقونات
 // اللغة/المفضّلة/السلة يساراً. يتحوّل على الجوال إلى هامبرغر + ورقة سفلية. المرحلة 15: الهوية من إعداد المتجر (لا سمة يختارها
 // الزائر)، وتبديل اللغة والمفضّلة بما يفعّله المتجر.
-export default function Navbar({ onCartClick, searchTerm, onSearchChange }) {
+export default function Navbar({ onCartClick }) {
   const { t, i18n } = useTranslation();
   const { count } = useCart();
   const { count: wishlistCount } = useWishlist();
@@ -25,6 +26,7 @@ export default function Navbar({ onCartClick, searchTerm, onSearchChange }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const wishlistEnabled = useModule('wishlist');
   const languages = enabledLanguages(useStoreConfig());
+  const search = useStoreSearch();
 
   const otherLanguage = i18n.language === 'ar' ? 'en' : 'ar';
   const canToggleLanguage = languages.includes(otherLanguage);
@@ -38,7 +40,8 @@ export default function Navbar({ onCartClick, searchTerm, onSearchChange }) {
 
       <Link to="/" className={styles.brand}><StoreBrand /></Link>
 
-      <SearchBar value={searchTerm} onChange={onSearchChange} className={styles.searchDesktop} />
+      <SearchBar value={search.value} onChange={search.setValue} onSubmit={search.submit}
+        className={styles.searchDesktop} />
 
       <div className={styles.actions}>
         {canManageStore && <Link to="/admin" className={styles.linkLight}>{t('nav.adminPanel')}</Link>}
@@ -83,7 +86,7 @@ export default function Navbar({ onCartClick, searchTerm, onSearchChange }) {
       </div>
 
       <MobileMenu open={menuOpen} onClose={() => setMenuOpen(false)}
-        searchTerm={searchTerm} onSearchChange={onSearchChange}
+        search={search}
         currentLanguage={i18n.language} otherLanguage={otherLanguage}
         onToggleLanguage={canToggleLanguage ? toggleLanguage : undefined} />
     </nav>

@@ -25,10 +25,12 @@ const PAGE_SIZE = 12;
 // كل الحالة في رابط الصفحة (?cats=&min=&max=&sort=&view=&page=) — قابلة للمشاركة.
 // lockSort يثبّت الترتيب ويخفي أزراره (تستخدمه صفحة العروض: الأحدث دائماً).
 // ============================================================================
-export default function Catalog({ categories = [], searchTerm = '', onAdded, refreshKey, lockSort }) {
+export default function Catalog({ categories = [], onAdded, refreshKey, lockSort, onSale = false }) {
   const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
-  const debouncedSearch = useDebouncedValue(searchTerm, 300);
+  // البحث من الرابط: نتيجة قابلة للمشاركة، وزرّ الرجوع يعيدها (searchRouting).
+  const keyword = searchParams.get('q') ?? '';
+  const debouncedSearch = useDebouncedValue(keyword, 300);
 
   const categoryIds = useMemo(
     () => (searchParams.get('cats') || '').split(',').map(Number).filter((n) => Number.isInteger(n) && n > 0),
@@ -72,7 +74,7 @@ export default function Catalog({ categories = [], searchTerm = '', onAdded, ref
   const clearPrice = () => { setPriceDraft({ min: '', max: '' }); updateParams({ min: null, max: null }); };
 
   const { items, totalCount, totalPages, loading, error, refetch } = useCatalog({
-    keyword: debouncedSearch, categoryIds, minPrice, maxPrice,
+    keyword: debouncedSearch, categoryIds, minPrice, maxPrice, onSale,
     sortBy: SORT_API[sortBy], page, pageSize: PAGE_SIZE, refreshKey,
   });
 

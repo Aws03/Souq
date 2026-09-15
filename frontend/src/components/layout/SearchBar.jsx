@@ -3,10 +3,15 @@ import { SearchIcon } from '../icons/Icons';
 import styles from './SearchBar.module.css';
 
 // حقل بحث عام (سطح المكتب داخل الشريط، والجوال داخل القائمة السفلية).
-export default function SearchBar({ value, onChange, className = '' }) {
+// نموذج حقيقي لا حقل عائم: Enter يُرسل، والقارئ الصوتي يعلن "بحث" بدوره الدلالي.
+export default function SearchBar({ value, onChange, onSubmit, className = '' }) {
   const { t } = useTranslation();
   return (
-    <label className={`${styles.wrap} ${className}`}>
+    <form
+      role="search"
+      className={`${styles.wrap} ${className}`}
+      onSubmit={(e) => { e.preventDefault(); onSubmit?.(); }}
+    >
       <SearchIcon size={16} />
       <input
         type="search"
@@ -15,6 +20,6 @@ export default function SearchBar({ value, onChange, className = '' }) {
         placeholder={t('nav.searchPlaceholder')}
         aria-label={t('nav.searchAria')}
       />
-    </label>
+    </form>
   );
 }

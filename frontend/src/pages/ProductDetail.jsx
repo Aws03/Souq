@@ -19,6 +19,7 @@ import ReviewForm from '../components/reviews/ReviewForm';
 import ReviewList from '../components/reviews/ReviewList';
 import ProductSection from '../components/store/ProductSection';
 import styles from './ProductDetail.module.css';
+import { usePageMetadata } from '../app/usePageMetadata';
 
 // صفحة تفصيل منتج: صورة كبيرة + بيانات كاملة + إضافة للسلة، وأسفلها التقييمات
 // (متوسط + قائمة مرقّمة + نموذج إضافة تقييم لمن يحقّ له).
@@ -40,6 +41,16 @@ export default function ProductDetail() {
 
   const [related, setRelated] = useState(null);
   const [relatedLoading, setRelatedLoading] = useState(true);
+
+  // أهمّ صفحة للاكتشاف: عنوانها اسم المنتج، ووصفها وصفه، وصورة مشاركتها صورته.
+  // كانت كل صفحات المتجر تحمل عنوان المتجر ووصفه نفسيهما، فلا منتج يُصنَّف على اسمه
+  // ولا رابط مُشارَك يُظهر ما يخصّه. القيم من المنتج نفسه — لا شيء مُخترَع هنا.
+  usePageMetadata({
+    title: product ? getProductName(product) : undefined,
+    description: product ? getProductDescription(product) : undefined,
+    image: product?.imageUrl || undefined,
+    type: 'product',
+  });
 
   useEffect(() => {
     setProduct(null); setProductError(null);

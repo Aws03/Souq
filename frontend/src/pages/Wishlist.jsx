@@ -6,10 +6,12 @@ import ProductCard from '../components/product/ProductCard';
 import { EmptyState } from '../components/common/StateViews';
 import { PackageIcon } from '../components/icons/Icons';
 import styles from './Wishlist.module.css';
+import { usePageMetadata } from '../app/usePageMetadata';
 
 // صفحة المفضّلة: تعرض ما في WishlistContext — للعميل من الخادم بأسعار الكتالوج الحيّة (المرحلة 13)، وللزائر من متصفّحه.
 // فارغة افتراضياً حتى يضغط أيقونة القلب على بطاقة منتج.
 export default function Wishlist() {
+  usePageMetadata({ title: t('wishlist.title') });
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { items } = useWishlist();

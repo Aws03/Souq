@@ -8,7 +8,7 @@ import styles from './MobileMenu.module.css';
 // ورقة سفلية (Bottom Sheet) تظهر على الجوال عند فتح زر الهامبرغر: بحث + روابط + المفضّلة وتبديل اللغة (انتقلا هنا من شريط التنقّل
 // على الجوال لتفادي الازدحام). المرحلة 15: لا سمة يختارها الزائر (الهوية قرار المتجر)، والمفضّلة وتبديل اللغة بما يفعّله المتجر.
 export default function MobileMenu({
-  open, onClose, searchTerm, onSearchChange, currentLanguage, otherLanguage, onToggleLanguage,
+  open, onClose, search, currentLanguage, otherLanguage, onToggleLanguage,
 }) {
   const { t } = useTranslation();
   const { user, isAuthenticated, canManageStore, logout } = useAuth();
@@ -19,7 +19,8 @@ export default function MobileMenu({
     <>
       <div className={styles.overlay} onClick={onClose} />
       <div className={styles.sheet} role="dialog" aria-modal="true">
-        <SearchBar value={searchTerm} onChange={onSearchChange} className={styles.search} />
+        <SearchBar value={search.value} onChange={search.setValue}
+          onSubmit={() => { search.submit(); onClose(); }} className={styles.search} />
         <nav className={styles.links}>
           {wishlist && <Link to="/wishlist" onClick={onClose}>{t('nav.wishlistAria')}</Link>}
           {canManageStore && <Link to="/admin" onClick={onClose}>{t('nav.adminPanel')}</Link>}

@@ -2,19 +2,20 @@ import { useOutletContext } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Catalog from '../components/catalog/Catalog';
 import styles from './Offers.module.css';
+import { usePageMetadata } from '../app/usePageMetadata';
 
-// صفحة العروض: نفس تخطيط الكتالوج تماماً، لكن مثبَّتة على ترتيب الأحدث كبديل
-// مؤقّت حتى تُضاف راية "عرض" حقيقية للمنتجات (عندها نفلتر بها هنا فقط).
+// صفحة العروض: الكتالوج نفسه مفلتراً على المنتجات المخفّضة فعلاً (onSale في الخادم:
+// سعر مقارنة أعلى من السعر). كانت تعرض كل المنتجات بترتيب الأحدث باسم "عروض".
 export default function Offers() {
+  usePageMetadata({ title: t('offers.title'), description: t('offers.subtitle') });
   const { t } = useTranslation();
-  const { showToast, refreshKey, searchTerm, categories } = useOutletContext();
+  const { showToast, refreshKey, categories } = useOutletContext();
 
   return (
     <div className={`souq-layout ${styles.page}`}>
       <h1 className={styles.title}>{t('offers.title')}</h1>
       <p className={styles.subtitle}>{t('offers.subtitle')}</p>
-      <Catalog categories={categories} searchTerm={searchTerm} onAdded={showToast}
-        refreshKey={refreshKey} lockSort="newest" />
+      <Catalog categories={categories} onAdded={showToast} refreshKey={refreshKey} onSale />
     </div>
   );
 }

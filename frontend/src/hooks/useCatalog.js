@@ -7,7 +7,7 @@ import { api } from '../api/client';
 // الاكتشاف التي تكتفي بالعناصر. كل الفلاتر + الصفحة + حجم الصفحة كمُدخلات.
 // ============================================================================
 export function useCatalog({
-  keyword, categoryIds, minPrice, maxPrice, sortBy, page = 1, pageSize = 12, refreshKey,
+  keyword, categoryIds, minPrice, maxPrice, sortBy, page = 1, pageSize = 12, refreshKey, onSale = false,
 } = {}) {
   const [data, setData] = useState({ items: [], totalCount: 0, totalPages: 1, pageNumber: 1 });
   const [loading, setLoading] = useState(true);
@@ -20,13 +20,13 @@ export function useCatalog({
   useEffect(() => {
     let active = true;
     setLoading(true);
-    api.getProducts({ keyword, categoryIds, minPrice, maxPrice, sortBy, page, pageSize })
+    api.getProducts({ keyword, categoryIds, minPrice, maxPrice, sortBy, page, pageSize, onSale })
       .then((res) => { if (active) { setData(res); setError(null); } })
       .catch((e) => { if (active) setError(e.message); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- categoryIds ممثَّلة بـ catsKey
-  }, [keyword, catsKey, minPrice, maxPrice, sortBy, page, pageSize, refreshKey, retryTick]);
+  }, [keyword, catsKey, minPrice, maxPrice, sortBy, page, pageSize, refreshKey, retryTick, onSale]);
 
   const refetch = useCallback(() => setRetryTick((t) => t + 1), []);
 
