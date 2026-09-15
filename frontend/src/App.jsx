@@ -29,6 +29,7 @@ import './styles.css';
 // ============================================================================
 const Offers = lazy(() => import('./pages/Offers'));
 const Wishlist = lazy(() => import('./pages/Wishlist'));
+const Cart = lazy(() => import('./pages/Cart'));
 const MyOrders = lazy(() => import('./pages/MyOrders'));
 const AccountLayout = lazy(() => import('./pages/account/AccountLayout'));
 const Profile = lazy(() => import('./pages/account/Profile'));
@@ -131,6 +132,8 @@ function StoreRoutes() {
         <Route path="/offers" element={<Offers />} />
         <Route path="/products/:id" element={<ProductDetail />} />
         <Route path="/wishlist" element={<RequireModule module="wishlist"><Wishlist /></RequireModule>} />
+        {/* السلة بصفحتها إلى جانب الدرج — بلا حارس: الزائر له سلة أيضاً (ملف تعريف ارتباط HttpOnly من الخادم). */}
+        <Route path="/cart" element={<Cart />} />
 
         {/* قشرة حساب العميل (المرحلة 16): الملف والعناوين والطلبات في منطقة واحدة بتنقّل واحد.
             /orders و/orders/:id لم تتغيّر — روابط البريد والإشعارات تشير إليهما. صفحة الطلب

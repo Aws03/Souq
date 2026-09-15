@@ -1,0 +1,5 @@
+.viewCart {
+  display: block; text-align: center; margin-top: 12px;
+  color: var(--color-text-muted); font-weight: 600; font-size: var(--fs-body-sm);
+}
+.viewCart:hover { color: var(--color-primary); }

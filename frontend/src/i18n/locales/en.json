@@ -51,7 +51,11 @@
     "unavailable": "No longer available — remove it to continue",
     "onlyLeft": "Only {{count}} left — reduce the quantity",
     "fixItems": "Fix the highlighted items to continue to checkout.",
-    "shippingAtCheckout": "At checkout"
+    "shippingAtCheckout": "At checkout",
+    "pageSubtitle": "Review your items before checking out.",
+    "summaryTitle": "Order summary",
+    "continueShopping": "Continue shopping",
+    "viewCart": "View full cart"
   },
   "product": {
     "addToCart": "Add to cart",

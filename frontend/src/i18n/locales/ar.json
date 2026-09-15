@@ -51,7 +51,11 @@
     "unavailable": "لم يعد متاحاً — احذفه للمتابعة",
     "onlyLeft": "المتبقّي {{count}} فقط — خفّض الكمية",
     "fixItems": "عدّل الأصناف المعلَّمة للمتابعة إلى الدفع.",
-    "shippingAtCheckout": "عند الدفع"
+    "shippingAtCheckout": "عند الدفع",
+    "pageSubtitle": "راجع أصنافك قبل إتمام الشراء.",
+    "summaryTitle": "ملخّص الطلب",
+    "continueShopping": "متابعة التسوّق",
+    "viewCart": "عرض السلة كاملة"
   },
   "product": {
     "addToCart": "أضف للسلة",
