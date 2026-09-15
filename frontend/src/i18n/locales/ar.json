@@ -279,7 +279,10 @@
     "cancelConfirm": "إلغاء هذا الطلب غير المدفوع؟ ستُحرَّر الأصناف المحجوزة له.",
     "cancelledToast": "تم إلغاء الطلب",
     "refundedLabel": "المُستردّ",
-    "trackShipment": "تتبّع الشحنة"
+    "trackShipment": "تتبّع الشحنة",
+    "trackTitle": "تتبّع طلبك",
+    "trackNotFoundTitle": "رابط التتبّع هذا لا يعمل",
+    "trackNotFoundMessage": "قد يكون الرابط ناقصاً، أو لم يعد الطلب متاحاً. تحقّق من الرابط في بريدك، أو تواصل مع المتجر."
   },
   "admin": {
     "headerTitle": "لوحة تحكّم المتجر",
@@ -925,7 +928,8 @@
     "erasePasswordLabel": "أكّد بكلمة المرور",
     "passwordRequired": "أدخل كلمة المرور للتأكيد",
     "eraseButton": "حذف حسابي نهائياً",
-    "erased": "تم حذف حسابك."
+    "erased": "تم حذف حسابك.",
+    "navAria": "أقسام الحساب"
   },
   "notifications": {
     "title": "الإشعارات",

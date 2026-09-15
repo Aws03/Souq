@@ -92,7 +92,7 @@
 Be aware of these when you plan work:
 
 1. **No CI**, so nothing above runs automatically (TD-31).
-2. **The frontend has no component tests**: guards, forms and rendering are verified by hand (TD-32).
+2. **Frontend component coverage is partial**: the guards, the error boundary, the account shell and the order screens are tested; forms, checkout and the providers are still verified by hand (TD-32).
 3. **External adapters are untested**: Stripe and the three email providers are exercised only through fakes (TD-33).
 4. **Some rules are untested**, listed in the gaps section of [BusinessRules.md](../01-REQUIREMENTS/BusinessRules.md) — notably the sweeps for non-active stores, the password policy itself, and several length limits.
 5. **Performance is unmeasured**: no load test, no query budget beyond the N+1 checks.

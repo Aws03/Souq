@@ -57,8 +57,10 @@ When one of these fails, the question is never "how do I silence it?" but "is th
 
 ### Frontend tests
 
-- **Yes:** pure logic — request payload builders, query strings, view models, money and date formatting, the tenant model, and the white-label source rule (`frontend/src/whiteLabel.test.js`).
-- **Not today:** component rendering and interaction. There is no testing-library setup; this is a known gap, not a decision to skip testing UI forever.
+- **Yes, pure logic:** request payload builders, query strings, view models, money and date formatting, the tenant model, search routing, page metadata, translation-key presence, and the white-label source rule (`frontend/src/whiteLabel.test.js`).
+- **Yes, components (Phase 16):** route guards, the error boundary, the account shell and the order screens. The environment is per file — a test opts into a DOM with `// @vitest-environment jsdom`, so pure-logic tests keep running in Node. `globals: false` means Testing Library's automatic cleanup is not registered for us, so `frontend/src/test/setup.js` registers `afterEach(cleanup)` itself; without it a second render in the same file finds two copies of everything.
+- **Source invariants:** `frontend/src/app/moduleInvariants.test.js` asserts that no source file is empty and that every module behind a `lazy()` import has a default export. It was written after finding two routed pages whose files were empty in the repository — a state that builds cleanly and fails only in the visitor's browser.
+- **Not today:** forms and checkout interaction, and the providers. A gap in coverage now, not a missing environment.
 
 ## 3. The gate: what must pass before a change is complete
 
@@ -111,7 +113,7 @@ Honest list; each is a candidate for [TechnicalDebt.md](../12-ROADMAP/TechnicalD
 | Gap | Consequence |
 |---|---|
 | No CI pipeline | Every suite runs only when someone remembers; a red main branch is possible |
-| No frontend component tests | Rendering, guards and forms are only covered by hand |
+| Partial frontend component tests | Guards, the error boundary, the account shell and the order screens are covered; forms and checkout are still only covered by hand |
 | Stripe and the email providers have no adapter tests | Their behaviour is proven only through the fake gateway and the capturing sender |
 | `MigrationRehearsalTests` is one large test | A failure cannot be bisected to a phase |
 | No load or performance test | Scaling decisions have no baseline ([ScalingStrategy.md](../09-OPERATIONS/ScalingStrategy.md)) |

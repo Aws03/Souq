@@ -151,7 +151,7 @@ Migration: `Phase7Customers`, additive (the profile columns and the `CustomerAdd
 
 Customers is not an optional module: `StoreModules` deliberately has no flag for it.
 
-**Frontend.** `frontend/src/pages/account/Account.jsx` with `frontend/src/pages/account/ProfileForm.jsx`, `frontend/src/pages/account/AddressBook.jsx`, `frontend/src/pages/account/AddressFormDrawer.jsx` and `frontend/src/pages/account/PrivacyPanel.jsx`; pure logic in `frontend/src/features/account/addressForm.js` and `frontend/src/features/account/download.js`. Admin: `frontend/src/pages/admin/Customers.jsx` and `frontend/src/pages/admin/CustomerDetailDrawer.jsx`, with `frontend/src/features/admin/customers/customerActions.js` mirroring the entity rules (an erased customer offers no actions). Checkout picks a saved address in `frontend/src/pages/checkout/AddressStep.jsx`.
+**Frontend.** The account shell `frontend/src/pages/account/AccountLayout.jsx` holds `frontend/src/pages/account/Profile.jsx` (with `frontend/src/pages/account/ProfileForm.jsx` and `frontend/src/pages/account/PrivacyPanel.jsx`) and `frontend/src/pages/account/Addresses.jsx` (with `frontend/src/pages/account/AddressBook.jsx` and `frontend/src/pages/account/AddressFormDrawer.jsx`); pure logic in `frontend/src/features/account/addressForm.js` and `frontend/src/features/account/download.js`. Admin: `frontend/src/pages/admin/Customers.jsx` and `frontend/src/pages/admin/CustomerDetailDrawer.jsx`, with `frontend/src/features/admin/customers/customerActions.js` mirroring the entity rules (an erased customer offers no actions). Checkout picks a saved address in `frontend/src/pages/checkout/AddressStep.jsx`.
 
 ## Security and permissions
 

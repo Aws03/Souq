@@ -30,7 +30,9 @@ import './styles.css';
 const Offers = lazy(() => import('./pages/Offers'));
 const Wishlist = lazy(() => import('./pages/Wishlist'));
 const MyOrders = lazy(() => import('./pages/MyOrders'));
-const Account = lazy(() => import('./pages/account/Account'));
+const AccountLayout = lazy(() => import('./pages/account/AccountLayout'));
+const Profile = lazy(() => import('./pages/account/Profile'));
+const Addresses = lazy(() => import('./pages/account/Addresses'));
 const OrderTracking = lazy(() => import('./pages/OrderTracking'));
 const OrderDetail = lazy(() => import('./pages/OrderDetail'));
 const Checkout = lazy(() => import('./pages/checkout/Checkout'));
@@ -129,8 +131,15 @@ function StoreRoutes() {
         <Route path="/offers" element={<Offers />} />
         <Route path="/products/:id" element={<ProductDetail />} />
         <Route path="/wishlist" element={<RequireModule module="wishlist"><Wishlist /></RequireModule>} />
-        <Route path="/orders" element={<ProtectedRoute><MyOrders /></ProtectedRoute>} />
-        <Route path="/account" element={<ProtectedRoute><Account /></ProtectedRoute>} />
+
+        {/* قشرة حساب العميل (المرحلة 16): الملف والعناوين والطلبات في منطقة واحدة بتنقّل واحد.
+            /orders و/orders/:id لم تتغيّر — روابط البريد والإشعارات تشير إليهما. صفحة الطلب
+            الواحد تبقى خارج القشرة: لها رجوعها الخاص وعرضها العريض، لا قائمة جانبية بجانبه. */}
+        <Route element={<ProtectedRoute><AccountLayout /></ProtectedRoute>}>
+          <Route path="/account" element={<Profile />} />
+          <Route path="/account/addresses" element={<Addresses />} />
+          <Route path="/orders" element={<MyOrders />} />
+        </Route>
         <Route path="/orders/:id" element={<ProtectedRoute><OrderDetail /></ProtectedRoute>} />
         {/* بلا حارس عمداً: رابط التتبّع العام بالرمز العشوائي (المرحلة 9، الخادم لا يتطلّب مصادقة لهذه النقطة) —
             يعمل لزائر لم يُسجّل الدخول أيضاً، ولا يُخمَّن رابط طلب آخر. */}

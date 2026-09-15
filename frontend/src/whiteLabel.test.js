@@ -9,7 +9,7 @@ import { describe, expect, it } from 'vitest';
 // ============================================================================
 const read = (path) => readFileSync(new URL(path, import.meta.url), 'utf8');
 const sources = Object.fromEntries(
-  Object.keys(import.meta.glob(['./**/*.{js,jsx,css,json}', '!./**/*.test.js']))
+  Object.keys(import.meta.glob(['./**/*.{js,jsx,css,json}', '!./**/*.test.js', '!./**/*.test.jsx']))
     .map((path) => [path, read(path)]),
 );
 const indexHtml = read('../index.html');

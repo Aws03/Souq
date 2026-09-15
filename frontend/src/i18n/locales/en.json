@@ -279,7 +279,10 @@
     "cancelConfirm": "Cancel this unpaid order? The items reserved for it will be released.",
     "cancelledToast": "Order cancelled",
     "refundedLabel": "Refunded",
-    "trackShipment": "Track shipment"
+    "trackShipment": "Track shipment",
+    "trackTitle": "Track your order",
+    "trackNotFoundTitle": "This tracking link doesn't work",
+    "trackNotFoundMessage": "The link may be incomplete, or the order may no longer be available. Check the link in your email, or contact the store."
   },
   "admin": {
     "headerTitle": "Store control panel",
@@ -925,7 +928,8 @@
     "erasePasswordLabel": "Confirm with your password",
     "passwordRequired": "Enter your password to confirm",
     "eraseButton": "Delete my account permanently",
-    "erased": "Your account was deleted."
+    "erased": "Your account was deleted.",
+    "navAria": "Account sections"
   },
   "notifications": {
     "title": "Notifications",

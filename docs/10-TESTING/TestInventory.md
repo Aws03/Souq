@@ -11,7 +11,7 @@
 | [`Souq.Application.Tests`](#souqapplicationtests) | 39 | 272 | 11 |
 | [`Souq.ArchitectureTests`](#souqarchitecturetests) | 13 | 53 | 7 |
 | [`Souq.IntegrationTests`](#souqintegrationtests) | 41 | 203 | 21 |
-| [frontend (Vitest)](#frontend-vitest) | 25 | 107 | — |
+| [frontend (Vitest)](#frontend-vitest) | 34 | 166 | — |
 
 ## Souq.Domain.Tests
 
@@ -156,7 +156,11 @@
 | `frontend/src/api/client.test.js` | 6 |
 | `frontend/src/api/problem.test.js` | 6 |
 | `frontend/src/api/query.test.js` | 4 |
+| `frontend/src/app/moduleInvariants.test.js` | 2 |
+| `frontend/src/app/pageMetadata.test.js` | 11 |
 | `frontend/src/app/tenantModel.test.js` | 7 |
+| `frontend/src/components/ProtectedRoute.test.jsx` | 11 |
+| `frontend/src/components/common/ErrorBoundary.test.jsx` | 5 |
 | `frontend/src/features/account/addressForm.test.js` | 4 |
 | `frontend/src/features/admin/categories/categoryForm.test.js` | 5 |
 | `frontend/src/features/admin/coupons/couponForm.test.js` | 4 |
@@ -169,6 +173,7 @@
 | `frontend/src/features/auth/safeRedirect.test.js` | 5 |
 | `frontend/src/features/basket/basketModel.test.js` | 4 |
 | `frontend/src/features/catalog/catalogText.test.js` | 5 |
+| `frontend/src/features/catalog/searchRouting.test.js` | 7 |
 | `frontend/src/features/checkout/shippingChoice.test.js` | 4 |
 | `frontend/src/features/checkout/shippingOptions.test.js` | 4 |
 | `frontend/src/features/notifications/notificationView.test.js` | 4 |
@@ -176,5 +181,9 @@
 | `frontend/src/features/reviews/ratingSummary.test.js` | 3 |
 | `frontend/src/features/wishlist/wishlistModel.test.js` | 5 |
 | `frontend/src/i18n/locales.test.js` | 2 |
+| `frontend/src/i18n/translationKeys.test.js` | 4 |
+| `frontend/src/pages/MyOrders.test.jsx` | 7 |
+| `frontend/src/pages/OrderTracking.test.jsx` | 6 |
+| `frontend/src/pages/account/AccountLayout.test.jsx` | 6 |
 | `frontend/src/pages/checkout/stripeClient.test.js` | 3 |
 | `frontend/src/whiteLabel.test.js` | 1 |

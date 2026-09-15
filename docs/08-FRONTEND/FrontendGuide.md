@@ -76,16 +76,18 @@ The browser cannot *choose* to be the platform: the platform routes only appear 
 | Area | Host | Layout | Guard (UX only) | Loading |
 |---|---|---|---|---|
 | Storefront | store host | `CustomerLayout` in `frontend/src/App.jsx` | none | home and product page eager, the rest lazy |
-| Customer account | store host | `CustomerLayout` (no separate account shell yet) | `ProtectedRoute` | lazy |
+| Customer account | store host | `AccountLayout` nested in `CustomerLayout` | `ProtectedRoute` on the shell route | lazy |
 | Authentication | store host and platform host | `AuthLayout` | none | lazy |
 | Store admin | store host, `/admin/*` | `AdminLayout` with `AdminSidebar` and `AdminMobileTabBar` | `AdminRoute`, then `RequirePermission` and `RequireModule` per page | lazy |
 | Platform | platform host, `/platform/*` | `PlatformLayout` (placeholder shell) | `PlatformRoute` | lazy |
 
-**Storefront and account routes:** `/` (`Store`), `/offers`, `/products/:id`, `/wishlist` (behind the `wishlist` module), `/track/:token`, `/checkout`, `/confirmation`, `/orders`, `/orders/:id`, `/account`. Everything except the home, offers, product and tracking pages requires a session.
+**Storefront and account routes:** `/` (`Store`), `/offers`, `/products/:id`, `/wishlist` (behind the `wishlist` module), `/track/:token`, `/checkout`, `/confirmation`, `/orders/:id`, and — inside the account shell — `/account` (`Profile`), `/account/addresses` (`Addresses`) and `/orders` (`MyOrders`). Anything the shell holds, plus checkout, confirmation and the order page, requires a session; an unknown path under the storefront renders `NotFound`, not a silent redirect home.
+
+The shell is one `Route` carrying `ProtectedRoute` and `AccountLayout`, so the guard and the navigation are declared once. `/orders/:id` stays outside it: the order page has its own back link and a full-width layout, and its URL is the one that email and notification links point at.
 
 `/track/:token` is deliberately unguarded: the public tracking link is a random token, so it works for a signed-out recipient and cannot be guessed from an order id.
 
-`CustomerLayout` owns the storefront chrome (`AnnouncementBar`, `Navbar`, `CategoryNav`, `Footer`, `CartDrawer`), mounts the cart and wishlist providers, fetches the category list once, and passes `{ showToast, refreshProducts, refreshKey, searchTerm, categories }` down through the router's outlet context. A page reads it with `useOutletContext()`.
+`CustomerLayout` owns the storefront chrome (`AnnouncementBar`, `Navbar`, `CategoryNav`, `Footer`, `CartDrawer`), mounts the cart and wishlist providers, fetches the category list once, and passes `{ showToast, refreshProducts, refreshKey, categories }` down through the router's outlet context (the search term left it in Phase 16 — the URL carries it now). A page reads it with `useOutletContext()`.
 
 **Authentication routes:** `/login`, `/register`, `/forgot-password`, `/reset-password`, `/verify-email`, and `/accept-invitation`, which renders `ResetPassword` with `mode="invitation"` — the same server endpoint, different text. The platform host exposes only sign-in, password recovery and invitation acceptance; there is no self-registration there.
 

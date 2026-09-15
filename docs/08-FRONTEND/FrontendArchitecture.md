@@ -25,7 +25,7 @@ Rewriting would have thrown away working, accessible components for no business 
 | Area | Served on | Layout today | Guard (UX only; the server enforces) |
 |---|---|---|---|
 | Public storefront | store host | `CustomerLayout` in `frontend/src/App.jsx` (announcement, nav, category bar, footer, cart drawer) | none |
-| Customer account | store host, `/account`, `/orders` | `CustomerLayout` — a dedicated account shell is **PLANNED** for Phase 16 | signed-in customer (`ProtectedRoute`) |
+| Customer account | store host, `/account`, `/account/addresses`, `/orders` | `AccountLayout` inside `CustomerLayout` — one navigation over profile, addresses, orders and the wishlist (Phase 16) | signed-in customer (`ProtectedRoute`) |
 | Store admin | store host, `/admin/*` | `AdminLayout` (sidebar, mobile tab bar) | `AdminRoute`, then a permission per route and a module flag where the page is optional |
 | Platform owner | platform host, `/platform/*` | `PlatformLayout` (shell only; screens **PLANNED** for Phase 18) | `PlatformRoute` (platform account) |
 
