@@ -1,12 +1,12 @@
 # Reporting module
 
-> **Code:** `src/Souq.Application/Features/Reporting`, `src/Souq.Infrastructure/Persistence/Queries/PlatformQueries.cs` · **Decisions:** [ADR-0008](../../11-ADR/0008-cqrs-strategy.md), [ADR-0024](../../11-ADR/0024-platform-administration.md) · **Change guide:** none yet — the module is one query
+> **Code:** `src/Souq.Application/Features/Reporting`, `src/Souq.Infrastructure/Persistence/Queries/PlatformQueries.cs`, `src/Souq.Infrastructure/Persistence/Queries/StoreReportQueries.cs` · **Decisions:** [ADR-0008](../../11-ADR/0008-cqrs-strategy.md), [ADR-0024](../../11-ADR/0024-platform-administration.md) · **Change guide:** none yet · **The dashboards, their metric definitions and their limits:** [Dashboards.md](Dashboards.md)
 
 ## Purpose
 
 Reporting answers questions that span more than one module, and sometimes more than one store: how many stores are active, how many orders were placed in the last 30 days. It is its own module because those answers are **derived** data with no owner: they read other modules' tables, they never write, and they are allowed to cross the tenant boundary in a way no business module may. Keeping that privilege in one named module makes it reviewable.
 
-Today the module is small and honest about it: one query, the platform statistics. Store-facing dashboards are **PLANNED** (roadmap Phase 17).
+The module has two read paths. The **platform statistics** cross every store and use the single reviewed query-filter bypass. The **store dashboard** does not cross anything: inside a store scope the ordinary tenant filter already narrows every table, so it is a normal query service that happens to live here because a dashboard is derived data with no owning module. Every metric it reports is defined in [Dashboards.md](Dashboards.md) §2.
 
 ## Responsibilities
 
@@ -26,7 +26,9 @@ Today the module is small and honest about it: one query, the platform statistic
 
 - **Platform statistics** — a snapshot of the whole platform: stores by status, account counts, and the totals of customers, products and orders.
 - **Recent window** — "the last 30 days", computed by the handler from the injected clock, not by the database.
-- **Store dashboard** — the KPIs a store's own staff need. PLANNED; see Future evolution.
+- **Store dashboard** — one store's own figures for a chosen period: net revenue, counted orders, average order value, new customers, a daily trend, orders by status, best sellers, category performance, a stock snapshot and customer counts. Read by two different screens for two different readers ([Dashboards.md](Dashboards.md) §1).
+- **A counted order** — placed **and** `Paid`, `Shipped` or `Delivered`. This one definition is the basis of every money figure, and it lives in `StoreReportQueries.CountedStatuses` so that a card and a chart on the same screen cannot disagree about what revenue is.
+- **Report range** — a closed key (`Today`, `Last7Days`, `Last30Days`, `Last90Days`, `ThisYear`), not two dates from the browser. The handler turns the key into a window from the injected clock.
 
 ## Domain model
 
@@ -37,24 +39,33 @@ This module owns no entities, no value objects and no domain events. Its only ty
 | `PlatformStatsDto` | read model | `src/Souq.Application/Features/Reporting/PlatformStats.cs` | `TenantsByStatus` (every `TenantStatus` name, zero-filled), `PlatformAccounts`, `StoreStaffAccounts`, `Customers`, `Products`, `Orders`, `OrdersLast30Days` |
 | `IPlatformReports` | port | same file | Implemented by `PlatformQueries` in Infrastructure |
 | `GetPlatformStatsQuery` | query, `IAuditable` | same file | Audit action `platform.stats.viewed` |
+| `StoreDashboardDto` | read model | `src/Souq.Application/Features/Reporting/StoreDashboard.cs` | `PeriodTotalsDto` for the period and the one before it, `SalesPointDto` trend, `OrdersByStatus` (zero-filled), `TopProductDto` and `CategoryPerformanceDto` lists, `InventorySnapshotDto`, customer counts, the currency |
+| `ReportRange` | enum | same file | The closed period key. An unknown value is a 400, not a silent default |
+| `ReportWindow` | value | same file | `From`, `To` and `PreviousFrom`; computed by `GetStoreDashboardHandler.WindowFor` from the injected clock |
+| `IStoreReports` | port | same file | Implemented by `StoreReportQueries` in Infrastructure |
+| `GetStoreDashboardQuery` | query, `IAuditable` | same file | Audit action `store.dashboard.viewed` |
+
+The header comment of `StoreDashboard.cs` carries the formula for every metric, including the two that are deliberately **absent** — profit and conversion rate — and the reason each cannot be computed from the data this system holds.
 
 ## Use cases
 
 | Use case | Query | Handler | Who may call it | Endpoint |
 |---|---|---|---|---|
 | Platform statistics | `GetPlatformStatsQuery` | `GetPlatformStatsHandler` | `platform.reports.view` (PlatformOwner, PlatformAdmin), platform hosts only | `GET /api/platform/stats` |
+| Store dashboard | `GetStoreDashboardQuery` | `GetStoreDashboardHandler` | `store.reports.view` (TenantAdmin, TenantStaff), on the store's own host | `GET /api/admin/reports/dashboard?range=` |
 
-The handler does one thing: it turns "now" into the recent-window boundary (`clock` minus 30 days) and delegates to `IPlatformReports`. All counting is SQL.
+Both handlers do one thing: they turn "now" into a window and delegate. All aggregation is SQL — nothing loads rows and sums them in memory, so a store with a hundred thousand orders costs the dashboard what a store with a hundred costs.
 
 ## Public contracts
 
-- **Provides:** `IPlatformReports` — implemented in Infrastructure, consumed only by this module's handler.
+- **Provides:** `IPlatformReports` and `IStoreReports` — both implemented in Infrastructure, each consumed only by its own handler.
 - **Consumes:** nothing from other modules' Application layers. It reads their *tables* through Infrastructure, which is the documented exception in [Modules.md](../Modules.md).
 
 ## Dependencies
 
 - **Uses:** `PlatformQueries`, which is also `IPlatformQueries` for the platform area. It counts `Tenants` (no filter — a platform table), and `Users`, `Customers`, `Products` and `Orders` with `IgnoreQueryFilters` on the named `Tenant` filter. Every one of those is an aggregate count: no row of any store ever leaves the query.
-- **Used by:** `PlatformInsightsController` in `src/Souq.API/Controllers/PlatformControllers.cs`.
+- **Uses:** `StoreReportQueries` for the store dashboard. It uses **no** bypass: every statement passes the ordinary tenant filter, so a mistake in this file cannot leak another store's rows.
+- **Used by:** `PlatformInsightsController` in `src/Souq.API/Controllers/PlatformControllers.cs`, and `StoreReportsController` in `src/Souq.API/Controllers/StoreReportsController.cs`.
 - **Enforced vs convention:**
   - Enforced — `TenancyRuleTests` allows `IgnoreQueryFilters` in exactly one type (`PlatformQueries`); adding a second is a security decision that fails the build first.
   - Enforced — `ModuleAndContractRuleTests` requires every request under `Features.Reporting` to implement `IAuditable`, exactly as for the platform area: a cross-store read is an event worth recording.
@@ -62,7 +73,7 @@ The handler does one thing: it turns "now" into the recent-window boundary (`clo
 
 ## Data ownership
 
-The module owns **no tables**. It reads `Tenants`, `Users`, `Customers`, `Products` and `Orders`. There are no read models, no materialized views and no caches: each request runs seven aggregate queries against the live tables.
+The module owns **no tables**. The platform query reads `Tenants`, `Users`, `Customers`, `Products` and `Orders`; the store dashboard reads `Orders` (and its owned items), `Products`, `Categories`, `ProductVariants` and `Customers`, all through the tenant filter. There are no read models, no materialized views and no caches: each request aggregates the live tables.
 
 Counting semantics worth knowing before quoting a number:
 
@@ -76,11 +87,12 @@ Counting semantics worth knowing before quoting a number:
 | Method | Route | Authorization | Module flag | Use case |
 |---|---|---|---|---|
 | GET | `/api/platform/stats` | `platform.reports.view`, platform host only (`[PlatformEndpoint]`) | — | Platform statistics |
+| GET | `/api/admin/reports/dashboard` | `store.reports.view` | — | Store dashboard |
 
 ## Security and permissions
 
 - `platform.reports.view` is granted to PlatformOwner and PlatformAdmin.
-- `store.reports.view` exists in `Permissions` and is granted to TenantAdmin and TenantStaff, but **no endpoint uses it today** — it was defined ahead of the Phase 17 dashboard so that roles would not have to change shape later.
+- `store.reports.view` is granted to TenantAdmin and TenantStaff, and now has its endpoint: `GET /api/admin/reports/dashboard`. The store is resolved from the host through `ITenantContext` — there is no tenant id in the route, the query string or the body, so a caller has nothing to change in order to read another store.
 - The endpoint is served only on platform hosts, and a store token is rejected there with 401 (`AuthorizationBoundaryTests`).
 - The query is audited like every platform-area request: the row is staged before the handler and flushed after success, because a query saves nothing of its own.
 
@@ -103,12 +115,14 @@ None.
 
 | Level | Class | What it covers |
 |---|---|---|
+| Application | `tests/Souq.Application.Tests/Reporting/StoreDashboardTests.cs` | Window arithmetic for every range and the previous-period boundary |
+| Integration | `tests/Souq.IntegrationTests/StoreDashboardTests.cs` | The store dashboard's numbers and its boundary: an unpaid order is not revenue, revenue and average order value, cross-store isolation, a foreign token, customer and anonymous refusal, staff access, an empty store, an unknown range, the audit row, and a translated category name rather than a slug |
 | Integration | `tests/Souq.IntegrationTests/PlatformAdministrationTests.cs` | That a PlatformAdmin can call `GET /api/platform/stats` (status only) |
 | Integration | `tests/Souq.IntegrationTests/AuthorizationBoundaryTests.cs` | 404 on a store host, 401 for anonymous callers and for store tokens, and that the endpoint declares a permission |
 | Architecture | `tests/Souq.ArchitectureTests/TenancyRuleTests.cs` | The bypass allowlist |
 | Architecture | `tests/Souq.ArchitectureTests/ModuleAndContractRuleTests.cs` | Every Reporting request is auditable; the module's folder map |
 
-**Gap:** no test asserts the numbers. A change to `PlatformQueries.GetStatsAsync` that quietly counted the wrong thing — archived stores, or orders in every status — would be caught by nothing.
+**Gap:** the *platform* statistics still have no test of their numbers. A change to `PlatformQueries.GetStatsAsync` that quietly counted the wrong thing — archived stores, or orders in every status — would be caught by nothing. The store dashboard no longer has that gap.
 
 ## Failure modes
 
@@ -130,15 +144,25 @@ There are no business failures: the query cannot fail a rule, only a database ca
 
 ## Known limitations
 
-- One endpoint. No revenue, no growth over time, no per-store breakdown, no time series — `OrdersLast30Days` is the only temporal figure, and there is nothing to compare it to.
-- Every call recounts the whole platform: seven aggregate queries over unindexed-for-this-purpose tables, with no cache.
-- Counts include archived, cancelled, disabled and erased rows, which is rarely what a dashboard wants to show.
-- No store-facing reporting endpoint exists, although the permission does. The admin dashboard in `frontend/src/pages/admin/Dashboard.jsx` fills the gap by calling ordinary endpoints and reading their `totalCount` — `api.getProducts({ pageSize: 1 })`, `api.getCategories()` and `api.getLowStock({ pageSize: 1 })`. It is a page counting pages, not a report.
-- The module has no Domain and no tests of its own numbers, so its correctness rests entirely on reading `PlatformQueries`.
+**Platform statistics**
+
+- No per-store breakdown and no time series: `OrdersLast30Days` is the only temporal figure and there is nothing to compare it to.
+- Every call recounts the whole platform: seven aggregate queries over tables not indexed for this purpose, with no cache.
+- Counts include archived, cancelled, disabled and erased rows, which is rarely what a dashboard wants to show. The platform overview says so on screen rather than leaving the reader to assume.
+- No test asserts any of the numbers.
+
+**Store dashboard**
+
+- **No profit and no margin.** Neither `Product` nor `ProductVariant` carries a cost price, so any margin would be invented. Both dashboards state this rather than omitting it quietly.
+- **No conversion rate.** Nothing records visits or sessions, so there is no denominator.
+- **No forecasting.** Every figure describes a period that has already ended.
+- Each request runs several aggregate queries with no cache. That is right at this scale and will not be at a much larger one; [Dashboards.md](Dashboards.md) §7 records the measurements to argue from.
+- Refunds are attributed to the **order's** period rather than the refund's. That is a deliberate choice, not a derivation ([Dashboards.md](Dashboards.md) §2).
 
 ## Future evolution
 
-- **PLANNED (Phase 17):** the tenant admin dashboard — orders, revenue, average order value, low stock and recent activity for one store. That is where `store.reports.view` and this module's first store-scoped queries belong.
-- **PLANNED (Phase 18):** platform statistics and store health in the platform dashboard, which is the first real consumer of `GET /api/platform/stats`.
+- **Delivered (roadmap Phase 17 territory):** the store dashboard — net revenue, counted orders, average order value, new customers, the trend, orders by status, best sellers, category performance, stock and customers. `store.reports.view` now has its endpoint.
+- **Delivered (the reporting slice of roadmap Phase 18):** the platform overview is the first real consumer of `GET /api/platform/stats`. Per-store health and drill-down remain.
+- **PLANNED:** an export of a report (CSV or PDF), which is the most-requested thing neither dashboard does.
 - **PLANNED (Phase 21):** the performance review, which is the natural moment to decide between caching and precomputation.
 - **FUTURE:** event-fed read models, and a separate reporting store — [Modules.md](../Modules.md) names Reporting as an extraction candidate precisely because it only reads.

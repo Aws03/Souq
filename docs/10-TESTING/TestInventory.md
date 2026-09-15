@@ -8,10 +8,10 @@
 | Suite | Files | Facts | Theories |
 |---|---|---|---|
 | [`Souq.Domain.Tests`](#souqdomaintests) | 23 | 165 | 34 |
-| [`Souq.Application.Tests`](#souqapplicationtests) | 40 | 278 | 13 |
+| [`Souq.Application.Tests`](#souqapplicationtests) | 41 | 284 | 14 |
 | [`Souq.ArchitectureTests`](#souqarchitecturetests) | 13 | 54 | 7 |
-| [`Souq.IntegrationTests`](#souqintegrationtests) | 42 | 212 | 21 |
-| [frontend (Vitest)](#frontend-vitest) | 56 | 371 | — |
+| [`Souq.IntegrationTests`](#souqintegrationtests) | 43 | 217 | 21 |
+| [frontend (Vitest)](#frontend-vitest) | 60 | 399 | — |
 
 ## Souq.Domain.Tests
 
@@ -83,6 +83,7 @@
 | `tests/Souq.Application.Tests/Shipping/ShippingMethodHandlersTests.cs` | `ShippingMethodHandlersTests` | 3 | 0 |
 | `tests/Souq.Application.Tests/Shipping/StoreShippingRatesTests.cs` | `StoreShippingRatesTests` | 2 | 0 |
 | `tests/Souq.Application.Tests/Stores/ReviewSettingsHandlersTests.cs` | `ReviewSettingsHandlersTests` | 2 | 0 |
+| `tests/Souq.Application.Tests/Stores/StoreBrandingSettingsTests.cs` | `StoreBrandingSettingsTests` | 6 | 1 |
 | `tests/Souq.Application.Tests/Stores/StorePaymentAccountEditorTests.cs` | `StorePaymentAccountEditorTests` | 5 | 1 |
 | `tests/Souq.Application.Tests/Wishlist/WishlistHandlersTests.cs` | `WishlistHandlersTests` | 9 | 1 |
 
@@ -143,7 +144,8 @@
 | `tests/Souq.IntegrationTests/ShippingTests.cs` | `ShippingTests` | 3 | 0 |
 | `tests/Souq.IntegrationTests/StartupAndSecurityTests.cs` | `StartupAndSecurityTests`, `LoggerAdapter` | 7 | 1 |
 | `tests/Souq.IntegrationTests/StoreAdministrationTests.cs` | `StoreAdministrationTests` | 6 | 0 |
-| `tests/Souq.IntegrationTests/StoreDashboardTests.cs` | `StoreDashboardTests` | 9 | 0 |
+| `tests/Souq.IntegrationTests/StoreBrandingPersistenceTests.cs` | `StoreBrandingPersistenceTests` | 4 | 0 |
+| `tests/Souq.IntegrationTests/StoreDashboardTests.cs` | `StoreDashboardTests` | 10 | 0 |
 | `tests/Souq.IntegrationTests/StripeAmountConverterTests.cs` | `StripeAmountConverterTests` | 0 | 1 |
 | `tests/Souq.IntegrationTests/TenantIsolationTests.cs` | `TenantIsolationTests` | 12 | 0 |
 | `tests/Souq.IntegrationTests/TenantResolutionMiddlewareTests.cs` | `TenantResolutionMiddlewareTests`, `FakeDirectory` | 3 | 3 |
@@ -159,6 +161,7 @@
 | `frontend/src/api/client.test.js` | 12 |
 | `frontend/src/api/problem.test.js` | 6 |
 | `frontend/src/api/query.test.js` | 4 |
+| `frontend/src/app/PlatformLayout.test.jsx` | 5 |
 | `frontend/src/app/QueryProvider.test.jsx` | 4 |
 | `frontend/src/app/dateLocale.test.js` | 8 |
 | `frontend/src/app/moduleInvariants.test.js` | 2 |
@@ -166,12 +169,13 @@
 | `frontend/src/app/robots.test.js` | 5 |
 | `frontend/src/app/structuredData.test.js` | 8 |
 | `frontend/src/app/tenantModel.test.js` | 7 |
-| `frontend/src/app/tenantModel.themes.test.js` | 10 |
+| `frontend/src/app/tenantModel.themes.test.js` | 16 |
 | `frontend/src/app/themeMode.test.js` | 9 |
 | `frontend/src/components/ProtectedRoute.test.jsx` | 11 |
 | `frontend/src/components/common/Drawer.test.jsx` | 6 |
 | `frontend/src/components/common/ErrorBoundary.test.jsx` | 5 |
-| `frontend/src/components/store/OpeningExperience.test.jsx` | 10 |
+| `frontend/src/components/product/ProductCard.test.jsx` | 7 |
+| `frontend/src/components/store/OpeningExperience.test.jsx` | 12 |
 | `frontend/src/features/account/addressForm.test.js` | 6 |
 | `frontend/src/features/admin/categories/categoryForm.test.js` | 5 |
 | `frontend/src/features/admin/coupons/couponForm.test.js` | 4 |
@@ -197,8 +201,9 @@
 | `frontend/src/features/reviews/ratingSummary.test.js` | 3 |
 | `frontend/src/features/storefront/openingExperience.test.js` | 11 |
 | `frontend/src/features/wishlist/wishlistModel.test.js` | 5 |
+| `frontend/src/i18n/bidi.test.js` | 4 |
 | `frontend/src/i18n/locales.test.js` | 2 |
-| `frontend/src/i18n/translationKeys.test.js` | 4 |
+| `frontend/src/i18n/translationKeys.test.js` | 6 |
 | `frontend/src/pages/Cart.test.jsx` | 7 |
 | `frontend/src/pages/Confirmation.test.jsx` | 7 |
 | `frontend/src/pages/MyOrders.test.jsx` | 7 |
@@ -210,4 +215,5 @@
 | `frontend/src/pages/checkout/Checkout.test.jsx` | 7 |
 | `frontend/src/pages/checkout/stripeClient.test.js` | 3 |
 | `frontend/src/pages/storefrontPages.test.jsx` | 3 |
+| `frontend/src/rtl.test.js` | 2 |
 | `frontend/src/whiteLabel.test.js` | 1 |
