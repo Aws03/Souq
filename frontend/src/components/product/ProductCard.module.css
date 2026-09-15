@@ -3,16 +3,21 @@
   overflow: hidden; display: flex; flex-direction: column;
   transition: transform var(--ease-hover), box-shadow var(--ease-hover);
 }
-/* تمرير الفأرة: رفع خفيف بالظلّ فقط — لا تأثيرات أخرى (نظيف كالمرجع). */
-.card:hover { transform: translateY(-3px); box-shadow: 0 14px 30px rgba(15, 59, 58, .13); }
+/* تمرير الفأرة: رفع خفيف — الظلّ من رموز التصميم فيتبع الوضع الداكن بدل لون ثابت كان يختفي هناك. */
+.card:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); }
+/* التركيز بلوحة المفاتيح يرفع البطاقة كما يفعل التحويم: من ينتقل بـTab يرى ما يراه من يحوّم. */
+.card:focus-within { transform: translateY(-3px); box-shadow: var(--shadow-md); }
 
 /* الصورة كاملة بلا قصّ (object-fit: contain عبر fit) على خلفية فاتحة، بنسبة
-   مربّعة ثابتة كي تتراصّ البطاقات بانتظام. */
+   مربّعة ثابتة كي تتراصّ البطاقات بانتظام مهما اختلفت أبعاد صور التاجر. */
 .media {
   display: block; position: relative; aspect-ratio: 1; background: var(--color-bg);
   overflow: hidden; border-bottom: 3px solid var(--color-accent);
 }
 .media img, .media > div { width: 100%; height: 100%; }
+/* تكبير بطيء للصورة عند التحويم — على الصورة وحدها داخل إطار مقصوص، فلا يتحرّك التخطيط. */
+.media img { transition: transform var(--motion-slow) var(--ease-out); }
+.card:hover .media img { transform: scale(1.04); }
 
 .badge {
   position: absolute; top: 8px; inset-inline-start: 8px; z-index: 1;
@@ -38,10 +43,44 @@
 .foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: auto; }
 
 /* ── وضع القائمة: بطاقة أفقية (صورة جانبية + تفاصيل) ── */
-.cardList { flex-direction: row; }
-.cardList .media { width: 180px; flex-shrink: 0; border-bottom: none; border-inline-end: 3px solid var(--color-accent); }
-.cardList .body { justify-content: center; }
+/* ── الصيغ ────────────────────────────────────────────────────────────────
+   grid هي الأساس أعلاه؛ ما دونها فروق لا نسخ. */
+
+/* أفقية (وضع القائمة): الصورة إلى الجانب، والنصّ يملأ الباقي. */
+.list { flex-direction: row; }
+.list .media { width: 180px; flex-shrink: 0; border-bottom: none; border-inline-end: 3px solid var(--color-accent); }
+.list .body { justify-content: center; }
+
+/* مضغوطة: لصفوف جانبية ضيّقة — بلا زرّ، وخطّ أصغر، وحدّ رفيع بدل ظلّ ثقيل. */
+.compact { box-shadow: none; border: 1px solid var(--color-border); }
+.compact .media { border-bottom-width: 2px; }
+.compact .body { padding: var(--space-3); gap: var(--space-1); }
+.compact .name { font-size: var(--fs-body-sm); }
+.compact .foot { flex-direction: column; align-items: flex-start; gap: var(--space-1); }
+
+/* مميّزة: بطاقة صدارة — صورة أعرض ومساحة أكبر للاسم والسعر. */
+.featured .media { aspect-ratio: 4 / 3; }
+.featured .body { padding: var(--space-5); gap: var(--space-3); }
+.featured .name { font-size: var(--fs-heading); }
+
+@media (min-width: 861px) {
+  /* المميّزة أفقية على الشاشات الواسعة: صورة كبيرة إلى الجانب ونصّ يتنفّس. */
+  .featured { flex-direction: row; align-items: stretch; }
+  .featured .media { inline-size: 55%; aspect-ratio: auto; border-bottom: none; border-inline-end: 3px solid var(--color-accent); }
+  .featured .body { justify-content: center; }
+}
 .cardList .name { -webkit-line-clamp: 3; }
 @media (max-width: 520px) {
   .cardList .media { width: 120px; }
+}
+
+/* ============================================================================
+   تقليل الحركة: القاعدة العامّة في styles.css تُلغي الانتقالات، لكن التحويل نفسه حالةٌ نهائية
+   لا انتقال — فبلا هذه القاعدة تقفز البطاقة والصورة فجأةً بدل أن تنزلق. الرفع يُستبدل بحدّ
+   ملوّن: الإشارة تبقى، والحركة تذهب.
+   ============================================================================ */
+@media (prefers-reduced-motion: reduce) {
+  .card:hover, .card:focus-within { transform: none; box-shadow: var(--shadow); outline: 2px solid var(--color-accent); }
+  .card:hover .media img { transform: none; }
+  .wishBtn:hover { transform: none; }
 }

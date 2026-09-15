@@ -1,0 +1,16 @@
+.section { padding-block: var(--space-10); }
+
+.head { display: flex; align-items: center; gap: var(--space-4); margin-bottom: var(--space-6); }
+.title { font-size: var(--fs-heading-lg); color: var(--color-text); white-space: nowrap; }
+/* خطّ يمتدّ بعد العنوان — تفصيلة تحريرية تعطي القسم بدايةً واضحة بلا صندوق إضافي. */
+.rule { flex: 1; block-size: 1px; background: var(--color-border); }
+
+.grid { display: grid; grid-template-columns: 1fr; gap: var(--space-4); }
+.lead { min-width: 0; }
+.rail { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: var(--space-4); min-width: 0; }
+
+@media (min-width: 861px) {
+  /* الصدارة ثلثا العرض والبقية ثلث — لا مناصفة: النسبة هي ما يجعل أحدهما صدارة. */
+  .grid { grid-template-columns: 2fr 1fr; align-items: start; }
+  .rail { grid-template-columns: 1fr; }
+}

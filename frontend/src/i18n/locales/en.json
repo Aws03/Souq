@@ -127,7 +127,9 @@
     "promo1Subline": "The latest devices at competitive prices with a full authenticity guarantee.",
     "promo2Headline": "An elegant home touch",
     "promo2Subline": "Carefully selected pieces to refresh your home's atmosphere.",
-    "skipIntro": "Skip"
+    "skipIntro": "Skip",
+    "featuredAria": "Featured selection of {{count}} products",
+    "featuredTitle": "Featured"
   },
   "catalog": {
     "resultsCount": "Showing {{shown}} / {{total}} products",

@@ -127,7 +127,9 @@
     "promo1Subline": "أحدث الأجهزة بأسعار تنافسية وضمان أصالة كامل.",
     "promo2Headline": "لمسة منزلية أنيقة",
     "promo2Subline": "قطع مختارة بعناية لتجديد أجواء منزلك.",
-    "skipIntro": "تخطٍّ"
+    "skipIntro": "تخطٍّ",
+    "featuredAria": "مختارات مميّزة من {{count}} منتجات",
+    "featuredTitle": "مختارات"
   },
   "catalog": {
     "resultsCount": "عرض {{shown}} / {{total}} منتج",

@@ -2,6 +2,7 @@ import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Hero from '../components/store/Hero';
 import ProductSection from '../components/store/ProductSection';
+import FeaturedProduct from '../components/store/FeaturedProduct';
 import Catalog from '../components/catalog/Catalog';
 import styles from './Storefront.module.css';
 
@@ -25,10 +26,12 @@ export default function Storefront({
       {showSections && (
         <>
           <Hero targetId="catalog" />
+          {/* صدارة تحريرية قبل الصفوف: موضعٌ واحد يقول "ابدأ من هنا" بدل أربعة أعمدة متساوية
+              الوزن. تُخفي نفسها في متجر بأقلّ من منتجين. */}
+          <FeaturedProduct title={t('store.featuredTitle')} products={bestSellers}
+            loading={bestSellersLoading} onAdded={onAdded} />
           <ProductSection title={t('store.newArrivals')} products={newArrivals} loading={newArrivalsLoading}
             onAdded={onAdded} isNew viewAllTargetId="catalog" />
-          <ProductSection title={t('store.bestSellers')} products={bestSellers} loading={bestSellersLoading}
-            onAdded={onAdded} viewAllTargetId="catalog" />
           {/* صفّ العروض: منتجات مخفّضة فعلاً (onSale في الخادم). ProductSection يخفي نفسه
               حين لا نتائج، فمتجر بلا تخفيضات لا يعرض صفّاً اسمه "عروض" فيه منتجات عادية. */}
           <ProductSection title={t('nav.offers')} products={offers} loading={offersLoading}
