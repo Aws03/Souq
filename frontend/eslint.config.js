@@ -38,6 +38,11 @@ export default [
       // الأنواع تُفرض بـ checkJs وJSDoc على الحدود (ADR-0037)، لا بـ prop-types.
       'react/prop-types': 'off',
 
+      // SEC-UP-07 كان "لا شيء يمنعه تلقائياً": أوصاف المنتجات نصّ صِرف يعرضه React مهرَّباً،
+      // والضمانة الوحيدة كانت ألّا يكتب أحد dangerouslySetInnerHTML. الآن يمنعه المدقّق.
+      // وصفٌ غنيّ يوماً ما يحتاج منقّياً على الخادم وقراراً، لا استثناءً هنا.
+      'react/no-danger': 'error',
+
       'no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
 
       // ليست في recommended، وكان في الشجرة موضع حقيقي تُستعمل فيه t قبل تعريفها بسطر
