@@ -147,6 +147,49 @@ a retention policy on the owner's behalf.
 4. **Alert when it fails.** The script's exit code is the signal; nothing here delivers it to a human.
 5. **Apply the retention policy** from §4 — nothing deletes old sets.
 
+### Monitoring: how you find out it stopped
+
+A backup job that fails silently is worse than no backup job, because the directory keeps looking full. The
+repository cannot run your scheduler, but it can give you the check that decides whether the schedule is
+actually working:
+
+```bash
+./scripts/backup-verify.sh --dir /var/backups/souq --max-age-hours 26 --require-drill-within-days 30
+```
+
+Read-only — it never connects to a database and never restores anything, so it is safe on any schedule. It
+exits **0** when everything is sound and **1** at the first problem, and every line is prefixed `OK`, `FAIL` or
+`INFO` with a final `RESULT OK 0` / `RESULT FAIL n`, so a monitor can consume it without parsing prose.
+
+What it catches, all of them failures people actually have:
+
+| Detected | Why it matters |
+|---|---|
+| No set at all | the job was never scheduled, or writes somewhere else |
+| Newest set too old | **the job has been failing silently** — the directory still looks full |
+| Missing `database.bak`, `manifest.txt` or `SHA256SUMS` | the set cannot be restored or cannot be verified |
+| A checksum that does not match | silent corruption in storage or transfer |
+| A manifest field holding prose instead of a value | the exact bug this repository hit once; the set looks perfect and is unverifiable |
+| No restore drill within N days | **a backup that has never been restored is not yet a backup** |
+
+`BackupVerificationScriptTests` covers all of those with fixture directories — no database, no Docker, under a
+second — so the check that is supposed to wake someone cannot quietly rot.
+
+The drill evidence is written by the drill itself: `scripts/rehearse-restore.sh` drops `LAST-RESTORE-DRILL`
+beside the sets on success, with the timestamp and the set it restored. That closes the loop — the verifier
+reads what the rehearsal wrote, instead of relying on someone's memory of when they last tried.
+
+**Wire it up like this**, and note that both halves are still yours to schedule:
+
+```cron
+0 3 * * *  cd /srv/souq && SOUQ_SQL_PASSWORD="$(cat /run/secrets/db)" ./scripts/backup.sh              --container souq-db-1 --uploads-container souq-api-1 --out /var/backups/souq              >> /var/log/souq-backup.log 2>&1
+30 3 * * * cd /srv/souq && ./scripts/backup-verify.sh --dir /var/backups/souq              --require-drill-within-days 30 || /usr/local/bin/alert "Souq backups unhealthy"
+```
+
+> **Still a deployment action, and not claimed otherwise.** Nothing in this repository runs on a schedule,
+> copies anything off this host, or sends an alert. What exists is a backup that verifies itself, a restore
+> that proves itself, and a check that fails loudly — and three lines of cron that nobody has run yet.
+
 **If you use a managed database** (Azure SQL, RDS, Cloud SQL), its own automated backups and point-in-time
 restore replace the `database.bak` half of this, and are better than it — they give point-in-time recovery,
 which full backups alone cannot. `BACKUP DATABASE … TO DISK` is typically unavailable there. **The uploads and

@@ -141,8 +141,15 @@ fi
 
 log ""
 if [[ $CHECKS_FAILED -eq 0 ]]; then
+    NOW="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    # دليل مقروء آلياً بجوار المجموعات: backup-verify.sh يقرؤه ليجيب "متى استُعيدت نسخة آخر مرّة؟".
+    # بلا هذا السطر تبقى التجربة حدثاً في ذاكرة من أجراها — ونسخة لم تُستعَد ليست نسخة بعد.
+    DRILL_FILE="$(cd "$(dirname "$SET_DIR")" && pwd)/LAST-RESTORE-DRILL"
+    { printf '%s\n' "$NOW"; printf 'set=%s\n' "$(basename "$SET_DIR")"; } > "$DRILL_FILE" 2>/dev/null \
+        && ok "دليل التجربة مكتوب: $DRILL_FILE" \
+        || warn "تعذّرت كتابة دليل التجربة بجوار المجموعات."
     printf '%s✔ التجربة نجحت%s — هذه المجموعة استُعيدت وتحقَّقت على بنية نظيفة في %s\n' \
-        "$GREEN$BOLD" "$OFF" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >&2
+        "$GREEN$BOLD" "$OFF" "$NOW" >&2
 else
     die "التجربة لم تنجح بالكامل — راجع التحذيرات أعلاه. لا تعتبر R-19 محلولاً."
 fi

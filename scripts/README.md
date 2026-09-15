@@ -7,6 +7,7 @@ runbook and the recorded drill: **[docs/09-OPERATIONS/BackupAndRestore.md](../do
 |---|---|---|
 | `backup.sh` | Database + uploads → one dated set with a manifest and SHA-256 sums | **Yes** — reads only |
 | `restore.sh` | Restores a set into a database you name explicitly | **Only deliberately** — see the guards below |
+| `backup-verify.sh` | Answers whether the backups are *alive*: present, fresh, complete, checksum-clean, verifiable, and recently rehearsed | **Yes** — read-only, touches no database |
 | `rehearse-restore.sh` | Restores into throwaway infrastructure, verifies it, destroys it | **Yes** — it never touches an existing database |
 | `smoke-test.sh` | Runs the first-deployment checks against a running stack: health, tenant resolution and isolation, auth, catalog, basket, order, payment posture, proxy headers, HSTS behind TLS termination, correlation ids in logs, and no secrets in logs | **Yes** — it writes one test customer and one test order |
 | `verify-least-privilege.sh` | Measures what the application actually needs from SQL Server, and proves the runtime identity is restricted | **Yes** — throwaway infrastructure only |
