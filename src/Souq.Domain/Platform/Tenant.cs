@@ -119,8 +119,9 @@ public partial class Tenant : Entity
             announcement: LocalizedText.Normalize(announcement, StoreSettings.AnnouncementMaxLength, "شريط الإعلان"));
     }
 
-    public void UpdateBranding(BrandColors colors, string typography, string themePreset, string? themeMode = null) =>
-        _settings = Settings.With(branding: Settings.Branding.WithStyle(colors, typography, themePreset, themeMode));
+    public void UpdateBranding(BrandColors colors, string typography, string themePreset,
+        string? themeMode = null, StoreOpening? opening = null) =>
+        _settings = Settings.With(branding: Settings.Branding.WithStyle(colors, typography, themePreset, themeMode, opening));
 
     // مسار الملف يولّده الخادم بعد فحص محتواه — دفاعياً: لا يُقبل إلا تحت بادئة ملفات هذا المتجر.
     public void SetBrandingAsset(BrandingAsset asset, string url)

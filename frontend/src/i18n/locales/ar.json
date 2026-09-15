@@ -34,7 +34,10 @@
     "wishlistAria": "المفضّلة",
     "home": "الرئيسية",
     "offers": "العروض",
-    "account": "حسابي"
+    "account": "حسابي",
+    "themeToggleAria": "التبديل بين الفاتح والداكن",
+    "switchToDark": "التحويل إلى الداكن",
+    "switchToLight": "التحويل إلى الفاتح"
   },
   "cart": {
     "title": "سلّتك",
@@ -123,7 +126,8 @@
     "promo1Headline": "تشكيلة الإلكترونيات",
     "promo1Subline": "أحدث الأجهزة بأسعار تنافسية وضمان أصالة كامل.",
     "promo2Headline": "لمسة منزلية أنيقة",
-    "promo2Subline": "قطع مختارة بعناية لتجديد أجواء منزلك."
+    "promo2Subline": "قطع مختارة بعناية لتجديد أجواء منزلك.",
+    "skipIntro": "تخطٍّ"
   },
   "catalog": {
     "resultsCount": "عرض {{shown}} / {{total}} منتج",

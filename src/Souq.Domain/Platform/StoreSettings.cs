@@ -87,9 +87,32 @@ public static class BrandPresets
     public static readonly IReadOnlyList<string> Typography = ["kufi-tajawal", "tajawal", "cairo", "almarai", "ibm-plex"];
     public static readonly IReadOnlyList<string> Themes = ["classic", "minimal", "bold"];
     public static readonly IReadOnlyList<string> ThemeModes = ["light", "dark", "system"];
+
+    // أنماط كشف الافتتاح. القائمة موجودة كي تكون إضافة نمطٍ ثانٍ قراراً لكل المتاجر لا فرعاً
+    // لعميل — وهي معطّلة افتراضياً: متجرٌ لم يطلب كشفاً يفتح فوراً.
+    public static readonly IReadOnlyList<string> OpeningStyles = ["doors"];
+    public const string DefaultOpeningStyle = "doors";
 }
 
 public enum BrandingAsset { Logo, Favicon, SocialImage }
+
+// ============================================================================
+// كشف الافتتاح: ترحيبٌ قصير يراه زائر المتجر أوّل مرّة. معطّل افتراضياً عمداً — لو كان مفعّلاً
+// لصار حركةً إجبارية على كل متجر في المنصّة، وهو نقيض المقصود. الواجهة تفرض الباقي (مرّة لكل
+// جلسة، لا مع تقليل الحركة، لا على رابط عميق).
+// ============================================================================
+public sealed record StoreOpening(bool Enabled, string Style)
+{
+    public static StoreOpening Disabled { get; } = new(false, BrandPresets.DefaultOpeningStyle);
+
+    public static StoreOpening Create(bool enabled, string? style)
+    {
+        var chosen = style?.Trim().ToLowerInvariant() ?? "";
+        if (!string.IsNullOrEmpty(chosen) && !BrandPresets.OpeningStyles.Contains(chosen))
+            throw new InvalidTenantOperationException($"نمط افتتاح غير معتمد: {style}");
+        return new StoreOpening(enabled, string.IsNullOrEmpty(chosen) ? BrandPresets.DefaultOpeningStyle : chosen);
+    }
+}
 
 public sealed class StoreBranding
 {
@@ -105,11 +128,16 @@ public sealed class StoreBranding
     public string? FaviconUrl { get; }
     public string? SocialImageUrl { get; }
 
+    // كشف الافتتاح. صفوف كُتبت قبل هذا الحقل تُقرأ بلا قيمة فتأخذ "معطّل".
+    public StoreOpening Opening { get; } = StoreOpening.Disabled;
+
     internal StoreBranding(BrandColors colors, string typography, string themePreset,
-        string? logoUrl, string? faviconUrl, string? socialImageUrl, string? themeMode = null)
+        string? logoUrl, string? faviconUrl, string? socialImageUrl, string? themeMode = null,
+        StoreOpening? opening = null)
     {
         Colors = colors; Typography = typography; ThemePreset = themePreset;
         ThemeMode = Normalize(themeMode);
+        Opening = opening ?? StoreOpening.Disabled;
         LogoUrl = logoUrl; FaviconUrl = faviconUrl; SocialImageUrl = socialImageUrl;
     }
 
@@ -117,7 +145,8 @@ public sealed class StoreBranding
         new(BrandColors.Neutral, BrandPresets.DefaultTypography, BrandPresets.DefaultTheme, null, null, null);
 
     // الألوان والخط والقالب والوضع معاً؛ الملفات المرفوعة تبقى كما هي.
-    internal StoreBranding WithStyle(BrandColors colors, string typography, string themePreset, string? themeMode = null)
+    internal StoreBranding WithStyle(BrandColors colors, string typography, string themePreset,
+        string? themeMode = null, StoreOpening? opening = null)
     {
         var font = typography?.Trim().ToLowerInvariant() ?? "";
         if (!BrandPresets.Typography.Contains(font))
@@ -128,14 +157,15 @@ public sealed class StoreBranding
         // وضع غير معروف يُرفض لا يُتجاهَل: قيمة صامتة تعني متجراً يظنّ أنه ضبط شيئاً ولم يفعل.
         if (themeMode is not null && !BrandPresets.ThemeModes.Contains(themeMode.Trim().ToLowerInvariant()))
             throw new InvalidTenantOperationException($"وضع عرض غير معتمد: {themeMode}");
-        return new StoreBranding(colors, font, theme, LogoUrl, FaviconUrl, SocialImageUrl, themeMode ?? ThemeMode);
+        return new StoreBranding(colors, font, theme, LogoUrl, FaviconUrl, SocialImageUrl,
+            themeMode ?? ThemeMode, opening ?? Opening);
     }
 
     internal StoreBranding WithAsset(BrandingAsset asset, string url) => asset switch
     {
-        BrandingAsset.Logo => new(Colors, Typography, ThemePreset, url, FaviconUrl, SocialImageUrl, ThemeMode),
-        BrandingAsset.Favicon => new(Colors, Typography, ThemePreset, LogoUrl, url, SocialImageUrl, ThemeMode),
-        _ => new(Colors, Typography, ThemePreset, LogoUrl, FaviconUrl, url, ThemeMode),
+        BrandingAsset.Logo => new(Colors, Typography, ThemePreset, url, FaviconUrl, SocialImageUrl, ThemeMode, Opening),
+        BrandingAsset.Favicon => new(Colors, Typography, ThemePreset, LogoUrl, url, SocialImageUrl, ThemeMode, Opening),
+        _ => new(Colors, Typography, ThemePreset, LogoUrl, FaviconUrl, url, ThemeMode, Opening),
     };
 
     private static string Normalize(string? mode)

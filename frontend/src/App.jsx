@@ -16,6 +16,7 @@ import Navbar from './components/layout/Navbar';
 import CategoryNav from './components/layout/CategoryNav';
 import Footer from './components/layout/Footer';
 import CartDrawer from './components/cart/CartDrawer';
+import OpeningExperience from './components/store/OpeningExperience';
 import ToastContainer from './components/common/ToastContainer';
 import ErrorBoundary from './components/common/ErrorBoundary';
 import Store from './pages/Store';
@@ -92,6 +93,8 @@ function CustomerLayout() {
   return (
     <CartProvider>
       <WishlistProvider>
+        {/* الكشف طبقة فوق المتجر لا بديل عنه: الصفحة مرسومة خلفه، فإغلاقه لا ينتظر شيئاً. */}
+        <OpeningExperience />
         <AnnouncementBar />
         <Navbar onCartClick={() => setDrawerOpen(true)} />
         <CategoryNav categories={categories} />

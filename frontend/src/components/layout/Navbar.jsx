@@ -4,11 +4,11 @@ import { useTranslation } from 'react-i18next';
 import { useCart } from '../../context/CartContext';
 import { useWishlist } from '../../context/WishlistContext';
 import { useAuth } from '../../context/AuthContext';
-import { useModule, useStoreConfig } from '../../app/TenantProvider';
+import { useModule, useStoreConfig, useTheme } from '../../app/TenantProvider';
 import StoreBrand from '../../app/StoreBrand';
 import { enabledLanguages } from '../../app/tenantModel';
 import { setLanguage } from '../../i18n';
-import { CartIcon, HeartIcon, MenuIcon } from '../icons/Icons';
+import { CartIcon, HeartIcon, MenuIcon, MoonIcon, SunIcon } from '../icons/Icons';
 import NotificationBell from '../notifications/NotificationBell';
 import SearchBar from './SearchBar';
 import { useStoreSearch } from '../../features/catalog/useStoreSearch';
@@ -28,6 +28,7 @@ export default function Navbar({ onCartClick }) {
   const languages = enabledLanguages(useStoreConfig());
   const search = useStoreSearch();
 
+  const { theme, toggleTheme } = useTheme();
   const otherLanguage = i18n.language === 'ar' ? 'en' : 'ar';
   const canToggleLanguage = languages.includes(otherLanguage);
   const toggleLanguage = () => setLanguage(otherLanguage);
@@ -66,6 +67,19 @@ export default function Navbar({ onCartClick }) {
             {otherLanguage === 'en' ? 'EN' : 'ع'}
           </button>
         )}
+
+        {/* الأيقونة تعرض الوجهة لا الحالة: في الوضع الداكن يُعرض رمز الشمس لأن الضغط يُنير.
+            aria-pressed يقول الحالة الفعلية لقارئ الشاشة، فلا يعتمد المعنى على الرسم. */}
+        <button
+          type="button"
+          className={`${styles.iconBtn} ${styles.desktopOnly}`}
+          onClick={toggleTheme}
+          aria-pressed={theme === 'dark'}
+          aria-label={t('nav.themeToggleAria')}
+          title={t(theme === 'dark' ? 'nav.switchToLight' : 'nav.switchToDark')}
+        >
+          {theme === 'dark' ? <SunIcon size={18} /> : <MoonIcon size={18} />}
+        </button>
 
         {/* إشعارات الحساب (المرحلة 14): حالة الطلبات للعميل — ظاهرة على الجوال أيضاً. */}
         <NotificationBell />

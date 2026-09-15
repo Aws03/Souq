@@ -1,0 +1,53 @@
+/* ============================================================================
+   ستارتان تنفرجان. الحركة على transform وحده (لا على العرض ولا على اليسار): الأولى تعمل
+   على طبقة المُركِّب، والأخيرتان تُعيدان التخطيط في كل إطار.
+   ============================================================================ */
+.stage {
+  position: fixed; inset: 0; z-index: 400;
+  pointer-events: auto; overflow: hidden;
+  animation: stage-out var(--motion-slow) var(--ease-out) 1100ms forwards;
+}
+
+.panel {
+  position: absolute; inset-block: 0; inline-size: 50.5%;   /* تداخل نصف بالمئة: لا خيط ضوء بين الستارتين */
+  background: linear-gradient(160deg, var(--color-primary), var(--color-primary-strong));
+  will-change: transform;
+}
+.start { inset-inline-start: 0; animation: door-start 900ms var(--ease-in-out) 350ms forwards; }
+.end { inset-inline-end: 0; animation: door-end 900ms var(--ease-in-out) 350ms forwards; }
+
+/* الاسم يظهر ثم يتلاشى مع انفراج الستارتين. */
+.mark {
+  position: absolute; inset: 0; display: grid; place-items: center;
+  animation: mark-out 500ms var(--ease-out) 500ms forwards;
+}
+.markName {
+  font-family: var(--font-display); font-size: var(--fs-display); font-weight: 700;
+  color: var(--color-on-primary); letter-spacing: .02em; text-align: center; padding: 0 var(--space-6);
+}
+
+.skip {
+  position: absolute; inset-block-end: var(--space-8); inset-inline-end: var(--space-8);
+  padding: var(--space-2) var(--space-5); border-radius: var(--radius-pill);
+  background: rgb(255 255 255 / 0.14); color: var(--color-on-primary);
+  font-size: var(--fs-body-sm); font-weight: 600; min-height: 40px;
+  animation: mark-out 400ms var(--ease-out) 700ms forwards;
+}
+.skip:hover { background: rgb(255 255 255 / 0.24); }
+
+@keyframes door-start { to { transform: translateX(-101%); } }
+@keyframes door-end { to { transform: translateX(101%); } }
+@keyframes mark-out { to { opacity: 0; } }
+@keyframes stage-out { to { opacity: 0; visibility: hidden; } }
+
+/* RTL: الستارتان تنفرجان إلى الجانبين نفسيهما بصرياً، فالإزاحة تُعكس مع الاتجاه. */
+html[dir='rtl'] .start { animation-name: door-end; }
+html[dir='rtl'] .end { animation-name: door-start; }
+
+/* ============================================================================
+   تقليل الحركة: المنطق يمنع التركيب أصلاً (openingExperience.js)، وهذه حماية ثانية — لو
+   تغيّر التفضيل بعد التركيب، تختفي الستارتان فوراً بدل أن تتحرّكا.
+   ============================================================================ */
+@media (prefers-reduced-motion: reduce) {
+  .stage { display: none; }
+}

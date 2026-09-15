@@ -34,7 +34,10 @@
     "wishlistAria": "Wishlist",
     "home": "Home",
     "offers": "Offers",
-    "account": "My account"
+    "account": "My account",
+    "themeToggleAria": "Switch between light and dark",
+    "switchToDark": "Switch to dark",
+    "switchToLight": "Switch to light"
   },
   "cart": {
     "title": "Your Cart",
@@ -123,7 +126,8 @@
     "promo1Headline": "Electronics collection",
     "promo1Subline": "The latest devices at competitive prices with a full authenticity guarantee.",
     "promo2Headline": "An elegant home touch",
-    "promo2Subline": "Carefully selected pieces to refresh your home's atmosphere."
+    "promo2Subline": "Carefully selected pieces to refresh your home's atmosphere.",
+    "skipIntro": "Skip"
   },
   "catalog": {
     "resultsCount": "Showing {{shown}} / {{total}} products",
