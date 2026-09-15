@@ -21,6 +21,8 @@ export const queryKeys = {
   order: (id) => ['order', String(id)],
   orderTracking: (token) => ['order-tracking', String(token)],
 
+  storeDashboard: (range) => ['store-dashboard', range],
+
   myProfile: () => ['my-profile'],
   myAddresses: () => ['my-addresses'],
 };

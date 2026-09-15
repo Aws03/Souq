@@ -1,0 +1,69 @@
+/* ============================================================================
+   مخطّطات مرسومة بـSVG بلا مكتبة. كل لون من رموز التصميم — فتتبع المخطّطات هوية المتجر
+   والوضع الداكن بلا سطر واحد خاصّ بها.
+   ============================================================================ */
+
+.frame {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: var(--space-5);
+  min-width: 0;
+}
+
+.frameHead { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-3); margin-bottom: var(--space-4); }
+.frameTitle { font-size: var(--fs-heading); color: var(--color-text); }
+.frameHint { color: var(--color-text-muted); font-size: var(--fs-caption); margin-top: var(--space-1); }
+.frameEmpty {
+  color: var(--color-text-muted); font-size: var(--fs-body-sm);
+  padding: var(--space-8) var(--space-4); text-align: center;
+}
+.frameBody { min-width: 0; }
+
+/* ── المنحنى ── */
+.lineWrap { display: flex; flex-direction: column; gap: var(--space-2); }
+.lineSvg { inline-size: 100%; block-size: auto; overflow: visible; touch-action: pan-y; }
+.grid { stroke: var(--color-border); stroke-width: 1; }
+.line { fill: none; stroke: var(--color-accent); stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
+.marker { stroke: var(--color-text-muted); stroke-width: 1; stroke-dasharray: 3 3; }
+.dot { fill: var(--color-accent); stroke: var(--color-surface); stroke-width: 2.5; }
+.readout {
+  font-size: var(--fs-body-sm); color: var(--color-text);
+  font-variant-numeric: tabular-nums; min-block-size: 1.5em;
+}
+
+/* ── أشرطة أفقية ── */
+.barList { list-style: none; display: flex; flex-direction: column; gap: var(--space-3); }
+.barRow { display: flex; flex-direction: column; gap: var(--space-2); }
+.barHead { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); }
+.barLabel { font-size: var(--fs-body-sm); color: var(--color-text); overflow-wrap: anywhere; }
+.barValue { font-size: var(--fs-body-sm); font-weight: 700; color: var(--color-text); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.barTrack { block-size: 8px; border-radius: var(--radius-pill); background: var(--color-surface-alt); overflow: hidden; }
+.barFill {
+  block-size: 100%; border-radius: var(--radius-pill);
+  background: linear-gradient(90deg, var(--color-accent), var(--color-primary));
+  transition: inline-size var(--motion-slow) var(--ease-out);
+}
+
+/* ── الحلقة ── */
+.donutWrap { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: var(--space-5); position: relative; }
+.donutSvg { inline-size: 160px; block-size: 160px; }
+.donutTrack { stroke: var(--color-surface-alt); }
+.donutCentre {
+  position: absolute; inset-inline-start: 80px; inset-block-start: 50%;
+  transform: translate(-50%, -50%); text-align: center; pointer-events: none;
+}
+.donutCentre b { display: block; font-size: var(--fs-heading-lg); font-family: var(--font-display); color: var(--color-text); }
+.donutCentre span { font-size: var(--fs-caption); color: var(--color-text-muted); }
+
+.legend { list-style: none; display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
+.legend li { display: flex; align-items: center; gap: var(--space-2); font-size: var(--fs-body-sm); }
+.legendDot { inline-size: 10px; block-size: 10px; border-radius: 50%; flex-shrink: 0; }
+.legendLabel { color: var(--color-text-muted); flex: 1; min-width: 0; }
+.legendValue { font-weight: 700; font-variant-numeric: tabular-nums; }
+
+@media (max-width: 560px) {
+  .donutWrap { grid-template-columns: 1fr; justify-items: center; }
+  .donutCentre { inset-inline-start: 50%; inset-block-start: 80px; }
+  .legend { inline-size: 100%; }
+}

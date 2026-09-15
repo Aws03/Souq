@@ -1,0 +1,100 @@
+/* ============================================================================
+   لوحة المدير. التخطيط شبكة تتحوّل بالمقاس لا شبكة ١٢ عموداً مضغوطة على الجوال:
+   على الجوال عمود واحد بترتيب الأهمّية (تنبيهات، مؤشّرات، منحنى، البقية).
+   ============================================================================ */
+.page { display: flex; flex-direction: column; gap: var(--space-6); padding-bottom: var(--space-12); }
+
+.head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-4); flex-wrap: wrap; }
+.title { font-size: var(--fs-heading-lg); color: var(--color-text); }
+.subtitle { color: var(--color-text-muted); font-size: var(--fs-body-sm); margin-top: var(--space-1); }
+
+/* ── مبدّل المدّة ── */
+.ranges { display: flex; gap: var(--space-1); flex-wrap: wrap; background: var(--color-surface-alt); padding: var(--space-1); border-radius: var(--radius-pill); }
+.rangeBtn {
+  padding: var(--space-2) var(--space-4); border-radius: var(--radius-pill);
+  font-size: var(--fs-body-sm); font-weight: 600; color: var(--color-text-muted);
+  min-height: 36px; transition: background var(--ease-hover), color var(--ease-hover);
+}
+.rangeBtn:hover { color: var(--color-text); }
+.rangeActive { background: var(--color-surface); color: var(--color-text); box-shadow: var(--shadow-sm); }
+
+/* ── التنبيهات: أوّل ما يُقرأ ── */
+.alerts { display: flex; flex-direction: column; gap: var(--space-3); }
+.sectionTitle { font-size: var(--fs-heading); color: var(--color-text); }
+.allClear { color: var(--color-text-muted); font-size: var(--fs-body-sm); }
+.alertList { list-style: none; display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.alert {
+  display: inline-flex; align-items: center; gap: var(--space-2);
+  padding: var(--space-3) var(--space-4); border-radius: var(--radius-sm);
+  font-size: var(--fs-body-sm); font-weight: 600; text-decoration: none;
+  border: 1px solid transparent; transition: transform var(--ease-hover), box-shadow var(--ease-hover);
+}
+.alert:hover { transform: translateY(-1px); box-shadow: var(--shadow-sm); }
+.warn { background: var(--color-accent-soft); color: var(--color-text); border-color: var(--color-accent); }
+.danger { background: var(--color-danger-soft); color: var(--color-danger); border-color: var(--color-danger); }
+
+/* ── بطاقات المؤشّرات ── */
+.kpiRow { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: var(--space-4); }
+.kpi {
+  background: var(--color-surface); border: 1px solid var(--color-border);
+  border-radius: var(--radius); padding: var(--space-5);
+  display: flex; flex-direction: column; gap: var(--space-2); min-width: 0;
+}
+.kpiLabel { color: var(--color-text-muted); font-size: var(--fs-caption); }
+.kpiValue {
+  font-family: var(--font-display); font-size: var(--fs-heading-lg); color: var(--color-text);
+  font-variant-numeric: tabular-nums; overflow-wrap: anywhere;
+}
+.kpiChange { font-size: var(--fs-caption); font-weight: 600; color: var(--color-text-muted); }
+.up { color: var(--color-success); }
+.down { color: var(--color-danger); }
+.flat { color: var(--color-text-muted); }
+.kpiVs { color: var(--color-text-muted); font-weight: 400; }
+
+/* ── الشبكة ── */
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: var(--space-4); align-items: start; }
+.wide { grid-column: 1 / -1; }
+
+.panel {
+  background: var(--color-surface); border: 1px solid var(--color-border);
+  border-radius: var(--radius); padding: var(--space-5);
+  display: flex; flex-direction: column; gap: var(--space-4); min-width: 0;
+}
+.factList { list-style: none; display: flex; flex-direction: column; gap: var(--space-3); }
+.factList li { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); font-size: var(--fs-body-sm); }
+.factList span { color: var(--color-text-muted); }
+.factList b { font-family: var(--font-display); font-size: var(--fs-heading); font-variant-numeric: tabular-nums; }
+.warnRow b { color: var(--color-accent); }
+.dangerRow b { color: var(--color-danger); }
+
+/* ── متجر جديد ── */
+.zeroState {
+  background: var(--color-surface); border: 1px dashed var(--color-border);
+  border-radius: var(--radius); padding: var(--space-12) var(--space-6);
+  text-align: center; display: flex; flex-direction: column; align-items: center; gap: var(--space-3);
+}
+.zeroState h3 { font-size: var(--fs-heading-lg); color: var(--color-text); }
+.zeroState p { color: var(--color-text-muted); max-width: 46ch; }
+.zeroAction {
+  margin-top: var(--space-2); padding: var(--space-3) var(--space-6);
+  background: var(--color-primary); color: var(--color-on-primary);
+  border-radius: var(--radius-sm); font-weight: 600; text-decoration: none;
+}
+
+/* ── حدود القياس ── */
+.limits {
+  border: 1px solid var(--color-border); border-radius: var(--radius-sm);
+  padding: var(--space-3) var(--space-4); background: var(--color-surface-alt);
+  font-size: var(--fs-body-sm); color: var(--color-text-muted);
+}
+.limits summary { cursor: pointer; font-weight: 600; color: var(--color-text); }
+.limits p { margin-top: var(--space-2); }
+
+@media (max-width: 720px) {
+  .head { flex-direction: column; }
+  .ranges { inline-size: 100%; overflow-x: auto; flex-wrap: nowrap; scrollbar-width: none; }
+  .ranges::-webkit-scrollbar { display: none; }
+  .kpiRow { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
+  .kpi { padding: var(--space-4); }
+  .grid { grid-template-columns: 1fr; }
+}

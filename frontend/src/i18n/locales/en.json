@@ -748,6 +748,66 @@
       "confirmReject": "Reject review",
       "emptyTitle": "No reviews here",
       "emptyMessage": "There are no reviews with this status right now."
+    },
+    "reports": {
+      "title": "Store performance",
+      "subtitle": "What happened in your store, and what needs you now.",
+      "noDataYet": "No data for this period yet.",
+      "rangeLabel": "Period",
+      "range": {
+        "Today": "Today",
+        "Last7Days": "7 days",
+        "Last30Days": "30 days",
+        "Last90Days": "90 days",
+        "ThisYear": "This year"
+      },
+      "vsPrevious": "vs previous {{range}}",
+      "firstSales": "First sales",
+      "noChange": "No change",
+      "kpi": {
+        "netRevenue": "Net revenue",
+        "orders": "Paid orders",
+        "averageOrderValue": "Average order value",
+        "newCustomers": "New customers"
+      },
+      "formula": {
+        "netRevenue": "Total of paid orders in the period, minus refunds on those orders.",
+        "orders": "Orders that were placed and paid. Unpaid and cancelled orders are not counted.",
+        "averageOrderValue": "Revenue divided by the number of paid orders.",
+        "newCustomers": "Customer accounts created during the period."
+      },
+      "trendTitle": "Sales trend",
+      "trendHint": "Revenue from paid orders, by day.",
+      "statusTitle": "Orders by status",
+      "statusHint": "Every order placed in the period, including cancelled ones.",
+      "statusTotal": "orders",
+      "topProductsTitle": "Best sellers",
+      "topProductsHint": "By revenue from paid orders.",
+      "topCategoriesTitle": "Category performance",
+      "unitsSold": "{{count}} sold",
+      "inventoryTitle": "Stock health",
+      "inventoryHealthy": "Healthy",
+      "inventoryLow": "Running low",
+      "inventoryOut": "Out of stock",
+      "customersTitle": "Customers",
+      "totalCustomers": "Total customers",
+      "repeatCustomers": "Bought more than once",
+      "repeatHint": "Counted over the store's whole history, not this period.",
+      "alertsTitle": "Needs your attention",
+      "allClear": "Nothing needs attention right now.",
+      "alert": {
+        "outOfStock": "{{count}} products are out of stock",
+        "lowStock": "{{count}} products are running low",
+        "pendingOrders": "{{count}} orders are waiting for payment",
+        "pendingRefunds": "{{count}} refunds are not settled yet"
+      },
+      "emptyTitle": "Your store is ready",
+      "emptyMessage": "Once customers place their first orders, your sales, best sellers and stock insights appear here.",
+      "quietTitle": "No sales in this period",
+      "quietMessage": "Try a longer period, or check that your products are published and in stock.",
+      "notMeasured": "What this dashboard does not show",
+      "noProfit": "Profit and margin are not shown: products carry no cost price, so any margin here would be invented.",
+      "noConversion": "Conversion rate is not shown: the platform does not track visits, so there is no number to divide by."
     }
   },
   "wishlist": {

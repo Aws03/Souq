@@ -207,6 +207,10 @@ export const api = {
   markNotificationRead: (id) => request(`/notifications/${id}/read`, { method: 'POST' }),
   markAllNotificationsRead: () => request('/notifications/read-all', { method: 'POST' }),
 
+  // ── تقارير المتجر (أدمن، store.reports.view) ── استجابة واحدة للوحة كاملة: بطاقاتها من
+  // لحظة واحدة لا من اثنتي عشرة، والمدّة مفتاح مغلق لا تاريخان من المتصفّح.
+  getStoreDashboard: (range = 'Last30Days') => request(`/admin/reports/dashboard?range=${range}`),
+
   // ── إدارة المنتجات (أدمن) ── القائمة والتفاصيل من /admin (كل الحالات وكل اللغات والصور بمعرّفاتها)
   getAdminProducts: (params = {}) => request(`/admin/products${toQueryString(params)}`),
   getAdminProduct: (id) => request(`/admin/products/${id}`),
