@@ -207,6 +207,10 @@ export const api = {
   markNotificationRead: (id) => request(`/notifications/${id}/read`, { method: 'POST' }),
   markAllNotificationsRead: () => request('/notifications/read-all', { method: 'POST' }),
 
+  // ── إحصاءات المنصّة (مضيف المنصّة، platform.reports.view) ── أعداد عبر كل المتاجر،
+  // مجمَّعة لا صفوفاً: لا بيانات متجر بعينه تعبر إلى هنا.
+  getPlatformStats: () => request('/platform/stats'),
+
   // ── تقارير المتجر (أدمن، store.reports.view) ── استجابة واحدة للوحة كاملة: بطاقاتها من
   // لحظة واحدة لا من اثنتي عشرة، والمدّة مفتاح مغلق لا تاريخان من المتصفّح.
   getStoreDashboard: (range = 'Last30Days') => request(`/admin/reports/dashboard?range=${range}`),

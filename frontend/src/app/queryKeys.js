@@ -22,6 +22,7 @@ export const queryKeys = {
   orderTracking: (token) => ['order-tracking', String(token)],
 
   storeDashboard: (range) => ['store-dashboard', range],
+  platformStats: () => ['platform-stats'],
 
   myProfile: () => ['my-profile'],
   myAddresses: () => ['my-addresses'],

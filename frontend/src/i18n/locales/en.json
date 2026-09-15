@@ -1053,6 +1053,25 @@
     "title": "Platform console",
     "subtitle": "The screens for stores, accounts and the audit log arrive in Phase 18. The platform API is available now for platform accounts.",
     "signedInAs": "Signed in as {{name}}",
-    "logout": "Sign out"
+    "logout": "Sign out",
+    "overviewTitle": "Platform overview",
+    "overviewSubtitle": "Across every store on this platform.",
+    "stores": "Stores",
+    "storesByStatus": "By status",
+    "status": {
+      "Provisioning": "Being set up",
+      "Active": "Active",
+      "Suspended": "Suspended",
+      "Archived": "Archived"
+    },
+    "platformAccounts": "Platform accounts",
+    "storeStaff": "Store staff accounts",
+    "customers": "Customers",
+    "products": "Products",
+    "orders": "Orders",
+    "ordersRecent": "Orders in the last 30 days",
+    "countingTitle": "How these are counted",
+    "countingNote": "These are raw row counts across every store: archived stores, cancelled orders, archived products, disabled accounts and erased customers are all included. They measure the size of the platform, not the health of any business on it.",
+    "noTenantData": "No store's own data appears here — only totals across all of them."
   }
 }
