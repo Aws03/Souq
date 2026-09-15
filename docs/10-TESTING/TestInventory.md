@@ -11,7 +11,7 @@
 | [`Souq.Application.Tests`](#souqapplicationtests) | 39 | 272 | 11 |
 | [`Souq.ArchitectureTests`](#souqarchitecturetests) | 13 | 54 | 7 |
 | [`Souq.IntegrationTests`](#souqintegrationtests) | 41 | 203 | 21 |
-| [frontend (Vitest)](#frontend-vitest) | 45 | 236 | — |
+| [frontend (Vitest)](#frontend-vitest) | 46 | 244 | — |
 
 ## Souq.Domain.Tests
 
@@ -153,6 +153,7 @@
 
 | File | Tests |
 |---|---|
+| `frontend/src/a11y.test.jsx` | 8 |
 | `frontend/src/api/client.test.js` | 6 |
 | `frontend/src/api/problem.test.js` | 6 |
 | `frontend/src/api/query.test.js` | 4 |
