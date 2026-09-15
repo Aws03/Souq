@@ -80,8 +80,13 @@ public static class BrandPresets
     public const string DefaultTypography = "tajawal";
     public const string DefaultTheme = "classic";
 
+    // تفضيل المتجر للوضع: فاتح، داكن، أو "اترك الأمر لنظام الزائر". القيمة الافتراضية system
+    // عمداً — متجرٌ لم يقرّر لا يجب أن يفرض على زائرٍ ضوءاً في وضع ليليّ اختاره لجهازه كلّه.
+    public const string DefaultThemeMode = "system";
+
     public static readonly IReadOnlyList<string> Typography = ["kufi-tajawal", "tajawal", "cairo", "almarai", "ibm-plex"];
     public static readonly IReadOnlyList<string> Themes = ["classic", "minimal", "bold"];
+    public static readonly IReadOnlyList<string> ThemeModes = ["light", "dark", "system"];
 }
 
 public enum BrandingAsset { Logo, Favicon, SocialImage }
@@ -91,22 +96,28 @@ public sealed class StoreBranding
     public BrandColors Colors { get; }
     public string Typography { get; }
     public string ThemePreset { get; }
+
+    // تفضيل الوضع (فاتح/داكن/نظام الزائر). إعدادات المتجر عمود JSON، فالحقل الجديد يُضاف بلا
+    // هجرة — وصفوف كُتبت قبله تُقرأ بلا الحقل فتأخذ الافتراضي (system) لا null.
+    public string ThemeMode { get; } = BrandPresets.DefaultThemeMode;
+
     public string? LogoUrl { get; }
     public string? FaviconUrl { get; }
     public string? SocialImageUrl { get; }
 
     internal StoreBranding(BrandColors colors, string typography, string themePreset,
-        string? logoUrl, string? faviconUrl, string? socialImageUrl)
+        string? logoUrl, string? faviconUrl, string? socialImageUrl, string? themeMode = null)
     {
         Colors = colors; Typography = typography; ThemePreset = themePreset;
+        ThemeMode = Normalize(themeMode);
         LogoUrl = logoUrl; FaviconUrl = faviconUrl; SocialImageUrl = socialImageUrl;
     }
 
     public static StoreBranding Default { get; } =
         new(BrandColors.Neutral, BrandPresets.DefaultTypography, BrandPresets.DefaultTheme, null, null, null);
 
-    // الألوان والخط والقالب معاً؛ الملفات المرفوعة تبقى كما هي.
-    internal StoreBranding WithStyle(BrandColors colors, string typography, string themePreset)
+    // الألوان والخط والقالب والوضع معاً؛ الملفات المرفوعة تبقى كما هي.
+    internal StoreBranding WithStyle(BrandColors colors, string typography, string themePreset, string? themeMode = null)
     {
         var font = typography?.Trim().ToLowerInvariant() ?? "";
         if (!BrandPresets.Typography.Contains(font))
@@ -114,15 +125,24 @@ public sealed class StoreBranding
         var theme = themePreset?.Trim().ToLowerInvariant() ?? "";
         if (!BrandPresets.Themes.Contains(theme))
             throw new InvalidTenantOperationException($"قالب غير معتمد: {themePreset}");
-        return new StoreBranding(colors, font, theme, LogoUrl, FaviconUrl, SocialImageUrl);
+        // وضع غير معروف يُرفض لا يُتجاهَل: قيمة صامتة تعني متجراً يظنّ أنه ضبط شيئاً ولم يفعل.
+        if (themeMode is not null && !BrandPresets.ThemeModes.Contains(themeMode.Trim().ToLowerInvariant()))
+            throw new InvalidTenantOperationException($"وضع عرض غير معتمد: {themeMode}");
+        return new StoreBranding(colors, font, theme, LogoUrl, FaviconUrl, SocialImageUrl, themeMode ?? ThemeMode);
     }
 
     internal StoreBranding WithAsset(BrandingAsset asset, string url) => asset switch
     {
-        BrandingAsset.Logo => new(Colors, Typography, ThemePreset, url, FaviconUrl, SocialImageUrl),
-        BrandingAsset.Favicon => new(Colors, Typography, ThemePreset, LogoUrl, url, SocialImageUrl),
-        _ => new(Colors, Typography, ThemePreset, LogoUrl, FaviconUrl, url),
+        BrandingAsset.Logo => new(Colors, Typography, ThemePreset, url, FaviconUrl, SocialImageUrl, ThemeMode),
+        BrandingAsset.Favicon => new(Colors, Typography, ThemePreset, LogoUrl, url, SocialImageUrl, ThemeMode),
+        _ => new(Colors, Typography, ThemePreset, LogoUrl, FaviconUrl, url, ThemeMode),
     };
+
+    private static string Normalize(string? mode)
+    {
+        var value = mode?.Trim().ToLowerInvariant() ?? "";
+        return BrandPresets.ThemeModes.Contains(value) ? value : BrandPresets.DefaultThemeMode;
+    }
 }
 
 // ============================================================================

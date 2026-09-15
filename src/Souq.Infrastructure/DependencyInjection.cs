@@ -134,6 +134,8 @@ public static class DependencyInjection
         services.AddScoped<PlatformQueries>();
         services.AddScoped<IPlatformQueries>(sp => sp.GetRequiredService<PlatformQueries>());
         services.AddScoped<IPlatformReports>(sp => sp.GetRequiredService<PlatformQueries>());
+        // تقارير متجر واحد: بلا تجاوز للمرشّح — المرشّح العادي يضيّق كل جدول داخل نطاق المتجر.
+        services.AddScoped<IStoreReports, StoreReportQueries>();
         services.AddScoped<IStoreConfiguration, StoreConfiguration>();
 
         // سجلّ التدقيق في وحدة العمل الحالية، والعمل داخل متجر بعينه من منطقة المنصّة.

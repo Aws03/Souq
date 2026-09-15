@@ -13,7 +13,7 @@ namespace Souq.Application.Features.Stores;
 public sealed record BrandColorsInput(string Primary, string Secondary, string Accent, string Background, string Text);
 public sealed record SocialLinkInput(string Network, string Url);
 public sealed record StoreLocaleInput(string DefaultCulture, IReadOnlyList<string> EnabledCultures, string TimeZone);
-public sealed record StoreBrandingInput(BrandColorsInput Colors, string Typography, string ThemePreset);
+public sealed record StoreBrandingInput(BrandColorsInput Colors, string Typography, string ThemePreset, string? ThemeMode = null);
 public sealed record StoreContactInput(string? Email, string? Phone, IReadOnlyDictionary<string, string?>? Address);
 public sealed record StoreSeoInput(IReadOnlyDictionary<string, string?>? Title, IReadOnlyDictionary<string, string?>? Description);
 
@@ -25,7 +25,8 @@ public sealed record StoreSettingsInput(
 public sealed record BrandColorsDto(
     string Primary, string Secondary, string Accent, string Background, string Text, string OnPrimary, string OnAccent);
 public sealed record StoreBrandingDto(
-    BrandColorsDto Colors, string Typography, string ThemePreset, string? LogoUrl, string? FaviconUrl, string? SocialImageUrl);
+    BrandColorsDto Colors, string Typography, string ThemePreset, string ThemeMode,
+    string? LogoUrl, string? FaviconUrl, string? SocialImageUrl);
 public sealed record StoreContactDto(string? Email, string? Phone, IReadOnlyDictionary<string, string> Address);
 public sealed record SocialLinkDto(string Network, string Url);
 public sealed record StoreSeoDto(IReadOnlyDictionary<string, string> Title, IReadOnlyDictionary<string, string> Description);
@@ -55,7 +56,8 @@ public static class StoreSettingsMapper
             new StoreBrandingDto(
                 new BrandColorsDto(colors.Primary, colors.Secondary, colors.Accent, colors.Background, colors.Text,
                     colors.OnPrimary, colors.OnAccent),
-                branding.Typography, branding.ThemePreset, branding.LogoUrl, branding.FaviconUrl, branding.SocialImageUrl),
+                branding.Typography, branding.ThemePreset, branding.ThemeMode,
+                branding.LogoUrl, branding.FaviconUrl, branding.SocialImageUrl),
             new StoreContactDto(settings.Contact.Email, settings.Contact.Phone, settings.Contact.Address),
             settings.Social.Select(l => new SocialLinkDto(l.Network, l.Url)).ToList(),
             new StoreSeoDto(settings.Seo.Title, settings.Seo.Description),
@@ -78,7 +80,7 @@ public static class StoreSettingsEditor
         var colors = input.Branding.Colors;
         tenant.UpdateBranding(
             BrandColors.Create(colors.Primary, colors.Secondary, colors.Accent, colors.Background, colors.Text),
-            input.Branding.Typography, input.Branding.ThemePreset);
+            input.Branding.Typography, input.Branding.ThemePreset, input.Branding.ThemeMode);
 
         tenant.UpdateStorefront(
             input.DisplayName,

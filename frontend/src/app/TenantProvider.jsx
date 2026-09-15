@@ -6,6 +6,7 @@ import { BootScreen } from './BootScreens';
 import { applyStoreTheme } from './storeTheme';
 import { setStoreDateSettings } from './dateLocale';
 import { bootModeForConfig, bootOutcome, isModuleEnabled, setStoreCurrency, supportedLanguage } from './tenantModel';
+import { oppositeMode, readStoredMode, resolveThemeMode, systemPrefersDark, writeStoredMode } from './themeMode';
 
 // ============================================================================
 // TenantProvider (المرحلة 15، WhiteLabel.md §3، ADR-0035): أول ما يطلبه التطبيق على أيّ مضيف هو إعداد متجره — الهوية واللغات
@@ -16,6 +17,9 @@ import { bootModeForConfig, bootOutcome, isModuleEnabled, setStoreCurrency, supp
 // الخادم يفرض كل شيء في كل الأحوال — هذا عرض لا حماية.
 // ============================================================================
 const TenantContext = createContext({ mode: 'loading', config: null, retry: () => {} });
+
+// سياق مستقلّ للسمة: مكوّن يبدّل الوضع لا يجب أن يُعيد رسم كل قارئ لإعداد المتجر، والعكس.
+const ThemeContext = createContext({ theme: 'light', toggleTheme: () => {}, storePrefersTheme: 'system' });
 
 export function TenantProvider({ children }) {
   const { i18n } = useTranslation();
@@ -44,11 +48,34 @@ export function TenantProvider({ children }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [attempt]);
 
-  // الهوية على المستند، وتتبع تبديل اللغة (العنوان والوصف بلغة الزائر). تُطبَّق كلّما وُجد إعداد — بما فيه متجر مغلق،
-  // كي تظهر شاشة إغلاقه بألوانه وخطّه لا بمظهر محايد.
+  // ========================================================================
+  // الوضع (فاتح/داكن): اختيار الزائر إن وُجد، وإلا تفضيل المتجر، وإلا تفضيل نظام الزائر.
+  // يُحسم قبل أول رسم (useState بدالة) كي لا تومض الصفحة بيضاء ثم تسودّ.
+  // ========================================================================
+  const [chosenTheme, setChosenTheme] = useState(readStoredMode);
+  const storePrefersTheme = state.config?.settings?.branding?.themeMode ?? 'system';
+  const theme = resolveThemeMode({
+    stored: chosenTheme,
+    storePreference: storePrefersTheme,
+    systemPrefersDark: systemPrefersDark(),
+  });
+
+  // الهوية على المستند، وتتبع تبديل اللغة (العنوان والوصف بلغة الزائر) والوضع. تُطبَّق كلّما وُجد إعداد — بما فيه متجر
+  // مغلق، كي تظهر شاشة إغلاقه بألوانه وخطّه لا بمظهر محايد.
   useEffect(() => {
-    if (state.config) applyStoreTheme(state.config, i18n.language);
-  }, [state, i18n.language]);
+    if (state.config) applyStoreTheme(state.config, i18n.language, theme);
+  }, [state, i18n.language, theme]);
+
+  // زائر لم يختر شيئاً يتبع نظامه حيّاً: تبديل النظام ليلاً يجب أن يتبعه المتجر بلا إعادة تحميل.
+  // العدّاد لا معنى له في ذاته — وجوده وحده يُعيد التقييم، فـsystemPrefersDark() تُقرأ عند الرسم.
+  const [, bumpSystemTick] = useState(0);
+  useEffect(() => {
+    if (chosenTheme || typeof window.matchMedia !== 'function') return undefined;
+    const query = window.matchMedia('(prefers-color-scheme: dark)');
+    const onChange = () => bumpSystemTick((n) => n + 1);
+    query.addEventListener('change', onChange);
+    return () => query.removeEventListener('change', onChange);
+  }, [chosenTheme]);
 
   const retry = useCallback(() => {
     setState({ mode: 'loading', config: null });
@@ -56,14 +83,31 @@ export function TenantProvider({ children }) {
   }, []);
 
   const value = useMemo(() => ({ ...state, retry }), [state, retry]);
+  const themeValue = useMemo(() => ({
+    theme,
+    storePrefersTheme,
+    // التبديل اختيار صريح: يُحفظ، فيغلب تفضيل المتجر ونظام الزائر من الآن فصاعداً.
+    toggleTheme: () => setChosenTheme((current) => {
+      const next = oppositeMode(resolveThemeMode({
+        stored: current, storePreference: storePrefersTheme, systemPrefersDark: systemPrefersDark(),
+      }));
+      writeStoredMode(next);
+      return next;
+    }),
+  }), [theme, storePrefersTheme]);
+
   const ready = state.mode === 'store' || state.mode === 'platform';
 
   return (
     <TenantContext.Provider value={value}>
-      {ready ? children : <BootScreen mode={state.mode} config={state.config} onRetry={retry} />}
+      <ThemeContext.Provider value={themeValue}>
+        {ready ? children : <BootScreen mode={state.mode} config={state.config} onRetry={retry} />}
+      </ThemeContext.Provider>
     </TenantContext.Provider>
   );
 }
+
+export const useTheme = () => useContext(ThemeContext);
 
 export const useTenant = () => useContext(TenantContext);
 

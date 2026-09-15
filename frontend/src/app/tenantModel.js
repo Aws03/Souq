@@ -67,32 +67,89 @@ export function mutedText(text, background) {
   return text;
 }
 
-// متغيّرات التصميم الدلالية من هوية المتجر — المكوّنات لا تقرأ غيرها (--color-*، --tenant-font-*). ألوان الحالة (نجاح، معلومة،
-// خطر) ثابتة عبر كل المتاجر عمداً (styles.css).
-export function themeVariables(branding) {
+// ============================================================================
+// متغيّرات التصميم الدلالية من هوية المتجر — المكوّنات لا تقرأ غيرها (--color-*، --tenant-font-*).
+// ألوان الحالة (نجاح، معلومة، خطر) تُشتقّ لتبقى مقروءة في الوضعين، وأساسها ثابت عبر كل المتاجر عمداً.
+//
+// ── لماذا الوضع (فاتح/داكن) مُدخَل للاشتقاق لا تجاوزاً في CSS؟ ─────────────
+// applyStoreTheme يكتب هذه المتغيّرات **سطرياً على <html>**، والسطري يعلو كل قاعدة CSS. فلو
+// عُرِّف الوضع الداكن كقاعدة `[data-theme="dark"] { --color-bg: … }` لَغلبته قيمةُ المتجر
+// الفاتحة وبقيت الخلفية بيضاء. النتيجة الوحيدة المتّسقة أن يكون الوضع مُعاملاً هنا: مجموعة
+// رموز واحدة تُشتقّ من (ألوان المتجر + الوضع)، ومصدر حقيقة واحد.
+//
+// والداكن ليس عكساً للفاتح: لون المتجر يبقى هويةً، لكن السطح يُبنى من رمادٍ بارد قريب منه،
+// والنصّ يُختار بالتباين لا بالذوق — mutedText يضمن 4.5:1 في الوضعين معاً.
+// ============================================================================
+// ألوان الحالة الأساسية — ثابتة عبر المتاجر (لا متجر يُعيد تعريف "خطر")، ومشتقّة للوضع.
+const STATUS = { success: '#2E7D32', info: '#2A5DA8', danger: '#C4674E' };
+
+const DARK_SURFACE = '#12161C';   // أساس السطح الداكن: رمادي بارد لا أسود (الأسود الصريح يُتعب العين ويُسطّح الظلال)
+const DARK_TEXT_ON = '#ECEFF4';
+
+export const THEME_MODES = ['light', 'dark'];
+
+export function themeVariables(branding, mode = 'light') {
   const colors = branding?.colors ?? {};
   const primary = hex(colors.primary, NEUTRAL.primary);
   const accent = hex(colors.accent, NEUTRAL.accent);
-  const background = hex(colors.background, NEUTRAL.background);
-  const text = hex(colors.text, NEUTRAL.text);
   const type = TYPOGRAPHY[branding?.typography] ?? TYPOGRAPHY[DEFAULT_TYPOGRAPHY];
+  const dark = mode === 'dark';
+
+  // في الداكن: الخلفية والنصّ يُشتقّان، ولا يُقرآن من إعداد المتجر (إعداده فاتح بطبيعته).
+  const background = dark
+    ? mix(DARK_SURFACE, primary, 0.10)
+    : hex(colors.background, NEUTRAL.background);
+  const text = dark ? DARK_TEXT_ON : hex(colors.text, NEUTRAL.text);
+
+  // السطح أفتح من الخلفية في الداكن (الارتفاع بالضوء لا بالظلّ) وأبيض في الفاتح.
+  const surface = dark ? mix(background, '#FFFFFF', 0.07) : '#FFFFFF';
+
+  // لون الهوية على خلفية داكنة قد يصير غير مقروء — يُفتَح حتى يبلغ 4.5:1 بدل أن يُترك باهتاً.
+  const primaryReadable = dark ? readableAgainst(primary, background) : primary;
+  const accentReadable = dark ? readableAgainst(accent, background) : accent;
+
   return {
-    '--color-primary': primary,
-    '--color-primary-strong': mix(primary, '#000000', 0.25),
-    '--color-on-primary': hex(colors.onPrimary, readableOn(primary)),
-    '--color-secondary': hex(colors.secondary, primary),
-    '--color-accent': accent,
-    '--color-accent-soft': mix(accent, '#FFFFFF', 0.45),
-    '--color-on-accent': hex(colors.onAccent, readableOn(accent)),
+    '--color-primary': primaryReadable,
+    '--color-primary-strong': dark ? mix(primaryReadable, '#FFFFFF', 0.18) : mix(primary, '#000000', 0.25),
+    '--color-on-primary': hex(colors.onPrimary, readableOn(primaryReadable)),
+    '--color-secondary': dark ? primaryReadable : hex(colors.secondary, primary),
+    '--color-accent': accentReadable,
+    '--color-accent-soft': mix(accentReadable, dark ? background : '#FFFFFF', 0.45),
+    '--color-on-accent': hex(colors.onAccent, readableOn(accentReadable)),
     '--color-bg': background,
-    '--color-surface-alt': mix(background, text, 0.05),
+    '--color-surface': surface,
+    '--color-surface-alt': dark ? mix(background, '#FFFFFF', 0.04) : mix(background, text, 0.05),
     '--color-text': text,
     '--color-text-muted': mutedText(text, background),
-    '--color-border': mix(background, text, 0.12),
-    '--shadow': `0 6px 24px ${rgba(primary, 0.08)}`,
+    '--color-border': mix(background, text, dark ? 0.16 : 0.12),
+
+    // ألوان الحالة تُشتقّ للوضع كي تبقى مقروءة: الأخضر الداكن على خلفية داكنة يختفي.
+    '--color-success': readableAgainst(STATUS.success, background),
+    '--color-success-soft': mix(STATUS.success, background, dark ? 0.82 : 0.88),
+    '--color-info': readableAgainst(STATUS.info, background),
+    '--color-info-soft': mix(STATUS.info, background, dark ? 0.82 : 0.88),
+    '--color-danger': readableAgainst(STATUS.danger, background),
+    '--color-danger-soft': mix(STATUS.danger, background, dark ? 0.82 : 0.88),
+
+    // الظلّ لا يعمل على سطح داكن: الارتفاع هناك حدٌّ مضيء لا ظلّ أسود.
+    '--shadow': dark ? `0 1px 0 ${rgba('#FFFFFF', 0.06)}, 0 8px 24px ${rgba('#000000', 0.45)}`
+      : `0 6px 24px ${rgba(primary, 0.08)}`,
+    '--shadow-lg': dark ? `0 24px 60px ${rgba('#000000', 0.65)}` : `0 20px 50px ${rgba('#000000', 0.25)}`,
+
     '--tenant-font-heading': type.heading,
     '--tenant-font-body': type.body,
   };
+}
+
+// يفتح اللون تدريجياً حتى يبلغ 4.5:1 على الخلفية، فيبقى هو نفسه ما لم يكن غير مقروء أصلاً.
+export function readableAgainst(color, background, target = 4.5) {
+  if (contrastRatio(color, background) >= target) return color;
+  const towards = contrastRatio('#FFFFFF', background) > contrastRatio('#000000', background) ? '#FFFFFF' : '#000000';
+  for (let weight = 0.1; weight <= 1; weight += 0.05) {
+    const candidate = mix(color, towards, weight);
+    if (contrastRatio(candidate, background) >= target) return candidate;
+  }
+  return towards;
 }
 
 // ── النصوص واللغات ─────────────────────────────────────────────────────────

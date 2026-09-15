@@ -5,7 +5,7 @@
 >
 > Conventions (errors, paging, status codes): [ApiDocumentation.md](ApiDocumentation.md). Use cases per module: [UseCases.md](../04-MODULES/UseCases.md).
 
-**126 endpoints** in 24 controllers: 24 anonymous, 27 for any signed-in account, 75 behind a permission.
+**127 endpoints** in 25 controllers: 24 anonymous, 27 for any signed-in account, 76 behind a permission.
 
 ## How to read this table
 
@@ -43,6 +43,7 @@
 | PUT | `/api/admin/products/{id:int}/images/order` | `catalog.manage` | store | — | — | `ReorderProductImagesCommand` | Catalog |
 | DELETE | `/api/admin/products/{id:int}/images/{imageId:int}` | `catalog.manage` | store | — | — | `RemoveProductImageCommand` | Catalog |
 | PUT | `/api/admin/products/{id:int}/status` | `catalog.manage` | store | — | — | `ChangeProductStatusCommand` | Catalog |
+| GET | `/api/admin/reports/dashboard` | `store.reports.view` | store | — | — | `GetStoreDashboardQuery` | Reporting |
 | GET | `/api/admin/reviews` | `reviews.moderate` | store | `reviews` | — | `ListReviewsForModerationQuery` | Reviews |
 | GET | `/api/admin/reviews/settings` | `reviews.moderate` | store | `reviews` | — | `GetReviewSettingsQuery` | Platform |
 | PUT | `/api/admin/reviews/settings` | `reviews.moderate` + `store.settings.manage` | store | `reviews` | — | `UpdateReviewSettingsCommand` | Platform |

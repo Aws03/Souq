@@ -8,10 +8,10 @@
 | Suite | Files | Facts | Theories |
 |---|---|---|---|
 | [`Souq.Domain.Tests`](#souqdomaintests) | 23 | 165 | 34 |
-| [`Souq.Application.Tests`](#souqapplicationtests) | 39 | 272 | 11 |
+| [`Souq.Application.Tests`](#souqapplicationtests) | 40 | 278 | 13 |
 | [`Souq.ArchitectureTests`](#souqarchitecturetests) | 13 | 54 | 7 |
-| [`Souq.IntegrationTests`](#souqintegrationtests) | 41 | 203 | 21 |
-| [frontend (Vitest)](#frontend-vitest) | 47 | 258 | — |
+| [`Souq.IntegrationTests`](#souqintegrationtests) | 42 | 212 | 21 |
+| [frontend (Vitest)](#frontend-vitest) | 49 | 277 | — |
 
 ## Souq.Domain.Tests
 
@@ -76,6 +76,7 @@
 | `tests/Souq.Application.Tests/Products/GetRelatedProductsHandlerTests.cs` | `GetRelatedProductsHandlerTests` | 3 | 0 |
 | `tests/Souq.Application.Tests/Products/ProductHandlersTests.cs` | `CreateProductHandlerTests`, `UpdateProductHandlerTests`, `ProductLifecycleHandlerTests`, `GetProductByIdHandlerTests` | 17 | 0 |
 | `tests/Souq.Application.Tests/Products/UploadProductMediaHandlerTests.cs` | `UploadProductMediaHandlerTests` | 7 | 0 |
+| `tests/Souq.Application.Tests/Reporting/StoreDashboardTests.cs` | `StoreDashboardWindowTests` | 6 | 2 |
 | `tests/Souq.Application.Tests/Reviews/CreateReviewHandlerTests.cs` | `CreateReviewHandlerTests` | 7 | 0 |
 | `tests/Souq.Application.Tests/Reviews/ReviewModerationHandlersTests.cs` | `ReviewModerationHandlersTests` | 6 | 0 |
 | `tests/Souq.Application.Tests/Security/RolePermissionsTests.cs` | `RolePermissionsTests` | 8 | 0 |
@@ -142,6 +143,7 @@
 | `tests/Souq.IntegrationTests/ShippingTests.cs` | `ShippingTests` | 3 | 0 |
 | `tests/Souq.IntegrationTests/StartupAndSecurityTests.cs` | `StartupAndSecurityTests`, `LoggerAdapter` | 7 | 1 |
 | `tests/Souq.IntegrationTests/StoreAdministrationTests.cs` | `StoreAdministrationTests` | 6 | 0 |
+| `tests/Souq.IntegrationTests/StoreDashboardTests.cs` | `StoreDashboardTests` | 9 | 0 |
 | `tests/Souq.IntegrationTests/StripeAmountConverterTests.cs` | `StripeAmountConverterTests` | 0 | 1 |
 | `tests/Souq.IntegrationTests/TenantIsolationTests.cs` | `TenantIsolationTests` | 12 | 0 |
 | `tests/Souq.IntegrationTests/TenantResolutionMiddlewareTests.cs` | `TenantResolutionMiddlewareTests`, `FakeDirectory` | 3 | 3 |
@@ -164,6 +166,8 @@
 | `frontend/src/app/robots.test.js` | 5 |
 | `frontend/src/app/structuredData.test.js` | 8 |
 | `frontend/src/app/tenantModel.test.js` | 7 |
+| `frontend/src/app/tenantModel.themes.test.js` | 10 |
+| `frontend/src/app/themeMode.test.js` | 9 |
 | `frontend/src/components/ProtectedRoute.test.jsx` | 11 |
 | `frontend/src/components/common/Drawer.test.jsx` | 6 |
 | `frontend/src/components/common/ErrorBoundary.test.jsx` | 5 |

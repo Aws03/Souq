@@ -2,14 +2,22 @@ import { documentDescription, documentTitle, fontStylesheetUrl, themeVariables }
 
 // ============================================================================
 // applyStoreTheme في وقت التشغيل (المرحلة 15، A7): يطبّق هوية المتجر على المستند — متغيّرات التصميم على <html>، والقالب (data-preset)،
-// وعنوان الصفحة ووصفها، والأيقونة، وخطّ المتجر. الأثر الجانبي الوحيد للهوية؛ الحساب كله في tenantModel المُختبَر. الزائر لا يختار
-// سمة: الهوية قرار المتجر.
+// وعنوان الصفحة ووصفها، والأيقونة، وخطّ المتجر. الأثر الجانبي الوحيد للهوية؛ الحساب كله في tenantModel المُختبَر.
+//
+// الوضع (فاتح/داكن) مُعامل هنا لأنه مُدخَل لاشتقاق الرموز لا تجاوز لها: هذه المتغيّرات تُكتب
+// سطرياً على <html>، والسطري يعلو أي قاعدة CSS — فقاعدة `[data-theme="dark"]` كانت ستُغلَب.
+//
+// data-theme يُكتب مع ذلك، لا ليُلوّن بل ليُستعمل في ثلاثة مواضع لا تصلها المتغيّرات:
+// color-scheme للمتصفّح (حقول النماذج وأشرطة التمرير)، واستثناءات نادرة، والاختبارات.
 // ============================================================================
-export function applyStoreTheme(config, language) {
+export function applyStoreTheme(config, language, mode = 'light') {
   const root = document.documentElement;
   const branding = config.settings?.branding;
-  for (const [name, value] of Object.entries(themeVariables(branding))) root.style.setProperty(name, value);
+  for (const [name, value] of Object.entries(themeVariables(branding, mode))) root.style.setProperty(name, value);
   root.dataset.preset = branding?.themePreset ?? 'classic';
+  root.dataset.theme = mode;
+  // حقول النماذج وأشرطة التمرير التي يرسمها المتصفّح نفسه تتبع هذه الخاصّية لا متغيّراتنا.
+  root.style.colorScheme = mode;
 
   document.title = documentTitle(config, language);
   setMeta('description', documentDescription(config, language));
