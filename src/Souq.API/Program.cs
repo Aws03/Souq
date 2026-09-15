@@ -190,8 +190,35 @@ await DbSeeder.SeedAsync(app.Services,
         DbSeeder.ShouldSeedDemoData(app.Environment.EnvironmentName, app.Configuration.GetValue<bool?>("Seed:DemoData"))),
     app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Souq.Seeding"));
 
+// ── R-12: هوية التشغيل كما *تراها القاعدة*، لا كما يصفها الإعداد ──────────
+// الفرق بين "قِسنا أن الأقلّ يكفي" و"نعمل بالأقلّ فعلاً" غير مرئي بغير هذا السطر: نشرٌ يصل
+// بـ sa يبدو سليماً تماماً في السجل. فحص واحد عند الإقلاع يجعل الفجوة مسموعة كل مرّة.
+await using (var privilegeScope = app.Services.CreateAsyncScope())
+{
+    var privileges = await DatabasePrivileges.InspectAsync(
+        privilegeScope.ServiceProvider.GetRequiredService<AppDbContext>());
+    var migrationConnection = privilegeScope.ServiceProvider.GetRequiredService<MigrationConnection>();
+
+    if (privileges is null)
+        startupLog.LogInformation("Database privileges could not be read; the least-privilege check was skipped");
+    else if (privileges.CanChangeSchema && !localEnvironment)
+        startupLog.LogWarning("Configuration warning: {ConfigurationWarning}",
+            $"التطبيق متصل بالهوية '{privileges.Login}' وهي تملك {privileges.Roles} — أي أنها تستطيع تغيير المخطّط " +
+            "وحذف الجداول. التشغيل العادي لا يحتاج أكثر من db_datareader و db_datawriter. " +
+            "طبّق scripts/sql/least-privilege-logins.sql — docs/07-SECURITY/DatabasePrivileges.md");
+    else
+        startupLog.LogInformation("Runtime database identity {Login} cannot change the schema", privileges.Login);
+
+    var runtimeConnection = builder.Configuration.GetConnectionString("Default") ?? "";
+    if (migrationConnection.IsSeparateIdentity
+        && DatabasePrivileges.SameLogin(runtimeConnection, migrationConnection.Value))
+        startupLog.LogWarning("Configuration warning: {ConfigurationWarning}",
+            "ConnectionStrings:Migrations مضبوطة لكنها تحمل هوية التشغيل نفسها — الفصل اسمي لا فعلي.");
+}
+
 // ── خط أنابيب الطلب (Request Pipeline) — الترتيب مهم ──────────────────────
 app.UseForwardedHeaders();   // أولاً: عنوان العميل ومخطّطه من الوكيل الموثوق قبل أي قرار
+app.UseMiddleware<ProxyTrustDiagnostics>();  // ترويسة وكيل وصلت ولم تُصدَّق ⇒ تحذير واحد يسمّي السبب
 app.UseMiddleware<CorrelationHeaderMiddleware>(); // X-Correlation-Id على كل استجابة، حتى الأخطاء (ADR-0018)
 app.UseMiddleware<SecurityHeadersMiddleware>();   // ترويسات الأمان على كل استجابة، بما فيها الأخطاء
 // HSTS خارج التطوير فقط: الترويسة لا تُرسَل إلا على https (المخطّط من الوكيل الموثوق عبر
