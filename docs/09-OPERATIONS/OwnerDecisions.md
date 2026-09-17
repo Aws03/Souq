@@ -243,6 +243,52 @@ edit nothing or invent product behaviour.
 
 ---
 
+## TD-42 — Store-authored legal/informational pages: how much of a capability?
+
+**The question.** A store today has no way to publish a privacy policy, terms, a returns policy, a shipping
+policy or an FAQ — the storefront footer used to link to all five with `href="#"`, and Phase 16 removed the
+dead links rather than keep the appearance. Two shapes would close that gap, and they differ by an order of
+magnitude in what gets built:
+
+- **(a) Authored pages.** A new *ContentPage* aggregate owned by Catalog (or wherever the eventual design
+  places it), a migration, admin CRUD with a per-language rich(-ish) body, and a public `/pages/:slug` route —
+  a small CMS built into Souq.
+- **(b) Policy links.** A handful of URL fields on the store's existing settings (`StoreSettings`) — privacy,
+  terms, returns, shipping, FAQ — each optional, each linking out to a page the merchant hosts elsewhere
+  (their own site, a document host, a generic policy generator). The footer shows a link only when a URL is
+  set. No new aggregate, no migration beyond a few nullable columns, no admin editor beyond a few text fields
+  already-existing settings screens can hold.
+
+**Why it matters.** Both answers close the real gap — a store selling in most jurisdictions needs a reachable
+privacy policy and terms, and today has neither. They do not close it equally: (a) gives every store rich,
+versioned, per-language content it authors inside Souq, at the cost of a genuine new capability (an aggregate,
+a table, an editor, a public route, an ADR) that then needs its own lifecycle decisions (can a page be
+unpublished? does it need approval? is there a length limit?) most of which nothing in the repository has
+opinions about yet. (b) closes the legal gap immediately, with almost no new surface area, but gives a store
+nothing more than a link — the actual policy text lives and is maintained outside Souq entirely, which is a
+real product-capability difference a merchant would notice.
+
+**Affected code.** `docs/04-MODULES/Catalog/README.md`, `frontend/src/components/layout/Footer.jsx` (the
+component that used to render the five dead links), `StoreSettings` and its admin editor if (b) is chosen; a
+new aggregate (*ContentPage*, not built), a migration and an admin screen if (a) is chosen.
+
+| Engineering | Deployment | First paying customer |
+|---|---|---|
+| **Yes** — the M2 phase of [SouqMasterPlan.md](../12-ROADMAP/SouqMasterPlan.md) is blocked on this one deliverable; nothing else in that phase is | No | **Yes, in any jurisdiction that requires a published privacy policy or terms** — see [ProductRoadmap.md](../12-ROADMAP/ProductRoadmap.md) §11's first-sellable-release list |
+
+**Evidence that exists.** The gap itself: verified in code — no content-page capability of either shape exists
+today, and the footer's dead links were removed rather than kept as a placeholder. **Evidence still required:**
+none technical; this is a scope call between two valid, fully-specified shapes, not a missing fact.
+
+**Recommendation, not a decision.** (b) first: it closes the legal gap at near-zero engineering risk and does
+not foreclose building (a) later as a richer, separately-scoped capability if the owner specifically wants
+authored pages (a small CMS) rather than just reachable policies.
+
+**Who decides.** The owner, as a product-scope call — guessing between a small feature and a much larger one
+is exactly the kind of business decision `AGENTS.md` §0 rule 4 reserves for the owner.
+
+---
+
 ## Smaller choices that are also not engineering's
 
 | Decision | The question | Consequence of leaving it |

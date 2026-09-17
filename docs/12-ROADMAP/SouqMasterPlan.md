@@ -30,11 +30,11 @@
 ```yaml
 plan_version: 1.0.0
 current_phase: M2
-phase_status: not_started
-next_phase: M2
-blocked_decisions: []           # owner decisions that block a phase currently in flight; see §5 and OwnerDecisions.md
+phase_status: blocked
+next_phase: M3          # M2's one deliverable (TD-42) is blocked; M3 does not depend on it and may run now — see M2's own "Next-phase trigger"
+blocked_decisions: ["TD-42"]    # owner decisions that block a phase currently in flight; see §5 and OwnerDecisions.md
 last_verified_date: 2026-09-17
-last_verified_head: 37d8008     # the M1 code commit; this docs-reconciliation commit follows it on the same branch
+last_verified_head: 62e343f     # the M2 audit commit; no code changed in M2, this is the docs-only commit that recorded it
 baseline_branch: phase/17-production-hardening
 ```
 
@@ -43,6 +43,13 @@ platform admin path through a published contract, `IStorePaymentAccountEditor`, 
 reference); corrected TD-04's review-settings half, TD-02's extraction-order claim, and TD-01/TD-03/TD-05 with
 today's evidence; crossings 79 → 74 across 15 pairs (was 16); `RiskRegister.md` R-04 closed, R-14/R-15 updated.
 Full evidence in M1's own "Completion evidence" field above.
+
+**M2 — audit complete, one deliverable blocked.** `Catalog/README.md` and `ProductVariants.md` re-read in full
+against the current code: no drift found, nothing to correct. TD-42 (store-authored content pages) needs a
+scope decision only the owner can make — see M2's own STOP entry above for the exact question and a
+recommendation. Variant-image gallery confirmed still genuinely not built (no schema support at all) and left
+correctly deferred, not built speculatively. No code changed. M3 does not depend on the blocked deliverable and
+may proceed; M2 resumes the moment TD-42 is answered.
 
 Keep this block current in the same commit that closes a phase: `current_phase`, `phase_status`
 (`not_started` | `in_progress` | `blocked` | `done`), `next_phase`, `blocked_decisions` (the exact ID from
@@ -416,15 +423,56 @@ repository.
 - **Documentation/ADR.** Update `Catalog/README.md`; an ADR for the content-page capability (a new aggregate and
   a new public route are exactly what `AGENTS.md` §8 calls architectural); update `TechnicalDebt.md` to close
   TD-42.
-- **Technical debt touched.** TD-42 (close, if scoped and built) or re-file with today's evidence if the scope
-  decision (`AGENTS.md` §9 — "a product decision on scope") turns out to need the owner after all; note any
-  variant-image gap closed or left, updating `ProductVariants.md`'s consequences list.
-- **Acceptance criteria.** A store can publish at minimum a privacy policy and terms page without inventing
-  legal text (the *capability* is engineering's; the *content* is the store's own, never fabricated by this
-  plan); `ProductVariants.md` has no stale "not built" claim this phase actually closed.
-- **Completion evidence.** *(fill in on close)*
-- **Next-phase trigger.** M3 may start once Catalog's read model (`CatalogQueries`) is stable for this phase —
-  M3 builds directly on it.
+- **Technical debt touched.** TD-42 — **that decision turned out to be needed after all; see below.**
+  Variant-image gallery: re-checked against the current code (`ProductImage` has no `VariantId` or any per-
+  variant association at all — confirmed by reading `src/Souq.Domain/Entities/ProductParts.cs`) and left
+  explicitly deferred, not built: it is a net-new feature (a schema change plus admin and storefront UI), it is
+  named *not scheduled* in `Catalog/README.md`'s own "Future evolution" section, and nothing depends on it —
+  building it now would be exactly the kind of scope-creep this plan's own protocol (§3 step 2, "discover"
+  before "implement") is designed to catch, not a defect to fix.
+- **Audit performed, verified accurate — no drift found.** `Catalog/README.md` and `ProductVariants.md` were
+  read in full against the current code. Every claim checked (the V3 storefront gate removal, `VisibleProducts`,
+  the category `IsActive` filter, `GuardConcurrentEdit`'s scope, the search implementation, the fifteen "Known
+  limitations") matched the code exactly — including limitation 9 ("plain substring match, no full-text index"),
+  which is confirmed still true and is explicitly M3's scope, not M2's, so it was not touched here.
+- **One additional limitation confirmed but deliberately not fixed, with the reasoning recorded.**
+  `Catalog/README.md` limitation 3 — hiding a category hides only its *direct* products; an active child of a
+  hidden category, and that child's own products, stay visible (`ListAdminCategoriesQuery`'s handler filters
+  `IsActive` with no ancestor walk; `CatalogQueries.VisibleProducts()` checks only the product's direct
+  category). Whether "hide a category" should mean "hide this node" or "hide this subtree" is a genuine
+  semantic choice with no strong existing precedent either way in this codebase (unlike V3's variant-deactivation
+  question, which had a direct analogy — "like unpublishing a product" — this one does not: a merchant
+  reorganizing a category tree might deliberately want a child to stay visible while its old parent is hidden).
+  Guessing here would be inventing a business rule (`AGENTS.md` §0 rule 4), so it stays documented as a
+  limitation rather than "fixed" by assumption.
+- **Acceptance criteria.** Not met in full — **stopped for a genuine decision**, per §5's own anticipation of
+  this exact outcome. `ProductVariants.md` has no stale "not built" claim this phase would have closed (the
+  audit found none to close). The content-page capability itself — TD-42 — needs the owner's answer to proceed.
+- **STOP — owner decision required (TD-42's own recorded prerequisite, `AGENTS.md` §9 "a business rule where
+  guessing changes commercial behaviour" / a product-scope call).** The question: should a store's legal/
+  informational pages (privacy policy, terms, returns, shipping, FAQ) be **(a)** authored inside Souq — a new
+  `ContentPage` aggregate, a migration, admin CRUD, and a public `/pages/:slug` route, the shape this phase's own
+  Backend/API/Database/Frontend fields above already describe — or **(b)** a much smaller capability: a handful
+  of URL fields on the store's existing settings (`StoreSettings`), each linking out to a policy the merchant
+  hosts elsewhere, with the footer showing a link only when a URL is set? Both close the real gap TD-42 names (a
+  store selling in most jurisdictions needs a reachable privacy policy and terms). They differ by an order of
+  magnitude in engineering footprint (a new aggregate, table and admin editor, versus four or five nullable
+  columns and no new architecture at all) and in product capability (rich per-language authored content with
+  its own lifecycle, versus a link the merchant maintains on their own site). Repository evidence does not
+  favour one over the other — `TechnicalDebt.md`'s own TD-42 entry names this exact fork as its prerequisite
+  ("a product decision on scope") rather than assuming the answer, and this phase's own scoping, written before
+  execution, assumed (a) without that decision having been made. **Nothing else in M2 is blocked by this** — the
+  audit above is complete, and M3 does not depend on this decision (see its own trigger). Recommendation, not a
+  decision: (b) first — it closes the real legal gap immediately, at near-zero engineering risk, and does not
+  foreclose building (a) later as a richer, separately-decided capability if the owner wants authored pages
+  specifically (a CMS-lite feature) rather than just reachable policies.
+- **Completion evidence.** Audit portion: read `Catalog/README.md` (302 lines) and `ProductVariants.md` (271
+  lines) in full against `CatalogQueries.cs`, `ProductParts.cs`, `Product.cs` and `GetCategoriesHandler`; zero
+  corrections needed. No code changed in M2 — the phase is genuinely blocked on the TD-42 decision above for its
+  one concrete deliverable, and building around that decision (guessing) is exactly what this plan's §2 and
+  `AGENTS.md` §0 forbid.
+- **Next-phase trigger.** M3 does not depend on M2's blocked deliverable (TD-42) — only on `CatalogQueries`
+  being stable, which it is. **M3 may start now**; M2 resumes and closes the moment the owner answers TD-42.
 
 ### M3 — Professional local multilingual product search engine
 
