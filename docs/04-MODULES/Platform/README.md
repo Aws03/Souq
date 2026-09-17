@@ -91,7 +91,8 @@ Platform-area requests (`Features/Platform`) all carry an explicit tenant id and
 
 | Use case | Command or query | Handler | Who may call it | Endpoint |
 |---|---|---|---|---|
-| List stores | `ListTenantsQuery` | `ListTenantsHandler` | `platform.tenants.manage` | `GET /api/platform/tenants` |
+| List stores, with each store's primary domain and administrator state (`ActiveAdmins`, `PendingAdminInvitations`) | `ListTenantsQuery` | `ListTenantsHandler` | `platform.tenants.manage` | `GET /api/platform/tenants` |
+| What provisioning accepts: identity limits, reserved slugs, modules, statuses, and the store settings editor's own options | `GetProvisioningOptionsQuery` | `GetProvisioningOptionsHandler` | `platform.tenants.manage` | `GET /api/platform/tenants/options` |
 | Store detail | `GetTenantQuery` | `GetTenantHandler` | `platform.tenants.manage` | `GET /api/platform/tenants/{id}` |
 | A store's administrative accounts | `ListTenantAccountsQuery` | `ListTenantAccountsHandler` | `platform.tenants.manage` | `GET /api/platform/tenants/{id}/accounts` |
 | Create a store | `CreateTenantCommand` | `CreateTenantHandler` | `platform.tenants.manage` | `POST /api/platform/tenants` |
@@ -164,6 +165,7 @@ Migrations: `Phase2MultiTenancy` creates `Tenants` and `TenantDomains` and the d
 | Method | Route | Authorization | Module flag | Use case |
 |---|---|---|---|---|
 | GET | `/api/platform/tenants` | `platform.tenants.manage`, platform host | — | List stores |
+| GET | `/api/platform/tenants/options` | `platform.tenants.manage` | — | Provisioning options (same settings options object as `/api/admin/store/settings/options`) |
 | GET | `/api/platform/tenants/{id}` | `platform.tenants.manage` | — | Store detail |
 | POST | `/api/platform/tenants` | `platform.tenants.manage` | — | Create a store |
 | PUT | `/api/platform/tenants/{id}` | `platform.tenants.manage` | — | Rename / currency |
@@ -290,8 +292,8 @@ Details in [ChangeGuide.md](ChangeGuide.md): adding a store setting; adding a mo
 
 ## Known limitations
 
-- **`AvailableWhenStoreClosedAttribute` is applied to no endpoint.** A `Suspended` or `Archived` store therefore answers `503 StoreUnavailable` to *everything*, including `GET /api/storefront/config` and sign-in — proven by `TenantResolutionTests` and `PlatformAdministrationTests`. The attribute's own comment and [MultiTenancy.md](../../02-ARCHITECTURE/MultiTenancy.md) both claim the opposite (that the config stays readable so the frontend can show a branded "closed" page, and that administrators can still sign in). The frontend copes: `bootOutcome` maps the 503 to an unbranded "closed" screen.
-- **A store can be activated with no domain and no administrator**, and the only domain of an active store can be removed. Nothing in the aggregate or the handlers prevents an unreachable-but-active store.
+- **A closed store serves only its configuration.** `AvailableWhenStoreClosedAttribute` is applied to `GET /api/storefront/config`, so a `Provisioning`, `Suspended` or `Archived` store still returns its identity and status (the SPA draws a branded "unavailable" screen) while every other endpoint answers `503 StoreUnavailable` — proven by `PlatformAdministrationTests` and by `frontend/e2e/platform-provisioning.spec.js`, which reads an archived store's config.
+- **A store can be activated with no domain and no administrator**, and the only domain of an active store can be removed. Nothing in the aggregate or the handlers prevents an unreachable-but-active store. The platform screens do not invent that rule either: readiness is reported, and activation warns inside its confirmation.
 - **`VerifiedAt` is decorative.** Resolution never checks it, so a domain serves traffic the moment it is added. DNS/TLS verification is **PLANNED** (Phase 23).
 - **The directory and storefront caches are per-process.** With more than one API instance, a suspension or a branding change takes up to 60 s to reach the others, and each instance computes its own ETag.
 - **The settings document cannot be queried inside.** "Find every store whose contact email is X" means scanning JSON.
@@ -300,12 +302,12 @@ Details in [ChangeGuide.md](ChangeGuide.md): adding a store setting; adding a mo
 - **Store queries are not audited** — only platform-area requests and store-side commands are. Sign-ins, sign-outs and other Identity events are not audited at all.
 - **`Archive` is terminal but empty.** No data export, anonymization or deletion happens; the store simply stops serving.
 - **No plans, quotas or subscriptions.** Module flags are the only commercial lever, and they are a fixed set of three keys.
-- **No platform UI.** `frontend/src/app/PlatformLayout.jsx` is a shell with a sign-out button; the area is driven through Swagger or HTTP until Phase 18.
+- **Readiness reads one page of accounts.** A store's page decides "has an administrator" from the first 100 administrative accounts, newest first; the list uses the server's exact counts.
 
 ## Future evolution
 
-- **PLANNED (Phase 17):** the tenant admin dashboard, including store settings and staff screens and a store-facing audit view.
-- **PLANNED (Phase 18):** the platform dashboard — store list and health, a provisioning wizard, storefront preview with a preview token, platform settings (the home for `platform.settings.manage`), and an audit-log viewer.
+- **PLANNED (Phase 17 follow-up):** a store-facing audit view.
+- **PLANNED (Phase 18, remaining):** storefront preview with a preview token, platform accounts and settings screens (the home for `platform.users.manage` and `platform.settings.manage`), and an audit-log viewer. The store list, provisioning wizard and store page are delivered — see [FrontendArchitecture.md](../../08-FRONTEND/FrontendArchitecture.md) §5.
 - **PLANNED (Phase 23):** automated TLS and DNS verification for custom domains; per-store email-domain authentication.
 - **DEFERRED:** plans and subscriptions ("after launch" in the roadmap's Phase 4 notes).
 - **FUTURE:** an audited "support mode" that lets the platform act inside a store — described in [MultiTenancy.md](../../02-ARCHITECTURE/MultiTenancy.md) and [AuthenticationAndAuthorization.md](../../07-SECURITY/AuthenticationAndAuthorization.md) as Phase 18, but absent from the roadmap's Phase 18 scope.

@@ -240,6 +240,19 @@ Historical record: each table describes what changed **in that phase**, not nece
 | `RowActionsMenu` takes a `label`; the trigger had no accessible name in every admin table | Found by axe in a browser |
 | Status tokens are derived readable against their own soft surface; the active sidebar link uses `--color-on-panel` text | Both failed contrast on real pages (4.20:1 and 3.39:1). See [DesignSystem.md](DesignSystem.md) §2.2 |
 | Browser journeys: `frontend/e2e/store-administration.spec.js`, and both screens added to `frontend/e2e/responsive.spec.js` | One sign-in per file: the auth limiter allows ten a minute, and a reload that aborts an in-flight refresh leaves the browser holding a rotated token |
+**Platform store list and provisioning (Phase 18):**
+
+| Change | Reason |
+|---|---|
+| `/platform/stores`, `/platform/stores/new`, `/platform/stores/:id/setup/:step`, `/platform/stores/:id`, `/platform/stores/:id/settings`; `PlatformLayout` became a shell with navigation and language and theme toggles, and the statistics moved to `PlatformOverview` | Phase 18's exit criterion: provision a client store end to end without the API |
+| Creation is the only step that inserts a row; the store is born `Provisioning`, closed to visitors. Every later step saves on its own, the step is in the URL, and the list resumes at the first thing missing (`resumeStepFromSummary`) | An abandoned wizard leaves a closed store in the list, never a half-configured open one. No cross-screen transaction, no rollback that deletes |
+| The settings editor moved to `frontend/src/components/settings/StoreSettingsEditor.jsx` and takes a `source` (read, options, save, upload). `/admin/settings` and the platform wrap it with their endpoints | One set of rules, drafts and preview for both paths the server accepts with the same contract. Its existing tests passed unchanged through the move |
+| `StorePanels` — readiness, profile, domains, modules, administrator, lifecycle — shared by the wizard and the store page. `frontend/src/features/platform/provisioning.js` (tested) holds identity and host checks against server limits, readiness, resume and lifecycle actions | The wizard is ordering and guidance, not a second copy of the store page |
+| Readiness reports and never blocks; activation warns inside its confirmation | The server does not require a domain or an administrator to activate, so the UI invents no such rule |
+| `ConfirmDialog`, with typed confirmation for archiving; `Button` gains an outlined `danger` variant | Archiving is permanent; white on the danger colour is 3.9:1 |
+| `FormField` wires its label, and its message, to native controls and `PasswordInput` | Sign-in, registration, password reset and invitation acceptance had unnamed inputs. Found by the browser journey on the invitation page |
+| Accent buttons use `--color-on-accent`; dark mode derives muted, primary and accent text against the lighter card surface | Faint text on accent and on dark cards, in every store's dark mode. Found by axe run in dark mode |
+| Journeys: `frontend/e2e/platform-provisioning.spec.js` (9 steps, needs `SOUQ_API_LOG` to follow the invitation), platform screens in `frontend/e2e/responsive.spec.js` | The administrator's first sign-in on the new store's host is the proof, and it needs two real hosts |
 
 ## 6. Migration plan: status
 

@@ -17,7 +17,7 @@ If a client asks for something none of those can express, it becomes a product f
 
 ## 2. What can be customized, and by whom
 
-"Provision" means the platform owner sets it before handover, through the platform API. "Tenant" means the tenant administrator can edit it afterwards, through the settings screen at `/admin/settings`, which calls PUT `/api/admin/store/settings` (permission `store.settings.manage`). Both paths apply the same validation: `StoreSettingsEditor` on top of the `StoreSettings` value objects.
+"Provision" means the platform owner sets it before handover, in the provisioning wizard at `/platform/stores` on the platform host, which calls the platform API. "Tenant" means the tenant administrator can edit it afterwards, through the settings screen at `/admin/settings`, which calls PUT `/api/admin/store/settings` (permission `store.settings.manage`). Both paths apply the same validation: `StoreSettingsEditor` on top of the `StoreSettings` value objects.
 
 | Setting | Provision (platform) | After handover (tenant admin) | Validation and notes |
 |---|---|---|---|
