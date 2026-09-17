@@ -193,5 +193,5 @@ Engineering records these with their evidence instead of guessing an answer that
 
 ### Why does Phase 16 stay open?
 
-A product's variants can't be chosen in the storefront yet. Nothing can define options until V2, and the storefront API exposes no variant list until V3. The groundwork below them is built: an order records the exact variant bought, and basket, checkout and stock accept a variant ([ADR-0039](../11-ADR/0039-product-variants-order-identity.md), [ProductVariants.md](../04-MODULES/Catalog/ProductVariants.md)).
+A product's variants can't be chosen in the storefront yet: the storefront API exposes no variant list until V3. Everything below the picker is built: an order records the exact variant bought, basket, checkout and stock accept a variant, and merchants define options and manage variants ([ADR-0039](../11-ADR/0039-product-variants-order-identity.md), [ADR-0040](../11-ADR/0040-product-option-model.md), [ProductVariants.md](../04-MODULES/Catalog/ProductVariants.md)). Until V3, a product with more than one active variant is deliberately kept out of the storefront.
 → [ProductRoadmap.md](../12-ROADMAP/ProductRoadmap.md) (Phase 16), [ADR-0025](../11-ADR/0025-catalog-model.md)

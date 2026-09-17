@@ -60,7 +60,8 @@
 | [0030](0030-coupon-redemptions.md) | A coupon use is reserved inside the checkout transaction, confirmed at payment and released on every cancellation | Accurate |
 | [0032](0032-shipping-methods.md) | Store-defined methods behind a rate-provider contract, chosen at checkout and snapshotted on the order | Accurate |
 | [0033](0033-review-moderation-and-wishlist.md) | Moderation states under a per-store auto-approve policy; aggregates over approved reviews only; a server-side wishlist that absorbs the guest list | Accurate (one stale expectation, §4) |
-| [0039](0039-product-variants-order-identity.md) | P-08 decided (up to 3 options, 20 values, 100 variants; "From" the lowest purchasable price; explicit choice with sold-out values disabled). V1 built: order lines record the variant with label and SKU snapshots and merge by variant, the exact historical backfill, variant identity through basket, pricing and checkout with `VariantRequired`, variants deactivated never deleted, and variant-keyed stock administration | Accurate; V2 (options) and V3 (storefront) not built |
+| [0039](0039-product-variants-order-identity.md) | P-08 decided (up to 3 options, 20 values, 100 variants; "From" the lowest purchasable price; explicit choice with sold-out values disabled). V1 built: order lines record the variant with label and SKU snapshots and merge by variant, the exact historical backfill, variant identity through basket, pricing and checkout with `VariantRequired`, variants deactivated never deleted, and variant-keyed stock administration | Accurate; V2 built in [0040](0040-product-option-model.md); V3 (storefront) not built |
+| [0040](0040-product-option-model.md) | V2 built: options (≤3) and values (≤20) with per-language names unique per product/option; variants as combinations (≤100, inactive counted) with a database-unique combination key; the first option converts the default variant in place; a used value can't be removed; a movable, always-active default; product-level pricing refused on products with options; a root concurrency guard; merchant admin page and per-variant inventory screen; the storefront shows only products with one active variant until V3 | Accurate; the storefront gate is temporary (V3) |
 
 ### Payments
 
@@ -108,7 +109,7 @@
 | [0005](0005-multi-tenancy-model.md) model | [0022](0022-tenancy-enforcement.md) | Filled in the enforcement details (filter name, write guard, composite keys, status gating) |
 | [0010](0010-authentication-authorization.md) roles | [0023](0023-sessions-and-credentials.md), [0024](0024-platform-administration.md) | Platform and store roles, invitations, account status |
 | [0028](0028-basket-and-pricing-pipeline.md) checkout source and stages | [0029](0029-orders-lifecycle.md), [0032](0032-shipping-methods.md) | Checkout reads the basket server-side; shipping became a charged stage |
-| [0025](0025-catalog-model.md) sellable unit | [0039](0039-product-variants-order-identity.md) | A product may have more than one variant (options decided, built in V2); variants carry an active flag and are never deleted; order lines, pricing lines and stock administration name the variant |
+| [0025](0025-catalog-model.md) sellable unit | [0039](0039-product-variants-order-identity.md) | A product may have more than one variant (options built in [0040](0040-product-option-model.md)); variants carry an active flag and are never deleted; order lines, pricing lines and stock administration name the variant |
 | [0021](0021-transaction-boundaries.md) residual risks | [0026](0026-inventory-reservations.md), [0034](0034-notifications-outbox.md) | The abandoned-checkout sweeper and the outbox closed both risks it listed |
 | [0031](0031-payments-and-refunds.md) confirmation path | [0036](0036-payment-intent-state-machine.md) | A non-succeeded confirmation no longer cancels the order unconditionally: it reads the intent's state, and a capture against a closed order is recorded instead of ignored |
 | [0035](0035-white-label-runtime.md) deferring D-19 with a trigger | [0037](0037-frontend-server-state-and-types.md) | The trigger fired without producing a decision, so D-19 was split and taken: a query library is the target for server state with a named adoption point, and TypeScript's trigger became "a CI pipeline exists" rather than a date that had already passed |
@@ -141,6 +142,6 @@ The decisions stand; these *descriptions* have drifted. Living documents are aut
 
 ## 5. Numbering and lifecycle
 
-- ADRs are numbered sequentially and never renumbered. The next one is **0040**.
+- ADRs are numbered sequentially and never renumbered. The next one is **0041**.
 - A superseded ADR keeps its text; its `Status` line says what replaced it, and the replacement links back through `Related ADRs`.
 - Rejected proposals are worth an ADR too: "we considered X and chose not to" saves the next person the same investigation ([ExplicitNonGoals.md](../02-ARCHITECTURE/ExplicitNonGoals.md) collects the big ones).

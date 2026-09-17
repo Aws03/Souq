@@ -21,7 +21,7 @@ An aggregate is a cluster that changes as one unit and is entered only through i
 |---|---|---|---|
 | `Tenant` (Platform) | domains, settings, module flags | status lifecycle; exactly one primary domain; a host is unique platform-wide | `rowversion` |
 | `User` (Identity) | refresh tokens | normalized email unique per store; platform accounts have no store; lockout; token rotation with reuse detection | `rowversion` |
-| `Product` (Catalog) | variants, images, translations | slug and SKU unique per store; exactly one default variant, always active; a variant sold only within its own product, deactivated never deleted; status lifecycle; price in the store currency | `rowversion` |
+| `Product` (Catalog) | options with values, variants with their option values, images, translations | slug and SKU unique per store; exactly one default variant, always active; at most 3 options, 20 values, 100 variants; each variant a complete, unique combination; a used value never removed; a variant sold only within its own product, deactivated never deleted; status lifecycle; price in the store currency | `rowversion`, forced on option and variant edits (`GuardConcurrentEdit`) |
 | `Category` (Catalog) | translations | no cycles; bounded depth; slug unique per store | — |
 | `InventoryItem` (Inventory) | — (movements are separate append-only rows) | `available = on hand − reserved ≥ 0`; every change writes exactly one ledger row | `rowversion` (hot row) |
 | `Basket` (Shopping) | lines | quantity within bounds; one basket per customer or guest token | last write wins (low value) |

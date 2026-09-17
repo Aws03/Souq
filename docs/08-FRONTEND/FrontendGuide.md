@@ -97,7 +97,7 @@ The shell is one `Route` carrying `ProtectedRoute` and `AccountLayout`, so the g
 |---|---|---|
 | `/admin` | — (any store account with at least one permission) | — |
 | `/admin/business` | `store.reports.view` | — |
-| `/admin/products`, `/admin/categories` | `catalog.manage` | — |
+| `/admin/products`, `/admin/products/:productId/variants`, `/admin/categories` | `catalog.manage` | — |
 | `/admin/inventory` | `inventory.view` | — |
 | `/admin/coupons` | `promotions.manage` | `promotions` |
 | `/admin/orders` | `orders.view` | — |
@@ -138,7 +138,7 @@ The same list drives the navigation: `ADMIN_NAV` in `frontend/src/pages/admin/Ad
 
 **Wishlist.** A guest's list lives in `localStorage` under `souq_wishlist` as whole product objects, so the page renders with no network. When a customer signs in, the local ids are merged server-side and the local copy is cleared, so the next guest on a shared device does not inherit it. If the module is off, or the account is a staff account, the list stays local and no request is sent.
 
-**Server data on screens is fetched two ways today.** The storefront and account pages (`Store`, `ProductDetail`, `MyOrders`, `OrderDetail`, `OrderTracking`, `Confirmation`, `Profile`, `Addresses`), both dashboards, the team screen (`Staff`), every platform page, `StoreSettingsEditor`, `useCatalog` and `usePlatformStore` read with `useQuery` and write with `useMutation` or a direct `api` call followed by an invalidation (§6). The older admin CRUD screens — `Products`, `Orders`, `Customers`, `Categories`, `Coupons`, `Inventory`, `Payments`, `ShippingMethods`, `ReviewModeration` and their drawers — as well as `Checkout` and `NotificationBell` still hold data, loading flag and error in `useState` and fetch in `useEffect`. New screens use the query layer; the rest move when they are rebuilt. Two module-level values are shared outside React: the access token inside `frontend/src/api/client.js`, and the store currency inside `frontend/src/app/tenantModel.js`.
+**Server data on screens is fetched two ways today.** The storefront and account pages (`Store`, `ProductDetail`, `MyOrders`, `OrderDetail`, `OrderTracking`, `Confirmation`, `Profile`, `Addresses`), both dashboards, the team screen (`Staff`), the product options and variants page (`ProductVariants`), every platform page, `StoreSettingsEditor`, `useCatalog` and `usePlatformStore` read with `useQuery` and write with `useMutation` or a direct `api` call followed by an invalidation (§6). The older admin CRUD screens — `Products`, `Orders`, `Customers`, `Categories`, `Coupons`, `Inventory`, `Payments`, `ShippingMethods`, `ReviewModeration` and their drawers — as well as `Checkout` and `NotificationBell` still hold data, loading flag and error in `useState` and fetch in `useEffect`. New screens use the query layer; the rest move when they are rebuilt. Two module-level values are shared outside React: the access token inside `frontend/src/api/client.js`, and the store currency inside `frontend/src/app/tenantModel.js`.
 
 **URL state.** The storefront catalog keeps its whole state in the query string (`?cats=&min=&max=&sort=&view=&page=`), so a filtered view is shareable (`frontend/src/components/catalog/Catalog.jsx`). The platform activity log (`frontend/src/pages/platform/Audit.jsx`) keeps its filters in the URL too. The store-admin lists keep page and filters in component state, so a reload resets them.
 

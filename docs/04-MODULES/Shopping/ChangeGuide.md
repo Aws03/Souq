@@ -107,7 +107,7 @@
 
 ## I need shoppers to choose a variant in the basket (PLANNED, V3)
 
-The server side is built ([ADR-0039](../../11-ADR/0039-product-variants-order-identity.md)): what remains is the storefront, after merchants can define options (V2 in [ProductVariants.md](../Catalog/ProductVariants.md)).
+The server side is built ([ADR-0039](../../11-ADR/0039-product-variants-order-identity.md)), and merchants define options and variants since V2 ([ADR-0040](../../11-ADR/0040-product-option-model.md)): what remains is the storefront (V3 in [ProductVariants.md](../Catalog/ProductVariants.md)). `PricedLine.VariantLabel` is already composed from the options. Remove the temporary storefront gate (BR-CAT-24) in the same change.
 
 - **Inspect:** `AddBasketItemCommand` (optional `VariantId`) and `AddBasketItemHandler` (`Product.FindVariant`, `Product.CanSell`, `Product.ImplicitVariant`), `BasketLines.ByProduct` and `BasketLines.ByVariant`, `PricingLine` and `PricedLine` (`VariantId`, `VariantLabel`, `Sku`, `VariantRequired`), `BasketCheckout` (consumption per variant), `frontend/src/api/client.js` (product-keyed basket calls), `frontend/src/context/CartContext.jsx`, `frontend/src/features/basket/basketModel.js` (already carries `variantId`).
 - **Rules to respect:** the server decides which variant is bought; the client only names one. A product with several active variants needs an explicit choice (P-08c), and sold-out values stay visible but disabled. Never fall back to the default variant in the client.

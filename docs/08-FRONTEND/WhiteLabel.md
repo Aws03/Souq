@@ -78,7 +78,7 @@ sequenceDiagram
 
 - Business rules beyond the provided settings: checkout steps, the order state machine, tax logic. They change for everyone, through the roadmap.
 - Arbitrary scripts, CSS or HTML.
-- The data model: no per-tenant columns. A product carries a default `ProductVariant` with price and SKU; a generic per-store attribute model does not exist and is **FUTURE**.
+- The data model: no per-tenant columns. A product carries a default `ProductVariant` with price and SKU, and optionally up to 3 options whose value combinations are further variants ([ADR-0040](../11-ADR/0040-product-option-model.md)); a generic per-store attribute model does not exist and is **FUTURE**.
 
 ## 6. Migration from today
 

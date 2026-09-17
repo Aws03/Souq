@@ -214,9 +214,9 @@ closed store answers `503` to visitors and refuses the platform owner's token.
 - **(b) The price a multi-variant product shows in lists:** "From" the lowest price among variants that can currently be purchased.
 - **(c) Choosing a variant:** an explicit choice is required, and sold-out options stay visible but disabled.
 
-**What happened next.** The groundwork (V1) is built: order lines record the variant, basket and checkout carry it, and stock is administered per variant. The option model and admin (V2) and the storefront selection (V3) are unblocked. The status and remaining plan are in [ProductVariants.md](../04-MODULES/Catalog/ProductVariants.md).
+**What happened next.** The groundwork (V1) is built: order lines record the variant, basket and checkout carry it, and stock is administered per variant. The option model and merchant admin (V2) are built ([ADR-0040](../11-ADR/0040-product-option-model.md)): merchants define options and manage variants, and until V3 a product with more than one active variant is not shown in the storefront. The storefront selection (V3) is unblocked apart from the two confirmations below. The status and remaining plan are in [ProductVariants.md](../04-MODULES/Catalog/ProductVariants.md).
 
-**Still to confirm when V3 is built** (presentation defaults from the proposal, not covered by the answers above):
+**Still to confirm before V3 is built** (presentation defaults from the proposal, not covered by the answers above; **still open** — V2 did not answer them):
 - deactivated variants are hidden from shoppers rather than shown disabled;
 - a product with no purchasable variant stays listed as "unavailable".
 

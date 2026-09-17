@@ -67,7 +67,7 @@ dotnet ef migrations remove --project src/Souq.Infrastructure --startup-project 
 
 ## 4. The migrations, in order
 
-Twenty-one migrations; `OrderLinesRecordVariant` is the newest — no migration has been added since, so there is nothing later to look for. "Data" says what happens to existing rows.
+Twenty-two migrations; `ProductOptionsAndVariants` is the newest — no migration has been added since, so there is nothing later to look for. "Data" says what happens to existing rows.
 
 | # | Migration | Purpose | Data |
 |---|---|---|---|
@@ -92,6 +92,7 @@ Twenty-one migrations; `OrderLinesRecordVariant` is the newest — no migration 
 | 19 | `Phase13ReviewsWishlist` | Review moderation, `Tenant.ReviewsAutoApprove`, `WishlistItems` | **Hand-written backfill:** `UPDATE [Reviews] SET [Status] = 1` (every existing review was public, so it is Approved — with no moderator and no decision time, because it was a policy, not a decision) and `UPDATE [Tenants] SET [ReviewsAutoApprove] = 1` (existing stores published at once and keep doing so; stores created afterwards start moderated). It also swaps `IX_Reviews_TenantId_ProductId` for the status-carrying indexes |
 | 20 | `Phase14Notifications` | `Notifications` and `OutboxMessages` with their filtered indexes | Additive, no existing data touched |
 | 21 | `OrderLinesRecordVariant` | `ProductVariants.IsActive` with `CK_ProductVariants_DefaultIsActive`; `OrderItems.VariantId` (same-store FK, restrict), `VariantLabel`, `Sku`; unique `(OrderId, VariantId)` replacing `IX_OrderItems_OrderId`; `IX_OrderItems_TenantId_VariantId` ([ADR-0039](../11-ADR/0039-product-variants-order-identity.md)) | **Hand-written backfill with abort guards.** See §4.8 |
+| 22 | `ProductOptionsAndVariants` | `ProductOptions`, `ProductOptionTranslations`, `ProductOptionValues` (alternate key `(TenantId, Id)`), `ProductOptionValueTranslations`, `ProductVariantOptionValues` (same-store FK to the value, restrict; unique per variant and value); `ProductVariants.CombinationKey varchar(110)` with a unique index on `(ProductId, CombinationKey)` where not null ([ADR-0040](../11-ADR/0040-product-option-model.md)) | **Additive, no existing data touched:** every existing product has no options and one default variant, which is already a simple product; `CombinationKey` stays null (§4.9) |
 
 ### 4.1 `Phase2MultiTenancy` — the tenant backfill
 
@@ -171,6 +172,10 @@ Additive: no row and no data column is dropped.
 5. The unique index `(OrderId, VariantId)` is created **before** `IX_OrderItems_OrderId`, which it covers, is dropped. Then come `IX_OrderItems_TenantId_VariantId` and the foreign key to `ProductVariants`.
 
 A throw rolls the migration's transaction back and leaves the schema as it was. `MigrationRehearsalTests` proves both the backfill on legacy rows and the abort. `Down()` drops the columns and indexes and restores `IX_OrderItems_OrderId`; the variant references recorded since are lost, so the safe rollback is a restore (§7).
+
+### 4.9 `ProductOptionsAndVariants` — options arrive without touching a row
+
+Generated and additive. No backfill is needed and none is written: a product without options is exactly what every existing product is, so its default variant keeps a null `CombinationKey`, which the filtered unique index ignores. `MigrationRehearsalTests` asserts that after migrating legacy data every variant's key is null and the option tables are empty. `Down()` drops the five tables and the column: every option and variant combination recorded since is lost, and variants created from options would remain as rows V1's invariants don't expect (more than one variant without options), so the safe rollback is a restore (§7).
 
 ## 5. The rehearsal test
 

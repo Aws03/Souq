@@ -1,7 +1,7 @@
 # Product variants — decisions, status and plan
 
-> **Status:** **P-08 decided** (2026-09-17). **V1 (groundwork) built**: the order records the variant, and basket, pricing, checkout and stock carry it ([ADR-0039](../../11-ADR/0039-product-variants-order-identity.md)). **V2 (the option model and admin) and V3 (the storefront selection) are not built**, so roadmap Phase 16 stays 🟡: a shopper still can't choose a size, colour or capacity. This page traced where the code assumed one variant, proposed the model, and now records what is done and what remains. Names of things that don't exist yet are in *italics*.
-> **Last verified against the code:** 2026-09-17, branch `phase/17-production-hardening`. **Level:** L3. **Related:** [ADR-0039](../../11-ADR/0039-product-variants-order-identity.md) (P-08 and V1), [ADR-0025](../../11-ADR/0025-catalog-model.md) (D-21, the default variant), [ADR-0026](../../11-ADR/0026-inventory-reservations.md) (stock per variant), [ADR-0028](../../11-ADR/0028-basket-and-pricing-pipeline.md), [ADR-0029](../../11-ADR/0029-orders-lifecycle.md), [ChangeGuide.md](ChangeGuide.md#i-need-to-add-product-attributes-or-real-variant-options-size-colour).
+> **Status:** **P-08 decided** (2026-09-17). **V1 (groundwork) built**: the order records the variant, and basket, pricing, checkout and stock carry it ([ADR-0039](../../11-ADR/0039-product-variants-order-identity.md)). **V2 (the option model and merchant admin) built** ([ADR-0040](../../11-ADR/0040-product-option-model.md)): merchants define options and values and manage variants as combinations. **V3 (the storefront selection) is not built**, so roadmap Phase 16 stays 🟡: a shopper still can't choose a size, colour or capacity, and until V3 a product with more than one active variant is not shown in the storefront. This page traced where the code assumed one variant, proposed the model, and now records what is done and what remains. Names of things that don't exist yet are in *italics*.
+> **Last verified against the code:** 2026-09-17, branch `phase/17-production-hardening`. **Level:** L3. **Related:** [ADR-0039](../../11-ADR/0039-product-variants-order-identity.md) (P-08 and V1), [ADR-0040](../../11-ADR/0040-product-option-model.md) (the option model, V2), [ADR-0025](../../11-ADR/0025-catalog-model.md) (D-21, the default variant), [ADR-0026](../../11-ADR/0026-inventory-reservations.md) (stock per variant), [ADR-0028](../../11-ADR/0028-basket-and-pricing-pipeline.md), [ADR-0029](../../11-ADR/0029-orders-lifecycle.md), [ChangeGuide.md](ChangeGuide.md#i-need-to-add-product-attributes-or-real-variant-options-size-colour).
 
 ## 1. The answer in brief
 
@@ -9,10 +9,10 @@
 
 1. **Recording the variant on the order — done in V1.** `OrderItem` now stores `VariantId` plus `VariantLabel` and `Sku` snapshots, and `Order.AddItem` merges lines by variant. Before this, two variants in one order would have merged into one line at the first variant's price. Existing lines were linked to their exact variant; their SKU and label stay empty rather than invented.
 2. **Carrying a chosen variant through checkout — done in V1 on the server.** `PricingLine`, the basket and the order commands carry an optional variant id; the server refuses another product's variant and a deactivated one, and answers `VariantRequired` instead of assuming the default. The storefront still sends product ids only (V3).
-3. **A way to describe how variants differ — decided, not built (V2).** Structured options per P-08a. Today every product has exactly one variant, and `Product.AddVariant` is internal, so no merchant can create a second.
-4. **Admin and reporting keyed by product — stock administration done in V1, the rest in V2/V4.** Variant-keyed stock routes exist beside the product-keyed ones; the product form, the admin inventory screen, the storefront projections and the dashboards still read the default variant.
+3. **A way to describe how variants differ — done in V2.** Structured options per P-08a: `Product.SetOptions` defines up to 3 options with up to 20 values each (Arabic and English names), and `Product.AddVariant` creates a variant from one value of every option, up to 100 per product. The admin page `/admin/products/:productId/variants` manages them.
+4. **Admin and reporting keyed by product — admin done in V1 and V2, reporting in V4.** Stock administration, the product admin and the inventory screen work per variant. The storefront projections still read the default variant (V3), and the dashboards count inventory rows, which are now variants (V4).
 
-**Readiness:** V2 can start now. It needs no further decision. V3 needs two small presentation confirmations (§10).
+**Readiness:** V3 can start once the owner confirms two presentation questions (§10); nothing else blocks it.
 
 ## 2. What the code assumes today
 
@@ -20,21 +20,21 @@ The lifecycle as traced before V1, with every place the one-variant assumption l
 
 | Step | Where | The assumption |
 |---|---|---|
-| Product creation | `Product` constructor; `CreateProductCommand` (single `Price`, `CompareAtPrice`, `Sku`, `StockQuantity`); `IVariantStockInitializer` | The constructor is the **only** code that creates a `ProductVariant` (`isDefault: true`). Product-level `Price`, `CompareAtPrice` and `Sku` are shortcuts to `Product.DefaultVariant`. |
+| Product creation | `Product` constructor; `CreateProductCommand` (single `Price`, `CompareAtPrice`, `Sku`, `StockQuantity`); `IVariantStockInitializer` | A new product is still created simple (one default variant). **V2:** options and more variants are added afterwards (`SetProductOptionsCommand`, `CreateProductVariantsCommand`, which opens each variant's stock through the same port). Product-level `Price`, `CompareAtPrice` and `Sku` stay shortcuts to `Product.DefaultVariant`; on a product with options the product `PUT` refuses to change them (`ProductHasVariants`). |
 | Invariant and schema | `ProductVariantConfiguration` | A filtered unique index guarantees exactly one default variant per product; SKUs are unique per store. Variants have no status, no sort order and no descriptive attributes. |
-| Admin product | `AdminProductDto`, `AdminProductListItemDto`, `frontend/src/pages/admin/ProductFormDrawer.jsx` | One SKU, price, compare-at price and stock figure per product |
-| Storefront display | `CatalogQueries` (every projection reads `Variants.Where(v => v.IsDefault)`), `ProductDto` (one `Price`, one `StockQuantity`), `frontend/src/components/product/ProductCard.jsx`, `frontend/src/app/structuredData.js` (one offer price) | Price, compare-at, on-sale filter, price range filter and stock all come from the default variant |
+| Admin product | **V2:** `AdminProductDto` carries `Options`, `Variants` (per-variant stock) and `VariantLimits`; `AdminProductListItemDto.VariantCount`; `frontend/src/pages/admin/ProductVariants.jsx`; `frontend/src/pages/admin/ProductFormDrawer.jsx` links to it and locks pricing on a product with options | Resolved |
+| Storefront display | `CatalogQueries` (every projection reads `Variants.Where(v => v.IsDefault)`), `ProductDto` (one `Price`, one `StockQuantity`), `frontend/src/components/product/ProductCard.jsx`, `frontend/src/app/structuredData.js` (one offer price) | Price, compare-at, on-sale filter, price range filter and stock all come from the default variant. **V2 gate (temporary):** `CatalogQueries` and `WishlistQueries` show a product only while it has exactly one active variant, and stock sums active variants — so the default-variant reading is exact for everything shown. V3 lifts the gate |
 | Wishlist | `WishlistQueries` | Price from the default variant. A wishlist entry is a product, which stays correct with variants. |
 | Selection → basket | **V1:** `AddBasketItemHandler` takes an optional variant id (`Product.FindVariant`, `Product.CanSell`, `Product.ImplicitVariant`); `SetBasketLineQuantityCommand` and `RemoveBasketLineCommand` edit a line by variant; the product-keyed commands answer `VariantRequired` when ambiguous. **Still:** `frontend/src/api/client.js` (`addToBasket(productId)`, `/basket/items/{productId}`), `frontend/src/context/CartContext.jsx` | The storefront still lets the server choose, which is correct while every product has one variant |
 | Pricing | **V1:** `PricingLine` carries an optional `VariantId`; `PricingService` prices that variant (or the implicit one) and reports its SKU; `PricedLine` gains `VariantLabel`, `Sku`, `VariantRequired` | Resolved |
 | Checkout | **V1:** `BasketCheckout` passes each basket line's variant id and consumes per variant; `OrderLineInput` accepts an optional variant id; `CreateOrderHandler` answers `VariantRequired` | Resolved |
 | Order | **V1:** `Order.AddItem` takes the variant, label and SKU and merges by variant; `OrderItem` and `OrderItemDto` carry them. **Still:** order pages and emails don't show the label or SKU | Resolved in the model; display is V3 |
-| Inventory | `InventoryItem` (`ProductId` + `VariantId`, unique per variant), `StockReservation`, `StockMovement`, `ReservationLine(VariantId, …)`, `IStockAvailability`. **V1:** `IInventoryRepository.GetForVariantAsync`, `AdjustVariantStockCommand`, `SetVariantLowStockThresholdCommand`, `GetVariantStockMovementsQuery`, `api/admin/inventory/variants/{variantId}/…`; `InventoryItemDto.VariantId`; one list row per variant | Correctly variant-keyed. **Still product-keyed:** `frontend/src/pages/admin/Inventory.jsx` (V2) |
+| Inventory | `InventoryItem` (`ProductId` + `VariantId`, unique per variant), `StockReservation`, `StockMovement`, `ReservationLine(VariantId, …)`, `IStockAvailability`. **V1:** `IInventoryRepository.GetForVariantAsync`, `AdjustVariantStockCommand`, `SetVariantLowStockThresholdCommand`, `GetVariantStockMovementsQuery`, `api/admin/inventory/variants/{variantId}/…`; `InventoryItemDto.VariantId`; one list row per variant | Correctly variant-keyed. **V2:** `InventoryItemDto` carries `VariantLabel` and `VariantIsActive`; `frontend/src/pages/admin/Inventory.jsx` shows one labelled row per variant and uses the variant routes |
 | Payment and refunds | `Payment`, `Refund` | Amount-based, no line references: **unaffected** |
 | Promotions | `Coupon.EnsureUsable`, `Coupon.CalculateDiscount` on the subtotal | Coupons apply to the basket subtotal, never to a product: **unaffected** |
 | Shipping | `ShippingMethod` | Priced per order, not per item or weight: **unaffected** |
 | Reviews | `Review` proves purchase with an `OrderId` at product level | A review is about the product: **unaffected** |
-| Notifications | `StockBecameLow` carries `VariantId`; the low-stock notification names the product only; order emails list `OrderItem.ProductName` | Staff can't tell which size ran low; emails can't say which size was bought |
+| Notifications | `StockBecameLow` carries `VariantId`. **V2:** `StockBecameLowHandler` adds `variantId` and `variantLabel` (from `Product.VariantLabel`), shown by `frontend/src/features/notifications/notificationView.js`. **Still:** order emails list `OrderItem.ProductName` only | Emails can't say which size was bought (V3) |
 | Reporting | `StoreReportQueries`: best sellers grouped by `ProductId` + `ProductName` (`TopProductDto`); category performance joins products; the stock snapshot counts `InventoryItems` rows | Best sellers stay meaningful per product. The stock KPIs would silently start counting **variants** instead of products. |
 
 ## 3. What a "variant" should mean in Souq
@@ -69,8 +69,8 @@ Product (aggregate root, rowversion)
                                          optional image (a ProductImage of this product)
 ```
 
-- *ProductOption* and *ProductOptionValue* are children of `Product`, created and changed only through it, like `ProductImage`. Their texts reuse the existing per-culture translation pattern (`CatalogTranslation`), so a store's enabled languages drive them.
-- A variant's option values are stored as a small child set, *VariantOptionValue* (variant → value), plus a normalized **combination key** on the variant (the value ids in option order), so uniqueness can be enforced by the database, not only in memory.
+- `ProductOption` and `ProductOptionValue` are children of `Product`, created and changed only through it (`Product.SetOptions`), like `ProductImage`. Their names follow the per-culture translation pattern with a lighter base, `OptionTranslation` (name only), so a store's languages drive them. *(As built in V2.)*
+- A variant's option values are stored as a small child set, `ProductVariantOptionValue` (variant → value), plus a normalized **combination key** on the variant. As built it is the values' stable `Key`s sorted, not their database ids, so a value and its variant can be created in one save and a reorder changes nothing; the database enforces its uniqueness ([ADR-0040](../../11-ADR/0040-product-option-model.md)).
 
 **Invariants the aggregate guards** (all new Domain rules, each with a test):
 1. At most 3 options and a bounded number of values per option; option names and values are unique per product per culture.
@@ -79,7 +79,7 @@ Product (aggregate root, rowversion)
 4. Exactly one default variant (kept from D-21, so single-variant callers and older clients keep working); the default must be active.
 5. A variant is **never deleted once it exists**: order lines, reservations, the ledger and basket lines reference it. It is deactivated. The same reasoning is why products are archived, not deleted.
 6. Adding the first option to an existing product converts its current default variant into one of the new variants (the admin picks its values). It keeps its id, stock, ledger and sales history; nothing is recreated.
-7. Removing an option or a value that active variants use is refused; deactivate the variants first.
+7. Removing a value that any variant uses (active or not) is refused — deactivate the variant instead; removing an option is refused if two combinations would collide. *(As built: stricter than first proposed, because variants are never deleted.)*
 8. Every variant's price follows `ProductVariant.SetPricing` (store currency, positive, compare-at above price).
 9. **Sellability:** `Product.IsSellable` becomes "active, in an active category, and with at least one active variant". A variant is sellable if its product is and it is active. Stock is separate: an out-of-stock variant is sellable-but-unavailable, as today.
 
@@ -100,9 +100,9 @@ All additive (`MigrationSafetyTests` must stay green without registering a destr
 
 | Table | Change |
 |---|---|
-| *ProductOptions*, *ProductOptionTranslations*, *ProductOptionValues*, *ProductOptionValueTranslations* | New, tenant-owned, composite `(TenantId, Id)` keys and same-store foreign keys like every catalog child |
-| *VariantOptionValues* | New: (*VariantId*, *OptionValueId*), same-store foreign keys, unique per variant and option |
-| `ProductVariants` | `IsActive` (default true) with `CK_ProductVariants_DefaultIsActive` — **built in V1**. V2 adds *SortOrder*, *CombinationKey* (null for option-less products) with a unique index on product + key where the key isn't null, and *ImageId* (nullable, same-store foreign key) |
+| `ProductOptions`, `ProductOptionTranslations`, `ProductOptionValues`, `ProductOptionValueTranslations` | **Built in V2**: tenant-owned aggregate children; `ProductOptionValues` has the alternate key (`TenantId`, `Id`); one translation per owner and culture |
+| `ProductVariantOptionValues` | **Built in V2**: (`ProductVariantId`, `OptionValueId`) unique; same-store foreign key to the value, **restrict** |
+| `ProductVariants` | `IsActive` (default true) with `CK_ProductVariants_DefaultIsActive` — **built in V1**. `CombinationKey` (null for option-less products) with a unique index on product + key where the key isn't null — **built in V2** (`ProductOptionsAndVariants`). *SortOrder* and *ImageId* are **not built** (variants are listed in option-value order; no variant images) |
 | `OrderItems` | **Built in V1** (`OrderLinesRecordVariant`): `VariantId` (not null after the backfill; same-store foreign key to `ProductVariants`, restrict), `VariantLabel` and `Sku` (nullable snapshots), unique (`OrderId`, `VariantId`) |
 
 **Existing data:**
@@ -120,8 +120,8 @@ Backward compatible by construction: a product with one variant behaves exactly 
 | Basket | **Built in V1:** `POST /api/basket/items` accepts an optional `variantId`, required when the product has more than one active variant (`422 VariantRequired`) and belonging to that product (otherwise `404`); `PUT`/`DELETE api/basket/items/variants/{variantId}`; the product-keyed routes answer `VariantRequired` when the product has more than one line |
 | Quote and checkout | **Built in V1:** `PricingLine` carries the variant id; `BasketCheckout` passes it through; `OrderLineInput` accepts an optional `variantId` with the basket's rule |
 | Orders | **Built in V1:** `OrderItemDto` has `VariantId`, `VariantLabel`, `Sku`. The order email and the order screens show them in V3 |
-| Admin catalog | `AdminProductDto` adds options and variants. New sub-resource actions under `api/admin/products/{id}`: define options and values; add a variant; update a variant's price, compare-at and SKU; activate or deactivate it; set the default; reorder. All behind `catalog.manage` and `IAuditable`, like the existing catalog commands. The existing product `PUT` keeps editing the default variant's price and SKU for single-variant products and refuses for multi-variant ones (a stable code), so an old client can't silently edit the wrong variant. |
-| Admin inventory | **Built in V1:** `api/admin/inventory/variants/{variantId}/movements\|adjustments\|threshold` (`inventory.view` / `inventory.manage`, audited with target `ProductVariant`); the list returns one row per variant with `VariantId` and its own SKU; the product-keyed routes answer `VariantRequired` for a product with more than one stock row. The label arrives with options (V2) |
+| Admin catalog | **Built in V2:** `AdminProductDto` adds `Options`, `Variants` and `VariantLimits`. Under `api/admin/products/{id}`: `PUT options` (the whole definition), `POST variants` (a batch), `PUT variants/{variantId}`, `PUT variants/{variantId}/status`, `PUT variants/{variantId}/default`, all behind `catalog.manage` and audited. The product `PUT` edits the default variant's pricing for a simple product and refuses a change on a product with options (`ProductHasVariants`). Reordering variants is not built |
+| Admin inventory | **Built in V1:** `api/admin/inventory/variants/{variantId}/movements\|adjustments\|threshold` (`inventory.view` / `inventory.manage`, audited with target `ProductVariant`); the list returns one row per variant with `VariantId` and its own SKU; the product-keyed routes answer `VariantRequired` for a product with more than one stock row. **V2:** each row carries `VariantLabel` and `VariantIsActive` |
 | Reporting | `TopProductDto` stays per product; an optional per-variant breakdown. The stock snapshot names its unit (see §7). |
 
 Every new route with an id needs its row in the isolation table of `tests/Souq.IntegrationTests/TenantIsolationTests.cs`, which fails the build otherwise. The generated [Endpoints.md](../../05-API/Endpoints.md) and [UseCases.md](../UseCases.md) are regenerated.
@@ -134,8 +134,8 @@ Every new route with an id needs its row in the isolation table of `tests/Souq.I
 | Cards, search, offers, wishlist | Price display, the on-sale badge, sort and price filter follow decision P-08b |
 | Structured data (`frontend/src/app/structuredData.js`) | A product with several prices publishes a price range offer instead of one price |
 | Cart, checkout, order pages, order email | Each line shows its variant label, from the snapshot on orders and the live label in the basket; basket calls go through `frontend/src/api/client.js` with the variant id (`frontend/src/features/basket/basketModel.js` already carries it) |
-| Admin product form | Unchanged for a simple product. An "options" section; a variant table (label, price, compare-at, SKU, opening stock, active, default) with a "create the missing combinations" helper; deactivation through `useConfirmAction`. The Domain limits are published by the server, as the store settings editor does, rather than copied. |
-| Admin inventory (`frontend/src/pages/admin/Inventory.jsx`) | One row per variant, labelled; adjustments per variant |
+| Admin product form | **Built in V2** as its own page, `frontend/src/pages/admin/ProductVariants.jsx` (linked from the product form and the product list), because the matrix needs room and a URL survives a reload: the options editor (`ProductOptionsEditor.jsx`), a variant table (label, SKU, price, stock, status, default; edit, activate/deactivate through `useConfirmAction`, make default, adjust stock, history) and "create variants" for missing combinations (`CreateVariantsPanel.jsx`). The limits come from the server (`VariantLimits`). The product form is unchanged for a simple product |
+| Admin inventory (`frontend/src/pages/admin/Inventory.jsx`) | **Built in V2:** one row per variant, labelled, inactive variants marked; adjustments and history per variant through `frontend/src/pages/admin/StockDrawers.jsx` |
 | Text | Option names and values come from the store's data in its enabled languages. The UI strings ("choose a size…", "sold out", *VariantRequired* messages) go in both locale files; labels inside sentences use the `bidi` formatter. |
 
 ### 4.6 Cart, order, payment and inventory consequences
@@ -175,7 +175,7 @@ Every new route with an id needs its row in the isolation table of `tests/Souq.I
 
 ## 6. Documentation and ADR changes
 
-- **Done in V1:** [ADR-0039](../../11-ADR/0039-product-variants-order-identity.md) supersedes the *sellable unit* row of [ADR-0025](../../11-ADR/0025-catalog-model.md), records P-08, the order-line snapshot and the backfill evidence; [BusinessRules.md](../../01-REQUIREMENTS/BusinessRules.md) BR-CAT-01 replaced and BR-CAT-16, BR-BSK-14, BR-ORD-25, BR-INV-12 added, with BR-BSK-08, BR-ORD-06 and BR-ORD-08 gaining the variant. **V2 adds** a record of the option model (limits, combination key, control characters in option texts) and the option rules
+- **Done in V1:** [ADR-0039](../../11-ADR/0039-product-variants-order-identity.md) supersedes the *sellable unit* row of [ADR-0025](../../11-ADR/0025-catalog-model.md), records P-08, the order-line snapshot and the backfill evidence; [BusinessRules.md](../../01-REQUIREMENTS/BusinessRules.md) BR-CAT-01 replaced and BR-CAT-18, BR-BSK-14, BR-ORD-31, BR-INV-12 added, with BR-BSK-08, BR-ORD-06 and BR-ORD-08 gaining the variant. **Done in V2:** [ADR-0040](../../11-ADR/0040-product-option-model.md) records the option model (limits, combination key, control characters rejected in option texts, the storefront gate) and BusinessRules gains BR-CAT-19 to BR-CAT-24
 - Module documents:
   - [Catalog](README.md) and this module's [ChangeGuide.md](ChangeGuide.md) (the variants section becomes a pointer to the ADR);
   - [Inventory](../Inventory/README.md) (variant-keyed admin);
@@ -196,7 +196,7 @@ Every new route with an id needs its row in the isolation table of `tests/Souq.I
 | Dashboards silently change meaning | The stock KPI is relabelled in the same change (§4.7) |
 | Scope creep into a configurator | The three-option shape is written into the ADR; anything else needs a new decision |
 
-## 8. What V1 built, and what it deliberately didn't
+## 8. What V1 and V2 built, and what they deliberately didn't
 
 **Built (no visible change for shoppers or merchants; [ADR-0039](../../11-ADR/0039-product-variants-order-identity.md)):**
 - order lines record the variant with label and SKU snapshots and merge by variant, with the exact backfill and its abort guards (`OrderLinesRecordVariant`);
@@ -206,13 +206,24 @@ Every new route with an id needs its row in the isolation table of `tests/Souq.I
 - `ProductVariant.IsActive`, `Product.DeactivateVariant` (the default can't be deactivated) and no deletion;
 - tests at every level, including `ProductVariantTests` on SQL Server with two real variants of one product.
 
-**Not built, on purpose:** option and value administration, `ProductDto` variants, the storefront picker, "From" pricing, disabled sold-out values, labels in cart, checkout, order screens and email, the admin inventory screen per variant, and reporting per variant. `Product.AddVariant` is internal, so the multi-variant paths are proven by tests but unreachable by any store until V2.
+**V2 built ([ADR-0040](../../11-ADR/0040-product-option-model.md)):**
+- options and values with Arabic and English names, unique per product and option in each language, no control characters, within the published limits (3 options, 20 values, 100 variants — inactive ones count);
+- variants as combinations with a database-unique `CombinationKey`; the first option converts the existing default variant in place; a new option names the value existing variants take;
+- a value used by any variant can't be removed; an option can be removed only if combinations stay unique;
+- per-variant price, compare-at and SKU; activate and deactivate; a movable default that must be active; product-level pricing refused on a product with options;
+- a root concurrency guard (`IProductRepository.GuardConcurrentEdit`) for every structural edit;
+- the label snapshot on order lines and pricing lines, the variant label in the low-stock notification, and per-variant rows in the inventory list;
+- the merchant page `/admin/products/:productId/variants`, the per-variant inventory screen, Arabic and English strings for every new error code;
+- the temporary storefront gate (a product is shown only with one active variant);
+- tests at every level, including `ProductOptionAdminTests` on SQL Server and the browser journey `frontend/e2e/product-variants.spec.js`.
+
+**Not built, on purpose:** `ProductDto` options and variants, the storefront picker, "From" pricing, disabled sold-out values, labels in cart, checkout, order screens and email (V3); variant images and manual variant ordering; reporting per variant and the relabelled stock KPI (V4).
 
 ## 9. Engineering defaults (proposed; the owner may override)
 
 | Question | Default | Why a default is acceptable |
 |---|---|---|
-| Variant images | A variant may point at one image already in the product's gallery; no separate uploads | Uses the existing gallery and its limits; can be left out of the first release |
+| Variant images | A variant may point at one image already in the product's gallery; no separate uploads | Uses the existing gallery and its limits. **Left out of V2**; the storefront picker (V3) is the first place it would matter |
 | Limits | At most 3 options per product, 20 values per option, 100 variants per product | **Confirmed by the owner** with P-08 (2026-09-17). Covers size × colour × material with room; protects queries and the admin form. |
 | SKU | Optional per variant, unique per store (today's rule) | No change to BR-CAT-04 |
 | Stock KPI unit | Variants, labelled as such | §4.7 |
@@ -233,10 +244,10 @@ Every new route with an id needs its row in the isolation table of `tests/Souq.I
 
 | Phase | Scope | Status |
 |---|---|---|
-| **V0** | Record P-08; write the ADR; update BusinessRules | ✅ Done — [ADR-0039](../../11-ADR/0039-product-variants-order-identity.md), BR-CAT-01/16, BR-BSK-08/14, BR-ORD-06/08/25, BR-INV-12 |
+| **V0** | Record P-08; write the ADR; update BusinessRules | ✅ Done — [ADR-0039](../../11-ADR/0039-product-variants-order-identity.md), BR-CAT-01/18, BR-BSK-08/14, BR-ORD-06/08/31, BR-INV-12 |
 | **V1 — groundwork** (no visible change) | Order lines record variant id, label and SKU snapshots and merge by variant; the migration with exact backfill and its rehearsal; variant ids carried through the basket, quote and checkout contracts with implicit-variant resolution and `VariantRequired`; variant-keyed inventory repository and admin routes beside the product-keyed ones; variant active flag and no-delete rule in the Domain; tests at every level; documents | ✅ Done (§8) |
-| **V2 — catalog model and admin** | Options, values, combinations and limits in the Domain (`AddVariant` public with option values); migrations; admin API and the options and variant table in the product form; the product `PUT` refusing multi-variant price edits; variant stock opened on creation; the label snapshot composed from options; the admin inventory screen per variant; the low-stock notification names the variant | Not started; nothing blocks it |
-| **V3 — storefront and checkout** | `ProductDto` options and variants; the selector with an explicit choice and disabled sold-out values; variant-keyed basket calls from the storefront; cart, checkout, order pages and email show labels; "From" pricing in cards, search, sort, filters, on-sale and a price range in structured data; browser journeys in both languages | Not started; needs V2 and the two confirmations in §10 |
+| **V2 — catalog model and admin** | Options, values, combinations and limits in the Domain (`AddVariant` public with option values); migrations; admin API and the options and variant page; the product `PUT` refusing price edits on a product with options; variant stock opened on creation; the label snapshot composed from options; the admin inventory screen per variant; the low-stock notification names the variant | ✅ Done (§8, [ADR-0040](../../11-ADR/0040-product-option-model.md)) |
+| **V3 — storefront and checkout** | `ProductDto` options and variants; the selector with an explicit choice and disabled sold-out values; variant-keyed basket calls from the storefront; cart, checkout, order pages and email show labels; "From" pricing in cards, search, sort, filters, on-sale and a price range in structured data; browser journeys in both languages | Not started; needs the two confirmations in §10. Also removes the V2 storefront gate |
 | **V4 — reporting and hardening** | Per-variant best-seller breakdown; relabelled stock KPI; query-count and concurrency tests with many variants; release rehearsal of the migration on a copy of production data | Not started |
 
-Each phase leaves the repository releasable. After V1 (now) nothing is visible to shoppers or merchants; after V2 a merchant can define variants while the storefront still sells only single-variant products (multi-variant products stay hidden from sale until V3). Decide during V2 whether they are refused as unsellable or kept in Draft.
+Each phase leaves the repository releasable. After V1 nothing was visible to shoppers or merchants. **After V2 (now)** a merchant can define variants while the storefront still sells only single-variant products: V2 decided that a product with more than one active variant stays **Active but is not shown in the storefront** (rather than refused or kept in Draft), so a merchant can prepare inactive variants on a selling product without unpublishing it ([ADR-0040](../../11-ADR/0040-product-option-model.md)).

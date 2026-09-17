@@ -24,7 +24,8 @@
 
 | Term | Meaning in Souq |
 |---|---|
-| **Product / Variant** | A `Product` is what the customer sees; a `ProductVariant` is what is actually sold, priced and recorded on the order line. Every product has a default variant, and today it is the only one; variants are deactivated, never deleted. Stock hangs off the variant. |
+| **Product / Variant** | A `Product` is what the customer sees; a `ProductVariant` is what is actually sold, priced and recorded on the order line. Every product has a default variant; a product with options has one variant per combination it sells. Variants are deactivated, never deleted. Stock hangs off the variant. |
+| **Option / option value / combination** | An option is a named dimension of a product (size, colour) with a short list of values, named per language. A variant's combination is one value of every option; its label is those values in option order ("M / أحمر"), and it is snapshotted on the order line ([ADR-0040](../11-ADR/0040-product-option-model.md)). |
 | **Slug** | The URL-safe identifier of a product or category, unique per store. |
 | **SKU** | The store's own stock-keeping code on a variant, unique per store. |
 | **Basket** | The server-side list of what a shopper intends to buy. Never reserves stock and never stores prices — it re-reads them. |
@@ -57,7 +58,7 @@
 |---|---|
 | **Entity** | A thing with identity and a lifecycle (`Order`, `Product`). Its state changes through guarded methods; no public setters. |
 | **Value object** | A thing defined only by its values, immutable, that carries rules: `Money` (amount + currency with currency-aware rounding), `PostalAddress`, `CatalogText`. |
-| **Aggregate / Aggregate root** | A cluster of objects that changes as one unit, entered only through its root. `Order` owns its lines and status history; `Product` owns variants, images and translations. Other aggregates are referenced **by id**. |
+| **Aggregate / Aggregate root** | A cluster of objects that changes as one unit, entered only through its root. `Order` owns its lines and status history; `Product` owns options, variants, images and translations. Other aggregates are referenced **by id**. |
 | **Invariant** | A rule that must be true before and after every change ("available stock never goes negative", "a shipped order cannot be cancelled"). Invariants live in the aggregate. |
 | **Domain service** | A rule that spans aggregates and needs no I/O. **None exists today:** pricing needs lookups, so it is an application service (`PricingService` behind `IPricing`). |
 | **Domain event** | A fact an aggregate raises after a state change (`OrderStatusChanged`, `StockBecameLow`), written to the outbox in the same save ([Events.md](../02-ARCHITECTURE/Events.md)). |

@@ -66,7 +66,7 @@ The rest of the module is **not** MediatR: outbox handlers implement `INotificat
 | `EmailVerificationRequested` | `EmailVerificationEmailHandler` | skips an already-confirmed or inactive account; issues and saves, then sends |
 | `AccountInvited` | `InvitationEmailHandler` | pending invitation only; `User.RenewInvitation`, save, then send with the inviter's name |
 | `OrderStatusChanged` | `OrderStatusChangedHandler` | in-app row for the customer, `order.new` for staff with `orders.view` on payment, and an `OrderEmailRequested` message when the change deserves an email — all in one save |
-| `StockBecameLow` | `StockBecameLowHandler` | `stock.low` rows for staff with `inventory.view`, with the product name in the store's default culture |
+| `StockBecameLow` | `StockBecameLowHandler` | `stock.low` rows for staff with `inventory.view`, with the product name in the store's default culture and, for a product with options, `variantId` and `variantLabel` (`Product.VariantLabel`, BR-NTF-12) |
 | `OrderEmailRequested` | `OrderEmailHandler` | the customer's order email with the store's branding and a tracking link |
 
 ## Public contracts

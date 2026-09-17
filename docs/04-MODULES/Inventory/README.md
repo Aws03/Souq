@@ -166,7 +166,7 @@ All routes sit under `api/admin/inventory` with `[HasPermission(Permissions.Inve
 | POST | `/api/admin/inventory/variants/{variantId}/adjustments` | `inventory.view` + `inventory.manage` | — | Same body and rules as the product route, for that variant's row; audited with target `ProductVariant` |
 | PUT | `/api/admin/inventory/variants/{variantId}/threshold` | `inventory.view` + `inventory.manage` | — | Same body and rules as the product route, for that variant's row |
 
-`InventoryItemDto.Id` is the **product** id and `InventoryItemDto.VariantId` the variant's: the product routes stay valid for a product with one variant, which every product still is, and the variant routes address any row ([ADR-0039](../../11-ADR/0039-product-variants-order-identity.md)). The admin screen still uses the product routes; it moves to the variant routes with the option model (V2). `StockLevelDto` returns `OnHand`, `Reserved`, `Available`, `LowStockThreshold`, `IsLowStock` and `VariantId` so the UI can update its row without a second request. The inventory list shows `Draft` and `Active` products (stock is real for both) and excludes `Archived` ones.
+`InventoryItemDto.Id` is the **product** id and `InventoryItemDto.VariantId` the variant's: the product routes stay valid for a product with one variant, and the variant routes address any row ([ADR-0039](../../11-ADR/0039-product-variants-order-identity.md)). Each row also carries `VariantLabel` (the option values, composed with Catalog's `VariantLabels`; null for a simple product) and `VariantIsActive` ([ADR-0040](../../11-ADR/0040-product-option-model.md), BR-INV-13). The admin screen uses the variant routes only, through `frontend/src/pages/admin/StockDrawers.jsx`, which the product variants page shares. `StockLevelDto` returns `OnHand`, `Reserved`, `Available`, `LowStockThreshold`, `IsLowStock` and `VariantId` so the UI can update its row without a second request. The inventory list shows `Draft` and `Active` products (stock is real for both) and excludes `Archived` ones.
 
 ## Security and permissions
 
@@ -228,11 +228,11 @@ None directly. The gateway call that decides whether an expired checkout may be 
 
 ## Common change scenarios
 
-Change the reservation window or policy · change low-stock alerting · record customer returns · add multi-warehouse stock · move the admin screen from products to variants · tune the retry and contention behaviour · change the expiry sweep · add a new consumer of stock. Step-by-step in [ChangeGuide.md](ChangeGuide.md).
+Change the reservation window or policy · change low-stock alerting · record customer returns · add multi-warehouse stock · tune the retry and contention behaviour · change the expiry sweep · add a new consumer of stock. Step-by-step in [ChangeGuide.md](ChangeGuide.md).
 
 ## Known limitations
 
-1. **The admin screen is still product-keyed.** The API addresses variants since ADR-0039, and every product still has one variant, but `frontend/src/pages/admin/Inventory.jsx` keys rows by product id and calls the product routes. It moves to the variant routes with the option model (V2).
+1. ~~The admin screen is still product-keyed.~~ **Resolved in V2 ([ADR-0040](../../11-ADR/0040-product-option-model.md)):** `frontend/src/pages/admin/Inventory.jsx` shows one labelled row per variant and uses the variant routes. The product-keyed routes remain for older clients and refuse a product with more than one stock row. The low-stock counts on the inventory page count variant rows, and the dashboard's stock figures do too until V4 relabels them.
 2. **Low-stock alerting is thin.** Only a downward crossing during an adjustment or a reservation raises the event; a product created below its threshold, a threshold raised above current stock, and a product that simply stays low never produce one. Delivery is an in-app notification only — the low-stock email deferred in Phase 6 did not arrive with the outbox in Phase 14.
 3. **The stock row is a hot row.** Every checkout writes it; a flash sale on one SKU serialises on it, and after five conflicting attempts the customer gets a 409 ([ADR-0026](../../11-ADR/0026-inventory-reservations.md) records this cost).
 4. **The sweep assumes one instance** (a distributed lock is DEFERRED to Phase 23 — the roadmap's Phase 6 entry defers it there, though Phase 23's scope list does not yet name it) and skips stores that are not `Active`, so a suspended store keeps its holds.

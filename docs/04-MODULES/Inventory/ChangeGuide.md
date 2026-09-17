@@ -86,15 +86,11 @@ Not scheduled. [ADR-0026](../../11-ADR/0026-inventory-reservations.md) names "se
 - **Security:** per-location permissions are a plausible follow-on (a branch manager sees only their stock); design the permission before shipping the data model.
 - **Docs and ADR:** a new ADR superseding the "where stock lives" row of [ADR-0026](../../11-ADR/0026-inventory-reservations.md), plus [Modules.md](../Modules.md), this README and [DatabaseDesign.md](../../06-DATABASE/DatabaseDesign.md).
 
-## I need to move the admin screen from products to variants
+## I need to change how variants appear in stock administration
 
-The API side is done ([ADR-0039](../../11-ADR/0039-product-variants-order-identity.md)): `api/admin/inventory/variants/{variantId}/movements|adjustments|threshold` sit beside the product routes, which answer `422 VariantRequired` for a product with more than one stock row. What remains belongs to V2 of [ProductVariants.md](../Catalog/ProductVariants.md), when merchants can create a second variant.
+Done in V2 ([ADR-0040](../../11-ADR/0040-product-option-model.md)): the screen keys rows by `variantId`, labels them with `InventoryItemDto.VariantLabel`, marks inactive variants, and calls `api/admin/inventory/variants/{variantId}/…` through `frontend/src/pages/admin/StockDrawers.jsx`. The product-keyed routes stay for older clients.
 
-- **Inspect:** `frontend/src/pages/admin/Inventory.jsx` (it keys rows by `item.id`, a product id, and passes it to `adjustStock` and `getStockMovements`), `frontend/src/api/client.js` (the three inventory calls), `InventoryItemDto` (`Id` and `VariantId`), `AdjustVariantStockCommand`, `SetVariantLowStockThresholdCommand`, `GetVariantStockMovementsQuery`.
-- **Rules to respect:** the rules live in `InventoryItem` and both route families share `StockTarget.ChangeAsync`; don't copy them into the screen. A row needs the variant's label once options exist (the list shows the product name and the variant's SKU today).
-- **Steps:** key rows by `variantId`; call the variant routes; show the label from the option model; decide whether the product-keyed routes are then removed (a breaking change to version) or kept for single-variant products.
-- **Tests:** a Vitest file for the inventory page (none exists today); the browser journey for stock adjustment.
-- **API:** none, unless the product routes are removed.
-- **Database:** none.
-- **Security:** unchanged permissions (`inventory.view`, `inventory.manage`).
-- **Docs and ADR:** README (Known limitations 1), [Endpoints.md](../../05-API/Endpoints.md) if routes are removed.
+- **Inspect:** `InventoryQueries.PageAsync` (the label projection reads Catalog's option tables and composes with `VariantLabels.Compose` — never compose a label here by hand), `frontend/src/pages/admin/Inventory.jsx`, `frontend/src/pages/admin/StockDrawers.jsx`.
+- **Rules to respect:** the stock rules live in `InventoryItem` and both route families share `StockTarget.ChangeAsync`. Inventory must not own or change option data; it only reads the label for display.
+- **Removing the product-keyed routes** would break older clients: version it and record it in [ApiDocumentation.md](../../05-API/ApiDocumentation.md).
+- **Tests:** `ProductOptionAdminTests` pins labelled rows; the browser journey `frontend/e2e/product-variants.spec.js` adjusts a variant's stock and reads its row.

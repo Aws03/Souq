@@ -1,6 +1,6 @@
 # ADR-0039: Product variants: the order records the variant, checkout carries it, and the option model is decided
 
-- **Status:** Accepted, 2026-09-17. The groundwork phase V1 is implemented. The option model (V2) and the storefront selection (V3) are decided here but not built. Supersedes in part [ADR-0025](0025-catalog-model.md): its *sellable unit* row said every product has exactly one variant, and that an option matrix was out of scope.
+- **Status:** Accepted, 2026-09-17. The groundwork phase V1 is implemented. The option model (V2) is built by [ADR-0040](0040-product-option-model.md); the storefront selection (V3) is decided here but not built. Supersedes in part [ADR-0025](0025-catalog-model.md): its *sellable unit* row said every product has exactly one variant, and that an option matrix was out of scope.
 - **Date:** 2026-09-17
 - **Related modules:** Catalog; Shopping; Ordering; Inventory
 - **Related ADRs:** supersedes in part [ADR-0025](0025-catalog-model.md) (D-21, the default variant); keeps stock per variant from [ADR-0026](0026-inventory-reservations.md) and adds variant addressing to its admin paths; changes the line shape of the pricing pipeline in [ADR-0028](0028-basket-and-pricing-pipeline.md); adds the variant to the frozen order lines of [ADR-0029](0029-orders-lifecycle.md); new failures use the error contract of [ADR-0017](0017-error-contract.md); composite same-store keys per [ADR-0022](0022-tenancy-enforcement.md)
@@ -82,7 +82,7 @@ The options marked "Chosen" above.
 
 ## Revisit when
 
-- **V2 (options and admin):** `AddVariant` becomes public with option values and the limits above; the label snapshot gets its value; the admin inventory screen moves to the variant routes; the low-stock notification names the variant.
+- **V2 (options and admin):** done in [ADR-0040](0040-product-option-model.md) — `AddVariant` is public with option values and the limits above, the label snapshot is composed from options, the admin inventory screen uses the variant routes, and the low-stock notification names the variant.
 - **V3 (storefront):** the selector, "From" pricing, disabled sold-out values and variant-keyed basket calls. Two presentation defaults from the proposal still need the owner's confirmation there: hiding *deactivated* variants, and keeping a product with no purchasable variant visible as "unavailable".
 - A store needs order-line texts in more than one language.
 
