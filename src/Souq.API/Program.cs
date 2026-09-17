@@ -192,6 +192,13 @@ await DbSeeder.SeedAsync(app.Services,
         DbSeeder.ShouldSeedDemoData(app.Environment.EnvironmentName, app.Configuration.GetValue<bool?>("Seed:DemoData"))),
     app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Souq.Seeding"));
 
+// ── تعبئة الصورة المطبَّعة للبحث لصفوف سابقة للحقل (M3، ADR-0042) ──────────
+// بعد الهجرات والبذر: صفوف الكتالوج التي كُتبت قبل وجود عمود الصورة المطبَّعة تُطبَّع بالتنفيذ نفسه الذي يطبّع
+// نصّ الاستعلام. بلا هذا يبقى كتالوج قائم غير قابل للبحث بعد الترقية — عطل صامت. الفحص بحث فهرس يعود بصفر
+// صفّاً بعد أول تعبئة، فتكلفته على الإقلاع المعتاد لا تُذكر. SearchIndexBackfill يشرح التفصيل.
+await SearchIndexBackfill.RunAsync(app.Services,
+    app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Souq.Search"));
+
 // ── R-12: هوية التشغيل كما *تراها القاعدة*، لا كما يصفها الإعداد ──────────
 // الفرق بين "قِسنا أن الأقلّ يكفي" و"نعمل بالأقلّ فعلاً" غير مرئي بغير هذا السطر: نشرٌ يصل
 // بـ sa يبدو سليماً تماماً في السجل. فحص واحد عند الإقلاع يجعل الفجوة مسموعة كل مرّة.

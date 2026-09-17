@@ -5,6 +5,7 @@ using Souq.Application.Features.Categories.Queries;
 using Souq.Application.Features.Products.Queries;
 using Souq.Domain.Entities;
 using Souq.Domain.Enums;
+using Souq.Domain.ValueObjects;
 
 namespace Souq.Infrastructure.Persistence.Queries;
 
@@ -26,13 +27,21 @@ internal sealed class CatalogQueries : ICatalogQueries
     {
         var query = VisibleProducts();
 
-        // Contains مع مُعامِل يُترجم إلى CHARINDEX (لا حقن LIKE) — الاسم أو الوصف بأي لغة.
-        if (!string.IsNullOrWhiteSpace(search.Keyword))
-        {
-            var keyword = search.Keyword.Trim();
-            query = query.Where(p => p.Translations.Any(t =>
-                t.Name.Contains(keyword) || (t.Description != null && t.Description.Contains(keyword))));
-        }
+        // ============================================================================
+        // مطابقة كلمة البحث (M3، ADR-0042) — على الصورة المطبَّعة لا على النص الخام:
+        //   • كل كلمة من كلمات الاستعلام شرط مستقلّ (AND): "مكنسة كهربائية" تُطابق اسماً يحمل الكلمتين ولو
+        //     متفرّقتين، بعكس ما كان (سلسلة واحدة متّصلة يجب أن ترد حرفياً).
+        //   • كل كلمة تُطابَق في اسم المنتج أو وصفه أو **اسم فئته** — والفئة إضافة M3: من يكتب اسم فئة يريد ما فيها.
+        //   • بكل اللغات كما كان: متجر ثنائي اللغة يجد منتجه باسمه الإنجليزي ولو كان المتسوّق عربياً.
+        //
+        // `Contains` مع مُعامِل يُترجم إلى `LIKE N'%…%' ESCAPE N'\'` ويهرّب % و_ و[ من تلقائه — لا حقن LIKE.
+        // (التعليق السابق هنا قال CHARINDEX؛ تحقّقنا في M3 بـ ToQueryString أنّه LIKE، وصُحّح في Catalog/README.md
+        // حيث كانت الدعوى مسجَّلة صريحاً أنّها غير متحقَّق منها.)
+        // ============================================================================
+        var tokens = SearchText.Tokenize(search.Keyword, SearchText.MaxQueryTokens);
+        var phrase = string.Join(' ', tokens);
+        query = tokens.Aggregate(query, (current, token) => current.Where(MatchesToken(token)));
+
         if (search.CategoryIds is { Count: > 0 } categoryIds)
             query = query.Where(p => categoryIds.Contains(p.CategoryId));
         // نطاق السعر: متغيّر واحد يقع داخل النطاق كاملاً (لا حدٌّ من متغيّر وحدٌّ من آخر). المطابقة على ما يمكن شراؤه؛
@@ -51,7 +60,7 @@ internal sealed class CatalogQueries : ICatalogQueries
                 || (!p.Variants.Any(v => v.IsActive && _db.InventoryItems.Any(i => i.VariantId == v.Id && i.OnHand - i.Reserved > 0))
                     && p.Variants.Any(v => v.IsActive && EF.Property<decimal?>(v, "_compareAtAmount") > v.Price.Amount)));
 
-        return (await Sort(query, search.SortBy).ToPageAsync(Row(culture), page, ct)).Map(r => ToDto(r, culture));
+        return (await Sort(query, search.SortBy, phrase).ToPageAsync(Row(culture), page, ct)).Map(r => ToDto(r, culture));
     }
 
     public async Task<ProductDto?> FindActiveProductAsync(int id, string culture, CancellationToken ct) =>
@@ -106,8 +115,11 @@ internal sealed class CatalogQueries : ICatalogQueries
         {
             var keyword = search.Keyword.Trim();
             var sku = keyword.ToUpperInvariant();
+            // الاسم يُطابَق على صورته المطبَّعة كما في بحث المتجر (M3): التاجر الذي يكتب "مكنسه" يجد "مَكْنَسَة"
+            // التي كتبها هو. أمّا المعرّف (slug) وSKU فمُعرّفان تقنيان لاتينيان، يُطابَقان كما هما.
+            var normalized = SearchText.Normalize(keyword);
             query = query.Where(p => p.Slug.Contains(keyword)
-                                     || p.Translations.Any(t => t.Name.Contains(keyword))
+                                     || p.Translations.Any(t => t.NameNormalized.Contains(normalized))
                                      || p.Variants.Any(v => v.Sku != null && v.Sku.Contains(sku)));
         }
         if (search.Status is { } status) query = query.Where(p => p.Status == status);
@@ -317,13 +329,50 @@ internal sealed class CatalogQueries : ICatalogQueries
             : texts.OrderBy(t => t.Key, StringComparer.Ordinal).Select(t => t.Value).FirstOrDefault();
 
     // كل ترتيب ينتهي بكاسر تعادل بالمعرّف: منتجان بنفس السعر لا يتبادلان موقعيهما بين طلبين.
-    private IOrderedQueryable<Product> Sort(IQueryable<Product> query, ProductSortBy sortBy) => sortBy switch
+    private IOrderedQueryable<Product> Sort(IQueryable<Product> query, ProductSortBy sortBy, string phrase) => sortBy switch
     {
         ProductSortBy.PriceAsc => query.OrderBy(StorefrontPriceExpr).ThenByDescending(p => p.Id),
         ProductSortBy.PriceDesc => query.OrderByDescending(StorefrontPriceExpr).ThenByDescending(p => p.Id),
         ProductSortBy.BestSelling => BestSellingFirst(query),
+        // بلا كلمة بحث لا درجة مطابقة، فالترتيب الأحدث — لا ترتيب عشوائي ولا خطأ.
+        ProductSortBy.Relevance when phrase.Length > 0 =>
+            query.OrderByDescending(RelevanceExpr(phrase)).ThenByDescending(p => p.Id),
         _ => query.OrderByDescending(p => p.Id),
     };
+
+    // ============================================================================
+    // مطابقة كلمة واحدة من الاستعلام: الاسم أو الوصف أو اسم الفئة، بأي لغة، على الصورة المطبَّعة.
+    // الوصف المطبَّع null حين لا وصف — فالشرط يفحص ذلك أولاً كي لا يُطابِق استعلامٌ وصفاً لا وجود له.
+    // ============================================================================
+    private static Expression<Func<Product, bool>> MatchesToken(string token) => p =>
+        p.Translations.Any(t => t.NameNormalized.Contains(token)
+                                || (t.DescriptionNormalized != null && t.DescriptionNormalized.Contains(token)))
+        || p.Category!.Translations.Any(t => t.NameNormalized.Contains(token));
+
+    // ============================================================================
+    // درجة المطابقة، محسوبة في SQL (M3، ADR-0042) — لا في الواجهة: الترقيم يجب أن يرتّب كل الصفوف لا صفحةً منها،
+    // فدرجة تُحسب بعد الجلب تُعطي صفحة ثانية لا تكمل الأولى.
+    //
+    // الدرجات: الاسم كاملاً = الاستعلام (100) ← أقوى إشارة ممكنة؛ فالاسم يبدأ بالاستعلام (90)؛ فيحتويه كعبارة
+    // متّصلة (80)؛ فيحتوي كلمته الأولى (60)؛ فاسم الفئة يحتوي الكلمة الأولى (40)؛ وإلّا فالمطابقة جاءت من الوصف
+    // أو من كلمات متفرّقة (20). الثلاثة الأولى بحث فهرس على IX_*_TenantId_NameNormalized؛ والباقي مسح فهرسٍ ضيّق.
+    //
+    // **تبسيط مقصود:** درجات "في الاسم" تقيس العبارة كاملةً والكلمة الأولى، لا كل كلمة على حدة — لأنّ درجةً
+    // لكل كلمة تحتاج بناء شجرة تعبير ديناميكياً بعدد كلمات متغيّر، وهو تعقيد لا يشتريه تحسّن ترتيب ملموس:
+    // شرط الـ AND في التصفية ضمن أصلاً أنّ كل الكلمات موجودة، والدرجة هنا ترتّب من بينهم. مسجَّل في
+    // TechnicalDebt.md كمسار تحسين إن أظهرت بيانات M13 حاجةً مقيسة.
+    // ============================================================================
+    private static Expression<Func<Product, int>> RelevanceExpr(string phrase)
+    {
+        var firstToken = phrase.Split(' ')[0];
+        return p =>
+            p.Translations.Any(t => t.NameNormalized == phrase) ? 100
+            : p.Translations.Any(t => t.NameNormalized.StartsWith(phrase)) ? 90
+            : p.Translations.Any(t => t.NameNormalized.Contains(phrase)) ? 80
+            : p.Translations.Any(t => t.NameNormalized.Contains(firstToken)) ? 60
+            : p.Category!.Translations.Any(t => t.NameNormalized.Contains(firstToken)) ? 40
+            : 20;
+    }
 
     // "الأكثر مبيعاً" = مجموع الكميات عبر الطلبات المُسلَّمة فقط — استعلام فرعي مترابط واحد في SQL.
     private IOrderedQueryable<Product> BestSellingFirst(IQueryable<Product> query) =>

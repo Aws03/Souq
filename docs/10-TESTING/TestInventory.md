@@ -7,10 +7,10 @@
 
 | Suite | Files | Facts | Theories |
 |---|---|---|---|
-| [`Souq.Domain.Tests`](#souqdomaintests) | 25 | 200 | 35 |
+| [`Souq.Domain.Tests`](#souqdomaintests) | 28 | 220 | 44 |
 | [`Souq.Application.Tests`](#souqapplicationtests) | 43 | 320 | 15 |
 | [`Souq.ArchitectureTests`](#souqarchitecturetests) | 13 | 57 | 7 |
-| [`Souq.IntegrationTests`](#souqintegrationtests) | 48 | 250 | 21 |
+| [`Souq.IntegrationTests`](#souqintegrationtests) | 49 | 261 | 21 |
 | [frontend (Vitest)](#frontend-vitest) | 75 | 577 | — |
 
 ## Souq.Domain.Tests
@@ -18,6 +18,7 @@
 | File | Classes | Facts | Theories |
 |---|---|---|---|
 | `tests/Souq.Domain.Tests/BasketTests.cs` | `BasketTests` | 9 | 1 |
+| `tests/Souq.Domain.Tests/CatalogSearchProjectionTests.cs` | `CatalogSearchProjectionTests` | 8 | 0 |
 | `tests/Souq.Domain.Tests/CouponRuleMatrixTests.cs` | `CouponRuleMatrixTests` | 2 | 2 |
 | `tests/Souq.Domain.Tests/CouponTests.cs` | `CouponTests` | 12 | 1 |
 | `tests/Souq.Domain.Tests/CustomerProfileTests.cs` | `CustomerProfileTests` | 9 | 1 |
@@ -35,6 +36,8 @@
 | `tests/Souq.Domain.Tests/ProductVariantTests.cs` | `ProductVariantTests` | 10 | 0 |
 | `tests/Souq.Domain.Tests/RefreshTokenTests.cs` | `RefreshTokenTests` | 3 | 0 |
 | `tests/Souq.Domain.Tests/ReviewTests.cs` | `ReviewTests` | 8 | 1 |
+| `tests/Souq.Domain.Tests/SearchDistanceTests.cs` | `SearchDistanceTests` | 7 | 3 |
+| `tests/Souq.Domain.Tests/SearchTextTests.cs` | `SearchTextTests` | 5 | 6 |
 | `tests/Souq.Domain.Tests/ShippingMethodTests.cs` | `ShippingMethodTests` | 4 | 1 |
 | `tests/Souq.Domain.Tests/StorePaymentAccountTests.cs` | `StorePaymentAccountTests` | 3 | 2 |
 | `tests/Souq.Domain.Tests/StoreSettingsTests.cs` | `StoreSettingsTests` | 5 | 3 |
@@ -119,6 +122,7 @@
 | `tests/Souq.IntegrationTests/AuthorizationMatrixTests.cs` | `AuthorizationMatrixTests` | 2 | 0 |
 | `tests/Souq.IntegrationTests/BasketTests.cs` | `BasketTests` | 5 | 0 |
 | `tests/Souq.IntegrationTests/BestSellingPerformanceTests.cs` | `BestSellingPerformanceTests`, `ScratchApp`, `SqlCapture`, `Sink` | 0 | 1 |
+| `tests/Souq.IntegrationTests/CatalogSearchTests.cs` | `CatalogSearchTests` | 11 | 0 |
 | `tests/Souq.IntegrationTests/CatalogTests.cs` | `CatalogTests`, `ProductCommandCounter` | 9 | 0 |
 | `tests/Souq.IntegrationTests/CheckoutIdempotencyTests.cs` | `CheckoutIdempotencyTests` | 3 | 0 |
 | `tests/Souq.IntegrationTests/ConfigurationTests.cs` | `ConfigurationTests`, `ConfiguredFactory` | 10 | 6 |

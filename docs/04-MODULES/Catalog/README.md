@@ -200,7 +200,12 @@ All routes are tenant-resolved from the Host header. No catalog endpoint is behi
 | Stock | — | `StockAsc` — available (`OnHand − Reserved`) ascending |
 | Popularity | `BestSelling` — summed quantities over `Delivered` orders | — |
 
-Search differs too: the storefront matches the keyword against translation names **and** descriptions in any language; the admin matches slug, translation names and SKU (upper-cased). Both are substring matches with no full-text index and no relevance ranking; the code comment in `CatalogQueries` states the translation matches become `CHARINDEX` rather than a `LIKE` pattern (not verified against generated SQL).
+Search differs too. Since **M3** ([ADR-0042](../../11-ADR/0042-local-search-engine.md)) both sides match the **normalized** form of the text (`CatalogTranslation.NameNormalized`, written by `SearchText.Normalize`), not the raw string: Arabic diacritics, tatweel, alef/ta-marbuta/alef-maksura variants and Arabic-Indic digits are folded on the indexed text and on the query alike, so `مكنسه` finds `مَكْنَسَة`.
+
+- **Storefront:** the query is split into words (up to `SearchText.MaxQueryTokens`) and **every** word must match — in a translation name, a translation description, or the **category** name, in any language. Ranking is `ProductSortBy.Relevance`, computed in SQL: whole-name equality (100), name prefix (90), name contains the phrase (80), name contains the first word (60), category name contains it (40), otherwise the match came from the description or scattered words (20). Without a keyword `Relevance` falls back to `Newest`.
+- **Admin:** the translation name is matched normalized too; slug and SKU stay raw, being latin technical identifiers.
+- The index that serves this is `IX_ProductTranslations_TenantId_NameNormalized` (and its category twin), which includes the owner key and culture so the `EXISTS` clause is answered from the index.
+- `string.Contains` with a parameter translates to `LIKE N'%…%' ESCAPE N'\'` and escapes `%`, `_` and `[` itself — no LIKE injection. (This page previously recorded the code comment's claim that it became `CHARINDEX`, flagged as unverified; M3 verified it with `ToQueryString` and it is `LIKE`. The comment has been corrected.)
 
 ## Security and permissions
 
@@ -285,7 +290,7 @@ Add a field to products · add attributes or real variant options · change the 
 6. **Orphaned files.** Removing an image, replacing a video, an eleventh upload (the file is stored *before* `Product.AddImage` throws) and any failed save all leave bytes behind. `IFileStorage` has no delete, and the cleanup job is DEFERRED.
 7. **The best-selling sort aggregates `OrderItems` per request** across all delivered orders; there is no read model or covering index for it, and it crosses a module boundary.
 8. **`ProductDto.StockQuantity` shows the exact available quantity to anonymous visitors,** even though `InventoryItemDto` was deliberately kept separate so that on-hand, reserved and thresholds stay admin-only.
-9. **Search is a plain substring match** with no full-text index, ranking, or diacritic handling, and case behaviour follows the database collation.
+9. ~~Search is a plain substring match with no full-text index, ranking, or diacritic handling.~~ **Resolved in M3** ([ADR-0042](../../11-ADR/0042-local-search-engine.md)): matching is on a stored, indexed normalized form, every query word is a separate condition, category names are matched, and `ProductSortBy.Relevance` ranks in SQL. Because the text is normalized in application code, behaviour no longer depends on the database collation at all. What M3 deliberately does **not** add: linguistic stemming (Arabic root extraction) and a per-word relevance score — see [TechnicalDebt.md](../../12-ROADMAP/TechnicalDebt.md) TD-45/TD-46.
 10. **`Newest` means id descending in the storefront but `CreatedAt` in the admin list** — the two lists can disagree for rows created in the same transaction.
 11. **`POST /api/products` returns a Location header pointing at the public detail route**, which answers 404 while the product is a draft.
 12. ~~The storefront routes by numeric id.~~ **Resolved in Phase 16:** the route is `/products/:handle` and accepts either. A slug loads through `api.getProductBySlug`; a numeric id still loads and is then replaced in the address bar with the slug form, so links shared before the change keep working. Product links are built by `productPath` in `frontend/src/features/catalog/productRouting.js`.

@@ -52,6 +52,7 @@ internal static class ModuleMap
         ["ProductTranslation"] = "Catalog", ["ProductStatus"] = "Catalog", ["Category"] = "Catalog",
         ["CategoryTranslation"] = "Catalog", ["CategoryLink"] = "Catalog", ["CatalogTranslation"] = "Catalog",
         ["CatalogText"] = "Catalog", ["CatalogSlug"] = "Catalog", ["IProductRepository"] = "Catalog",
+        ["SearchText"] = "Catalog", ["SearchDistance"] = "Catalog",
         ["ICategoryRepository"] = "Catalog", ["InvalidProductDataException"] = "Catalog",
         ["InvalidCategoryException"] = "Catalog", ["InvalidCategoryParentException"] = "Catalog",
 

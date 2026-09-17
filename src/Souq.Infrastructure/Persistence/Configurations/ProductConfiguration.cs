@@ -71,6 +71,23 @@ internal static class CatalogTranslationMapping
         builder.Property(t => t.MetaTitle).HasMaxLength(CatalogText.MetaTitleMaxLength);
         builder.Property(t => t.MetaDescription).HasMaxLength(CatalogText.MetaDescriptionMaxLength);
         builder.HasIndex(ownerKey, nameof(CatalogTranslation.Culture)).IsUnique();
+
+        // ============================================================================
+        // الصورة المطبَّعة للبحث (M3، ADR-0042). طول كل عمود كطول أصله: التطبيع لا يُطيل نصّ ar/en أبداً
+        // (SearchTextTests.التطبيع_لا_يُطيل_نص_العربية_والإنجليزية_أبداً يحرس هذا)، فلا قصّ صامت عند الإدراج.
+        //
+        // الفهرس على (المستأجر، الاسم المطبَّع) يخدم ثلاث درجات من المطابقة: التطابق التامّ والبادئة بحثَ فهرس
+        // (seek)، والاحتواء مسحَ فهرسٍ ضيّق بدل مسح جدول يحمل وصفاً بـ 4000 محرفاً. ومفتاح الجذر عمود مُضمَّن
+        // كي يُجاب شرط EXISTS من الفهرس نفسه بلا رجوع إلى الصفّ.
+        //
+        // الوصف المطبَّع **غير مفهرس** عمداً: nvarchar(4000) يتجاوز حدّ مفتاح الفهرس في SQL Server (1700 بايت)،
+        // فلا فهرس ممكن عليه أصلاً — ولذلك يبقى في أدنى درجة ترتيب، لا في مسار المطابقة السريع.
+        // ============================================================================
+        builder.Property(t => t.NameNormalized).HasMaxLength(CatalogText.NameMaxLength).IsRequired();
+        builder.Property(t => t.DescriptionNormalized).HasMaxLength(CatalogText.DescriptionMaxLength);
+        builder.HasIndex(nameof(CatalogTranslation.TenantId), nameof(CatalogTranslation.NameNormalized))
+            .IncludeProperties(ownerKey, nameof(CatalogTranslation.Culture))
+            .HasDatabaseName($"IX_{table}_TenantId_NameNormalized");
     }
 }
 

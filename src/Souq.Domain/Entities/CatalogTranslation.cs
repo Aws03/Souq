@@ -17,6 +17,17 @@ public abstract class CatalogTranslation : Entity, ITenantOwned
     public string? MetaTitle { get; private set; }
     public string? MetaDescription { get; private set; }
 
+    // ============================================================================
+    // الصورة المطبَّعة للبحث (M3، ADR-0042): مشتقّة من Name/Description بـ SearchText.Normalize، مخزَّنة ومفهرسة
+    // كي يصير المطابقة بحث فهرس لا مسحاً، وكي تُطوى صور الألف والتاء المربوطة والتشكيل — وهي ما لا يطويه أي
+    // ترتيب مقارنة في SQL Server.
+    //
+    // **لا تُكتب إلا من Apply.** وApply هي المسار الوحيد لكتابة النص (المُنشئ يستدعيها، وReplace تستدعيها للتحديث)،
+    // فلا طريق يضبط الاسم ويترك صورته المطبَّعة متقادمة. هذا هو سبب وجودها في الكيان لا في مُعترِض أو خدمة.
+    // ============================================================================
+    public string NameNormalized { get; private set; } = "";
+    public string? DescriptionNormalized { get; private set; }
+
     protected CatalogTranslation() { }
 
     protected CatalogTranslation(string culture, CatalogText text)
@@ -31,6 +42,24 @@ public abstract class CatalogTranslation : Entity, ITenantOwned
         Description = text.Description;
         MetaTitle = text.MetaTitle;
         MetaDescription = text.MetaDescription;
+        NameNormalized = SearchText.Normalize(text.Name);
+        // الوصف الفارغ صورته null لا "" — فالعمود nullable كأصله، ولا يُطابِق استعلامٌ وصفاً غير موجود.
+        var description = SearchText.Normalize(text.Description);
+        DescriptionNormalized = description.Length == 0 ? null : description;
+    }
+
+    // إعادة بناء الصورة المطبَّعة لصفّ سابق للحقل (M3): تُستعمل من مسار التعبئة الأولي وحده — لا تغيّر النص نفسه.
+    internal bool RebuildSearchText()
+    {
+        var name = SearchText.Normalize(Name);
+        var description = SearchText.Normalize(Description);
+        var normalizedDescription = description.Length == 0 ? null : description;
+
+        if (NameNormalized == name && DescriptionNormalized == normalizedDescription) return false;
+
+        NameNormalized = name;
+        DescriptionNormalized = normalizedDescription;
+        return true;
     }
 
 
