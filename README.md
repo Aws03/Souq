@@ -21,6 +21,7 @@ It is a commercial product, not a sample application: real payments, real multi-
 | How do I find my way around? | [docs/00-START-HERE/HowToReadThisRepository.md](docs/00-START-HERE/HowToReadThisRepository.md) |
 | What are the rules for changing code? | [AGENTS.md](AGENTS.md) · [CriticalInvariants.md](docs/00-START-HERE/CriticalInvariants.md) |
 | I'm taking the project over | [HandoffChecklist.md](docs/00-START-HERE/HandoffChecklist.md) |
+| I'm an AI agent continuing the remaining work autonomously | [docs/12-ROADMAP/SouqMasterPlan.md](docs/12-ROADMAP/SouqMasterPlan.md) — the execution contract, self-recovering from its own status block |
 | Where is the documentation map? | [docs/README.md](docs/README.md) |
 
 ## Run it

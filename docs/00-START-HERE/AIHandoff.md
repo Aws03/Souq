@@ -4,6 +4,15 @@
 > **Human counterpart:** [HandoffGuide.md](HandoffGuide.md). **The rules themselves:** [AGENTS.md](../../AGENTS.md).
 > **Last verified against the code:** 2026-09-17, branch `phase/17-production-hardening`.
 
+## 0. Picking up an autonomous multi-phase run
+
+If you were asked to `souq continue`, `souq continue phases N-M`, or `souq continue until launch`, read
+[SouqMasterPlan.md](../12-ROADMAP/SouqMasterPlan.md) **first** — its §0 status block plus `git log --oneline
+-20` and `git status` tell you exactly which phase is next and whether the last session left anything
+in-flight. That plan is self-contained and self-recovering by design (its §6): it does not assume this or any
+other conversation exists. If no such instruction was given, this page's normal reading order below still
+applies.
+
 ## 1. The first rule
 
 **The repository is the source of truth.** Not your memory of this project, not a summary you were handed, not what a document said before someone changed the code. When a document and the code disagree, the code wins — and fixing the document is part of your change, not a separate task.

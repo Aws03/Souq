@@ -152,6 +152,12 @@
 - Phase 18 (Platform owner dashboard) is 🟡, waiting only on owner decisions D-22 (storefront preview) and P-07 (platform-wide settings).
 
 The roadmap is the authority, not this summary.
+
+**Continuing the remaining work:** [SouqMasterPlan.md](../12-ROADMAP/SouqMasterPlan.md) is the durable execution
+contract for the twenty engineering-mission phases (`M1`–`M20`, never roadmap Phase numbers) that carry
+Phases 19–23 above, plus the search engine, from here to genuine launch readiness. Its §0 status block plus
+`git log` are all a fresh session needs to know exactly where an autonomous `souq continue` run stands — no
+prior conversation required.
 **You can now answer:** What is unfinished, and is it blocked by engineering or by a decision? Which risks must be closed before a first paying customer?
 **Next:** step 16.
 

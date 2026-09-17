@@ -83,10 +83,10 @@ Read [IncidentResponse.md](../09-OPERATIONS/IncidentResponse.md) and [Troublesho
 
 - **Roadmap:** [ProductRoadmap.md](../12-ROADMAP/ProductRoadmap.md) is the authority. At the last verification:
   - Phases 1A–15 are complete.
-  - Phase 16 (Storefront) is 🟡: product variants can't be chosen, a model and API change.
+  - Phase 16 (Storefront) is ✅: closed by the shopper's variant picker (V3, [ADR-0041](../11-ADR/0041-storefront-variant-selection.md)); V4 (reporting per variant) remains and blocks nothing.
   - Phase 17 (Tenant admin dashboard) is ✅.
   - Phase 18 (Platform owner dashboard) is 🟡, waiting only on owner decisions D-22 (storefront preview) and P-07 (platform-wide settings).
-  - Phases 19–23 (testing, security review, performance, documentation, production) have not started.
+  - Phases 19–23 (testing, security review, performance, documentation, production) have not started. **They now have a durable execution contract:** [SouqMasterPlan.md](../12-ROADMAP/SouqMasterPlan.md) — twenty engineering-mission phases (`M1`–`M20`) with a self-recovering status block, so an AI agent continuing this project needs nothing from you but "`souq continue`."
 - **Branches:** all of it is on `phase/17-production-hardening`, far ahead of `main` and neither pushed nor merged ([HandoffChecklist.md](HandoffChecklist.md) §0).
 - **Debt:** [TechnicalDebt.md](../12-ROADMAP/TechnicalDebt.md) — the recorded items, prioritized.
 - **Risks:** [RiskRegister.md](../02-ARCHITECTURE/RiskRegister.md) — read §1 (money) before taking real payments.
@@ -134,4 +134,4 @@ A proposal that cannot answer 1 and 3 is not ready, however fashionable the tech
 
 ## 12. If you are an AI agent
 
-Read [AIHandoff.md](AIHandoff.md) first. It states what you must inspect before changing anything, and what you must never do without a decision.
+Read [AIHandoff.md](AIHandoff.md) first. It states what you must inspect before changing anything, and what you must never do without a decision. **If you were asked to continue the remaining work autonomously** (`souq continue` or similar), read [SouqMasterPlan.md](../12-ROADMAP/SouqMasterPlan.md) instead of asking the owner where things stand — its status block and the git history are the whole answer.
