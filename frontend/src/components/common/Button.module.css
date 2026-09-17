@@ -11,10 +11,12 @@
 .lg { padding: 14px 22px; font-size: var(--fs-body); border-radius: 12px; }
 
 .primary { background: var(--color-primary); color: var(--color-on-primary); }
-.primary:hover:not(:disabled) { background: var(--color-accent); color: var(--color-primary-strong); }
+/* النصّ فوق لون التمييز هو --color-on-accent المشتقّ له، لا --color-primary-strong: ذاك داكن في الفاتح فقط، ويُفتَّح في
+   الداكن فيصير نصّاً باهتاً على برتقالي (وجده فحص بصري للمنصّة في الوضع الداكن، وينطبق على كل متجر داكن). */
+.primary:hover:not(:disabled) { background: var(--color-accent); color: var(--color-on-accent); }
 
 /* اسمه كان saffron — لون لوحة أوّل متجر لا دوره. الاسم الآن دورُه في نظام التصميم. */
-.accent { background: var(--color-accent); color: var(--color-primary-strong); }
+.accent { background: var(--color-accent); color: var(--color-on-accent); }
 .accent:hover:not(:disabled) { background: var(--color-accent-soft); }
 
 .ghost { background: var(--color-surface); color: var(--color-primary); border: 1px solid var(--color-border); }

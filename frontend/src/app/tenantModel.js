@@ -105,8 +105,14 @@ export function themeVariables(branding, mode = 'light') {
   const surface = dark ? mix(background, '#FFFFFF', 0.07) : '#FFFFFF';
 
   // لون الهوية على خلفية داكنة قد يصير غير مقروء — يُفتَح حتى يبلغ 4.5:1 بدل أن يُترك باهتاً.
-  const primaryReadable = dark ? readableAgainst(primary, background) : primary;
-  const accentReadable = dark ? readableAgainst(accent, background) : accent;
+  // ── المرجع الأصعب ─────────────────────────────────────────────────────────
+  // النصّ يُقرأ على الخلفية وعلى البطاقات معاً، والمقروء على الأصعب منهما مقروء على الآخر. في الفاتح الأصعب
+  // الخلفية (البطاقة بيضاء أفتح منها)، وفي الداكن الأصعب البطاقة (مرفوعة بالضوء فهي أفتح). كان الاشتقاق يقيس
+  // على الخلفية في الوضعين، فسقط النصّ الثانوي وروابط لون الهوية على بطاقات الوضع الداكن — وجده axe على صفحة
+  // متجر في المنصّة، وينطبق على كل متجر داكن.
+  const textReference = dark ? surface : background;
+  const primaryReadable = dark ? readableAgainst(primary, textReference) : primary;
+  const accentReadable = dark ? readableAgainst(accent, textReference) : accent;
 
   // ── اللوحة المقلوبة ───────────────────────────────────────────────────────
   // التذييل، والرأسية، وشريط الإدارة الجانبي، وشريط الإعلان: أسطح داكنة عمداً بنصّ فاتح.
@@ -150,7 +156,7 @@ export function themeVariables(branding, mode = 'light') {
     '--color-surface': surface,
     '--color-surface-alt': dark ? mix(background, '#FFFFFF', 0.04) : mix(background, text, 0.05),
     '--color-text': text,
-    '--color-text-muted': mutedText(text, background),
+    '--color-text-muted': mutedText(text, textReference),
     '--color-border': mix(background, text, dark ? 0.16 : 0.12),
 
     // ألوان الحالة تُشتقّ للوضع كي تبقى مقروءة: الأخضر الداكن على خلفية داكنة يختفي.

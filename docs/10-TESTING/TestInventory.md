@@ -11,7 +11,7 @@
 | [`Souq.Application.Tests`](#souqapplicationtests) | 42 | 288 | 15 |
 | [`Souq.ArchitectureTests`](#souqarchitecturetests) | 13 | 54 | 7 |
 | [`Souq.IntegrationTests`](#souqintegrationtests) | 44 | 222 | 21 |
-| [frontend (Vitest)](#frontend-vitest) | 64 | 447 | — |
+| [frontend (Vitest)](#frontend-vitest) | 68 | 493 | — |
 
 ## Souq.Domain.Tests
 
@@ -163,7 +163,6 @@
 | `frontend/src/api/client.test.js` | 12 |
 | `frontend/src/api/problem.test.js` | 6 |
 | `frontend/src/api/query.test.js` | 4 |
-| `frontend/src/app/PlatformLayout.test.jsx` | 5 |
 | `frontend/src/app/QueryProvider.test.jsx` | 4 |
 | `frontend/src/app/dateLocale.test.js` | 8 |
 | `frontend/src/app/moduleInvariants.test.js` | 2 |
@@ -171,11 +170,13 @@
 | `frontend/src/app/robots.test.js` | 5 |
 | `frontend/src/app/structuredData.test.js` | 8 |
 | `frontend/src/app/tenantModel.test.js` | 7 |
-| `frontend/src/app/tenantModel.themes.test.js` | 17 |
+| `frontend/src/app/tenantModel.themes.test.js` | 20 |
 | `frontend/src/app/themeMode.test.js` | 9 |
 | `frontend/src/components/ProtectedRoute.test.jsx` | 11 |
+| `frontend/src/components/common/ConfirmDialog.test.jsx` | 5 |
 | `frontend/src/components/common/Drawer.test.jsx` | 6 |
 | `frontend/src/components/common/ErrorBoundary.test.jsx` | 5 |
+| `frontend/src/components/common/FormField.test.jsx` | 3 |
 | `frontend/src/components/product/ProductCard.test.jsx` | 7 |
 | `frontend/src/components/store/OpeningExperience.test.jsx` | 12 |
 | `frontend/src/features/account/addressForm.test.js` | 6 |
@@ -199,6 +200,7 @@
 | `frontend/src/features/checkout/shippingOptions.test.js` | 4 |
 | `frontend/src/features/notifications/notificationView.test.js` | 4 |
 | `frontend/src/features/orders/orderView.test.js` | 3 |
+| `frontend/src/features/platform/provisioning.test.js` | 22 |
 | `frontend/src/features/reporting/businessHealth.test.js` | 20 |
 | `frontend/src/features/reporting/chartScales.test.js` | 18 |
 | `frontend/src/features/reporting/dashboardView.test.js` | 14 |
@@ -220,6 +222,8 @@
 | `frontend/src/pages/admin/StoreSettings.test.jsx` | 10 |
 | `frontend/src/pages/checkout/Checkout.test.jsx` | 7 |
 | `frontend/src/pages/checkout/stripeClient.test.js` | 3 |
+| `frontend/src/pages/platform/PlatformOverview.test.jsx` | 5 |
+| `frontend/src/pages/platform/Provisioning.test.jsx` | 13 |
 | `frontend/src/pages/storefrontPages.test.jsx` | 3 |
 | `frontend/src/rtl.test.js` | 2 |
 | `frontend/src/whiteLabel.test.js` | 1 |

@@ -182,3 +182,46 @@ describe('ألوان الحالة على سطحها الناعم', () => {
     }
   });
 });
+
+// ============================================================================
+// النصّ على البطاقات. البطاقة في الوضع الداكن أفتح من الخلفية (الارتفاع بالضوء)، فالنصّ الثانوي وروابط
+// لون الهوية المحسوبة على الخلفية وحدها كانت تسقط عليها — وجده axe في المتصفّح على صفحة متجر في المنصّة.
+// ============================================================================
+describe('النصّ مقروء على البطاقة كما على الخلفية', () => {
+  const palettes = [
+    brand(),
+    brand({ primary: '#0B5D3B', accent: '#F2A541' }),
+    brand({ primary: '#7A2E0E', background: '#FFF8E7', text: '#2B2118' }),
+    brand({ primary: '#12355B', accent: '#D97706', background: '#FFFFFF', text: '#1F2933' }),
+  ];
+
+  it('الثانوي والأساسي والمميّز فوق 4.5:1 على الخلفية والبطاقة في الوضع الداكن', () => {
+    for (const palette of palettes) {
+      const v = themeVariables(palette, 'dark');
+      for (const token of ['--color-text-muted', '--color-primary', '--color-accent']) {
+        for (const surface of ['--color-bg', '--color-surface', '--color-surface-alt']) {
+          expect(contrastRatio(v[token], v[surface]), `${token} on ${surface} · ${palette.colors.primary}`)
+            .toBeGreaterThanOrEqual(AA);
+        }
+      }
+    }
+  });
+
+  it('الثانوي فوق 4.5:1 على الخلفية والبطاقة في الوضع الفاتح', () => {
+    for (const palette of palettes) {
+      const v = themeVariables(palette, 'light');
+      expect(contrastRatio(v['--color-text-muted'], v['--color-bg'])).toBeGreaterThanOrEqual(AA);
+      expect(contrastRatio(v['--color-text-muted'], v['--color-surface'])).toBeGreaterThanOrEqual(AA);
+    }
+  });
+
+  it('نصّ الأزرار على لون التمييز مقروء في الوضعين', () => {
+    for (const palette of palettes) {
+      for (const mode of ['light', 'dark']) {
+        const v = themeVariables(palette, mode);
+        expect(contrastRatio(v['--color-on-accent'], v['--color-accent']), `${mode} · ${palette.colors.accent}`)
+          .toBeGreaterThanOrEqual(AA);
+      }
+    }
+  });
+});

@@ -46,21 +46,21 @@ export default function Stores() {
 
   const columns = [
     {
-      key: 'name', header: t('platform.stores.colName'), width: '200px', truncate: true, tooltip: (r) => r.name,
+      key: 'name', header: t('platform.stores.colName'), width: '190px', truncate: true, tooltip: (r) => r.name,
       render: (r) => <Link to={`/platform/stores/${r.id}`} className={styles.rowLink}>{r.name}</Link>,
     },
-    { key: 'slug', header: t('platform.stores.colSlug'), width: '140px', truncate: true, render: (r) => <span dir="ltr">{r.slug}</span> },
-    { key: 'status', header: t('platform.stores.colStatus'), width: '130px', render: (r) => <StatusBadge status={r.status} /> },
+    { key: 'slug', header: t('platform.stores.colSlug'), width: '120px', truncate: true, render: (r) => <span dir="ltr">{r.slug}</span> },
+    { key: 'status', header: t('platform.stores.colStatus'), width: '120px', render: (r) => <StatusBadge status={r.status} /> },
     {
-      key: 'host', header: t('platform.stores.colHost'), width: '200px', truncate: true, tooltip: (r) => r.primaryHost ?? '',
+      key: 'host', header: t('platform.stores.colHost'), width: '190px', truncate: true, tooltip: (r) => r.primaryHost ?? '',
       render: (r) => (r.primaryHost ? <span dir="ltr">{r.primaryHost}</span>
         : <span className={styles.attention}>{t('platform.stores.noDomain')}</span>),
     },
     { key: 'admins', header: t('platform.stores.colAdmins'), width: '150px', render: adminCell },
-    { key: 'currency', header: t('platform.stores.colCurrency'), width: '90px', render: (r) => <span dir="ltr">{r.currency}</span> },
-    { key: 'created', header: t('platform.stores.colCreated'), width: '120px', render: (r) => formatDate(r.createdAt) },
+    { key: 'currency', header: t('platform.stores.colCurrency'), width: '80px', render: (r) => <span dir="ltr">{r.currency}</span> },
+    { key: 'created', header: t('platform.stores.colCreated'), width: '100px', render: (r) => formatDate(r.createdAt) },
     {
-      key: 'action', header: t('platform.stores.colAction'), width: '150px', align: 'end',
+      key: 'action', header: t('platform.stores.colAction'), width: '130px', align: 'end',
       render: (r) => (r.status === 'Provisioning'
         ? <Link className={styles.rowLink} to={`/platform/stores/${r.id}/setup/${resumeStepFromSummary(r)}`}>{t('platform.stores.continueSetup')}</Link>
         : <Link className={styles.rowLink} to={`/platform/stores/${r.id}`}>{t('platform.stores.manage')}</Link>),
@@ -97,7 +97,7 @@ export default function Stores() {
         error={error?.message} onRetry={refetch}
         emptyTitle={term || status ? t('platform.stores.noMatchTitle') : t('platform.stores.emptyTitle')}
         emptyMessage={term || status ? t('platform.stores.noMatchMessage') : t('platform.stores.emptyMessage')}
-        minWidth="1080px" stickyFirstColumn />
+        minWidth="1090px" stickyFirstColumn />
 
       {data && <Pagination page={page} totalPages={data.totalPages} onChange={setPage} />}
     </div>

@@ -60,3 +60,6 @@ export default function PasswordInput({ className, ...inputProps }) {
     </div>
   );
 }
+
+// FormField يربط تسميته بهذا الحقل كما يربطها بـ <input>: المعرّف والوصف يمرّان إلى الإدخال الداخلي.
+PasswordInput.isFormControl = true;
