@@ -13,9 +13,9 @@ import { useConfirmAction } from '../../components/common/useConfirmAction';
 import { ErrorBanner } from '../../components/common/StateViews';
 import Skeleton from '../../components/common/Skeleton';
 import { formatPrice } from '../../components/product/ProductBadges';
-import { AlertIcon, ChevronIcon } from '../../components/icons/Icons';
+import { ChevronIcon } from '../../components/icons/Icons';
 import { localizedName } from '../../features/catalog/catalogText';
-import { hiddenFromStorefront, variantLabel } from '../../features/admin/products/variantModel';
+import { variantLabel } from '../../features/admin/products/variantModel';
 import ProductOptionsEditor from './ProductOptionsEditor';
 import CreateVariantsPanel from './CreateVariantsPanel';
 import EditVariantDrawer from './EditVariantDrawer';
@@ -65,7 +65,6 @@ export default function ProductVariants() {
   const productName = localizedName(product, lang) || product.slug;
   const labelOf = (variant) => variantLabel(product.options, variant.optionValueIds, lang) || t('admin.variants.noLabel');
   const titleOf = (variant) => t('admin.inventory.itemName', { name: productName, variant: labelOf(variant) });
-  const activeCount = product.variants.filter((v) => v.isActive).length;
 
   const setActive = (variant, isActive) => {
     const run = async () => {
@@ -73,13 +72,13 @@ export default function ProductVariants() {
       toast.success(t(isActive ? 'admin.variants.variantActivated' : 'admin.variants.variantDeactivated'));
       await reload();
     };
-    // التعطيل يُؤكَّد دائماً، والتفعيل حين يجعل المنتج مخفياً من الواجهة (متغيّر نشط ثانٍ).
-    if (!isActive || activeCount === 1) {
+    // التعطيل يُؤكَّد: يُخرج المتغيّر من البيع ويُبقي مراجعه. التفعيل إجراء عادي منذ V3 (المنتج يُعرض ويُختار متغيّره).
+    if (!isActive) {
       confirmation.ask({
-        title: t(isActive ? 'admin.variants.confirmActivate.title' : 'admin.variants.confirmDeactivate.title', { name: labelOf(variant) }),
-        message: t(isActive ? 'admin.variants.confirmActivate.message' : 'admin.variants.confirmDeactivate.message'),
-        confirmLabel: t(isActive ? 'admin.variants.confirmActivate.action' : 'admin.variants.confirmDeactivate.action'),
-        danger: !isActive,
+        title: t('admin.variants.confirmDeactivate.title', { name: labelOf(variant) }),
+        message: t('admin.variants.confirmDeactivate.message'),
+        confirmLabel: t('admin.variants.confirmDeactivate.action'),
+        danger: true,
         action: run,
       });
       return;
@@ -162,13 +161,6 @@ export default function ProductVariants() {
         </div>
       </div>
       <p className={adminStyles.pageSub}>{t('admin.variants.subtitle')}</p>
-
-      {hiddenFromStorefront(product.variants) && (
-        <div className={styles.notice} role="status">
-          <AlertIcon size={18} />
-          <span>{t('admin.variants.storefrontHidden')}</span>
-        </div>
-      )}
 
       <ProductOptionsEditor key={JSON.stringify(product.options)} product={product} defaultCulture={defaultCulture} lang={lang} onSaved={reload} />
 

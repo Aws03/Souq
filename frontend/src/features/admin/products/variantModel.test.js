@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  buildOptionsPayload, buildVariantPricingPayload, buildVariantsPayload, hiddenFromStorefront, missingCombinations, nameIn,
+  buildOptionsPayload, buildVariantPricingPayload, buildVariantsPayload, missingCombinations, nameIn,
   newOption, newValue, optionsToForm, remainingVariantCapacity, usedValueIds, validateOptionsForm, validateVariantPricing,
   variantLabel,
 } from './variantModel';
@@ -158,11 +158,9 @@ describe('variants', () => {
       .toEqual({ price: 10.25, compareAtPrice: null, sku: 'tee-m' });
   });
 
-  it('reports remaining capacity against the published limit and the temporary storefront gate', () => {
+  it('reports remaining capacity against the published limit, inactive variants included', () => {
     const product = { options, variants: [variant(1, [10, 20]), variant(2, [11, 20], { isActive: false })], variantLimits: limits, price: 10, currency: 'JOD' };
 
     expect(remainingVariantCapacity(product)).toBe(98);
-    expect(hiddenFromStorefront(product.variants)).toBe(false);
-    expect(hiddenFromStorefront([...product.variants, variant(3, [10, 21])])).toBe(true);
   });
 });

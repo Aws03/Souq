@@ -35,7 +35,8 @@ export default function VariantPicker({ product, selection, states, onSelect, la
                 const disabled = !state.purchasable && !state.selected;
                 return (
                   <label key={value.id} className={`${styles.value} ${state.selected ? styles.selected : ''} ${disabled ? styles.disabled : ''}`}>
-                    <input type="radio" className="souq-visually-hidden" name={`product-option-${option.id}`}
+                    {/* زرّ اختيار حقيقي يغطّي الرقعة كلها: شفّاف لا مخفيّ — ينقره المؤشّر واللمس، ويصله Tab. */}
+                    <input type="radio" className={styles.input} name={`product-option-${option.id}`}
                       value={value.id} checked={!!state.selected} disabled={disabled}
                       onChange={() => onSelect(option.id, value.id)} />
                     <span className={styles.valueName} dir="auto">{nameIn(value.names, lang)}</span>

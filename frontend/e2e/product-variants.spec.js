@@ -94,9 +94,7 @@ test.describe('خيارات المنتج ومتغيّراته', () => {
     await expect(page.getByRole('menu')).toBeVisible();
   };
   const storefrontStatus = async (request) => (await request.get(`/api/products/${productId}`)).status();
-  // تنبيه الصفحة بنصّه الكامل: getByText يطابق مقطعاً بلا اعتبار لحالة الأحرف، و"more than one variant is active" يرد أيضاً
-  // في تلميح إنشاء المتغيّرات — فيمرّ الانتظار قبل أن يُحفظ التفعيل.
-  const hiddenNotice = () => page.getByRole('status').filter({ hasText: 'so the storefront does not show this product yet' });
+  const storefrontPrice = async (request) => (await (await request.get(`/api/products/${productId}`)).json()).price;
 
   test('1 · a simple product becomes Size and Colour, and survives a reload', async ({ request }) => {
     await page.goto('/admin/products');
@@ -153,20 +151,16 @@ test.describe('خيارات المنتج ومتغيّراته', () => {
     await create.getByLabel('S / Blue').check();
     await create.getByLabel('Price (store currency)').fill('22');
     await create.getByLabel('Opening stock (each)').fill('3');
-    await expect(create.getByLabel('Make the new variants active')).not.toBeChecked();
+    // المتغيّر الجديد نشط افتراضياً منذ V3: المنتج يُعرض ويُختار متغيّره، فلا سبب لإنشائه معطّلاً.
+    await expect(create.getByLabel('Make the new variants active')).toBeChecked();
     await create.getByRole('button', { name: 'Create 2 variants' }).click();
     await expect(page.getByText('2 variants created')).toBeVisible();
-    await expect(variantRow('L / Red')).toContainText('Inactive');
+    await expect(variantRow('L / Red')).toContainText('Active');
     await expect(variantRow('S / Blue')).toContainText('3 available');
 
-    // تفعيل متغيّر ثانٍ يُخفي المنتج من الواجهة: تأكيد، ثم تنبيه في الصفحة، والواجهة تجيب 404.
-    await openRowMenu('L / Red');
-    await page.getByRole('menuitem', { name: 'Activate' }).click();
-    await expect(page.getByRole('alertdialog')).toContainText('hidden from the storefront');
-    await page.getByRole('button', { name: 'Activate variant' }).click();
-    await expect(hiddenNotice()).toBeVisible();
-    await expect(variantRow('L / Red')).toContainText('Active');
-    expect(await storefrontStatus(request)).toBe(404);
+    // بأربعة متغيّرات نشطة يبقى المنتج معروضاً (أُزيلت بوّابة V2 في V3)، وسعره أرخص ما يمكن شراؤه — لا سعر الافتراضي.
+    expect(await storefrontStatus(request)).toBe(200);
+    expect(await storefrontPrice(request)).toBe(20);
 
     await openRowMenu('L / Red');
     await page.getByRole('menuitem', { name: 'Edit price and SKU' }).click();
@@ -190,11 +184,11 @@ test.describe('خيارات المنتج ومتغيّراته', () => {
     await page.getByRole('menuitem', { name: 'Deactivate' }).click();
     await page.getByRole('button', { name: 'Deactivate variant' }).click();
     await expect(page.getByText('Variant deactivated')).toBeVisible();
-    await expect(hiddenNotice()).toHaveCount(0);
 
+    // المعطّل يخرج من حساب السعر المعروض: أرخص ما بقي يمكن شراؤه هو 22 (S / Blue).
     const storefront = await request.get(`/api/products/${productId}`);
     expect(storefront.status()).toBe(200);
-    expect((await storefront.json()).price).toBe(23.5);
+    expect((await storefront.json()).price).toBe(22);
   });
 
   test('3 · rules: used values stay, names are checked, and a colliding removal is explained', async () => {

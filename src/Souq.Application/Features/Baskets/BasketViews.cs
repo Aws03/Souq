@@ -38,7 +38,8 @@ public sealed class BasketViews
                 line.ProductId, line.VariantId, priced.Name,
                 priced.Names.ToDictionary(n => n.Key, n => new BasketText(n.Value)), priced.ImageUrl,
                 priced.UnitPrice.Amount, line.Quantity, priced.LineTotal.Amount, priced.Sellable,
-                priced.Sellable ? Math.Max(available.GetValueOrDefault(line.VariantId), 0) : 0, priced.VariantLabel))
+                priced.Sellable ? Math.Max(available.GetValueOrDefault(line.VariantId), 0) : 0,
+                priced.VariantLabel, priced.VariantLabels))
             .ToList();
 
         var ready = dtoLines.Count > 0

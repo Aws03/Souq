@@ -77,19 +77,9 @@ describe('المتغيّرات', () => {
     expect(within(row('S')).getByText('admin.variants.default')).toBeInTheDocument();
     expect(within(row('S')).getByText('TEE-S')).toBeInTheDocument();
     expect(within(row('M')).getByText('admin.variants.inactive')).toBeInTheDocument();
-    expect(screen.queryByText('admin.variants.storefrontHidden')).toBeNull();
   });
 
-  it('تنبّه أن الواجهة تخفي المنتج حين يكون أكثر من متغيّر نشطاً', async () => {
-    client.getAdminProduct.mockResolvedValue(product({
-      variants: [variant({ id: 70, isDefault: true, optionValueIds: [10] }), variant({ id: 71, optionValueIds: [11] })],
-    }));
-    renderPage();
-
-    expect(await screen.findByText('admin.variants.storefrontHidden')).toBeInTheDocument();
-  });
-
-  it('تؤكّد قبل تعطيل متغيّر، ولا تتيح تعطيل الافتراضي', async () => {
+  it('تؤكّد قبل تعطيل متغيّر، ولا تتيح تعطيل الافتراضي، والتفعيل بلا تأكيد (منذ V3)', async () => {
     client.getAdminProduct.mockResolvedValue(product({
       variants: [variant({ id: 70, isDefault: true, optionValueIds: [10] }), variant({ id: 71, optionValueIds: [11] })],
     }));
@@ -109,6 +99,20 @@ describe('المتغيّرات', () => {
 
     await waitFor(() => expect(client.setProductVariantStatus).toHaveBeenCalledWith(7, 71, false));
     expect(toast.success).toHaveBeenCalledWith('admin.variants.variantDeactivated');
+  });
+
+  it('تفعيل متغيّر إجراء مباشر: لا حوار ولا تحذير إخفاء (أُزيلت بوّابة V2 في V3)', async () => {
+    client.setProductVariantStatus.mockResolvedValue(undefined);
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByRole('table');
+
+    await user.click(within(row('M')).getByRole('button'));
+    await user.click(screen.getByRole('menuitem', { name: 'admin.variants.activate' }));
+
+    await waitFor(() => expect(client.setProductVariantStatus).toHaveBeenCalledWith(7, 71, true));
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+    expect(toast.success).toHaveBeenCalledWith('admin.variants.variantActivated');
   });
 });
 
@@ -171,7 +175,7 @@ describe('إنشاء التركيبات', () => {
     await user.click(screen.getByRole('button', { name: 'admin.variants.create:{"count":1}' }));
 
     await waitFor(() => expect(client.createProductVariants).toHaveBeenCalledWith(7, { variants: [
-      { optionValueIds: [12], price: 24.5, compareAtPrice: null, initialStock: 0, isActive: false },
+      { optionValueIds: [12], price: 24.5, compareAtPrice: null, initialStock: 0, isActive: true },
     ] }));
     expect(toast.success).toHaveBeenCalledWith('admin.variants.created:{"count":1}');
   });

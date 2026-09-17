@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { api } from '../api/client';
 import { useAuth } from './AuthContext';
 import { useToast } from './ToastContext';
@@ -12,6 +13,8 @@ import { EMPTY_BASKET, nextQuantity, toCartItems } from '../features/basket/bask
 const CartContext = createContext();
 
 export function CartProvider({ children }) {
+  const { i18n } = useTranslation();
+  const lang = i18n.language?.startsWith('en') ? 'en' : 'ar';
   const { user, loading: sessionLoading } = useAuth();
   const toast = useToast();
   const [basket, setBasket] = useState(EMPTY_BASKET);
@@ -37,7 +40,8 @@ export function CartProvider({ children }) {
     }
   }, [toast]);
 
-  const items = useMemo(() => toCartItems(basket), [basket]);
+  // وصف المتغيّر يتبع لغة الواجهة فوراً عند تبديلها (الخادم يرسله بكل لغات المنتج).
+  const items = useMemo(() => toCartItems(basket, lang), [basket, lang]);
 
   const value = useMemo(() => {
     // السطر يُعرَّف بمتغيّره لا بمنتجه (V3): منتج واحد بمقاسين سطران، ومسارات المنتج تردّ VariantRequired عليهما.

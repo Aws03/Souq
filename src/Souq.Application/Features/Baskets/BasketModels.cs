@@ -10,11 +10,13 @@ namespace Souq.Application.Features.Baskets;
 // ============================================================================
 public sealed record BasketText(string Name);
 
-// VariantLabel (V3): وصف المتغيّر الحيّ من خياراته ("M / أحمر") بلغة المتجر — null لمنتج بلا خيارات. حيٌّ لا لقطة:
-// السلة تعرض الكتالوج الآن، ولقطة الشراء تُجمَّد على سطر الطلب وحده.
+// VariantLabel (V3): وصف المتغيّر الحيّ من خياراته ("M / أحمر") بلغة المتجر، وVariantLabels بكل لغاته (الواجهة تعرض
+// لغتها كما تفعل بالاسم) — كلاهما null/فارغ لمنتج بلا خيارات. حيٌّ لا لقطة: السلة تعرض الكتالوج الآن، ولقطة الشراء
+// تُجمَّد على سطر الطلب وحده.
 public sealed record BasketLineDto(
     int ProductId, int VariantId, string Name, IReadOnlyDictionary<string, BasketText> Translations, string? ImageUrl,
-    decimal UnitPrice, int Quantity, decimal LineTotal, bool Sellable, int Available, string? VariantLabel = null);
+    decimal UnitPrice, int Quantity, decimal LineTotal, bool Sellable, int Available, string? VariantLabel = null,
+    IReadOnlyDictionary<string, string>? VariantLabels = null);
 
 public sealed record BasketCouponDto(string Code, bool Applied, string? ErrorCode, string? Message);
 

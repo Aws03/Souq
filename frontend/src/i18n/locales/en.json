@@ -469,7 +469,6 @@
       "title": "Options and variants",
       "subtitle": "Define how this product varies (such as size or colour), then create and manage one variant for each combination you sell.",
       "back": "Back to products",
-      "storefrontHidden": "More than one variant is active, so the storefront does not show this product yet: shoppers can’t choose a variant until variant selection is available. Keep a single variant active to keep selling it.",
       "optionsTitle": "Options",
       "optionsHint": "Up to {{maxOptions}} options, each with up to {{maxValues}} values. The store language name is required; the other language is optional.",
       "noOptions": "No options yet. Add an option such as size or colour to sell this product in several variants.",
@@ -517,11 +516,6 @@
         "message": "It can no longer be bought, and baskets holding it can’t check out with it. Its orders, stock and history stay, and you can activate it again.",
         "action": "Deactivate variant"
       },
-      "confirmActivate": {
-        "title": "Activate “{{name, bidi}}”?",
-        "message": "With more than one active variant, the product is hidden from the storefront until shoppers can choose a variant.",
-        "action": "Activate variant"
-      },
       "variantUpdated": "Variant updated",
       "variantActivated": "Variant activated",
       "variantDeactivated": "Variant deactivated",
@@ -545,7 +539,7 @@
       "initialStock": "Opening stock (each)",
       "lowStock": "Low-stock alert at",
       "makeActive": "Make the new variants active",
-      "makeActiveHint": "While more than one variant is active, the storefront does not show this product.",
+      "makeActiveHint": "New variants can be bought straight away; leave it off to prepare them first.",
       "create_one": "Create {{count}} variant",
       "create_other": "Create {{count}} variants",
       "created_one": "{{count}} variant created",

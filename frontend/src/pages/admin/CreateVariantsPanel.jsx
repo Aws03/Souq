@@ -6,7 +6,7 @@ import Button from '../../components/common/Button';
 import FormField, { inputClass } from '../../components/common/FormField';
 import { ErrorBanner } from '../../components/common/StateViews';
 import {
-  buildVariantsPayload, combinationKey, hiddenFromStorefront, missingCombinations, remainingVariantCapacity, validateVariantPricing,
+  buildVariantsPayload, combinationKey, missingCombinations, remainingVariantCapacity, validateVariantPricing,
   variantLabel,
 } from '../../features/admin/products/variantModel';
 import styles from './ProductVariants.module.css';
@@ -26,7 +26,8 @@ export default function CreateVariantsPanel({ product, lang, onCreated }) {
   const [compareAtPrice, setCompareAtPrice] = useState('');
   const [initialStock, setInitialStock] = useState('0');
   const [lowStockThreshold, setLowStockThreshold] = useState('');
-  const [isActive, setIsActive] = useState(() => hiddenFromStorefront(product.variants));
+  // المتغيّر الجديد نشط افتراضياً: منذ V3 يُعرض المنتج ويُشترى باختيار صريح، فلا سبب لإنشائه معطّلاً.
+  const [isActive, setIsActive] = useState(true);
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
 

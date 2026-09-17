@@ -268,6 +268,17 @@ public class Product : Entity, ITenantOwned
             .Select(v => (IReadOnlyDictionary<string, string>)v.Translations.ToDictionary(t => t.Culture, t => t.Name)), culture);
     }
 
+    // وصف المتغيّر بكل لغة يعرفها خياراته — للعرض الحيّ (سطر السلة، ملخّص الدفع): الزائر يقرأ لغته لا لغة المتجر.
+    // لقطة الطلب تبقى بلغة المتجر الافتراضية وحدها (VariantLabel): ما جُمّد لا يُترجَم بعد الشراء.
+    public IReadOnlyDictionary<string, string> VariantLabelsByCulture(ProductVariant variant)
+    {
+        if (!HasOptions || !_variants.Contains(variant)) return new Dictionary<string, string>();
+        var values = _options.OrderBy(o => o.Position).Select(o => variant.ValueOf(o)).OfType<ProductOptionValue>().ToList();
+        var cultures = values.SelectMany(v => v.Translations.Select(t => t.Culture)).Distinct();
+        var texts = values.Select(v => (IReadOnlyDictionary<string, string>)v.Translations.ToDictionary(t => t.Culture, t => t.Name)).ToList();
+        return cultures.ToDictionary(culture => culture, culture => VariantLabels.Compose(texts, culture) ?? "");
+    }
+
     // ── المتغيّرات ───────────────────────────────────────────────────────────
 
     // متغيّر جديد لمنتج بخيارات: قيمة واحدة من كل خيار (بمعرّفاتها في هذا المنتج)، تركيبة لم تُستخدم، وSKU غير مكرّر داخل المنتج

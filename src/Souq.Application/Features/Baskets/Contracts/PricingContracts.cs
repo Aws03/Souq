@@ -27,10 +27,13 @@ public sealed record ShippingRequest(int? MethodId, string? Country);
 // يخصّ المنتج ⇒ خارج المجموع، والدفع يرفضه. VariantRequired: السطر لم يسمِّ متغيّراً ولمنتجه أكثر من متغيّر نشط. Names
 // بكل لغات المنتج للعرض، وName بلغة المتجر الافتراضية للقطة الطلب. VariantLabel وSku لقطتا المتغيّر للطلب (الوصف null
 // حتى خيارات المتغيّرات — V2).
+// VariantLabel: لقطة وصف المتغيّر بلغة المتجر الافتراضية (تُجمَّد على سطر الطلب). VariantLabels: الوصف بكل لغة يعرفها
+// المنتج، للعرض الحيّ بلغة الزائر — كما Names لاسم المنتج (V3).
 public sealed record PricedLine(
     int ProductId, int VariantId, string Name, IReadOnlyDictionary<string, string> Names, string? ImageUrl,
     Money UnitPrice, int Quantity, Money LineTotal, bool Sellable,
-    string? VariantLabel = null, string? Sku = null, bool VariantRequired = false);
+    string? VariantLabel = null, string? Sku = null, bool VariantRequired = false,
+    IReadOnlyDictionary<string, string>? VariantLabels = null);
 
 // الكوبون كما قُيِّم: مطبَّق، أو مرفوض برمز الخطأ ورسالته (ModuleDisabled، CouponNotFound، InvalidCoupon).
 public sealed record CouponOutcome(string Code, bool Applied, string? ErrorCode, string? Message);

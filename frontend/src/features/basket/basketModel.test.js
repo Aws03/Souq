@@ -5,7 +5,8 @@ const basket = {
   currency: 'JOD',
   lines: [
     { productId: 5, variantId: 50, name: 'سماعات', translations: { ar: { name: 'سماعات' } }, imageUrl: '/a.png',
-      unitPrice: 12.5, quantity: 2, lineTotal: 25, sellable: true, available: 4, variantLabel: 'M / أحمر' },
+      unitPrice: 12.5, quantity: 2, lineTotal: 25, sellable: true, available: 4,
+      variantLabel: 'M / أحمر', variantLabels: { ar: 'M / أحمر', en: 'M / Red' } },
     { productId: 6, variantId: 60, name: 'شاحن', translations: {}, imageUrl: null,
       unitPrice: 3, quantity: 1, lineTotal: 3, sellable: false, available: 0 },
   ],
@@ -13,19 +14,22 @@ const basket = {
 
 describe('basket model', () => {
   it('maps server lines to the cart item shape the components render', () => {
-    const [first] = toCartItems(basket);
+    const [first] = toCartItems(basket, 'ar');
 
     expect(first).toEqual({
       id: 5, variantId: 50, name: 'سماعات', translations: { ar: { name: 'سماعات' } }, imageUrl: '/a.png',
       price: 12.5, qty: 2, lineTotal: 25, currency: 'JOD', sellable: true, available: 4, variantLabel: 'M / أحمر',
     });
     // سطر لمنتج بلا خيارات: لا وصف (المنتج البسيط كما كان قبل V3).
-    expect(toCartItems(basket)[1].variantLabel).toBeNull();
+    expect(toCartItems(basket, 'ar')[1].variantLabel).toBeNull();
+    // وبلغة الواجهة حين يعرفها المنتج، وإلا لقطة لغة المتجر.
+    expect(toCartItems(basket, 'en')[0].variantLabel).toBe('M / Red');
+    expect(toCartItems({ ...basket, lines: [{ ...basket.lines[0], variantLabels: null }] }, 'en')[0].variantLabel).toBe('M / أحمر');
     expect(toCartItems(null)).toEqual([]);
   });
 
   it('flags lines that would block checkout', () => {
-    const items = toCartItems(basket);
+    const items = toCartItems(basket, 'ar');
 
     expect(lineProblem(items[0])).toBeNull();
     expect(lineProblem(items[1])).toEqual({ code: 'unavailable' });

@@ -207,9 +207,3 @@ export function validateVariantPricing(form) {
   if (compareAt !== null && compareAt <= Number(form.price)) return 'compareAtInvalid';
   return null;
 }
-
-/**
- * واجهة المتجر تعرض المنتج حتى يُبنى اختيار المتغيّر فقط إن كان له متغيّر نشط واحد (بوّابة V2 على الخادم) — للتنبيه.
- * @param {ProductVariant[]} variants
- */
-export const hiddenFromStorefront = (variants) => (variants ?? []).filter((variant) => variant.isActive).length > 1;

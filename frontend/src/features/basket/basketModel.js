@@ -10,7 +10,11 @@ export const EMPTY_BASKET = {
   coupon: null, readyForCheckout: false,
 };
 
-export const toCartItems = (basket) => (basket?.lines ?? []).map((line) => ({
+/** وصف المتغيّر بلغة الواجهة، وإلا لقطة لغة المتجر (variantLabel) — القاعدة نفسها التي تختار اسم المنتج. */
+export const pickVariantLabel = (line, lang) =>
+  (lang && line?.variantLabels?.[lang]) || line?.variantLabel || null;
+
+export const toCartItems = (basket, lang) => (basket?.lines ?? []).map((line) => ({
   id: line.productId,
   variantId: line.variantId,
   name: line.name,
@@ -22,8 +26,8 @@ export const toCartItems = (basket) => (basket?.lines ?? []).map((line) => ({
   currency: basket.currency,
   sellable: line.sellable,
   available: line.available,
-  // وصف المتغيّر الحيّ من الخادم (V3): null لمنتج بلا خيارات.
-  variantLabel: line.variantLabel ?? null,
+  // وصف المتغيّر الحيّ من الخادم (V3): بلغة الواجهة إن عرفها المنتج، وإلا بلغة المتجر. null لمنتج بلا خيارات.
+  variantLabel: pickVariantLabel(line, lang),
 }));
 
 // مشكلة سطر تمنع الدفع: لم يعد متاحاً للبيع، أو كميته أكبر من المتاح الآن (السلة لا تحجز — ADR-0026).

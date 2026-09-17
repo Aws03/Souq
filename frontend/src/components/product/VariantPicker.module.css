@@ -36,7 +36,13 @@ html[data-theme='dark'] .selected { border-color: var(--color-text); background:
   border-style: dashed; text-decoration: line-through;
 }
 
-/* حلقة التركيز على الرقعة لا على الحقل المخفيّ: التنقّل بلوحة المفاتيح يجب أن يُرى. */
+/* الحقل نفسه يغطّي الرقعة بشفافية كاملة: هدف النقر واللمس هو زرّ الاختيار لا نصّه. */
+.input {
+  position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; padding: 0;
+  opacity: 0; appearance: none; cursor: inherit;
+}
+
+/* حلقة التركيز على الرقعة لا على الحقل الشفّاف: التنقّل بلوحة المفاتيح يجب أن يُرى. */
 .value:has(input:focus-visible) { outline: 2px solid var(--color-accent); outline-offset: 2px; }
 
 @media (max-width: 480px) {
