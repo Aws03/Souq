@@ -9,7 +9,7 @@
 |---|---|---|---|---|
 | [Platform](#platform) | `src/Souq.Application/Features/Platform`, `src/Souq.Application/Features/Stores` | 15 | 11 | 0 |
 | [Identity](#identity) | `src/Souq.Application/Features/Auth`, `src/Souq.Application/Features/Staff` | 11 | 2 | 0 |
-| [Catalog](#catalog) | `src/Souq.Application/Features/Products`, `src/Souq.Application/Features/Categories` | 16 | 8 | 1 |
+| [Catalog](#catalog) | `src/Souq.Application/Features/Products`, `src/Souq.Application/Features/Categories` | 16 | 9 | 1 |
 | [Inventory](#inventory) | `src/Souq.Application/Features/Inventory` | 4 | 4 | 2 |
 | [Customers](#customers) | `src/Souq.Application/Features/Customers` | 8 | 6 | 0 |
 | [Shopping](#shopping) | `src/Souq.Application/Features/Baskets`, `src/Souq.Application/Features/Wishlist` | 10 | 2 | 2 |
@@ -102,6 +102,7 @@ Module document: [Catalog/README.md](Catalog/README.md).
 | `GetProductBySlugQuery` | query | `GetProductByIdHandler` | `GetProductBySlugQueryValidator` | — | `GET /api/products/by-slug/{slug}` |
 | `GetProductsQuery` | query | `GetProductsHandler` | `GetProductsQueryValidator` | — | `GET /api/products` |
 | `GetRelatedProductsQuery` | query | `GetRelatedProductsHandler` | `GetRelatedProductsQueryValidator` | — | `GET /api/products/{id:int}/related` |
+| `GetSearchSuggestionsQuery` | query | `GetSearchSuggestionsHandler` | `GetSearchSuggestionsValidator` | — | `GET /api/products/suggestions` |
 | `ListAdminCategoriesQuery` | query | `GetCategoriesHandler` | — | — | `GET /api/admin/categories` |
 | `ListAdminProductsQuery` | query | `ListAdminProductsHandler` | `ListAdminProductsQueryValidator` | — | `GET /api/admin/products` |
 

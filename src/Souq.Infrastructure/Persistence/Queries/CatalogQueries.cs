@@ -98,6 +98,56 @@ internal sealed class CatalogQueries : ICatalogQueries
         return (await Sort(query, search.SortBy, phrase).ToPageAsync(Row(culture), page, ct)).Map(r => ToDto(r, culture));
     }
 
+    // ============================================================================
+    // الاقتراحات (M3، ADR-0042): البادئة أولاً ثم الاحتواء، منتجات ثم فئات.
+    //
+    // الترتيب هنا هو نفسه ترتيب المطابقة في البحث (RelevanceExpr) كي لا يعطي الاقتراح ترتيباً ثم تعطي صفحة
+    // النتائج ترتيباً آخر لنفس الكلمة — تناقضٌ يراه المتسوّق ولا يفهمه.
+    //
+    // الفئات تُقترح بعد المنتجات دائماً وبعدد محدود: الفئة وجهة أوسع، ومن كتب كلمة يريد شيئاً بعينه أولاً.
+    // ============================================================================
+    public async Task<IReadOnlyList<SearchSuggestionDto>> SuggestAsync(
+        string? keyword, int limit, string culture, CancellationToken ct)
+    {
+        var tokens = SearchText.Tokenize(keyword, SearchText.MaxQueryTokens);
+        var phrase = string.Join(' ', tokens);
+        if (phrase.Length < SearchSuggestionRules.MinKeywordLength) return [];
+
+        var take = Math.Clamp(limit, 1, SearchSuggestionRules.MaxLimit);
+        // الفئات تأخذ ثلث المساحة على الأكثر، وواحدة على الأقلّ إن وُجدت — فلا تزحم قائمةً قصيرة.
+        var categoryTake = Math.Max(1, take / 3);
+
+        var products = await VisibleProducts()
+            .Where(p => p.Translations.Any(t => t.NameNormalized.Contains(phrase)))
+            .OrderByDescending(RelevanceExpr(phrase)).ThenByDescending(p => p.Id)
+            .Take(take)
+            .Select(p => new SuggestionRow(p.Id, p.Slug,
+                p.Translations.Select(t => new NameRow(t.Culture, t.Name)).ToList(),
+                p.Images.OrderBy(i => i.SortOrder).ThenBy(i => i.Id).Select(i => i.Url).FirstOrDefault()))
+            .ToListAsync(ct);
+
+        var categories = await _db.Categories.AsNoTracking()
+            .Where(c => c.IsActive && c.Translations.Any(t => t.NameNormalized.Contains(phrase)))
+            .OrderBy(c => c.SortOrder).ThenBy(c => c.Id)
+            .Take(categoryTake)
+            .Select(c => new SuggestionRow(c.Id, c.Slug,
+                c.Translations.Select(t => new NameRow(t.Culture, t.Name)).ToList(), null))
+            .ToListAsync(ct);
+
+        return products.Select(r => Suggestion("product", r, culture))
+            .Concat(categories.Select(r => Suggestion("category", r, culture)))
+            .Take(take)
+            .ToList();
+    }
+
+    private static SearchSuggestionDto Suggestion(string kind, SuggestionRow row, string culture)
+    {
+        var names = Names(row.Names);
+        return new SearchSuggestionDto(kind, row.Id, row.Slug,
+            names.TryGetValue(culture, out var name) ? name : names.Values.FirstOrDefault() ?? row.Slug,
+            row.ImageUrl);
+    }
+
     public async Task<ProductDto?> FindActiveProductAsync(int id, string culture, CancellationToken ct) =>
         await DetailAsync(VisibleProducts().Where(p => p.Id == id), culture, ct);
 
@@ -540,4 +590,6 @@ internal sealed class CatalogQueries : ICatalogQueries
     private sealed record CategoryRow(int Id, string Slug, int? ParentId, int SortOrder, bool IsActive, List<TextRow> Texts);
 
     private sealed record CategoryNameRow(int Id, string Slug, List<NameRow> Names);
+
+    private sealed record SuggestionRow(int Id, string Slug, List<NameRow> Names, string? ImageUrl);
 }

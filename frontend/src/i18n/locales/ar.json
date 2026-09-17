@@ -39,7 +39,15 @@
     "account": "حسابي",
     "themeToggleAria": "التبديل بين الفاتح والداكن",
     "switchToDark": "التحويل إلى الداكن",
-    "switchToLight": "التحويل إلى الفاتح"
+    "switchToLight": "التحويل إلى الفاتح",
+    "searchSuggestionsAria": "اقتراحات البحث",
+    "searchSuggestionCategory": "فئة",
+    "searchSuggestionsCount_zero": "لا اقتراحات",
+    "searchSuggestionsCount_one": "اقتراح واحد",
+    "searchSuggestionsCount_two": "اقتراحان",
+    "searchSuggestionsCount_few": "{{count}} اقتراحات",
+    "searchSuggestionsCount_many": "{{count}} اقتراحاً",
+    "searchSuggestionsCount_other": "{{count}} اقتراح"
   },
   "cart": {
     "title": "سلّتك",

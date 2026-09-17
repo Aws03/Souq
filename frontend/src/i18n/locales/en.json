@@ -39,7 +39,11 @@
     "account": "My account",
     "themeToggleAria": "Switch between light and dark",
     "switchToDark": "Switch to dark",
-    "switchToLight": "Switch to light"
+    "switchToLight": "Switch to light",
+    "searchSuggestionsAria": "Search suggestions",
+    "searchSuggestionCategory": "Category",
+    "searchSuggestionsCount_one": "1 suggestion",
+    "searchSuggestionsCount_other": "{{count}} suggestions"
   },
   "cart": {
     "title": "Your Cart",

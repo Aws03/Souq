@@ -13,6 +13,7 @@ export const queryKeys = {
   categories: () => ['categories'],
 
   products: (params) => ['products', params],
+  searchSuggestions: (keyword) => ['search-suggestions', keyword],
   product: (handle) => ['product', String(handle)],
   relatedProducts: (productId) => ['product', String(productId), 'related'],
   productReviews: (productId, page, pageSize) => ['product', String(productId), 'reviews', page, pageSize],

@@ -298,6 +298,87 @@ public class CatalogSearchTests
         page.Search.Category.Name.Should().Be("زقفونيات منزلية");
     }
 
+    // ── الاقتراحات أثناء الكتابة (M3) ────────────────────────────────────────
+
+    [Fact]
+    public async Task الاقتراحات_تُعيد_منتجات_وفئات_حقيقية_مطبَّعة()
+    {
+        var admin = await _api.AdminAsync();
+        var slug = $"it-{Guid.NewGuid():N}"[..24];
+        var category = await CreateCategoryNamedAsync(admin, slug, "زمهريرات منزلية");
+        var product = await CreateAsync(admin, category, "زمهرير كَهْرَبَائِيّ");
+
+        var suggestions = await SuggestAsync("زمهرير");
+
+        // المنتج أولاً (الوجهة الأدقّ)، ثم الفئة — والاسم يعود كما كتبه التاجر لا مطبَّعاً.
+        suggestions.Should().HaveCountGreaterThanOrEqualTo(2);
+        suggestions[0].Kind.Should().Be("product");
+        suggestions[0].Id.Should().Be(product);
+        suggestions[0].Name.Should().Be("زمهرير كَهْرَبَائِيّ", "الاسم للعرض، والصورة المطبَّعة للمطابقة وحدها");
+        suggestions.Should().Contain(x => x.Kind == "category" && x.Id == category);
+    }
+
+    [Fact]
+    public async Task الاقتراحات_تُطابق_مطبَّعاً_كالبحث()
+    {
+        var admin = await _api.AdminAsync();
+        var category = await _api.CreateCategoryAsync(admin);
+        var id = await CreateAsync(admin, category, "زمهريرة مُكَيَّفَة");
+
+        (await SuggestAsync("زمهريره مكيفه")).Should().Contain(x => x.Id == id);
+        (await SuggestAsync("زمهريرة")).Should().Contain(x => x.Id == id);
+    }
+
+    [Fact]
+    public async Task الاقتراحات_لا_تكشف_غير_المعروض()
+    {
+        var admin = await _api.AdminAsync();
+        var category = await _api.CreateCategoryAsync(admin);
+        var visible = await CreateAsync(admin, category, "زمهريط ظاهر");
+        var draft = await CreateAsync(admin, category, "زمهريط مسودّة");
+        await SetStatusAsync(admin, draft, "Draft");
+
+        var ids = (await SuggestAsync("زمهريط")).Select(x => x.Id).ToList();
+
+        ids.Should().Contain(visible);
+        ids.Should().NotContain(draft, "الاقتراح نافذة على الكتالوج المعروض، لا على المسودّات");
+    }
+
+    [Fact]
+    public async Task الاقتراحات_محدودة_عدداً_وتتجاهل_ما_هو_أقصر_من_حرفين()
+    {
+        var admin = await _api.AdminAsync();
+        var category = await _api.CreateCategoryAsync(admin);
+        for (var i = 0; i < 12; i++) await CreateAsync(admin, category, $"زمهريف رقم {i}");
+
+        (await SuggestAsync("زمهريف")).Should().HaveCountLessThanOrEqualTo(10, "الحدّ الأعلى للاقتراحات");
+        (await SuggestAsync("ز")).Should().BeEmpty("حرف واحد يطابق نصف الكتالوج: اقتراح بلا معلومة");
+        (await SuggestAsync("")).Should().BeEmpty();
+
+        // حدّ خارج المدى يُرفض بـ 400 لا يُقصّ صامتاً.
+        (await _api.Anonymous().GetAsync("/api/products/suggestions?q=زمهريف&limit=50"))
+            .StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task الاقتراحات_معزولة_بين_المتاجر()
+    {
+        // نقطة بلا معامل مسار، فجدول العزل في TenantIsolationTests لا يغطّيها تلقائياً — العزل يُثبَت هنا صراحةً.
+        const string sharedName = "زمهريخ مشترك";
+        var storeB = _api.ForStore(await _factory.CreateStoreAsync());
+
+        var adminA = await _api.AdminAsync();
+        var adminB = await storeB.AdminAsync();
+        var productA = await CreateAsync(adminA, await _api.CreateCategoryAsync(adminA), sharedName);
+        var productB = await CreateAsync(adminB, await storeB.CreateCategoryAsync(adminB), sharedName);
+
+        var fromA = (await SuggestAsync(_api.Anonymous(), "زمهريخ")).Select(x => x.Id).ToList();
+        var fromB = (await SuggestAsync(storeB.Anonymous(), "زمهريخ")).Select(x => x.Id).ToList();
+
+        fromA.Should().Contain(productA).And.NotContain(productB);
+        fromB.Should().Contain(productB).And.NotContain(productA);
+    }
+
     // ── أدوات ──────────────────────────────────────────────────────────────────
 
     private async Task<List<int>> SearchAsync(int category, string? keyword, string? sortBy = null) =>
@@ -361,6 +442,14 @@ public class CatalogSearchTests
         return (await _api.Anonymous().GetFromJsonAsync<SearchPageBody>($"/api/products?{query}", TestApi.Json))!;
     }
 
+    private async Task<List<SuggestionBody>> SuggestAsync(string keyword) =>
+        await SuggestAsync(_api.Anonymous(), keyword);
+
+    private static async Task<List<SuggestionBody>> SuggestAsync(HttpClient client, string keyword) =>
+        (await client.GetFromJsonAsync<List<SuggestionBody>>(
+            $"/api/products/suggestions?q={Uri.EscapeDataString(keyword)}", TestApi.Json))!;
+
+    private sealed record SuggestionBody(string Kind, int Id, string Slug, string Name, string? ImageUrl);
     private sealed record SlugBody(int Id, string Slug);
     private sealed record CategorySlugBody(int Id, string Slug);
 

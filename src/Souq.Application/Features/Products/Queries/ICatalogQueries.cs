@@ -13,6 +13,10 @@ public interface ICatalogQueries
 {
     Task<ProductSearchPage> SearchProductsAsync(ProductSearch search, PageRequest page, string culture, CancellationToken ct);
 
+    // اقتراحات أثناء الكتابة (M3): منتجات معروضة ثم فئات مفعَّلة، بالبادئة أولاً ثم الاحتواء. كلمة أقصر من
+    // SearchSuggestionRules.MinKeywordLength تعود فارغة بلا استعلام.
+    Task<IReadOnlyList<SearchSuggestionDto>> SuggestAsync(string? keyword, int limit, string culture, CancellationToken ct);
+
     // null ⇒ غير موجود أو غير معروض (مسودّة/مؤرشف/فئته معطّلة) — العميل لا يرى إلا المعروض.
     Task<ProductDto?> FindActiveProductAsync(int id, string culture, CancellationToken ct);
 

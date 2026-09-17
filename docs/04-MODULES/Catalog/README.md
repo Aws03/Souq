@@ -215,6 +215,8 @@ Search differs too. Since **M3** ([ADR-0042](../../11-ADR/0042-local-search-engi
 
 The closest word is picked by distance, then by frequency in the catalogue, then ordinal — deterministic, so the same query always answers the same way. Recovery only runs for queries of at most 3 words of at least 3 characters each: the endpoint is anonymous and unthrottled, so that bound is what keeps a repeated nonsense query cheap. A word missing its **last** letters needs no recovery at all, since matching is by substring.
 
+**Suggestions while typing** (`GET /api/products/suggestions`) return visible **products** first, then active **categories**, ranked by the same expression the results page uses — so the dropdown and the results page never disagree for the same word. They suggest *destinations*, not words: a suggested product is where the shopper was going, and it confirms the thing exists before they finish typing. They deliberately do **not** correct typos, because the shopper is still typing and "correcting" a half-written word jumps under their hands; recovery belongs to the executed search, where the word is final. Below two normalized characters nothing is queried at all.
+
 ## Security and permissions
 
 - One permission for the whole module: `catalog.manage` (`Permissions.Catalog.Manage`), granted to `TenantAdmin` and `TenantStaff` by `RolePermissions`. Storefront reads are `[AllowAnonymous]` and only ever return visible products.

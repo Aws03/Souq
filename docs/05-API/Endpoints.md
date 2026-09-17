@@ -5,7 +5,7 @@
 >
 > Conventions (errors, paging, status codes): [ApiDocumentation.md](ApiDocumentation.md). Use cases per module: [UseCases.md](../04-MODULES/UseCases.md).
 
-**139 endpoints** in 25 controllers: 26 anonymous, 27 for any signed-in account, 86 behind a permission.
+**140 endpoints** in 25 controllers: 27 anonymous, 27 for any signed-in account, 86 behind a permission.
 
 ## How to read this table
 
@@ -143,6 +143,7 @@
 | GET | `/api/products` | anonymous | store | — | — | `GetProductsQuery` | Catalog |
 | POST | `/api/products` | `catalog.manage` | store | — | — | `CreateProductCommand` | Catalog |
 | GET | `/api/products/by-slug/{slug}` | anonymous | store | — | — | `GetProductBySlugQuery` | Catalog |
+| GET | `/api/products/suggestions` | anonymous | store | — | — | `GetSearchSuggestionsQuery` | Catalog |
 | GET | `/api/products/{id:int}` | anonymous | store | — | — | `GetProductByIdQuery` | Catalog |
 | PUT | `/api/products/{id:int}` | `catalog.manage` | store | — | — | `UpdateProductCommand` | Catalog |
 | DELETE | `/api/products/{id:int}` | `catalog.manage` | store | — | — | `DeleteProductCommand` | Catalog |

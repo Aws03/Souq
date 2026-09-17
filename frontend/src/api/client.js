@@ -141,6 +141,8 @@ export const api = {
 
   // ── الكتالوج ── (سلسلة الاستعلام لكل القوائم من toQueryString: مصفوفات بمفتاح متكرّر)
   getProducts: (params = {}) => request(`/products${toQueryString(params)}`),
+  // اقتراحات أثناء الكتابة (M3، ADR-0042): منتجات وفئات معروضة، مطابَقة على الصورة المطبَّعة على الخادم.
+  getSearchSuggestions: (params = {}) => request(`/products/suggestions${toQueryString(params)}`),
   getProduct: (id) => request(`/products/${id}`),
   getProductBySlug: (slug) => request(`/products/by-slug/${encodeURIComponent(slug)}`),
   getRelatedProducts: (id, count = 6) => request(`/products/${id}/related?count=${count}`),

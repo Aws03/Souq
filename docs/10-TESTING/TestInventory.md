@@ -10,8 +10,8 @@
 | [`Souq.Domain.Tests`](#souqdomaintests) | 28 | 220 | 44 |
 | [`Souq.Application.Tests`](#souqapplicationtests) | 43 | 320 | 15 |
 | [`Souq.ArchitectureTests`](#souqarchitecturetests) | 13 | 57 | 7 |
-| [`Souq.IntegrationTests`](#souqintegrationtests) | 49 | 268 | 21 |
-| [frontend (Vitest)](#frontend-vitest) | 76 | 585 | — |
+| [`Souq.IntegrationTests`](#souqintegrationtests) | 49 | 273 | 21 |
+| [frontend (Vitest)](#frontend-vitest) | 77 | 603 | — |
 
 ## Souq.Domain.Tests
 
@@ -122,7 +122,7 @@
 | `tests/Souq.IntegrationTests/AuthorizationMatrixTests.cs` | `AuthorizationMatrixTests` | 2 | 0 |
 | `tests/Souq.IntegrationTests/BasketTests.cs` | `BasketTests` | 5 | 0 |
 | `tests/Souq.IntegrationTests/BestSellingPerformanceTests.cs` | `BestSellingPerformanceTests`, `ScratchApp`, `SqlCapture`, `Sink` | 0 | 1 |
-| `tests/Souq.IntegrationTests/CatalogSearchTests.cs` | `CatalogSearchTests` | 18 | 0 |
+| `tests/Souq.IntegrationTests/CatalogSearchTests.cs` | `CatalogSearchTests` | 23 | 0 |
 | `tests/Souq.IntegrationTests/CatalogTests.cs` | `CatalogTests`, `ProductCommandCounter` | 9 | 0 |
 | `tests/Souq.IntegrationTests/CheckoutIdempotencyTests.cs` | `CheckoutIdempotencyTests` | 3 | 0 |
 | `tests/Souq.IntegrationTests/ConfigurationTests.cs` | `ConfigurationTests`, `ConfiguredFactory` | 10 | 6 |
@@ -190,6 +190,7 @@
 | `frontend/src/components/common/ErrorBoundary.test.jsx` | 5 |
 | `frontend/src/components/common/FormField.test.jsx` | 3 |
 | `frontend/src/components/common/useConfirmAction.test.jsx` | 4 |
+| `frontend/src/components/layout/SearchBar.test.jsx` | 18 |
 | `frontend/src/components/product/ProductCard.test.jsx` | 11 |
 | `frontend/src/components/store/OpeningExperience.test.jsx` | 12 |
 | `frontend/src/features/account/addressForm.test.js` | 6 |

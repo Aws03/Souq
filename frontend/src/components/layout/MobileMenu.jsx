@@ -22,7 +22,7 @@ export default function MobileMenu({
       <button type="button" className={styles.overlay} aria-label={t('common.close')} onClick={onClose} />
       <div ref={sheetRef} tabIndex={-1} className={styles.sheet} role="dialog" aria-modal="true">
         <SearchBar value={search.value} onChange={search.setValue}
-          onSubmit={() => { search.submit(); onClose(); }} className={styles.search} />
+          onSubmit={() => { search.submit(); onClose(); }} onNavigate={onClose} className={styles.search} />
         <nav className={styles.links}>
           {wishlist && <Link to="/wishlist" onClick={onClose}>{t('nav.wishlistAria')}</Link>}
           {canManageStore && <Link to="/admin" onClick={onClose}>{t('nav.adminPanel')}</Link>}

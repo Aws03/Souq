@@ -34,6 +34,15 @@ public class ProductsController : ControllerBase
         => Ok(await _mediator.Send(
             new GetProductsQuery(keyword, categoryIds, page, pageSize, minPrice, maxPrice, sortBy, onSale, exact)));
 
+    // GET /api/products/suggestions?q=مكن&limit=8 — اقتراحات أثناء الكتابة (M3، ADR-0042).
+    // منتجات معروضة ثم فئات مفعَّلة، بالترتيب نفسه الذي ترتّب به صفحة النتائج — لا تصحيح خطأ مطبعي هنا:
+    // المتسوّق ما زال يكتب. المسار قبل "{id:int}" كي لا تُفسَّر "suggestions" كمعرّف.
+    [HttpGet("suggestions")]
+    [AllowAnonymous]
+    public async Task<IActionResult> Suggestions(
+        [FromQuery] string? q, [FromQuery] int limit = SearchSuggestionRules.DefaultLimit)
+        => Ok(await _mediator.Send(new GetSearchSuggestionsQuery(q, limit)));
+
     [HttpGet("{id:int}")]
     [AllowAnonymous]
     public async Task<IActionResult> GetById(int id) => this.ToHttp(await _mediator.Send(new GetProductByIdQuery(id)));
