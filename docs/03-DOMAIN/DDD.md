@@ -95,5 +95,5 @@ Recorded rather than hidden; each is in [TechnicalDebt.md](../12-ROADMAP/Technic
 - **`Customer` has no concurrency token**, so "at most 20 addresses" and "exactly one default" are enforced in memory only.
 - **Some rules live outside the aggregate that owns the concept**: sellability is checked in the pricing service rather than in `Product`.
 - **A coupon's fixed discount carries no currency.** `Coupon` itself refuses a minimum-order comparison across currencies, but `Coupon.Value` is a bare `decimal` and a fixed discount takes the basket's currency when it is calculated. The store currency lock makes that unreachable today ([RiskRegister.md](../02-ARCHITECTURE/RiskRegister.md), R-09).
-- **Cross-module domain access** (79 crossings) means aggregates from one module are loaded inside another module's handler — the boundary is documented and counted, not enforced.
+- **Cross-module domain access** (74 crossings) means aggregates from one module are loaded inside another module's handler — the boundary is documented and counted, not enforced.
 - **The order's shipping address is a single-line snapshot**, not the structured `PostalAddress` the model can produce; the destination country is stored separately.

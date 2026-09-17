@@ -232,7 +232,7 @@ One API and one database serve every store. Every rule below exists so that a bu
 
 ## 8. Payments and refunds
 
-**Where it lives:** `src/Souq.Domain/Entities/Payment.cs`, `src/Souq.Domain/Entities/Refund.cs`, `src/Souq.Domain/Entities/StorePaymentAccount.cs`, `src/Souq.Application/Features/Payments/`, `src/Souq.Application/Features/Stores/StorePaymentAccounts.cs`, `src/Souq.Application/Features/Platform/TenantPaymentAccounts.cs`, `src/Souq.Application/Features/Orders/Commands/ProcessPaymentWebhookCommand.cs`, `src/Souq.Infrastructure/Payments/PaymentGatewayRouter.cs`, `src/Souq.Infrastructure/Services/StripeAmountConverter.cs`, `src/Souq.Infrastructure/Security/AesGcmSecretProtector.cs`, `src/Souq.Infrastructure/Persistence/Configurations/PaymentConfiguration.cs`.
+**Where it lives:** `src/Souq.Domain/Entities/Payment.cs`, `src/Souq.Domain/Entities/Refund.cs`, `src/Souq.Domain/Entities/StorePaymentAccount.cs`, `src/Souq.Application/Features/Payments/`, `src/Souq.Application/Features/Platform/TenantPaymentAccounts.cs`, `src/Souq.Application/Features/Orders/Commands/ProcessPaymentWebhookCommand.cs`, `src/Souq.Infrastructure/Payments/PaymentGatewayRouter.cs`, `src/Souq.Infrastructure/Services/StripeAmountConverter.cs`, `src/Souq.Infrastructure/Security/AesGcmSecretProtector.cs`, `src/Souq.Infrastructure/Persistence/Configurations/PaymentConfiguration.cs`.
 
 | ID | Rule | Meaning / why | Module | Enforcement | Tests | Notes |
 |---|---|---|---|---|---|---|

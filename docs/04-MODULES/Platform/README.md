@@ -152,7 +152,7 @@ Destructive platform actions confirm in `ConfirmDialog`, and the server's refusa
 - **Uses:**
   - `IFileStorage` (branding uploads) and `MediaFileInspector` (content sniffing) from the shared kernel.
   - `Common/Accounts` (`AccountInvitations`, `AccountStatusChanger`, `IAccountQueries`) — Identity's rules, deliberately shared building blocks rather than a cross-module call.
-  - **Boundary leak:** `src/Souq.Application/Features/Stores/StorePaymentAccounts.cs` owns the store-payment-account use cases but works on **Payments'** domain: `StorePaymentAccount`, `IStorePaymentAccountRepository`, `PaymentKeyRules` and `InvalidPaymentOperationException` (all in `Souq.Domain.Entities`). No architecture test catches this, because the Domain layer is not covered by the module rules and `Features/Stores` belongs to this module.
+  - **Boundary leak — closed in the M1 architecture audit (TD-04/R-04).** The store-payment-account use cases used to live in `Features/Stores` (this module's folder) while working on **Payments'** domain. They now live in `Features/Payments`, and the one path Platform genuinely needs — the platform admin's own view of a store's payment account, `src/Souq.Application/Features/Platform/TenantPaymentAccounts.cs` — reaches them through a published contract, `IStorePaymentAccountEditor` ([Payments/README.md](../Payments/README.md#who-owns-store-payment-accounts)), authorized explicitly in `ModuleAndContractRuleTests`' `AllowedContracts`.
   - In Infrastructure, `PlatformQueries` reads `Users`, `Customers`, `Products` and `Orders` with `IgnoreQueryFilters`. That is the deliberate, reviewed exception ([ADR-0024](../../11-ADR/0024-platform-administration.md)).
 - **Used by:**
   - Everything, through `ITenantContext` (currency, culture) and the request-time resolution.
@@ -268,7 +268,7 @@ Because administration endpoints are recognised by their permission policy, a st
 | Domain | `tests/Souq.Domain.Tests/InvitationAndAuditTests.cs` | Audit action shape, unknown area, clipping |
 | Application | `tests/Souq.Application.Tests/Platform/TenantAdministrationTests.cs` | Unknown store id, directory invalidation, currency lock through the aggregate, invitation without a domain, invitation inside the store's scope |
 | Application | `tests/Souq.Application.Tests/Stores/ReviewSettingsHandlersTests.cs` | Policy read/write on the context store, and its audit record |
-| Application | `tests/Souq.Application.Tests/Stores/StorePaymentAccountEditorTests.cs` | Key encryption bound to the store, key-mode policy, malformed keys, unlink |
+| Application | `tests/Souq.Application.Tests/Payments/StorePaymentAccountEditorTests.cs` | Key encryption bound to the store, key-mode policy, malformed keys, unlink (owned by Payments; exercised from here because the platform path calls it through `IStorePaymentAccountEditor`) |
 | Application | `tests/Souq.Application.Tests/Common/AuditBehaviorTests.cs` | Actor, store and area on the staged line; discard on failure and on exception; untouched non-auditable requests |
 | Application | `tests/Souq.Application.Tests/Common/TenantContextTests.cs` | Set once, and `RequireTenant` throwing in platform scope |
 | Integration | `tests/Souq.IntegrationTests/PlatformAdministrationTests.cs` | The full provisioning scenario, the Marka look and ETag/304, module enforcement in the endpoint and in checkout, domain theft, currency lock, platform accounts, append-only audit |

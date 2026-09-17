@@ -97,6 +97,7 @@ The allowed arrows are listed in `ModuleAndContractRuleTests` (`AllowedContracts
 | Ordering | Inventory, Shopping, Promotions, Payments, Shipping | Checkout reserves stock, reads the basket, redeems a coupon, takes payment, and snapshots the shipping choice |
 | Inventory | Catalog | Inventory implements Catalog's `IVariantStockInitializer`, so the arrow points Inventory → Catalog and no cycle exists |
 | Shopping | Inventory, Shipping | The basket shows availability without reserving, and prices the shipping stage |
+| Platform | Payments | The platform admin path to a store's payment-account editor runs `IStorePaymentAccountEditor` inside the target store's scope (`ITenantScopeRunner`); closed as a raw class reference in the M1 architecture audit (TD-04/R-04) |
 
 Everything else between feature folders is a build failure.
 

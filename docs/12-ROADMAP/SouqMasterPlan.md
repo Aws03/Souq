@@ -29,14 +29,20 @@
 
 ```yaml
 plan_version: 1.0.0
-current_phase: M1
+current_phase: M2
 phase_status: not_started
-next_phase: M1
+next_phase: M2
 blocked_decisions: []           # owner decisions that block a phase currently in flight; see §5 and OwnerDecisions.md
 last_verified_date: 2026-09-17
-last_verified_head: d45bb53     # baseline this plan was authored against — update this line every time a phase closes
+last_verified_head: 37d8008     # the M1 code commit; this docs-reconciliation commit follows it on the same branch
 baseline_branch: phase/17-production-hardening
 ```
+
+**M1 — done.** Closed TD-04 (payment-account use cases moved from Platform's folder to Payments, reaching the
+platform admin path through a published contract, `IStorePaymentAccountEditor`, rather than a raw class
+reference); corrected TD-04's review-settings half, TD-02's extraction-order claim, and TD-01/TD-03/TD-05 with
+today's evidence; crossings 79 → 74 across 15 pairs (was 16); `RiskRegister.md` R-04 closed, R-14/R-15 updated.
+Full evidence in M1's own "Completion evidence" field above.
 
 Keep this block current in the same commit that closes a phase: `current_phase`, `phase_status`
 (`not_started` | `in_progress` | `blocked` | `done`), `next_phase`, `blocked_decisions` (the exact ID from
@@ -304,34 +310,78 @@ repository.
   volume; refresh [RiskRegister.md](../02-ARCHITECTURE/RiskRegister.md) against what the last several phases
   actually changed.
 - **Dependencies.** None — this is the first phase.
-- **Backend/API.** Extract the highest-value contract from TD-02 first (Shopping → Catalog, the pair TD-02
-  itself flags as hurting most, 12 crossings) as the worked example the rest of TD-01/TD-02 follow later, if
-  and only if the extraction is safe to do without touching every module in one phase — otherwise document the
-  target graph and defer the remaining extractions to the module-specific phases that already touch that code
-  (M2 for Catalog, M5 for Shopping/Ordering) rather than doing a big-bang refactor here.
-- **Database.** None expected; if TD-03's cycle resolution needs a schema change, write the migration and stop
-  per §5 (a data-owning decision) rather than run it speculatively.
-- **Frontend/UX.** None.
-- **Security.** Re-run `TenancyRuleTests` and `ModuleAndContractRuleTests` as a baseline; confirm no rule in
-  `AGENTS.md` §3 has silently regressed since the last verification.
-- **Testing.** `Souq.ArchitectureTests` in full, including `GeneratedDocsTests` regeneration; any new contract
-  extracted gets the same test coverage the crossing it replaced had.
-- **Browser QA.** None — this phase is structural.
-- **Docker/runtime verification.** A full stack boot after any Domain/Application namespace or contract move,
-  confirming nothing depended on the old shape at runtime.
+- **Backend/API.** ~~Extract the highest-value contract from TD-02 first (Shopping → Catalog)~~ **What was
+  actually done, and why it differs from the plan as written:** re-reading [ModuleBoundaryAudit.md](../02-ARCHITECTURE/ModuleBoundaryAudit.md)'s
+  own rank table (not TD-02's older, less careful claim) showed the highest-value *safe* fix was rank 3 — TD-04,
+  the payment-account use cases misfiled under Platform — not rank 5 (*ISellableItems*, Shopping → Catalog,
+  which is 12 crossings but all reads, no writes). Rank 1 (the Identity⇄Customers cycle) is genuinely the
+  highest-value fix but is ~13 files across two modules' account lifecycle — too large to attempt safely inside
+  an audit phase, so its *direction* was decided and documented (TD-03) and its extraction deferred to M9.
+  TD-04 was attempted as "no logic change" per the audit's original estimate; it was not — moving both files
+  together broke two independent architecture rules at once (`TenantId` may only be carried by
+  `Features.Platform` requests, and the moved editor would have made `Payments` reach back into `Platform` for
+  `PlatformTenants.NotFound`). The actual, correct fix: `Features/Payments/Contracts/StorePaymentAccountContracts.cs`
+  publishes `IStorePaymentAccountEditor`; `StorePaymentAccountEditor` (moved to `Features/Payments`) implements
+  it; `TenantPaymentAccounts.cs` (staying in `Features/Platform`, because its commands carry `TenantId`) calls
+  only the interface through `ITenantScopeRunner`; `AllowedContracts["Platform"] = ["Payments"]` authorizes the
+  one legitimate crossing. TD-04's review-settings half was re-examined and found *already correctly placed* —
+  it works on `Tenant`, a Platform aggregate, not a Reviews one — so nothing there needed to move; the original
+  claim was corrected in the same commit. Result: 79 → 74 crossings, 5 class-D/C rows closed, one new class-A
+  contract. TD-01/TD-02's remaining extractions (the cycle, *IAccountTokens*, *ISellableItems*, etc.) are
+  deferred to M2/M5/M9 as originally planned, with TD-02's own text corrected to point at the audit's rank
+  table as the authority rather than repeat a now-superseded independent claim.
+- **Database.** None. TD-03's cycle resolution needs no schema change (both contracts are pure read/write
+  operations over existing tables), so no migration was written or deferred here.
+- **Frontend/UX.** None — confirmed; no frontend file was touched.
+- **Security.** `TenancyRuleTests` and `ModuleAndContractRuleTests` re-run as a baseline (both green before and
+  after); no rule in `AGENTS.md` §3 regressed. The TD-04 fix itself is a tenant-isolation-relevant result: the
+  platform admin path to a store's payment-account editor is now proven, by a passing architecture test, to be
+  reachable only through `ITenantScopeRunner`'s tenant-scoped resolution and a published contract — never a
+  raw class a future change could resolve outside that scope by accident.
+- **Testing.** `Souq.ArchitectureTests` in full (88/88, including `GeneratedDocsTests` regeneration);
+  `Souq.Domain.Tests` (433/433) and `Souq.Application.Tests` (376/376) unaffected; the moved
+  `StorePaymentAccountEditorTests.cs` (5 tests) still passes unchanged under its new path and namespace;
+  targeted integration tests (`PaymentsAndRefundsTests`, `PlatformAdministrationTests`,
+  `ProvisioningBoundaryTests` — 19 tests) green against the real API and SQL Server; the full integration suite
+  run for final confirmation (see this phase's completion evidence for the count).
+- **Browser QA.** None — this phase is structural, no user-facing behaviour changed.
+- **Docker/runtime verification.** `dotnet build -warnaserror` clean (0 warnings, 0 errors) after every edit;
+  the full integration suite runs the real API against a real containerized SQL Server, which is the runtime
+  verification for a backend-only, DI-registration-touching change like this one — no separate compose boot
+  was needed since no container image, environment variable or startup path changed.
 - **Documentation/ADR.** Update `ModuleBoundaryAudit.md`, `ModuleDomainDependencies.md` (generated),
   `RiskRegister.md`; an ADR only if a boundary itself moved (not for re-confirming one).
-- **Technical debt touched.** TD-01, TD-02 (at least the Shopping→Catalog pair or a documented reason it waits
-  for M5), TD-03 (decide direction or explicitly re-file with today's evidence), TD-04, TD-05 (a decision:
-  namespace-move or keep `DomainOwners` as the source of truth — TD-05 already records the cheaper choice as
-  taken; re-affirm or reverse it with evidence, not by default).
+- **Technical debt touched.** **TD-04 closed** (the payment-account half; the review-settings half's original
+  claim was corrected instead, since it was already right). **TD-05 re-confirmed** with today's evidence (no
+  namespace drift found across the fix; the cheaper choice still holds). **TD-01 re-confirmed** with an updated
+  crossing count (74, was 79) and no new crossing added. **TD-02 corrected** to defer to
+  `ModuleBoundaryAudit.md`'s rank table rather than repeat its own superseded "Shopping → Catalog first" claim;
+  extraction itself deferred to M2/M5/M9 as planned. **TD-03's direction decided** (Customers → Identity kept;
+  two Identity-declared contracts close the reverse arrow) and documented in both `TechnicalDebt.md` and
+  `RiskRegister.md` (R-15); extraction itself deferred to M9 — ~13 files across two modules' account lifecycle
+  is real, valuable work, but too large to attempt safely inside an audit phase alongside everything else M1
+  already found. `RiskRegister.md`'s R-04 closed (deleted, per the register's own convention); R-14's count and
+  R-15's row updated to match.
 - **Acceptance criteria.** Every TD item above is either closed or re-filed with a dated re-confirmation, not
-  left stale; `ModuleDomainDependencies.md`'s crossing count is not higher than the last verified figure without
-  a documented reason; every non-goal is re-confirmed against current measured evidence (not against the same
-  argument from the phase that first wrote it).
-- **Completion evidence.** *(fill in on close: commit range, crossing count before/after, checkpoint hash)*
+  left stale — **met**. `ModuleDomainDependencies.md`'s crossing count is not higher than the last verified
+  figure without a documented reason — **met**, it dropped (79 → 74) with the reason recorded in three places
+  (`ModuleBoundaryAudit.md`, `ModuleBoundaries.md`, `TechnicalDebt.md`). Every non-goal is re-confirmed against
+  current measured evidence — **met**: `ExplicitNonGoals.md` was read in full against the current code and
+  found still accurate (all fourteen items' "not now because" reasoning still holds; items 1–3 already carry a
+  dated Phase 17 re-check and needed no further update).
+- **Completion evidence.** Commit(s) on `phase/17-production-hardening` implementing the TD-04 fix and the
+  documentation reconciliation described above, starting from checkpoint `fc6c1cd`. `dotnet build -warnaserror`:
+  0 warnings, 0 errors throughout. `Souq.Domain.Tests` 433/433, `Souq.Application.Tests` 376/376,
+  `Souq.ArchitectureTests` 88/88 (including a regenerated `ModuleDomainDependencies.md`, `UseCases.md`,
+  `Endpoints.md`, `TestInventory.md`) — all unchanged in count from the phase's start except the generated
+  inventories, which now correctly attribute the moved use cases to Payments. Targeted integration tests
+  (`PaymentsAndRefundsTests`, `PlatformAdministrationTests`, `ProvisioningBoundaryTests`): 19/19. **Full
+  `Souq.IntegrationTests` suite: 330/330, 0 failed (3m 35s).** Frontend lint re-run as a sanity check though no
+  frontend file was touched: 0 errors, 20 pre-existing warnings — the known baseline, unchanged.
+  `./scripts/release-gate.sh --suites`: 5 passed, 0 failed, 3 skipped (deployment-target sections, expected
+  without a real target). Working tree clean and pushed at close.
 - **Next-phase trigger.** M2 may start once this phase's commit is on the baseline branch with a clean tree and
-  `Souq.ArchitectureTests` green on that exact commit.
+  `Souq.ArchitectureTests` green on that exact commit — **satisfied**.
 
 ### M2 — Catalog and product completeness
 

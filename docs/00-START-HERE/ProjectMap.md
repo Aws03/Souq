@@ -89,7 +89,7 @@ flowchart LR
 
 **The reality:** the contract rule is enforced inside `Souq.Application/Features`, but use cases also reach Domain types that another module owns: entities and repositories shared through `Souq.Domain`. These **domain crossings** exist today, are counted by a generated ratchet, and a new one fails the build until someone decides it.
 
-At the last verification there were 79 crossings across 16 module pairs. The largest:
+At the last verification there were 74 crossings across 15 module pairs. The largest:
 
 ```mermaid
 flowchart LR
@@ -98,7 +98,6 @@ flowchart LR
     Notifications -.->|"order notifications and emails (9)"| Ordering
     Customers -.->|"erasure and profile updates (8)"| Identity
     Notifications -.->|"store branding in emails (6)"| Platform
-    Platform -.->|"store payment accounts (5)"| Payments
     Identity -.->|"registration and session profile (4)"| Customers
 ```
 

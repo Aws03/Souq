@@ -28,18 +28,19 @@ Payments records the money side of an order — one payment per order, how it se
 
 ## Who owns store payment accounts
 
-Asked directly, because the entity and the use cases that edit it sit in different modules.
+**Closed in the M1 architecture audit (TD-04/R-04).** The entity and the use cases that edit it now sit in the same module.
 
-| Piece | Where it lives | Module by the architecture test |
+| Piece | Where it lives | Module |
 |---|---|---|
 | `StorePaymentAccount`, `PaymentKeyRules` | `src/Souq.Domain/Entities/StorePaymentAccount.cs` | Domain is not split by module; entities share `Souq.Domain.Entities` |
 | `IStorePaymentAccountRepository` | `src/Souq.Domain/Interfaces/IStorePaymentAccountRepository.cs` | same |
-| `StorePaymentAccountEditor`, `GetStorePaymentAccountQuery`, `UpdateStorePaymentAccountCommand`, `RemoveStorePaymentAccountCommand`, `StorePaymentPolicy` | `src/Souq.Application/Features/Stores/StorePaymentAccounts.cs` | **Platform** — `ModuleFolders` maps `Stores` to Platform |
-| `GetTenantPaymentAccountQuery`, `UpdateTenantPaymentAccountCommand`, `RemoveTenantPaymentAccountCommand` | `src/Souq.Application/Features/Platform/TenantPaymentAccounts.cs` | **Platform** |
+| `IStorePaymentAccountEditor`, `StorePaymentAccountDto`, `StorePaymentAccountInput`, `StorePaymentAudit` — the published contract | `src/Souq.Application/Features/Payments/Contracts/StorePaymentAccountContracts.cs` | **Payments** |
+| `StorePaymentAccountEditor` (implements the contract), `GetStorePaymentAccountQuery`, `UpdateStorePaymentAccountCommand`, `RemoveStorePaymentAccountCommand`, `StorePaymentPolicy` — the store's own admin path | `src/Souq.Application/Features/Payments/StorePaymentAccounts.cs` | **Payments** |
+| `GetTenantPaymentAccountQuery`, `UpdateTenantPaymentAccountCommand`, `RemoveTenantPaymentAccountCommand` — the platform's admin path | `src/Souq.Application/Features/Platform/TenantPaymentAccounts.cs` | **Platform** — stays here because these commands carry `TenantId`, and only `Features.Platform` requests may ([MultiTenancy.md](../../02-ARCHITECTURE/MultiTenancy.md) §2); they call `IStorePaymentAccountEditor` through `ITenantScopeRunner`, never the concrete class |
 | `PaymentGatewayRouter`, which reads the account and decrypts its secrets | `src/Souq.Infrastructure/Payments/PaymentGatewayRouter.cs` | Infrastructure, serving the Payments port |
 | `StorePaymentAccounts` table | `StorePaymentAccountConfiguration` | — |
 
-So: **the store payment account's domain is Payments' (`DomainOwners` maps its types here), but its use cases sit in Platform's folders, and by `ModuleFolders` and `ModuleAndContractRuleTests` they are Platform's.** [Modules.md](../Modules.md) §2 and the [Platform README](../Platform/README.md) say the same; TD-04 records moving the use cases here. This page documents the account anyway, because the key rules, the routing and the open decision D-13 are payment concerns — but an edit to the editor is a change in a Platform folder, reviewed as such.
+`ModuleAndContractRuleTests`' `AllowedContracts["Platform"] = ["Payments"]` authorizes exactly the one crossing above — Platform reaching `Payments.Contracts`, nothing else. Before this fix, the domain was Payments' but the use cases sat in Platform's folders (`Features/Stores`), so an edit to the sensitive gateway-secret code was reviewed and tested as a Platform change; see [ModuleBoundaryAudit.md](../../02-ARCHITECTURE/ModuleBoundaryAudit.md) for why the two files could not simply trade places without a contract in between.
 
 ## Business concepts
 

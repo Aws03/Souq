@@ -23,7 +23,7 @@ these cannot be closed by engineering at all.
 | **Operational action** | Engineering is done; a deployment must apply it | R-11, R-12, R-16, R-19, R-20 |
 | **Owner decision** | A commercial, legal or policy choice ([OwnerDecisions.md](../09-OPERATIONS/OwnerDecisions.md)) | R-03, R-25, R-26, R-27 |
 | **External verification** | Needs an account or system outside this repository | R-01 |
-| **Accepted** | Understood, bounded, and deliberately not fixed | R-04, R-05, R-09, R-14, R-15, R-18 |
+| **Accepted** | Understood, bounded, and deliberately not fixed | R-05, R-09, R-14, R-15, R-18 |
 | **Deferred — a named trigger** | Not a problem yet; becomes one under a stated condition | R-13, R-23, R-24 |
 | **Product / policy work** | Needs a feature or a written policy, not a patch | R-21 |
 
@@ -34,7 +34,7 @@ these cannot be closed by engineering at all.
 | **The first paying customer** | R-01, R-25, R-27 | money collected wrongly and silently; selling where tax is required; selling under a licence that permits resale |
 | **A public deployment** | R-12, R-16, R-19, R-20 | connecting as `sa`; no TLS; no scheduled backup; nothing watching, and a red pipeline that cannot block a merge |
 | **The second paying store** | R-26 | who is merchant of record decides liability, and it is hard to reverse once stores are onboarded |
-| **Nothing today** | R-03, R-04, R-05, R-09, R-11, R-13, R-14, R-15, R-18, R-21, R-23, R-24 | each is accepted, deferred with a trigger, or a control question — see its row |
+| **Nothing today** | R-03, R-05, R-09, R-11, R-13, R-14, R-15, R-18, R-21, R-23, R-24 | each is accepted, deferred with a trigger, or a control question — see its row |
 
 **What changed in this mission.** R-12, R-16, R-19 and R-20 were all engineering problems and are now all
 *operational* ones: the mechanisms exist, are tested, and in three cases were rehearsed against real
@@ -42,13 +42,18 @@ infrastructure. None of them is closed, because a mechanism nobody has applied i
 otherwise is how a register stops being true. R-02, R-06, R-07, R-08, R-10, R-17, R-22 and R-28 are absent
 because they were closed; their history is in [ReleaseReadiness.md](../09-OPERATIONS/ReleaseReadiness.md).
 
+**What changed in the M1 architecture audit.** R-04 is closed: the payment-account use cases moved to Payments
+and now reach the platform admin path through a published contract, `IStorePaymentAccountEditor`, rather than a
+raw class reference from Platform's folder ([ModuleBoundaryAudit.md](ModuleBoundaryAudit.md) — TD-04 in
+[TechnicalDebt.md](../12-ROADMAP/TechnicalDebt.md)). R-14's crossing count dropped from 79 to 74 as a direct
+result. R-15's direction is now decided (see its row) though not yet extracted.
+
 ## 1. Money and payments
 
 | # | Risk | Confidence | Impact | What to do |
 |---|---|---|---|---|
 | R-01 | **JOD minor units at Stripe (open decision P-05).** `StripeAmountConverter` multiplies by 100 for every currency that Stripe does not list as zero-decimal. JOD has three minor digits. If the connected account treats JOD as three-decimal, every charge collects **one tenth** of the order | Unverified (depends on the real Stripe account) | Catastrophic and silent: revenue loss per transaction | Before enabling live JOD: create a test intent for a three-decimal amount on the real account and compare what the dashboard shows. The same applies to the other three-decimal currencies in `CurrencyInfo` |
 | R-03 | **Cancelling a paid order refunds money on `orders.manage` alone.** `UpdateOrderStatusCommand` issues a full refund; a staff account with order management but without `store.payments.manage` can move money | Known | Insider or mistaken refunds; audit gap (order-status changes are not audited) | Decide the permission model: require the payments permission for a refunding transition, or audit it explicitly |
-| R-04 | **Payment-account use cases live in the Platform feature folder.** The most sensitive code in the system (store gateway secrets) sits where the architecture test attributes it to Platform | Known | Wrong reviewers, wrong tests, boundary erosion | Move to Payments ([TechnicalDebt.md](../12-ROADMAP/TechnicalDebt.md)) |
 | R-05 | **Refunds do not return a coupon use** (recorded in ADR-0031) | Known | A customer can consume a single-use coupon on an order that was refunded | Product decision: decide whether a refund restores the use |
 
 ## 2. Customer-visible correctness
@@ -64,8 +69,8 @@ because they were closed; their history is in [ReleaseReadiness.md](../09-OPERAT
 | R-11 | **Rate limits are per process and partition by a forwarded client address.** With `TRUSTED_PROXY_NETWORKS` covering the Docker bridge and the API port published, a direct client may be able to forge `X-Forwarded-For` and evade limits | Unverified (depends on the deployment's networking) | Brute-force protection weaker than it looks | Only trust the proxy's own address; do not publish the API port when a proxy fronts it; move limits to the edge when scaling out |
 | R-12 | **Deployments still connect to SQL Server as `sa`** — but no longer silently. The startup check reads the identity **from the database** and warns, naming the roles it holds; a nominal split (a migration connection carrying the runtime login) is also caught | Known | No blast-radius limit if the app is compromised | Apply `scripts/sql/least-privilege-logins.sql` and point the deployment at the two identities. Skipping it is now audible at every boot |
 | R-13 | **Uploads are served from local disk**, so the files live on one instance | Known | Several API instances need the same mount, or images 404 depending on which instance answers | Move to blob storage behind `IFileStorage` before scaling out |
-| R-14 | **Cross-module domain access is not prevented, only counted** (79 crossings today) | Known | Boundaries erode silently; extraction gets harder | The ratchet in [ModuleDomainDependencies.md](ModuleDomainDependencies.md) plus the contracts listed in [ModuleBoundaries.md](ModuleBoundaries.md); every crossing is now classified with a reason in [ModuleBoundaryAudit.md](ModuleBoundaryAudit.md) |
-| R-15 | **Identity and Customers depend on each other**, a cycle the target graph forbids | Known | Neither module can be reasoned about, tested or extracted alone | Decide which side owns account provisioning and erasure; expose one contract |
+| R-14 | **Cross-module domain access is not prevented, only counted** (74 crossings today) | Known | Boundaries erode silently; extraction gets harder | The ratchet in [ModuleDomainDependencies.md](ModuleDomainDependencies.md) plus the contracts listed in [ModuleBoundaries.md](ModuleBoundaries.md); every crossing is now classified with a reason in [ModuleBoundaryAudit.md](ModuleBoundaryAudit.md) |
+| R-15 | **Identity and Customers depend on each other**, a cycle the target graph forbids. **Direction decided (M1), not yet extracted:** keep Customers → Identity; close Identity → Customers with two Identity-declared contracts, *IAccountProfiles* and *IAccountLifecycle* ([ModuleBoundaryAudit.md](ModuleBoundaryAudit.md) "The cycle, exactly") | Known | Neither module can be reasoned about, tested or extracted alone | Build the two contracts (~13 files) — TD-03 in [TechnicalDebt.md](../12-ROADMAP/TechnicalDebt.md), deferred to the phase that next substantially touches account lifecycle |
 | R-16 | **No TLS in the repository's own deployment.** Headers, HSTS and the forwarded-scheme fix exist; the SPA's CSP is report-only but can no longer drift (a new external origin fails the build) | Known | Cookies and tokens over plaintext if deployed as-is | Terminate TLS in front. The commonest way to get this wrong — an untrusted proxy, so the scheme is ignored and HSTS never sent — is now detected at runtime and warned once per process |
 
 ## 4. Data and operations

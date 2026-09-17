@@ -81,6 +81,7 @@ This is the **target**. Payments → Ordering is forbidden in both the target an
 | Ordering | Inventory, Shopping, Promotions, Payments, Shipping |
 | Inventory | Catalog (it implements Catalog's `IVariantStockInitializer`, so the arrow points this way and no cycle exists) |
 | Shopping | Inventory, Shipping |
+| Platform | Payments (`IStorePaymentAccountEditor` — the platform admin path reaches the store's payment-account editor this way; closed in the M1 architecture audit, TD-04/R-04) |
 
 Everything else between feature folders fails the build, and a separate test rejects cycles in that map.
 
@@ -88,7 +89,7 @@ Everything else between feature folders fails the build, and a separate test rej
 
 Repository ports live in `Souq.Domain.Interfaces` and most entities in `Souq.Domain.Entities`. Those namespaces are outside the test's scope, so **a handler in one module can load another module's aggregate directly and no test objects.** That is how the system actually works today in several places, for reasons that were often deliberate.
 
-Rather than pretend otherwise, every such crossing is generated into [ModuleDomainDependencies.md](ModuleDomainDependencies.md) from the compiled code: **79 crossings across 16 module pairs** at the time of writing, every one of them classified in [ModuleBoundaryAudit.md](ModuleBoundaryAudit.md). That file is committed, so:
+Rather than pretend otherwise, every such crossing is generated into [ModuleDomainDependencies.md](ModuleDomainDependencies.md) from the compiled code: **74 crossings across 15 module pairs** at the time of writing, every one of them classified in [ModuleBoundaryAudit.md](ModuleBoundaryAudit.md). That file is committed, so:
 
 - a **new** crossing changes it and fails `GeneratedDocsTests` — it becomes a decision made in review, not a quiet import;
 - **removing** one also changes it, and the count goes down.
@@ -105,7 +106,6 @@ The largest clusters, and what each is waiting for. The contract names are propo
 | Ordering → Customers | Checkout checks the block status and reads the address book | *ICustomerDirectory* (named in the docs since Phase 7, still deferred) |
 | Shopping → Promotions | Pricing loads the coupon and counts its uses | *IDiscountQuote* |
 | Reviews → Ordering, Customers | Eligibility ("did this customer receive this product?") and block status | *IOrderHistory* and *ICustomerDirectory* (deferred); Reviews → Platform (the auto-approve policy) is deliberate and needs none |
-| Platform → Payments | The store-side payment-account use cases sit in the Platform folder | move them to Payments |
 
 Read-side joins are a second, narrower exception: the query services in `src/Souq.Infrastructure/Persistence/Queries` join across module tables to build screens (a customer list with order counts, a catalog list with stock). They are read-only, they live behind their module's port, and they are how the UI stays fast. Treat them as a documented exception, not a licence to write.
 
