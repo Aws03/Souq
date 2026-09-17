@@ -25,6 +25,21 @@ export function applyStoreTheme(config, language, mode = 'light') {
   setStylesheet('store-fonts', fontStylesheetUrl(branding?.typography));
 }
 
+// ============================================================================
+// مضيف المنصّة لا متجر له ولا هوية: رموزه تُشتقّ من اللوحة المحايدة (themeVariables بلا هوية) للوضع الحالي.
+//
+// كان المضيف يعتمد على رموز styles.css وحدها، وكتلتها الداكنة لا تحمل إلا الأسطح والنصّ — تغطية لما قبل وصول
+// إعداد متجر، لا نظاماً كاملاً. فمالك منصّة في وضع داكن كان سيرى الأساسي الفاتح (#1F2937) على خلفية داكنة،
+// وشارات حالة بلا أسطحها. الاشتقاق نفسه الذي يعطي كل متجر وضعيه يعطيهما للمنصّة، بلا قائمة ألوان ثانية.
+// ============================================================================
+export function applyPlatformTheme(mode = 'light') {
+  const root = document.documentElement;
+  for (const [name, value] of Object.entries(themeVariables(null, mode))) root.style.setProperty(name, value);
+  delete root.dataset.preset;
+  root.dataset.theme = mode;
+  root.style.colorScheme = mode;
+}
+
 // خطّ يُعاين قبل أن يُحفظ (محرّر الإعدادات): عنصر مستقلّ عن خطّ المتجر الفعلي، كي لا يُبدَّل خطّ اللوحة
 // نفسها بمجرّد تجربة خيار — وخطّ المتجر يبقى محمّلاً ما دام هو المحفوظ.
 export function loadPreviewFonts(typography) {

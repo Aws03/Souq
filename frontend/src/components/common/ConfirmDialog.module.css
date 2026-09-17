@@ -1,0 +1,28 @@
+.layer { position: fixed; inset: 0; z-index: 120; display: grid; place-items: center; padding: var(--space-4); }
+.overlay {
+  appearance: none; border: 0; padding: 0; cursor: default;
+  position: absolute; inset: 0; background: rgba(15, 23, 42, .45);
+}
+.dialog {
+  position: relative; inline-size: min(460px, 100%); max-block-size: calc(100dvh - 32px); overflow-y: auto;
+  background: var(--color-surface); color: var(--color-text); border: 1px solid var(--color-border);
+  border-radius: 16px; padding: var(--space-5); box-shadow: var(--shadow-lg);
+  display: flex; flex-direction: column; gap: var(--space-3);
+}
+.dialog:focus { outline: none; }
+.dialog:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+.title { font-size: var(--fs-heading); margin: 0; }
+.message { margin: 0; color: var(--color-text); line-height: 1.6; overflow-wrap: anywhere; }
+.typed { display: flex; flex-direction: column; gap: 6px; }
+.typedLabel { font-size: var(--fs-body-sm); font-weight: 600; }
+.input {
+  inline-size: 100%; padding: 10px 12px; border: 1px solid var(--color-border); border-radius: 10px;
+  background: var(--color-surface); color: var(--color-text); font-family: ui-monospace, monospace;
+}
+.input:focus { border-color: var(--color-primary); }
+.error { margin: 0; color: var(--color-danger); font-size: var(--fs-body-sm); }
+.actions { display: flex; justify-content: flex-end; gap: var(--space-2); flex-wrap: wrap; margin-top: var(--space-2); }
+@media (prefers-reduced-motion: no-preference) {
+  .dialog { animation: rise var(--motion-base, 180ms) var(--ease-out, ease-out); }
+  @keyframes rise { from { transform: translateY(8px); opacity: 0; } }
+}

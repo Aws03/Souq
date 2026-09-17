@@ -1,0 +1,189 @@
+.shell { min-height: 100vh; background: var(--color-bg); color: var(--color-text); }
+/* رأس المنصّة لوحةٌ مقلوبة كالشريط الجانبي للمتجر: --color-panel بنصّها المضمون، لا الأساسي بنصّه. */
+.header {
+  display: flex; flex-wrap: wrap; gap: 10px 20px; align-items: center; justify-content: space-between;
+  padding: 12px clamp(16px, 4vw, 28px); background: var(--color-panel); color: var(--color-on-panel);
+  position: sticky; top: 0; z-index: 20;
+}
+.brand { font-family: var(--font-display); font-size: var(--fs-heading); }
+.nav { display: flex; gap: 4px; flex-wrap: wrap; flex: 1; }
+.navLink {
+  display: inline-flex; align-items: center; gap: 8px; min-block-size: 40px; padding: 6px 12px; border-radius: 10px;
+  color: var(--color-on-panel); text-decoration: none; opacity: .8; border-block-end: 2px solid transparent;
+}
+.navLink:hover { opacity: 1; background: color-mix(in srgb, var(--color-on-panel) 8%, transparent); }
+.navActive { opacity: 1; font-weight: 700; border-block-end-color: var(--color-accent-on-panel); border-radius: 10px 10px 0 0; }
+.navLink:focus-visible, .signOut:focus-visible { outline: 2px solid var(--color-accent-on-panel); outline-offset: 2px; }
+.account { display: flex; align-items: center; gap: 14px; font-size: var(--fs-body-sm); }
+.headerButton {
+  min-inline-size: 40px; min-block-size: 40px; display: inline-grid; place-items: center; border-radius: 10px;
+  color: var(--color-on-panel); font-weight: 700; border: 1px solid color-mix(in srgb, var(--color-on-panel) 30%, transparent);
+}
+.headerButton:focus-visible { outline: 2px solid var(--color-accent-on-panel); outline-offset: 2px; }
+.signOut { color: inherit; font-weight: 700; text-decoration: underline; min-block-size: 40px; }
+.skip {
+  position: absolute; inset-inline-start: 12px; inset-block-start: -60px; z-index: 50; padding: 8px 14px; border-radius: 8px;
+  background: var(--color-surface); color: var(--color-text);
+}
+.skip:focus { inset-block-start: 12px; }
+.content { max-width: 1120px; margin: 0 auto; padding: clamp(16px, 4vw, 32px); }
+.content:focus { outline: none; }
+.title { font-size: var(--fs-heading-lg); margin: 0 0 6px; overflow-wrap: anywhere; }
+.subtitle { color: var(--color-text-muted); margin: 0; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+/* ── نظرة المنصّة ── */
+.figures { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: var(--space-4); margin-block: var(--space-6); }
+.figure {
+  background: var(--color-surface); border: 1px solid var(--color-border);
+  border-radius: var(--radius); padding: var(--space-5);
+  display: flex; flex-direction: column; gap: var(--space-2); min-width: 0;
+}
+.figureLabel { color: var(--color-text-muted); font-size: var(--fs-caption); }
+.figureValue { font-family: var(--font-display); font-size: var(--fs-heading-lg); font-variant-numeric: tabular-nums; }
+
+.panel {
+  background: var(--color-surface); border: 1px solid var(--color-border);
+  border-radius: var(--radius); padding: var(--space-5); margin-bottom: var(--space-4);
+}
+.panelTitle { font-size: var(--fs-heading); margin-bottom: var(--space-4); }
+.statusList { list-style: none; display: flex; flex-direction: column; gap: var(--space-3); }
+.statusList li { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); }
+.statusList span { color: var(--color-text-muted); font-size: var(--fs-body-sm); }
+.statusList b { font-family: var(--font-display); font-variant-numeric: tabular-nums; }
+
+.limits {
+  background: var(--color-surface-alt); border: 1px solid var(--color-border);
+  border-radius: var(--radius); padding: var(--space-5);
+  display: flex; flex-direction: column; gap: var(--space-2);
+}
+.limits p { color: var(--color-text-muted); font-size: var(--fs-body-sm); line-height: 1.6; }
+
+/* ── عناصر مشتركة ── */
+.srOnly { position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.pageHead { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--space-4); flex-wrap: wrap; margin-bottom: var(--space-5); }
+.headLinks { display: flex; gap: var(--space-2); flex-wrap: wrap; }
+.primaryLink, .secondaryLink {
+  display: inline-flex; align-items: center; min-block-size: 42px; padding: 8px 16px; border-radius: 10px;
+  font-weight: 700; text-decoration: none; font-size: var(--fs-body-sm);
+}
+.primaryLink { background: var(--color-primary); color: var(--color-on-primary); }
+.secondaryLink { background: var(--color-surface); color: var(--color-primary); border: 1px solid var(--color-border); }
+.primaryLink:focus-visible, .secondaryLink:focus-visible, .rowLink:focus-visible, .back:focus-visible {
+  outline: 2px solid var(--color-primary); outline-offset: 2px;
+}
+.back { display: inline-block; margin-bottom: var(--space-3); color: var(--color-primary); font-size: var(--fs-body-sm); }
+.rowLink { color: var(--color-primary); font-weight: 600; }
+.attention { color: var(--color-danger); font-weight: 600; }
+.setup { display: flex; flex-direction: column; gap: var(--space-4); }
+.setup > .panel { margin-bottom: 0; }
+
+.panelHint { color: var(--color-text-muted); font-size: var(--fs-body-sm); margin: -8px 0 var(--space-4); line-height: 1.6; }
+.empty { color: var(--color-text-muted); font-size: var(--fs-body-sm); margin: 0 0 var(--space-4); }
+.notice {
+  margin: var(--space-3) 0 0; padding: 10px 14px; border-radius: 10px; font-size: var(--fs-body-sm);
+  background: var(--color-info-soft); color: var(--color-text); border: 1px solid var(--color-border);
+}
+
+/* شارات الحالة: نصّ الحالة على سطحها الناعم — الزوج المضمون (DesignSystem §2.2). */
+.badge { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 12.5px; font-weight: 700; white-space: nowrap; }
+.statusProvisioning, .account_invited { background: var(--color-info-soft); color: var(--color-info); }
+.statusActive, .account_active { background: var(--color-success-soft); color: var(--color-success); }
+.statusSuspended, .statusArchived, .account_disabled { background: var(--color-danger-soft); color: var(--color-danger); }
+
+/* ── الحقول ── */
+.formGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 0 var(--space-4); }
+.formGrid > :global(*):not(.field) { grid-column: 1 / -1; }
+.field { display: flex; flex-direction: column; gap: 6px; margin-bottom: var(--space-4); min-width: 0; }
+.label { font-weight: 700; font-size: var(--fs-label); }
+.input {
+  inline-size: 100%; padding: 10px 12px; border: 1px solid var(--color-border); border-radius: 10px;
+  background: var(--color-surface); color: var(--color-text); font-family: var(--font-body); min-block-size: 44px;
+}
+.input:focus { border-color: var(--color-primary); }
+.input[aria-invalid='true'] { border-color: var(--color-danger); }
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.hint { color: var(--color-text-muted); font-size: 12.5px; display: block; }
+.fieldError { color: var(--color-danger); font-size: 12.5px; display: block; }
+.formActions { display: flex; justify-content: flex-end; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+.fieldset { border: 0; padding: 0; margin: 0 0 var(--space-4); display: flex; flex-direction: column; gap: var(--space-2); }
+.option {
+  display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--color-border);
+  border-radius: 10px; cursor: pointer;
+}
+.option:has(input:checked) { border-color: var(--color-primary); }
+.option input { inline-size: 18px; block-size: 18px; margin-top: 3px; accent-color: var(--color-primary); flex-shrink: 0; }
+.inlineForm { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--space-3); align-items: start; margin-top: var(--space-4); }
+.inlineForm > button { margin-top: 26px; }
+
+/* ── صفوف (نطاقات، مديرون) ── */
+.rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
+.row {
+  display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); flex-wrap: wrap;
+  padding: 10px 12px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-surface);
+}
+.rowMain { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.host { overflow-wrap: anywhere; }
+.rowTags { display: flex; gap: 6px; flex-wrap: wrap; }
+.rowActions { display: flex; gap: 6px; flex-wrap: wrap; }
+
+/* ── الجاهزية ── */
+.checklist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
+.checklist li { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 10px; align-items: start; }
+.checkMark {
+  inline-size: 26px; block-size: 26px; border-radius: 50%; display: grid; place-items: center; font-weight: 700;
+  border: 1.5px solid currentColor;
+}
+.checklist li > span:nth-child(2) { display: flex; flex-direction: column; gap: 2px; }
+.checkDetail { color: var(--color-text-muted); font-size: var(--fs-body-sm); overflow-wrap: anywhere; }
+.check_done .checkMark { color: var(--color-success); background: var(--color-success-soft); }
+.check_attention .checkMark { color: var(--color-info); background: var(--color-info-soft); }
+.check_missing .checkMark { color: var(--color-danger); background: var(--color-danger-soft); }
+.check_blocked .checkMark { color: var(--color-text-muted); }
+
+.lifecycleActions { display: flex; gap: var(--space-2); flex-wrap: wrap; }
+.warnings { margin: 0; padding-inline-start: 20px; color: var(--color-danger); font-size: var(--fs-body-sm); }
+
+/* ── القائمة ── */
+.toolbar { display: flex; gap: var(--space-3); flex-wrap: wrap; margin-bottom: var(--space-4); }
+.search {
+  display: flex; align-items: center; gap: 8px; flex: 1; min-width: 220px; max-width: 420px; padding: 0 14px;
+  background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 999px; color: var(--color-text-muted);
+}
+.search:focus-within { border-color: var(--color-primary); }
+.search input { flex: 1; min-block-size: 42px; background: none; border: 0; color: var(--color-text); }
+.search input:focus { outline: none; }
+.filter select {
+  min-block-size: 44px; padding: 0 12px; border: 1px solid var(--color-border); border-radius: 10px;
+  background: var(--color-surface); color: var(--color-text);
+}
+
+/* ── المعالج ── */
+.progress { list-style: none; margin: 0; padding: 0; display: flex; gap: var(--space-2); flex-wrap: wrap; }
+.progressStep > a, .progressStep > span {
+  display: inline-flex; align-items: center; gap: 8px; min-block-size: 40px; padding: 6px 12px 6px 6px;
+  border-radius: 999px; border: 1px solid var(--color-border); background: var(--color-surface);
+  color: var(--color-text); text-decoration: none; font-size: var(--fs-body-sm);
+}
+.progressStep > a:hover { border-color: var(--color-primary); }
+.progressStep > a:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+.progressIndex {
+  inline-size: 28px; block-size: 28px; border-radius: 50%; display: grid; place-items: center; font-weight: 700;
+  background: var(--color-surface-alt); color: var(--color-text); font-variant-numeric: tabular-nums;
+}
+.progressCurrent > span { border-color: var(--color-primary); font-weight: 700; }
+.progressCurrent .progressIndex { background: var(--color-primary); color: var(--color-on-primary); }
+.progressDone .progressIndex { background: var(--color-success-soft); color: var(--color-success); }
+.stepNav { display: flex; justify-content: flex-end; gap: var(--space-2); flex-wrap: wrap; }
+
+.facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: var(--space-3); margin: 0; }
+.facts > div { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 10px; padding: 10px 12px; min-width: 0; }
+.facts dt { color: var(--color-text-muted); font-size: 12.5px; }
+.facts dd { margin: 2px 0 0; font-weight: 600; overflow-wrap: anywhere; }
+
+@media (max-width: 640px) {
+  .accountName { display: none; }
+  .inlineForm { grid-template-columns: 1fr; }
+  .inlineForm > button { margin-top: 0; justify-self: start; }
+  .progressStep > a span:last-child, .progressStep > span span:last-child { display: none; }
+  .progressCurrent > span span:last-child { display: inline; }
+}

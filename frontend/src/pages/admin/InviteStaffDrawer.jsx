@@ -6,7 +6,7 @@ import Button from '../../components/common/Button';
 import { ErrorBanner } from '../../components/common/StateViews';
 import { STAFF_ROLES, buildInvitePayload, inviteProblems, inviteToForm } from '../../features/admin/staff/staffView';
 import styles from './CategoryFormDrawer.module.css';
-import settingsStyles from './StoreSettings.module.css';
+import settingsStyles from '../../components/settings/StoreSettingsEditor.module.css';
 
 // درج دعوة عضو في فريق المتجر: الاسم والبريد والدور. الدور يُشرح بما يستطيعه لا باسمه وحده — "مدير"
 // يعني الإعدادات والفريق والمدفوعات، وهو ما يجب أن يعرفه من يمنحه قبل أن يمنحه.

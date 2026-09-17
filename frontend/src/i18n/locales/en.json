@@ -14,7 +14,8 @@
     "loading": "Loading",
     "decreaseQty": "Decrease quantity",
     "increaseQty": "Increase quantity",
-    "moreActions": "More actions"
+    "moreActions": "More actions",
+    "typeToConfirm": "Type {{text, bidi}} to confirm"
   },
   "nav": {
     "openMenu": "Open menu",
@@ -1179,7 +1180,8 @@
       "ShippingMethodUnavailable": "The chosen delivery method doesn't serve this address.",
       "ShippingNotAvailable": "No delivery method serves this address.",
       "InvalidShippingMethod": "The shipping method isn't valid.",
-      "WishlistFull": "Your wishlist is full — remove some products first."
+      "WishlistFull": "Your wishlist is full — remove some products first.",
+      "DomainReserved": "This host is the platform's own and can't be a store domain."
     },
     "boundaryTitle": "Something went wrong on this page",
     "boundaryMessage": "The page could not be displayed. You can try again, or go back to the store.",
@@ -1269,12 +1271,41 @@
   "platform": {
     "name": "Souq platform",
     "title": "Platform console",
-    "subtitle": "The screens for stores, accounts and the audit log arrive in Phase 18. The platform API is available now for platform accounts.",
     "signedInAs": "Signed in as {{name, bidi}}",
     "logout": "Sign out",
     "overviewTitle": "Platform overview",
     "overviewSubtitle": "Across every store on this platform.",
-    "stores": "Stores",
+    "stores": {
+      "title": "Stores",
+      "subtitle": "Every store on the platform: its status, where it lives, and whether someone can run it.",
+      "new": "+ New store",
+      "searchLabel": "Search stores",
+      "searchPlaceholder": "Name, slug or domain…",
+      "statusLabel": "Filter by status",
+      "allStatuses": "All statuses",
+      "colName": "Store",
+      "colSlug": "Slug",
+      "colStatus": "Status",
+      "colHost": "Primary domain",
+      "colAdmins": "Administrator",
+      "colCurrency": "Currency",
+      "colCreated": "Created",
+      "colAction": "Next",
+      "noDomain": "No domain yet",
+      "admins": {
+        "active_one": "1 active",
+        "active_other": "{{count}} active",
+        "invited_one": "Invitation pending",
+        "invited_other": "{{count}} invitations pending",
+        "none": "None yet"
+      },
+      "continueSetup": "Continue setup",
+      "manage": "Manage",
+      "emptyTitle": "No stores yet",
+      "emptyMessage": "Create the first client store to start provisioning.",
+      "noMatchTitle": "No store matches",
+      "noMatchMessage": "Try another name, slug, domain or status."
+    },
     "storesByStatus": "By status",
     "status": {
       "Provisioning": "Being set up",
@@ -1290,6 +1321,210 @@
     "ordersRecent": "Orders in the last 30 days",
     "countingTitle": "How these are counted",
     "countingNote": "These are raw row counts across every store: archived stores, cancelled orders, archived products, disabled accounts and erased customers are all included. They measure the size of the platform, not the health of any business on it.",
-    "noTenantData": "No store's own data appears here — only totals across all of them."
+    "noTenantData": "No store's own data appears here — only totals across all of them.",
+    "skipToContent": "Skip to content",
+    "nav": {
+      "label": "Platform",
+      "overview": "Overview",
+      "stores": "Stores"
+    },
+    "setup": {
+      "backToStores": "← All stores",
+      "newTitle": "New store",
+      "newSubtitle": "Set the store's identity. It is created closed to visitors and stays that way until you activate it.",
+      "progressLabel": "Setup steps",
+      "step": {
+        "identity": "Identity",
+        "branding": "Branding",
+        "domains": "Domains",
+        "modules": "Modules",
+        "admin": "Administrator",
+        "review": "Review & activate"
+      },
+      "title": "Set up {{name, bidi}}",
+      "openStorePage": "Store page",
+      "back": "Back",
+      "continue": "Continue",
+      "skip": "Skip for now",
+      "saveFirst": "Save or discard your changes before continuing.",
+      "brandingHint": "The same settings the store's administrator will edit after handover. Defaults are valid; change what the client has decided.",
+      "finished": "Setup is complete — manage this store from its page from now on."
+    },
+    "identity": {
+      "hint": "The slug and the store's language and time zone are set here. Everything else comes after creation.",
+      "name": "Store name",
+      "nameHint": "The client's business name, as it appears in emails and the admin.",
+      "slug": "Slug",
+      "slugHint": "Lower-case letters, digits and hyphens. It cannot be changed after creation.",
+      "currency": "Currency",
+      "currencyHint": "A three-letter ISO 4217 code. It locks once the store has products, orders, coupons or shipping methods.",
+      "defaultCulture": "Default language",
+      "cultureHint": "Visitors see this language first; more can be enabled in branding.",
+      "createsClosed": "The store is created as “Being set up”: closed to visitors, without a domain or administrator. Nothing is public until you activate it.",
+      "create": "Create store"
+    },
+    "problem": {
+      "nameLength": "Use between {{min}} and {{max}} characters.",
+      "nameControl": "The name contains characters that aren't allowed.",
+      "slugInvalid": "{{min}}–{{max}} lower-case letters, digits and single hyphens, not at the start or end.",
+      "slugReserved": "“{{slug, bidi}}” is reserved by the platform.",
+      "slugTaken": "Another store already uses this slug.",
+      "currencyInvalid": "Enter a three-letter ISO 4217 currency code.",
+      "cultureInvalid": "Choose a supported language.",
+      "timeZoneInvalid": "Enter a time zone name such as Asia/Amman or UTC.",
+      "hostRequired": "Enter a domain.",
+      "hostNoPort": "Enter the domain only — no https://, port or path.",
+      "hostInvalid": "This isn't a valid domain name.",
+      "hostDuplicate": "This domain is already on this store.",
+      "adminNameRequired": "Enter the administrator's name.",
+      "adminNameTooLong": "Keep the name under {{max}} characters.",
+      "adminEmailRequired": "Enter the administrator's email.",
+      "adminEmailInvalid": "Enter a valid email address."
+    },
+    "readiness": {
+      "title": "Ready for handover?",
+      "hint": "What the store has, read from the server. Nothing here blocks activation; it tells you what is missing.",
+      "state": {
+        "done": "done",
+        "attention": "needs attention",
+        "missing": "missing",
+        "blocked": "waiting on a previous item"
+      },
+      "domain": {
+        "label": "Primary domain",
+        "done": "{{host, bidi}}",
+        "missing": "The store has no domain, so no one can reach it."
+      },
+      "domainVerified": {
+        "label": "Domain confirmed",
+        "done": "Marked as verified.",
+        "attention": "Not yet marked verified after DNS was set up.",
+        "blocked": "Add a domain first."
+      },
+      "admin": {
+        "label": "Store administrator",
+        "done": "An administrator has accepted the invitation.",
+        "attention": "Invitation sent; not accepted yet.",
+        "missing": "No administrator invited.",
+        "blocked": "An invitation needs a domain: its link opens on the store's own domain."
+      },
+      "status": {
+        "label": "Open to visitors",
+        "done": "Active.",
+        "missing": "Still being set up — closed to visitors.",
+        "attention": "{{status}} — closed to visitors."
+      }
+    },
+    "profile": {
+      "title": "Profile",
+      "saved": "Store profile saved",
+      "currencyHint": "The store's currency is the platform's decision; it locks once the store has any commercial activity."
+    },
+    "domains": {
+      "title": "Domains",
+      "hint": "The hosts this store answers on. The first becomes primary; invitations and links use the primary domain.",
+      "none": "No domains yet.",
+      "primary": "Primary",
+      "verifiedOn": "Verified {{date}}",
+      "unverified": "Not verified",
+      "makePrimary": "Make primary",
+      "verify": "Mark verified",
+      "remove": "Remove",
+      "primaryLocked": "Make another domain primary before removing this one.",
+      "addLabel": "Add a domain",
+      "addHint": "For example shop.client.com. DNS must point to the platform; verification is confirmed by hand.",
+      "add": "Add domain",
+      "added": "{{host, bidi}} added",
+      "done": {
+        "primary": "{{host, bidi}} is now the primary domain",
+        "verify": "{{host, bidi}} marked as verified",
+        "remove": "{{host, bidi}} removed"
+      },
+      "confirm": {
+        "verify": {
+          "title": "Mark {{host, bidi}} as verified?",
+          "message": "Confirm only after checking that the domain's DNS points to the platform. The platform does not check this automatically yet.",
+          "action": "Mark verified"
+        },
+        "remove": {
+          "title": "Remove {{host, bidi}}?",
+          "message": "The store stops answering on this domain immediately. Links and bookmarks that use it will stop working.",
+          "action": "Remove domain"
+        }
+      }
+    },
+    "modules": {
+      "title": "Modules",
+      "hint": "Optional capabilities. A disabled module is refused by the server, not only hidden.",
+      "name": {
+        "promotions": "Coupons",
+        "reviews": "Reviews",
+        "wishlist": "Wishlist"
+      },
+      "description": {
+        "promotions": "Discount codes at checkout, managed by the store.",
+        "reviews": "Verified buyers review products; the store moderates them.",
+        "wishlist": "Customers save products for later."
+      },
+      "saved": "Modules saved",
+      "unsaved": "Unsaved changes",
+      "upToDate": "Saved"
+    },
+    "admins": {
+      "title": "Administrator",
+      "hint": "The client's first administrator. They choose a password from an emailed link and then invite their own team.",
+      "none": "No administrator yet.",
+      "needsDomain": "Add a domain before inviting an administrator: the invitation link opens on the store's own domain.",
+      "archived": "An archived store cannot receive new administrators.",
+      "linkHost": "The invitation link will open on {{host, bidi}}.",
+      "invite": "Send invitation",
+      "invited": "Invitation sent to {{email, bidi}}",
+      "renewed": "A new invitation was sent to {{email, bidi}}; the previous link no longer works"
+    },
+    "lifecycle": {
+      "title": "Status",
+      "current": {
+        "Provisioning": "Being set up: closed to visitors until activated.",
+        "Active": "Active: open to visitors.",
+        "Suspended": "Suspended: closed to visitors. Its data is kept and it can be reactivated.",
+        "Archived": "Archived: permanently closed. This cannot be undone."
+      },
+      "action": {
+        "Activate": "Activate store",
+        "Suspend": "Suspend store",
+        "Archive": "Archive store"
+      },
+      "done": {
+        "Activate": "{{name, bidi}} is active",
+        "Suspend": "{{name, bidi}} is suspended",
+        "Archive": "{{name, bidi}} is archived"
+      },
+      "confirm": {
+        "Activate": {
+          "title": "Activate {{name, bidi}}?",
+          "message": "The storefront opens to visitors on its domains immediately."
+        },
+        "Suspend": {
+          "title": "Suspend {{name, bidi}}?",
+          "message": "The storefront closes immediately and shows a store-unavailable page. Data is kept, and the store can be reactivated."
+        },
+        "Archive": {
+          "title": "Archive {{name, bidi}}?",
+          "message": "The store closes permanently and cannot be reactivated. Its data is kept for the record."
+        }
+      },
+      "warning": {
+        "domain": "It has no domain, so visitors cannot reach it yet.",
+        "admin": "No administrator has accepted an invitation, so no one can run it yet."
+      }
+    },
+    "store": {
+      "notFound": "This store doesn't exist.",
+      "editSettings": "Branding and content",
+      "primaryHost": "Primary domain",
+      "backToStore": "← {{name, bidi}}",
+      "settingsTitle": "{{name, bidi}}: branding and content",
+      "settingsSubtitle": "The same editor the store's administrator uses. Changes apply to the storefront when saved."
+    }
   }
 }

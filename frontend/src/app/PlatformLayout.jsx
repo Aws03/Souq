@@ -1,103 +1,63 @@
-import { useNavigate } from 'react-router-dom';
+import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { Suspense } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useQuery } from '@tanstack/react-query';
-import { api } from '../api/client';
-import { queryKeys } from './queryKeys';
 import { useAuth } from '../context/AuthContext';
-import { ErrorBanner } from '../components/common/StateViews';
-import Skeleton from '../components/common/Skeleton';
-import styles from './PlatformLayout.module.css';
-
-// حالات المتجر بترتيب دورة حياته — الترتيب معنى لا أبجدية.
-const TENANT_STATUSES = ['Provisioning', 'Active', 'Suspended', 'Archived'];
+import { setLanguage } from '../i18n';
+import { useTheme } from './TenantProvider';
+import { PagePending } from '../components/ProtectedRoute';
+import { GridIcon, MoonIcon, PackageIcon, SunIcon } from '../components/icons/Icons';
+import styles from '../pages/platform/Platform.module.css';
 
 // ============================================================================
-// منطقة المنصّة (المرحلة 15، المنطقة الرابعة): تخطيطها وحارسها على مضيف المنصّة — لا على مضيف أي متجر (الخادم يرفض نقاطها هناك
-// بـ 404).
-//
-// هذه النظرة أوّل مستهلك لـ GET /api/platform/stats، وهي نقطة قائمة منذ المرحلة 4 لم تكن لها
-// شاشة. بقيّة شاشات المنصّة (المتاجر، التجهيز، الحسابات، سجلّ التدقيق) تبقى للمرحلة 18 —
-// هذه شريحة منها لا استبدال لها، ولا يتغيّر ترقيم خارطة الطريق بسببها.
-//
-// ما يُعرض مجاميع عبر المتاجر لا صفوفاً: لا اسم متجر ولا رقم أعماله يظهر هنا. وحدود العدّ
-// معروضة على الشاشة لأنها حقيقية — الأرقام تشمل المؤرشف والملغى والمعطّل، وهذا نادراً ما
-// يكون ما يفترضه قارئ لوحة.
+// منطقة المنصّة (المنطقة الرابعة): تخطيطها على مضيفها وحده — لا على مضيف أيّ متجر (الخادم يرفض نقاطها هناك
+// بـ 404، ويرفض توكن المتجر هنا بـ 401). شاشاتها: نظرة المنصّة (platform.reports.view) والمتاجر وتجهيزها
+// (platform.tenants.manage). الروابط تتبع صلاحيات الحساب كما يمنحها الخادم؛ الحارس عرضٌ لا حماية.
 // ============================================================================
+export const PLATFORM_NAV = [
+  { to: '/platform', end: true, label: 'platform.nav.overview', icon: GridIcon, permission: 'platform.reports.view' },
+  { to: '/platform/stores', label: 'platform.nav.stores', icon: PackageIcon, permission: 'platform.tenants.manage' },
+];
+
 export default function PlatformLayout() {
-  const { t } = useTranslation();
-  const { user, logout } = useAuth();
+  const { t, i18n } = useTranslation();
+  const { user, logout, can } = useAuth();
+  const { theme, toggleTheme } = useTheme();
+  const otherLanguage = i18n.language === 'ar' ? 'en' : 'ar';
   const navigate = useNavigate();
 
   const signOut = () => { logout(); navigate('/login', { replace: true }); };
-
-  const { data, error, isPending, refetch } = useQuery({
-    queryKey: queryKeys.platformStats(),
-    queryFn: () => api.getPlatformStats(),
-    staleTime: 60_000,
-  });
-
-  const totalStores = TENANT_STATUSES.reduce((sum, status) => sum + (data?.tenantsByStatus?.[status] ?? 0), 0);
-
-  const figures = data ? [
-    { key: 'stores', value: totalStores },
-    { key: 'customers', value: data.customers },
-    { key: 'products', value: data.products },
-    { key: 'orders', value: data.orders },
-    { key: 'ordersRecent', value: data.ordersLast30Days },
-    { key: 'platformAccounts', value: data.platformAccounts },
-    { key: 'storeStaff', value: data.storeStaffAccounts },
-  ] : [];
+  const nav = PLATFORM_NAV.filter((item) => can(item.permission));
+  const linkClass = ({ isActive }) => `${styles.navLink} ${isActive ? styles.navActive : ''}`;
 
   return (
     <div className={styles.shell}>
+      <a href="#platform-main" className={styles.skip}>{t('platform.skipToContent')}</a>
       <header className={styles.header}>
         <strong className={styles.brand}>{t('platform.name')}</strong>
+        <nav className={styles.nav} aria-label={t('platform.nav.label')}>
+          {nav.map(({ to, end, label, icon: Icon }) => (
+            <NavLink key={to} to={to} end={end} className={linkClass}><Icon size={16} /> {t(label)}</NavLink>
+          ))}
+        </nav>
         <div className={styles.account}>
-          <span>{t('platform.signedInAs', { name: user?.fullName })}</span>
+          {/* المنصّة بلا متجر يحدّد لغاته: اللغتان المدعومتان متاحتان دائماً، والوضع كما عند الزوّار. */}
+          <button type="button" className={styles.headerButton} onClick={() => setLanguage(otherLanguage)}
+            aria-label={t('nav.langToggleAria')}>
+            {otherLanguage === 'en' ? 'EN' : 'ع'}
+          </button>
+          <button type="button" className={styles.headerButton} onClick={toggleTheme} aria-pressed={theme === 'dark'}
+            aria-label={t('nav.themeToggleAria')} title={t(theme === 'dark' ? 'nav.switchToLight' : 'nav.switchToDark')}>
+            {theme === 'dark' ? <SunIcon size={17} /> : <MoonIcon size={17} />}
+          </button>
+          <span className={styles.accountName}>{t('platform.signedInAs', { name: user?.fullName })}</span>
           <button type="button" className={styles.signOut} onClick={signOut}>{t('platform.logout')}</button>
         </div>
       </header>
 
-      <main className={styles.content}>
-        <h1 className={styles.title}>{t('platform.overviewTitle')}</h1>
-        <p className={styles.subtitle}>{t('platform.overviewSubtitle')}</p>
-
-        {error && <ErrorBanner message={error.message} onRetry={refetch} />}
-        {isPending && <Skeleton height={120} radius={14} />}
-
-        {data && (
-          <>
-            <div className={styles.figures}>
-              {figures.map((figure) => (
-                <article key={figure.key} className={styles.figure}>
-                  <span className={styles.figureLabel}>{t(`platform.${figure.key}`)}</span>
-                  <strong className={styles.figureValue}>{figure.value}</strong>
-                </article>
-              ))}
-            </div>
-
-            <section className={styles.panel}>
-              <h2 className={styles.panelTitle}>{t('platform.storesByStatus')}</h2>
-              <ul className={styles.statusList}>
-                {TENANT_STATUSES.map((status) => (
-                  <li key={status}>
-                    <span>{t(`platform.status.${status}`)}</span>
-                    <b>{data.tenantsByStatus?.[status] ?? 0}</b>
-                  </li>
-                ))}
-              </ul>
-            </section>
-
-            {/* حدود العدّ معروضة لا مطويّة: قارئٌ يفترض أن "الطلبات" تعني المكتملة سيقرأ خطأً. */}
-            <section className={styles.limits}>
-              <h2 className={styles.panelTitle}>{t('platform.countingTitle')}</h2>
-              <p>{t('platform.countingNote')}</p>
-              <p>{t('platform.noTenantData')}</p>
-            </section>
-
-            <p className={styles.roadmapNote}>{t('platform.subtitle')}</p>
-          </>
-        )}
+      <main id="platform-main" className={styles.content} tabIndex={-1}>
+        <Suspense fallback={<PagePending />}>
+          <Outlet />
+        </Suspense>
       </main>
     </div>
   );

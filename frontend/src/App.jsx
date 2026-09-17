@@ -61,6 +61,12 @@ const ReviewModeration = lazy(() => import('./pages/admin/ReviewModeration'));
 const StoreSettings = lazy(() => import('./pages/admin/StoreSettings'));
 const Staff = lazy(() => import('./pages/admin/Staff'));
 const PlatformLayout = lazy(() => import('./app/PlatformLayout'));
+const PlatformOverview = lazy(() => import('./pages/platform/PlatformOverview'));
+const PlatformStores = lazy(() => import('./pages/platform/Stores'));
+const PlatformNewStore = lazy(() => import('./pages/platform/NewStore'));
+const PlatformStoreSetup = lazy(() => import('./pages/platform/StoreSetup'));
+const PlatformStoreDetail = lazy(() => import('./pages/platform/StoreDetail'));
+const PlatformStoreSettingsPage = lazy(() => import('./pages/platform/StoreSettingsPage'));
 
 // صفحة إدارة بصلاحيتها (والوحدة إن كانت اختيارية) — الشريط الجانبي يخفي رابطها بالشرط نفسه.
 const guarded = (element, permission, module) => {
@@ -172,7 +178,12 @@ function StoreRoutes() {
   );
 }
 
-// منطقة المنصّة على مضيفها: الدخول وقبول الدعوات، ولوحتها لحسابات المنصّة (شاشاتها في المرحلة 18).
+// صفحة منصّة بصلاحيتها: رابط مباشر بلا صلاحية يعود إلى المتاجر أو النظرة، لا إلى لوحة متجر لا وجود لها هنا.
+const platformGuarded = (element, permission, fallback = '/platform') => (
+  <RequirePermission permission={permission} fallback={fallback}>{element}</RequirePermission>
+);
+
+// منطقة المنصّة على مضيفها: الدخول وقبول الدعوات، ولوحتها لحسابات المنصّة — النظرة، والمتاجر وتجهيزها.
 function PlatformRoutes() {
   return (
     <Routes>
@@ -180,7 +191,15 @@ function PlatformRoutes() {
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/accept-invitation" element={<ResetPassword mode="invitation" />} />
-      <Route path="/platform/*" element={<PlatformRoute><PlatformLayout /></PlatformRoute>} />
+      <Route path="/platform" element={<PlatformRoute><PlatformLayout /></PlatformRoute>}>
+        <Route index element={platformGuarded(<PlatformOverview />, 'platform.reports.view', '/platform/stores')} />
+        <Route path="stores" element={platformGuarded(<PlatformStores />, 'platform.tenants.manage')} />
+        <Route path="stores/new" element={platformGuarded(<PlatformNewStore />, 'platform.tenants.manage')} />
+        <Route path="stores/:id" element={platformGuarded(<PlatformStoreDetail />, 'platform.tenants.manage')} />
+        <Route path="stores/:id/settings" element={platformGuarded(<PlatformStoreSettingsPage />, 'platform.tenants.manage')} />
+        <Route path="stores/:id/setup/:step" element={platformGuarded(<PlatformStoreSetup />, 'platform.tenants.manage')} />
+        <Route path="*" element={<Navigate to="/platform" replace />} />
+      </Route>
       <Route path="*" element={<Navigate to="/platform" replace />} />
     </Routes>
   );

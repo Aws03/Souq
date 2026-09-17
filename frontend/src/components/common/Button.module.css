@@ -27,3 +27,8 @@
 .link:hover:not(:disabled) { color: var(--color-text); text-decoration: underline; }
 
 .hiddenLabel { opacity: 0; position: absolute; }
+
+/* إجراء هدّام: نصّ الخطر وحدّه على السطح لا تعبئة حمراء — --color-danger مشتقّ مقروءاً على الخلفية،
+   والأبيض فوقه لا يبلغ 4.5:1 (#C4674E ≈ 3.9:1). اللون يحمل المعنى، والتباين يبقى مضموناً في الوضعين. */
+.danger { background: var(--color-surface); color: var(--color-danger); border: 1.5px solid var(--color-danger); }
+.danger:hover:not(:disabled) { background: var(--color-danger-soft, #fdf0ec); }

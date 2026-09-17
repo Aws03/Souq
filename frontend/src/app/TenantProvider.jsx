@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { api } from '../api/client';
 import { setLanguage } from '../i18n';
 import { BootScreen } from './BootScreens';
-import { applyStoreTheme } from './storeTheme';
+import { applyPlatformTheme, applyStoreTheme } from './storeTheme';
 import { setStoreDateSettings } from './dateLocale';
 import { bootModeForConfig, bootOutcome, isModuleEnabled, setStoreCurrency, supportedLanguage } from './tenantModel';
 import { oppositeMode, readStoredMode, resolveThemeMode, systemPrefersDark, writeStoredMode } from './themeMode';
@@ -77,6 +77,7 @@ export function TenantProvider({ children }) {
   // مغلق، كي تظهر شاشة إغلاقه بألوانه وخطّه لا بمظهر محايد.
   useEffect(() => {
     if (state.config) applyStoreTheme(state.config, i18n.language, theme);
+    else if (state.mode === 'platform') applyPlatformTheme(theme);
   }, [state, i18n.language, theme]);
 
   // زائر لم يختر شيئاً يتبع نظامه حيّاً: تبديل النظام ليلاً يجب أن يتبعه المتجر بلا إعادة تحميل.

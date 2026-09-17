@@ -39,9 +39,9 @@ export function AdminRoute({ children }) {
 }
 
 // صفحة إدارة بصلاحيتها (الشريط الجانبي يخفي رابطها بالشرط نفسه) — رابط مباشر بلا صلاحية يعود للوحة.
-export function RequirePermission({ permission, children }) {
+export function RequirePermission({ permission, fallback = '/admin', children }) {
   const { can } = useAuth();
-  return can(permission) ? children : <Navigate to="/admin" replace />;
+  return can(permission) ? children : <Navigate to={fallback} replace />;
 }
 
 // صفحة وحدة اختيارية معطّلة في المتجر ⇒ لا تُعرض.

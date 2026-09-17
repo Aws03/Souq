@@ -2,24 +2,25 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router-dom';
-import { withQueryClient } from '../test/queryWrapper';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { withQueryClient } from '../../test/queryWrapper';
 
 // ============================================================================
 // نظرة المنصّة: مجاميع عبر المتاجر لا بيانات متجر بعينه.
 // وحدود العدّ معروضة — الأرقام تشمل المؤرشف والملغى، وهذا نادراً ما يفترضه قارئ لوحة.
 // ============================================================================
 vi.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (key, v) => (v?.name ? `${key}:${v.name}` : key) }),
+  useTranslation: () => ({ t: (key, v) => (v?.name ? `${key}:${v.name}` : key), i18n: { language: 'en' } }),
 }));
-vi.mock('../context/AuthContext', () => ({
-  useAuth: () => ({ user: { fullName: 'Owner' }, logout: vi.fn() }),
+vi.mock('../../context/AuthContext', () => ({
+  useAuth: () => ({ user: { fullName: 'Owner' }, logout: vi.fn(), can: () => true }),
 }));
 
 const client = vi.hoisted(() => ({ getPlatformStats: vi.fn() }));
-vi.mock('../api/client', () => ({ api: client }));
+vi.mock('../../api/client', () => ({ api: client }));
 
-const PlatformLayout = (await import('./PlatformLayout')).default;
+const PlatformOverview = (await import('./PlatformOverview')).default;
+const PlatformLayout = (await import('../../app/PlatformLayout')).default;
 
 const stats = (overrides = {}) => ({
   tenantsByStatus: { Provisioning: 1, Active: 12, Suspended: 2, Archived: 3 },
@@ -27,7 +28,16 @@ const stats = (overrides = {}) => ({
   orders: 3100, ordersLast30Days: 210, ...overrides,
 });
 
-const renderPlatform = () => render(withQueryClient(<MemoryRouter><PlatformLayout /></MemoryRouter>));
+// الإطار والنظرة معاً كما يُرسمان فعلاً: زرّ الخروج في الإطار، والنظرة داخله.
+const renderPlatform = () => render(withQueryClient(
+  <MemoryRouter initialEntries={['/platform']}>
+    <Routes>
+      <Route path="/platform" element={<PlatformLayout />}>
+        <Route index element={<PlatformOverview />} />
+      </Route>
+    </Routes>
+  </MemoryRouter>,
+));
 
 beforeEach(() => client.getPlatformStats.mockReset());
 

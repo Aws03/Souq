@@ -1,7 +1,7 @@
 import { useId, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Button from '../../components/common/Button';
-import styles from './StoreSettings.module.css';
+import styles from './StoreSettingsEditor.module.css';
 
 // ============================================================================
 // ملف هوية (شعار، أيقونة، صورة مشاركة): يُرفع فور اختياره لا مع "حفظ". الخادم يفحص المحتوى لا الاسم

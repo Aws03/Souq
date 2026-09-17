@@ -23,6 +23,11 @@ export const queryKeys = {
 
   storeDashboard: (range) => ['store-dashboard', range],
   platformStats: () => ['platform-stats'],
+  provisioningOptions: () => ['provisioning-options'],
+  platformStores: (params) => ['platform-stores', params],
+  platformStore: (id) => ['platform-store', String(id)],
+  platformStoreSettings: (id) => ['platform-store', String(id), 'settings'],
+  platformStoreAccounts: (id) => ['platform-store', String(id), 'accounts'],
 
   storeSettings: () => ['store-settings'],
   storeSettingsOptions: () => ['store-settings-options'],

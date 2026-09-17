@@ -211,6 +211,40 @@ export const api = {
   // مجمَّعة لا صفوفاً: لا بيانات متجر بعينه تعبر إلى هنا.
   getPlatformStats: () => request('/platform/stats'),
 
+  // ── متاجر المنصّة (مضيف المنصّة، platform.tenants.manage) ── هنا وحدها يأتي معرّف متجر في المسار، وكل طلب
+  // مُدقَّق على الخادم. التجهيز خطوات مستقلّة تُحفظ كلٌّ منها فوراً: متجر لم يكتمل تجهيزه يبقى "قيد التجهيز"
+  // مغلقاً للزوّار، ويُستأنف من حيث توقّف — لا معاملة تمتدّ عبر شاشات.
+  getProvisioningOptions: () => request('/platform/tenants/options'),
+  getPlatformStores: (params = {}) => request(`/platform/tenants${toQueryString(params)}`),
+  getPlatformStore: (id) => request(`/platform/tenants/${id}`),
+  createPlatformStore: (payload) => request('/platform/tenants', { method: 'POST', body: JSON.stringify(payload) }),
+  updatePlatformStore: (id, payload) => request(`/platform/tenants/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
+  // action: Activate | Suspend | Archive
+  changePlatformStoreStatus: (id, action) =>
+    request(`/platform/tenants/${id}/status`, { method: 'POST', body: JSON.stringify({ action }) }),
+  addPlatformStoreDomain: (id, host) =>
+    request(`/platform/tenants/${id}/domains`, { method: 'POST', body: JSON.stringify({ host }) }),
+  removePlatformStoreDomain: (id, host) =>
+    request(`/platform/tenants/${id}/domains/${encodeURIComponent(host)}`, { method: 'DELETE' }),
+  setPlatformStorePrimaryDomain: (id, host) =>
+    request(`/platform/tenants/${id}/domains/${encodeURIComponent(host)}/primary`, { method: 'POST' }),
+  verifyPlatformStoreDomain: (id, host) =>
+    request(`/platform/tenants/${id}/domains/${encodeURIComponent(host)}/verify`, { method: 'POST' }),
+  updatePlatformStoreSettings: (id, payload) =>
+    request(`/platform/tenants/${id}/settings`, { method: 'PUT', body: JSON.stringify(payload) }),
+  setPlatformStoreModules: (id, modules) =>
+    request(`/platform/tenants/${id}/modules`, { method: 'PUT', body: JSON.stringify({ modules }) }),
+  // المحرّر يسمّي الملف logo | favicon | social-image؛ نقطة المنصّة تأخذ اسم التعداد (BrandingAsset).
+  uploadPlatformStoreBranding: (id, asset, file) => {
+    const form = new FormData();
+    form.append('file', file);
+    const name = { logo: 'Logo', favicon: 'Favicon', 'social-image': 'SocialImage' }[asset];
+    return upload(`/platform/tenants/${id}/branding/${name}`, form);
+  },
+  getPlatformStoreAccounts: (id, params = {}) => request(`/platform/tenants/${id}/accounts${toQueryString(params)}`),
+  invitePlatformStoreAdmin: (id, payload) =>
+    request(`/platform/tenants/${id}/admins`, { method: 'POST', body: JSON.stringify(payload) }),
+
   // ── تقارير المتجر (أدمن، store.reports.view) ── استجابة واحدة للوحة كاملة: بطاقاتها من
   // لحظة واحدة لا من اثنتي عشرة، والمدّة مفتاح مغلق لا تاريخان من المتصفّح.
   getStoreDashboard: (range = 'Last30Days') => request(`/admin/reports/dashboard?range=${range}`),
