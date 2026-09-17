@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useTranslation } from 'react-i18next';
 import { MoreIcon } from '../icons/Icons';
 import styles from './RowActionsMenu.module.css';
 
@@ -10,8 +11,11 @@ import styles from './RowActionsMenu.module.css';
  * RTL وLTR (المحاذاة تُحسَب من اتجاه المستند)، وتُثبَّت داخل حدود النافذة
  * وتنقلب لأعلى قرب أسفلها. تُغلَق بنقرة خارجية أو Escape أو تمرير/تحجيم.
  * actions: [{ label, onClick, variant: 'default' | 'danger', disabled }]
+ * label: اسم الزرّ لقارئ الشاشة — أيقونة "⋮" وحدها لا تُقرأ، فكان كل صفّ يُعلَن "زرّ" بلا اسم.
+ * يُفضَّل تمرير اسم يحمل الصفّ ("إجراءات Clerk")، فعشرون زرّاً باسم واحد لا تُميَّز.
  */
-export default function RowActionsMenu({ actions, disabled }) {
+export default function RowActionsMenu({ actions, disabled, label }) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState(null); // null = لم تُقَس بعد؛ تُرسَم مخفية ثم تُموضَع
   const triggerRef = useRef(null);
@@ -59,7 +63,7 @@ export default function RowActionsMenu({ actions, disabled }) {
     <>
       <button ref={triggerRef} type="button" className={styles.trigger}
         onClick={() => (open ? close() : setOpen(true))}
-        disabled={disabled} aria-haspopup="menu" aria-expanded={open}>
+        disabled={disabled} aria-haspopup="menu" aria-expanded={open} aria-label={label ?? t('common.moreActions')}>
         <MoreIcon />
       </button>
       {open && createPortal(

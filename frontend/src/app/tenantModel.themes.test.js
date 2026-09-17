@@ -156,3 +156,29 @@ describe('النصّ على التعبئة', () => {
     expect(contrastRatio(v['--color-on-primary'], v['--color-primary'])).toBeGreaterThanOrEqual(AA);
   });
 });
+
+// ============================================================================
+// الحالة على سطحها. الشارة ("تمّ التسليم"، "موقوف") نصّ الحالة فوق سطحها الناعم، لا فوق الخلفية —
+// والفحص القديم كان على الخلفية وحدها، فمرّ بينما الأخضر على شارته 4.19:1. وجده axe في المتصفّح على
+// شاشة الفريق، لا اختبار وحدة: كل رمز صحيح وحده، والعيب في الزوج.
+// ============================================================================
+describe('ألوان الحالة على سطحها الناعم', () => {
+  const palettes = [
+    brand(),
+    brand({ background: '#FFFFFF', text: '#1F2933' }),
+    brand({ background: '#FFF8E7', text: '#2B2118', primary: '#7A2E0E' }),
+  ];
+
+  it('كل حالة مقروءة على سطحها وعلى الخلفية، في الوضعين', () => {
+    for (const palette of palettes) {
+      for (const mode of ['light', 'dark']) {
+        const v = themeVariables(palette, mode);
+        for (const status of ['success', 'info', 'danger']) {
+          const where = `${status} · ${mode} · ${palette.colors.background}`;
+          expect(contrastRatio(v[`--color-${status}`], v[`--color-${status}-soft`]), where).toBeGreaterThanOrEqual(AA);
+          expect(contrastRatio(v[`--color-${status}`], v['--color-bg']), where).toBeGreaterThanOrEqual(AA);
+        }
+      }
+    }
+  });
+});

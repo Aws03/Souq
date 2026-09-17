@@ -27,7 +27,9 @@
   color: var(--color-text);
 }
 .logo { max-block-size: 28px; max-inline-size: 120px; object-fit: contain; }
-.name { font-family: var(--tenant-font-heading); font-weight: 700; font-size: 15px; color: var(--color-primary); overflow-wrap: anywhere; }
+/* الاسم بلون الهوية كما في رأس المتجر — وبحجم "نصّ كبير" (≥ 18.66px عريض) كما هناك، لأن Domain يضمن
+   للأساسي 3:1 على الخلفية لا 4.5:1. تصغيره هنا كان سيعرض في المعاينة نصّاً أقلّ قراءةً من الحقيقي. */
+.name { font-family: var(--tenant-font-heading); font-weight: 700; font-size: 19px; color: var(--color-primary); overflow-wrap: anywhere; }
 
 .hero {
   background: var(--color-panel); color: var(--color-on-panel);

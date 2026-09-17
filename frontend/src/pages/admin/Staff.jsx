@@ -96,7 +96,8 @@ export default function Staff() {
         const actions = staffActions(a, user?.id);
         if (actions.length === 0) return null;
         return (
-          <RowActionsMenu disabled={pendingId === a.id} actions={actions.map((action) => ({
+          <RowActionsMenu disabled={pendingId === a.id} label={t('admin.staff.actionsFor', { name: a.fullName })}
+            actions={actions.map((action) => ({
             label: t(`admin.staff.action.${action}`),
             variant: action === 'disable' ? 'danger' : 'default',
             onClick: () => run(a, action),

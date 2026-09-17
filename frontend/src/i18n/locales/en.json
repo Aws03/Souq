@@ -13,7 +13,8 @@
     "disable": "Disable",
     "loading": "Loading",
     "decreaseQty": "Decrease quantity",
-    "increaseQty": "Increase quantity"
+    "increaseQty": "Increase quantity",
+    "moreActions": "More actions"
   },
   "nav": {
     "openMenu": "Open menu",
@@ -1075,7 +1076,8 @@
         "emailRequired": "Enter their email.",
         "emailInvalid": "Enter a valid email address.",
         "roleInvalid": "Choose a role."
-      }
+      },
+      "actionsFor": "Actions for {{name, bidi}}"
     }
   },
   "wishlist": {

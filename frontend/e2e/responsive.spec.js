@@ -42,7 +42,7 @@ test.describe('لوحة الإدارة على هاتف', () => {
   test.beforeEach(async ({ page }) => { await signIn(page); });
 
   test('لا تمرير أفقي في أي من شاشات الإدارة', async ({ page }) => {
-    for (const path of ['/admin', '/admin/business', '/admin/products', '/admin/orders']) {
+    for (const path of ['/admin', '/admin/business', '/admin/products', '/admin/orders', '/admin/settings', '/admin/staff']) {
       await page.goto(path);
       await page.waitForTimeout(2500);
       expect(await pageOverflows(page), `تمرير أفقي في ${path}`).toBe(false);
@@ -94,6 +94,27 @@ test.describe('لوحة الإدارة على هاتف', () => {
       });
       expect(scrolls, 'جدول أعرض من الشاشة بلا حاوية تمرّره').toBe(true);
     }
+  });
+
+  test('إعدادات المتجر على هاتف: شريط الحفظ فوق شريط التبويب، والمعاينة داخل الشاشة، في الاتجاهين', async ({ page }) => {
+    for (const language of ['en', 'ar']) {
+      await page.evaluate((lang) => localStorage.setItem('souq_lang', lang), language);
+      await page.goto('/admin/settings');
+      await page.locator('#settings-colors-primary').waitFor({ timeout: 45_000 });
+      expect(await page.evaluate(() => document.documentElement.dir)).toBe(language === 'ar' ? 'rtl' : 'ltr');
+      expect(await pageOverflows(page), `تمرير أفقي بالاتجاه ${language}`).toBe(false);
+
+      // شريط الحفظ يلتصق بأسفل الشاشة؛ إن غطّاه شريط التبويب الثابت صار "حفظ" زرّاً لا يُلمس.
+      const save = await page.getByRole('region', { name: /Save changes|حفظ التعديلات/ }).boundingBox();
+      const tabs = await page.locator('nav').filter({ has: page.getByRole('link', { name: /^(Home|الرئيسية)$/ }) }).last().boundingBox();
+      expect(save.y + save.height, 'شريط الحفظ تحت شريط التبويب').toBeLessThanOrEqual(tabs.y + 1);
+
+      const width = page.viewportSize().width;
+      const preview = await page.locator('figure').boundingBox();
+      expect(preview.x).toBeGreaterThanOrEqual(-1);
+      expect(preview.x + preview.width).toBeLessThanOrEqual(width + 1);
+    }
+    await page.evaluate(() => localStorage.setItem('souq_lang', 'en'));
   });
 
   test('اللوحة تُقرأ على هاتف: المؤشّرات والمخطّطات تتراصّ ولا تُقصّ', async ({ page }) => {

@@ -103,7 +103,11 @@ export default function StoreSettings() {
     setSubmitted(true);
     setServerError(null);
     if (problems.length > 0) {
-      document.getElementById(fieldId(problems[0].field))?.focus();
+      // التركيز بلا تمرير المتصفّح، ثم تمرير إلى الوسط: التمرير الافتراضي يضع الحقل على حافّة الشاشة،
+      // وهناك يغطّيه شريط الحفظ الملتصق — فيُركَّز حقلٌ لا يُرى.
+      const first = document.getElementById(fieldId(problems[0].field));
+      first?.focus({ preventScroll: true });
+      first?.scrollIntoView?.({ block: 'center' });
       return;
     }
     setBusy(true);
@@ -180,8 +184,8 @@ export default function StoreSettings() {
         )}
 
         {/* ── الهوية ── */}
-        <section className={styles.section} aria-labelledby="settings-identity">
-          <h3 id="settings-identity" className={styles.sectionTitle}>{t('admin.settings.section.identity')}</h3>
+        <section className={styles.section} aria-labelledby="section-identity">
+          <h3 id="section-identity" className={styles.sectionTitle}>{t('admin.settings.section.identity')}</h3>
           <p className={styles.sectionHint}>{t('admin.settings.section.identityHint')}</p>
           <div className={styles.grid2}>{localizedFields('displayName', { max: options.limits.displayName })}</div>
           <div className={styles.assets}>
@@ -193,8 +197,8 @@ export default function StoreSettings() {
         </section>
 
         {/* ── المظهر ── */}
-        <section className={styles.section} aria-labelledby="settings-appearance">
-          <h3 id="settings-appearance" className={styles.sectionTitle}>{t('admin.settings.section.appearance')}</h3>
+        <section className={styles.section} aria-labelledby="section-appearance">
+          <h3 id="section-appearance" className={styles.sectionTitle}>{t('admin.settings.section.appearance')}</h3>
           <p className={styles.sectionHint}>{t('admin.settings.section.appearanceHint')}</p>
           <div className={styles.appearance}>
             <div className={styles.appearanceControls}>
@@ -304,8 +308,8 @@ export default function StoreSettings() {
         </section>
 
         {/* ── اللغة والمنطقة ── */}
-        <section className={styles.section} aria-labelledby="settings-locale">
-          <h3 id="settings-locale" className={styles.sectionTitle}>{t('admin.settings.section.locale')}</h3>
+        <section className={styles.section} aria-labelledby="section-locale">
+          <h3 id="section-locale" className={styles.sectionTitle}>{t('admin.settings.section.locale')}</h3>
           <fieldset className={styles.fieldset}>
             <legend className={styles.label}>{t('admin.settings.enabledCultures')}</legend>
             <div className={styles.choices} id={fieldId('enabledCultures')} tabIndex={-1}>
@@ -353,8 +357,8 @@ export default function StoreSettings() {
         </section>
 
         {/* ── التواصل ── */}
-        <section className={styles.section} aria-labelledby="settings-contact">
-          <h3 id="settings-contact" className={styles.sectionTitle}>{t('admin.settings.section.contact')}</h3>
+        <section className={styles.section} aria-labelledby="section-contact">
+          <h3 id="section-contact" className={styles.sectionTitle}>{t('admin.settings.section.contact')}</h3>
           <p className={styles.sectionHint}>{t('admin.settings.section.contactHint')}</p>
           <div className={styles.grid2}>
             {[['contactEmail', 'email'], ['contactPhone', 'tel']].map(([field, type]) => (
@@ -372,8 +376,8 @@ export default function StoreSettings() {
         </section>
 
         {/* ── التواصل الاجتماعي ── */}
-        <section className={styles.section} aria-labelledby="settings-social">
-          <h3 id="settings-social" className={styles.sectionTitle}>{t('admin.settings.section.social')}</h3>
+        <section className={styles.section} aria-labelledby="section-social">
+          <h3 id="section-social" className={styles.sectionTitle}>{t('admin.settings.section.social')}</h3>
           <p className={styles.sectionHint}>{t('admin.settings.section.socialHint')}</p>
           <div id={fieldId('social')} tabIndex={-1} className={styles.socialList}>
             {form.social.map((link, index) => {
@@ -415,8 +419,8 @@ export default function StoreSettings() {
         </section>
 
         {/* ── محرّكات البحث ── */}
-        <section className={styles.section} aria-labelledby="settings-seo">
-          <h3 id="settings-seo" className={styles.sectionTitle}>{t('admin.settings.section.seo')}</h3>
+        <section className={styles.section} aria-labelledby="section-seo">
+          <h3 id="section-seo" className={styles.sectionTitle}>{t('admin.settings.section.seo')}</h3>
           <p className={styles.sectionHint}>{t('admin.settings.section.seoHint')}</p>
           <h4 className={styles.subTitle}>{t('admin.settings.seoTitle')}</h4>
           <div className={styles.grid2}>{localizedFields('seoTitle', { max: options.limits.seoTitle })}</div>
@@ -427,8 +431,8 @@ export default function StoreSettings() {
         </section>
 
         {/* ── شريط الإعلان ── */}
-        <section className={styles.section} aria-labelledby="settings-announcement">
-          <h3 id="settings-announcement" className={styles.sectionTitle}>{t('admin.settings.section.announcement')}</h3>
+        <section className={styles.section} aria-labelledby="section-announcement">
+          <h3 id="section-announcement" className={styles.sectionTitle}>{t('admin.settings.section.announcement')}</h3>
           <p className={styles.sectionHint}>{t('admin.settings.section.announcementHint')}</p>
           <div className={styles.grid2}>{localizedFields('announcement', { max: options.limits.announcement })}</div>
         </section>

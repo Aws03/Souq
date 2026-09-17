@@ -118,6 +118,16 @@ export function themeVariables(branding, mode = 'light') {
   // كل متجر يبدو متجره)، وفي الداكن سطحٌ داكن مصبوغ بهويته لا أسود محايد.
   const panel = dark ? mix(DARK_SURFACE, primary, 0.22) : primary;
 
+  // ── ألوان الحالة ──────────────────────────────────────────────────────────
+  // تُقرأ غالباً على سطحها الناعم (شارة "تمّ التسليم")، لا على الخلفية. كانت تُحسب مقروءةً على
+  // الخلفية وحدها، والسطح الناعم أغمق منها في الفاتح (أفتح في الداكن) — فسقط الأخضر على شارته إلى
+  // 4.19:1. تُحسب الآن على السطح الناعم؛ وما يُقرأ عليه يُقرأ على الخلفية من باب أولى، لأنها أبعد عنه.
+  const statusSoft = {
+    success: mix(STATUS.success, background, dark ? 0.82 : 0.88),
+    info: mix(STATUS.info, background, dark ? 0.82 : 0.88),
+    danger: mix(STATUS.danger, background, dark ? 0.82 : 0.88),
+  };
+
   return {
     '--color-primary': primaryReadable,
     '--color-primary-strong': dark ? mix(primaryReadable, '#FFFFFF', 0.18) : mix(primary, '#000000', 0.25),
@@ -144,12 +154,12 @@ export function themeVariables(branding, mode = 'light') {
     '--color-border': mix(background, text, dark ? 0.16 : 0.12),
 
     // ألوان الحالة تُشتقّ للوضع كي تبقى مقروءة: الأخضر الداكن على خلفية داكنة يختفي.
-    '--color-success': readableAgainst(STATUS.success, background),
-    '--color-success-soft': mix(STATUS.success, background, dark ? 0.82 : 0.88),
-    '--color-info': readableAgainst(STATUS.info, background),
-    '--color-info-soft': mix(STATUS.info, background, dark ? 0.82 : 0.88),
-    '--color-danger': readableAgainst(STATUS.danger, background),
-    '--color-danger-soft': mix(STATUS.danger, background, dark ? 0.82 : 0.88),
+    '--color-success': readableAgainst(STATUS.success, statusSoft.success),
+    '--color-success-soft': statusSoft.success,
+    '--color-info': readableAgainst(STATUS.info, statusSoft.info),
+    '--color-info-soft': statusSoft.info,
+    '--color-danger': readableAgainst(STATUS.danger, statusSoft.danger),
+    '--color-danger-soft': statusSoft.danger,
 
     // الظلّ لا يعمل على سطح داكن: الارتفاع هناك حدٌّ مضيء لا ظلّ أسود.
     '--shadow': dark ? `0 1px 0 ${rgba('#FFFFFF', 0.06)}, 0 8px 24px ${rgba('#000000', 0.45)}`

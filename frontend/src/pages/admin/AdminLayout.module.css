@@ -25,7 +25,14 @@
   padding: 12px 22px; opacity: .78; border-inline-start: 3px solid transparent; transition: all var(--ease-hover);
 }
 .navLink:hover { opacity: 1; background: rgba(255, 255, 255, .06); }
-.navLink.active { opacity: 1; background: rgba(255, 255, 255, .10); border-inline-start-color: var(--color-accent-on-panel); color: var(--color-accent-on-panel); }
+/* القسم الحالي: النصّ بلون اللوحة المضمون قراءته، والتمييز للحافّة وحدها. كان النصّ بلون التمييز فوق
+   خلفية مُفتَّحة، ولون التمييز محسوبٌ مقروءاً على اللوحة نفسها لا على ما فُتِّح منها — فسقط إلى 3.39:1.
+   والتظليل من لون النصّ نفسه لا أبيض ثابت: لوحة فاتحة بنصّ داكن تُظلَّل نحو الداكن فيبقى التباين. */
+.navLink.active {
+  opacity: 1; font-weight: 700; color: var(--color-on-panel);
+  background: color-mix(in srgb, var(--color-on-panel) 10%, transparent);
+  border-inline-start-color: var(--color-accent-on-panel);
+}
 .sidebarFoot { padding: 14px 22px 0; border-top: 1px solid rgba(255, 255, 255, .12); display: flex; flex-direction: column; gap: 10px; }
 .logout { background: none; color: var(--color-on-panel); opacity: .8; text-align: start; padding: 0; font-weight: 500; }
 .logout:hover { opacity: 1; text-decoration: underline; }

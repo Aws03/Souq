@@ -32,7 +32,7 @@
 .asset { display: flex; gap: var(--space-3); align-items: flex-start; min-width: 0; }
 .assetThumb {
   inline-size: 72px; block-size: 72px; flex-shrink: 0; border-radius: 10px; border: 1px dashed var(--color-border);
-  background: var(--color-surface-alt); display: grid; place-items: center; overflow: hidden;
+  background: var(--color-surface); display: grid; place-items: center; overflow: hidden;
 }
 .assetWide { inline-size: 110px; }
 .assetThumb img { max-inline-size: 100%; max-block-size: 100%; object-fit: contain; }
@@ -71,7 +71,7 @@
 .checkPass > span:first-child { color: var(--color-success); font-weight: 700; }
 .checkFail { background: var(--color-danger-soft, #fdf0ec); color: var(--color-text); }
 .checkFail > span:first-child { color: var(--color-danger); font-weight: 700; }
-.ratio { font-variant-numeric: tabular-nums; color: var(--color-text-muted); white-space: nowrap; }
+.ratio { font-variant-numeric: tabular-nums; color: var(--color-text); white-space: nowrap; }  /* على سطح الحالة الناعم: الخافت يسقط تحت 4.5:1 */
 .srOnly {
   position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
 }
@@ -102,7 +102,10 @@
 .saveActions { display: flex; gap: var(--space-2); }
 
 @media (max-width: 767px) {
-  .saveBar { inset-block-end: 72px; }
+  /* سطر واحد على الهاتف: شريط من سطرين كان يأخذ خُمس الشاشة فوق شريط التبويب. */
+  .saveBar { inset-block-end: 72px; flex-wrap: nowrap; padding: 8px 10px; gap: var(--space-2); }
+  .saveState { font-size: 12px; min-width: 0; }
+  .saveActions { flex-shrink: 0; }
   .socialRow { grid-template-columns: minmax(0, 1fr) 44px; }
   .socialRow .network { grid-column: 1 / -1; }
   .socialRow .socialUrl { grid-column: 1; }
