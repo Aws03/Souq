@@ -266,3 +266,21 @@ export const MoonIcon = ({ size = 18 }) => (
     <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" />
   </svg>
 );
+
+// إعدادات المتجر: مفتاحا ضبط أفقيان — "ضبط" لا "ترس"، فالشاشة هوية ومحتوى لا إعدادات نظام.
+export const SlidersIcon = ({ size = 18 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+    <path d="M4 7h9M17 7h3M4 17h3M11 17h9" />
+    <circle cx="15" cy="7" r="2" /><circle cx="9" cy="17" r="2" />
+  </svg>
+);
+
+// فريق المتجر: شخصان — الموظّفون، لا العملاء (UserIcon).
+export const TeamIcon = ({ size = 18 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <circle cx="9" cy="8" r="3" /><path d="M3 20c.9-3.2 3.2-5 6-5s5.1 1.8 6 5" />
+    <path d="M16 5.2a3 3 0 0 1 0 5.6M18 15.3c1.4.7 2.4 2.3 3 4.7" />
+  </svg>
+);

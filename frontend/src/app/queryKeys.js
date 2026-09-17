@@ -24,6 +24,10 @@ export const queryKeys = {
   storeDashboard: (range) => ['store-dashboard', range],
   platformStats: () => ['platform-stats'],
 
+  storeSettings: () => ['store-settings'],
+  storeSettingsOptions: () => ['store-settings-options'],
+  staff: (page, pageSize) => ['staff', page, pageSize],
+
   myProfile: () => ['my-profile'],
   myAddresses: () => ['my-addresses'],
 };

@@ -1,0 +1,117 @@
+/* إعدادات المتجر: أقسام بطاقات بعرض قراءة مريح، والمعاينة بجانب ضوابط المظهر على الشاشة العريضة. */
+.page { max-width: 980px; }
+.form { display: flex; flex-direction: column; gap: var(--space-5); }
+
+.section {
+  background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 14px;
+  padding: clamp(16px, 3vw, 22px); min-width: 0;
+}
+.sectionTitle { font-size: 18px; margin: 0 0 4px; color: var(--color-text); }
+.sectionHint { color: var(--color-text-muted); font-size: var(--fs-body-sm); margin: 0 0 var(--space-4); }
+.subTitle { font-size: var(--fs-label); margin: var(--space-3) 0 var(--space-2); color: var(--color-text); }
+
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 0 var(--space-4); }
+.field { margin-bottom: var(--space-4); min-width: 0; }
+.label { display: block; font-weight: 700; font-size: var(--fs-label); margin-bottom: 6px; }
+.labelNote { font-weight: 400; color: var(--color-text-muted); }
+.hint { display: block; color: var(--color-text-muted); font-size: 12px; margin-top: 5px; }
+.fieldError { display: block; color: var(--color-danger); font-size: 12.5px; margin-top: 5px; }
+.textarea { resize: vertical; min-block-size: 76px; }
+.fieldset { border: 0; padding: 0; margin: 0 0 var(--space-4); min-width: 0; }
+.fieldset legend { padding: 0; }
+
+.choices { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-4); }
+.choice, .checkboxRow {
+  display: inline-flex; align-items: center; gap: 8px; min-block-size: 40px;
+  font-weight: 600; font-size: var(--fs-body-sm); cursor: pointer;
+}
+.choice input, .checkboxRow input { inline-size: 18px; block-size: 18px; accent-color: var(--color-primary); }
+
+/* ── الملفات ── */
+.assets { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: var(--space-4); }
+.asset { display: flex; gap: var(--space-3); align-items: flex-start; min-width: 0; }
+.assetThumb {
+  inline-size: 72px; block-size: 72px; flex-shrink: 0; border-radius: 10px; border: 1px dashed var(--color-border);
+  background: var(--color-surface-alt); display: grid; place-items: center; overflow: hidden;
+}
+.assetWide { inline-size: 110px; }
+.assetThumb img { max-inline-size: 100%; max-block-size: 100%; object-fit: contain; }
+.assetEmpty { font-size: 11px; color: var(--color-text-muted); text-align: center; padding: 4px; }
+.assetBody { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; min-width: 0; }
+.assetBody .hint { margin-top: 0; }
+.assetLabel { font-weight: 700; font-size: var(--fs-label); }
+.fileInput {
+  position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+}
+
+/* ── المظهر ── */
+.appearance { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-5); }
+@media (min-width: 1100px) {
+  .appearance { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); align-items: start; }
+  .appearance > figure { position: sticky; inset-block-start: 76px; }
+}
+.appearanceControls { min-width: 0; }
+
+.colors { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: var(--space-3); }
+.color { min-width: 0; }
+.colorLabel { display: block; font-size: 12.5px; font-weight: 600; margin-bottom: 4px; color: var(--color-text-muted); }
+.colorRow { display: flex; gap: 6px; align-items: stretch; }
+.swatch {
+  inline-size: 44px; min-block-size: 44px; flex-shrink: 0; padding: 2px; cursor: pointer;
+  border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-surface);
+}
+.hex { font-variant-numeric: tabular-nums; text-transform: uppercase; min-width: 0; }
+
+.checks { list-style: none; margin: 0 0 var(--space-4); padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.checks li {
+  display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: baseline;
+  font-size: 12.5px; padding: 6px 10px; border-radius: 8px;
+}
+.checkPass { background: var(--color-success-soft); color: var(--color-text); }
+.checkPass > span:first-child { color: var(--color-success); font-weight: 700; }
+.checkFail { background: var(--color-danger-soft, #fdf0ec); color: var(--color-text); }
+.checkFail > span:first-child { color: var(--color-danger); font-weight: 700; }
+.ratio { font-variant-numeric: tabular-nums; color: var(--color-text-muted); white-space: nowrap; }
+.srOnly {
+  position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+}
+
+.readOnly { display: flex; flex-wrap: wrap; gap: 4px 10px; margin: 0; font-size: var(--fs-body-sm); }
+.readOnly dt { font-weight: 700; }
+.readOnly dd { margin: 0; color: var(--color-text-muted); }
+
+/* ── التواصل الاجتماعي ── */
+.socialList { display: flex; flex-direction: column; gap: var(--space-2); margin-bottom: var(--space-3); }
+.socialRow { display: grid; grid-template-columns: minmax(110px, 150px) minmax(0, 1fr) 44px; gap: var(--space-2); align-items: center; }
+.socialError { grid-column: 1 / -1; margin-top: 0; }
+.iconButton {
+  inline-size: 44px; block-size: 44px; border-radius: 10px; display: grid; place-items: center;
+  color: var(--color-text-muted); border: 1px solid var(--color-border); background: var(--color-surface);
+}
+.iconButton:hover { color: var(--color-danger); border-color: var(--color-danger); }
+.iconButton:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+
+/* ── شريط الحفظ ── يلتصق بأسفل المحتوى، وفوق شريط التبويب على الجوال. */
+.saveBar {
+  position: sticky; inset-block-end: 0; z-index: 5;
+  display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); flex-wrap: wrap;
+  background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 14px;
+  padding: 10px 14px; box-shadow: var(--shadow);
+}
+.saveState { font-size: var(--fs-body-sm); color: var(--color-text-muted); }
+.saveActions { display: flex; gap: var(--space-2); }
+
+@media (max-width: 767px) {
+  .saveBar { inset-block-end: 72px; }
+  .socialRow { grid-template-columns: minmax(0, 1fr) 44px; }
+  .socialRow .network { grid-column: 1 / -1; }
+  .socialRow .socialUrl { grid-column: 1; }
+}
+
+/* خيار دور في درج الدعوة: الاسم وشرح ما يستطيعه في كتلة واحدة قابلة للنقر. */
+.roleOption {
+  display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; margin-bottom: 8px; cursor: pointer;
+  border: 1px solid var(--color-border); border-radius: 10px;
+}
+.roleOption:has(input:checked) { border-color: var(--color-primary); }
+.roleOption input { margin-top: 3px; inline-size: 18px; block-size: 18px; accent-color: var(--color-primary); flex-shrink: 0; }

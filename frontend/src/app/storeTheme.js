@@ -25,6 +25,12 @@ export function applyStoreTheme(config, language, mode = 'light') {
   setStylesheet('store-fonts', fontStylesheetUrl(branding?.typography));
 }
 
+// خطّ يُعاين قبل أن يُحفظ (محرّر الإعدادات): عنصر مستقلّ عن خطّ المتجر الفعلي، كي لا يُبدَّل خطّ اللوحة
+// نفسها بمجرّد تجربة خيار — وخطّ المتجر يبقى محمّلاً ما دام هو المحفوظ.
+export function loadPreviewFonts(typography) {
+  setStylesheet('store-fonts-preview', fontStylesheetUrl(typography));
+}
+
 function setMeta(name, content) {
   let element = /** @type {HTMLMetaElement|null} */ (document.head.querySelector(`meta[name="${name}"]`));
   if (!content) {

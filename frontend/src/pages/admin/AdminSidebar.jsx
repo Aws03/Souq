@@ -6,7 +6,7 @@ import StoreBrand from '../../app/StoreBrand';
 import { isModuleEnabled } from '../../app/tenantModel';
 import {
   GridIcon, PackageIcon, InventoryIcon, TagIcon, ReceiptIcon, PercentIcon, UserIcon, CardIcon, TruckIcon,
-  StarIcon, TrendIcon,
+  StarIcon, TrendIcon, SlidersIcon, TeamIcon,
 } from '../../components/icons/Icons';
 import styles from './AdminLayout.module.css';
 
@@ -23,6 +23,8 @@ export const ADMIN_NAV = [
   { to: '/admin/reviews', label: 'admin.nav.reviews', icon: StarIcon, permission: 'reviews.moderate', module: 'reviews' },
   { to: '/admin/shipping', label: 'admin.nav.shipping', icon: TruckIcon, permission: 'store.shipping.manage' },
   { to: '/admin/payments', label: 'admin.nav.payments', icon: CardIcon, permission: 'store.payments.manage' },
+  { to: '/admin/staff', label: 'admin.nav.staff', icon: TeamIcon, permission: 'store.staff.manage' },
+  { to: '/admin/settings', label: 'admin.nav.settings', icon: SlidersIcon, permission: 'store.settings.manage' },
 ];
 
 // الروابط التي يراها الحساب الحالي: صلاحيته من الخادم، والوحدة (إن كانت اختيارية) مفعّلة في متجره — الموظّف لا يرى ما سيرفضه

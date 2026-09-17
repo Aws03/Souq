@@ -267,6 +267,22 @@ export const api = {
   // استرداد دفعة طلب (المرحلة 11): بلا amount ⇒ كل المتبقّي؛ retry لاسترداد معلّق (المفتاح نفسه لدى البوّابة).
   refundOrder: (id, payload = {}) => request(`/orders/${id}/refunds`, { method: 'POST', body: JSON.stringify(payload) }),
   retryRefund: (id, refundId) => request(`/orders/${id}/refunds/${refundId}/retry`, { method: 'POST' }),
+  // ── إعدادات المتجر (store.settings.manage) ── المتجر هو متجر المضيف دائماً: لا معرّف في أيّ مسار.
+  // options: القوائم والحدود التي يقبلها الخادم — الواجهة لا تحمل نسخة منها.
+  getStoreSettings: () => request('/admin/store/settings'),
+  getStoreSettingsOptions: () => request('/admin/store/settings/options'),
+  updateStoreSettings: (payload) => request('/admin/store/settings', { method: 'PUT', body: JSON.stringify(payload) }),
+  // asset: logo | favicon | social-image. الملف يُفحص بمحتواه على الخادم، والرابط يولّده الخادم.
+  uploadStoreBranding: (asset, file) => {
+    const form = new FormData();
+    form.append('file', file);
+    return upload(`/admin/store/branding/${asset}`, form);
+  },
+  // ── فريق المتجر (store.staff.manage) ── دعوة البريد نفسه وهو معلّق تُجدّد الدعوة (renewed).
+  getStaff: (params = {}) => request(`/admin/staff${toQueryString(params)}`),
+  inviteStaff: (payload) => request('/admin/staff', { method: 'POST', body: JSON.stringify(payload) }),
+  setStaffStatus: (id, active) =>
+    request(`/admin/staff/${id}/status`, { method: 'POST', body: JSON.stringify({ active }) }),
   // حساب بوّابة الدفع الخاص بالمتجر (المرحلة 11): السرّان يُكتبان ولا يُقرآن.
   getStorePayments: () => request('/admin/store/payments'),
   updateStorePayments: (payload) => request('/admin/store/payments', { method: 'PUT', body: JSON.stringify(payload) }),

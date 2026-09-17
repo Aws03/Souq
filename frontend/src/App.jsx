@@ -58,6 +58,8 @@ const Customers = lazy(() => import('./pages/admin/Customers'));
 const Payments = lazy(() => import('./pages/admin/Payments'));
 const ShippingMethods = lazy(() => import('./pages/admin/ShippingMethods'));
 const ReviewModeration = lazy(() => import('./pages/admin/ReviewModeration'));
+const StoreSettings = lazy(() => import('./pages/admin/StoreSettings'));
+const Staff = lazy(() => import('./pages/admin/Staff'));
 const PlatformLayout = lazy(() => import('./app/PlatformLayout'));
 
 // صفحة إدارة بصلاحيتها (والوحدة إن كانت اختيارية) — الشريط الجانبي يخفي رابطها بالشرط نفسه.
@@ -134,6 +136,8 @@ function StoreRoutes() {
         <Route path="shipping" element={guarded(<ShippingMethods />, 'store.shipping.manage')} />
         <Route path="payments" element={guarded(<Payments />, 'store.payments.manage')} />
         <Route path="reviews" element={guarded(<ReviewModeration />, 'reviews.moderate', 'reviews')} />
+        <Route path="settings" element={guarded(<StoreSettings />, 'store.settings.manage')} />
+        <Route path="staff" element={guarded(<Staff />, 'store.staff.manage')} />
       </Route>
 
       {/* ── المتجر (عميل/زائر) وحساب العميل ── */}

@@ -297,7 +297,9 @@
       "payments": "Payments",
       "shipping": "Shipping",
       "reviews": "Reviews",
-      "business": "Business"
+      "business": "Business",
+      "staff": "Team",
+      "settings": "Settings"
     },
     "dashboard": {
       "greeting": "Welcome, {{name, bidi}}",
@@ -868,6 +870,212 @@
       "noProfit": "This is revenue, not profit. The platform holds no cost prices, so margin cannot be calculated — and showing revenue as profit would be wrong.",
       "noConversion": "There is no conversion rate: visits are not tracked, so there is nothing to compare orders against.",
       "noForecast": "Nothing here is a forecast. Every number describes a period that has already happened."
+    },
+    "settings": {
+      "title": "Store settings",
+      "subtitle": "Your store's name, look, languages, contact details and search appearance. Changes go live when you save.",
+      "saved": "Settings saved — the store now shows them",
+      "counter": "{{length}} / {{max}}",
+      "problemsSummary_one": "One field needs attention before saving.",
+      "problemsSummary_other": "{{count}} fields need attention before saving.",
+      "cultureDisabled": "not shown to visitors",
+      "culture": {
+        "ar": "Arabic",
+        "en": "English"
+      },
+      "section": {
+        "identity": "Identity",
+        "identityHint": "The name visitors see in each language, and the files that carry your brand. Files upload as soon as you choose them.",
+        "appearance": "Appearance",
+        "appearanceHint": "Colours are checked for readability as you type; a palette that fails a check cannot be saved.",
+        "locale": "Languages and region",
+        "contact": "Contact",
+        "contactHint": "Shown in the store footer and used as the reply address on emails to customers.",
+        "social": "Social links",
+        "socialHint": "Each link must be https and on the network's own domain.",
+        "seo": "Search and sharing",
+        "seoHint": "The page title and description search engines and link previews use. Left empty, the store name is used.",
+        "announcement": "Announcement bar",
+        "announcementHint": "A short line across the top of every storefront page. Leave empty to hide it."
+      },
+      "assets": {
+        "none": "None yet",
+        "upload": "Upload",
+        "replace": "Replace",
+        "uploaded": "File uploaded — the store now uses it",
+        "tooLarge": "The file is larger than {{size}} MB.",
+        "logo": {
+          "label": "Logo",
+          "hint": "PNG, JPEG or WebP. Shown in the store header.",
+          "alt": "Current logo"
+        },
+        "favicon": {
+          "label": "Browser icon",
+          "hint": "PNG or ICO. Shown in the browser tab.",
+          "alt": "Current browser icon"
+        },
+        "social-image": {
+          "label": "Sharing image",
+          "hint": "PNG or JPEG. Shown when a link to the store is shared.",
+          "alt": "Current sharing image"
+        }
+      },
+      "colors": {
+        "legend": "Colours",
+        "primary": "Primary",
+        "secondary": "Secondary",
+        "accent": "Accent",
+        "background": "Background",
+        "text": "Text",
+        "pick": "Pick {{color}} colour"
+      },
+      "contrast": {
+        "title": "Readability checks",
+        "text": "Text on background",
+        "primaryButton": "Button text on primary",
+        "accentButton": "Button text on accent",
+        "primaryBackground": "Primary against background",
+        "ratio": "{{ratio}}:1 · needs {{minimum}}:1",
+        "pass": "passes",
+        "fail": "fails"
+      },
+      "typography": "Typeface",
+      "typographyOption": {
+        "kufi-tajawal": "Reem Kufi headings, Tajawal text",
+        "tajawal": "Tajawal",
+        "cairo": "Cairo",
+        "almarai": "Almarai",
+        "ibm-plex": "IBM Plex Sans Arabic"
+      },
+      "themePreset": "Theme preset",
+      "themePresetOption": {
+        "classic": "Classic",
+        "minimal": "Minimal",
+        "bold": "Bold"
+      },
+      "themePresetHint": "Saved with the store. Presets do not change the storefront layout yet.",
+      "themeModeLegend": "Default mode",
+      "themeMode": {
+        "light": "Light",
+        "dark": "Dark",
+        "system": "Follow the visitor's device"
+      },
+      "themeModeHint": "Visitors can still switch; their choice is remembered on their device.",
+      "opening": "Show an opening reveal on a visitor's first arrival",
+      "openingHint": "Skipped for visitors who prefer reduced motion, for links deep into the store, and for search engines.",
+      "openingStyle": "Reveal style",
+      "openingStyleOption": {
+        "doors": "Doors"
+      },
+      "enabledCultures": "Languages visitors can use",
+      "defaultCulture": "Default language",
+      "timeZone": "Time zone",
+      "timeZoneHint": "An IANA name such as Asia/Amman. Used for dates in reports and emails.",
+      "currency": "Currency",
+      "currencyHint": "Set by the platform, and fixed once the store has products or orders.",
+      "contactEmail": "Email",
+      "contactPhone": "Phone",
+      "address": "Address",
+      "socialNetwork": "Network",
+      "socialUrl": "{{network}} link",
+      "removeLink": "Remove {{network}} link",
+      "addLink": "+ Add link",
+      "networks": {
+        "facebook": "Facebook",
+        "instagram": "Instagram",
+        "x": "X",
+        "tiktok": "TikTok",
+        "youtube": "YouTube",
+        "snapchat": "Snapchat",
+        "linkedin": "LinkedIn",
+        "whatsapp": "WhatsApp"
+      },
+      "seoTitle": "Page title",
+      "seoDescription": "Description",
+      "saveBar": "Save changes",
+      "unsaved": "Unsaved changes",
+      "upToDate": "All changes saved",
+      "discard": "Discard changes",
+      "problem": {
+        "languagesRequired": "Enable at least one language.",
+        "defaultLanguageDisabled": "The default language must stay enabled.",
+        "timeZoneInvalid": "Enter a time zone name such as Asia/Amman or UTC.",
+        "colorInvalid": "Use the #RRGGBB format.",
+        "contrast": {
+          "text": "Text is hard to read on this background ({{ratio}}:1, needs {{minimum}}:1).",
+          "primaryButton": "Button text is hard to read on this primary colour ({{ratio}}:1, needs {{minimum}}:1). Choose a darker or lighter shade.",
+          "accentButton": "Button text is hard to read on this accent colour ({{ratio}}:1, needs {{minimum}}:1). Choose a darker or lighter shade.",
+          "primaryBackground": "The primary colour barely stands out from the background ({{ratio}}:1, needs {{minimum}}:1)."
+        },
+        "tooLong": "Keep this under {{max}} characters.",
+        "emailInvalid": "Enter a valid email address.",
+        "phoneInvalid": "Use digits, spaces, +, - and brackets (6 to 30 characters).",
+        "tooManyLinks": "Up to {{max}} links.",
+        "duplicateNetwork": "One link per network.",
+        "socialInvalid": "Use a full https link on {{domains}}.",
+        "openingInvalid": "Choose a reveal style from the list."
+      },
+      "preview": {
+        "title": "Preview",
+        "modeLabel": "Preview mode",
+        "primaryAction": "Shop now",
+        "accentAction": "Add to cart",
+        "bodyText": "Body text on the page background.",
+        "mutedText": "Secondary text, such as dates and hints.",
+        "contrastNote": "Text contrast in this mode: {{ratio}}:1.",
+        "darkNote": "Dark mode is derived from your colours; you don't set it separately."
+      }
+    },
+    "staff": {
+      "title": "Team",
+      "subtitle": "Who can sign in to this admin, and what they can do. Invitations are emailed with a link to this store.",
+      "invite": "+ Invite member",
+      "invited": "Invitation sent to {{email, bidi}}",
+      "inviteRenewed": "A new invitation was sent to {{email, bidi}}; the previous link no longer works",
+      "confirmDisable": "Disable {{name, bidi}}? They are signed out immediately and can't sign in until enabled again.",
+      "enabled": "{{name, bidi}} can sign in again",
+      "disabled": "{{name, bidi}} is disabled and signed out",
+      "colName": "Name",
+      "colEmail": "Email",
+      "colRole": "Role",
+      "colStatus": "Status",
+      "colLastLogin": "Last sign-in",
+      "colActions": "Actions",
+      "you": "you",
+      "role": {
+        "TenantAdmin": "Administrator",
+        "TenantStaff": "Staff"
+      },
+      "roleHint": {
+        "TenantAdmin": "Everything in this admin, including store settings, the team, payments, shipping and coupons.",
+        "TenantStaff": "Day-to-day work: products, inventory, orders, customers, reviews and reports. No settings, team, payments, shipping or coupons."
+      },
+      "state": {
+        "active": "Active",
+        "invited": "Invitation pending",
+        "disabled": "Disabled"
+      },
+      "never": "Never",
+      "action": {
+        "resend": "Resend invitation",
+        "enable": "Enable",
+        "disable": "Disable"
+      },
+      "emptyTitle": "No team members yet",
+      "emptyMessage": "Invite someone to help run the store.",
+      "inviteTitle": "Invite a team member",
+      "sendInvite": "Send invitation",
+      "inviteHint": "They receive an email with a link to choose a password. Inviting a pending address again sends a fresh link.",
+      "nameLabel": "Full name",
+      "emailLabel": "Email",
+      "roleLabel": "Role",
+      "problem": {
+        "nameRequired": "Enter their name.",
+        "nameTooLong": "Keep the name under 150 characters.",
+        "emailRequired": "Enter their email.",
+        "emailInvalid": "Enter a valid email address.",
+        "roleInvalid": "Choose a role."
+      }
     }
   },
   "wishlist": {

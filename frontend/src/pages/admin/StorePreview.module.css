@@ -1,0 +1,62 @@
+/* معاينة الهوية: كل لون هنا يُقرأ من رموز الإطار نفسه (style على .frame)، لا من <html>. */
+.wrap { margin: 0; display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
+.toolbar { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); flex-wrap: wrap; }
+.caption { font-weight: 700; font-size: var(--fs-label); }
+.modes { display: inline-flex; border: 1px solid var(--color-border); border-radius: 999px; padding: 2px; }
+.mode {
+  min-block-size: 32px; padding: 4px 12px; border-radius: 999px; font-size: 12.5px; font-weight: 600;
+  color: var(--color-text-muted);
+}
+.modeActive { background: var(--color-primary); color: var(--color-on-primary); }
+.mode:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+
+.frame {
+  border: 1px solid var(--color-border); border-radius: 14px; overflow: hidden;
+  background: var(--color-bg); color: var(--color-text);
+  font-family: var(--tenant-font-body); color-scheme: light;
+}
+.frame[data-theme='dark'] { color-scheme: dark; }
+
+.announcement {
+  background: var(--color-panel-strong); color: var(--color-on-panel);
+  font-size: 11.5px; text-align: center; padding: 5px 10px; overflow-wrap: anywhere;
+}
+.header {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--space-2);
+  padding: 10px 14px; background: var(--color-surface); border-bottom: 1px solid var(--color-border);
+  color: var(--color-text);
+}
+.logo { max-block-size: 28px; max-inline-size: 120px; object-fit: contain; }
+.name { font-family: var(--tenant-font-heading); font-weight: 700; font-size: 15px; color: var(--color-primary); overflow-wrap: anywhere; }
+
+.hero {
+  background: var(--color-panel); color: var(--color-on-panel);
+  padding: 18px 14px; display: flex; flex-direction: column; align-items: flex-start; gap: 8px;
+  border-bottom: 3px solid var(--color-accent-on-panel);
+}
+.heroTitle { font-family: var(--tenant-font-heading); font-size: 18px; overflow-wrap: anywhere; }
+.heroText { margin: 0; font-size: 12.5px; opacity: .9; overflow-wrap: anywhere; }
+
+.primaryButton, .accentButton {
+  display: inline-block; border-radius: 999px; padding: 6px 14px; font-size: 12.5px; font-weight: 700;
+}
+.primaryButton { background: var(--color-primary); color: var(--color-on-primary); box-shadow: 0 0 0 1px var(--color-on-panel); }
+.accentButton { background: var(--color-accent); color: var(--color-on-accent); align-self: flex-start; }
+
+.body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 12px; padding: 14px; }
+.card {
+  background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 10px;
+  padding: 8px; display: flex; flex-direction: column; gap: 6px; box-shadow: var(--shadow);
+}
+.media { aspect-ratio: 4 / 3; border-radius: 6px; background: var(--color-surface-alt); }
+.line { block-size: 8px; border-radius: 4px; background: var(--color-border); }
+.short { inline-size: 60%; }
+.copy { display: flex; flex-direction: column; gap: 6px; }
+.text { margin: 0; font-size: 12.5px; color: var(--color-text); }
+.muted { margin: 0; font-size: 12px; color: var(--color-text-muted); }
+
+.note { margin: 0; font-size: 12px; color: var(--color-text-muted); }
+
+@media (max-width: 420px) {
+  .body { grid-template-columns: 1fr; }
+}

@@ -16,7 +16,7 @@ import { oppositeMode, readStoredMode, resolveThemeMode, systemPrefersDark, writ
 //   closed / unknown / error ⇒ شاشة الإقلاع المناسبة.
 // الخادم يفرض كل شيء في كل الأحوال — هذا عرض لا حماية.
 // ============================================================================
-const TenantContext = createContext({ mode: 'loading', config: null, retry: () => {} });
+const TenantContext = createContext({ mode: 'loading', config: null, retry: () => {}, refresh: async () => {} });
 
 // سياق مستقلّ للسمة: مكوّن يبدّل الوضع لا يجب أن يُعيد رسم كل قارئ لإعداد المتجر، والعكس.
 const ThemeContext = createContext({ theme: 'light', toggleTheme: () => {}, storePrefersTheme: 'system' });
@@ -95,7 +95,20 @@ export function TenantProvider({ children }) {
     setAttempt((n) => n + 1);
   }, []);
 
-  const value = useMemo(() => ({ ...state, retry }), [state, retry]);
+  // إعادة قراءة الإعداد بعد تعديله من لوحة الإدارة — بلا حالة "loading": تلك تستبدل التطبيق كلّه بشاشة
+  // الإقلاع، فيفقد المدير نموذجه وموضعه لمجرّد أنه حفظ لوناً. فشلها لا يُسقط شيئاً: الإعداد القديم يبقى
+  // معروضاً، والحفظ نفسه نجح على الخادم.
+  const refresh = useCallback(() => api.getStorefrontConfig()
+    .then((config) => {
+      setStoreDateSettings({
+        culture: config.settings?.locale?.defaultCulture,
+        timeZone: config.settings?.locale?.timeZone,
+      });
+      setState({ mode: bootModeForConfig(config), config });
+    })
+    .catch(() => {}), []);
+
+  const value = useMemo(() => ({ ...state, retry, refresh }), [state, retry, refresh]);
   const themeValue = useMemo(() => ({
     theme,
     storePrefersTheme,
