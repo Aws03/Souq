@@ -34,7 +34,7 @@ phase_status: blocked
 next_phase: M3          # M2's one deliverable (TD-42) is blocked; M3 does not depend on it and may run now — see M2's own "Next-phase trigger"
 blocked_decisions: ["TD-42"]    # owner decisions that block a phase currently in flight; see §5 and OwnerDecisions.md
 last_verified_date: 2026-09-17
-last_verified_head: 62e343f     # the M2 audit commit; no code changed in M2, this is the docs-only commit that recorded it
+last_verified_head: 68c3b71     # the M2 audit commit; no code changed in M2, this is the docs-only commit that recorded it
 baseline_branch: phase/17-production-hardening
 ```
 
