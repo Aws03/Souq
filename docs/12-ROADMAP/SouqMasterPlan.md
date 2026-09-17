@@ -29,12 +29,12 @@
 
 ```yaml
 plan_version: 1.0.0
-current_phase: M2
-phase_status: blocked
-next_phase: M3          # M2's one deliverable (TD-42) is blocked; M3 does not depend on it and may run now — see M2's own "Next-phase trigger"
+current_phase: M3
+phase_status: done
+next_phase: M4          # M2 remains blocked on TD-42 and is independent of M4; see M2's own STOP entry
 blocked_decisions: ["TD-42"]    # owner decisions that block a phase currently in flight; see §5 and OwnerDecisions.md
-last_verified_date: 2026-09-17
-last_verified_head: 68c3b71     # the M2 audit commit; no code changed in M2, this is the docs-only commit that recorded it
+last_verified_date: 2026-09-18
+last_verified_head: e0bed4e     # M3 closed: the local search engine, its browser verification and the merchant vocabulary
 baseline_branch: phase/17-production-hardening
 ```
 
@@ -50,6 +50,15 @@ scope decision only the owner can make — see M2's own STOP entry above for the
 recommendation. Variant-image gallery confirmed still genuinely not built (no schema support at all) and left
 correctly deferred, not built speculatively. No code changed. M3 does not depend on the blocked deliverable and
 may proceed; M2 resumes the moment TD-42 is answered.
+
+**M3 — done.** The catalog now matches a stored, indexed **normalized** form of its text, so Arabic search works
+as people actually type (unvocalized, ه for ة, ي for ى); every query word is a separate condition matched in a
+name, a description or a **category** name; `ProductSortBy.Relevance` ranks in SQL; a typo recovers from the
+store's own catalogue vocabulary and **says which word it searched**, with the shopper able to refuse
+(`exact=true`); suggestions are a real keyboard-operable combobox; and a merchant can teach the vocabulary its
+customers use. SQL Server Full-Text Search was **measured unavailable** in the pinned image and rejected on
+evidence rather than assumption — see M3's "Completion evidence" above and
+[ADR-0042](../11-ADR/0042-local-search-engine.md).
 
 Keep this block current in the same commit that closes a phase: `current_phase`, `phase_status`
 (`not_started` | `in_progress` | `blocked` | `done`), `next_phase`, `blocked_decisions` (the exact ID from
@@ -562,7 +571,39 @@ repository.
   in a seeded test catalog; ranking is server-computed and agrees with what the list/sort/filter already agree
   on from V3; no AI API call exists on the runtime search path; autocomplete and no-result recovery are
   axe-clean and keyboard-operable.
-- **Completion evidence.** *(fill in on close)*
+- **Completion evidence.** Four commits on `phase/17-production-hardening` from checkpoint `46a89b9`:
+  normalized ranked search, typo recovery and the relevance-first UI, suggestions as a real combobox, the two
+  defects the browser pass found, and the merchant vocabulary. Recorded in
+  [ADR-0042](../11-ADR/0042-local-search-engine.md) with the measurements behind each choice.
+  - **The plan's preferred index was measured unavailable and rejected on evidence.** In the exact image
+    `docker-compose.yml` pins, `SERVERPROPERTY('IsFullTextInstalled')` is `0` and `CREATE FULLTEXT INDEX` fails
+    with *Msg 7609*, while `CREATE FULLTEXT CATALOG` **succeeds** — so a catalog-only migration would have passed
+    CI and failed at the first query. Full-Text Search also could not have delivered per-store merchant-editable
+    synonyms (its thesaurus is a server-level file) or any typo tolerance. What replaced it is ~72× faster than
+    the substring scan it removed (0.2 ms vs 14.4 ms at 2,500 products/store), so no search service is justified.
+  - **Tests.** Domain 524 (normalization table, bounded Damerau–Levenshtein, the derived-projection invariant,
+    vocabulary rules), Application 385, Architecture 89 (including a new ratchet that fails the build if any
+    catalog read service ever makes a network call — the acceptance criterion "no AI API on the runtime search
+    path" as an executable rule, not a promise in prose), Integration 360, frontend 615 across 78 files.
+    `dotnet build -warnaserror`: 0 warnings, 0 errors.
+  - **Docker/runtime.** An isolated stack (`-p souq-m3-qa`, its own env file and volumes — the owner's `.env` and
+    `souq_souq_db_data` untouched) built and started clean: `/health/live`, `/health/ready` and the web proxy all
+    200, migrations applied, logs free of errors. Real flows exercised against it: unvocalized Arabic finding
+    vocalized names, scattered words, Arabic-Indic digits, `مصباخ` → `مصباح` recovery, `exact=true` honouring the
+    shopper's refusal, suggestions, and `limit` validation.
+  - **Browser QA.** `frontend/e2e/search.spec.js`, 8/8 on that container stack. It found **two real defects that
+    every green suite had missed**: `nested-interactive` (a button inside `role="option"` — jsdom's axe did not
+    flag it) and a 129 px horizontal overflow at 320 px that M3 itself introduced with the fourth sort button.
+    Both fixed in the same change.
+  - **Limitations recorded, not hidden.** TD-45 (mid-word matching is still a narrow-index scan; the inverted-term
+    table is the measured next step, *before* any external service), TD-46 (no linguistic stemming — decide from
+    M13's real no-result data, not from principle), TD-47 (a residual ~2 px page overflow at 320 px with the
+    mobile sheet open, pre-existing and attributed, left to M4 which owns the systematic responsive pass).
+    The plan's separate `SearchCorrections` table was **deliberately not built**: a directed synonym pair already
+    expresses a forced correction, and the plan allowed a single vocabulary table. Reasoned in ADR-0042.
+  - `./scripts/release-gate.sh --suites`: 5 passed, 0 failed, **3 skipped** — target deploy config, backup
+    liveness and the live deployment probe, none of which has a target in this environment. Working tree clean
+    and pushed at close (e0bed4e).
 - **Next-phase trigger.** M4 may start independently of M3's exact completion (different surface area), but
   should not start until M3's search-box UI shape is stable enough that M4's responsive pass covers the final
   markup rather than a version M3 is about to change underneath it.
