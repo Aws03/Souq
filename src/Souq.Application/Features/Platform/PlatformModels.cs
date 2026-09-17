@@ -11,9 +11,11 @@ namespace Souq.Application.Features.Platform;
 // بياناتها الخاصة (Modules.md §1). هنا وحدها تحمل الطلبات معرّف متجر (اختبار معماري)، وكلها مُدقَّقة.
 // ============================================================================
 
+// ActiveAdmins / PendingAdminInvitations: جاهزية التسليم لا نشاط تجاري — "هل يستطيع أحدٌ إدارة هذا المتجر؟".
+// مدير فعّال = حساب TenantAdmin غير موقوف قَبِل دعوته. لا أرقام مبيعات متجرٍ بعينه في قائمة المنصّة.
 public sealed record TenantSummaryDto(
     int Id, string Name, string Slug, string Status, string Currency, string DefaultCulture,
-    string? PrimaryHost, int DomainCount, DateTime CreatedAt);
+    string? PrimaryHost, int DomainCount, DateTime CreatedAt, int ActiveAdmins, int PendingAdminInvitations);
 
 public sealed record TenantDomainDto(string Host, bool IsPrimary, DateTime? VerifiedAt);
 

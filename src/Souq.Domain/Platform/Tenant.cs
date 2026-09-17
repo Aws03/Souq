@@ -15,7 +15,9 @@ namespace Souq.Domain.Platform;
 // ============================================================================
 public partial class Tenant : Entity
 {
+    public const int NameMinLength = 2;
     public const int NameMaxLength = 100;
+    public const int SlugMinLength = 2;
     public const int SlugMaxLength = 40;
     public const int TimeZoneMaxLength = 64;
 
@@ -23,8 +25,9 @@ public partial class Tenant : Entity
     public static readonly IReadOnlyList<string> SupportedCultures = ["ar", "en"];
 
     // معرّفات محجوزة: تتعارض مع مضيف المنصّة (admin.localhost) أو مسارات النظام.
-    private static readonly HashSet<string> ReservedSlugs =
-        new(StringComparer.Ordinal) { "admin", "api", "app", "platform", "static", "uploads", "www" };
+    // عامّة للقراءة كي يعرضها معالج التجهيز قبل الإرسال — القائمة تبقى هنا وحدها.
+    public static readonly IReadOnlySet<string> ReservedSlugs =
+        new HashSet<string>(StringComparer.Ordinal) { "admin", "api", "app", "platform", "static", "uploads", "www" };
 
     private readonly List<TenantDomain> _domains = new();
 
@@ -68,7 +71,7 @@ public partial class Tenant : Entity
     public void Rename(string name)
     {
         var trimmed = name?.Trim() ?? "";
-        if (trimmed.Length is < 2 or > NameMaxLength)
+        if (trimmed.Length < NameMinLength || trimmed.Length > NameMaxLength)
             throw new InvalidTenantOperationException($"اسم المتجر يجب أن يكون بين 2 و{NameMaxLength} حرفاً");
         // الاسم يصل لعناوين الرسائل وترويساتها: لا محارف تحكّم (سطر جديد) مهما كان المصدر.
         if (trimmed.Any(char.IsControl))
@@ -210,7 +213,7 @@ public partial class Tenant : Entity
     public static string NormalizeSlug(string slug)
     {
         var normalized = slug?.Trim().ToLowerInvariant() ?? "";
-        if (normalized.Length is < 2 or > SlugMaxLength || !SlugPattern().IsMatch(normalized))
+        if (normalized.Length < SlugMinLength || normalized.Length > SlugMaxLength || !SlugPattern().IsMatch(normalized))
             throw new InvalidTenantOperationException("المعرّف يقبل أحرفاً لاتينية صغيرة وأرقاماً وشرطات (2–40 حرفاً)");
         if (ReservedSlugs.Contains(normalized))
             throw new InvalidTenantOperationException($"المعرّف {normalized} محجوز للنظام");

@@ -5,7 +5,7 @@
 >
 > Conventions (errors, paging, status codes): [ApiDocumentation.md](ApiDocumentation.md). Use cases per module: [UseCases.md](../04-MODULES/UseCases.md).
 
-**128 endpoints** in 25 controllers: 24 anonymous, 27 for any signed-in account, 77 behind a permission.
+**129 endpoints** in 25 controllers: 24 anonymous, 27 for any signed-in account, 78 behind a permission.
 
 ## How to read this table
 
@@ -111,6 +111,7 @@
 | GET | `/api/platform/stats` | `platform.reports.view` | platform | — | — | `GetPlatformStatsQuery` | Reporting |
 | GET | `/api/platform/tenants` | `platform.tenants.manage` | platform | — | — | `ListTenantsQuery` | Platform |
 | POST | `/api/platform/tenants` | `platform.tenants.manage` | platform | — | — | `CreateTenantCommand` | Platform |
+| GET | `/api/platform/tenants/options` | `platform.tenants.manage` | platform | — | — | `GetProvisioningOptionsQuery` | Platform |
 | GET | `/api/platform/tenants/{id:int}` | `platform.tenants.manage` | platform | — | — | `GetTenantQuery` | Platform |
 | PUT | `/api/platform/tenants/{id:int}` | `platform.tenants.manage` | platform | — | — | `UpdateTenantCommand` | Platform |
 | GET | `/api/platform/tenants/{id:int}/accounts` | `platform.tenants.manage` | platform | — | — | `ListTenantAccountsQuery` | Platform |

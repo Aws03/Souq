@@ -10,7 +10,7 @@
 | [`Souq.Domain.Tests`](#souqdomaintests) | 23 | 165 | 34 |
 | [`Souq.Application.Tests`](#souqapplicationtests) | 42 | 288 | 15 |
 | [`Souq.ArchitectureTests`](#souqarchitecturetests) | 13 | 54 | 7 |
-| [`Souq.IntegrationTests`](#souqintegrationtests) | 43 | 218 | 21 |
+| [`Souq.IntegrationTests`](#souqintegrationtests) | 44 | 222 | 21 |
 | [frontend (Vitest)](#frontend-vitest) | 64 | 447 | — |
 
 ## Souq.Domain.Tests
@@ -138,6 +138,7 @@
 | `tests/Souq.IntegrationTests/PaymentDataRulesTests.cs` | `PaymentDataRulesTests` | 2 | 0 |
 | `tests/Souq.IntegrationTests/PaymentsAndRefundsTests.cs` | `PaymentsAndRefundsTests` | 6 | 0 |
 | `tests/Souq.IntegrationTests/PlatformAdministrationTests.cs` | `PlatformAdministrationTests` | 9 | 0 |
+| `tests/Souq.IntegrationTests/ProvisioningBoundaryTests.cs` | `ProvisioningBoundaryTests` | 4 | 0 |
 | `tests/Souq.IntegrationTests/QueryServiceTests.cs` | `QueryServiceTests` | 10 | 1 |
 | `tests/Souq.IntegrationTests/ReviewModerationTests.cs` | `ReviewModerationTests` | 4 | 0 |
 | `tests/Souq.IntegrationTests/SecurityHeadersTests.cs` | `SecurityHeadersTests` | 4 | 1 |

@@ -33,6 +33,10 @@ public class PlatformTenantsController : ControllerBase
         [FromQuery] string? search, [FromQuery] TenantStatus? status, [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
         => Ok(await _mediator.Send(new ListTenantsQuery(search, status, page, pageSize)));
 
+    // ما يقبله التجهيز: حدود الهوية والوحدات وخيارات محرّر الإعدادات نفسه.
+    [HttpGet("options")]
+    public async Task<IActionResult> Options() => Ok(await _mediator.Send(new GetProvisioningOptionsQuery()));
+
     [HttpGet("{id:int}")]
     public async Task<IActionResult> Get(int id) => this.ToHttp(await _mediator.Send(new GetTenantQuery(id)));
 

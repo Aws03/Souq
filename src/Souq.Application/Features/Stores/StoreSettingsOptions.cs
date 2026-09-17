@@ -29,7 +29,8 @@ public record GetStoreSettingsOptionsQuery : IRequest<StoreSettingsOptionsDto>;
 
 public class GetStoreSettingsOptionsHandler : IRequestHandler<GetStoreSettingsOptionsQuery, StoreSettingsOptionsDto>
 {
-    private static readonly StoreSettingsOptionsDto Options = new(
+    // عامّة للقراءة: محرّر المنصّة يعرض القوائم نفسها (GetProvisioningOptionsQuery) — نسخة واحدة لا اثنتان.
+    public static readonly StoreSettingsOptionsDto Options = new(
         Tenant.SupportedCultures, BrandPresets.Typography, BrandPresets.Themes, BrandPresets.ThemeModes,
         BrandPresets.OpeningStyles,
         SocialLink.Networks.Select(n => new SocialNetworkOptionDto(n.Key, n.Value)).ToList(),

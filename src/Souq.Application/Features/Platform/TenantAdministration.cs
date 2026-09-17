@@ -260,10 +260,12 @@ public class ChangeTenantDomainHandler : IRequestHandler<ChangeTenantDomainComma
     private readonly ITenantDirectory _directory;
     private readonly IUnitOfWork _uow;
     private readonly TimeProvider _clock;
+    private readonly IPlatformHosts _platformHosts;
 
-    public ChangeTenantDomainHandler(ITenantRepository tenants, ITenantDirectory directory, IUnitOfWork uow, TimeProvider clock)
+    public ChangeTenantDomainHandler(
+        ITenantRepository tenants, ITenantDirectory directory, IUnitOfWork uow, TimeProvider clock, IPlatformHosts platformHosts)
     {
-        _tenants = tenants; _directory = directory; _uow = uow; _clock = clock;
+        _tenants = tenants; _directory = directory; _uow = uow; _clock = clock; _platformHosts = platformHosts;
     }
 
     public async Task<Result> Handle(ChangeTenantDomainCommand cmd, CancellationToken ct)
@@ -275,6 +277,8 @@ public class ChangeTenantDomainHandler : IRequestHandler<ChangeTenantDomainComma
         switch (cmd.Action)
         {
             case TenantDomainAction.Add:
+                if (_platformHosts.IsPlatformHost(host))
+                    return Result.Failure(Error.Conflict("DomainReserved", "هذا المضيف مضيف المنصّة نفسها ولا يُربط بمتجر"));
                 if (await _tenants.HostTakenAsync(host, ct))
                     return Result.Failure(Error.Conflict("DomainTaken", "هذا النطاق مربوط بمتجر على المنصّة"));
                 tenant.AddDomain(host);

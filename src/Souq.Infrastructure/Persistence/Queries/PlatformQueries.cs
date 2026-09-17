@@ -5,6 +5,7 @@ using Souq.Application.Features.Platform;
 using Souq.Application.Features.Reporting;
 using Souq.Application.Features.Stores;
 using Souq.Domain.Common;
+using Souq.Domain.Identity;
 using Souq.Domain.Platform;
 
 namespace Souq.Infrastructure.Persistence.Queries;
@@ -41,8 +42,19 @@ internal sealed class PlatformQueries : IPlatformQueries, IPlatformReports
                 t.Id, t.Name, t.Slug, t.Status, t.Currency, t.DefaultCulture,
                 t.Domains.Where(d => d.IsPrimary).Select(d => d.Host).FirstOrDefault(), t.Domains.Count(), t.CreatedAt), page, ct);
 
+        // حالة مديري متاجر هذه الصفحة وحدها، في استعلام ثانٍ مجمَّع: عبور مرشّح المستأجر هنا بشرط TenantId صريح
+        // على معرّفات الصفحة — لا عدّ لحسابات متاجر لا تُعرض.
+        var ids = rows.Items.Select(r => r.Id).ToList();
+        var admins = await _db.Users.IgnoreQueryFilters(TenantFilter).AsNoTracking()
+            .Where(u => u.TenantId != null && ids.Contains(u.TenantId.Value) && u.Role == Roles.TenantAdmin
+                        && u.Status == UserStatus.Active)
+            .GroupBy(u => u.TenantId!.Value)
+            .Select(g => new { TenantId = g.Key, Active = g.Count(u => u.PasswordHash != ""), Pending = g.Count(u => u.PasswordHash == "") })
+            .ToDictionaryAsync(x => x.TenantId, ct);
+
         return rows.Map(r => new TenantSummaryDto(
-            r.Id, r.Name, r.Slug, r.Status.ToString(), r.Currency, r.DefaultCulture, r.PrimaryHost, r.DomainCount, r.CreatedAt));
+            r.Id, r.Name, r.Slug, r.Status.ToString(), r.Currency, r.DefaultCulture, r.PrimaryHost, r.DomainCount, r.CreatedAt,
+            admins.TryGetValue(r.Id, out var a) ? a.Active : 0, admins.TryGetValue(r.Id, out var p) ? p.Pending : 0));
     }
 
     public async Task<TenantDetailDto?> GetTenantAsync(int tenantId, CancellationToken ct)

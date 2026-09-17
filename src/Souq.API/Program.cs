@@ -97,6 +97,7 @@ builder.Services.AddScoped<ICurrentUser, HttpCurrentUser>();
 // ── الجلسات (ADR-0010): روابط البريد على مضيف الطلب، ملف تعريف ارتباط رمز التجديد، وحدّ المعدّل
 // على كل ما يقبل كلمة مرور أو يرسل بريداً أو يعاين كوبوناً. ──
 builder.Services.AddScoped<IStorefrontLinks, RequestStorefrontLinks>();
+builder.Services.AddSingleton<Souq.Application.Common.Tenancy.IPlatformHosts, ConfiguredPlatformHosts>();   // نطاق متجر لا يكون مضيف المنصّة
 builder.Services.AddScoped<IClientInfo, RequestClientInfo>();   // عنوان العميل لسطر التدقيق (D-17)
 builder.Services.Configure<RefreshCookieOptions>(builder.Configuration.GetSection(RefreshCookieOptions.SectionName));
 builder.Services.AddSouqRateLimiting(builder.Configuration);
