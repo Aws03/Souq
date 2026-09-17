@@ -57,6 +57,23 @@ flowchart TB
 | Infrastructure query services being public | Reads are reached through their port, not by type | `ModuleAndContractRuleTests` |
 | `DateTime.UtcNow` / `DateTime.Now` / `DateTimeOffset.UtcNow` anywhere | Time-dependent rules (expiry, lockout, validity windows) must be testable with a fixed clock; inject `TimeProvider` | `ClockRuleTests` (IL scan) |
 
+### Other rules in `tests/Souq.ArchitectureTests`
+
+Not dependency arrows, but source rules that fail the build the same way:
+
+| Test class | What it enforces |
+|---|---|
+| `TenancyRuleTests` | Every business entity is tenant-owned, with the tenant filter and tenant-scoped foreign keys; `IgnoreQueryFilters`, EF raw SQL and bulk writes only in their reviewed places (§6); features never set the tenant ([MultiTenancy.md](MultiTenancy.md)) |
+| `EndpointRuleTests` | Every endpoint declares its access explicitly; platform endpoints require a platform permission; every command and query has exactly one handler |
+| `ContentSecurityPolicyTests` | Every external origin the frontend uses is named in the frontend's content security policy, which stays report-only with `frame-ancestors 'none'`; the API's own policy stays the narrowest |
+| `MigrationSafetyTests` | A migration that drops, renames or narrows a column is registered with its reason; every migration has a `Down` |
+| `ConfigurationSourceTests` | No secret value in any committed appsettings file, and no usable secret in `.env.example` |
+| `WhiteLabelSourceTests` | No store name or currency literal in product code or committed configuration, outside the two reviewed files (§6) |
+| `DocumentationTests` | Relative links and anchors resolve; every backticked path and compound code name in a current document exists; every ADR has its required sections and is indexed |
+| `GeneratedDocsTests` | The committed inventories match the code: [Endpoints.md](../05-API/Endpoints.md), [UseCases.md](../04-MODULES/UseCases.md), [TestInventory.md](../10-TESTING/TestInventory.md) and [ModuleDomainDependencies.md](ModuleDomainDependencies.md) |
+
+`BackupVerificationScriptTests` and `OperationalScriptTests` in the same project test the operational scripts, not the code's structure.
+
 ## 3. The module rule
 
 Modules are **namespaces inside the four layer projects** (ADR-0002), not separate projects:
@@ -95,7 +112,7 @@ Everything else between feature folders is a build failure.
 
 Being honest about the gaps is part of the contract.
 
-- **The Domain layer has no module namespaces.** Most entities live in `Souq.Domain.Entities`; only `Souq.Domain.Identity` and `Souq.Domain.Platform` are separate, and repository ports share `Souq.Domain.Interfaces`. The module test only polices `Souq.Application.Features.*`, so **a handler in one module can use another module's aggregate or repository directly** and no test complains. Where that happens today is listed per module (each module document's *Dependencies* section) and in [TechnicalDebt.md](../12-ROADMAP/TechnicalDebt.md). Prefer a contract; if you must use another module's repository, record it there.
+- **The Domain layer has no module namespaces.** Most entities live in `Souq.Domain.Entities`; only `Souq.Domain.Identity` and `Souq.Domain.Platform` are separate, and repository ports share `Souq.Domain.Interfaces`. The module test only polices `Souq.Application.Features.*`, so **a handler in one module can use another module's aggregate or repository directly** and no test complains. Every such crossing that exists today is generated into [ModuleDomainDependencies.md](ModuleDomainDependencies.md) — the current list, which fails `GeneratedDocsTests` when a crossing is added or removed without regenerating it — and each is classified in [ModuleBoundaryAudit.md](ModuleBoundaryAudit.md). Module documents' *Dependencies* sections and [TechnicalDebt.md](../12-ROADMAP/TechnicalDebt.md) explain the notable ones. Prefer a contract; if you must use another module's repository, regenerate the inventory so the review sees it.
 - **"No business rule in a controller"** is reviewed by humans, not tested. The structural half (no data access, no claims, no entity parameters) is tested.
 - **Frontend rules** (no business decisions in React, no brand or currency literals) are covered by `whiteLabel.test.js` and code review, not by a dependency test.
 - **New generic abstractions** (`IRepository<T>`, `IService<T>`) are a review decision: a second real use case justifies them, fashion does not.

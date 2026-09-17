@@ -195,7 +195,7 @@ Change eligibility · add store replies or review editing · add moderation noti
 - **One review, forever.** A rejected customer cannot rewrite; there is no edit history, so editing was deliberately left out.
 - **No store replies.**
 - **Silence around moderation.** Staff are not told a review is waiting, and customers are not told a decision was made. The only signal is the `Pending` status returned at submission.
-- **Ratings appear only on the product page**, not on listing cards — that needs a cached or materialized aggregate (ADR-0033 leaves it to the storefront phase).
+- **Ratings appear only on the product page**, not on listing cards — that needs a cached or materialized aggregate. ADR-0033 left it to the storefront phase; Phase 16 shipped without it, and `frontend/src/components/product/ProductCard.jsx` shows no rating.
 - **Boundary leaks:** Ordering's and Customers' domain repositories, as described above.
 - **No concurrency token** on `Reviews`.
 - **The public list does not check that the product exists or is published**, so a review page for an archived product still answers.
@@ -205,6 +205,6 @@ Change eligibility · add store replies or review editing · add moderation noti
 
 - **Moderation notifications** (pending reviews for staff, decisions for customers) — **DEFERRED**; the outbox they were waiting for now exists, so this is mostly a handler plus a notification kind.
 - **Store replies, review editing, resubmitting after a rejection** — **DEFERRED**: each needs an edit history (ADR-0033).
-- **Ratings on product cards** — **DEFERRED** to the storefront work; needs a cached aggregate, never a counter written into `Product`.
+- **Ratings on product cards** — **DEFERRED**, not scheduled (Phase 16, the storefront, did not add them); needs a cached aggregate, never a counter written into `Product`.
 - ***IOrderHistory*** and ***ICustomerDirectory*** contracts — **DEFERRED** until a second consumer.
 - **Automatic filtering** (spam, profanity) — **FUTURE**; ADR-0033 lists it as a revisit trigger.

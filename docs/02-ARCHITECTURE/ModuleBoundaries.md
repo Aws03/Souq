@@ -21,7 +21,7 @@ A concept has exactly one owning module. Everyone else references it by id and k
 | Delivery options and their prices | **Shipping** | asks for rates through the rate provider |
 | Opinions about products | **Reviews** | reads aggregates only |
 | Telling people what happened | **Notifications** | enqueues a message; never calls a provider itself |
-| Cross-store statistics | **Reporting** | the only module allowed to read across stores, audited |
+| Cross-store statistics | **Reporting** | reads across stores only through the platform read path (Platform and Reporting): the single reviewed filter bypass is `PlatformQueries`, which implements both `IPlatformQueries` and `IPlatformReports`, and every platform request is audited. A store's own dashboard (`IStoreReports`) reads inside its store like any other query |
 
 Table-level ownership, including the infrastructure tables: [OwnershipMap.md](../06-DATABASE/OwnershipMap.md).
 
@@ -93,16 +93,18 @@ Rather than pretend otherwise, every such crossing is generated into [ModuleDoma
 - a **new** crossing changes it and fails `GeneratedDocsTests` — it becomes a decision made in review, not a quiet import;
 - **removing** one also changes it, and the count goes down.
 
-The largest clusters, and what each is waiting for:
+The largest clusters, and what each is waiting for. The contract names are proposals — none exists yet, so they are in italics — and [ModuleBoundaryAudit.md](ModuleBoundaryAudit.md) is canonical for them, with the per-pair counts and a ranked fix order; this table is a summary of it:
 
 | Crossing | Why it exists | The contract that would close it |
 |---|---|---|
 | Shopping → Catalog | Pricing and the basket load `Product` for price, name and status | *ISellableItems* (deferred in ADR-0028) |
-| Notifications → Identity | Reset, verification and invitation tokens are **issued at dispatch**, so the handler writes `User` ([ADR-0034](../11-ADR/0034-notifications-outbox.md)) | *IAccountTokens* |
-| Customers ⇄ Identity | Registration creates a customer; erasure and profile updates write the user and revoke sessions | *IUserDirectory* / *ICustomerProvisioning* — this pair is a **cycle**, which the target graph forbids |
-| Notifications → Ordering, Customers, Catalog | Handlers load the order, the customer and the product name to compose a message | carry the fields on the event, or *IOrderNotificationView* |
+| Notifications → Identity | Reset, verification and invitation tokens are **issued at dispatch**, so the handler writes `User` ([ADR-0034](../11-ADR/0034-notifications-outbox.md)) | *IAccountTokens*, plus *IStaffRecipients* for the role lookups |
+| Customers ⇄ Identity | Registration creates a customer; erasure and profile updates write the user and revoke sessions | *IAccountProfiles* (declared by Identity, implemented by Customers) and *IAccountLifecycle* — this pair is a **cycle**, which the target graph forbids |
+| Customers → Shopping | Erasure deletes the basket and wishlist | *IForgetsCustomer*, or an erasure event |
+| Notifications → Ordering, Customers, Catalog | Handlers load the order, the customer and the product name to compose a message | *IOrderNotificationView*, or carry the fields on the event |
 | Ordering → Customers | Checkout checks the block status and reads the address book | *ICustomerDirectory* (named in the docs since Phase 7, still deferred) |
-| Reviews → Ordering, Customers, Platform | Eligibility ("did this customer receive this product?"), block status, the store's auto-approve policy | *IOrderHistory* (deferred) |
+| Shopping → Promotions | Pricing loads the coupon and counts its uses | *IDiscountQuote* |
+| Reviews → Ordering, Customers | Eligibility ("did this customer receive this product?") and block status | *IOrderHistory* and *ICustomerDirectory* (deferred); Reviews → Platform (the auto-approve policy) is deliberate and needs none |
 | Platform → Payments | The store-side payment-account use cases sit in the Platform folder | move them to Payments |
 
 Read-side joins are a second, narrower exception: the query services in `src/Souq.Infrastructure/Persistence/Queries` join across module tables to build screens (a customer list with order counts, a catalog list with stock). They are read-only, they live behind their module's port, and they are how the UI stays fast. Treat them as a documented exception, not a licence to write.

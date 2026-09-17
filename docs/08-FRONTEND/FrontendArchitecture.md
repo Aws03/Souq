@@ -7,7 +7,7 @@
 
 ## 1. Assessment: evolve, don't rewrite
 
-The Phase 0 audit found a frontend of **78 modules** with real routing, separate storefront and admin layouts, a reusable UI kit, i18n with RTL/LTR, and URL-driven catalog state. That was judged a sound base. (The tree has since grown to 119 JavaScript and JSX modules, excluding tests.)
+The Phase 0 audit found a frontend of **78 modules** with real routing, separate storefront and admin layouts, a reusable UI kit, i18n with RTL/LTR, and URL-driven catalog state. That was judged a sound base. (The tree has since grown to about 170 JavaScript and JSX modules, excluding tests.)
 
 What it lacked:
 - feature-based organization;
@@ -16,7 +16,7 @@ What it lacked:
 - a consistent data-fetching layer;
 - types and tests.
 
-Areas, the tenant runtime and the first tests arrived in Phases 1A–15. Feature-based organization and the data-fetching layer are still open (§6).
+Areas, the tenant runtime and the first tests arrived in Phases 1A–15; the data-fetching layer (TanStack Query) and type-checking arrived in Phase 16 ([ADR-0038](../11-ADR/0038-query-layer-adopted-and-type-checking.md)), although the older store-admin screens have not moved to it yet. Feature-based organization is still open (§6).
 
 Rewriting would have thrown away working, accessible components for no business gain. The plan is to **move and refine**, not to recreate.
 
@@ -27,7 +27,7 @@ Rewriting would have thrown away working, accessible components for no business 
 | Public storefront | store host | `CustomerLayout` in `frontend/src/App.jsx` (announcement, nav, category bar, footer, cart drawer) | none |
 | Customer account | store host, `/account`, `/account/addresses`, `/orders` | `AccountLayout` inside `CustomerLayout` — one navigation over profile, addresses, orders and the wishlist (Phase 16) | signed-in customer (`ProtectedRoute`) |
 | Store admin | store host, `/admin/*` | `AdminLayout` (sidebar, mobile tab bar) | `AdminRoute`, then a permission per route and a module flag where the page is optional |
-| Platform owner | platform host, `/platform/*` | `PlatformLayout` (shell only; screens **PLANNED** for Phase 18) | `PlatformRoute` (platform account) |
+| Platform owner | platform host, `/platform/*` | `PlatformLayout` (navigation, language and theme toggles) over the overview, stores and provisioning, accounts and the activity log (Phase 18) | `PlatformRoute` (platform account) |
 
 Authentication screens (`/login`, `/register`, `/forgot-password`, `/reset-password`, `/verify-email`, `/accept-invitation`) render in `AuthLayout` outside all four layouts, on both host kinds; the platform host offers no self-registration.
 
@@ -56,7 +56,7 @@ frontend/src/
 └── styles/           semantic tokens and reset
 ```
 
-Differences from today worth naming, because they are the work items: guards live in `frontend/src/components/ProtectedRoute.jsx` rather than a routes folder; the tenant provider lives in `frontend/src/app` while the other providers live in `frontend/src/context`; layouts are defined inside `frontend/src/App.jsx` and `frontend/src/pages/admin`; `frontend/src/features` holds pure logic only, with screens still under `frontend/src/pages`; the token sheet is the single `frontend/src/styles.css`; and there is no error boundary.
+Differences from today worth naming, because they are the work items: guards live in `frontend/src/components/ProtectedRoute.jsx` rather than a routes folder; the tenant provider lives in `frontend/src/app` while the other providers live in `frontend/src/context`; layouts are defined inside `frontend/src/App.jsx` and `frontend/src/pages/admin`; `frontend/src/features` holds pure logic only, with screens still under `frontend/src/pages`; and the token sheet is the single `frontend/src/styles.css`. The error boundary exists (`frontend/src/components/common/ErrorBoundary.jsx`) but lives with the UI kit and is mounted in `frontend/src/App.jsx`, not in an app-root module.
 
 ## 4. Boundaries and rules
 
@@ -66,11 +66,11 @@ Differences from today worth naming, because they are the work items: guards liv
 | **Feature components** | today `frontend/src/components`, target *features/…/components* | Presentational plus local UI state |
 | **UI kit** | `frontend/src/components/common` | Knows nothing about business or API; styled only with semantic tokens |
 | **API clients** | today the single `frontend/src/api/client.js`; target one module per feature over an http core | The shared client handles the auth header, token refresh and error normalization. |
-| **Server state** | today each screen's own `useEffect` and `useState`; target a query layer | TARGET: TanStack Query for caching, de-duplication and retries. D-19 is **DECIDED** ([ADR-0037](../11-ADR/0037-frontend-server-state-and-types.md)): it is adopted at the first screen rebuilt or newly written, with the test environment, not as a separate migration. Until then every touched screen guards its effects with a local `active` flag. |
+| **Server state** | TanStack Query (`QueryProvider`, keys in `frontend/src/app/queryKeys.js`) | Adopted in Phase 16 ([ADR-0038](../11-ADR/0038-query-layer-adopted-and-type-checking.md), carrying out D-19 from [ADR-0037](../11-ADR/0037-frontend-server-state-and-types.md)) for caching, de-duplication and retries, with the cache reset on any identity change. The storefront, account, dashboards, team, settings and platform screens use it; the older store-admin CRUD screens still fetch in `useEffect` and move when rebuilt — until then a touched effect guards itself with a local `active` flag. Current list in [FrontendGuide.md](FrontendGuide.md) §5. |
 | **Client state** | contexts or local state | Session, tenant config, toasts. The cart became *server* state in Phase 8. |
 | **Authentication** | `frontend/src/context/AuthContext.jsx` with `frontend/src/api/client.js` | Access token in module memory; refresh through the `HttpOnly` cookie with a single-flight silent refresh. What the UI shows follows `user.permissions`. Route guards are UX only. |
 | **Tenant context** | `frontend/src/app/TenantProvider.jsx` | Populated from the config endpoint, read-only: `useTenant`, `useStoreConfig`, `useModule`. Components never send a tenant id to the API. |
-| **Theme and branding** | `frontend/src/app/storeTheme.js` with `frontend/src/app/tenantModel.js` and the tokens in `frontend/src/styles.css` | Semantic CSS variables set from the store's configuration ([WhiteLabel.md](WhiteLabel.md)). There is no visitor theme choice. |
+| **Theme and branding** | `frontend/src/app/storeTheme.js` with `frontend/src/app/tenantModel.js` and the tokens in `frontend/src/styles.css` | Semantic CSS variables set from the store's configuration ([WhiteLabel.md](WhiteLabel.md)). A visitor may choose light or dark (`frontend/src/app/themeMode.js`, stored per origin under `souq_theme`), never a palette; both modes are derived from the store's colours ([DesignSystem.md](DesignSystem.md) §2–§3). |
 | **Forms** | feature components with `FormField` | Client validation is for UX; server validation is authoritative and displayed as returned |
 | **Tables** | `DataTable` with server paging | TARGET: page, sort and filter state in the URL for admin lists. Today only the storefront catalog keeps its state in the URL; admin lists hold it in component state. |
 | **Loading, error, empty** | `Skeleton`, `ErrorBanner`, `EmptyState` | Every data view handles all three |
@@ -240,6 +240,7 @@ Historical record: each table describes what changed **in that phase**, not nece
 | `RowActionsMenu` takes a `label`; the trigger had no accessible name in every admin table | Found by axe in a browser |
 | Status tokens are derived readable against their own soft surface; the active sidebar link uses `--color-on-panel` text | Both failed contrast on real pages (4.20:1 and 3.39:1). See [DesignSystem.md](DesignSystem.md) §2.2 |
 | Browser journeys: `frontend/e2e/store-administration.spec.js`, and both screens added to `frontend/e2e/responsive.spec.js` | One sign-in per file: the auth limiter allows ten a minute, and a reload that aborts an in-flight refresh leaves the browser holding a rotated token |
+
 **Platform store list and provisioning (Phase 18):**
 
 | Change | Reason |
@@ -268,22 +269,22 @@ Historical record: each table describes what changed **in that phase**, not nece
 
 ## 6. Migration plan: status
 
-**Phase 16 (storefront rebuild) closed four of these and left one open.** Taken in order below; what changed in the storefront itself is in the Phase 16 entry of §5.
+**Of the six items below, four are done or answered, one is unblocked but not done (item 3), and one is still open (item 2).** Taken in order below; what changed in the storefront itself is in the Phase 16 entry of §5.
 
 1. **Done — `frontend/src/app` introduced without moving features.** It holds `TenantProvider` (the boot from GET `/api/storefront/config`), `frontend/src/app/storeTheme.js` and `frontend/src/app/tenantModel.js` (theme, formatting and module logic, unit-tested), `frontend/src/app/BootScreens.jsx` (closed store, unknown store, retry), `frontend/src/app/StoreBrand.jsx` (the store's logo or name) and `frontend/src/app/PlatformLayout.jsx` (the platform shell).
-   The guards stayed in `frontend/src/components/ProtectedRoute.jsx`, which gained `RequireModule` and `PlatformRoute`. The customer account pages still render inside the storefront layout behind `ProtectedRoute`; their own shell comes with the account rebuild (Phase 16).
+   The guards stayed in `frontend/src/components/ProtectedRoute.jsx`, which gained `RequireModule` and `PlatformRoute`. The customer account pages got their own shell in Phase 16: `AccountLayout`, nested in `CustomerLayout` behind `ProtectedRoute`.
 2. **Still open, and now the largest remaining item — moving features.** Phase 16 rebuilt the storefront screens in place rather than moving them, and that was a deliberate order-of-work choice, not an oversight: the move is pure churn with no behaviour change, and the phase's remaining budget went to defects that only failed in a browser. The bundle argument for it was **measured and found weak**: the admin half of `frontend/src/api/client.js` is 780 bytes gzipped, 0.54% of a 141 KB first load, so splitting the client buys structure, not speed. Each screen still moves with `git mv` when it is rebuilt, so its history survives.
 3. **Unblocked, not yet done — splitting `frontend/src/api/client.js`** into per-feature modules. The query layer has arrived and decided their shape ([ADR-0038](../11-ADR/0038-query-layer-adopted-and-type-checking.md)); the split now travels with item 2. The shared client already normalizes the error contract and refreshes the session silently (Phase 3), and its `ApiError` shape is declared in JSDoc since Phase 16.
-4. **Done — theming.** Brand-named tokens were replaced by semantic tokens everywhere. The theme comes from the store, and the visitor theme switcher is gone.
+4. **Done — theming.** Brand-named tokens were replaced by semantic tokens everywhere. The theme comes from the store, and the visitor palette switcher is gone; the light/dark toggle that returned later chooses a mode, not a palette.
 5. **Answered in Phase 16 — types without a conversion** ([ADR-0038](../11-ADR/0038-query-layer-adopted-and-type-checking.md)). The trigger fired and the answer is `checkJs` with JSDoc at the boundaries, scoped to `.js` because the same check over `.jsx` produced 248 mostly-inferred errors against 52 real ones. `npm run typecheck` runs in CI. Components join when their props are declared.
 6. **Done — route-level lazy loading.** Every page except the home and product pages is lazy.
    - Baseline measured in Phase 15: about 381 KB of JavaScript in the first bundle (122 KB gzipped), with about 144 KB loading on demand.
-   - **Re-measured in Phase 16: 141.3 KB gzipped across 17 files** (453 KB raw), of which React and React-DOM are 86 KB — 61% of the payload. The rise over the Phase 15 baseline is the query layer (~9 KB) plus the storefront work itself. Making the product page lazy would save 5.4 KB, measured; it stays eager because it is the page search engines land on and a round-trip there costs more than it saves.
-   - Budgets will be enforced once a CI pipeline exists (**PLANNED**, Phase 21).
+   - **Re-measured in Phase 16: 141.3 KB gzipped across 17 files** (historical; the current figure is in [DesignSystem.md](DesignSystem.md) §12) (453 KB raw), of which React and React-DOM are 86 KB — 61% of the payload. The rise over the Phase 15 baseline is the query layer (~9 KB) plus the storefront work itself. Making the product page lazy would save 5.4 KB, measured; it stays eager because it is the page search engines land on and a round-trip there costs more than it saves.
+   - CI exists and builds the bundle, but no size budget is enforced yet (**PLANNED**, Phase 21).
 
 **Also delivered in Phase 15:**
 - The store's name, currency, languages, footer content and announcement come from its configuration.
 - Wishlist, reviews and coupons are hidden when their module is off.
 - `frontend/src/whiteLabel.test.js` fails on any brand, currency or contact literal in the frontend source.
 
-**Still open**, with the evidence for each item in [FrontendGuide.md](FrontendGuide.md) §17: the feature-folder move and the per-feature API modules (item 2), admin list state in the URL, and the admin screens' own migration to the query layer. Closed in Phase 16: the query layer, types, the error boundary, component and route tests, and the store-specific literals the white-label test did not catch (TD-27).
+**Still open**, with the evidence for each item in [FrontendGuide.md](FrontendGuide.md) §17: the feature-folder move and the per-feature API modules (item 2), admin list state in the URL, and the admin screens' own migration to the query layer. Closed in Phase 16: the query layer, types, the error boundary, component and route tests, and the store-specific literals the white-label test did not catch (TD-27). Closed in Phase 17: the browser `window.confirm` prompts.

@@ -45,7 +45,7 @@ Routes move into these areas in the phase that rebuilds each module. The fronten
 | Conflict with the current state: concurrent write (`ConcurrencyConflict`), duplicate (`DuplicateValue`, `EmailTaken`, `SlugTaken`, `ProductSlugTaken`, `SkuTaken`, `TenantSlugTaken`, `DomainTaken`), delete blocked (`CategoryInUse`, `CategoryHasChildren`), database reference rejected (`ReferenceConflict`) | **409** |
 | Business rule violated (invalid transition, insufficient stock, coupon unusable, too many decimals, unreadable colour palette, `CannotDisableSelf`, `LastAdministrator`, `TenantHasNoDomain`, `ModuleDisabled` at checkout, catalog values the entity rejects, such as a malformed slug or SKU or an unsupported language (`InvalidProductData`, `InvalidCategory`), a category cycle or a tree deeper than 5 levels (`InvalidParent`), an image order that does not list every image once, a stock correction below what open orders reserve (`InvalidInventoryOperation`), profile or address values the entity rejects, such as a malformed phone, a country that isn't a 2-letter code, or a 21st address (`InvalidCustomerData`), a basket quantity above 99 or a 51st basket line (`InvalidBasketOperation`), a basket quantity above what is available now (`InsufficientStock`), a customer cancelling a paid order (`InvalidOrderOperation`), a cancellation that lost the race to payment (`OrderAlreadyPaid`) or met a payment still in flight (`PaymentProcessing`)) | **422** |
 | Too many requests | 429 (Phase 3) |
-| Required external provider unavailable (`PaymentUnavailable`); store suspended, archived, or still provisioning (`StoreUnavailable`) | 503 |
+| Payment intent could not be created at checkout, so the order was cancelled and its stock released (`PaymentUnavailable`, from `CreateOrderHandler`); a store payment account whose keys cannot be decrypted (`PaymentsUnavailable`, from `GlobalExceptionHandler`); no secrets key configured to save a store's payment keys (`SecretsNotConfigured`); store suspended, archived, or still provisioning (`StoreUnavailable`) | 503 |
 | Unexpected | 500, generic message, no internals |
 
 ## 4. Errors ([ADR-0017](../11-ADR/0017-error-contract.md))
@@ -65,7 +65,25 @@ Every error is RFC 7807 `application/problem+json`:
 - **`code` is the contract.** Clients branch on it and translate it. `detail` is for humans and may change.
 - **`traceId`** equals the `X-Correlation-Id` response header and the request's log scope. Support asks for it.
 - **Validation (400)** adds `errors`, keyed by the JSON path the client sent: `{ "errors": { "items[0].quantity": ["…"] } }`.
-- **Framework errors use the same shape:** 401 `Unauthenticated`, 403 `Forbidden`, 404 `NotFound` (unknown route too), 400 `ValidationFailed` (unreadable JSON, without internal type names). Unexpected errors are 500 `ServerError` with a generic message; the exception exists only in the log.
+- **Framework errors use the same shape.** When an error reaches the client without a code of our own — from authentication, routing, model binding, Kestrel or the rate limiter — `ProblemDetailsConventions.DefaultCode` fills one in from the status:
+
+  | Status | Default `code` |
+  |---|---|
+  | 400 | `ValidationFailed` when there are field errors (unreadable JSON too, without internal type names), otherwise `BadRequest` |
+  | 401 | `Unauthenticated` |
+  | 403 | `Forbidden` |
+  | 404 | `NotFound` (an unknown route too) |
+  | 405 | `MethodNotAllowed` |
+  | 409 | `Conflict` |
+  | 413 | `PayloadTooLarge` |
+  | 415 | `UnsupportedMediaType` |
+  | 422 | `BusinessRule` |
+  | 429 | `TooManyRequests` |
+  | 503 | `ServiceUnavailable` |
+  | any other 5xx | `ServerError` |
+  | anything else | `Error` |
+
+  Unexpected exceptions are 500 `ServerError` with a generic message; the exception exists only in the log.
 - **Where codes come from:** use cases return `Result.Failure(Error.X(code, message))` for outcomes they decide; entities throw a `DomainException` whose `Code` is stable (`InsufficientStock`, `InvalidOrderOperation`, `InvalidCoupon`, `InvalidMoney`, `InvalidReview`, `InvalidProductData`, `ResetTokenExpired`). One table in `Souq.API/Http/ProblemDetailsConventions.cs` maps the kind to the status.
 - **Frontend:** `frontend/src/api/problem.js` turns every error into one `Error` with `message`, `code`, `status`, `traceId`, `fieldErrors`. Translations live under `errors.codes` in `frontend/src/i18n/locales/*.json` (a test keeps Arabic and English keys identical).
 
@@ -74,6 +92,7 @@ Every error is RFC 7807 `application/problem+json`:
 - **Paging:**
   - `page` (≥ 1, default 1) and `pageSize` (1–100, default per endpoint).
   - They are validated by FluentValidation on **every** list query (1A). Before 1A, `page=0` produced a SQL error and a 500.
+  - **Depth is capped too:** `(page − 1) × pageSize` may not exceed `PagingRules.MaxOffset` (10,000 rows), so `page=100000&pageSize=100` is `400 ValidationFailed` on `page` instead of a scan that reads and discards millions of rows (F-18). Past that depth, narrow the filters rather than paging further.
 - **Response shape:**
 
   ```json
@@ -172,7 +191,7 @@ Every error is RFC 7807 `application/problem+json`:
     - Errors: `422 ShippingMethodRequired`, `422 ShippingMethodUnavailable`, `422 ShippingNotAvailable`.
     - The response includes `shippingCost`, and `totalAmount` includes it.
   - **Order detail and tracking:** the detail adds `shippingMethod`, `shippingCost`, `shippingMinDays`, `shippingMaxDays`, `shippingCountry` and `trackingUrl`. The public tracking response adds `trackingUrl`.
-- **Rate limits (Phase 3):** auth, refresh and coupon-preview endpoints answer `429 TooManyRequests` with `Retry-After` when a limit is exceeded.
+- **Rate limits (Phase 3; basket writes Phase 8):** auth, refresh, coupon-preview and basket-write endpoints answer `429 TooManyRequests` with `Retry-After` when a limit is exceeded. The policies and their defaults are in `src/Souq.API/Security/RateLimiting.cs`; which endpoint uses which is in [Endpoints.md](Endpoints.md).
 - **Platform area (Phase 4, [ADR-0024](../11-ADR/0024-platform-administration.md)):**
   - Endpoints are marked `[PlatformEndpoint]` and are served only on platform hosts, behind `platform.*` permissions.
   - These are the only requests that carry a store id (`/api/platform/tenants/{id}/…`), enforced by an architecture test.
@@ -183,7 +202,7 @@ Every error is RFC 7807 `application/problem+json`:
 - **Store configuration (Phase 4):**
   - `GET /api/storefront/config` is public and serves presentation data only: branding, locale, currency decimals, contact, SEO, modules.
   - It sends a content-hash `ETag` with `Cache-Control: no-cache`, so a revalidation answers 304.
-  - A suspended or provisioning store answers `503 StoreUnavailable`, like every storefront endpoint.
+  - Unlike every other storefront endpoint, it is served while the store is suspended, archived or provisioning (`AvailableWhenStoreClosedAttribute`), so the SPA can render the store's own unavailable screen. It exposes presentation data only.
   - Settings are edited through `PUT /api/admin/store/settings` (store admin) or `PUT /api/platform/tenants/{id}/settings` (platform), with the same body and the same validation.
 - **Authorization (1B, [ADR-0019](../11-ADR/0019-authorization-foundation.md)):** endpoints declare `[HasPermission(Permissions.X.Y)]`, `[Authorize]` or `[AllowAnonymous]` — explicitly, every one. Resource ownership is checked inside the use case (404 for someone else's resource).
 - **Automated guards:** integration tests enumerate every endpoint and assert that each declares its decision, that the public surface equals a reviewed list, that every declared permission exists, and that permission-protected endpoints answer anonymous → 401 and customer → 403.
@@ -201,7 +220,7 @@ Every error is RFC 7807 `application/problem+json`:
 | Payment confirmation (client and webhook) | Idempotent by order state: a second confirmation returns the current status with no side effects. A concurrent race is resolved by `rowversion` plus a re-read (1A). |
 | Webhooks | Signature-verified (the host store's secret, else the deployment's); idempotent by the same rule; routed to the store named in the intent (Phase 11); unknown events → 200 (ignored) |
 | Refunds (`POST /api/orders/{id}/refunds`, `…/retry`) | The amount is reserved on the payment under `rowversion`, so concurrent refunds can't exceed it. The gateway receives an idempotency key per refund, so a retry after a timeout returns the first refund instead of refunding twice (Phase 11) |
-| Checkout (`POST /api/orders`) | The order and its stock reservation are written in one transaction; the loser of the last unit gets `422 InsufficientStock`, because inventory conflicts are retried from a fresh read (Phase 6). Target (Phase 9): an `Idempotency-Key` header, so a network retry doesn't create a second order |
+| Checkout (`POST /api/orders`) | The order and its stock reservation are written in one transaction; the loser of the last unit gets `422 InsufficientStock`, because inventory conflicts are retried from a fresh read (Phase 6). **Not idempotent today:** a duplicate submission creates a second order with its own reservation and payment intent (no double charge; the unpaid duplicate expires), measured by `CheckoutIdempotencyTests`. Whether a duplicate should replay or be rejected is owner decision F-8 ([OwnerDecisions.md](../09-OPERATIONS/OwnerDecisions.md)); no *Idempotency-Key* header exists yet |
 | Coupon use at checkout | Taken in the order's transaction, on a fresh read under the coupon's `rowversion`. The loser of the last use gets `422 InvalidCoupon` and its checkout rolls back. Releasing a use is idempotent by redemption status (Phase 10) |
 | Reservation commit, release and restock | Idempotent by reservation status: committing twice, or cancelling an already cancelled order, changes nothing (Phase 6) |
 | Updates to shared rows | Optimistic concurrency → 409 with a message to reload |
@@ -223,4 +242,4 @@ Every error is RFC 7807 `application/problem+json`:
 
 - Every new endpoint appears in Swagger with its auth requirement.
 - A module's public HTTP surface is listed in [Modules.md](../04-MODULES/Modules.md) when that module is rebuilt.
-- An endpoint list duplicated in the README must be regenerated, not hand-edited. Target: generated from OpenAPI (Phase 22).
+- An endpoint list duplicated in the README must be regenerated, not hand-edited. The inventory in [Endpoints.md](Endpoints.md) is already generated from the compiled API by `tests/Souq.ArchitectureTests/GeneratedDocsTests.cs`, which fails when the committed file drifts. A full API reference generated from OpenAPI remains **PLANNED** (Phase 22).

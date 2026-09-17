@@ -115,6 +115,23 @@ Platform-area requests (`Features/Platform`) all carry an explicit tenant id and
 
 Platform account management (`ListPlatformUsersQuery`, `InvitePlatformUserCommand`, `SetPlatformUserStatusCommand`) also lives in `Features/Platform`, but the rules it applies are Identity's; see [Identity](../Identity/README.md).
 
+**Frontend screens.**
+
+| Route | Screen | What it does |
+|---|---|---|
+| `/platform` | `frontend/src/pages/platform/PlatformOverview.jsx` (inside `frontend/src/app/PlatformLayout.jsx`) | Platform totals from `GET /api/platform/stats` ([Reporting](../Reporting/README.md)) |
+| `/platform/stores` | `frontend/src/pages/platform/Stores.jsx` | Server-paged store list with status, primary domain and administrator readiness |
+| `/platform/stores/new`, `/platform/stores/:id/setup/:step` | `frontend/src/pages/platform/NewStore.jsx`, `frontend/src/pages/platform/StoreSetup.jsx` | The provisioning wizard (identity → branding → domains → modules → administrator → activate); each step saves on its own |
+| `/platform/stores/:id` | `frontend/src/pages/platform/StoreDetail.jsx` with `frontend/src/pages/platform/StorePanels.jsx` | The store page: domains, modules, administrator, lifecycle actions |
+| `/platform/stores/:id/settings` | `frontend/src/pages/platform/StoreSettingsPage.jsx` | The store settings editor aimed at one store's platform endpoints |
+| `/platform/accounts` | `frontend/src/pages/platform/Accounts.jsx` | Platform accounts (owner only) |
+| `/platform/audit` | `frontend/src/pages/platform/Audit.jsx` | The activity log |
+| `/admin/settings` (store host) | `frontend/src/pages/admin/StoreSettings.jsx` | The store's own settings |
+
+Both settings screens and the wizard's branding step render one editor, `frontend/src/components/settings/StoreSettingsEditor.jsx`, with its live preview. Pure rules the screens share with the server (slug and domain shape, readiness, resume step, lifecycle transitions, audit filters) are in `frontend/src/features/platform/provisioning.js` and `frontend/src/features/platform/audit.js`.
+
+Destructive platform actions confirm in `ConfirmDialog`, and the server's refusal is shown inside the dialog: domain changes such as removing a domain, and every status change — suspending or archiving a store (archiving requires typing the store's slug), and activation, which warns about a missing domain or administrator without blocking — in `StorePanels.jsx`, and disabling a platform account through `frontend/src/components/common/useConfirmAction.jsx`.
+
 ## Public contracts
 
 | Contract | Path | Who calls it |
@@ -128,7 +145,7 @@ Platform account management (`ListPlatformUsersQuery`, `InvitePlatformUserComman
 
 `Souq.Domain.Platform` types themselves (`StoreModules` keys, `TenantStatus`) are part of the shared kernel in practice: other modules reference the constants, not this module's use cases.
 
-**Documentation gap:** [Modules.md](../Modules.md) lists a planned *ITenantModules* contract. It does not exist and is not needed — the enabled modules travel inside the cached `TenantInfo` and are asked through `TenantInfo.HasModule`.
+**No module-flag contract:** earlier module documentation named a planned *ITenantModules* contract. It does not exist and is not needed — the enabled modules travel inside the cached `TenantInfo` and are asked through `TenantInfo.HasModule`.
 
 ## Dependencies
 
@@ -154,7 +171,7 @@ Platform account management (`ListPlatformUsersQuery`, `InvitePlatformUserComman
 | `Tenants` | `src/Souq.Infrastructure/Persistence/Configurations/TenantConfiguration.cs` | No — it *defines* the tenant | Unique index on `Slug`; the settings document in the `Settings` JSON column (converted by `StoreSettingsJson`); module keys in the `EnabledModules` column, defaulting to every module so an upgrade never removes a feature; `ReviewsAutoApprove`; `rowversion` |
 | `TenantDomains` | `TenantDomainConfiguration` in the same file | No | **Unique index on `Host` across the whole platform** — the last guard against stealing another store's host; cascade delete from `Tenants` |
 | `AuditEntries` | `src/Souq.Infrastructure/Persistence/Configurations/AuditEntryConfiguration.cs` | No, and deliberately no FK to `Tenants` | Append-only, enforced by `TenantWriteGuardInterceptor`; indexes on `OccurredAt`, `(TenantId, OccurredAt)`, `(ActorUserId, OccurredAt)` |
-| `StorePaymentAccounts` | `StorePaymentAccountConfiguration` | Yes | Owned by Payments; written from this module's `Features/Stores` use cases |
+| `StorePaymentAccounts` | `StorePaymentAccountConfiguration` | Yes | Owned by Payments (entity and key rules); written from this module's `Features/Stores` and `Features/Platform` use cases (TD-04 records moving them to Payments) |
 
 Other modules' data is read only through `PlatformQueries`: a store's administrative accounts (`Users` with an explicit `TenantId` predicate), and "does this store have any commercial activity?" (`Products` or `Orders`), which is what locks a store's currency.
 
@@ -255,11 +272,18 @@ Because administration endpoints are recognised by their permission policy, a st
 | Application | `tests/Souq.Application.Tests/Common/AuditBehaviorTests.cs` | Actor, store and area on the staged line; discard on failure and on exception; untouched non-auditable requests |
 | Application | `tests/Souq.Application.Tests/Common/TenantContextTests.cs` | Set once, and `RequireTenant` throwing in platform scope |
 | Integration | `tests/Souq.IntegrationTests/PlatformAdministrationTests.cs` | The full provisioning scenario, the Marka look and ETag/304, module enforcement in the endpoint and in checkout, domain theft, currency lock, platform accounts, append-only audit |
+| Integration | `tests/Souq.IntegrationTests/ProvisioningBoundaryTests.cs` | The wizard's boundaries: platform options equal the store editor's, a platform host refused as a store domain, administrator readiness in the list, the provisioning owner's token refused on the new store, the new store isolated from its first moment |
+| Integration | `tests/Souq.IntegrationTests/PlatformAuditViewerTests.cs` | Account, date-range and store filters together; server paging newest first; UTC range bounds as the browser sends them; an inverted range refused; reading the log writes a line; platform host and platform account only; response instants carry `Z` |
 | Integration | `tests/Souq.IntegrationTests/StoreAdministrationTests.cs` | Store-side settings edit and its audit line, unreadable palette rejected, branding formats and host-scoped serving, staff vs settings permissions |
 | Integration | `tests/Souq.IntegrationTests/TenantResolutionTests.cs`, `TenantResolutionMiddlewareTests.cs` | Unknown host, suspended and provisioning stores, platform host, development conveniences, upload host binding, log scope |
 | Integration | `tests/Souq.IntegrationTests/TenantIsolationTests.cs` | Cross-store reads, writes, uniqueness, tokens, files |
 | Architecture | `tests/Souq.ArchitectureTests/TenancyRuleTests.cs`, `ModuleAndContractRuleTests.cs` | The rules listed under Dependencies |
 | Frontend | `frontend/src/app/tenantModel.test.js`, `frontend/src/whiteLabel.test.js` | Deriving theme tokens, currency and modules from the config, and mapping the boot response to a screen |
+| Frontend | `frontend/src/features/platform/provisioning.test.js`, `frontend/src/features/platform/audit.test.js` | Slug, currency and domain rules as the server applies them; readiness and resume step; lifecycle transitions; audit filters in the URL, local-day bounds, metadata rendering and action categories |
+| Frontend | `frontend/src/pages/platform/Provisioning.test.jsx` | Store list readiness and server-side search; creating a store; the store page's domain and administrator sections; archive requiring the slug; a refusal kept inside the dialog; the platform settings editor writing to the selected store |
+| Frontend | `frontend/src/pages/platform/Accounts.test.jsx`, `frontend/src/pages/platform/Audit.test.jsx`, `frontend/src/pages/platform/PlatformOverview.test.jsx` | Account actions offered by the server, disable only after confirmation, `LastAdministrator` read in the dialog; audit lines as recorded, UTC instant in details, server filtering and paging; overview totals across statuses and empty platforms |
+| End-to-end | `frontend/e2e/platform-provisioning.spec.js` | A store provisioned in a browser from creation to activation, its administrator accepting on the store host, the owner refused there, archive needing the slug |
+| End-to-end | `frontend/e2e/back-office.spec.js` | Platform account invitation and acceptance, the disable found in the activity log by activity and by account, a store page opening its own activity (plus store-admin confirmation dialogs) |
 
 ## Failure modes
 
@@ -298,7 +322,8 @@ Details in [ChangeGuide.md](ChangeGuide.md): adding a store setting; adding a mo
 - **The directory and storefront caches are per-process.** With more than one API instance, a suspension or a branding change takes up to 60 s to reach the others, and each instance computes its own ETag.
 - **The settings document cannot be queried inside.** "Find every store whose contact email is X" means scanning JSON.
 - **Audit gaps across scopes.** When a platform command writes inside a store (`InviteTenantAdminCommand`, `UpdateTenantPaymentAccountCommand`, `RemoveTenantPaymentAccountCommand`), the work commits in the store's `DbContext` while the audit line commits in the platform's — a crash in between leaves a change without its line. [ADR-0024](../../11-ADR/0024-platform-administration.md) records this for "two platform commands" and suggests the outbox (Phase 14) could close it; Phase 14 shipped and the gap is still open, and the payment commands were added to it in Phase 11.
-- **The audit log has no retention or purge**, no export, and no store-facing viewer (an audit viewer for store admins is **PLANNED**, Phase 17). The platform viewer (`/platform/audit`) reads it with the server's filters and paging and says on screen what the log does not contain.
+- **The audit log has no retention or purge**, no export, and no store-facing viewer: there is no store audit endpoint or page, Phase 17 closed without one, and no later phase schedules it. The platform viewer (`/platform/audit`) reads it with the server's filters and paging and says on screen what the log does not contain.
+- **Audit instants are UTC.** `occurredAt` and the date filters travel as UTC instants with a `Z` suffix (`src/Souq.API/Http/UtcDateTimeJsonConverter.cs`). The viewer shows each line in the reader's local time and the raw UTC instant in the entry's details; a "from"/"to" day is the reader's local day, converted to UTC before it is sent.
 - **An audit line names ids, not people or stores.** `AuditEntryDto` carries the actor's id and role and the store's id; the viewer shows them as such rather than fetching names, because every platform read is itself an audit line and a store's accounts are outside the platform's scope.
 - **Store queries are not audited** — only platform-area requests and store-side commands are. Sign-ins, sign-outs and other Identity events are not audited at all.
 - **`Archive` is terminal but empty.** No data export, anonymization or deletion happens; the store simply stops serving.
@@ -307,7 +332,7 @@ Details in [ChangeGuide.md](ChangeGuide.md): adding a store setting; adding a mo
 
 ## Future evolution
 
-- **PLANNED (Phase 17 follow-up):** a store-facing audit view.
+- **Not scheduled:** a store-facing audit view. Phase 17 closed without it.
 - **DECISION REQUIRED (Phase 18, remaining):** storefront preview with a preview token — who may preview, which states, what a preview may do, lifetime and revocation, and how the credential crosses hosts. The brief is [StorefrontPreview.md](StorefrontPreview.md) (D-22).
 - **DECISION REQUIRED:** platform-wide settings (`platform.settings.manage`) — no setting is defined (P-07).
 - The store list, provisioning wizard, store page, platform accounts (`/platform/accounts`) and the activity log (`/platform/audit`) are delivered — see [FrontendArchitecture.md](../../08-FRONTEND/FrontendArchitecture.md) §5.

@@ -135,6 +135,8 @@ Checkout re-checks availability and reserves atomically inside the order transac
 
 Validators: `GetBasketValidator` (coupon ≤ 50 characters, method id > 0, country two letters), `AddBasketItemValidator` (quantity 1–99), `SetBasketItemQuantityValidator` (0–99), `MergeWishlistValidator` (at most 200 ids, each > 0). Removing and clearing have no validator.
 
+**Frontend.** The basket is held in `frontend/src/context/CartContext.jsx` and shown in the cart drawer (`frontend/src/components/cart/CartDrawer.jsx`, with `CartLine.jsx` and `CartSummary.jsx`) and on the `/cart` page (`frontend/src/pages/Cart.jsx`); checkout (`frontend/src/pages/checkout/Checkout.jsx`) asks `GET /api/basket/quote` for the priced total. The wishlist is `frontend/src/context/WishlistContext.jsx` and the `/wishlist` page (`frontend/src/pages/Wishlist.jsx`, behind the `wishlist` module). Pure basket and wishlist rules are in `frontend/src/features/basket/basketModel.js` and `frontend/src/features/wishlist/wishlistModel.js`.
+
 ## Public contracts
 
 | Contract | Path | Implementation | Callers |
@@ -144,7 +146,7 @@ Validators: `GetBasketValidator` (coupon ≤ 50 characters, method id > 0, count
 
 - `IBasketCheckout.ConsumeAsync` deliberately does not save: the caller's unit of work commits it together with the payment confirmation, so the basket empties only if the payment is recorded, and a failed or cancelled order leaves the basket untouched.
 - `IWishlistQueries` (declared in `src/Souq.Application/Features/Wishlist/WishlistUseCases.cs`) is this module's own read port, implemented by `WishlistQueries` in Infrastructure ([ADR-0008](../../11-ADR/0008-cqrs-strategy.md)).
-- [Modules.md](../Modules.md) still names *IBasketReader*; the contract that shipped is `IBasketCheckout`.
+- Earlier module documentation named the basket contract *IBasketReader*; the contract that shipped is `IBasketCheckout`.
 
 ## Dependencies
 
@@ -274,6 +276,7 @@ See [ChangeGuide.md](ChangeGuide.md): add a pricing stage (tax under P-06); chan
 ## Future evolution
 
 - **DEFERRED:** the tax stage — open product decision **P-06** (inclusive or exclusive prices, per-store rate, invoice display), due "before the first sale" in [ProductRoadmap.md](../../12-ROADMAP/ProductRoadmap.md).
-- **PLANNED:** Phase 16 (storefront) rebuilds the cart, checkout and wishlist screens; Phase 23 adds a distributed lock for the store sweeps.
-- **FUTURE:** replacing the boundary leaks with contracts — a Catalog sellable-items contract (*ISellableItems* in [Modules.md](../Modules.md)) and a Promotions coupon evaluator.
+- Delivered in Phase 16 (storefront): the cart page and drawer, checkout and the wishlist page (see *Frontend* under Use cases).
+- **DEFERRED to Phase 23:** a distributed lock for the store sweeps (the roadmap's Phase 6 entry defers it there; Phase 23's scope list does not yet name it).
+- **FUTURE:** replacing the boundary leaks with contracts — a Catalog sellable-items contract (*ISellableItems* in [ModuleBoundaries.md](../../02-ARCHITECTURE/ModuleBoundaries.md)) and a Promotions coupon evaluator.
 - **FUTURE:** shopper-chosen variants in the basket (waits for Catalog's option matrix); back-in-stock and price-drop alerts; a server-side guest wishlist, which [ADR-0033](../../11-ADR/0033-review-moderation-and-wishlist.md) rejected as more state than the feature is worth.

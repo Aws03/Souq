@@ -57,7 +57,7 @@
 ## I need to… add marketing preferences (PLANNED)
 
 - **Inspect:** `Customer`, `CustomerExportProfile`, `AccountController`, and the Notifications module's handlers, which are where a preference would have to be honoured.
-- **Rules to respect:** consent belongs to Customers, not Identity ([Modules.md](../Modules.md) says Identity must not own marketing preferences). Store the decision **and** when it was given. Transactional email (reset, verification, order status) is not marketing and must not be gated by it. Erasure clears it; the export includes it.
+- **Rules to respect:** consent belongs to Customers, not Identity (Identity must not own marketing preferences). Store the decision **and** when it was given. Transactional email (reset, verification, order status) is not marketing and must not be gated by it. Erasure clears it; the export includes it.
 - **Steps:** a domain method that records consent with a timestamp → a command and endpoint under `Features/Customers/Account` → export and erasure → when a marketing message type is added, its outbox handler reads the live preference at dispatch (never a copy in the payload), ideally through a Customers read port rather than `ICustomerRepository`.
 - **Tests:** domain test for consent and withdrawal; handler test; an integration test that a marketing message is skipped for a customer who opted out.
 - **API:** new endpoint plus new fields in the profile response; additive.

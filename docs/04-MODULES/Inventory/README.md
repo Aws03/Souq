@@ -105,6 +105,8 @@ Every transition is guarded by the current status, so replaying an operation doe
 
 Both commands are `IAuditable`; both, and the three queries, are validated (`AdjustStockValidator`, `SetLowStockThresholdValidator`, `GetInventoryQueryValidator`, `GetLowStockQueryValidator`, `GetStockMovementsQueryValidator`).
 
+**Frontend.** `/admin/inventory` (`frontend/src/pages/admin/Inventory.jsx`) lists stock server-paged with on hand, reserved and available, shows a low-stock banner from `GET /api/admin/inventory/low-stock`, and opens the adjustment and ledger drawers (`AdjustStockDrawer`, `StockMovementDrawer`, in the same file). The store dashboard (`frontend/src/pages/admin/Dashboard.jsx`) shows healthy, low and out-of-stock counts, but those come from [Reporting](../Reporting/README.md)'s `GetStoreDashboardQuery`, not from this module's endpoints.
+
 ## Public contracts
 
 Declared in `src/Souq.Application/Features/Inventory/Contracts/InventoryContracts.cs` and implemented by `InventoryReservations` (one scoped instance serves both interfaces, wired in `src/Souq.Application/DependencyInjection.cs`):
@@ -156,7 +158,7 @@ All routes sit under `api/admin/inventory` with `[HasPermission(Permissions.Inve
 | Method | Route | Authorization | Module flag | Use case |
 |---|---|---|---|---|
 | GET | `/api/admin/inventory` | `inventory.view` | — | Items of non-archived products, lowest available first, product id as tie-breaker (default page size 50) |
-| GET | `/api/admin/inventory/low-stock` | `inventory.view` | — | Same list filtered to `available <= threshold`; the dashboard badge reads `totalCount` with `pageSize=1` (default 20) |
+| GET | `/api/admin/inventory/low-stock` | `inventory.view` | — | Same list filtered to `available <= threshold`; the Inventory page's low-stock banner reads `totalCount` with `pageSize=1` (default 20) |
 | GET | `/api/admin/inventory/{productId}/movements` | `inventory.view` | — | The product's ledger, newest first, id as tie-breaker (default 50) |
 | POST | `/api/admin/inventory/{productId}/adjustments` | `inventory.view` + `inventory.manage` | — | `{ "delta": -2, "reason": "…" }` → 200 `StockLevelDto` |
 | PUT | `/api/admin/inventory/{productId}/threshold` | `inventory.view` + `inventory.manage` | — | `{ "lowStockThreshold": 3 }` → 200 `StockLevelDto` |
@@ -228,7 +230,7 @@ Change the reservation window or policy · change low-stock alerting · record c
 1. **One item per variant and one variant per product,** so every admin route is keyed by product id and `GetForProductAsync` silently means "the default variant's stock".
 2. **Low-stock alerting is thin.** Only a downward crossing during an adjustment or a reservation raises the event; a product created below its threshold, a threshold raised above current stock, and a product that simply stays low never produce one. Delivery is an in-app notification only — the low-stock email deferred in Phase 6 did not arrive with the outbox in Phase 14.
 3. **The stock row is a hot row.** Every checkout writes it; a flash sale on one SKU serialises on it, and after five conflicting attempts the customer gets a 409 ([ADR-0026](../../11-ADR/0026-inventory-reservations.md) records this cost).
-4. **The sweep assumes one instance** (a distributed lock is DEFERRED to Phase 23) and skips stores that are not `Active`, so a suspended store keeps its holds.
+4. **The sweep assumes one instance** (a distributed lock is DEFERRED to Phase 23 — the roadmap's Phase 6 entry defers it there, though Phase 23's scope list does not yet name it) and skips stores that are not `Active`, so a suspended store keeps its holds.
 5. **`StockMovementType.Return` is never written.** Nothing calls `Receive` with it; the only caller of `Receive` is `VariantStockInitializer` (and `DbSeeder`), both with `Purchase`. Customer returns as a stock flow do not exist yet.
 6. **The ledger records no actor.** Who made an adjustment is only in `AuditEntries`; [DatabaseDesign.md](../../06-DATABASE/DatabaseDesign.md) notes the user column as later work.
 7. **Adjustment reasons are free text** with no reason codes, so they cannot be aggregated (shrinkage vs damage vs stock-take).
@@ -240,5 +242,6 @@ Change the reservation window or policy · change low-stock alerting · record c
 ## Future evolution
 
 - **DEFERRED** ([ADR-0026](../../11-ADR/0026-inventory-reservations.md), [ProductRoadmap.md](../../12-ROADMAP/ProductRoadmap.md)): a distributed lock for the sweep when several instances run (Phase 23); basket-level reservations (Phase 8 decided against them deliberately).
-- **PLANNED:** low-stock KPIs on the tenant dashboard (Phase 17); index and query-plan review (Phase 21).
+- Delivered: low-stock and out-of-stock counts on the store dashboard (Phase 17, through Reporting).
+- **PLANNED:** index and query-plan review (Phase 21).
 - **FUTURE** (the revisit triggers written into [ADR-0026](../../11-ADR/0026-inventory-reservations.md)): several warehouses; splitting or queueing a contended SKU when latency shows it; extracting Inventory as a service — the reserve → commit/release contract exists precisely so that step can become a saga; a low-stock email or digest; per-store reservation windows.

@@ -299,7 +299,7 @@ FROM OutboxMessages WHERE FailedAt IS NOT NULL ORDER BY FailedAt DESC;
 
 `LastError` holds the exception type and a truncated message — never a recipient, link or token. In Development, the link itself appears in the API log as a `[development only]` line once the dispatcher runs (within about 5 seconds).
 
-**Safe fix.** Set a real provider key **and** its sender address (`BREVO_SENDER_EMAIL` or `GMAIL_USERNAME`; for Resend, a verified `Resend:From`), clear the `GMAIL_APP_PASSWORD` placeholder if Gmail is not your provider, and restart. If Gmail times out with a network error, your ISP may block port 587 — set `GMAIL_SMTP_PORT=465` for implicit TLS. For messages already dead, the supported path is to have the user request a new reset or verification: handlers issue the token at dispatch, so a fresh request produces a fresh, valid link. An operator screen for dead messages is **PLANNED** (Phase 17 or 23).
+**Safe fix.** Set a real provider key **and** its sender address (`BREVO_SENDER_EMAIL` or `GMAIL_USERNAME`; for Resend, a verified `Resend:From`), clear the `GMAIL_APP_PASSWORD` placeholder if Gmail is not your provider, and restart. If Gmail times out with a network error, your ISP may block port 587 — set `GMAIL_SMTP_PORT=465` for implicit TLS. For messages already dead, the supported path is to have the user request a new reset or verification: handlers issue the token at dispatch, so a fresh request produces a fresh, valid link. There is no operator screen for dead messages: Phase 17 closed without one and no roadmap phase schedules it (**FUTURE**), so dead rows are found by querying the outbox table.
 
 **Not this.** Do not leave `EMAIL_PROVIDER=Log` in production — nothing is delivered and only a warning marks it. Do not delete outbox rows to "clear" a backlog; they are the record of what was and was not delivered. Do not move an email send into a request handler to make it synchronous: an architecture test keeps `IEmailSender` inside the Notifications module.
 
@@ -348,7 +348,7 @@ docker compose logs api | grep "No store is mapped to host"
 
 **Symptom.** `npm run build` or the Docker web build fails; or the dev server loads but every API call fails, with `[api-proxy]` or `[uploads-proxy]` lines in the terminal.
 
-**Likely cause.** For builds: `npm ci` (used by `frontend/Dockerfile`) requires `package-lock.json` to match `package.json` exactly, and the image builds on Node 20. For the proxy: `frontend/vite.config.js` forwards `/api` and `/uploads` to `http://127.0.0.1:5200`, so the API must be running on port 5200 — the port is deliberately 5200 (macOS reserves 5000 for AirPlay) and the target is deliberately `127.0.0.1` (resolving `localhost` inside Node can hang the proxy).
+**Likely cause.** For builds: `npm ci` (used by `frontend/Dockerfile`) requires `package-lock.json` to match `package.json` exactly, and the image builds on Node 22 (`node:22-alpine`; Vitest 5 needs 22.12 or newer, so an older local Node fails too). For the proxy: `frontend/vite.config.js` forwards `/api` and `/uploads` to `http://127.0.0.1:5200`, so the API must be running on port 5200 — the port is deliberately 5200 (macOS reserves 5000 for AirPlay) and the target is deliberately `127.0.0.1` (resolving `localhost` inside Node can hang the proxy).
 
 **Diagnostics.**
 
@@ -379,9 +379,9 @@ curl -i http://127.0.0.1:5200/api/storefront/config -H "Host: localhost"
 
 ## 19. Swagger is not available on the Docker stack
 
-**Symptom.** http://localhost:5201/swagger returns 404, although `docker-compose.yml` and the root `README.md` mention Swagger on that port.
+**Symptom.** http://localhost:5201/swagger returns 404, although the comment on that port mapping in `docker-compose.yml` mentions Swagger.
 
-**Likely cause.** Swagger is mapped only when the environment is `Development`; the compose stack runs as `Production`. The comment and the README table are stale.
+**Likely cause.** Swagger is mapped only when the environment is `Development`; the compose stack runs as `Production`. The compose comment is stale; the root `README.md` correctly says Swagger is Development-only.
 
 **Safe fix.** Use Swagger against a locally run API (http://localhost:5200/swagger), or call the deployed API with `curl` and the right Host header.
 

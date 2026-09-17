@@ -93,6 +93,8 @@ Shipping is not optional: `StoreModules.All` is `promotions`, `reviews` and `wis
 
 `ShippingMethodInput` carries the whole method; `ShippingMethodInputValidator` checks shape (name, price ≥ 0, threshold > 0, lengths, days within 0–90, at most 60 countries, sort order 0–10 000) and the entity checks meaning. The price currency is always the store's — no currency is accepted from the client. `ShippingMethodMapping` maps the input onto the entity and applies the active flag.
 
+**Frontend.** Staff manage methods at `/admin/shipping` (`frontend/src/pages/admin/ShippingMethods.jsx` with `ShippingMethodFormDrawer.jsx`; deleting confirms in `ConfirmDialog`). Shoppers choose a method in checkout (`frontend/src/pages/checkout/Checkout.jsx`, `frontend/src/pages/checkout/AddressStep.jsx`), priced through `GET /api/basket/quote`; the choice rules are in `frontend/src/features/checkout/shippingOptions.js` and `frontend/src/features/checkout/shippingChoice.js`.
+
 ## Public contracts
 
 | Contract | Path | Implementation | Callers |
@@ -210,4 +212,4 @@ See [ChangeGuide.md](ChangeGuide.md): add a rate strategy (weight or zone); inte
 - **FUTURE:** a carrier rate provider behind `IShippingRateProvider`, and later label printing and shipment creation.
 - **DEFERRED:** a structured address snapshot on the order — deliberately postponed until a consumer needs it (labels, or tax under P-06).
 - **FUTURE:** per-language method names.
-- **PLANNED:** Phase 16 (storefront) rebuilds the checkout screens that present these options.
+- Delivered in Phase 16 (storefront): the checkout screens that present these options, including the order's own delivery estimate instead of a fixed promise.

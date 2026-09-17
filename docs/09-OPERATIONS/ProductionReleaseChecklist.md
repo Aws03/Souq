@@ -20,7 +20,7 @@
 - [ ] **REQUIRED** The host has at least 2 GB of memory free for SQL Server alone, plus headroom for the API and nginx.
 - [ ] **REQUIRED** The `5201:8080` API port mapping is **removed** from `docker-compose.yml` for a public deployment. A client reaching the API directly appears to come from the Docker bridge, which is inside the default trusted proxy range, and can then forge `X-Forwarded-For`.
 - [ ] **REQUIRED** The database port is not published (it is not, by default — keep it that way).
-- [ ] **RECOMMENDED** Image tags are pinned to digests rather than floating (`2022-latest`, `sdk:10.0`, `aspnet:10.0`, `nginx:1.27-alpine`, `node:20-alpine`), so two deployments of one commit cannot differ.
+- [ ] **RECOMMENDED** Image tags are pinned to digests rather than floating (`2022-latest`, `sdk:10.0`, `aspnet:10.0`, `nginx:1.27-alpine`, `node:22-alpine`), so two deployments of one commit cannot differ.
 - [ ] **RECOMMENDED** The API container runs as a non-root user (`src/Souq.API/Dockerfile` has no `USER` instruction today).
 - [ ] **OPTIONAL** Resource limits and restart policies are set per service.
 
@@ -80,7 +80,7 @@
 
 - [ ] **REQUIRED** The log says `email Resend`, `email Brevo` or `email Gmail` — never `email Log` in production.
 - [ ] **REQUIRED** Exactly one provider key is set. `GMAIL_APP_PASSWORD` is empty unless Gmail is genuinely the provider.
-- [ ] **REQUIRED** The sender address is real and verified for the provider's domain.
+- [ ] **REQUIRED** The sender address is real and verified for the provider's domain (`BREVO_SENDER_EMAIL` / `GMAIL_USERNAME`; for Resend, `Resend:From` must be added to `docker-compose.yml` — compose does not expose it and the default is Resend's shared test sender).
 - [ ] **REQUIRED** A real password reset arrives in a real inbox, and its outbox row shows `ProcessedAt` set.
 - [ ] **REQUIRED** A real order confirmation arrives with the correct total and its lines.
 - [ ] **RECOMMENDED** SPF and DKIM are configured for the sending domain, or messages will be filtered.
@@ -96,7 +96,7 @@
 ## 10. HTTPS
 
 - [ ] **REQUIRED** TLS terminates in front of the stack and the browser reaches the storefront over https.
-- [ ] **REQUIRED** The API sees `https`. nginx sets `X-Forwarded-Proto` from **its own** plain-http listener, which overwrites an outer terminator's header — verify by requesting a password reset and reading the link's scheme.
+- [ ] **REQUIRED** The API sees `https`. nginx keeps an incoming `X-Forwarded-Proto` of `http`/`https` and falls back to its own plain-http scheme only when none arrives — verify by requesting a password reset and reading the link's scheme. If this nginx is itself the internet-facing edge, drop that `map` in `frontend/nginx.conf` so a client cannot claim https ([Security.md](../07-SECURITY/Security.md) §4).
 - [ ] **REQUIRED** `Auth:RefreshCookie:Secure` stays `true`. The refresh and basket cookies are `Secure` and will not be sent over plain http.
 - [ ] **REQUIRED** The terminator passes `X-Forwarded-Proto: https` through. Without it the API believes it is on plaintext: no HSTS, and `http://` links in emails.
 - [ ] **RECOMMENDED** The SPA's CSP has been confirmed in a browser (storefront **and** checkout, console clean) and switched from `Content-Security-Policy-Report-Only` to `Content-Security-Policy` in `frontend/nginx.conf`.
@@ -113,7 +113,7 @@
 - [ ] **REQUIRED** Logs are captured somewhere durable; the containers' stdout is not a retention policy.
 - [ ] **REQUIRED** A spot check of the log shows no token, reset link, password or `Authorization` value.
 - [ ] **REQUIRED** `X-Correlation-Id` is present on responses, and the same id appears in the log line for that request.
-- [ ] **RECOMMENDED** The proxy's access log is treated as sensitive, or configured not to record query strings and token-bearing paths.
+- [ ] **RECOMMENDED** Any proxy, load balancer or CDN **in front of** this stack applies the same log rule as the shipped nginx (`souq_safe` in `frontend/nginx.conf`: no query strings, `/track/…` paths redacted, no `Referer`), or its access log is treated as sensitive. The shipped nginx already does this; an outer proxy keeps its own log.
 - [ ] **OPTIONAL** Metrics and traces are exported.
 
 ## 13. Health checks and monitoring
@@ -152,6 +152,7 @@
 ## 17. Testing before the release
 
 - [ ] **REQUIRED** The full gate passes on the exact commit being deployed — see [DeveloperQualityGates.md](DeveloperQualityGates.md).
+- [ ] **RECOMMENDED** The Playwright browser journeys pass against a local stack of that commit. They are **not** part of CI or of `scripts/release-gate.sh` — they need a live stack and are run by hand, file by file ([DeveloperQualityGates.md](DeveloperQualityGates.md)).
 - [ ] **REQUIRED** A manual pass over the money path on the real deployment: browse, add to basket, check out, pay, receive the email, track the order, refund it.
 - [ ] **RECOMMENDED** The same pass as a **second** store on its own domain, to prove isolation and branding in the deployed stack rather than in tests.
 

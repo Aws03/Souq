@@ -49,18 +49,22 @@ this is a commercial and legal choice, not a finding.
 two-decimal?
 
 **Why it matters.** This is the single most expensive thing on the page to get wrong, and it fails silently.
-Send a JOD amount in the wrong unit and every charge is out by a factor of ten — collecting a tenth of every
-price, or ten times it, with no error anywhere. It is only visible in the settlement report.
+Today the code sends JOD in hundredths. If the real account treats JOD as three-decimal, every charge collects
+**a tenth of the price**, with no error anywhere. It is only visible in the settlement report.
 
-**Affected code.** `StripeAmountConverter` and its tests, which already encode a three-decimal assumption; every
-store whose currency is JOD or another three-decimal currency (KWD, BHD, OMR, TND).
+**Affected code.**
+- `StripeAmountConverter` multiplies every currency Stripe doesn't list as zero-decimal by **100**, JOD included, rounding to the nearest 0.01.
+- `Money` accepts three decimals for BHD, IQD, JOD, KWD, LYD, OMR and TND (`CurrencyInfo`), so a price of 59.955 JOD is sent to Stripe as 5996, i.e. 59.96.
+- `StripeAmountConverterTests` encodes that two-decimal assumption and nothing else.
+- Affected stores: every store whose currency is one of those seven.
 
 | Engineering | Deployment | First paying customer |
 |---|---|---|
-| No | No | **Yes, if that customer's store prices in JOD** |
+| **Only if the answer is three-decimal:** a small, deliberate change to the multiplier, its rounding and its test | No | **Yes, if that customer's store prices in a three-decimal currency** |
 
-**Evidence that exists.** `StripeAmountConverterTests` covers the conversion logic in both shapes, so the code
-is ready for either answer. **Evidence still required:** one test charge on the **real** account in the target
+**Evidence that exists.** The code and its test show exactly what is sent today (×100). They say nothing about
+what the real account expects, and the code isn't prepared for the other answer: moving to ×1000 is a code
+change, not a setting. **Evidence still required:** one test charge on the **real** account in the target
 currency, and the amount read back from the Stripe dashboard. Nothing in this repository can produce that
 evidence — it needs the account.
 

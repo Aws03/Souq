@@ -152,4 +152,4 @@ Today Reviews and Notifications both take `IOrderRepository`, and Notifications'
 - **API:** none.
 - **Database:** none.
 - **Security:** keep the contract minimal — the email handler needs a number and a total, not an address.
-- **Docs and ADR:** [Modules.md](../Modules.md) lists *IOrderHistory* as intended; update it and both module pages when it exists.
+- **Docs and ADR:** [ModuleBoundaries.md](../../02-ARCHITECTURE/ModuleBoundaries.md) lists *IOrderHistory* as the contract that would close the Reviews → Ordering crossing; update it, TD-02 and both module pages when it exists.

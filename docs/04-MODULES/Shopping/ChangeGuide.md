@@ -85,7 +85,7 @@
 - **Inspect:** `PricingService`, `AddBasketItemHandler`, `AddToWishlistHandler`, `MergeWishlistHandler`, `WishlistQueries`, and `AllowedContracts` in `tests/Souq.ArchitectureTests/ModuleAndContractRuleTests.cs`.
 - **Rules to respect:** a contract lives in the owning module's `Contracts` folder and exposes DTOs, never entities; no cycles (Promotions must not end up calling Shopping); behaviour must not change — the same error codes and messages.
 - **Steps:**
-  1. Catalog: add a sellable-items contract (Modules.md names *ISellableItems*) returning name, translations, image, default variant id, unit price and a sellable flag. Decide there whether category visibility counts as sellable, which also closes the gap listed under *Known limitations*.
+  1. Catalog: add a sellable-items contract ([ModuleBoundaries.md](../../02-ARCHITECTURE/ModuleBoundaries.md) names *ISellableItems*) returning name, translations, image, default variant id, unit price and a sellable flag. Decide there whether category visibility counts as sellable, which also closes the gap listed under *Known limitations*.
   2. Promotions: add an evaluation contract returning the outcome and discount for a code, subtotal and customer, keeping every rule inside `Coupon`.
   3. Switch `PricingService` and the three handlers to the contracts, then add `Catalog` and `Promotions` to `AllowedContracts["Shopping"]`.
   4. Leave `WishlistQueries` for last: it is an Infrastructure projection, and the read side is allowed to join tables ([ADR-0008](../../11-ADR/0008-cqrs-strategy.md)); document it rather than rewriting it, unless Catalog gains a suitable read port.

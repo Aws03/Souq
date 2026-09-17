@@ -14,7 +14,7 @@
 | **Customers** | The shopper as a commercial relationship: profile, addresses, status, export and erasure | `src/Souq.Application/Features/Customers` | [Customers/README.md](Customers/README.md) · [change guide](Customers/ChangeGuide.md) |
 | **Shopping** | Baskets, the pricing pipeline, wishlists | `src/Souq.Application/Features/Baskets`, `src/Souq.Application/Features/Wishlist` | [Shopping/README.md](Shopping/README.md) · [change guide](Shopping/ChangeGuide.md) |
 | **Ordering** | Orders, order numbers, tracking tokens, the status machine | `src/Souq.Application/Features/Orders` | [Ordering/README.md](Ordering/README.md) · [change guide](Ordering/ChangeGuide.md) |
-| **Payments** | Payments, refunds, per-store gateway accounts | `src/Souq.Application/Features/Payments` | [Payments/README.md](Payments/README.md) · [change guide](Payments/ChangeGuide.md) |
+| **Payments** | Payments, refunds, the per-store gateway account (its entity, key rules and table — the use cases that edit it sit in Platform's folders, see §2) | `src/Souq.Application/Features/Payments` | [Payments/README.md](Payments/README.md) · [change guide](Payments/ChangeGuide.md) |
 | **Promotions** | Coupons and their redemptions | `src/Souq.Application/Features/Coupons` | [Promotions/README.md](Promotions/README.md) · [change guide](Promotions/ChangeGuide.md) |
 | **Shipping** | Shipping methods and their rates | `src/Souq.Application/Features/Shipping` | [Shipping/README.md](Shipping/README.md) · [change guide](Shipping/ChangeGuide.md) |
 | **Reviews** | Reviews and their moderation | `src/Souq.Application/Features/Reviews` | [Reviews/README.md](Reviews/README.md) · [change guide](Reviews/ChangeGuide.md) |
@@ -22,6 +22,24 @@
 | **Reporting** | Read-only statistics across modules | `src/Souq.Application/Features/Reporting` | [Reporting/README.md](Reporting/README.md) |
 
 Generated companions: [UseCases.md](UseCases.md) (every command, query, handler, validator and endpoint per module) · [Endpoints.md](../05-API/Endpoints.md) · [ModuleDomainDependencies.md](../02-ARCHITECTURE/ModuleDomainDependencies.md).
+
+**Where each module surfaces in the frontend.** One SPA serves four areas, chosen by host in `frontend/src/App.jsx`: the **storefront** and the customer **account** (`/account`, `/orders`) on a store host, the store **admin** (`/admin`) on the same host, and the **platform** area (`/platform`) on a platform host. Each module README names its screens.
+
+| Module | Storefront | Account | Admin | Platform |
+|---|---|---|---|---|
+| Platform | the store's identity and theme at boot (`frontend/src/app/TenantProvider.jsx`) | — | `/admin/settings` | `/platform/stores`, the provisioning wizard, a store's page and settings, `/platform/audit` |
+| Identity | `/login`, `/register`, `/forgot-password`, `/reset-password`, `/verify-email`, `/accept-invitation` | — | `/admin/staff` | `/login`, `/accept-invitation`, `/platform/accounts` |
+| Catalog | home, `/offers`, `/products/:handle` | — | `/admin/products`, `/admin/categories` | — |
+| Inventory | — (availability reaches the storefront through Catalog's product data) | — | `/admin/inventory` | — |
+| Customers | — | `/account`, `/account/addresses` (profile, address book, export and erasure) | `/admin/customers` | — |
+| Shopping | cart drawer, `/cart`, `/wishlist` | — | — | — |
+| Ordering | `/checkout`, `/confirmation`, `/track/:token` | `/orders`, `/orders/:id` | `/admin/orders` | — |
+| Payments | the card form in `/checkout` | refunds shown on `/orders/:id` | `/admin/payments`; refunds in the order drawer | — |
+| Promotions | the coupon field in `/checkout` | — | `/admin/coupons` | — |
+| Shipping | the method choice in `/checkout` | — | `/admin/shipping` | — |
+| Reviews | ratings and the review form on `/products/:handle` | — | `/admin/reviews` | — |
+| Notifications | the bell in the store header | — | the bell in the admin header | — |
+| Reporting | — | — | `/admin`, `/admin/business` | `/platform` |
 
 ## 2. Module names versus folder names
 
@@ -36,7 +54,7 @@ A module is a capability; the folder is where its use cases happened to be creat
 | Catalog | `Products`, `Categories` | Categories exist only to organize products |
 | Platform | `Platform`, `Stores` | `Platform` is the platform owner's side; `Stores` is a store administering **its own** settings |
 
-**`Stores` carries a known inconsistency:** it also holds the store-side payment-account and review-settings use cases, which belong to Payments and Reviews by ownership. Recorded in [TechnicalDebt.md](../12-ROADMAP/TechnicalDebt.md); until it moves, the architecture test treats those files as Platform's.
+**`Stores` carries a known inconsistency:** it also holds the store-side payment-account and review-settings use cases. The payment account's domain is Payments' — `StorePaymentAccount`, `PaymentKeyRules` and `IStorePaymentAccountRepository` are mapped to Payments in `DomainOwners` — but the use cases that read and edit it live in `src/Souq.Application/Features/Stores/StorePaymentAccounts.cs` (and, for the platform side, `src/Souq.Application/Features/Platform/TenantPaymentAccounts.cs`), so `ModuleFolders` and the architecture tests count them as **Platform's**. TD-04 in [TechnicalDebt.md](../12-ROADMAP/TechnicalDebt.md) records moving them (and the review-settings use cases) to Payments and Reviews; until then, a change to them is a change in a Platform folder.
 
 ## 3. How these thirteen were chosen
 

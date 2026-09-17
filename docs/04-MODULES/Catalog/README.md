@@ -91,12 +91,14 @@ Catalog owns what a store sells and how it is presented: products with their per
 
 Every command implements `IAuditable`; `AuditBehavior` stages an audit row before the handler runs. Validators (`CreateProductValidator`, `UpdateProductValidator`, `DeleteProductValidator`, `ChangeProductStatusValidator`, `ReorderProductImagesValidator`, `CreateCategoryValidator`, `UpdateCategoryValidator`, `DeleteCategoryValidator`, `GetProductsQueryValidator`, `GetRelatedProductsQueryValidator`, `GetProductBySlugQueryValidator`, `ListAdminProductsQueryValidator`) run in `ValidationBehavior` before that.
 
+**Frontend.** Storefront: the home page (`frontend/src/pages/Store.jsx` rendering `frontend/src/pages/Storefront.jsx`), the searchable catalogue (`frontend/src/components/catalog/Catalog.jsx` over `frontend/src/hooks/useCatalog.js`), `/offers` (`frontend/src/pages/Offers.jsx`), and `/products/:handle` (`frontend/src/pages/ProductDetail.jsx`, loading by slug through `api.getProductBySlug`), with cards from `frontend/src/components/product/ProductCard.jsx`. Admin: `/admin/products` (`frontend/src/pages/admin/Products.jsx`, `frontend/src/pages/admin/ProductFormDrawer.jsx`) and `/admin/categories` (`frontend/src/pages/admin/Categories.jsx`, `frontend/src/pages/admin/CategoryFormDrawer.jsx`); archiving, deleting a category and removing an image confirm in `ConfirmDialog`. Pure rules: `frontend/src/features/catalog/` and `frontend/src/features/admin/products/`, `frontend/src/features/admin/categories/`.
+
 ## Public contracts
 
 - **`IVariantStockInitializer`** (`src/Souq.Application/Features/Products/Contracts/IVariantStockInitializer.cs`) — the only type in Catalog's contracts folder, and the reason Catalog can open stock without knowing Inventory. Catalog *declares* the port ("when a sellable variant is created, open stock for it with an initial quantity and a threshold"); Inventory *implements* it as `VariantStockInitializer`; `src/Souq.Application/DependencyInjection.cs` wires the two. The dependency arrow therefore still points Inventory → Catalog, and no cycle exists ([ADR-0026](../../11-ADR/0026-inventory-reservations.md)). `CreateProductHandler` calls it after the first save (so the product and variant ids exist) and inside its own transaction, so a product without stock cannot be committed.
 - **`ICatalogQueries`** (`src/Souq.Application/Features/Products/Queries/ICatalogQueries.cs`) — the module's read port, implemented by `CatalogQueries`. It is Catalog's own port: no other feature folder references it.
 - Catalog offers **no read contract to other modules**. Shopping, Notifications and Wishlist read products through the Domain port `IProductRepository` and the `Product` aggregate instead; Inventory, Reviews, Shopping and Platform read the catalog tables directly in their Infrastructure projections. See [Dependencies](#dependencies).
-- *ISellableItems* — a checkout snapshot contract named in [Modules.md](../Modules.md) and [Architecture.md](../../02-ARCHITECTURE/Architecture.md). It does not exist in the code and is not in the roadmap. FUTURE.
+- *ISellableItems* — a checkout snapshot contract named in [ModuleBoundaries.md](../../02-ARCHITECTURE/ModuleBoundaries.md) and [Architecture.md](../../02-ARCHITECTURE/Architecture.md). It does not exist in the code and is not in the roadmap. FUTURE.
 
 ## Dependencies
 
@@ -271,7 +273,7 @@ Add a field to products · add attributes or real variant options · change the 
 11. **`POST /api/products` returns a Location header pointing at the public detail route**, which answers 404 while the product is a draft.
 12. ~~The storefront routes by numeric id.~~ **Resolved in Phase 16:** the route is `/products/:handle` and accepts either. A slug loads through `api.getProductBySlug`; a numeric id still loads and is then replaced in the address bar with the slug form, so links shared before the change keep working. Product links are built by `productPath` in `frontend/src/features/catalog/productRouting.js`.
 13. ~~The Offers page does not filter on sale.~~ **Resolved in Phase 16:** `frontend/src/pages/Offers.jsx` passes `onSale`, `useCatalog` forwards it, and the home page's offers row asks for the same filter.
-14. **Descriptions are plain text** (DEFERRED: a sanitizer dependency, to be decided when Phase 16 renders rich text).
+14. **Descriptions are plain text** (DEFERRED, not scheduled: Phase 16 kept rendering them as escaped plain text, so the sanitizer dependency decision a rich description needs was never taken).
 15. **`PUT /api/products/{id}` replaces every translation**, so a client that omits a language deletes it.
 
 ## Future evolution

@@ -56,10 +56,12 @@ The header comment of `StoreDashboard.cs` carries the formula for every metric, 
 
 Both handlers do one thing: they turn "now" into a window and delegate. All aggregation is SQL — nothing loads rows and sums them in memory, so a store with a hundred thousand orders costs the dashboard what a store with a hundred costs.
 
+**Frontend.** The store dashboard is read by `/admin` (`frontend/src/pages/admin/Dashboard.jsx`) and `/admin/business` (`frontend/src/pages/admin/BusinessOverview.jsx`) through `api.getStoreDashboard`; the view logic is in `frontend/src/features/reporting/dashboardView.js`, `frontend/src/features/reporting/businessHealth.js` and `frontend/src/features/reporting/chartScales.js`. The platform statistics are read by `/platform` (`frontend/src/pages/platform/PlatformOverview.jsx`) and the platform layout (`frontend/src/app/PlatformLayout.jsx`) through `api.getPlatformStats`.
+
 ## Public contracts
 
 - **Provides:** `IPlatformReports` and `IStoreReports` — both implemented in Infrastructure, each consumed only by its own handler.
-- **Consumes:** nothing from other modules' Application layers. It reads their *tables* through Infrastructure, which is the documented exception in [Modules.md](../Modules.md).
+- **Consumes:** nothing from other modules' Application layers. It reads their *tables* through Infrastructure, which is the read-side exception documented in [ModuleBoundaries.md §5](../../02-ARCHITECTURE/ModuleBoundaries.md#5-what-is-not-enforced--and-the-ratchet-that-keeps-it-honest).
 
 ## Dependencies
 
@@ -119,10 +121,12 @@ None.
 | Integration | `tests/Souq.IntegrationTests/StoreDashboardTests.cs` | The store dashboard's numbers and its boundary: an unpaid order is not revenue, revenue and average order value, cross-store isolation, a foreign token, customer and anonymous refusal, staff access, an empty store, an unknown range, the audit row, and a translated category name rather than a slug |
 | Integration | `tests/Souq.IntegrationTests/PlatformAdministrationTests.cs` | That a PlatformAdmin can call `GET /api/platform/stats` (status only) |
 | Integration | `tests/Souq.IntegrationTests/AuthorizationBoundaryTests.cs` | 404 on a store host, 401 for anonymous callers and for store tokens, and that the endpoint declares a permission |
+| Frontend | `frontend/src/pages/admin/Dashboard.test.jsx`, `frontend/src/pages/admin/BusinessOverview.test.jsx`, `frontend/src/features/reporting/dashboardView.test.js`, `frontend/src/features/reporting/businessHealth.test.js`, `frontend/src/features/reporting/chartScales.test.js` | How the screens present a dashboard response they are given: net rather than gross revenue, no profit wording, alerts, the verdict and its reason, empty stores without NaN, the period key sent, text alternatives for charts |
+| Frontend | `frontend/src/pages/platform/PlatformOverview.test.jsx` | How the overview presents a stats response: totals across every status, zero-filled statuses, the counting caveats on screen, an empty platform without NaN |
 | Architecture | `tests/Souq.ArchitectureTests/TenancyRuleTests.cs` | The bypass allowlist |
 | Architecture | `tests/Souq.ArchitectureTests/ModuleAndContractRuleTests.cs` | Every Reporting request is auditable; the module's folder map |
 
-**Gap:** the *platform* statistics still have no test of their numbers. A change to `PlatformQueries.GetStatsAsync` that quietly counted the wrong thing — archived stores, or orders in every status — would be caught by nothing. The store dashboard no longer has that gap.
+**Gap:** the *platform* statistics still have no test of their numbers on the server (`PlatformOverview.test.jsx` feeds the screen a mocked response). A change to `PlatformQueries.GetStatsAsync` that quietly counted the wrong thing — archived stores, or orders in every status — would be caught by nothing. The store dashboard no longer has that gap.
 
 ## Failure modes
 
@@ -149,7 +153,7 @@ There are no business failures: the query cannot fail a rule, only a database ca
 - No per-store breakdown and no time series: `OrdersLast30Days` is the only temporal figure and there is nothing to compare it to.
 - Every call recounts the whole platform: seven aggregate queries over tables not indexed for this purpose, with no cache.
 - Counts include archived, cancelled, disabled and erased rows, which is rarely what a dashboard wants to show. The platform overview says so on screen rather than leaving the reader to assume.
-- No test asserts any of the numbers.
+- No test asserts the numbers the server computes. The frontend overview test checks only how a mocked response is displayed.
 
 **Store dashboard**
 
@@ -162,7 +166,7 @@ There are no business failures: the query cannot fail a rule, only a database ca
 ## Future evolution
 
 - **Delivered (roadmap Phase 17 territory):** the store dashboard — net revenue, counted orders, average order value, new customers, the trend, orders by status, best sellers, category performance, stock and customers. `store.reports.view` now has its endpoint.
-- **Delivered (the reporting slice of roadmap Phase 18):** the platform overview is the first real consumer of `GET /api/platform/stats`. Per-store health and drill-down remain.
+- **Delivered (the reporting slice of roadmap Phase 18):** the platform overview is the first real consumer of `GET /api/platform/stats`. Per-store "health" was delivered by Phase 18 as handover readiness on `/platform/stores` (a domain, an administrator who accepted) — a [Platform](../Platform/README.md) list, not a report. No store's commercial figures reach the platform by design: the overview shows platform totals only, and there is no per-store drill-down.
 - **PLANNED:** an export of a report (CSV or PDF), which is the most-requested thing neither dashboard does.
 - **PLANNED (Phase 21):** the performance review, which is the natural moment to decide between caching and precomputation.
-- **FUTURE:** event-fed read models, and a separate reporting store — [Modules.md](../Modules.md) names Reporting as an extraction candidate precisely because it only reads.
+- **FUTURE:** event-fed read models, and a separate reporting store — [Architecture.md §9](../../02-ARCHITECTURE/Architecture.md#9-future-scaling-and-service-extraction) names Reporting as an extraction candidate precisely because it only reads.

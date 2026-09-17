@@ -89,7 +89,7 @@
 
 | ADR | Decision | Validity |
 |---|---|---|
-| [0015](0015-testing-strategy.md) | Four .NET suites plus Vitest; a real SQL Server through Testcontainers; architecture rules as tests | Accurate; its "CI" revisit is still open |
+| [0015](0015-testing-strategy.md) | Four .NET suites plus Vitest; a real SQL Server through Testcontainers; architecture rules as tests | Accurate; its "CI" revisit is answered — the suites run in `.github/workflows/ci.yml` |
 
 ### Future scaling
 
@@ -123,7 +123,7 @@ The decisions stand; these *descriptions* have drifted. Living documents are aut
 | 0004 | Modules communicate only through contracts | True in the Application layer and tested there; several modules still use another module's *domain* repositories directly ([TechnicalDebt.md](../12-ROADMAP/TechnicalDebt.md)) |
 | 0005 | An `ITenantDatabaseResolver` seam keeps a per-store database possible | No such interface exists; the seam is the tenant directory, where a per-store connection would be injected |
 | 0009 | Value objects `Money`, `Address`, `Slug`, `Email`, `Sku`; a pricing *domain* service | Value objects are `Money`, `PostalAddress`, `CatalogText`, `OrderActor`; slugs use the `CatalogSlug` helper; pricing is `PricingService` behind `IPricing` in the Application layer |
-| 0011, 0002, 0015, 0020 | "A CI check", "will run in CI", CI in Phase 23 | There is no CI configuration in the repository. The white-label rule is enforced by tests that a person must run |
+| 0011, 0002, 0015, 0020 | "A CI check", "will run in CI", CI in Phase 23 | CI exists ahead of Phase 23: `.github/workflows/ci.yml` runs the build and fast suites, the frontend tests, type check and build, the integration suite against SQL Server, and a dependency and secret scan, so the white-label and architecture rules run on every push to `main` or a phase branch and on pull requests. Continuous delivery is still Phase 23 |
 | 0011 | A tenant admin controls templates | There are no store-editable templates; ADR-0034 rejected them. A store picks typography and theme presets |
 | 0013, 0017 | The `StockChanged` 409 code | It no longer exists; insufficient stock is `422 InsufficientStock` |
 | 0014 | "The default currency is still JOD"; a short zero-decimal list | `Money` has required an explicit currency since Phase 2; `CurrencyInfo` lists many more zero-decimal currencies and two four-decimal ones |
@@ -139,6 +139,6 @@ The decisions stand; these *descriptions* have drifted. Living documents are aut
 
 ## 5. Numbering and lifecycle
 
-- ADRs are numbered sequentially and never renumbered. The next one is **0038**.
+- ADRs are numbered sequentially and never renumbered. The next one is **0039**.
 - A superseded ADR keeps its text; its `Status` line says what replaced it, and the replacement links back through `Related ADRs`.
 - Rejected proposals are worth an ADR too: "we considered X and chose not to" saves the next person the same investigation ([ExplicitNonGoals.md](../02-ARCHITECTURE/ExplicitNonGoals.md) collects the big ones).

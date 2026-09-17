@@ -211,7 +211,7 @@ Add a notification or email type · add a channel · change the retry policy · 
 - **Templates are code**, identical for every store apart from name, logo and colours.
 - **One sending address for the whole deployment**; per-store domains need SPF/DKIM (ADR-0034 points at a later phase).
 - **Email only.** There is no SMS or push channel, and the bell polls instead of receiving push.
-- **The outbox is the only visibility.** There is no delivery log of what was sent, and processed rows disappear after the retention window; Modules.md's claim that this module owns "the delivery log" describes an intent, not the code.
+- **The outbox is the only visibility.** There is no delivery log of what was sent, and processed rows disappear after the retention window.
 - **Handlers write Identity's aggregate** to issue tokens — powerful, and worth remembering before extracting this module.
 - **Messages for suspended or archived stores are still delivered.**
 
@@ -221,7 +221,7 @@ Add a notification or email type · add a channel · change the retry policy · 
 - **Per-store editable templates** — **DEFERRED**: it is a content-management feature.
 - **Customer language preference** — **DEFERRED**; the field would live on `Customer`.
 - **Push instead of polling (WebSocket/SignalR)** — **DEFERRED** as infrastructure for a small gain.
-- **An operator screen for dead messages** — **DEFERRED** (roadmap points at Phase 17/23).
+- **An operator screen for dead messages** — **DEFERRED**, not built and not scheduled: the roadmap's Phase 14 entry pointed at Phase 17/23, Phase 17 closed without it, and Phase 23's scope list does not name it.
 - **Per-store sending domains** — **DEFERRED** until custom domains (each needs SPF/DKIM verification).
 - **Moderation notifications for Reviews** — **DEFERRED**, now unblocked by this module's outbox.
 - **Extraction into a service** — **FUTURE**: outbox rows become broker messages; the module consumes events only, which is what keeps this possible.

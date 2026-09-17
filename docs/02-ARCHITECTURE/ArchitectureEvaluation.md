@@ -1,5 +1,7 @@
 # Architecture Styles: Evaluation for Souq
 
+> **Snapshot, not a living document.** This is the evaluation as written on 2026-09-11, before Phase 1A. Its figures (module and test counts, team size) and every "today", "planned" or "later" statement are as of that date and are not updated. For the architecture as it is now, read [Architecture.md](Architecture.md), [CQRS.md](CQRS.md), [ExplicitNonGoals.md](ExplicitNonGoals.md) and [ModuleBoundaryAudit.md](ModuleBoundaryAudit.md).
+>
 > **Purpose:** choose the *smallest* architecture that gives Souq strong long-term boundaries without premature complexity.
 > **Decision recorded in:** [ADR-0001](../11-ADR/0001-target-architecture.md). **Target described in:** [Architecture.md](Architecture.md).
 > **Date:** 2026-09-11

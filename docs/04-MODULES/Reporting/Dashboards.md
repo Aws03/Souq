@@ -105,4 +105,4 @@ The frontend route guard is a convenience. The backend is authoritative, and the
 
 ## 10. Relationship to the roadmap
 
-The store dashboard is the work the roadmap describes under **Phase 17**, and the platform overview is the reporting slice of **Phase 18**. They were built here because the experience work needed them, not as a new phase. [ProductRoadmap.md](../../12-ROADMAP/ProductRoadmap.md) records what of each phase is now done and what remains.
+The store dashboard is the work the roadmap describes under **Phase 17**, and the platform overview is the reporting slice of **Phase 18**. They were built here because the experience work needed them, not as a new phase. [ProductRoadmap.md](../../12-ROADMAP/ProductRoadmap.md) records Phase 17 as complete, and for Phase 18 what is done and the two items that wait on owner decisions (storefront preview, D-22, and platform-wide settings, P-07).

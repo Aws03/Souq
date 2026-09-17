@@ -101,4 +101,4 @@
 - **API:** removal of a documented public route; note it in the docs and in the roadmap change log.
 - **Database:** none.
 - **Security:** one fewer anonymous surface for guessing codes; the rate limit then guards only the quote.
-- **Docs and ADR:** [ApiDocumentation.md](../../05-API/ApiDocumentation.md), this README, and [Modules.md](../Modules.md), whose "the pipeline is the only evaluator" claim becomes true again.
+- **Docs and ADR:** [ApiDocumentation.md](../../05-API/ApiDocumentation.md), this README, and [Modules.md](../Modules.md); the intended "the pipeline is the only evaluator" design becomes true again.

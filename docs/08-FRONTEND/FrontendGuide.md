@@ -4,9 +4,9 @@
 
 This is the page to read before changing the frontend. It describes what exists today, where each kind of code belongs, and how to make the common changes safely. The target structure the frontend is moving towards is in [FrontendArchitecture.md](FrontendArchitecture.md); everything here is current unless labelled.
 
-**Stack:** React 18, Vite 5, React Router 6, i18next with react-i18next, Stripe.js with its official React bindings, Vitest 3. Plain JavaScript — no TypeScript. CSS Modules plus one global token sheet. No state library, no data-fetching library, no component library: `frontend/package.json` lists seven runtime dependencies and three dev dependencies.
+**Stack:** React 18, Vite 8, React Router 6, TanStack Query (`@tanstack/react-query`) for server state, i18next with react-i18next, Stripe.js with its official React bindings, Vitest 5, Playwright for browser journeys, ESLint 9. Plain JavaScript source, type-checked: `tsc --noEmit` runs `checkJs` over the `.js` files with JSDoc at the boundaries ([ADR-0038](../11-ADR/0038-query-layer-adopted-and-type-checking.md)); `.jsx` is not converted or checked. CSS Modules plus one global token sheet. No global state library and no component library.
 
-**Size today:** 119 JavaScript/JSX modules (excluding tests), 58 CSS modules plus `frontend/src/styles.css`, 23 Vitest files, and 818 translation keys per language of which 85 are error codes.
+**Size today (approximate):** about 170 JavaScript/JSX modules excluding tests, about 70 CSS modules plus `frontend/src/styles.css`, about 70 Vitest files, and eight Playwright spec files. Exact numbers rot; count them when you need them.
 
 ## 1. The one thing to keep in mind
 
@@ -27,7 +27,7 @@ The frontend is never the authority for the store, permissions, prices, stock, c
 | `frontend/src/features` | Pure logic per feature — payload builders, query builders, form rules, view models — each with a test file beside it | React components, `fetch`, DOM access (the single exception is `frontend/src/features/account/download.js`) |
 | `frontend/src/hooks` | Cross-screen hooks: `frontend/src/hooks/useCatalog.js`, `frontend/src/hooks/useDebouncedValue.js` | Feature-specific hooks (those belong with their feature) |
 | `frontend/src/i18n` | i18next setup, `setLanguage`, `formatDate`, `formatDateTime`, and the `ar`/`en` locale files | Store-specific text (that comes from the store configuration) |
-| `frontend/src/pages` | Route screens grouped by area: the storefront and customer pages at the root, then `account`, `admin`, `auth`, `checkout` | Reusable UI (promote it to `frontend/src/components`); pure logic (promote it to `frontend/src/features`) |
+| `frontend/src/pages` | Route screens grouped by area: the storefront and customer pages at the root, then `account`, `admin`, `auth`, `checkout`, `platform` | Reusable UI (promote it to `frontend/src/components`); pure logic (promote it to `frontend/src/features`) |
 | `frontend/src/styles.css` | Design tokens, reset, base element styles, and the two global classes `.souq-layout` and `.souq-visually-hidden` | Component styles (each component has its own CSS module) |
 
 Two rules hold everywhere in the tree:
@@ -39,7 +39,7 @@ Two rules hold everywhere in the tree:
 
 ```mermaid
 flowchart TD
-    A["index.html: neutral title, ar/rtl"] --> B["main.jsx: i18n side effect, then providers"]
+    A["index.html: neutral title, ar/rtl"] --> B["main.jsx: await i18nReady, then providers"]
     B --> C["TenantProvider: GET /api/storefront/config"]
     C -->|200| D["set store currency + a language the store enables"]
     D --> E["applyStoreTheme: tokens, preset, title, description, favicon, fonts"]
@@ -52,8 +52,8 @@ flowchart TD
 ```
 
 1. **`frontend/index.html` carries no identity.** It ships `lang="ar" dir="rtl"`, the product title, an empty favicon and preconnects to the Google Fonts hosts. Title, description, favicon and fonts are replaced at runtime.
-2. **`frontend/src/main.jsx` imports the i18n module for its side effect.** Language detection runs at import time: the stored `souq_lang` value, else the browser language, else `ar`; `dir` and `lang` are written onto `<html>` immediately.
-3. **Provider order is deliberate:** `BrowserRouter` → `ToastProvider` → `TenantProvider` → `AuthProvider` → `App`, inside `React.StrictMode`. The tenant comes first because nothing should render — not even a session restore — before the store is known. `AuthProvider` sits inside it, so the silent refresh is only sent once the boot request has succeeded. `CartProvider` and `WishlistProvider` are **not** global: they are mounted by `CustomerLayout`, so the admin and platform areas never create a basket.
+2. **`frontend/src/main.jsx` renders only after `i18nReady` resolves.** Language detection runs when `frontend/src/i18n/index.js` is imported: the stored `souq_lang` value, else the browser language, else `ar`. `i18nReady` then loads that one locale bundle (a local dynamic import, not a network round trip to the API), initializes i18next and writes `dir` and `lang` onto `<html>`; rendering before it would flash key names.
+3. **Provider order is deliberate:** `BrowserRouter` → `ToastProvider` → `TenantProvider` → `AuthProvider` → `QueryProvider` → `App`, inside `React.StrictMode`; `App` wraps its routes in `ErrorBoundary`. The tenant comes first because nothing should render — not even a session restore — before the store is known. `AuthProvider` sits inside it, so the silent refresh is only sent once the boot request has succeeded. `QueryProvider` sits inside `AuthProvider` so that it sees every change of user and resets the query cache (§6). `CartProvider` and `WishlistProvider` are **not** global: they are mounted by `CustomerLayout`, so the admin and platform areas never create a basket.
 4. **`TenantProvider` fetches the configuration** through `api.getStorefrontConfig()`. On success it sets the store currency for prices that carry no explicit currency (`setStoreCurrency`), narrows the visitor language to one the store enables (`supportedLanguage`, then `setLanguage`), and switches to mode `store`. On failure, `bootOutcome` maps the error to a mode.
 5. **Boot screens.** Until the mode is `store` or `platform`, `BootScreen` renders instead of the application: a spinner while loading, a text card for a closed store or an unknown host, and a card with a retry button for a network error. `retry` re-runs the request.
 6. **Theme application.** Once the config is in, an effect calls `applyStoreTheme(config, language)`, which writes the semantic tokens as inline custom properties on `<html>`, sets `data-preset`, the document title, the meta description, the favicon and the store's font stylesheet. It re-runs when the language changes, because title and description are per-language.
@@ -96,6 +96,7 @@ The shell is one `Route` carrying `ProtectedRoute` and `AccountLayout`, so the g
 | Route | Permission | Module |
 |---|---|---|
 | `/admin` | — (any store account with at least one permission) | — |
+| `/admin/business` | `store.reports.view` | — |
 | `/admin/products`, `/admin/categories` | `catalog.manage` | — |
 | `/admin/inventory` | `inventory.view` | — |
 | `/admin/coupons` | `promotions.manage` | `promotions` |
@@ -115,11 +116,11 @@ The same list drives the navigation: `ADMIN_NAV` in `frontend/src/pages/admin/Ad
 |---|---|---|
 | `ProtectedRoute` | signed in | `/login`, remembering the target in `state.from` |
 | `AdminRoute` | signed in and `canManageStore` (area `Store` with at least one permission) | `/login` when signed out, `/` for a customer |
-| `RequirePermission` | `can(permission)` | `/admin` |
+| `RequirePermission` | `can(permission)` | the given fallback, `/admin` by default; platform routes use the `platformGuarded` helper in `frontend/src/App.jsx`, which falls back to `/platform` (the overview itself falls back to `/platform/stores`) |
 | `RequireModule` | `useModule(module)` | the given fallback: `/` on the storefront, `/admin` for admin pages |
 | `PlatformRoute` | signed in with `user.area === 'Platform'` | `/login` |
 
-`ProtectedRoute`, `AdminRoute` and `PlatformRoute` render `PagePending` while the session is being restored instead of judging early. `RequirePermission` does not need that check because it is always nested inside `AdminRoute`, which already waited.
+`ProtectedRoute`, `AdminRoute` and `PlatformRoute` render `PagePending` while the session is being restored instead of judging early. `RequirePermission` does not need that check because it is always nested inside `AdminRoute` or `PlatformRoute`, which already waited.
 
 **Code splitting.** Every page is a `React.lazy` import except `Store` and `ProductDetail`, which are in the first bundle because they are the common entry points. Three `Suspense` boundaries carry `PagePending`: the application root, the storefront outlet, and the admin content area — so the admin sidebar stays on screen while a page loads.
 
@@ -127,7 +128,7 @@ The same list drives the navigation: `ADMIN_NAV` in `frontend/src/pages/admin/Ad
 
 | Holder | Mounted | Holds | Truth |
 |---|---|---|---|
-| `TenantProvider` | globally | `{ mode, config, retry }`; read through `useTenant`, `useStoreConfig`, `useModule` | the server's config endpoint, read-only |
+| `TenantProvider` | globally | `{ mode, config, retry, refresh }` (`refresh()` re-reads the configuration without the boot screen); read through `useTenant`, `useStoreConfig`, `useModule`. It also provides the light/dark mode through `useTheme` | the server's config endpoint, read-only |
 | `AuthProvider` | globally | `user`, `loading`, `isAuthenticated`, `canManageStore`, `can()`, and the session actions | the server; nothing is persisted in the browser |
 | `ToastProvider` | globally | the transient toast list; `success`/`error`/`info`, auto-dismissed after three seconds | local |
 | `CartProvider` | inside `CustomerLayout` | the basket exactly as `/api/basket` returned it | the server: every action replaces the whole basket ([ADR-0028](../11-ADR/0028-basket-and-pricing-pipeline.md)) |
@@ -137,15 +138,13 @@ The same list drives the navigation: `ADMIN_NAV` in `frontend/src/pages/admin/Ad
 
 **Wishlist.** A guest's list lives in `localStorage` under `souq_wishlist` as whole product objects, so the page renders with no network. When a customer signs in, the local ids are merged server-side and the local copy is cleared, so the next guest on a shared device does not inherit it. If the module is off, or the account is a staff account, the list stays local and no request is sent.
 
-**Everything else is local component state.** Pages hold their data, loading flag, error, filters and page number in `useState` and fetch in `useEffect`. Two module-level values are shared outside React: the access token inside `frontend/src/api/client.js`, and the store currency inside `frontend/src/app/tenantModel.js`.
+**Server data on screens is fetched two ways today.** The storefront and account pages (`Store`, `ProductDetail`, `MyOrders`, `OrderDetail`, `OrderTracking`, `Confirmation`, `Profile`, `Addresses`), both dashboards, the team screen (`Staff`), every platform page, `StoreSettingsEditor`, `useCatalog` and `usePlatformStore` read with `useQuery` and write with `useMutation` or a direct `api` call followed by an invalidation (§6). The older admin CRUD screens — `Products`, `Orders`, `Customers`, `Categories`, `Coupons`, `Inventory`, `Payments`, `ShippingMethods`, `ReviewModeration` and their drawers — as well as `Checkout` and `NotificationBell` still hold data, loading flag and error in `useState` and fetch in `useEffect`. New screens use the query layer; the rest move when they are rebuilt. Two module-level values are shared outside React: the access token inside `frontend/src/api/client.js`, and the store currency inside `frontend/src/app/tenantModel.js`.
 
-**URL state.** The storefront catalog keeps its whole state in the query string (`?cats=&min=&max=&sort=&view=&page=`), so a filtered view is shareable; `frontend/src/components/catalog/Catalog.jsx` is the only place that does this. Admin lists keep page and filters in component state, so a reload resets them.
+**URL state.** The storefront catalog keeps its whole state in the query string (`?cats=&min=&max=&sort=&view=&page=`), so a filtered view is shareable (`frontend/src/components/catalog/Catalog.jsx`). The platform activity log (`frontend/src/pages/platform/Audit.jsx`) keeps its filters in the URL too. The store-admin lists keep page and filters in component state, so a reload resets them.
 
-**Why there is no global store and no query library yet.** D-19 was **decided** in Phase 17 ([ADR-0037](../11-ADR/0037-frontend-server-state-and-types.md)) after the frontend was measured rather than recalled: a query library (TanStack Query) is the target for server state, but nothing is installed yet. It arrives at the first screen that is rebuilt or newly written, together with the jsdom environment and rendering library that let the migration be proved by a test — not as a separate migration project during a hardening phase. TypeScript is deferred separately until a CI pipeline exists to enforce a type-check, because a check nobody runs is not a control.
+**Why there is no global store.** Server state belongs to the query cache ([ADR-0038](../11-ADR/0038-query-layer-adopted-and-type-checking.md), which carried out D-19 from [ADR-0037](../11-ADR/0037-frontend-server-state-and-types.md)); what remains client-side — session, tenant configuration, toasts, basket and wishlist — fits in the contexts above.
 
-What that costs today: no caching, no request de-duplication and no retry policy. Every screen refetches on mount, and the category list is fetched once per storefront layout and shared through the outlet context.
-
-**Guarding is not deferred.** An effect that can be outrun by a fast navigation must ignore a superseded response, using a local `active` flag. Five do this today — `useCatalog`, `Store`, `TenantProvider`, `AuthProvider` and `WishlistProvider` — and **24 of the 29 fetching components do not**. Copy the idiom whenever you touch a screen. The one place it sat next to money is fixed: the checkout re-quote now ignores a superseded price, so the total beside the order button always matches the choice that produced it.
+**Guard the effects that remain.** A `useEffect` fetch that can be outrun by a fast navigation must ignore a superseded response, using a local `active` flag; the query layer does this for you, which is one reason new screens use it. Copy the idiom whenever you touch a screen that still fetches in an effect. The one place it sat next to money is fixed: the checkout re-quote ignores a superseded price, so the total beside the order button always matches the choice that produced it.
 
 ## 6. Talking to the API
 
@@ -161,9 +160,9 @@ Everything lives in `frontend/src/api/client.js`, with two pure helpers beside i
 
 **Build UI logic on `code`, never on the message text.** `error.code` is the contract; the text is not.
 
-**Server state** goes through TanStack Query since Phase 16 ([ADR-0038](../11-ADR/0038-query-layer-adopted-and-type-checking.md)). `QueryProvider` sits under `AuthProvider` in `main.jsx` so that a change of user id resets every query — without that, signing out and in as someone else on the same device would paint the first customer's orders for the second before the server was asked. Keys live in `frontend/src/app/queryKeys.js`; `staleTime` is 0 everywhere except the category tree, because a shop must not present a stale price as current. The admin screens still hand-roll fetching until Phase 17 rebuilds them.
+**Server state** goes through TanStack Query since Phase 16 ([ADR-0038](../11-ADR/0038-query-layer-adopted-and-type-checking.md)). `QueryProvider` sits under `AuthProvider` in `main.jsx` so that a change of user id resets every query — without that, signing out and in as someone else on the same device would paint the first customer's orders for the second before the server was asked. Keys live in `frontend/src/app/queryKeys.js`. The default `staleTime` is 0, because a shop must not present a stale price as current; the exceptions are deliberate — the category tree (five minutes, in `frontend/src/App.jsx`), both dashboards and `PlatformOverview` (60 seconds), and the settings options in `StoreSettingsEditor` and the provisioning options in `usePlatformStore` (`Infinity`: server allowlists that do not change within a session). Client errors (4xx) are not retried, other failures once, and the window-focus refetch is off. The store-admin CRUD screens listed in §5 still hand-roll fetching.
 
-**The `api` object** exposes 92 named functions grouped by feature — authentication, customer account, storefront config, catalog, orders, basket, payments, coupons, reviews, wishlist, notifications, and the admin groups for products, categories, inventory, customers, orders, store payments and shipping. They hide HTTP from the rest of the application: a screen calls `api.getMyOrders({ page })`, not a URL.
+**The `api` object** exposes over a hundred named functions grouped by feature — authentication, customer account, storefront config, catalog, orders, basket, payments, coupons, reviews, wishlist, notifications, and the admin groups for products, categories, inventory, customers, orders, store payments and shipping. They hide HTTP from the rest of the application: a screen calls `api.getMyOrders({ page })`, not a URL.
 
 **Query strings** are built by `toQueryString` in `frontend/src/api/query.js`: empty values (`null`, `undefined`, `''`) are dropped so no `keyword=` reaches the server, `0` and `false` are kept because they are real values, and arrays are emitted as a repeated key (`categoryIds=1&categoryIds=2`), which is the shape ASP.NET model binding turns into a list.
 
@@ -186,9 +185,9 @@ Everything lives in `frontend/src/api/client.js`, with two pure helpers beside i
 - `customerId` — only an account with a customer profile sees "My account"; the `/api/account` endpoints reject a staff account.
 - `area` — `Store` or `Platform`. `canManageStore` requires area `Store` with at least one permission; `PlatformRoute` requires area `Platform`. A store token is not accepted on the platform host and vice versa, because the server binds the token to the host.
 
-**Permission strings are literals** in `frontend/src/App.jsx`, `frontend/src/pages/admin/AdminSidebar.jsx` and a few pages (`inventory.manage`, `customers.manage`, `store.payments.manage`, `store.settings.manage`, `orders.view`). They must match `Permissions` in `src/Souq.Application/Common/Security/Permissions.cs`; nothing checks that they still do.
+**Permission strings are literals** in `frontend/src/App.jsx` (store and platform permissions alike), `frontend/src/pages/admin/AdminSidebar.jsx` and a few pages (`inventory.manage`, `customers.manage`, `store.payments.manage`, `store.settings.manage`, `orders.view`). They must match `Permissions` in `src/Souq.Application/Common/Security/Permissions.cs`; nothing checks that they still do.
 
-**Platform accounts** sign in on the platform host and land in `PlatformLayout`: the overview (`/platform`), the store list (`/platform/stores`), creating a store (`/platform/stores/new`), the resumable setup wizard (`/platform/stores/:id/setup/:step`), a store's page (`/platform/stores/:id`) and its branding (`/platform/stores/:id/settings`), platform accounts (`/platform/accounts`, `platform.users.manage` — the owner alone) and the activity log (`/platform/audit`, `platform.audit.view`). The branding page and the wizard's branding step are `StoreSettingsEditor` — the component the store's own `/admin/settings` uses — given a different data source. The platform host has no store identity, so `TenantProvider` derives its tokens from the neutral palette per mode (`applyPlatformTheme`). Platform accounts and settings screens and an audit viewer remain **PLANNED**.
+**Platform accounts** sign in on the platform host and land in `PlatformLayout`: the overview (`/platform`), the store list (`/platform/stores`), creating a store (`/platform/stores/new`), the resumable setup wizard (`/platform/stores/:id/setup/:step`), a store's page (`/platform/stores/:id`) and its branding (`/platform/stores/:id/settings`), platform accounts (`/platform/accounts`, `platform.users.manage` — the owner alone) and the activity log (`/platform/audit`, `platform.audit.view`). The branding page and the wizard's branding step are `StoreSettingsEditor` — the component the store's own `/admin/settings` uses — given a different data source. The platform host has no store identity, so `TenantProvider` derives its tokens from the neutral palette per mode (`applyPlatformTheme`). Platform-wide settings have no screen: what such a setting even is waits on the owner's decision P-07 ([OwnerDecisions.md](../09-OPERATIONS/OwnerDecisions.md)), and a storefront preview of a closed store waits on D-22.
 
 ## 8. Tenant and storefront behaviour
 
@@ -206,7 +205,7 @@ Everything a store can change about itself arrives in one response. Where each p
 | `settings.locale.defaultCulture`, `enabledCultures` | the language chosen at boot, the text fallback chain, and whether the language toggle appears at all |
 | `modules` | `useModule`, `RequireModule`, `useAdminNav` |
 
-Fields the SPA currently ignores: `slug`, `status`, `settings.locale.timeZone`, `settings.locale.currencyDecimals` (the frontend derives fraction digits from `Intl` instead) and `settings.branding.socialImageUrl`.
+`settings.locale.defaultCulture` and `settings.locale.timeZone` also reach `setStoreDateSettings` (`frontend/src/app/dateLocale.js`), so dates carry the store's region and time zone, and `settings.branding.socialImageUrl` is the default sharing image in `usePageMetadata`. Fields the SPA currently ignores: `slug`, `status` and `settings.locale.currencyDecimals` (the frontend derives fraction digits from `Intl` instead).
 
 **The frontend never sends a tenant id.** No request carries a store identifier: the host decides, the server resolves, and a forged value would gain nothing. The development-only `X-Tenant` header exists on the server; the frontend never sends it.
 
@@ -235,7 +234,9 @@ Every data view handles three states, with shared components from `frontend/src/
 
 **Toasts** (`useToast`) report the result of an action: added to cart, saved, deleted, or a failed operation. The cart and wishlist contexts already toast their own failures — do not toast them again at the call site.
 
-**Two gaps to know about.** There is no error boundary, so an exception during render blanks the page rather than showing a recoverable screen. And `error.traceId` and `error.fieldErrors` are produced by `toApiError` but no screen displays them yet — a support-facing trace id and per-field server errors are both one small change away.
+**Render failures** are caught by `ErrorBoundary` (`frontend/src/components/common/ErrorBoundary.jsx`), which `App` wraps around the routes: it offers a retry and a way back, and never prints the exception text.
+
+**A gap to know about.** `error.traceId` and `error.fieldErrors` are produced by `toApiError` but no screen displays them yet — a support-facing trace id and per-field server errors are both one small change away.
 
 ## 11. Forms and validation
 
@@ -250,7 +251,7 @@ Client validation exists for fast feedback; the server is the authority and its 
 ## 12. Internationalization and right-to-left
 
 - **One namespace.** All keys live in `frontend/src/i18n/locales/ar.json` and `frontend/src/i18n/locales/en.json` under a single `translation` namespace, grouped by area (`common`, `nav`, `cart`, `product`, `reviews`, `store`, `catalog`, `offers`, `auth`, `checkout`, `confirmation`, `orders`, `admin`, `wishlist`, `footer`, `errors`, `account`, `notifications`, `boot`, `platform`).
-- **`setLanguage` is the only way to switch.** It updates i18next, stores the choice under `souq_lang`, and sets `dir` and `lang` on `<html>` — which is what flips the whole layout, since the CSS relies on the document direction rather than per-component mirroring. Components that must mirror explicitly ask for it: `Pagination` flips its chevrons from `i18n.dir()`, and `DataTable` aligns columns with logical `start`/`end`.
+- **`setLanguage` is the only way to switch.** It updates i18next, stores the choice under `souq_lang`, and sets `dir` and `lang` on `<html>` — which is what flips the whole layout, since the CSS relies on the document direction rather than per-component mirroring. Components never mirror in JavaScript: `Pagination` asks for `ChevronIcon dir="start"` and `dir="end"` and the icon follows the document direction, and `DataTable` aligns columns with logical `start`/`end`.
 - **Fonts follow the language.** `html[lang="en"]` in `frontend/src/styles.css` switches the display and body fonts to Inter; Arabic uses the store's typography preset.
 - **Server-provided text** is never translated in the browser. Catalog names and descriptions come per language in `translations` and are read by `frontend/src/features/catalog/catalogText.js` with a fallback to the store's default text (and to `nameAr`/`nameEn` for cart or wishlist items saved before Phase 5). Store texts use `pickText`. Notifications arrive as a kind plus parameters and are worded by `describeNotification`, so they follow a language switch.
 - **Error codes are a contract.** `frontend/src/i18n/locales.test.js` fails if a code exists in one language and not the other, or if a message is blank. Full key parity is tested too, by `frontend/src/i18n/translationKeys.test.js`, which additionally checks that every key used in the source exists in both files.
@@ -261,7 +262,7 @@ Client validation exists for fast feedback; the server is the authority and its 
 
 **Money.** `formatMoney(amount, currency, language)` in `frontend/src/app/tenantModel.js` uses `Intl.NumberFormat` with Latin digits in both languages, the currency symbol in Arabic and the code in English, and the currency's fraction digits taken from `Intl` (which is ISO 4217 data) rather than a table in the frontend. Amounts arrive from the API as decimals in major units; "minor units" only determines how many fraction digits are shown, and `refundProblem` uses the same number to reject over-precise refund amounts. Screens call `formatPrice(amount, currency?)` from `frontend/src/components/product/ProductBadges.jsx`, which falls back to the store currency when a value carries none.
 
-**Dates** use `formatDate` and `formatDateTime` from `frontend/src/i18n/index.js`. Both pin a fixed locale (`ar-JO` or `en-US`) and neither applies the store's time zone — see §17.
+**Dates** use `formatDate` and `formatDateTime` from `frontend/src/i18n/index.js`. The locale and options come from `frontend/src/app/dateLocale.js`: the reader's language with the store's region (from `defaultCulture`), Latin digits, and the store's time zone, which `TenantProvider` sets at boot. The API sends every instant as UTC with a `Z` (`src/Souq.API/Http/UtcDateTimeJsonConverter.cs`), so the conversion is exact.
 
 ## 13. Styling and theming
 
@@ -277,7 +278,7 @@ Client validation exists for fast feedback; the server is the authority and its 
 - **One CSS Module per component**, imported as `styles`, so class names never collide. Only `.souq-layout` (the page container) and `.souq-visually-hidden` are global.
 - **`Button` variants** are `primary`, `accent`, `ghost` and `danger`. The accent variant was called `saffron` until Phase 16 — the first store's palette name leaking into the component API of a white-label kit. It resolves to `--color-accent`, which is whatever the store set.
 - **There is a spacing scale now** (`--space-1` … `--space-16`), along with motion tokens (`--motion-fast`, `--motion-base`, `--motion-slow`, `--ease-out`, `--ease-in-out`) and `--radius-pill`. Adoption is partial: newer modules use them, older ones still carry raw pixels. Convert a module when you touch it rather than leaving a mixed file.
-- **Rules when you add styles:** use tokens, not hex; put the style in the component's module; if a value must come from the store, derive it in `themeVariables` and cover it with a test. Twenty-one of the 58 CSS modules still contain hex literals, mostly for shadows, overlays and status tints.
+- **Rules when you add styles:** use tokens, not hex; put the style in the component's module; if a value must come from the store, derive it in `themeVariables` and cover it with a test. About a third of the CSS modules still contain hex literals, mostly for shadows, overlays and status tints.
 
 ## 14. Testing
 
@@ -287,16 +288,14 @@ Run everything with `npm test` in `frontend` (`vitest run`). `frontend/vitest.co
 |---|---|---|
 | HTTP core | `frontend/src/api/client.test.js`, `frontend/src/api/problem.test.js`, `frontend/src/api/query.test.js` | The token stays in memory and is sent on later calls; one refresh and one retry on expiry; a single shared refresh for concurrent calls; the expiry event and dropped token when the refresh is rejected; no refresh after a failed sign-in; session restore from the cookie. Error message choice, code, trace id, field errors, fallback. Query-string rules. |
 | White-label runtime | `frontend/src/app/tenantModel.test.js` | Two stores with different branding, currency, languages and modules produce different tokens, fonts, prices, names, titles and module answers; derived muted text keeps 4.5:1; boot outcomes map to the right screen. |
-| Feature logic | 17 files under `frontend/src/features` | Address payloads, category tree and cycle-free parent options, coupon form rules, customer actions, payment key modes and refund limits, product payload and admin query, review moderation actions, shipping form and options, basket mapping and line problems, catalog text fallbacks, checkout shipping choice, notification wording, order view helpers, rating distribution, wishlist merge rules. |
+| Feature logic | the `*.test.js` files beside each module under `frontend/src/features` | Address payloads, category tree and cycle-free parent options, coupon form rules, customer actions, payment key modes and refund limits, product payload and admin query, review moderation actions, shipping form and options, basket mapping and line problems, catalog text fallbacks, checkout shipping choice and card appearance, notification wording, order view helpers, rating distribution, wishlist merge rules, store settings, staff, provisioning and audit views. |
 | Checkout gateway | `frontend/src/pages/checkout/stripeClient.test.js` | A failed payment-config request is not cached and the next attempt asks again; a real key loads Stripe.js exactly once; an empty key is cached as "this store has no gateway". |
-| Guard rails | `frontend/src/whiteLabel.test.js`, `frontend/src/i18n/locales.test.js` | No brand, currency or contact literal in any source file or `frontend/index.html` (the test also asserts it scanned more than 150 files, so it cannot silently stop covering the tree); error codes translated in both languages and never blank. |
-
 | Theme and mode | `frontend/src/app/tenantModel.themes.test.js`, `frontend/src/app/themeMode.test.js` | Contrast in both modes for body text, muted text, text on a filled colour and text on the inverted panel; the precedence of visitor choice over store preference over system; storage that is blocked reads as "no choice" rather than throwing. |
 | Reporting | `frontend/src/features/reporting/*.test.js` | Chart scales and the "growth from zero is not a percentage" rule; the dashboard view model; the business reading, including that no verdict is returned without the reason that produced it. |
-| Components and pages | `*.test.jsx` beside the component | Both dashboards, the platform overview, the product card's four layouts, the opening reveal's five conditions. |
-| Guard rails | `frontend/src/whiteLabel.test.js`, `frontend/src/rtl.test.js`, `frontend/src/i18n/*.test.js`, `frontend/src/a11y.test.jsx` | No brand or currency literal; no physical direction in CSS; key parity, plural forms and bidi markers; axe over the rendered surfaces. |
+| Components and pages | `*.test.jsx` beside the component | Guards, the error boundary, dialogs and confirmations, the account shell, cart, confirmation, product and order pages, both dashboards, the settings editor, the team screen, the platform overview, provisioning, accounts and activity log, the product card's four layouts, the opening reveal's five conditions. |
+| Guard rails | `frontend/src/whiteLabel.test.js`, `frontend/src/rtl.test.js`, `frontend/src/i18n/*.test.js`, `frontend/src/a11y.test.jsx` | No brand, currency or contact literal in any source file or `frontend/index.html` (the test also asserts it scanned more than 150 files, so it cannot silently stop covering the tree); no physical direction in CSS; error codes translated in both languages and never blank, key parity, plural forms and bidi markers; axe over the rendered surfaces. |
 
-**Browser checks** live in `frontend/e2e` and run under Playwright against a real stack — SQL Server, the API and two provisioned stores on different hosts. They are not a second unit suite: they cover what has no meaning without a browser (computed colours, document direction, page-level overflow, a reveal cancelled by a system preference) and they run in two projects, `desktop` and `phone`. Start the stack as described in [DevelopmentGuide.md](../09-OPERATIONS/DevelopmentGuide.md), then `npx playwright test`.
+**Browser checks** live in `frontend/e2e` and run under Playwright against a real stack — SQL Server, the API and two provisioned stores on different hosts. They are not a second unit suite: they cover what has no meaning without a browser (computed colours, document direction, page-level overflow, a reveal cancelled by a system preference) and they run in two projects, `desktop` and `phone` (`frontend/playwright.config.js`, one worker, not in parallel). There are 72 journeys in eight spec files. They are **not in CI**: run them by hand against a live stack started as described in [DevelopmentGuide.md](../09-OPERATIONS/DevelopmentGuide.md), one file at a time and about a minute apart, because each file signs in and the authentication rate limit allows ten attempts a minute. `frontend/e2e/platform-provisioning.spec.js` and `frontend/e2e/back-office.spec.js` also need `SOUQ_API_LOG` pointing at the API's log, where they read the invitation link.
 
 **Not covered today:** `frontend/src/features/account/download.js` and several admin pages have no test of their own. There is no visual-regression suite and no component gallery.
 
@@ -304,22 +303,45 @@ When you add pure logic, add its test in the same commit — that is the part of
 
 ## 15. Build and deployment
 
-- **`npm run build`** produces the Vite bundle: one eager chunk plus a lazy chunk per page, and one chunk per locale. Measured on the production build served by `vite preview`, gzipped, over every JS, CSS and HTML response of a cold first load: **136.5 kB in Arabic and 134.2 kB in English**, against 142.1 kB before the design and dashboard work — which added features while the total came down. The locale files are dynamic imports, so a visitor downloads one language rather than both. No budget is enforced; bundle-size budgets are **PLANNED** for Phase 21.
-- **`frontend/Dockerfile`** builds with `node:20-alpine` (`npm ci`, `npm run build`) and serves the result from `nginx:1.27-alpine`.
+- **`npm run build`** produces the Vite bundle: one eager chunk plus a lazy chunk per page, and one chunk per locale. The measured first-load size, and how it was measured, is kept in one place: [DesignSystem.md](DesignSystem.md) §12. The locale files are dynamic imports, so a visitor downloads one language rather than both. No budget is enforced; bundle-size budgets are **PLANNED** for Phase 21.
+- **`frontend/Dockerfile`** builds with `node:22-alpine` (`npm ci`, `npm run build`) and serves the result from `nginx:1.27-alpine`.
 - **`frontend/nginx.conf`** proxies `/api/` and `/uploads/` to the API container on port 8080, and falls back to `frontend/index.html` for every other path so the router owns client-side routing. Two settings carry reasons worth keeping: `proxy_set_header Host $http_host` on `/api/`, because the API resolves the store from the `Host` header and builds e-mail links from it; and `client_max_body_size 55m`, because nginx's 1 MB default would reject product video uploads with a `413` before the API ever saw them.
 - **`docker-compose.yml`** builds this image as the `web` service and publishes it on port 8081.
-- Not configured in nginx: compression, cache headers for the hashed assets, and security headers such as CSP and HSTS. Those are **PLANNED** for Phases 20–21.
+- **Security headers** are set on the page location only (`/api/` and `/uploads/` carry the API's own): `X-Content-Type-Options`, `Referrer-Policy`, `X-Frame-Options`, `Permissions-Policy`, and a `Content-Security-Policy-Report-Only` that is still report-only until a browser session through checkout proves it breaks nothing ([Security.md](../07-SECURITY/Security.md) §4). The access log strips query strings and tracking tokens.
+- Not configured in nginx: compression, cache headers for the hashed assets, and HSTS. Those are **PLANNED** for Phases 20–21.
+- **CI** (`.github/workflows/ci.yml`) runs `npm run lint`, `npm run typecheck`, `npm test` and `npm run build` on pushes to `main` and phase branches and on pull requests; the Playwright journeys are not part of it.
 
 ## 16. How to …
 
 **Add a page.**
 1. Create the page under `frontend/src/pages` in the folder of its area, with its own CSS module.
 2. Add a `lazy` import and a `Route` in `frontend/src/App.jsx`, inside the right area and layout.
-3. Wrap it: `ProtectedRoute` for a customer page, `guarded(element, permission, module)` for an admin page, `RequireModule` for an optional-module storefront page.
+3. Wrap it: `ProtectedRoute` for a customer page, `guarded(element, permission, module)` for an admin page, `platformGuarded(element, permission)` for a platform page, `RequireModule` for an optional-module storefront page.
 4. If it is an admin page, add an entry to `ADMIN_NAV` with the same permission and module, so the navigation and the guard agree.
 5. Add the keys to both locale files.
-6. Fetch through `api`, and handle loading, error and empty states.
+6. Fetch through `api` and the query layer (next recipe), and handle loading, error and empty states.
 7. Confirm the server endpoint carries the matching permission and module attributes — the guard is not protection.
+
+**Build a server-state screen.** The reference screens are `frontend/src/pages/platform/Accounts.jsx` (a paged list, mutations and a confirmation) and `frontend/src/pages/platform/Audit.jsx` (filters kept in the URL with `useSearchParams`).
+1. **Key.** Add a key builder to `queryKeys` in `frontend/src/app/queryKeys.js`; build keys through it rather than typing arrays in a screen (an invalidation may pass the bare prefix, as `Accounts.jsx` does). If the data belongs to the signed-in user, also list its first segment in `CUSTOMER_SCOPED_KEYS`. (Today `QueryProvider` resets *every* query on a change of identity, so that list documents intent rather than driving the reset.)
+2. **API function.** Add it to the `api` object in `frontend/src/api/client.js` (see "Add an API call" below).
+3. **Read** with `useQuery({ queryKey, queryFn })`. For a paged list add `placeholderData: keepPreviousData`, so the previous page stays on screen while the next loads. Keep the default `staleTime` of 0 unless the data is a server allowlist or a report (§6).
+4. **Write** by calling the `api` function (or `useMutation`), then `queryClient.invalidateQueries({ queryKey })` on the affected key prefix; toast the success.
+5. **States.** Pass `loading={isPending}`, `error={error?.message}` and `onRetry={refetch}` to `DataTable`, which renders `ErrorBanner` with a retry and an `EmptyState` from `emptyTitle` and `emptyMessage`. A screen without a table renders `ErrorBanner` and `EmptyState` from `frontend/src/components/common/StateViews.jsx` itself.
+6. **Guard the route** in `frontend/src/App.jsx`: `guarded(element, permission, module)` for a store-admin page, `platformGuarded(element, permission)` for a platform page — both wrap `RequirePermission`.
+7. **Destructive actions** go through `useConfirmAction`: `ask({ title, message, confirmLabel, danger, action })`. The action runs only on confirmation and a server refusal is shown inside the dialog.
+8. **Text.** Every string through `t()`, with the key in both `frontend/src/i18n/locales/en.json` and `frontend/src/i18n/locales/ar.json`, plural forms per language (§12).
+9. **Pure logic** (payloads, filters to query parameters, "what blocks saving", view mapping) goes in a `.js` module under `frontend/src/features/<area>/`, typed with JSDoc so `npm run typecheck` checks it, with a Vitest test beside it — as `frontend/src/features/platform/audit.js` does.
+10. **Component test.** A `*.test.jsx` beside the screen, starting with `// @vitest-environment jsdom`, rendering through `withQueryClient` from `frontend/src/test/queryWrapper.jsx` (a fresh client, no retries) with `api` mocked.
+11. **Browser journey.** Add or extend a spec in `frontend/e2e` only for what needs a real browser and stack: several hosts, a real session or invitation, computed colours and axe in dark mode, phone layout (`frontend/e2e/responsive.spec.js`).
+
+**Commands** (run in `frontend`):
+- `npm run dev` — Vite dev server with the `/api` proxy.
+- `npm run lint` — ESLint.
+- `npm run typecheck` — `tsc --noEmit`; `frontend/tsconfig.json` includes `src/**/*.js` only, so `.jsx` is not checked.
+- `npx vitest run` (or `npm test`) — the unit and component suite.
+- `npm run build` — the production bundle.
+- `npx playwright test e2e/<file>.spec.js --project=desktop` — one browser journey file against a live stack; `--project=phone` runs `frontend/e2e/responsive.spec.js`.
 
 **Add a feature.** Put the rules that are pure — payload shape, query shape, "what blocks saving", view mapping — in a module under `frontend/src/features` named for its feature, with a test beside it, and keep the component thin. Never re-implement a server rule as the authority; mirror it only to give faster feedback, and always show the server's answer when it disagrees.
 
@@ -344,18 +366,18 @@ Each item below was verified against the code.
 |---|---|---|---|
 | ~~1~~ | ~~Dead API functions~~ | **Closed in Phase 16.** `api.deleteProduct` is deleted; `api.getProductBySlug` is live — product URLs route by slug | — |
 | 2 | The feature-folder migration is only half done | `frontend/src/features` holds pure logic only; every screen is still under `frontend/src/pages`, and feature components such as `NotificationBell` and `ReviewForm` call the API from `frontend/src/components` | A feature is spread across three folders, so a change touches all three |
-| 3 | `frontend/src/api/client.js` is one module for the whole product | 90 endpoint functions covering every feature, imported by 36 modules | Still true, and no longer blocked — the query layer arrived ([ADR-0038](../11-ADR/0038-query-layer-adopted-and-type-checking.md)). The bundle cost was measured and is small: the admin half is 780 bytes gzipped, 0.54% of the first load. The split buys structure, not speed, and travels with item 2 |
+| 3 | `frontend/src/api/client.js` is one module for the whole product | Over a hundred endpoint functions covering every feature, imported by about fifty modules | Still true, and no longer blocked — the query layer arrived ([ADR-0038](../11-ADR/0038-query-layer-adopted-and-type-checking.md)). The bundle cost was measured and is small: the admin half is 780 bytes gzipped, 0.54% of the first load. The split buys structure, not speed, and travels with item 2 |
 | 4 | Money and catalog-text helpers live in a component file | `formatPrice`, `getProductName`, `getProductDescription` and `getCategoryName` are exported from `frontend/src/components/product/ProductBadges.jsx` and imported by admin, checkout and order screens | A presentation component has become a utility module |
 | 5 | Duplicated helpers | `numberOrNull` in `frontend/src/features/admin/coupons/couponForm.js` and `frontend/src/features/admin/shipping/shippingForm.js` plus `optionalNumber` in `frontend/src/features/admin/products/productPayload.js`; the e-mail pattern in `frontend/src/pages/auth/Login.jsx`, `frontend/src/pages/auth/Register.jsx` and `frontend/src/pages/auth/ForgotPassword.jsx`; the eight-character password rule in `frontend/src/pages/auth/Register.jsx` and `frontend/src/pages/auth/ResetPassword.jsx`; the "server detail or translated code" rule in `frontend/src/api/client.js`, in `couponProblemMessage` and again inline in `frontend/src/pages/checkout/Checkout.jsx`; the supported-language list in `frontend/src/i18n/index.js` (`SUPPORTED`) and `frontend/src/features/catalog/catalogText.js` (`CATALOG_CULTURES`); two language-fallback helpers with different shapes (`pickText`, `localizedText`) | Each one is a place where two copies can drift apart |
 | ~~6~~ | ~~Store-specific literals the white-label test does not catch~~ | **Closed in Phase 16 (TD-27).** Dates take the reader's language with the store's region and time zone; the address form assumes no country; the card field reads the tenant's design tokens and loads the store's font inside the Stripe iframe; the button variant is `accent`. `whiteLabel.test.js` gained a rule for the first two | — |
 | ~~7~~ | ~~Arabic dates and prices disagree on digits~~ | **Closed in Phase 16.** `dateLocale` appends `-u-nu-latn`, matching the money formatter; a test asserts no Arabic-Indic digits come out | — |
 | 8 | Placeholder content — **mostly closed** | Fixed in Phase 16: the six dead footer links are gone (the missing capability is TD-42), the offers row and `/offers` filter on the server's `onSale`, the confirmation takes its estimate from the order or shows none, and the hero is built from the store's own name, description and image. **Still open:** `StockBadge` assumes a low-stock threshold of 5, which is a per-product setting the storefront contract does not expose | A customer sees "only a few left" on a number the store never chose |
 | ~~9~~ | ~~No error boundary~~ | **Closed in Phase 16.** `frontend/src/components/common/ErrorBoundary.jsx` wraps the router, offers a retry and a way back to the store, and is tested never to print the exception text or a file path | — |
-| 10 | Component tests exist but forms and checkout do not have them | Phase 16 added the environment and 13 component test files (guards, error boundary, dialogs, account shell, cart, confirmation, product, orders, tracking, query provider, accessibility); 250 tests total | Checkout interaction and the forms are still verified by hand |
-| 11 | Admin list state is not in the URL | `useSearchParams` appears only in the catalog, the category bar, the storefront page and two authentication screens | A reload or a shared link loses an admin filter |
+| 10 | Component tests exist but forms and checkout do not have them | Phase 16 added the jsdom environment and the first component tests; the suite has since grown to about 500 tests (guards, error boundary, dialogs, account shell, cart, confirmation, product, orders, tracking, query provider, dashboards, settings, team, platform screens, accessibility) | Checkout interaction and most store-admin forms are still verified by hand |
+| 11 | Store-admin list state is not in the URL | `useSearchParams` appears in the catalog and search, the category bar, the storefront page, confirmation, the customer's orders, two authentication screens and the platform activity log (`frontend/src/pages/platform/Audit.jsx`) — no store-admin list | A reload or a shared link loses an admin filter |
 | 12 | Unguarded async effects — **storefront closed, admin open** | The migrated storefront screens no longer fetch in an effect at all; the lint rule that counts the pattern fell from 27 hits to 19, and what remains is the admin area | Fast navigation in the admin area can render the previous row's data. The checkout re-quote, the one case beside money, is guarded |
 | 13 | `ToastContext` builds a new value object on every render | `frontend/src/context/ToastContext.jsx` has no `useMemo`, and `CartProvider` depends on it | Every toast re-renders all consumers and recreates the cart callbacks |
-| 14 | Browser dialogs for destructive admin actions | `window.confirm` in six admin screens | No styling, no localization control, no explanation of consequences |
+| ~~14~~ | ~~Browser dialogs for destructive admin actions~~ | **Closed in Phase 17.** Every destructive action confirms in `ConfirmDialog` through `frontend/src/components/common/useConfirmAction.jsx`; no `window.confirm` remains | — |
 | 15 | Permission and module strings are untied literals | `frontend/src/App.jsx` and `frontend/src/pages/admin/AdminSidebar.jsx` repeat the server's permission names | A renamed permission fails silently as a hidden or a rejected page |
 
 ## 18. Where the frontend is going
@@ -363,6 +385,7 @@ Each item below was verified against the code.
 The target structure and the reasoning behind it are in [FrontendArchitecture.md](FrontendArchitecture.md) §3–§4; the migration plan is §6 there. In short:
 
 - **Screens move into feature folders as they are rebuilt** (Phases 16–17), with `git mv` so history survives and the diff stays reviewable. Moving everything at once was rejected: a large diff with no behaviour change, and merge pain for the storefront rebuild.
-- **Splitting `frontend/src/api/client.js` per feature waits for the query layer**, because the query layer decides what those modules look like. D-19 is now **DECIDED** and names when that layer arrives ([ADR-0037](../11-ADR/0037-frontend-server-state-and-types.md)).
-- **TypeScript and TanStack Query** are proposed and deferred with a trigger, with an incremental path: `allowJs`, new files typed, the pure feature modules converted first; the query layer used first for the new catalog and basket screens.
-- **Phase 16** rebuilds the storefront (configurable home sections, slug routes, per-host SEO heads, a real account area) and **Phase 17** the admin dashboard; both are the moment to pay down the debt in §17 for the screens they touch.
+- **Splitting `frontend/src/api/client.js` per feature** is no longer blocked: the query layer arrived in Phase 16 ([ADR-0038](../11-ADR/0038-query-layer-adopted-and-type-checking.md)), and the split now travels with the feature-folder move.
+- **The store-admin CRUD screens move to the query layer** as they are rebuilt (§5 lists them); new screens start there.
+- **Types** stay `checkJs` with JSDoc over `.js` ([ADR-0038](../11-ADR/0038-query-layer-adopted-and-type-checking.md)); components join the check when their props are declared, not by a TypeScript conversion.
+- **Phase 16** rebuilt the storefront (slug routes, a real account area, structured data) except product variant selection, which needs a model and API change (D-21). **Phase 17** is closed. **Phase 18** delivered the platform stores, accounts and activity log; the storefront preview (D-22) and platform-wide settings (P-07) wait on owner decisions. Each rebuild is the moment to pay down the debt in §17 for the screens it touches.

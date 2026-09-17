@@ -7,7 +7,7 @@
 ## 1. Prerequisites
 
 - **.NET 10 SDK.** The projects target `net10.0` and reference 10.0.x packages. No *global.json* pins a version, so the newest 10.0 SDK is fine.
-- **Node 20.** `frontend/Dockerfile` builds on node:20-alpine; Vite 5 and Vitest 3 are the toolchain (`frontend/package.json`).
+- **Node 22** (22.12 or newer — Vitest 5 requires it). `frontend/Dockerfile` builds on node:22-alpine and CI uses Node 22; Vite 8 and Vitest 5 are the toolchain (`frontend/package.json`).
 - **Docker**, for SQL Server and for the integration tests. Leave it at least 2 GB of memory for SQL Server, or expect the failures in [Troubleshooting.md](Troubleshooting.md) §1.
 - **`dotnet-ef` 10.x**: `dotnet tool install -g dotnet-ef` (there is no tool manifest in the repository).
 - **A SQL Server you can reach on `localhost,1433`.** Any local instance works — for example a container of your own:
@@ -67,10 +67,10 @@ The store always comes from the Host header. These conveniences exist **only** i
 
 - `http://localhost:5173` is the seeded default store. `Tenancy:LocalDefaultTenant` points it at another slug.
 - `http://{slug}.localhost:5173` is any other store; browsers resolve `*.localhost` to the loopback address with no setup, and the Vite proxy forwards the Host header unchanged.
-- `http://admin.localhost:5173` is the platform area. Since Phase 15 it has a real sign-in and a shell in the SPA; its screens (stores, provisioning, accounts, audit) arrive in Phase 18, so provisioning is still done through the API.
+- `http://admin.localhost:5173` is the platform area. It has a real sign-in and, since Phase 18, the platform console: stores, the provisioning wizard, accounts and the activity log.
 - API tools can send `X-Tenant: <slug>` instead of using a host.
 
-**Provisioning a store locally** (API only until Phase 18):
+**Provisioning a store locally.** The usual way is the platform console: sign in on `http://admin.localhost:5173` as the platform owner and open `/platform/stores/new`; the wizard walks identity, branding, domains, modules, administrator and activation. The API remains an alternative for scripts:
 
 1. Sign in as the platform owner on the platform host: `POST http://admin.localhost:5200/api/auth/login`.
 2. `POST /api/platform/tenants` with `{ "name", "slug", "currency", "defaultCulture", "timeZone" }`. The new store starts in `Provisioning`.
@@ -119,13 +119,17 @@ Test-mode Stripe keys for store accounts are accepted in Development and Testing
 
 ## 7. Tests
 
+The canonical list of suites, commands and gates — including the frontend lint and type-check, and the Playwright browser journeys — is [DeveloperQualityGates.md](DeveloperQualityGates.md). The everyday commands:
+
 | Suite | Command | Needs |
 |---|---|---|
 | Domain and Application unit tests | `dotnet test tests/Souq.Domain.Tests tests/Souq.Application.Tests` | nothing |
 | Architecture rules | `dotnet test tests/Souq.ArchitectureTests` | nothing |
-| Integration (real API over SQL Server in Testcontainers) | `dotnet test tests/Souq.IntegrationTests` | **Docker running**; the first run pulls mcr.microsoft.com/mssql/server:2022-latest |
-| Everything | `dotnet test` | Docker |
-| Frontend unit tests | `cd frontend && npm test` | nothing |
+| Integration (real API over SQL Server in Testcontainers) | `dotnet test tests/Souq.IntegrationTests` | **Docker running**, with 3 GiB+ free; the first run pulls mcr.microsoft.com/mssql/server:2022-latest |
+| Everything .NET | `dotnet test` | Docker |
+| Frontend lint and type-check | `cd frontend && npm run lint && npm run typecheck` | nothing |
+| Frontend unit tests (Vitest) | `cd frontend && npm test` | nothing |
+| Browser journeys (Playwright) | `cd frontend && npx playwright test <file>` | a live local stack — manual, not in CI; the runbook is in [DeveloperQualityGates.md](DeveloperQualityGates.md) |
 
 The integration suite boots the real `Program` as `Testing`: your user secrets are not loaded, the admin is seeded from explicit settings exactly as in production, uploads go to a temporary directory, all three background intervals are `0` so tests drive the work directly, and the rate limits are raised. When it fails for reasons that are not your change, start with [Troubleshooting.md](Troubleshooting.md) §1–2.
 
@@ -147,6 +151,7 @@ The integration suite boots the real `Program` as `Testing`: your user secrets a
 ## 8. Git workflow
 
 - **One branch per phase** (`phase/<id>-<topic>`), merged to `main` after review and approval (decision P-01).
+- **CI runs on every push to `main` and `phase/**` and on pull requests** ([`.github/workflows/ci.yml`](../../.github/workflows/ci.yml)), but it does not block a merge until branch protection is switched on in GitHub — see [OwnerDecisions.md](OwnerDecisions.md), "Branch protection". Until then a red run can still be merged, so read the result.
 - **Conventional commits:** `feat(scope):`, `fix(scope):`, `refactor:`, `test:`, `docs:`, `chore:`. Prefer several logical commits over one large one.
 - Never commit secrets, `.env`, `bin/`, `obj/`, `node_modules/`, `dist/`, or IDE folders.
 
@@ -193,9 +198,9 @@ Read the generated migration before committing it, and add data-preserving SQL b
 
 ## 12. Before you open a PR (or end a phase)
 
-- [ ] `dotnet build`: 0 warnings
+- [ ] `dotnet build`: 0 warnings (CI builds with warnings as errors)
 - [ ] `dotnet test`: all green (Docker running)
-- [ ] `cd frontend && npm test && npm run build`
+- [ ] `cd frontend && npm run lint && npm run typecheck && npm test && npm run build`
 - [ ] No secrets in the diff (`git diff | grep -iE "password|secret|apikey|connectionstring"` reviewed)
 - [ ] Docs updated (roadmap status, the relevant architecture doc, an ADR if a decision was made; a new setting also belongs in [Configuration.md](Configuration.md))
 - [ ] Architecture tests still pass (no new forbidden dependency)

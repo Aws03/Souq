@@ -5,7 +5,7 @@
 
 ## 1. The shape
 
-Souq has five suites. Four are .NET, one is the frontend. They are ordered by how fast they fail and how much they prove.
+Souq has six suites. Four are .NET, two are the frontend — Vitest for logic and components, Playwright for browser journeys. They are ordered by how fast they fail and how much they prove. The commands and the gates each one belongs to are listed once, in [DeveloperQualityGates.md](../09-OPERATIONS/DeveloperQualityGates.md).
 
 | Suite | Proves | Needs | Typical run |
 |---|---|---|---|
@@ -13,9 +13,10 @@ Souq has five suites. Four are .NET, one is the frontend. They are ordered by ho
 | `tests/Souq.Application.Tests` | Use-case orchestration, permissions and ownership, validation | Nothing (test doubles) | Seconds |
 | `tests/Souq.ArchitectureTests` | The boundaries themselves: layers, modules, tenancy, endpoints, and that the documentation matches the code | Nothing | Seconds |
 | `tests/Souq.IntegrationTests` | The real API over real SQL Server: HTTP contract, tenant isolation, concurrency, migrations, background work | **Docker** | Two to three minutes |
-| `frontend/src/**/*.test.js` | Pure frontend logic: payload builders, view models, formatting, white-label rules | Node | Seconds |
+| `frontend/src/**/*.test.js`, `*.test.jsx` (Vitest) | Frontend logic, components, route guards, accessibility structure, white-label rules | Node 22 | Seconds |
+| `frontend/e2e/*.spec.js` (Playwright) | The critical journeys in a real browser, for two stores and the platform console | A live local stack; run by hand | About a minute per file |
 
-There is no CI pipeline. These suites run when a person runs them — which is why the gate below is part of the definition of done.
+[`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) runs the four .NET suites and the Vitest suite (with lint, type-check and build) on every push and pull request. It blocks a merge only once branch protection is switched on in GitHub. Playwright is not in CI. Run the gate below yourself anyway — CI is the backstop, not the first place to find out.
 
 ## 2. What belongs where
 
@@ -61,12 +62,13 @@ When one of these fails, the question is never "how do I silence it?" but "is th
 - **Yes, components (Phase 16):** route guards, the error boundary, the account shell and the order screens. The environment is per file — a test opts into a DOM with `// @vitest-environment jsdom`, so pure-logic tests keep running in Node. `globals: false` means Testing Library's automatic cleanup is not registered for us, so `frontend/src/test/setup.js` registers `afterEach(cleanup)` itself; without it a second render in the same file finds two copies of everything.
 - **Source invariants:** `frontend/src/app/moduleInvariants.test.js` asserts that no source file is empty and that every module behind a `lazy()` import has a default export. It was written after finding two routed pages whose files were empty in the repository — a state that builds cleanly and fails only in the visitor's browser.
 - **Lint as a test:** `npm run lint` (ESLint 9, flat config) runs before the suite in CI. Three rule families only — `react-hooks`, `jsx-a11y`, and the language basics. Formatting is deliberately not linted. The first thing it caught was a JSX parse error that Vite compiled without complaint.
-  `react-hooks/set-state-in-effect` is a **warning**, not an error: its 27 hits are exactly the hand-rolled fetch pattern the query layer replaces, so they should disappear by migration rather than by 27 inline disables.
+  `react-hooks/set-state-in-effect` is a **warning**, not an error: its hits (19 when last counted, on 2026-09-17; 12 of them in the admin screens) are exactly the hand-rolled fetch pattern the query layer replaces, so they should disappear by migration rather than by inline disables.
 - **Accessibility as a test:** `frontend/src/a11y.test.jsx` runs axe-core over the cart (full and empty), the 404 page, the hero, an open drawer, the account shell, the order list and the error screen, at WCAG 2.0/2.1 A and AA. It is a **structural** check: jsdom has no layout, so colour contrast and real focus order cannot be asserted there and the contrast rule is explicitly disabled rather than silently skipped. Any violation it reports is real; a clean run does not mean the page is accessible.
   axe-core is MPL-2.0, not MIT. That is acceptable because it is a development dependency that is neither shipped nor modified — recorded explicitly because this repository has been caught twice by licence changes (P-02, MediatR pinned at 12).
-- **Browser validation (Playwright, run by hand against a live stack).** `frontend/e2e/` holds the seventeen critical journeys for one store and six two-store checks; `npx playwright test` after `docker compose up -d db`, `dotnet run --project src/Souq.API` and `npm run dev`. It is **not** in CI: it needs SQL Server, the API and a second provisioned tenant, and a browser suite that is green only when someone remembers to set that up is worse than one that is run deliberately before a release.
+- **Browser validation (Playwright, run by hand against a live stack).** `frontend/e2e/` holds 72 journeys in 8 files: the storefront's critical journeys, two-store isolation, the store administration and back office, platform provisioning, sessions, and phone-width layouts. It needs a SQL Server reachable from the host (the compose `db` service publishes no port, so it cannot serve a locally run API), the API in Development on port 5200 with its log written to a file, and `npm run dev`; files run one at a time about a minute apart because of the sign-in rate limit. The full runbook — `SOUQ_API_LOG`, the second store, the `phone` project, and the data a run leaves behind — is in [DeveloperQualityGates.md](../09-OPERATIONS/DeveloperQualityGates.md). It is **not** in CI or in `scripts/release-gate.sh`: it needs SQL Server, the API and a second provisioned tenant, and a browser suite that is green only when someone remembers to set that up is worse than one that is run deliberately before a release.
   It earns its keep. It found the session defect behind SEC-SESS-01 — a defect no unit test could have seen, because it needed a real rate limiter, a real cookie and ten real page loads.
-- **Not today:** forms and checkout interaction, and the providers. A gap in coverage now, not a missing environment.
+- **Checkout's money barriers are covered** (`frontend/src/pages/checkout/Checkout.test.jsx`): no order while a line is unavailable, without an address, or with a required shipping method unchosen; the order is built from the basket, the total shown is the server's, and only a coupon the server accepted is sent.
+- **Not today:** form-level interaction (the address, profile and review forms), most admin screens, and the providers. A gap in coverage now, not a missing environment.
 
 ## 3. The gate: what must pass before a change is complete
 
@@ -76,8 +78,10 @@ dotnet test tests/Souq.Domain.Tests
 dotnet test tests/Souq.Application.Tests
 dotnet test tests/Souq.ArchitectureTests            # boundaries + documentation
 dotnet test tests/Souq.IntegrationTests             # needs Docker
-cd frontend && npx vitest run && npx vite build
+cd frontend && npm run lint && npm run typecheck && npm test && npm run build
 ```
+
+Which of these each gate requires, and the Playwright runbook for a release candidate: [DeveloperQualityGates.md](../09-OPERATIONS/DeveloperQualityGates.md).
 
 Plus, when the change touched a controller, a use case, a module boundary or test files:
 
@@ -118,8 +122,8 @@ Honest list; each is a candidate for [TechnicalDebt.md](../12-ROADMAP/TechnicalD
 
 | Gap | Consequence |
 |---|---|
-| No CI pipeline | Every suite runs only when someone remembers; a red main branch is possible |
-| Partial frontend component tests | Guards, the error boundary, the account shell and the order screens are covered; forms and checkout are still only covered by hand |
+| CI does not block merges yet, and Playwright is not in it | Until branch protection is on, a red run can be merged; the browser journeys run only when someone runs them |
+| Partial frontend component tests | Guards, the error boundary, the account shell, the order screens and checkout's money barriers are covered; form-level interaction and most admin screens are not |
 | Stripe and the email providers have no adapter tests | Their behaviour is proven only through the fake gateway and the capturing sender |
 | `MigrationRehearsalTests` is one large test | A failure cannot be bisected to a phase |
 | No load or performance test | Scaling decisions have no baseline ([ScalingStrategy.md](../09-OPERATIONS/ScalingStrategy.md)) |

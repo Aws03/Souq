@@ -72,7 +72,7 @@
 ## 4. Transport, CORS, headers, rate limiting
 
 - **HTTPS and HSTS:** **TLS termination is still the deployment's job** — nginx here listens on port 80 and this repository ships no certificate. HSTS *is* now sent (`UseHsts`, 30 days, configurable via `Security:HstsMaxAgeDays`), but only on requests the API sees as https, which is why the forwarded-scheme fix below matters. Deliberately **no `includeSubDomains` and no `preload`**: stores bring their own domains, and HSTS outlives the relationship with a domain while preload is near-permanent — widening it is a deployment decision made knowingly, not a default. Deliberately **no *UseHttpsRedirection***: the container listens on http behind a terminator, so redirecting in the app would break internal probes; redirect at the edge instead. Note that HSTS is never sent for `localhost`/`127.0.0.1` (ASP.NET's `ExcludedHosts`), which is the usual reason it seems missing in local testing. Automated TLS for custom domains is still **PLANNED** for Phase 23.
-- **CORS:** an allowlist from `Cors:AllowedOrigins`, falling back to `http://localhost:5173` when the key is unset — in every environment. The policy does not allow credentials, so a cross-origin session is impossible in any case. The Docker/nginx deployment is same-origin and needs no CORS.
+- **CORS:** an allowlist from `Cors:AllowedOrigins`. When the key is unset, `CorsOrigins.For` (`src/Souq.API/Http/CorsOrigins.cs`) falls back to `http://localhost:5173` in Development and Testing only, and to no origin at all elsewhere; `ConfigurationTests` covers both cases. The policy does not allow credentials, so a cross-origin session is impossible in any case. The Docker/nginx deployment is same-origin and needs no CORS.
 - **Headers:** `SecurityHeadersMiddleware` sets `X-Content-Type-Options`, `Referrer-Policy`, `X-Frame-Options` and `Permissions-Policy` on **every** API response, errors included — it writes them in `OnStarting`, because a header assigned directly is lost when the exception handler rebuilds the response, leaving only the happy paths protected. API responses also carry `Content-Security-Policy: default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'` — this is a JSON interface, so nothing should ever load from it. `/uploads/*` keeps its stricter `default-src 'none'; sandbox`: the middleware does not overwrite a policy that is already set, because `OnPrepareResponse` runs *before* `OnStarting` and a blind write would have quietly weakened uploads. Swagger (Development only) is exempt, being a real page with scripts.
 - **SPA headers** live in `frontend/nginx.conf`, scoped to `location /` only — applying them server-wide would duplicate the API's own, and browsers *intersect* two CSP headers into something stricter than either intended. The SPA's CSP ships as **`Content-Security-Policy-Report-Only`** on purpose: the external origins are known from the source (Google Fonts, injected per store by `storeTheme.js`; Stripe's script and frames at checkout), but runtime behaviour such as the inline styles Stripe Elements injects cannot be proven without a browser session, and an enforced policy that is wrong breaks a store silently *at checkout*. Flipping it to enforcing after one browser pass is the remaining step.
 - **Rate limiting:** the ASP.NET Core limiter with a fixed window per `host|client IP`.
@@ -85,7 +85,7 @@
 ## 5. Input validation, XSS, and uploads
 
 - **Validation:** FluentValidation for shape and ranges through the MediatR pipeline; business invariants in the Domain; database constraints as the final guard.
-- **XSS:** React escapes by default, and `dangerouslySetInnerHTML` appears nowhere in `frontend/src` — by convention, not by an automated check. Product and category descriptions are **plain text** (up to 4000 characters, rendered escaped). A rich HTML description is **PLANNED** with the storefront (Phase 16) and needs a server-side sanitizer before storage.
+- **XSS:** React escapes by default, and `dangerouslySetInnerHTML` appears nowhere in `frontend/src` — enforced, not just a convention: `frontend/eslint.config.js` sets `react/no-danger` to `error`, and the lint runs in CI (SEC-UP-07). Product and category descriptions are **plain text** (up to 4000 characters, rendered escaped). A sanitized rich HTML description is **DEFERRED** ([ADR-0025](../11-ADR/0025-catalog-model.md)): it needs a server-side sanitizer before storage and a decision, not a lint exception.
 - **Uploads** (Phase 0 finding B3, [ADR-0016](../11-ADR/0016-upload-validation.md)):
   1. The type is detected from **magic bytes**: JPEG, PNG, GIF, WebP for images; MP4, WebM for video; ICO for store favicons only. Anything else — HTML, SVG, scripts, disguised files — is rejected with `UnsupportedMediaType`.
   2. The stored extension is **derived from the detected type**, never from the client's filename, and the stored name is a random GUID.
@@ -94,7 +94,7 @@
   5. The static file server serves only the allowlisted media types from the uploads folder, with `nosniff` and a sandboxing CSP, so an unexpected file can never execute as a page on our origin.
   6. SVG is not accepted, because it can carry script.
 - **Tenant-prefixed keys:** files are stored under `tenants/{id}/…` and the resolution middleware serves them only on the owning store's host. Two deliberate exceptions: the platform host serves any store's files, and pre-Phase-2 files under `/uploads/{folder}` belong to the default store and stay public — they are catalog media with unguessable names.
-- **Product gallery:** up to 10 images per product, each through the same pipeline, into the store's prefix. **Removing an image does not delete the file** and no cleanup job exists or is scheduled (**FUTURE**); the file keeps its unguessable name and is still served only on the owning store's host.
+- **Product gallery:** up to 10 images per product, each through the same pipeline, into the store's prefix. **Removing an image does not delete the file** and no cleanup job exists; it was deferred in Phase 5 to "Phase 6 or later" and no later phase schedules it (**DEFERRED**, SEC-UP-06); the file keeps its unguessable name and is still served only on the owning store's host.
 - **PLANNED (Phase 23):** cloud blob storage. Re-encoding images to strip metadata and neutralize polyglots was considered in ADR-0016 and is **FUTURE** — no phase schedules it.
 
 ## 5a. Database privileges
@@ -121,7 +121,7 @@ The permissions were **measured**, not assumed: `scripts/verify-least-privilege.
 - **Store payment keys at rest:** AES-256-GCM with a key from the environment. The store id and the kind of secret are authenticated data, so a ciphertext copied into another store's row does not decrypt. Key ids allow rotation — the old key must stay until every store re-saves its keys, because nothing re-wraps existing ciphertexts. Keys are write-only: only the last four characters are ever returned, and the audit log records what changed, not the values.
 - **Development conveniences never run implicitly elsewhere:** the fake payment gateway and the log-only email adapter are implicit in Development and Testing only; reset links in the log and the development admin exist in Development only. Anything unsafe that is enabled explicitly (`Payments:Provider=Fake`, `Email:Provider=Log`, `Payments:AllowTestModeStoreAccounts`, a missing webhook secret) is logged as a warning at every start.
 - `src/Souq.API/appsettings.json` contains **no secrets and no personal data**; `.env` is git-ignored and `.env.example` holds placeholders only.
-- **Not automated:** there is no CI and no secret scanning in the repository, so "grep the diff for keys and connection strings before merging" is a manual habit, not a control (G-01).
+- **Automated in CI:** [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) runs a secret scan and a check for live payment keys on every run. It blocks a merge only once branch protection is switched on in GitHub, which is a repository setting the owner has to change (G-01, TD-31).
 
 ## 7. Password reset security
 
@@ -209,9 +209,11 @@ nothing here can configure it. Apply the same rule wherever TLS terminates.
 
 **Not audited** (the gap in SEC-AUTHZ-10): order status changes — the acting user is recorded on the order's own history row instead — coupon create/update/delete, shipping-method create/update/delete, product create and update, and customers' own profile and address changes.
 
-The write guard rejects any update or delete of an `AuditEntry`. The platform reads the log through `GET /api/platform/audit` with `platform.audit.view`; there is no store-facing viewer yet (PLANNED, Phase 17).
+The write guard rejects any update or delete of an `AuditEntry`. The platform reads the log through `GET /api/platform/audit` with `platform.audit.view`; the platform console shows it at `/platform/audit`. There is no store-facing viewer: Phase 4 deferred one to Phase 17, but Phase 17 closed without it and no roadmap phase schedules it now.
 
 ## 11. Phase 0 findings: disposition
+
+A historical record of the Phase 0 findings. Open security work is tracked in [SecurityControls.md §12](SecurityControls.md#12-gaps-and-risks) and [ReleaseReadiness.md](../09-OPERATIONS/ReleaseReadiness.md), and where a row here points there, that page is the one to trust.
 
 | ID | Finding | Status today |
 |---|---|---|
@@ -219,12 +221,12 @@ The write guard rejects any update or delete of an `AuditEntry`. The platform re
 | B2 | Reset links in logs; personal data in email logs | **Fixed** in the API (§7, §9); see the nginx access-log caveat |
 | B3 | Upload stored XSS | **Fixed** (§5) |
 | B4 | Long-lived JWT in `localStorage`, no revocation | **Fixed:** a 15-minute access token in memory, the refresh token in an `HttpOnly` cookie, revocation by stamp and by family |
-| B5 | No rate limiting | **Fixed** for auth, refresh, coupon preview and basket writes, per `host|IP`, behind trusted forwarded headers. Coverage is still narrow (§4) |
+| B5 | No rate limiting | **Fixed** for auth, refresh, coupon preview and basket writes, per `host|IP`, behind trusted forwarded headers. Coverage is still narrow (§4, G-08) |
 | B6 | Plaintext reset tokens | **Fixed** (hash only) |
 | B7 | Ownership checks in controllers; role-only authorization | **Fixed:** `ICurrentUser`, ownership in use cases, permission policies, tenant/staff/platform roles |
 | B8 | Anonymous tracking by sequential id exposes notes | **Fixed:** tracking by a random token that returns status and shipment only; the id route is gone |
-| B9 | Security headers | **Partly fixed:** uploads only. CSP, HSTS and the rest are **PLANNED** (Phase 20) |
-| B10 | The application connects as `sa` | **Open.** Still `sa` in `docker-compose.yml`, and no phase schedules a least-privilege login (G-09) |
-| B11 | npm advisories | **Partly fixed:** non-breaking fixes applied; the Vite major upgrade was deferred to Phase 15, which shipped with Vite 5 still in place (G-18) |
+| B9 | Security headers | **Fixed for the API:** `SecurityHeadersMiddleware` on every response and `UseHsts` outside Development, covered by `SecurityHeadersTests` (§4). **Open for the SPA:** its CSP in `frontend/nginx.conf` is still `Content-Security-Policy-Report-Only`, and TLS is the deployment's (G-02) |
+| B10 | The application connects as `sa` | **Mechanism done, deployment open.** `scripts/sql/least-privilege-logins.sql` creates the runtime and migration identities, `ConnectionStrings:Migrations` separates them, and `scripts/verify-least-privilege.sh` measured them (§5a, [DatabasePrivileges.md](DatabasePrivileges.md)). The demo `docker-compose.yml` still uses `sa`, and no real deployment applies it yet (G-09, R-12 in [ReleaseReadiness.md](../09-OPERATIONS/ReleaseReadiness.md)) |
+| B11 | npm advisories | **Fixed:** non-breaking fixes applied, then the frontend moved to Vite 8, Vitest 5 and `@vitejs/plugin-react` 6 (G-18, TD-41). CI runs a blocking `npm audit` over shipped dependencies |
 | B12 | Personal email defaults in source | **Fixed:** removed from code, configuration and compose |
 | New (Phase 1B) | Fake payment gateway selected implicitly in Production | **Fixed:** explicit selection outside Development and Testing, startup refusal otherwise |

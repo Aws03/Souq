@@ -14,9 +14,9 @@ Souq is a **modular monolith**: one deployable ASP.NET Core application plus one
 | **Monolith vs microservices** | *Deployment/runtime*: how many processes and databases run in production | One process, one database (modular monolith) |
 | **Clean Architecture** | *Source dependency direction*: who may reference whom | API → Infrastructure → Application → Domain, enforced by project references + architecture tests |
 | **Hexagonal (ports and adapters)** | *Boundary to the outside world*: how the core talks to technology | Ports (interfaces) in Application; adapters in Infrastructure (driven) and API (driving) |
-| **Modular architecture** | *Business decomposition*: which capability owns which rules and data | 13 modules: 8 already exist in some form, 5 arrive in later phases ([Modules.md](../04-MODULES/Modules.md)) |
+| **Modular architecture** | *Business decomposition*: which capability owns which rules and data | 13 modules, all implemented; `ModuleMap` (`tests/Souq.ArchitectureTests/ModuleMap.cs`) maps their feature folders ([Modules.md](../04-MODULES/Modules.md)) |
 | **Vertical slices** | *Code organization*: where one use case's code lives | `Features/<Module>/<UseCase>` (command/query + handler + validator + DTO) |
-| **DDD** | *Modeling discipline*: how business rules are expressed | Aggregates, value objects, and domain services where invariants justify them |
+| **DDD** | *Modeling discipline*: how business rules are expressed | Aggregates and value objects where invariants justify them; no domain services today ([DDD.md](../03-DOMAIN/DDD.md)) |
 | **CQRS** | *Read/write separation*: are the read and write models the same? | Separate handlers; writes through aggregates, reads through projections |
 
 They are complementary layers of one design, not rival options. A common beginner mistake is to "choose between Clean Architecture and microservices". One is about arrows in the code, the other is about processes on servers.
@@ -25,7 +25,7 @@ They are complementary layers of one design, not rival options. A common beginne
 
 ```
 src/
-├── Souq.Domain          business model: entities, value objects, domain services, domain exceptions,
+├── Souq.Domain          business model: entities, value objects, domain events, domain exceptions,
 │                        repository ports for aggregates. References NOTHING.
 ├── Souq.Application     use cases (commands/queries), validation, orchestration, ports for technology
 │                        (payment, email, storage, clock, current user, tenant context), DTOs.
@@ -49,36 +49,27 @@ src/
 **Decision ([ADR-0002](../11-ADR/0002-modular-monolith-structure.md)):** modules are **namespaces that cut across the four existing layer projects**. They are not separate projects per module.
 
 ```
-Souq.Domain/<Module>/…                          e.g. Souq.Domain.Ordering.Order
-Souq.Application/Features/<Module>/<UseCase>/…  e.g. Features/Ordering/PlaceOrder
-Souq.Application/Features/<Module>/Contracts/   the module's public, in-process API for other modules
-Souq.Infrastructure/<Area>/<Module>/…           e.g. Persistence/Configurations/Ordering
-Souq.API/Controllers/<Area>/…                   Storefront, Account, Admin, Platform, Auth, Webhooks
+Souq.Domain/…                                   organized by kind (Entities, Interfaces, ValueObjects…); only Identity and Platform per module
+Souq.Application/Features/<Folder>/<UseCase>/…  e.g. Features/Orders (module Ordering), mapped by ModuleMap
+Souq.Application/Features/<Folder>/Contracts/   the module's public, in-process API for other modules
+Souq.Infrastructure/<Area>/…                    by technical concern, e.g. Persistence/Configurations, BackgroundJobs
+Souq.API/Controllers/…                          one flat folder
 ```
 
 - **Why:**
   - Zero churn for working code.
   - The compiler keeps enforcing the *layer* rule, which is the rule a learning team breaks most often.
   - Architecture tests enforce the *module* rule.
-  - With ~16 modules, project-per-module would mean 50–60 projects for one developer.
+  - With 13 modules, project-per-module would mean 50 or more projects for one developer.
 - **Revisit when:**
   - more than 3–4 developers work in parallel;
   - a module becomes a concrete extraction candidate;
   - or the architecture tests keep catching the same boundary violations.
 
-  Moving to `Souq.Modules.<X>` projects is then mechanical, because the namespaces already match.
-- **Today:** the existing folders map to modules like this:
+  Moving to *Souq.Modules.X* projects would then start with giving the Domain per-module namespaces, which it mostly does not have yet.
+- **Today:** only the Application layer is organized per module. Its 17 feature folders map to the 13 modules in `ModuleMap` (`tests/Souq.ArchitectureTests/ModuleMap.cs`), the single source shared by the boundary tests and the generated inventories; [Modules.md](../04-MODULES/Modules.md) names each module's folders.
 
-  | Existing folder | Module |
-  |---|---|
-  | `Features/Products`, `Features/Categories` | Catalog |
-  | `Features/Inventory` | Inventory |
-  | `Features/Orders` | Ordering |
-  | `Features/Coupons` | Promotions |
-  | `Features/Reviews` | Reviews |
-  | `Features/Auth` | Identity |
-
-  Entities still live in `Souq.Domain.Entities`. Each module moves to its own namespace when its roadmap phase touches it (Phase 1B starts with shared building blocks; Phases 2–14 move modules as they are rebuilt). No big-bang rename.
+  The planned per-module namespaces in the other layers were never introduced. Most entities still live in `Souq.Domain.Entities` (only `Souq.Domain.Identity` and `Souq.Domain.Platform` are per module), repository ports share `Souq.Domain.Interfaces`, Infrastructure is organized by technical concern, and the controllers sit flat in `src/Souq.API/Controllers/`. What that leaves unenforced, and how it is counted instead, is in [DependencyRules.md §5](DependencyRules.md#5-what-is-not-enforced-and-why-it-matters).
 
 ## 5. Dependency rules
 
@@ -160,19 +151,7 @@ Pricing still loads `Product` through Catalog's **domain** repository rather tha
 
 ## 7. Domain modeling strategy (DDD where it pays)
 
-| Aggregate (root) | Contains | Key invariants | Concurrency |
-|---|---|---|---|
-| **Tenant** (Platform) | domains, branding settings, module flags | lifecycle Provisioning → Active → Suspended → Archived; exactly one primary domain; modules limited to the plan | `rowversion` |
-| **User** (Identity) | refresh tokens | unique normalized email per tenant; lockout; token rotation and reuse detection | `rowversion` |
-| **Product** (Catalog) | variants, images, translations | slug unique per tenant; status lifecycle; ≥ 1 variant; price in the tenant currency | `rowversion` |
-| **Category** (Catalog) | — (tree by `ParentId`) | no cycles; slug unique per tenant | — |
-| **InventoryItem** (Inventory) | — (ledger entries are separate append-only records) | `available = onHand − reserved ≥ 0`; every change writes a ledger entry | `rowversion` (hot row) |
-| **Basket** (Shopping) | lines | quantity > 0; one basket per customer or anonymous id | last-write-wins (low value) |
-| **Order** (Ordering) | lines, status history | transition table; lines only while Pending; snapshots immutable after placement; discount ≤ subtotal | `rowversion` |
-| **Coupon** (Promotions) | — (redemptions are separate records) | value ranges; validity window; usage limits | `rowversion` |
-| **Payment** (Payments) | refunds | refunded ≤ captured; idempotency key unique | `rowversion` |
-| **Customer** (Customers) | addresses | one profile per user per tenant; blocked customers cannot order | `rowversion` |
-| **Review** (Reviews) | — | rating 1–5; verified purchase; one per customer per product | — |
+The aggregate table — each root, what it contains, its key invariants and its concurrency token — is kept in one place: [DDD.md §2](../03-DOMAIN/DDD.md#2-tactical-patterns-that-are-used). It was duplicated here and drifted; DDD.md is canonical.
 
 **Why the Order aggregate stays small:**
 - It holds its lines and its own status history. Nothing else.
@@ -181,7 +160,7 @@ Pricing still loads `Product` through Catalog's **domain** repository rather tha
 
 **Value objects today:** `Money` (amount + currency, currency-aware rounding), `PostalAddress`, `CatalogText`, `OrderActor`, `CurrencyInfo`. A value object is justified when it carries rules (validation, arithmetic, normalization), not just to wrap a string — which is why slugs are normalized by the `CatalogSlug` helper and a SKU stays a string on the variant.
 
-**Domain services:** only for rules that span aggregates *and* need no I/O, for example a pricing calculator that combines lines, discounts, shipping, and tax (Phase 8). Rules that need a database lookup belong in Application handlers.
+**Domain services:** none exist. The rule stands — a domain service only for a rule that spans aggregates *and* needs no I/O — and the one candidate did not meet it: pricing needs catalog, coupon and shipping lookups, so it is `PricingService` behind `IPricing` in the Application layer (`src/Souq.Application/Features/Baskets/Pricing/PricingService.cs`). Rules that need a database lookup belong in Application handlers and services.
 
 **Domain events (Phase 14, [ADR-0034](../11-ADR/0034-notifications-outbox.md)):** only for facts with more than one consumer. Aggregates raise them, and they are written to the outbox in the same save as the change. Today there are two:
 - `OrderStatusChanged` (paid, shipped, delivered, cancelled): feeds the customer's notification and email and the staff's new-order alert.
@@ -196,12 +175,12 @@ Pricing still loads `Product` through Catalog's **domain** repository rather tha
 | **Commands** (checkout, cancel, adjust stock, create product) | MediatR command → handler → aggregate methods → unit of work | Invariants live in aggregates; the validation pipeline runs automatically |
 | **Simple queries** (get order, get product) | MediatR query → **query service** in Infrastructure projecting straight into DTOs (`AsNoTracking`, `Select`) | Removes the over-fetching of loading entities and mapping in memory (Phase 0 D3); the Application layer stays EF-free |
 | **Search/filter/sort/page listings** | Query service + `IPagedQuery`/`PagedQueryValidator` + `ToPageAsync` (ordered query + explicit projection), typed criteria, per-resource sort allowlists with an `Id` tiebreaker | One reusable mechanism for every listing — implemented in 1B |
-| **Dashboards and reports** | Start as query services over indexed tables. Move to **read models** (pre-aggregated daily tables) when queries exceed agreed latency | CQRS level 2 only with evidence (Phase 17/21) |
+| **Dashboards and reports** | Start as query services over indexed tables. Move to **read models** (pre-aggregated daily tables) when queries exceed agreed latency | The store dashboard and platform statistics are query services today (Phase 17/18); CQRS level 2 only with evidence (Phase 21) |
 | **Transactional multi-step flows** (checkout) | One command orchestrating module contracts inside one transaction | Correctness first; no eventual consistency where money and stock are involved |
 
 **MediatR:**
 - **Kept**, pinned to 12.x (Apache-2.0; 13+ is commercially licensed).
-- It earns its place through the **pipeline**: validation now; tenant/module checks, audit logging, and performance logging later. Also through a uniform shape for ~100 use cases.
+- It earns its place through the **pipeline**, registered in `src/Souq.Application/DependencyInjection.cs` in this order: `UseCaseLoggingBehavior` (use-case scope and duration), `ValidationBehavior`, `AuditBehavior` (for `IAuditable` requests). Module checks are not a behaviour: `[RequiresModule]` gates the endpoint and use cases that touch a module check it ([MultiTenancy.md §4](MultiTenancy.md#4-enforcement-mechanics-phase-2-implementation)). Also through a uniform shape for every use case ([CQRS.md](CQRS.md)).
 - **Not** used for module-to-module calls (those use contracts, §6) or for domain events inside an aggregate.
 
 ## 9. Future scaling and service extraction
@@ -233,19 +212,21 @@ Scale in this order, stopping as soon as the problem is solved:
 | Errors | RFC 7807 ProblemDetails, typed `Error`/`ErrorKind`, stable codes, one status table ([ADR-0017](../11-ADR/0017-error-contract.md)) | ✅ 1B |
 | Reads and paging | One projection query service per module; `ToPageAsync` over an ordered query + projection | ✅ 1B |
 | Concurrency | `rowversion` + `ConcurrencyConflictException` → 409 | ✅ 1A |
-| Transactions | Use case owns the unit of work; no transaction spans a network call; compensation; outbox later ([ADR-0021](../11-ADR/0021-transaction-boundaries.md)) | ✅ 1B (documented) / 14 (outbox) |
+| Transactions | Use case owns the unit of work; no transaction spans a network call; compensation; the outbox for side effects ([ADR-0021](../11-ADR/0021-transaction-boundaries.md)) | ✅ 1B (documented) / 14 (outbox) |
 | Current user and authorization | `ICurrentUser`, permission policies, ownership in use cases, explicit auth on every endpoint ([ADR-0019](../11-ADR/0019-authorization-foundation.md)) | ✅ 1B / 3 (roles) |
 | Tenant context | `ITenantContext` from the host + named EF query filter (throws without a tenant) + write guard + tenant-scoped composite FKs + `tid` binding ([MultiTenancy.md §8](MultiTenancy.md#8-implementation-phase-2), [ADR-0022](../11-ADR/0022-tenancy-enforcement.md)) | ✅ 2 |
 | Time | `TimeProvider`; audit timestamps in a SaveChanges interceptor | ✅ 1B |
 | Logging and correlation | Request line, W3C correlation id, scopes (`CorrelationId`, `UserId`, `UseCase`; `TenantId` in 2), redaction ([ADR-0018](../11-ADR/0018-observability.md)) | ✅ 1A redaction / 1B |
 | Configuration | Typed options validated at startup, fail-fast, no implicit dev fallbacks outside Development ([ADR-0020](../11-ADR/0020-configuration-and-secrets.md)) | ✅ 1B |
 | Audit | `AuditEntries`, written by the `AuditBehavior` pipeline step for every `IAuditable` request, inside the handler's own transaction | ✅ 4 |
-| Background work | Hosted services (reservation expiry, outbox dispatch) | 6 / 14 |
-| Architecture enforcement | `tests/Souq.ArchitectureTests` (NetArchTest + IL scan) | ✅ 1A / 1B |
+| Background work | Hosted services: `ReservationExpiryService` and `BasketCleanupService` (per store, on the `StoreSweepService` base) and `OutboxDispatcherService` | ✅ 6 / 8 / 14 |
+| Architecture enforcement | `tests/Souq.ArchitectureTests` (NetArchTest + IL scan); the list of rule classes is in [DependencyRules.md](DependencyRules.md) | ✅ 1A / 1B |
+
+**JSON conventions.** Every response is written with enums as strings (`JsonStringEnumConverter`), instants as UTC with a `Z` suffix (`UtcDateTimeJsonConverter`, `src/Souq.API/Http/UtcDateTimeJsonConverter.cs`), and `AllowInputFormatterExceptionMessages = false`, so a malformed body does not echo internal type names back to the client. All three are set once in `src/Souq.API/Program.cs`; the contract a client relies on is in [ApiDocumentation.md](../05-API/ApiDocumentation.md), which is canonical.
 
 ## 11. External integration conventions (ports and adapters)
 
-Every integration — payments, email, storage today; shipping (Phase 12) and notifications (Phase 14) later — follows the same rules:
+Every integration — payments, email and storage — follows the same rules. Shipping (Phase 12) is built without an external carrier: rates come from store-defined methods behind `IShippingRateProvider`, implemented in-process, so a carrier would be the next adapter behind that contract. Notifications (Phase 14) reach providers only through the `IEmailSender` port, dispatched from the outbox.
 
 1. **A port exists only at a real boundary:** an external system, or a technology with real variants (payment gateway, email provider, file storage, password hashing, token issuing, current user). A concrete application service with one implementation gets no interface (`OrderPaymentConfirmation`, `CustomerErasure`, `BasketResolver`). The clock is .NET's own `TimeProvider`.
 2. **Ports speak our language:** `Money`, `Stream`, records. No provider SDK type appears in a port, and provider exceptions are translated at the adapter (`InvalidPaymentWebhookException`, `ConcurrencyConflictException`).

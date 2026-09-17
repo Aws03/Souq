@@ -22,7 +22,7 @@
 
 1. **The server decides the tenant.**
    - It is resolved from the request host. An authenticated principal must also carry a matching `tid` claim.
-   - A `TenantId` in a body, query string, or header from the browser is **never** trusted. The only exception is a dev-only header, compiled in for Development and ignored elsewhere.
+   - A `TenantId` in a body, query string, or header from the browser is **never** trusted. The only exception is the dev-only `X-Tenant` header (with the other local conveniences in the table below). It is not compiled out: `Program.cs` sets `TenancyOptions.AllowDevelopmentResolution` from the runtime environment — true only in Development or Testing, whatever configuration says — and `TenantResolutionMiddleware` ignores the header everywhere else.
 2. **Isolation is the default, not an effort.**
    - Every tenant-owned entity implements `ITenantOwned`.
    - EF Core applies the filter to every query automatically.
@@ -52,6 +52,19 @@ sequenceDiagram
     EF->>EF: global filter adds WHERE TenantId = 7
 ```
 
+The diagram shows only the tenant-relevant steps. The full order is in the request pipeline of `src/Souq.API/Program.cs`, and each position has a reason:
+
+1. **Forwarded headers** first, so the client address and scheme come from the trusted proxy before any decision uses them.
+2. **Correlation id and security headers**, before the exception handler, so error responses carry them too.
+3. **Exception handler and status-code pages**, which turn failures and empty 401/403/404 bodies into ProblemDetails.
+4. **Health checks** (`/health/live`, `/health/ready`) before tenant resolution: the orchestrator's probe arrives on the container's host, not a store's, and liveness must answer even when the store directory or the database is down.
+5. **Tenant resolution** (`TenantResolutionMiddleware`): host → store, and an unknown host is a 404 before any logic.
+6. **Uploads** (`/uploads` static files) after resolution, so a file is served only through its store's host.
+7. **Routing**, then **availability** (`TenantAvailabilityMiddleware`) and **rate limiting**: both read endpoint metadata (the area attributes, `[RequiresModule]`, `[EnableRateLimiting]`), which exists only after routing.
+8. **CORS**, then **authentication**, which validates the token and matches its `tid` to the host.
+9. **Request logging** between authentication and authorization, so the log scope has the user and the store, and a refused request is still logged.
+10. **Authorization**, then the controllers.
+
 | Host kind | Tenant context | Allowed endpoints |
 |---|---|---|
 | Platform host (e.g. `admin.souq.app`) | **None** | `/api/platform/*`, platform auth |
@@ -75,12 +88,12 @@ sequenceDiagram
 | **No tenant context** | Querying an `ITenantOwned` set without a resolved tenant throws. It must not return all rows. | Infrastructure |
 | **Platform access** (Phase 4 ✅) | Cross-store reads run through `PlatformQueries`, the only `IgnoreQueryFilters` caller (architecture test), with an explicit `TenantId` predicate or aggregate counts. Every platform request is audited (architecture test). Platform *writes* into a store run in that store's own scope (`ITenantScopeRunner`), so the write guard and the storage prefix still apply. | Infrastructure + Audit |
 | **Optional modules** (Phase 4) | The enabled modules travel in the cached `TenantInfo`. `[RequiresModule]` endpoints answer `404 ModuleDisabled`, and use cases that touch a module check it | API middleware + use cases |
-| **Raw SQL** | Forbidden in feature code. Allowed only inside Infrastructure query services, which must include `TenantId` and be covered by an isolation test | Code review + tests |
+| **Raw SQL** | Forbidden everywhere except migrations: EF's raw-SQL methods (`FromSql`, `SqlQuery`, `ExecuteSql` and their variants) fail the build in any other Infrastructure type, and the Application layer cannot reference EF at all. **Blind spot:** the test scans EF calls only, so plain ADO.NET is invisible to it — `DatabasePrivileges` (`src/Souq.Infrastructure/Persistence/DatabasePrivileges.cs`) runs a `DbCommand` directly, deliberately, because it reads server and database role membership and touches no store data. Any new ADO.NET call is a review item | `TenancyRuleTests` (IL scan) + code review for ADO.NET |
 | **Uniqueness** | `(TenantId, Slug)`, `(TenantId, Code)`, `(TenantId, NormalizedEmail)`, `(TenantId, Sku)`, `(TenantId, OrderNumber)` | Database |
 | **Indexes** | Hot-path indexes lead with `TenantId` | Database |
 | **Cache keys** | Always identify the store, and carry a generation prefix that `Invalidate()` bumps, so a settings change cannot serve a stale entry: `host:`, `slug:`, `id:` and `storefront:{id}` in `TenantDirectoryCache` | Infrastructure |
 | **File storage** | Keys prefixed `tenants/{id}/…`; served only through the tenant's host | Infrastructure |
-| **Background jobs** | Iterate tenants explicitly and set `ITenantContext` per iteration | Infrastructure |
+| **Background jobs** | Iterate tenants explicitly and run each store's work in a fresh service scope set to that store: the per-store sweeps derive from `StoreSweepService`, which lists active stores and calls `TenantScopes.RunAsync`; the outbox enters each message's store (or the platform scope) the same way; platform use cases that write into a store go through `ITenantScopeRunner` | Infrastructure (`src/Souq.Infrastructure/BackgroundJobs`, `src/Souq.Infrastructure/Tenancy`) |
 | **Logs** | Every log scope carries `TenantId` | API middleware |
 
 ### Who can see what
@@ -91,7 +104,7 @@ sequenceDiagram
 | Customer | Their own orders, profile, addresses, basket in that tenant (ownership checks on top of the tenant filter) | none |
 | Tenant Staff | Their tenant, limited by permissions | none |
 | Tenant Admin | Everything in their tenant | their tenant's settings (the subset a tenant may edit) |
-| Platform Admin / Owner | Through platform use cases only (audited): aggregates, support views | all tenants, domains, modules, plans |
+| Platform Admin / Owner | Through platform use cases only (audited): aggregates, support views | all tenants, domains, modules |
 
 ## 5. Isolation test suite (Phase 2 onward)
 
@@ -132,13 +145,13 @@ The harness exists since Phase 1A. It already proves **user-level** isolation: c
 
 | Failure | Mitigation |
 |---|---|
-| A new entity forgets `ITenantOwned` | Architecture test: every entity in a tenant-owned module implements it (Phase 2). The isolation suite fails. |
-| Someone uses `IgnoreQueryFilters()` in a feature | Architecture/grep test: only allowed inside `IPlatformQueries` |
+| A new entity forgets `ITenantOwned` | Architecture test (`TenancyRuleTests`): every concrete `Entity` subclass outside `Souq.Domain.Platform` must implement `ITenantOwned` or `ITenantOrPlatformOwned` (the latter only in `Souq.Domain.Identity`), and platform entities must implement neither. The rule is by namespace, not a list of modules. The isolation suite fails too. |
+| Someone uses `IgnoreQueryFilters()` in a feature | Architecture test (IL scan): only the class `PlatformQueries` may call it (`TenancyRuleTests.ReviewedFilterBypasses`); it implements both `IPlatformQueries` and `IPlatformReports` |
 | Someone adds a bulk `ExecuteUpdate()` / `ExecuteDelete()` | Architecture test: only the types in `ReviewedBulkWrites`. These never reach `SaveChanges`, so the write guard cannot catch a mistake at runtime — the build has to |
 | A background job runs without a tenant | Querying tenant data without context throws, so the failure is loud |
 | A cache entry is served to the wrong tenant | Tenant-prefixed keys; the cache wrapper requires a tenant id |
 | A URL to another tenant's upload is shared | Storage keys are unguessable; storefronts reference only their own tenant prefix |
-| The platform owner acts inside a tenant | Explicit "support mode" use cases, audited (Phase 18) |
+| The platform owner acts inside a tenant | Today: platform writes into a store are specific audited use cases run in the store's scope, and a platform token is refused on every store host. An explicit "support mode" is **FUTURE** — not in any scheduled phase |
 
 ## 8. Implementation (Phase 2)
 

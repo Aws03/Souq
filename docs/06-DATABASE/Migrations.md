@@ -67,7 +67,7 @@ dotnet ef migrations remove --project src/Souq.Infrastructure --startup-project 
 
 ## 4. The migrations, in order
 
-Twenty migrations. "Data" says what happens to existing rows.
+Twenty migrations; `Phase14Notifications` is the newest — no migration has been added since, so there is nothing later to look for. "Data" says what happens to existing rows.
 
 | # | Migration | Purpose | Data |
 |---|---|---|---|

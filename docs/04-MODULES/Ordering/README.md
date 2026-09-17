@@ -120,7 +120,7 @@ Ordering has **no *Features/Orders/Contracts* folder**. What other modules actua
 | `IOrderQueries` | Ordering's own read port | Ordering handlers only |
 | `IOrderNumbers` | Ordering's port, implemented in Infrastructure by `OrderNumbers` | `CreateOrderHandler` |
 
-*IOrderHistory* — a narrow "did this customer receive product X?" contract for Reviews — is named in [Modules.md](../Modules.md) but does not exist. **FUTURE:** not scheduled in [ProductRoadmap.md](../../12-ROADMAP/ProductRoadmap.md).
+*IOrderHistory* — a narrow "did this customer receive product X?" contract for Reviews — is named in [ModuleBoundaries.md](../../02-ARCHITECTURE/ModuleBoundaries.md) §5 but does not exist. **FUTURE:** not scheduled in [ProductRoadmap.md](../../12-ROADMAP/ProductRoadmap.md).
 
 ## Dependencies
 
@@ -333,7 +333,7 @@ Add a status · change cancellation rules · change what happens on payment succ
 3. The refund after an admin cancellation happens **after** the cancellation commits and its result is ignored: a refused or unanswered refund leaves the order cancelled with the money still out. It shows on the order's payment, and staff retry from there. A crash between the two leaves no `Refund` row at all, and nothing sweeps for that.
 4. A crash between checkout's two saves leaves a Pending order with no intent, holding stock until the sweep — the residual that [ADR-0021](../../11-ADR/0021-transaction-boundaries.md) names.
 5. The sweep only visits active stores, so a suspended store's unpaid orders keep their reservations until it is active again.
-6. The sweep assumes a single instance; two are safe but do duplicate work. A distributed lock is **PLANNED** for Phase 23.
+6. The sweep assumes a single instance; two are safe but do duplicate work. A distributed lock is **DEFERRED** to Phase 23 (the roadmap's Phase 6 entry defers it there; Phase 23's scope list does not yet name it).
 7. Order numbers are unique but not contiguous: a rolled-back checkout returns its number, a cancelled order keeps it.
 8. Checkout includes a gateway round trip, so it routinely exceeds `UseCaseLoggingBehavior.SlowThreshold` and logs a slow-use-case warning.
 9. There is no payment method other than the gateway: no cash on delivery, no bank transfer, no partial capture. Adding one means a new way to reach Paid, which today only the gateway can cause.
@@ -343,7 +343,7 @@ Add a status · change cancellation rules · change what happens on payment succ
 
 ## Future evolution
 
-- **PLANNED** (Phase 23): a distributed lock for the sweeper; SQL Server transient-fault retries are evaluated in the same phase ([ADR-0021](../../11-ADR/0021-transaction-boundaries.md)).
+- **DEFERRED** (Phase 23): a distributed lock for the sweeper; SQL Server transient-fault retries are evaluated in the same phase ([ADR-0021](../../11-ADR/0021-transaction-boundaries.md)).
 - **PLANNED** (Phase 20): a retention policy that purges the shipping snapshots of erased customers' old orders.
 - **DEFERRED**: *ICustomerDirectory*, a narrow contract to replace Ordering's use of the Customers aggregate — until a second consumer or an extraction needs it.
 - **FUTURE**: *IOrderHistory* for Reviews; a structured address snapshot, which waits for a consumer such as shipping labels or tax.

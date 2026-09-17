@@ -160,12 +160,14 @@ Automated checks find perhaps a third of real accessibility defects. The rest ca
 
 The breakpoints are 560px, 767px and 861px, and management UI is the harder half:
 
-- The admin sidebar becomes a bottom tab bar under 767px. With eleven sections it no longer divides into a phone's width, so it scrolls horizontally with a minimum tab width instead of truncating labels to three letters.
+- The admin sidebar becomes a bottom tab bar under 767px. With thirteen entries in `ADMIN_NAV` (fewer for an account whose permissions or store modules hide some) it no longer divides into a phone's width, so it scrolls horizontally with a minimum tab width instead of truncating labels to three letters.
 - The sidebar is `100vh` and its nav scrolls inside that, so the log-out control cannot be pushed off a short screen.
 - Wide tables scroll inside their own container; the page itself must never scroll horizontally.
 - `frontend/e2e/responsive.spec.js` runs against a real phone viewport and asserts exactly that: no page-level horizontal scroll, full labels, every section reachable, touch targets at least 40px, tables scrolling in their container, charts inside the viewport.
 
 ## 12. Performance budget
+
+This section is the canonical place for first-load size; other pages link here rather than repeat the figures. They are the last measurement taken, during the storefront-experience work, and were not re-taken after the later admin and platform screens (which load lazily and do not touch the first load by design). No budget is enforced in CI; bundle-size budgets are **PLANNED** for Phase 21.
 
 | Measure | Value | How it was measured |
 |---|---|---|
@@ -187,6 +189,6 @@ The measurements above include React StrictMode's duplicate effects in developme
 ## 13. What this system does not have
 
 - **No component gallery.** There is no Storybook and no visual-regression suite. Changes are verified in a real browser and by the checks in `frontend/e2e`.
-- **No theme editor.** A store's colours are set through the settings API; a visual branding editor is *planned*.
+- **No free-form theme editor.** Branding is edited in `/admin/settings` (and by the platform in `/platform/stores/:id/settings`) through `StoreSettingsEditor`, with readability checks as the merchant types and a live preview (`StorePreview`) in both modes; colours are entered, and there are no selectable colour presets or custom CSS.
 - **No layout switching by theme preset.** `data-preset` is on `<html>` and no stylesheet reads it yet ([WhiteLabel.md](WhiteLabel.md) §4).
 - **No design tokens shared with e-mail.** `EmailComposer` carries its own inline styles, because an e-mail client cannot read custom properties.

@@ -150,6 +150,7 @@ The issuer writes the claims with the full `ClaimTypes` URIs and the API reads t
   - The store admin manages store staff (`store.staff.manage`), inside their store only.
   - The platform owner manages platform accounts (`platform.users.manage`).
   - Platform admins invite store admins (`platform.tenants.manage`), and every platform request is audited.
+- **Platform console screens.** The frontend guards each platform screen with the permission its endpoints require (`frontend/src/App.jsx`): `/platform/accounts` needs `platform.users.manage`, so only the platform owner sees it, and `/platform/audit` needs `platform.audit.view`, held by both platform roles. As with every route guard (§6), the server enforces the same permission on the API.
 
 ## 5. Endpoints
 
@@ -166,7 +167,7 @@ The issuer writes the claims with the full `ClaimTypes` URIs and the API reads t
 | `POST /api/auth/verify-email` | Public, rate-limited | 204 |
 | `POST /api/auth/resend-verification` | Access token, rate-limited | 204 |
 
-Auth endpoints are served on store and platform hosts alike and while a store is still provisioning; a suspended or archived store answers `503 StoreUnavailable` even for login.
+Auth endpoints are served on store and platform hosts alike and while a store is still provisioning. A suspended or archived store still serves login, refresh, logout and `me` (`[AvailableWhenStoreClosed]` in `src/Souq.API/Controllers/AuthController.cs`), so its administrators can sign in and see why; every other auth endpoint — registration, forgot and reset password, email verification, change password — answers `503 StoreUnavailable` (SEC-AUTHZ-08).
 
 **Account administration:**
 

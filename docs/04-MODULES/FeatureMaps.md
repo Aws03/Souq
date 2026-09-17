@@ -9,7 +9,8 @@
 | Capability | Entry point | Use case | Owning module |
 |---|---|---|---|
 | Browse and search the catalog | `GET /api/products` | `GetProductsQuery` | Catalog |
-| Product detail | `GET /api/products/{id:int}` | `GetProductByIdQuery` | Catalog |
+| Product detail (storefront, by slug) | `GET /api/products/by-slug/{slug}` | `GetProductBySlugQuery` | Catalog |
+| Product detail (by id; old links, admin) | `GET /api/products/{id:int}` | `GetProductByIdQuery` | Catalog |
 | Create a product | `POST /api/products` | `CreateProductCommand` | Catalog |
 | Correct stock | `POST /api/admin/inventory/{productId:int}/adjustments` | `AdjustStockCommand` | Inventory |
 | Basket and price quote | `GET /api/basket/quote` | `GetBasketQuery` | Shopping |
@@ -126,7 +127,36 @@ The webhook additionally routes by the intent's metadata: an event for another s
 
 ---
 
-## 7. The rest, in one line each
+## 7. Screens end to end
+
+Each chain reads **page → api client function (`frontend/src/api/client.js`) → endpoint → handler → domain or query service → tests**.
+
+**Store dashboard** (`/admin`, `store.reports.view`)
+- `frontend/src/pages/admin/Dashboard.jsx` (and `frontend/src/pages/admin/BusinessOverview.jsx` at `/admin/business`) → `api.getStoreDashboard(range)` → `GET /api/admin/reports/dashboard?range=` (`StoreReportsController`) → `GetStoreDashboardHandler` (turns the range key into a `ReportWindow`) → `IStoreReports`, implemented by `StoreReportQueries` under the ordinary tenant filter.
+- **Tests:** `tests/Souq.Application.Tests/Reporting/StoreDashboardTests.cs`, `tests/Souq.IntegrationTests/StoreDashboardTests.cs`, `frontend/src/pages/admin/Dashboard.test.jsx`, `frontend/src/features/reporting/dashboardView.test.js`, `frontend/e2e/experience.spec.js`. **Detail:** [Reporting/Dashboards.md](Reporting/Dashboards.md).
+
+**Platform provisioning wizard** (`/platform/stores/new`, `platform.tenants.manage`)
+- `frontend/src/pages/platform/NewStore.jsx` → `api.createPlatformStore` → `POST /api/platform/tenants` → `CreateTenantHandler` → a `Tenant` born `Provisioning`.
+- Then `frontend/src/pages/platform/StoreSetup.jsx` step by step, using `frontend/src/pages/platform/StorePanels.jsx` and `frontend/src/pages/platform/PlatformStoreSettings.jsx`: `api.updatePlatformStoreSettings` / `api.uploadPlatformStoreBranding` → `UpdateTenantSettingsHandler`, `UploadTenantBrandingHandler`; `api.addPlatformStoreDomain` → `ChangeTenantDomainHandler`; `api.setPlatformStoreModules` → `SetTenantModulesHandler`; `api.invitePlatformStoreAdmin` → `InviteTenantAdminHandler` (inside the store's scope through `ITenantScopeRunner`); `api.changePlatformStoreStatus` → `ChangeTenantStatusHandler` → `Tenant.Activate`. Every step is audited.
+- **Tests:** `tests/Souq.IntegrationTests/PlatformAdministrationTests.cs`, `tests/Souq.IntegrationTests/ProvisioningBoundaryTests.cs`, `frontend/src/features/platform/provisioning.test.js`, `frontend/src/pages/platform/Provisioning.test.jsx`, `frontend/e2e/platform-provisioning.spec.js`. **Detail:** [Platform/README.md](Platform/README.md).
+
+**Platform activity log** (`/platform/audit`, `platform.audit.view`)
+- `frontend/src/pages/platform/Audit.jsx` (filters from `frontend/src/features/platform/audit.js`, kept in the URL) → `api.getPlatformAudit` → `GET /api/platform/audit` (`PlatformInsightsController`) → `ListAuditEntriesHandler` → `IPlatformQueries.ListAuditAsync`, implemented by `PlatformQueries` over `AuditEntries`. Reading the log is itself an audited request; instants travel as UTC with `Z`.
+- **Tests:** `tests/Souq.IntegrationTests/PlatformAuditViewerTests.cs`, `frontend/src/features/platform/audit.test.js`, `frontend/src/pages/platform/Audit.test.jsx`, `frontend/e2e/back-office.spec.js`. **Detail:** [Platform/README.md](Platform/README.md).
+
+**Staff invitation → accepting it** (`/admin/staff`, `store.staff.manage`)
+- `frontend/src/pages/admin/Staff.jsx` with `frontend/src/pages/admin/InviteStaffDrawer.jsx` → `api.inviteStaff` → `POST /api/admin/staff` (`StaffController`) → `InviteStaffHandler` → `AccountInvitations` → `User.Invite` (or a renewal of a pending invitation) and an `AccountInvited` outbox message.
+- The dispatcher runs `InvitationEmailHandler`, which issues the token at dispatch (`User.RenewInvitation`) and emails a link built by `StorefrontLinks.Invitation` on the store's host.
+- The link opens `/accept-invitation` → `frontend/src/pages/auth/ResetPassword.jsx` in invitation mode → `api.resetPassword` → `POST /api/auth/reset-password` → `ResetPasswordHandler` → `User.ResetPassword` (sets the password, confirms the email, rotates the stamp).
+- **Tests:** `tests/Souq.Domain.Tests/InvitationAndAuditTests.cs`, `tests/Souq.Application.Tests/Common/AccountsTests.cs`, `tests/Souq.IntegrationTests/StoreAdministrationTests.cs`, `tests/Souq.IntegrationTests/LastAdministratorConcurrencyTests.cs`, `frontend/src/pages/admin/Staff.test.jsx`, `frontend/e2e/store-administration.spec.js` (invite, then disable), and `frontend/e2e/platform-provisioning.spec.js` (an administrator accepting on the store's host). **Detail:** [Identity/README.md](Identity/README.md).
+
+**Storefront product page by slug** (`/products/:handle`, anonymous)
+- `frontend/src/pages/ProductDetail.jsx` → `api.getProductBySlug` (or `api.getProduct` when the handle is a numeric id, then the address bar is replaced with `productPath`, from `frontend/src/features/catalog/productRouting.js`) → `GET /api/products/by-slug/{slug}` → `GetProductByIdHandler` handling `GetProductBySlugQuery` → `ICatalogQueries.FindActiveProductBySlugAsync`, implemented by `CatalogQueries` (active products in visible categories only).
+- **Tests:** `tests/Souq.IntegrationTests/CatalogTests.cs`, `frontend/src/features/catalog/productRouting.test.js`, `frontend/src/pages/ProductDetail.test.jsx`. **Detail:** [Catalog/README.md](Catalog/README.md).
+
+---
+
+## 8. The rest, in one line each
 
 | Capability | The chain | Detail |
 |---|---|---|
@@ -143,7 +173,7 @@ The webhook additionally routes by the intent's metadata: an event for another s
 | **Refund** | `POST /api/orders/{id}/refunds` → reserve → call the gateway → record, with an idempotency key; a retry is safe | [Payments/ChangeGuide.md](Payments/ChangeGuide.md) |
 | **Checkout expiry** | a hosted service asks Ordering to settle abandoned checkouts: cancel the order, release stock and the coupon | [Ordering/ChangeGuide.md](Ordering/ChangeGuide.md) |
 
-## 8. Using these maps
+## 9. Using these maps
 
 - **Changing behaviour?** Find the capability, read the module document, then its change guide.
 - **Debugging?** Start from the error `code`, find the endpoint in [Endpoints.md](../05-API/Endpoints.md), then the use case in [UseCases.md](UseCases.md), then the handler.

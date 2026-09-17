@@ -70,7 +70,7 @@
 | Reviews require a verified purchase, one per product | `Review`, `CreateReviewHandler` | D: `ReviewTests` · A: `CreateReviewHandlerTests` · I: `ReviewModerationTests` | — |
 | Moderation follows the store's policy and is audited | `ReviewModeration`, `Tenant.ReviewsAutoApprove` | A: `ReviewModerationHandlersTests` · I: `ReviewModerationTests` | No moderation notifications (deferred) |
 | Nothing is lost or sent twice after a commit | the outbox | A: `OutboxPolicyTests` · I: `NotificationTests` | Purge, lease expiry and concurrent dispatchers are untested (TD-34) |
-| No token or personal data reaches the logs | `LogRedaction`, `RequestLoggingMiddleware`, the handlers | I: `NotificationTests`, `ObservabilityTests` | The API redacts sensitive route values; the proxy's own access log still records token-bearing SPA query strings (G-03) |
+| No token or personal data reaches the logs | `LogRedaction`, `RequestLoggingMiddleware`, the handlers | I: `NotificationTests`, `ObservabilityTests` | The API redacts sensitive route values, and the shipped nginx logs the `souq_safe` format without query strings (G-03 closed). A proxy in front of the stack keeps its own log |
 
 ## 6. Cross-cutting guarantees
 
@@ -91,8 +91,8 @@
 
 Be aware of these when you plan work:
 
-1. **No CI**, so nothing above runs automatically (TD-31).
-2. **Frontend component coverage is partial**: the guards, the error boundary, the account shell and the order screens are tested; forms, checkout and the providers are still verified by hand (TD-32).
+1. **CI runs but does not yet block merges.** [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) runs the .NET suites and the frontend lint, type-check, tests and build on every push; until branch protection is switched on, a red run can still be merged (TD-31). The Playwright journeys are not in CI at all.
+2. **Frontend component coverage is partial**: the guards, the error boundary, the account shell, the order screens and checkout's money barriers are tested; form-level interaction and most admin screens are verified only by the Playwright journeys or by hand (TD-32).
 3. **External adapters are untested**: Stripe and the three email providers are exercised only through fakes (TD-33).
 4. **Some rules are untested**, listed in the gaps section of [BusinessRules.md](../01-REQUIREMENTS/BusinessRules.md) — notably the sweeps for non-active stores, the password policy itself, and several length limits.
 5. **Performance is unmeasured**: no load test, no query budget beyond the N+1 checks.

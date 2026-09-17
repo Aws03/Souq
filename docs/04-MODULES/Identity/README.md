@@ -89,6 +89,8 @@ The last four live in `src/Souq.Application/Features/Platform` (they are platfor
 - Disabling rotates the security stamp, revokes every refresh token in the same save, and drops the cached stamp so the access tokens die at once on that instance.
 - An account outside the roles being managed (a customer, from the staff screen) is reported as not found.
 
+**Frontend screens.** Sign-in, registration and the password flows are `frontend/src/pages/auth/Login.jsx`, `frontend/src/pages/auth/Register.jsx`, `frontend/src/pages/auth/ForgotPassword.jsx`, `frontend/src/pages/auth/ResetPassword.jsx` (which also serves `/accept-invitation` in its invitation mode, on store and platform hosts) and `frontend/src/pages/auth/VerifyEmail.jsx` (with the resend button). Store staff are managed at `/admin/staff` (`frontend/src/pages/admin/Staff.jsx`, with `frontend/src/pages/admin/InviteStaffDrawer.jsx`), and platform accounts at `/platform/accounts` (`frontend/src/pages/platform/Accounts.jsx`). Disabling an account confirms in `ConfirmDialog` through `frontend/src/components/common/useConfirmAction.jsx`, and a server refusal such as `LastAdministrator` is shown inside the dialog. No screen calls `POST /api/auth/change-password` today: `AuthContext` exposes it, but no page uses it.
+
 ## Public contracts
 
 | Contract | Path | Who calls it |
@@ -101,7 +103,7 @@ The last four live in `src/Souq.Application/Features/Platform` (they are platfor
 | `IUserRepository`, `IRefreshTokenRepository` | `src/Souq.Domain/Interfaces/IUserRepository.cs` | This module; also Customers and Notifications (see Dependencies) |
 | `AccountInvitations`, `AccountStatusChanger`, `IAccountQueries` | `src/Souq.Application/Common/Accounts/Accounts.cs` | This module's staff use cases and the platform area |
 
-[Modules.md](../Modules.md) lists a planned *IUserDirectory* contract. It does not exist; callers use `IUserRepository` directly.
+[ModuleBoundaries.md](../../02-ARCHITECTURE/ModuleBoundaries.md) §5 and TD-02 in [TechnicalDebt.md](../../12-ROADMAP/TechnicalDebt.md) name a planned *IUserDirectory* contract. It does not exist; callers use `IUserRepository` directly.
 
 ## Dependencies
 
@@ -204,6 +206,7 @@ Data this module reads but does not own: `Customers` (the `cid` claim, via `ICus
 | Integration | `tests/Souq.IntegrationTests/AuthSessionTests.cs` | Cookie flags, rotation and `RefreshTokenReused`, logout, a password change ending other devices, lockout, platform sign-in only on the platform host, `RegistrationNotAllowed`, single-use email confirmation, email links on the request's host, 429 with `Retry-After` |
 | Integration | `tests/Souq.IntegrationTests/AuthorizationMatrixTests.cs` | Role × endpoint, and that staff without a customer profile cannot shop |
 | Integration | `tests/Souq.IntegrationTests/AuthorizationBoundaryTests.cs` | Every endpoint declares a decision, the reviewed public list, permissions exist, platform endpoints reject store tokens, 404 for another customer's resource |
+| Integration | `tests/Souq.IntegrationTests/LastAdministratorConcurrencyTests.cs` | Two administrators disabled at the same moment never leave a store without one (repeated, because the race is timing-dependent), and the uncontended path still leaves an active administrator |
 | Integration | `tests/Souq.IntegrationTests/StoreAdministrationTests.cs` | The staff lifecycle: invite on the store's host, renewal invalidating the first link, acceptance, sign-in, self-disable refusal, disabling ending the session immediately, and a customer's email refusing a staff invitation |
 | Integration | `tests/Souq.IntegrationTests/StartupAndSecurityTests.cs` | No default administrator outside Development, weak seed passwords failing startup, reset tokens stored hashed and never logged, single use |
 | Integration | `tests/Souq.IntegrationTests/ConfigurationTests.cs` | `JwtSettings` validation (missing, weak, out-of-range values) rejecting startup by name |
@@ -247,7 +250,7 @@ Details in [ChangeGuide.md](ChangeGuide.md): adding a permission or a role; prot
 - **Authentication is not audited.** Sign-in, sign-out, lockout, password changes and resets leave no row in `AuditEntries`; reuse detection produces only a log warning. The audit log therefore answers "who changed this store" but not "who signed in".
 - **Lockout leaks existence and enables a nuisance.** `AccountLocked` is returned only for accounts that exist, and anyone who knows an email can keep it locked in 15-minute blocks within the rate limit.
 - **Revocation is not instant across instances.** The stamp cache is per process with a 30-second lifetime, so with several API instances a disabled account can keep using an access token for up to 30 seconds elsewhere.
-- **No absolute session lifetime and no "sign out everywhere".** A refresh token used at least once every 30 days lives forever (PLANNED for the Phase 20 review and the Phase 16 account page).
+- **No absolute session lifetime and no "sign out everywhere".** A refresh token used at least once every 30 days lives forever (the absolute lifetime is PLANNED for the Phase 20 review; "sign out everywhere" is DEFERRED and not scheduled — the roadmap's Phase 3 entry pointed it at the Phase 16 account page, and Phase 16 delivered that page without it).
 - **Expired and revoked refresh tokens are never purged.** `RefreshTokens` grows without bound.
 - **Email confirmation is recorded but never required**, for sign-in or for checkout. [ADR-0023](../../11-ADR/0023-sessions-and-credentials.md), [AuthenticationAndAuthorization.md](../../07-SECURITY/AuthenticationAndAuthorization.md) and the roadmap all say the requirement is "a store setting (Phase 4), enforced at checkout (Phase 9)" — both phases shipped and no such setting exists.
 - **One role per account, no custom roles** (DEFERRED as YAGNI), and no group or delegation model.
@@ -257,9 +260,8 @@ Details in [ChangeGuide.md](ChangeGuide.md): adding a permission or a role; prot
 
 ## Future evolution
 
-- **PLANNED (Phase 16):** an account page with "sign out everywhere".
-- **PLANNED (Phase 17):** store staff and permission screens in the tenant dashboard (today the staff API has no UI).
-- **PLANNED (Phase 18):** platform account screens.
+- **DEFERRED, not scheduled:** "sign out everywhere". The Phase 16 account page (`/account`) shipped without it, and no later phase names it.
+- Delivered: store staff screens (`/admin/staff`, Phase 17) and platform account screens (`/platform/accounts`, Phase 18) — see *Frontend screens* under Use cases. The "permissions" part of Phase 17 is the two built-in store roles, explained on the invitation form.
 - **PLANNED (Phase 20 review):** an absolute refresh-family lifetime, an authorization-matrix review, secret and key rotation, and cross-tenant attack tests.
 - **DEFERRED:** custom per-store roles — `RolePermissions` is deliberately shaped so they could move into tenant data behind the same `HasPermission` API ([ADR-0019](../../11-ADR/0019-authorization-foundation.md)).
 - **FUTURE:** an external identity provider (SSO, SAML, MFA). [ADR-0010](../../11-ADR/0010-authentication-authorization.md) keeps this open by depending on nothing but the claims contract `sub`, `tid`, `cid`, role and `sstamp`.

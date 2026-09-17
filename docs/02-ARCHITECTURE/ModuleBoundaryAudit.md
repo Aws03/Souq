@@ -178,5 +178,5 @@ The target graph keeps **Customers → Identity**, so the Identity → Customers
 ## What to do with this
 
 - **The ratchet stands.** A new crossing changes [ModuleDomainDependencies.md](ModuleDomainDependencies.md) and fails `GeneratedDocsTests`, so it is a decision made in review. This page is what that reviewer should read first.
-- **Do not chase the count.** Closing all 45 class-C crossings would add nine contracts and a great deal of mapping for no behavioural gain. Ranks 1–4 are where the value is: they are the class-D writes, and they are what makes Identity, Customers, Shopping and Notifications impossible to extract or reason about alone.
+- **Do not chase the count.** Closing all 46 class-C crossings would add nine contracts and a great deal of mapping for no behavioural gain. Ranks 1–4 are where the value is: they are the class-D writes, and they are what makes Identity, Customers, Shopping and Notifications impossible to extract or reason about alone.
 - **No crossing here is a runtime defect.** Tenant isolation, authorization and money safety do not depend on any of them; they are about who may change what, and what it costs to change it later.

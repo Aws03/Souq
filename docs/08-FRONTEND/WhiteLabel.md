@@ -29,7 +29,7 @@ If a client asks for something none of those can express, it becomes a product f
 | Theme mode (light / dark default) | yes | yes | One of `light`, `dark`, `system` in `BrandPresets.ThemeModes`, default `system`. It sets the store's **default**; a visitor who uses the toggle overrides it, and that choice is stored per origin so it cannot cross stores. [DesignSystem.md](DesignSystem.md) §3 |
 | Opening experience | yes | yes | `StoreOpening`: off by default, with a style from `BrandPresets.OpeningStyles` (`doors` today). A short reveal on a visitor's first arrival at the storefront root, skipped for reduced motion, deep links and crawlers. [DesignSystem.md](DesignSystem.md) §7 |
 | Currency | yes | no | ISO 4217. **Locked once the store has any product or order** (`Tenant.ChangeCurrency` with `HasCommercialActivityAsync`): changing it mid-life would break financial history. |
-| Default language, enabled languages, time zone | yes | yes | `ar` and `en` today (`Tenant.SupportedCultures`); the time zone is an IANA id used for display and reports, storage stays UTC. The SPA does not apply it yet — see §6. |
+| Default language, enabled languages, time zone | yes | yes | `ar` and `en` today (`Tenant.SupportedCultures`); the time zone is an IANA id used for display and reports, storage stays UTC. The SPA formats dates in the store's time zone and region, in the reader's language (`frontend/src/app/dateLocale.js`). |
 | Contact: e-mail, phone, address | yes | yes | Shown in the footer and used as the reply address on e-mails |
 | Social links | yes | yes | A known network on its own domain, `https` only; no `javascript:` and no disguised links |
 | SEO: title and description, per language | yes | yes | 70 and 160 characters; used for the document title and meta description |
@@ -63,14 +63,14 @@ sequenceDiagram
 - **The mode is an input to derivation, not a CSS override.** Because `applyStoreTheme` writes inline custom properties, a `[data-theme="dark"]` rule in a stylesheet would lose to them. `themeVariables(branding, mode)` therefore produces a complete token set per mode, and the neutral dark block in `frontend/src/styles.css` covers only the window before the store's configuration arrives.
 - **Fonts** come from the store's typography preset and are loaded from Google Fonts at runtime; the English UI always uses Inter.
 - **Formatting:** prices use `Intl.NumberFormat` with the currency's fraction digits from ISO 4217 data, in Latin digits, in the visitor's language. There is no currency table in the frontend.
-- **SEO:** the SPA sets the title and meta description at runtime from the store's SEO text. For crawlers and link previews, injecting the store's head into `frontend/index.html` per host is **PLANNED** for Phase 16. Full server-side rendering is not planned; revisit if organic search becomes the main acquisition channel.
+- **SEO:** the SPA sets the title and meta description at runtime from the store's SEO text. Page-level title, description, sharing tags and schema.org product data are also set client-side (`frontend/src/app/pageMetadata.js`, `frontend/src/app/structuredData.js`), which serves crawlers that run JavaScript. Injecting the store's head into `frontend/index.html` per host, for crawlers and link previews that do not, is **DEFERRED**: it was not delivered in Phase 16 and is not scheduled. Full server-side rendering is not planned; revisit if organic search becomes the main acquisition channel.
 - **E-mails** use the store's name, logo, primary colour and reply address, in the recipient's language ([ADR-0034](../11-ADR/0034-notifications-outbox.md)).
 
 ## 4. Theme presets (layout variations without forks)
 
 - A **preset** is a named bundle of token defaults plus layout switches. The registry is `BrandPresets.Themes`: `classic`, `minimal`, `bold`.
 - Intended switches: header style, product-card style, home-page section order.
-- A tenant picks one, the server validates it, and since Phase 15 the SPA exposes it as `data-preset` on `<html>`. **No stylesheet reads that attribute yet** — the layout switches arrive with the storefront rebuild (**PLANNED**, Phase 16). Today the attribute is a hook, and a preset changes nothing visually.
+- A tenant picks one, the server validates it, and since Phase 15 the SPA exposes it as `data-preset` on `<html>`. **No stylesheet reads that attribute yet** — the storefront rebuild in Phase 16 did not add the layout switches, and they are not scheduled (**DEFERRED**). Today the attribute is a hook, and a preset changes nothing visually.
 - A new preset is a product feature available to everyone, never a per-client branch.
 - Custom CSS injection is **not** offered: it breaks upgrades and invites XSS. Revisit only with sandboxing and a paid tier.
 
@@ -88,12 +88,12 @@ sequenceDiagram
    A visitor-facing **light/dark toggle** returned afterwards, and it is not the old theme switcher: it chooses a *mode*, not a palette. Both modes are derived from the store's own colours, so the identity survives the switch.
 
    **A trap this exposed.** The settings document in `StoreSettingsJson` is deliberately separate from the domain model, so that a rule tightened later cannot reject a store saved before it. The cost is that a field added to `StoreBranding` and not to `BrandingDocument` is accepted with `204` and never stored. That happened to `themeMode` and `opening`: the API answered success and the read came back with defaults, and nothing failed until the store was opened in a browser. `tests/Souq.IntegrationTests/StoreBrandingPersistenceTests.cs` now writes through the platform API and reads back through the storefront config, which is the round trip a browser actually makes.
-3. **PLANNED, Phase 16:** per-host head injection for SEO.
+3. **DEFERRED, not scheduled:** per-host head injection for SEO (§3). Phase 16 added client-side page metadata and structured data instead.
 4. **Done when** the same build shows two differently branded stores and a search of the source finds no brand or currency literals. Met in Phase 15 and guarded by three tests:
    - `frontend/src/whiteLabel.test.js` scans every frontend source file and `frontend/index.html`;
    - `WhiteLabelSourceTests` scans the backend code and the committed appsettings files, with two deliberate exemptions: the seeder (demo data, not product logic) and the ISO currency table;
    - `frontend/src/app/tenantModel.test.js` renders two stores with different branding, currency, languages and modules.
 
-   A CI pipeline will run these checks once one exists.
+   CI (`.github/workflows/ci.yml`) runs all three: the frontend tests in its frontend job and `WhiteLabelSourceTests` with the architecture tests.
 
-**What those tests do not catch**, and what is therefore still store-specific in the frontend (details and file paths in [FrontendGuide.md](FrontendGuide.md) §17): dates are formatted with a fixed `ar-JO` or `en-US` locale and ignore the store's time zone; the address form defaults the country to `JO`; the Stripe card field is styled with literal colours and a literal font family, because a payment iframe cannot read the page's CSS variables; and one button variant is still named after the original palette. None of these leak a brand name or a currency code, which is why the regular-expression checks pass.
+**What those tests did not catch.** Some store-specific assumptions contained no brand name or currency code, so the regular-expression checks passed them: dates pinned to `ar-JO`/`en-US` and the browser's time zone, an address form that defaulted the country to `JO`, a Stripe card field styled with literal colours and a literal font, and a button variant named after the original palette. All four were closed in Phase 16 (TD-27): `frontend/src/app/dateLocale.js`, the empty default country in `frontend/src/features/account/addressForm.js`, `frontend/src/features/checkout/cardAppearance.js` reading the tenant's tokens, and the `accent` variant in `frontend/src/components/common/Button.module.css`; `frontend/src/whiteLabel.test.js` gained a rule for the first two. Details in [FrontendGuide.md](FrontendGuide.md) §17, item 6.

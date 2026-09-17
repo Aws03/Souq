@@ -1,11 +1,11 @@
 # Storefront preview — decision required (D-22)
 
-> **Status:** not built, deliberately. Phase 18 asks for a *storefront preview using a preview token*. This page is the brief the owner needs to decide it. It is written against the code as it stands; the names of things that don't exist yet are in *italics*.
+> **Status:** not built, deliberately. **Last verified against the code:** 2026-09-17, branch `phase/17-production-hardening`. Phase 18 asks for a *storefront preview using a preview token*. This page is the brief the owner needs to decide it. It is written against the code as it stands; the names of things that don't exist yet are in *italics*.
 > **Why it stopped here:** [AGENTS.md §9](../../../AGENTS.md#9-when-to-stop-instead-of-guessing) — a security decision with real-world consequences. A preview token is a new credential that lets a request through the store-status gate, on a new public endpoint, carried from one host to another. Every one of those is a choice about who can see a closed store, and the repository records no rule for any of them.
 
 ## 1. What exists today
 
-- **Status gating is one decision in one place.** `TenantAvailabilityMiddleware` answers `503 StoreUnavailable` for every store-host endpoint of a store that is not `Active`, unless the endpoint is marked `AvailableWhenStoreClosedAttribute` (the storefront configuration, so the closed page can be branded) or `AvailableDuringProvisioningAttribute` (sign-in, so an administrator can prepare the store). Administrative endpoints (`HasPermissionAttribute`) are open during `Provisioning` only. A preview has to open **visitor** endpoints — catalogue, categories, product pages — which today nothing opens.
+- **Status gating is one decision in one place.** `TenantAvailabilityMiddleware` answers `503 StoreUnavailable` for every store-host endpoint of a store that is not `Active`, unless the endpoint is marked `AvailableWhenStoreClosedAttribute`: the storefront configuration (so the closed page can be branded) and sign-in, refresh, sign-out and the current user (so a closed store's staff keep their session). During `Provisioning` only, the rest of the authentication controller (`AvailableDuringProvisioningAttribute`) is open too, so an administrator can accept an invitation and prepare the store. Administrative endpoints (`HasPermissionAttribute`) are open during `Provisioning` only. A preview has to open **visitor** endpoints — catalogue, categories, product pages — which today nothing opens.
 - **Tokens are bound to their host.** `AccessTokenValidation` refuses a token on any host other than the one it was issued for, so the platform owner's session is refused on every store host (proven by `ProvisioningBoundaryTests` and `frontend/e2e/platform-provisioning.spec.js`). A preview therefore cannot reuse the owner's session. It needs its own credential that works on the store's host.
 - **The platform already shows a preview inside its own page.** The settings editor renders the store's derived colours, type and dark mode in a frame (`frontend/src/components/settings/StoreSettingsEditor.jsx`). That is a *look* preview. It is not the real storefront with the real catalogue, and the roadmap is right that it is no substitute.
 - **There is a precedent for a browser credential.** The guest basket cookie is `HttpOnly`, `Secure`, `SameSite=Strict`, scoped to one path, holds 256 random bits and is stored only as its SHA-256 ([ADR-0028](../../11-ADR/0028-basket-and-pricing-pipeline.md)). No credential today is ever put in a URL or in browser storage.
@@ -40,7 +40,7 @@ Once the owner decides, the work is contained but touches the security boundary.
   - A grant for store A presented on store B's host is ignored.
   - An expired or replayed code is refused.
   - Every write endpoint still answers `503` in preview.
-  - Sign-in still refuses a customer.
+  - A preview grants no customer capability: registration, basket and checkout still answer `503`.
   - An `Active` store is unaffected.
   - The platform owner's token is still refused on store admin endpoints.
   - Minting is audited, and revocation takes effect on the next request.
@@ -48,7 +48,7 @@ Once the owner decides, the work is contained but touches the security boundary.
 
 ## 4. What does not depend on this decision
 
-The rest of Phase 18's remaining scope does not wait for it:
+The rest of Phase 18's scope does not wait for it — except platform-wide settings, which wait on a separate owner decision (P-07, [OwnerDecisions.md](../../09-OPERATIONS/OwnerDecisions.md)):
 - Platform accounts, the activity log and the styled confirmation dialogs are delivered.
 - The in-frame settings preview stays as it is.
 - The provisioning wizard's readiness checklist already tells the owner what a visitor will see while the store is closed.

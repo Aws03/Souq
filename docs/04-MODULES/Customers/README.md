@@ -229,7 +229,7 @@ Add a profile field · change what erasure removes or keeps · add marketing pre
 ## Future evolution
 
 - *ICustomerDirectory*, replacing `ICustomerRepository` for Ordering, Reviews and Notifications — **DEFERRED** (ADR-0027: waiting for a second consumer or an extraction).
-- Marketing preferences — **PLANNED** in the roadmap's Phase 7 entry, which points at Phase 14; Phase 14 shipped without them, so they currently have no phase. Modules.md is explicit that they belong here, not in Identity.
+- Marketing preferences — **PLANNED** in the roadmap's Phase 7 entry, which points at Phase 14; Phase 14 shipped without them, so they currently have no phase. They belong here, not in Identity: consent is part of the commercial relationship.
 - Self-service email change — **DEFERRED** (needs a verification flow).
 - A retention policy purging erased customers' old order snapshots — **PLANNED** (Phase 20, compliance).
 - A customer language preference for email — **DEFERRED** (ADR-0034); the field would most naturally live on `Customer`.

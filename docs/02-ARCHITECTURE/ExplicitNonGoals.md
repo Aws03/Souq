@@ -60,7 +60,7 @@
 ## 7. DDD tactical patterns everywhere
 
 - **Would solve:** uniformity.
-- **Not now because:** aggregates, value objects and domain services are used where invariants are rich (Order, InventoryItem, Coupon, Payment, Tenant, User) and skipped where they would be ceremony (categories, wishlist entries, configuration read models). Uniformity is not a business outcome ([DDD.md](../03-DOMAIN/DDD.md)).
+- **Not now because:** aggregates and value objects are used where invariants are rich (there are no domain services today) (Order, InventoryItem, Coupon, Payment, Tenant, User) and skipped where they would be ceremony (categories, wishlist entries, configuration read models). Uniformity is not a business outcome ([DDD.md](../03-DOMAIN/DDD.md)).
 - **Evidence that would justify more of it:** a concept growing rules that are currently enforced in handlers or in the database only.
 - **Requires:** nothing formal — promote a type to an aggregate when its invariants demand it, and say so in the module document.
 
@@ -90,7 +90,7 @@
 ## 11. Server-side rendering, a meta-framework, or micro-frontends
 
 - **Would solve:** SEO for crawlers that do not execute JavaScript; faster first paint; independent frontend deployments.
-- **Not now because:** the storefront is a single-page app whose SEO need is met by per-host head injection (PLANNED, Phase 16). Micro-frontends solve an organizational problem this team does not have.
+- **Not now because:** the storefront is a single-page app, and Phase 16 met its SEO need as far as client rendering allows: per-page title, description, canonical URL, social tags and structured data set in the browser (`frontend/src/app/pageMetadata.js`), plus a robots.txt. A crawler that runs no JavaScript still sees none of those tags; server-side head injection would close that gap, and it is neither built nor scheduled. Micro-frontends solve an organizational problem this team does not have.
 - **Evidence that would justify it:** organic search becoming the main acquisition channel with measured losses from client rendering; several teams shipping frontend independently.
 - **Already prepared:** the SPA reads its identity from the storefront configuration endpoint, so a server-rendered shell would consume the same contract.
 - **Requires:** an ADR; note that it also changes hosting (a Node process next to nginx).
@@ -106,7 +106,7 @@
 ## 13. A background-job framework (Hangfire, Quartz)
 
 - **Would solve:** scheduling, retries, dashboards, distributed locking for recurring work.
-- **Not now because:** the two recurring jobs (checkout expiry, outbox dispatch) are .NET hosted services with explicit leases and bounded retries, and they are testable by calling the use case directly.
+- **Not now because:** the three recurring jobs are plain .NET hosted services — `ReservationExpiryService` (abandoned checkouts) and `BasketCleanupService` (expired baskets), both per-store sweeps on the `StoreSweepService` base, and `OutboxDispatcherService` with its lease and bounded retries — and each is testable by calling its use case or processor directly.
 - **Evidence that would justify it:** several instances competing on the same schedule (needs a distributed lock), many jobs, or operators needing a job dashboard.
 - **Already prepared:** the outbox lease already makes concurrent dispatchers safe; jobs are thin wrappers around use cases, so the scheduler is replaceable.
 - **Requires:** an ADR; note the extra storage and dependency.
@@ -129,11 +129,11 @@
 
 These are *not* non-goals; they are scheduled or waiting on a decision, and belong to the roadmap rather than this page:
 
-- A query library for frontend server state (TanStack Query): **decided, not deferred** — it is the target, adopted at the first screen that is rebuilt rather than installed as a separate migration ([ADR-0037](../11-ADR/0037-frontend-server-state-and-types.md)).
-- TypeScript in the frontend: deferred until a CI pipeline exists to enforce a type-check, which is the only thing that makes it a control rather than a convention ([ADR-0037](../11-ADR/0037-frontend-server-state-and-types.md)).
-- A CI pipeline running the existing suites (no pipeline exists today).
+- A query library for frontend server state: **adopted, no longer deferred** — TanStack Query is installed and the storefront read paths use it ([ADR-0038](../11-ADR/0038-query-layer-adopted-and-type-checking.md)).
+- Type checking in the frontend: **adopted** as `checkJs` plus JSDoc on `.js` boundaries, run by `npm run typecheck` in CI; a TypeScript conversion was not taken ([ADR-0038](../11-ADR/0038-query-layer-adopted-and-type-checking.md)).
+- A CI pipeline running the existing suites: **exists** (`.github/workflows/ci.yml`); continuous delivery and defined environments remain roadmap Phase 23.
 - Cloud blob storage for uploads, and per-store email sending domains (roadmap Phase 23).
-- The platform owner's console and the store dashboard (roadmap Phases 17–18).
+- The platform owner's console and the store dashboard: the store dashboard is delivered (Phase 17 ✅); the platform console is delivered except storefront preview and platform-wide settings, which wait on owner decisions D-22 and P-07 (Phase 18 🟡).
 - A tax model (open product decision P-06) and the payment-account model (D-13).
 
 See [ProductRoadmap.md](../12-ROADMAP/ProductRoadmap.md) for their phases and [TechnicalDebt.md](../12-ROADMAP/TechnicalDebt.md) for what their absence costs today.

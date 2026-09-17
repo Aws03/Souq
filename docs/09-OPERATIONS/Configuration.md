@@ -24,7 +24,7 @@ The API is a default ASP.NET Core host (`src/Souq.API/Program.cs`), so sources a
 | Testing (integration tests) | `SouqApiFactory` sets them in code, per run | user secrets |
 | Docker / deployed | environment variables, filled from `.env` (git-ignored; `.env.example` holds placeholders) | `appsettings*.json` |
 
-A managed secret store (Key Vault or similar) is **PLANNED** for Phase 23 ([ProductRoadmap.md](../12-ROADMAP/ProductRoadmap.md)); the options layer does not change when it arrives.
+A managed secret store (Key Vault or similar) is **PLANNED** for Phase 23 ([ADR-0020](../11-ADR/0020-configuration-and-secrets.md)), and secret and key rotation is in the Phase 20 security review ([ProductRoadmap.md](../12-ROADMAP/ProductRoadmap.md)); the options layer does not change when either arrives.
 
 ## 2. How settings are validated
 
@@ -59,7 +59,6 @@ Server's own password policy rejects, so the demo stack fails loudly instead of 
 |---|---|---|---|---|
 | `ConnectionStrings:Default` | empty in `appsettings.json` | every environment | yes | present and non-blank, in `AddInfrastructure`, before the host is built |
 | `ConnectionStrings:Migrations` | unset — falls back to `Default` | production, once least-privilege logins exist | no | none; if unset, migrations use the runtime identity exactly as before |
-| `Security:HstsMaxAgeDays` | 30 | any deployment behind TLS | no | none; HSTS is sent only on requests the API sees as https, and never for `localhost` |
 
 Missing value:
 
@@ -317,6 +316,16 @@ The policy allows any header and method for those origins and exposes `X-Correla
 | `ForwardedHeaders:KnownNetworks` | none (framework defaults only) | CIDR list, array or comma-separated. `X-Forwarded-For` and `X-Forwarded-Proto` are honoured only from these networks — otherwise a client could forge its IP to escape rate limits, or forge `https` |
 
 docker-compose: `ForwardedHeaders__KnownNetworks: ${TRUSTED_PROXY_NETWORKS:-172.16.0.0/12}`. `.env.example` says, correctly: never use `0.0.0.0/0`.
+
+### Security headers and HSTS
+
+`SecurityHeadersMiddleware` sets the API's security headers on every response and has no settings. HSTS is added by `UseHsts` outside Development, configured in `Program.cs`:
+
+| Key | Default | Required | Secret | Validated |
+|---|---|---|---|---|
+| `Security:HstsMaxAgeDays` | 30 | any deployment behind TLS | no | none; HSTS is sent only on requests the API sees as https, never for `localhost`, and without `includeSubDomains`/`preload` |
+
+The API sees https only when the forwarded scheme comes from a network in `ForwardedHeaders:KnownNetworks` (above). The SPA's own headers and its report-only CSP are set in `frontend/nginx.conf`, not here.
 
 ### Frontend URL
 

@@ -3,7 +3,7 @@
 > What exists today to run Souq, what happens when the API starts, what one instance assumes, and what must be true before real customers use it.
 > Settings: [Configuration.md](Configuration.md) · Failures: [Troubleshooting.md](Troubleshooting.md) · Local work: [DevelopmentGuide.md](DevelopmentGuide.md) · Scaling: [ScalingStrategy.md](ScalingStrategy.md).
 >
-> There is no CI/CD pipeline, no staging definition, no infrastructure-as-code and no deployment script in this repository. The only deployment artefact is `docker-compose.yml` with two Dockerfiles. Everything beyond that is **PLANNED** for Phase 23 in [ProductRoadmap.md](../12-ROADMAP/ProductRoadmap.md).
+> What exists: `docker-compose.yml` with two Dockerfiles; a CI pipeline, [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml), which builds and tests but **does not deploy** (and does not block a merge until branch protection is switched on — [OwnerDecisions.md](OwnerDecisions.md), "Branch protection"); and operational scripts in `scripts/` — `scripts/release-gate.sh`, `scripts/smoke-test.sh`, `scripts/backup.sh`, `scripts/backup-verify.sh`, `scripts/restore.sh`, `scripts/rehearse-restore.sh`, `scripts/audit-config.sh` and `scripts/verify-least-privilege.sh` ([scripts/README.md](../../scripts/README.md)). What does not exist: continuous deployment, a staging definition, infrastructure-as-code or a script that deploys. CD and defined environments are **PLANNED** for Phase 23 in [ProductRoadmap.md](../12-ROADMAP/ProductRoadmap.md).
 
 ## 1. Current topology
 
@@ -23,7 +23,7 @@ flowchart LR
 |---|---|---|---|---|
 | `db` | mcr.microsoft.com/mssql/server:2022-latest, forced to `linux/amd64` | none published (deliberately isolated from any SQL Server already on the host) | `souq_db_data` → `/var/opt/mssql` | — |
 | `api` | built from `src/Souq.API/Dockerfile` (SDK 10.0 build stage → aspnet 10.0 runtime), listens on 8080 | `5201:8080`, for direct diagnostics | `souq_uploads` → `/app/wwwroot/uploads` | `db`, condition `service_healthy` |
-| `web` | built from `frontend/Dockerfile` (node:20-alpine build → nginx:1.27-alpine runtime) | `8081:80` | — | `api`, condition `service_healthy` |
+| `web` | built from `frontend/Dockerfile` (node:22-alpine build → nginx:1.27-alpine runtime) | `8081:80` | — | `api`, condition `service_healthy` |
 
 Health: `db` has one (`sqlcmd … SELECT 1`, every 10 s, 10 retries, 25 s start period), which makes the API wait for a usable database; `api` has one (§6), which makes `web` wait for an API that has finished migrating and can actually answer.
 
@@ -33,11 +33,13 @@ Health: `db` has one (`sqlcmd … SELECT 1`, every 10 s, 10 retries, 25 s start 
 
 | Location | Behaviour |
 |---|---|
-| `/api/` | proxied to `http://api:8080/api/` with `Host: $http_host` (the browser's host, including port — this is what makes host-based tenant resolution and email links work), `X-Forwarded-For`, `X-Forwarded-Proto: $scheme`, and `client_max_body_size 55m` to match the API's largest upload limit |
+| `/api/` | proxied to `http://api:8080/api/` with `Host: $http_host` (the browser's host, including port — this is what makes host-based tenant resolution and email links work), `X-Forwarded-For`, `X-Forwarded-Proto: $souq_forwarded_proto` (an incoming `http`/`https` value is kept, otherwise nginx's own scheme), and `client_max_body_size 55m` to match the API's largest upload limit |
 | `/uploads/` | proxied to `http://api:8080/uploads/` with the same `Host`, `X-Forwarded-For` and `X-Forwarded-Proto` headers as `/api/` — tenant resolution runs on this path too, so the original host is what makes a store's media resolvable |
-| `/` | `try_files $uri /index.html` for the SPA |
+| `/` | `try_files $uri /index.html` for the SPA, with the SPA's security headers (`X-Content-Type-Options`, `Referrer-Policy`, `X-Frame-Options`, `Permissions-Policy`) and a `Content-Security-Policy-Report-Only` policy |
 
-nginx terminates plain http on port 80 only. TLS, HSTS and security headers are not configured anywhere in this repository ([Security.md](../07-SECURITY/Security.md) §4 states TLS is expected at a reverse proxy; automated TLS for custom domains is **PLANNED** for Phase 23).
+The access log uses the `souq_safe` format: query strings stripped, `/track/…` paths redacted, no `Referer`.
+
+nginx terminates plain http on port 80 only. **TLS is not configured anywhere in this repository** ([Security.md](../07-SECURITY/Security.md) §4 states TLS is expected at a reverse proxy; automated TLS for custom domains is **PLANNED** for Phase 23). Security headers and HSTS do exist: the API sets its own on every response (`SecurityHeadersMiddleware`, and `UseHsts` outside Development, sent only on requests it sees as https), and nginx adds the SPA's on `/`. The SPA's CSP is report-only until one browser pass confirms it.
 
 Running it: copy `.env.example` to `.env`, fill it in, then `docker compose up --build`. The stack runs as `Production`, which is why the payment and email fail-fast rules apply — see [Configuration.md](Configuration.md).
 
@@ -63,7 +65,7 @@ Consequences to keep in mind:
 
 - **Migrations run at application startup, not as a deployment step.** Moving them to a migration bundle is **PLANNED** for Phase 23, explicitly so replicas do not race ([DatabaseDesign.md](../06-DATABASE/DatabaseDesign.md) §10).
 - **Seeding runs on every start** and is idempotent. Demo content is environment-gated: the default store's catalog and demo look are applied only when `Seed:DemoData` resolves true, which outside Development and Testing means asking for it explicitly (`DbSeeder.ShouldSeedDemoData`). A production database therefore starts with the default store row but no demo products; decide deliberately whether to adopt, rename or archive that store.
-- Swagger is Development-only, so the compose stack on port 5201 serves the API but **no** Swagger UI, despite the comment in `docker-compose.yml` and the table in the root `README.md`.
+- Swagger is Development-only, so the compose stack on port 5201 serves the API but **no** Swagger UI, despite the comment on that port mapping in `docker-compose.yml`.
 
 ## 3. Background services
 
@@ -260,59 +262,7 @@ Implications:
 
 ## 8. Production checklist
 
-Every item is verifiable before you let customers in. "Log" means the API's startup output (`docker compose logs api | head -40`).
-
-**Environment and secrets**
-
-- [ ] `ASPNETCORE_ENVIRONMENT` is `Production`: `docker compose exec api printenv ASPNETCORE_ENVIRONMENT`.
-- [ ] `.env` exists, is not committed (`git check-ignore .env`), and every value is unique to this environment.
-- [ ] `JWT_KEY` is ≥ 32 bytes of fresh randomness (`openssl rand -base64 48`) and is not reused from another environment. A short key fails the start by design.
-- [ ] `DB_SA_PASSWORD` is strong. **Known weakness:** compose connects the app as `sa`; a least-privilege SQL login requires editing the `ConnectionStrings__Default` line.
-- [ ] No secret appears in `src/Souq.API/appsettings.json` or `src/Souq.API/appsettings.Production.json` (both ship empty secret values; keep it that way).
-
-**Payments**
-
-- [ ] Log says `payments Stripe`, not `payments Fake`. `PAYMENTS_PROVIDER=Fake` marks every order paid without money.
-- [ ] `STRIPE_SECRET_KEY` and `STRIPE_PUBLISHABLE_KEY` are live keys; the publishable key is served by `GET /api/payments/config`.
-- [ ] `STRIPE_WEBHOOK_SECRET` is set — otherwise the log carries the "confirmation depends on the customer's browser" warning and a closed tab leaves an order pending.
-- [ ] The Stripe dashboard's webhook endpoint points at a **store host** of this deployment, `POST /api/payments/webhook` over https. Events for other stores of the same deployment account are routed internally to the named store; an event signed by a store's own account is never applied to another store.
-- [ ] `PAYMENTS_ALLOW_TEST_MODE_STORE_ACCOUNTS` is unset or `false` (no warning line in the log).
-- [ ] If any store prices in JOD: the P-05 question is settled with Stripe (×100 versus ×1000) before the first live charge.
-
-**Per-store payment keys**
-
-- [ ] `SECRETS_KEY` is set (base64 of 32 bytes) if stores will connect their own Stripe accounts, and it is backed up somewhere other than the server — losing it makes every stored store key undecryptable.
-- [ ] It is not changed in place; rotation follows [Configuration.md](Configuration.md) §10.
-
-**Email**
-
-- [ ] Log says `email Resend`, `email Brevo` or `email Gmail` — never `email Log` in production.
-- [ ] Exactly one provider key is set, and the `GMAIL_APP_PASSWORD` placeholder from `.env.example` has been cleared if Gmail is not the provider.
-- [ ] The sender address is real and verified for the provider's domain (`BREVO_SENDER_EMAIL` / `GMAIL_USERNAME`; for Resend, `Resend:From` must be added to `docker-compose.yml` — compose does not expose it and the default is Resend's shared test sender).
-- [ ] A real password reset arrives, and the outbox row shows `ProcessedAt` set (§9 shows the query).
-
-**Accounts and bootstrap**
-
-- [ ] `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` (≥ 12 characters) and `SEED_PLATFORM_OWNER_EMAIL` / `SEED_PLATFORM_OWNER_PASSWORD` set for the first start only.
-- [ ] Both accounts sign in successfully.
-- [ ] The four variables are then **removed from `.env`** and the stack restarted. Seeding never rewrites an existing account's password, so the accounts survive; the "No … account seeded" warnings that then appear on every start are expected.
-- [ ] The demo default store (slug `marka`, seeded catalog and demo contact details) is either adopted as a real store, cleaned up, or archived through `POST /api/platform/tenants/{id}/status` with `{"action":"Archive"}`.
-
-**Hosts, TLS and proxying**
-
-- [ ] TLS terminates in front of the stack, and the API sees `https`. nginx sets `X-Forwarded-Proto $scheme` from **its own** listener (plain http on port 80), so an outer TLS terminator's header is overwritten and links in emails come out as `http://`. Verify by requesting a password reset and reading the link scheme; fix by terminating TLS in this nginx or by passing the outer header through.
-- [ ] `TRUSTED_PROXY_NETWORKS` covers the proxy network and nothing else (never `0.0.0.0/0`).
-- [ ] The `5201:8080` port mapping is removed for a public deployment; a client that reaches the API directly is seen from the Docker bridge, which lies inside the default trusted range, and could then forge `X-Forwarded-For` to bypass rate limits.
-- [ ] `PLATFORM_HOST` is the real platform domain and resolves to this deployment; the platform owner can sign in there and store endpoints answer 404 there.
-- [ ] Every store domain is added through the platform API (`POST /api/platform/tenants/{id}/domains`, then `…/domains/{host}/primary`), and DNS points at the deployment. `DEFAULT_TENANT_HOSTS` is only for the default store and defaults to `localhost`.
-- [ ] `FRONTEND_URL` is the public origin of the storefront (its scheme and port are used for links in messages that have no request behind them).
-- [ ] `Auth:RefreshCookie:Secure` stays at its default `true` for an https deployment (and is only ever lowered for a local http host — compose does not expose it).
-
-**Data**
-
-- [ ] A database backup exists and a restore has been rehearsed (§9; the drill is `scripts/rehearse-restore.sh`).
-- [ ] The `souq_uploads` volume is part of the same backup.
-- [ ] SQL Server has at least 2 GB of memory available in the Docker VM or host.
+The checklist lives in one place: **[ProductionReleaseChecklist.md](ProductionReleaseChecklist.md)** — environment and secrets, database identities, payments, email, accounts, hosts and TLS, uploads, logging, monitoring, backups and sign-off, each item verifiable. `scripts/release-gate.sh` executes the parts that can be executed. An earlier copy kept here had drifted from it and was removed.
 
 ## 9. Backups and restore
 
@@ -337,9 +287,9 @@ Read from the code; none of these were reproduced by running the stack.
 |---|---|---|
 | ~~`X-Forwarded-Proto` is set from nginx's own scheme~~ **fixed** | `frontend/nginx.conf` | nginx now preserves an incoming `X-Forwarded-Proto` and falls back to its own scheme. If nginx is itself the internet-facing edge, drop that `map` — see [Security.md](../07-SECURITY/Security.md) §4 |
 | The API port `5201` is published | `docker-compose.yml` | a direct client bypasses nginx and is seen from the Docker bridge range, which the default `TRUSTED_PROXY_NETWORKS` trusts, so `X-Forwarded-For` can be forged to evade rate limits |
-| The app connects as `sa` | `docker-compose.yml` | full server privileges for the application; a SQL injection or a leaked connection string is unbounded. Fix for real deployments, with measured permissions: [DatabasePrivileges.md](../07-SECURITY/DatabasePrivileges.md) |
+| The app connects as `sa` | `docker-compose.yml` | full server privileges for the application; a SQL injection or a leaked connection string is unbounded. Fix for real deployments with the measured recipe: `scripts/sql/least-privilege-logins.sql`, then `ConnectionStrings__Default` for the runtime login and `ConnectionStrings__Migrations` for the migration login ([DatabasePrivileges.md](../07-SECURITY/DatabasePrivileges.md)) |
 | The API container runs as root | `src/Souq.API/Dockerfile` | no `USER` instruction; a container escape starts from root |
-| Floating image tags (`2022-latest`, `sdk:10.0`, `aspnet:10.0`, `nginx:1.27-alpine`, `node:20-alpine`) | both Dockerfiles and compose | two deployments from the same commit can differ |
+| Floating image tags (`2022-latest`, `sdk:10.0`, `aspnet:10.0`, `nginx:1.27-alpine`, `node:22-alpine`) | both Dockerfiles and compose | two deployments from the same commit can differ |
 | The default store row exists in every database | the `Phase2MultiTenancy` migration | production starts with an **Active** store still carrying the seeded demo name, with no catalog and possibly no administrator. The startup log now warns until it is adopted or archived — the procedure is [SeedAndBootstrap.md](SeedAndBootstrap.md) §3 |
 | No TLS in the repository (the header set and HSTS now exist) | — | terminate TLS at the edge; automated TLS for custom domains is Phase 23 |
 
@@ -375,7 +325,8 @@ Read from the code; none of these were reproduced by running the stack.
 
 | Item | Status | Source |
 |---|---|---|
-| CI/CD and defined environments | **PLANNED** Phase 23 | roadmap |
+| CI | **exists** — [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) builds and tests; it blocks merges only once branch protection is on | roadmap Phase 23 (delivered early) |
+| CD and defined environments | **PLANNED** Phase 23 | roadmap |
 | Migrations as a deployment step (migration bundle) instead of at startup | **PLANNED** Phase 23 | roadmap, [DatabaseDesign.md](../06-DATABASE/DatabaseDesign.md) §10 |
 | Metrics, traces, alerting (OpenTelemetry over the existing trace ids) | **PLANNED** Phase 23 | [ADR-0018](../11-ADR/0018-observability.md) |
 | Automated TLS for custom domains, and DNS/TLS domain verification | **PLANNED** Phase 23 | roadmap, risk R7 |
@@ -383,8 +334,10 @@ Read from the code; none of these were reproduced by running the stack.
 | Cloud blob storage for uploads | **PLANNED** Phase 23 (decision D-18) | roadmap |
 | Distributed lock for the per-store sweeps | **PLANNED** Phase 23 | `StoreSweepService`, roadmap Phase 6 |
 | Managed secret store and key rotation | **PLANNED** Phases 20 and 23 | [ADR-0020](../11-ADR/0020-configuration-and-secrets.md) |
-| Security headers, CSP, HSTS | **PLANNED** Phase 20 | [Security.md](../07-SECURITY/Security.md) §4 |
+| Security headers, CSP, HSTS | **exist** — `SecurityHeadersMiddleware`, `UseHsts`, nginx headers on the SPA; the SPA CSP is still report-only. Phase 20 reviews them | [Security.md](../07-SECURITY/Security.md) §4 |
 | Response compression, CDN, image optimization | **PLANNED** Phase 21 | roadmap |
-| Operator screen for dead outbox messages | **PLANNED** Phase 17 or 23 | [ADR-0034](../11-ADR/0034-notifications-outbox.md) |
-| Data-retention policy and incident runbook | **PLANNED** Phase 23 | roadmap |
-| Non-root container user, pinned image digests, least-privilege SQL login | **FUTURE** — not scheduled by any phase | this document, §10 |
+| Operator screen for dead outbox messages | **FUTURE** — not built; Phase 17 closed without it and no roadmap phase schedules it | [ADR-0034](../11-ADR/0034-notifications-outbox.md) |
+| Data-retention policy | **PLANNED** Phase 23 | roadmap |
+| Incident runbook | **exists** — [IncidentResponse.md](IncidentResponse.md) | roadmap Phase 23 (delivered early) |
+| Non-root container user, pinned image digests | **FUTURE** — not scheduled by any phase | this document, §10 |
+| Least-privilege SQL logins in a deployment | the recipe **exists** and is measured ([DatabasePrivileges.md](../07-SECURITY/DatabasePrivileges.md)); applying it is a deployment action | [ReleaseReadiness.md](ReleaseReadiness.md) R-12 |

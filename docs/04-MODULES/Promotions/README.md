@@ -137,7 +137,7 @@ Validators: `CreateCouponValidator`, `UpdateCouponValidator`, `DeleteCouponValid
 
 - `ReserveAsync` and `ReleaseAsync` save with retry; `ConfirmAsync` deliberately does not save, so the caller's unit of work commits it with the order — the confirmation and the payment succeed or fail together.
 - `ICouponQueries` is the module's own read port, implemented by `CouponQueries` in Infrastructure.
-- There is **no evaluation contract.** The discount is computed by Shopping's pipeline straight from the entity, through Promotions' domain repositories. [Modules.md](../Modules.md) says "the pipeline is the only evaluator", and the planned *ICouponEvaluator* was never built; the legacy `ApplyCouponHandler` is in fact a second evaluator. See *Dependencies*.
+- There is **no evaluation contract.** The discount is computed by Shopping's pipeline straight from the entity, through Promotions' domain repositories. The intended design is that the pipeline is the only evaluator, and the planned *ICouponEvaluator* was never built; the legacy `ApplyCouponHandler` is in fact a second evaluator. See *Dependencies*.
 
 ## Dependencies
 

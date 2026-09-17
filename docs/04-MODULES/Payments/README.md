@@ -28,7 +28,7 @@ Payments records the money side of an order — one payment per order, how it se
 
 ## Who owns store payment accounts
 
-Asked directly, because the code and [Modules.md](../Modules.md) disagree.
+Asked directly, because the entity and the use cases that edit it sit in different modules.
 
 | Piece | Where it lives | Module by the architecture test |
 |---|---|---|
@@ -39,7 +39,7 @@ Asked directly, because the code and [Modules.md](../Modules.md) disagree.
 | `PaymentGatewayRouter`, which reads the account and decrypts its secrets | `src/Souq.Infrastructure/Payments/PaymentGatewayRouter.cs` | Infrastructure, serving the Payments port |
 | `StorePaymentAccounts` table | `StorePaymentAccountConfiguration` | — |
 
-So: **by the code and by `ModuleAndContractRuleTests`, the store payment account use cases belong to Platform, not to Payments.** Modules.md still lists "per-tenant provider configuration (encrypted)" under what Payments owns; that is stale. This page documents the account anyway, because the key rules, the routing and the open decision D-13 are payment concerns — but an edit to the editor is a change in a Platform folder, reviewed as such.
+So: **the store payment account's domain is Payments' (`DomainOwners` maps its types here), but its use cases sit in Platform's folders, and by `ModuleFolders` and `ModuleAndContractRuleTests` they are Platform's.** [Modules.md](../Modules.md) §2 and the [Platform README](../Platform/README.md) say the same; TD-04 records moving the use cases here. This page documents the account anyway, because the key rules, the routing and the open decision D-13 are payment concerns — but an edit to the editor is a change in a Platform folder, reviewed as such.
 
 ## Business concepts
 
