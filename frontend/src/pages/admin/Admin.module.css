@@ -30,17 +30,19 @@
 .quickCard b { color: var(--color-primary); font-size: 17px; }
 .quickCard span { color: var(--color-text-muted); font-size: var(--fs-body-sm); }
 
-/* شارات حالة الطلب */
+/* شارات حالة الطلب. نصّ الشارة صغير (12.5px) فيحتاج 4.5:1 على خلفيتها (WCAG AA). شارات الخطر كانت لون الخطر على وردي
+   ثابت (3.5:1، ويسوء في الداكن) — الآن زوج الرموز الذي يحسبه tenantModel مقروءاً في الوضعين (--color-danger على
+   --color-danger-soft) كما تفعل شارة النجاح، والكهرماني درجة أغمق (5.4:1). كشفه فحص axe في رحلة المتغيّرات. */
 .statusBadge { display: inline-block; padding: 4px 12px; border-radius: 50px; font-size: 12.5px; font-weight: 700; }
-.pending { background: #fdf3e2; color: #a06a12; }
+.pending { background: #fdf3e2; color: #8a5a0e; }
 .paid { background: var(--color-info-soft); color: var(--color-primary); }
 .shipped { background: #eaf1fb; color: var(--color-info); }
 .delivered { background: var(--color-success-soft); color: var(--color-success); }
-.cancelled { background: #fdf0ec; color: var(--color-danger); }
+.cancelled { background: var(--color-danger-soft, #fdf0ec); color: var(--color-danger); }
 
 /* حالة حساب العميل (المرحلة 7) */
 .customerActive { background: var(--color-success-soft); color: var(--color-success); }
-.customerBlocked { background: #fdf0ec; color: var(--color-danger); }
+.customerBlocked { background: var(--color-danger-soft, #fdf0ec); color: var(--color-danger); }
 
 .thumb { width: 44px; height: 44px; border-radius: 8px; overflow: hidden; background: var(--color-surface-alt); }
 
@@ -50,8 +52,8 @@
   display: inline-block; min-width: 40px; text-align: center; padding: 4px 10px;
   border-radius: 50px; font-weight: 700; font-size: 13px;
 }
-.stockLow { background: #fdf0ec; color: var(--color-danger); }
-.stockWarn { background: #fdf3e2; color: #a06a12; }
+.stockLow { background: var(--color-danger-soft, #fdf0ec); color: var(--color-danger); }
+.stockWarn { background: #fdf3e2; color: #8a5a0e; }
 .stockOk { background: var(--color-success-soft); color: var(--color-success); }
 
 /* تنبيه المخزون المنخفض أعلى شاشة الجرد. */
