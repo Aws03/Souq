@@ -42,6 +42,8 @@ test.describe('خيارات المنتج ومتغيّراته', () => {
   const storeName = `QA قميص ${stamp}`;
   const sku = `QAV${stamp}`.toUpperCase();
 
+  const authed = (extra = {}) => ({ headers: { Authorization: `Bearer ${token}` }, ...extra });
+
   test.beforeAll(async ({ browser, request }) => {
     page = await browser.newPage({ locale: 'en-US' });
     await page.addInitScript(() => {
@@ -78,7 +80,6 @@ test.describe('خيارات المنتج ومتغيّراته', () => {
     await page?.close();
   });
 
-  const authed = (extra = {}) => ({ headers: { Authorization: `Bearer ${token}` }, ...extra });
   const variantRow = (label) => page.locator('table tbody tr').filter({ has: page.getByText(label, { exact: true }) });
   // الصفحة تمرّر بسلاسة (scroll-behavior: smooth)، وقائمة الصفّ تُغلق عند أي تمرير (موضعها fixed): يُكمل التمرير أولاً ثم
   // النقر — كما يفعل المستخدم، لا نقراً في منتصف حركة تُغلق القائمة التي فتحها.
