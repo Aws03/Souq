@@ -9,7 +9,7 @@
 |---|---|---|---|
 | [`Souq.Domain.Tests`](#souqdomaintests) | 23 | 165 | 34 |
 | [`Souq.Application.Tests`](#souqapplicationtests) | 42 | 288 | 15 |
-| [`Souq.ArchitectureTests`](#souqarchitecturetests) | 13 | 54 | 7 |
+| [`Souq.ArchitectureTests`](#souqarchitecturetests) | 13 | 57 | 7 |
 | [`Souq.IntegrationTests`](#souqintegrationtests) | 45 | 227 | 21 |
 | [frontend (Vitest)](#frontend-vitest) | 72 | 520 | — |
 
@@ -97,7 +97,7 @@
 | `tests/Souq.ArchitectureTests/ConfigurationSourceTests.cs` | `ConfigurationSourceTests` | 1 | 1 |
 | `tests/Souq.ArchitectureTests/ContentSecurityPolicyTests.cs` | `ContentSecurityPolicyTests` | 4 | 0 |
 | `tests/Souq.ArchitectureTests/DependencyRuleTests.cs` | `DependencyRuleTests` | 8 | 0 |
-| `tests/Souq.ArchitectureTests/DocumentationTests.cs` | `DocumentationTests` | 4 | 0 |
+| `tests/Souq.ArchitectureTests/DocumentationTests.cs` | `DocumentationTests` | 7 | 0 |
 | `tests/Souq.ArchitectureTests/EndpointRuleTests.cs` | `EndpointRuleTests` | 3 | 0 |
 | `tests/Souq.ArchitectureTests/GeneratedDocsTests.cs` | `GeneratedDocsTests` | 5 | 1 |
 | `tests/Souq.ArchitectureTests/MigrationSafetyTests.cs` | `MigrationSafetyTests` | 3 | 0 |

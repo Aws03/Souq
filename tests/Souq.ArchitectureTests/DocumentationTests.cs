@@ -159,6 +159,78 @@ public class DocumentationTests
             "كل قرار معماري كامل البنية (السياق، المشكلة، البدائل، القرار، العواقب) ومفهرس. النواقص: {0}", Join(problems));
     }
 
+    // ── نظام المعرفة (مسار التعلّم) ─────────────────────────────────────────
+    // وثيقة لا يصل إليها رابطٌ من مداخل القراءة كأنها غير موجودة: لا يجدها مهندس جديد ولا يُصلحها أحد حين يتغيّر الكود.
+    // المداخل: README.md وAGENTS.md وفهرس docs. السجلّات التاريخية (docs/archive) خارج الفحص.
+    [Fact]
+    public void كل_وثيقة_حالية_يصل_إليها_رابط_من_مداخل_القراءة()
+    {
+        var entries = new[] { "README.md", "AGENTS.md", "docs/README.md" };
+        var reached = new HashSet<string>(StringComparer.Ordinal);
+        var queue = new Queue<string>(entries.Where(e => File.Exists(RepositoryPaths.Combine(e))));
+        foreach (var entry in queue) reached.Add(entry);
+
+        while (queue.Count > 0)
+        {
+            var doc = queue.Dequeue();
+            var absolute = RepositoryPaths.Combine(doc);
+            foreach (var (_, prose) in ProseLines(File.ReadAllText(absolute)))
+                foreach (Match link in Link.Matches(StripInlineCode(prose)))
+                {
+                    var target = link.Groups["target"].Value;
+                    if (IsExternal(target)) continue;
+                    var pathPart = target.Split('#')[0];
+                    if (pathPart.Length == 0) continue;
+                    var resolved = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(absolute)!, Uri.UnescapeDataString(pathPart)));
+                    // رابط إلى مجلّد يقود إلى README.md فيه، كما يعرضه GitHub.
+                    if (Directory.Exists(resolved)) resolved = Path.Combine(resolved, "README.md");
+                    if (!resolved.EndsWith(".md", StringComparison.OrdinalIgnoreCase) || !File.Exists(resolved)) continue;
+                    var relative = RepositoryPaths.Relative(resolved);
+                    if (reached.Add(relative)) queue.Enqueue(relative);
+                }
+        }
+
+        var orphans = LiveDocuments().Where(d => !reached.Contains(d)).ToList();
+        orphans.Should().BeEmpty(
+            "كل وثيقة حالية يُوصَل إليها برابط من README.md أو AGENTS.md أو docs/README.md. غير المربوطة: {0}", Join(orphans));
+    }
+
+    // مسار التعلّم يجيب "من أين أبدأ وماذا أقرأ بعدها؟" بأرقام متتالية — خطوة محذوفة أو مكرّرة تكسر الجواب نفسه.
+    [Fact]
+    public void مسار_التعلّم_خطوات_متتالية_من_00_إلى_18()
+    {
+        var text = File.ReadAllText(RepositoryPaths.Combine("docs/00-START-HERE/LearningPath.md"));
+        var steps = Regex.Matches(text, @"^## (\d{2}) — ", RegexOptions.Multiline).Select(m => m.Groups[1].Value).ToList();
+
+        steps.Should().Equal(Enumerable.Range(0, 19).Select(i => i.ToString("00", CultureInfo.InvariantCulture)),
+            "خطوات LearningPath.md مرقّمة 00…18 بالترتيب، مرّة واحدة لكل رقم");
+    }
+
+    // صفحة ملاحة تحمل تاريخ آخر تحقّق من الكود — لا تاريخ آخر تعديل: القارئ يعرف كم عمر ما يثق به.
+    // الفحص يضمن وجود السطر بتاريخ صالح لا صدقه؛ صدقه مسؤولية من يكتبه (docs/README.md، الأعراف).
+    [Fact]
+    public void صفحات_الملاحة_تذكر_تاريخ_آخر_تحقّق_من_الكود()
+    {
+        var navigation = RepositoryPaths.Walk("docs/00-START-HERE")
+            .Where(f => f.EndsWith(".md", StringComparison.Ordinal))
+            .Select(RepositoryPaths.Relative)
+            .Append("docs/README.md")
+            .OrderBy(f => f, StringComparer.Ordinal);
+        var stamp = new Regex(@"\*\*Last verified against the (code|repository):\*\* (?<date>\d{4}-\d{2}-\d{2})");
+
+        var missing = navigation
+            .Where(doc =>
+            {
+                var match = stamp.Match(File.ReadAllText(RepositoryPaths.Combine(doc)));
+                return !match.Success || !DateOnly.TryParseExact(match.Groups["date"].Value, "yyyy-MM-dd",
+                    CultureInfo.InvariantCulture, DateTimeStyles.None, out _);
+            })
+            .ToList();
+
+        missing.Should().BeEmpty(
+            "كل صفحة ملاحة تحمل '**Last verified against the code:** YYYY-MM-DD'. الناقصة: {0}", Join(missing));
+    }
+
     // رسالة الفشل تحمل القائمة كاملة (كوسيط، فالأقواس في المسارات لا تُفسَّر كتنسيق): إصلاح واحد لكل تشغيل مضيعة للوقت.
     private static string Join(IEnumerable<string> items) => string.Join("\n  • ", items.Distinct().OrderBy(i => i, StringComparer.Ordinal));
 
