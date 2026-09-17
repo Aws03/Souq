@@ -180,6 +180,30 @@
 .facts dt { color: var(--color-text-muted); font-size: 12.5px; }
 .facts dd { margin: 2px 0 0; font-weight: 600; overflow-wrap: anywhere; }
 
+/* ── سجلّ التدقيق ── */
+.auditScope {
+  margin-bottom: var(--space-4); padding: 10px 14px; border-radius: 10px; font-size: var(--fs-body-sm);
+  background: var(--color-info-soft); color: var(--color-text); border: 1px solid var(--color-border);
+}
+.auditScope summary { cursor: pointer; font-weight: 700; min-block-size: 28px; display: flex; align-items: center; }
+.auditScope summary:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+.auditScope ul { margin: var(--space-2) 0 0; padding-inline-start: 20px; display: flex; flex-direction: column; gap: 4px; line-height: 1.6; }
+.auditFilters { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 0 var(--space-4); align-items: start; }
+.auditFilters > .formActions { grid-column: 1 / -1; }
+.resultCount { color: var(--color-text-muted); font-size: var(--fs-body-sm); margin: 0 0 var(--space-2); }
+.auditAction { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.auditAction code { font-size: 12px; color: var(--color-text-muted); overflow-wrap: anywhere; }
+.auditEntry { display: flex; flex-direction: column; gap: var(--space-4); }
+.auditFacts { display: flex; flex-direction: column; gap: var(--space-2); margin: 0; }
+.auditFacts > div { display: grid; grid-template-columns: minmax(110px, 35%) minmax(0, 1fr); gap: var(--space-3); padding-block: 6px; border-block-end: 1px solid var(--color-border); }
+.auditFacts dt { color: var(--color-text-muted); font-size: var(--fs-body-sm); overflow-wrap: anywhere; }
+.auditFacts dd { margin: 0; display: flex; flex-direction: column; gap: 2px; overflow-wrap: anywhere; min-width: 0; }
+.auditSubtitle { font-size: var(--fs-body); font-weight: 700; margin: 0 0 var(--space-2); }
+.auditRaw {
+  margin: 0; padding: 10px; border-radius: 8px; background: var(--color-surface-alt); color: var(--color-text);
+  font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere;
+}
+
 @media (max-width: 640px) {
   .accountName { display: none; }
   .inlineForm { grid-template-columns: 1fr; }

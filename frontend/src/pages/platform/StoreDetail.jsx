@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import Skeleton from '../../components/common/Skeleton';
 import { ErrorBanner } from '../../components/common/StateViews';
 import { formatDate } from '../../i18n';
+import { useAuth } from '../../context/AuthContext';
 import { resumeStep } from '../../features/platform/provisioning';
 import { usePlatformStore, useProvisioningOptions } from '../../features/platform/usePlatformStore';
 import {
@@ -17,6 +18,7 @@ import styles from './Platform.module.css';
 // ============================================================================
 export default function StoreDetail() {
   const { t } = useTranslation();
+  const { can } = useAuth();
   const { id } = useParams();
   const options = useProvisioningOptions();
   const { store, accounts, refresh } = usePlatformStore(id);
@@ -48,6 +50,9 @@ export default function StoreDetail() {
             </Link>
           )}
           <Link to={`/platform/stores/${id}/settings`} className={styles.secondaryLink}>{t('platform.store.editSettings')}</Link>
+          {can('platform.audit.view') && (
+            <Link to={`/platform/audit?tenantId=${detail.id}`} className={styles.secondaryLink}>{t('platform.store.activity')}</Link>
+          )}
         </div>
       </div>
 

@@ -28,6 +28,8 @@ export const queryKeys = {
   platformStore: (id) => ['platform-store', String(id)],
   platformStoreSettings: (id) => ['platform-store', String(id), 'settings'],
   platformStoreAccounts: (id) => ['platform-store', String(id), 'accounts'],
+  platformUsers: (page, pageSize) => ['platform-users', page, pageSize],
+  platformAudit: (params) => ['platform-audit', params],
 
   storeSettings: () => ['store-settings'],
   storeSettingsOptions: () => ['store-settings-options'],

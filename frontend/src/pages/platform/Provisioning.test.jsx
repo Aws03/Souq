@@ -22,6 +22,7 @@ vi.mock('react-i18next', () => ({
 }));
 const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
 vi.mock('../../context/ToastContext', () => ({ useToast: () => toast }));
+vi.mock('../../context/AuthContext', () => ({ useAuth: () => ({ can: () => true }) }));
 vi.mock('../../i18n', () => ({ formatDate: (v) => String(v).slice(0, 10) }));
 vi.mock('../../app/storeTheme', () => ({ loadPreviewFonts: vi.fn() }));
 

@@ -1,5 +1,5 @@
 // ============================================================================
-// فريق المتجر — منطق خالص مُختبَر: حالة الحساب كما تُقرأ، والإجراءات المتاحة لكل صف، وفحص نموذج الدعوة.
+// فريق المتجر وحسابات المنصّة — منطق خالص مُختبَر: حالة الحساب كما تُقرأ، والإجراءات المتاحة لكل صف، وفحص نموذج الدعوة.
 //
 // الإجراءات هنا عرضٌ لا حماية: الخادم يرفض إيقاف النفس (CannotDisableSelf) وإيقاف آخر مدير فعّال
 // (LastAdministrator) مهما عرضت الواجهة. إخفاء "إيقاف" عن صفّ المستخدم نفسه يوفّر عليه خطأً، لا أكثر —
@@ -7,6 +7,8 @@
 // ============================================================================
 
 export const STAFF_ROLES = ['TenantAdmin', 'TenantStaff'];
+// أدوار حسابات المنصّة كما يقبلها InvitePlatformUserValidator (Roles.IsPlatform). الافتراضي أقلّها صلاحية.
+export const PLATFORM_ROLES = ['PlatformAdmin', 'PlatformOwner'];
 export const PAGE_SIZE = 20;
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -29,7 +31,7 @@ export function staffActions(account, currentUserId) {
   return actions;
 }
 
-export const inviteToForm = () => ({ fullName: '', email: '', role: 'TenantStaff' });
+export const inviteToForm = (role = 'TenantStaff') => ({ fullName: '', email: '', role });
 
 export const buildInvitePayload = (form) => ({
   fullName: form.fullName.trim(),
@@ -38,7 +40,7 @@ export const buildInvitePayload = (form) => ({
 });
 
 // أوّل مشكلة لكل حقل، بمفتاح ترجمة. حدود الطول هي حدود User في الخادم (User.FullNameMaxLength/EmailMaxLength).
-export function inviteProblems(form) {
+export function inviteProblems(form, roles = STAFF_ROLES) {
   const problems = {};
   const name = form.fullName.trim();
   if (!name) problems.fullName = 'nameRequired';
@@ -46,6 +48,6 @@ export function inviteProblems(form) {
   const email = form.email.trim();
   if (!email) problems.email = 'emailRequired';
   else if (email.length > EMAIL_MAX || !EMAIL.test(email)) problems.email = 'emailInvalid';
-  if (!STAFF_ROLES.includes(form.role)) problems.role = 'roleInvalid';
+  if (!roles.includes(form.role)) problems.role = 'roleInvalid';
   return problems;
 }

@@ -67,6 +67,8 @@ const PlatformNewStore = lazy(() => import('./pages/platform/NewStore'));
 const PlatformStoreSetup = lazy(() => import('./pages/platform/StoreSetup'));
 const PlatformStoreDetail = lazy(() => import('./pages/platform/StoreDetail'));
 const PlatformStoreSettingsPage = lazy(() => import('./pages/platform/StoreSettingsPage'));
+const PlatformAccounts = lazy(() => import('./pages/platform/Accounts'));
+const PlatformAudit = lazy(() => import('./pages/platform/Audit'));
 
 // صفحة إدارة بصلاحيتها (والوحدة إن كانت اختيارية) — الشريط الجانبي يخفي رابطها بالشرط نفسه.
 const guarded = (element, permission, module) => {
@@ -183,7 +185,8 @@ const platformGuarded = (element, permission, fallback = '/platform') => (
   <RequirePermission permission={permission} fallback={fallback}>{element}</RequirePermission>
 );
 
-// منطقة المنصّة على مضيفها: الدخول وقبول الدعوات، ولوحتها لحسابات المنصّة — النظرة، والمتاجر وتجهيزها.
+// منطقة المنصّة على مضيفها: الدخول وقبول الدعوات، ولوحتها لحسابات المنصّة — النظرة، والمتاجر وتجهيزها،
+// وحسابات المنصّة (المالك وحده)، وسجلّ التدقيق.
 function PlatformRoutes() {
   return (
     <Routes>
@@ -198,6 +201,8 @@ function PlatformRoutes() {
         <Route path="stores/:id" element={platformGuarded(<PlatformStoreDetail />, 'platform.tenants.manage')} />
         <Route path="stores/:id/settings" element={platformGuarded(<PlatformStoreSettingsPage />, 'platform.tenants.manage')} />
         <Route path="stores/:id/setup/:step" element={platformGuarded(<PlatformStoreSetup />, 'platform.tenants.manage')} />
+        <Route path="accounts" element={platformGuarded(<PlatformAccounts />, 'platform.users.manage')} />
+        <Route path="audit" element={platformGuarded(<PlatformAudit />, 'platform.audit.view')} />
         <Route path="*" element={<Navigate to="/platform" replace />} />
       </Route>
       <Route path="*" element={<Navigate to="/platform" replace />} />

@@ -5,17 +5,19 @@ import { useAuth } from '../context/AuthContext';
 import { setLanguage } from '../i18n';
 import { useTheme } from './TenantProvider';
 import { PagePending } from '../components/ProtectedRoute';
-import { GridIcon, MoonIcon, PackageIcon, SunIcon } from '../components/icons/Icons';
+import { GridIcon, MoonIcon, PackageIcon, ReceiptIcon, SunIcon, TeamIcon } from '../components/icons/Icons';
 import styles from '../pages/platform/Platform.module.css';
 
 // ============================================================================
 // منطقة المنصّة (المنطقة الرابعة): تخطيطها على مضيفها وحده — لا على مضيف أيّ متجر (الخادم يرفض نقاطها هناك
 // بـ 404، ويرفض توكن المتجر هنا بـ 401). شاشاتها: نظرة المنصّة (platform.reports.view) والمتاجر وتجهيزها
-// (platform.tenants.manage). الروابط تتبع صلاحيات الحساب كما يمنحها الخادم؛ الحارس عرضٌ لا حماية.
+// (platform.tenants.manage) وحسابات المنصّة (platform.users.manage) وسجلّ التدقيق (platform.audit.view). الروابط تتبع صلاحيات الحساب كما يمنحها الخادم؛ الحارس عرضٌ لا حماية.
 // ============================================================================
 export const PLATFORM_NAV = [
   { to: '/platform', end: true, label: 'platform.nav.overview', icon: GridIcon, permission: 'platform.reports.view' },
   { to: '/platform/stores', label: 'platform.nav.stores', icon: PackageIcon, permission: 'platform.tenants.manage' },
+  { to: '/platform/accounts', label: 'platform.nav.accounts', icon: TeamIcon, permission: 'platform.users.manage' },
+  { to: '/platform/audit', label: 'platform.nav.audit', icon: ReceiptIcon, permission: 'platform.audit.view' },
 ];
 
 export default function PlatformLayout() {

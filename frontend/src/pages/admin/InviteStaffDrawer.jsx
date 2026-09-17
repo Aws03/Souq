@@ -10,36 +10,39 @@ import settingsStyles from '../../components/settings/StoreSettingsEditor.module
 
 // درج دعوة عضو في فريق المتجر: الاسم والبريد والدور. الدور يُشرح بما يستطيعه لا باسمه وحده — "مدير"
 // يعني الإعدادات والفريق والمدفوعات، وهو ما يجب أن يعرفه من يمنحه قبل أن يمنحه.
-export default function InviteStaffDrawer({ onInvite, onClose }) {
+// والدرج نفسه لحسابات المنصّة: roles وdefaultRole وns (مفاتيح النصوص) تتبدّل، والنموذج وفحصه واحد.
+export default function InviteStaffDrawer({
+  onInvite, onClose, roles = STAFF_ROLES, defaultRole = 'TenantStaff', ns = 'admin.staff',
+}) {
   const { t } = useTranslation();
-  const [form, setForm] = useState(inviteToForm);
+  const [form, setForm] = useState(() => inviteToForm(defaultRole));
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
 
-  const problems = submitted ? inviteProblems(form) : {};
+  const problems = submitted ? inviteProblems(form, roles) : {};
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
 
   const submit = async (e) => {
     e.preventDefault();
     setSubmitted(true);
-    if (Object.keys(inviteProblems(form)).length > 0) return;
+    if (Object.keys(inviteProblems(form, roles)).length > 0) return;
     setBusy(true); setError(null);
     try { await onInvite(buildInvitePayload(form)); }
     catch (err) { setError(err.message); setBusy(false); }
   };
 
   return (
-    <Drawer open onClose={onClose} side="right" busy={busy} title={t('admin.staff.inviteTitle')}
+    <Drawer open onClose={onClose} side="right" busy={busy} title={t(`${ns}.inviteTitle`)}
       footer={
         <div className={styles.footActions}>
           <Button variant="ghost" onClick={onClose} disabled={busy}>{t('common.cancel')}</Button>
-          <Button variant="primary" type="submit" form="invite-staff-form" loading={busy}>{t('admin.staff.sendInvite')}</Button>
+          <Button variant="primary" type="submit" form="invite-staff-form" loading={busy}>{t(`${ns}.sendInvite`)}</Button>
         </div>
       }>
       <form id="invite-staff-form" noValidate onSubmit={submit}>
         {error && <ErrorBanner message={error} />}
-        <p className={settingsStyles.sectionHint}>{t('admin.staff.inviteHint')}</p>
+        <p className={settingsStyles.sectionHint}>{t(`${ns}.inviteHint`)}</p>
 
         <FormField label={t('admin.staff.nameLabel')} htmlFor="invite-name"
           error={problems.fullName && t(`admin.staff.problem.${problems.fullName}`)}>
@@ -54,13 +57,13 @@ export default function InviteStaffDrawer({ onInvite, onClose }) {
         </FormField>
 
         <fieldset className={settingsStyles.fieldset}>
-          <legend className={settingsStyles.label}>{t('admin.staff.roleLabel')}</legend>
-          {STAFF_ROLES.map((role) => (
+          <legend className={settingsStyles.label}>{t(`${ns}.roleLabel`)}</legend>
+          {roles.map((role) => (
             <label key={role} className={settingsStyles.roleOption}>
               <input type="radio" name="role" value={role} checked={form.role === role} onChange={set('role')} />
               <span>
-                <b>{t(`admin.staff.role.${role}`)}</b>
-                <span className={settingsStyles.hint}>{t(`admin.staff.roleHint.${role}`)}</span>
+                <b>{t(`${ns}.role.${role}`)}</b>
+                <span className={settingsStyles.hint}>{t(`${ns}.roleHint.${role}`)}</span>
               </span>
             </label>
           ))}

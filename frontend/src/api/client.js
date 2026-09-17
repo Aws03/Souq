@@ -245,6 +245,16 @@ export const api = {
   invitePlatformStoreAdmin: (id, payload) =>
     request(`/platform/tenants/${id}/admins`, { method: 'POST', body: JSON.stringify(payload) }),
 
+  // ── حسابات المنصّة (مضيف المنصّة، platform.users.manage — المالك وحده) ── دعوة بالبريد، وتفعيل/إيقاف يُسقط
+  // جلسة الحساب فوراً على الخادم. لا تعديل دور ولا حذف: الخادم لا يقدّمهما.
+  getPlatformUsers: (params = {}) => request(`/platform/users${toQueryString(params)}`),
+  invitePlatformUser: (payload) => request('/platform/users', { method: 'POST', body: JSON.stringify(payload) }),
+  setPlatformUserStatus: (id, active) =>
+    request(`/platform/users/${id}/status`, { method: 'POST', body: JSON.stringify({ active }) }),
+
+  // ── سجلّ التدقيق (مضيف المنصّة، platform.audit.view) ── ترقيم وتصفية من الخادم: متجر، بادئة فعل، حساب، مدّة.
+  getPlatformAudit: (params = {}) => request(`/platform/audit${toQueryString(params)}`),
+
   // ── تقارير المتجر (أدمن، store.reports.view) ── استجابة واحدة للوحة كاملة: بطاقاتها من
   // لحظة واحدة لا من اثنتي عشرة، والمدّة مفتاح مغلق لا تاريخان من المتصفّح.
   getStoreDashboard: (range = 'Last30Days') => request(`/admin/reports/dashboard?range=${range}`),
