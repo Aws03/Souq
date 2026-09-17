@@ -95,6 +95,8 @@ These cannot be made from the code; they are commercial or legal. Each one's ful
 | **D-13** | Every store connects its own Stripe account, or the platform adopts Stripe Connect | A second store taking live payments |
 | **P-06** | Tax: inclusive or exclusive prices, per-store rates, invoice requirements | Selling where tax must be shown |
 | **P-03** | License and repository visibility (MIT today, with a public remote) | Selling the product |
+| **D-22** | Storefront preview: who may preview a closed store, which states, read-only or not, lifetime, and how the credential crosses hosts ([brief](../04-MODULES/Platform/StorefrontPreview.md)) | Phase 18's storefront preview |
+| **P-07** | Which platform-wide settings exist (`platform.settings.manage` has nothing to guard) | A platform settings screen |
 | ~~D-19~~ | ~~TypeScript and a server-state library for the frontend~~ | **Decided in Phase 17** ([ADR-0037](../11-ADR/0037-frontend-server-state-and-types.md)): a query library is the target, adopted at the first screen rebuilt; TypeScript waits for a CI pipeline |
 
 ## 10. What must never be changed casually

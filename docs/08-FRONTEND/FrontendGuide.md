@@ -79,7 +79,7 @@ The browser cannot *choose* to be the platform: the platform routes only appear 
 | Customer account | store host | `AccountLayout` nested in `CustomerLayout` | `ProtectedRoute` on the shell route | lazy |
 | Authentication | store host and platform host | `AuthLayout` | none | lazy |
 | Store admin | store host, `/admin/*` | `AdminLayout` with `AdminSidebar` and `AdminMobileTabBar` | `AdminRoute`, then `RequirePermission` and `RequireModule` per page | lazy |
-| Platform | platform host, `/platform/*` | `PlatformLayout` with its own navigation | `PlatformRoute`, then `RequirePermission` per page (`platform.reports.view`, `platform.tenants.manage`) | lazy |
+| Platform | platform host, `/platform/*` | `PlatformLayout` with its own navigation | `PlatformRoute`, then `RequirePermission` per page (`platform.reports.view`, `platform.tenants.manage`, `platform.users.manage`, `platform.audit.view`) | lazy |
 
 **Storefront and account routes:** `/` (`Store`), `/offers`, `/products/:handle` (slug or id), `/cart`, `/wishlist` (behind the `wishlist` module), `/track/:token`, `/checkout`, `/confirmation`, `/orders/:id`, and — inside the account shell — `/account` (`Profile`), `/account/addresses` (`Addresses`) and `/orders` (`MyOrders`). Anything the shell holds, plus checkout, confirmation and the order page, requires a session; an unknown path under the storefront renders `NotFound`, not a silent redirect home.
 
@@ -188,7 +188,7 @@ Everything lives in `frontend/src/api/client.js`, with two pure helpers beside i
 
 **Permission strings are literals** in `frontend/src/App.jsx`, `frontend/src/pages/admin/AdminSidebar.jsx` and a few pages (`inventory.manage`, `customers.manage`, `store.payments.manage`, `store.settings.manage`, `orders.view`). They must match `Permissions` in `src/Souq.Application/Common/Security/Permissions.cs`; nothing checks that they still do.
 
-**Platform accounts** sign in on the platform host and land in `PlatformLayout`: the overview (`/platform`), the store list (`/platform/stores`), creating a store (`/platform/stores/new`), the resumable setup wizard (`/platform/stores/:id/setup/:step`), a store's page (`/platform/stores/:id`) and its branding (`/platform/stores/:id/settings`). The branding page and the wizard's branding step are `StoreSettingsEditor` — the component the store's own `/admin/settings` uses — given a different data source. The platform host has no store identity, so `TenantProvider` derives its tokens from the neutral palette per mode (`applyPlatformTheme`). Platform accounts and settings screens and an audit viewer remain **PLANNED**.
+**Platform accounts** sign in on the platform host and land in `PlatformLayout`: the overview (`/platform`), the store list (`/platform/stores`), creating a store (`/platform/stores/new`), the resumable setup wizard (`/platform/stores/:id/setup/:step`), a store's page (`/platform/stores/:id`) and its branding (`/platform/stores/:id/settings`), platform accounts (`/platform/accounts`, `platform.users.manage` — the owner alone) and the activity log (`/platform/audit`, `platform.audit.view`). The branding page and the wizard's branding step are `StoreSettingsEditor` — the component the store's own `/admin/settings` uses — given a different data source. The platform host has no store identity, so `TenantProvider` derives its tokens from the neutral palette per mode (`applyPlatformTheme`). Platform accounts and settings screens and an audit viewer remain **PLANNED**.
 
 ## 8. Tenant and storefront behaviour
 
@@ -221,7 +221,7 @@ Fields the SPA currently ignores: `slug`, `status`, `settings.locale.timeZone`, 
 - **Separate entry rules.** `AdminRoute` for the area, a permission per page, a module flag where the page belongs to an optional module, and the same conditions applied to the navigation.
 - **Shared by design:** the API client, the UI kit, i18n, the design tokens and the money formatter.
 
-Admin screens follow one pattern: a toolbar of filters, a `DataTable` with server paging, row actions in a `RowActionsMenu`, and forms in a `Drawer`. Destructive actions in the store admin still confirm with `window.confirm` in seven screens. `ConfirmDialog` (an `alertdialog` that keeps the server's refusal inside it, with an optional typed confirmation) exists and is used by the platform screens; adopting it in the store admin is **PLANNED** with Phase 17's remaining item.
+Admin screens follow one pattern: a toolbar of filters, a `DataTable` with server paging, row actions in a `RowActionsMenu`, and forms in a `Drawer`. Destructive actions confirm in `ConfirmDialog` — an `alertdialog` that keeps the server's refusal inside it, with an optional typed confirmation — through `useConfirmAction` (`frontend/src/components/common/useConfirmAction.jsx`): `ask({ title, message, confirmLabel, danger, action })` opens it, the action runs only on confirmation, and the dialog closes only on success. No screen uses `window.confirm`. A dialog opened over a drawer closes alone on Escape (`useDialog` keeps a stack of open dialogs).
 
 ## 10. Loading, errors, empty states and toasts
 

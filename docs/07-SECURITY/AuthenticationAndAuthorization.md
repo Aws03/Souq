@@ -71,7 +71,7 @@ classDiagram
 
 **Store permissions:** `catalog.manage`; `inventory.view`, `inventory.manage`; `orders.view`, `orders.manage`; `customers.view`, `customers.manage`; `promotions.manage`; `reviews.moderate`; `store.settings.manage`, `store.staff.manage`, `store.reports.view`, `store.payments.manage`, `store.shipping.manage`.
 
-Two permissions are defined and granted but not yet required by any endpoint: `store.reports.view` and `platform.settings.manage`. Their screens arrive with the dashboards (PLANNED, Phases 17–18); the roles will not change shape when they do.
+One permission is defined and granted but not yet required by any endpoint: `platform.settings.manage`. No platform-wide setting exists for it to guard; deciding what belongs there is open decision P-07. The roles will not change shape when it arrives.
 
 **How permissions are applied:**
 - Permissions are constants (`Permissions.Orders.Manage`). Roles map to them in one table, `RolePermissions`, which both the endpoint policies and the use cases ask.

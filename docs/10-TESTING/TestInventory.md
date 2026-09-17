@@ -10,8 +10,8 @@
 | [`Souq.Domain.Tests`](#souqdomaintests) | 23 | 165 | 34 |
 | [`Souq.Application.Tests`](#souqapplicationtests) | 42 | 288 | 15 |
 | [`Souq.ArchitectureTests`](#souqarchitecturetests) | 13 | 54 | 7 |
-| [`Souq.IntegrationTests`](#souqintegrationtests) | 44 | 222 | 21 |
-| [frontend (Vitest)](#frontend-vitest) | 68 | 493 | — |
+| [`Souq.IntegrationTests`](#souqintegrationtests) | 45 | 227 | 21 |
+| [frontend (Vitest)](#frontend-vitest) | 72 | 520 | — |
 
 ## Souq.Domain.Tests
 
@@ -138,6 +138,7 @@
 | `tests/Souq.IntegrationTests/PaymentDataRulesTests.cs` | `PaymentDataRulesTests` | 2 | 0 |
 | `tests/Souq.IntegrationTests/PaymentsAndRefundsTests.cs` | `PaymentsAndRefundsTests` | 6 | 0 |
 | `tests/Souq.IntegrationTests/PlatformAdministrationTests.cs` | `PlatformAdministrationTests` | 9 | 0 |
+| `tests/Souq.IntegrationTests/PlatformAuditViewerTests.cs` | `PlatformAuditViewerTests` | 5 | 0 |
 | `tests/Souq.IntegrationTests/ProvisioningBoundaryTests.cs` | `ProvisioningBoundaryTests` | 4 | 0 |
 | `tests/Souq.IntegrationTests/QueryServiceTests.cs` | `QueryServiceTests` | 10 | 1 |
 | `tests/Souq.IntegrationTests/ReviewModerationTests.cs` | `ReviewModerationTests` | 4 | 0 |
@@ -177,6 +178,7 @@
 | `frontend/src/components/common/Drawer.test.jsx` | 6 |
 | `frontend/src/components/common/ErrorBoundary.test.jsx` | 5 |
 | `frontend/src/components/common/FormField.test.jsx` | 3 |
+| `frontend/src/components/common/useConfirmAction.test.jsx` | 4 |
 | `frontend/src/components/product/ProductCard.test.jsx` | 7 |
 | `frontend/src/components/store/OpeningExperience.test.jsx` | 12 |
 | `frontend/src/features/account/addressForm.test.js` | 6 |
@@ -200,6 +202,7 @@
 | `frontend/src/features/checkout/shippingOptions.test.js` | 4 |
 | `frontend/src/features/notifications/notificationView.test.js` | 4 |
 | `frontend/src/features/orders/orderView.test.js` | 3 |
+| `frontend/src/features/platform/audit.test.js` | 9 |
 | `frontend/src/features/platform/provisioning.test.js` | 22 |
 | `frontend/src/features/reporting/businessHealth.test.js` | 20 |
 | `frontend/src/features/reporting/chartScales.test.js` | 18 |
@@ -218,10 +221,12 @@
 | `frontend/src/pages/account/AccountLayout.test.jsx` | 6 |
 | `frontend/src/pages/admin/BusinessOverview.test.jsx` | 10 |
 | `frontend/src/pages/admin/Dashboard.test.jsx` | 11 |
-| `frontend/src/pages/admin/Staff.test.jsx` | 7 |
+| `frontend/src/pages/admin/Staff.test.jsx` | 8 |
 | `frontend/src/pages/admin/StoreSettings.test.jsx` | 10 |
 | `frontend/src/pages/checkout/Checkout.test.jsx` | 7 |
 | `frontend/src/pages/checkout/stripeClient.test.js` | 3 |
+| `frontend/src/pages/platform/Accounts.test.jsx` | 6 |
+| `frontend/src/pages/platform/Audit.test.jsx` | 7 |
 | `frontend/src/pages/platform/PlatformOverview.test.jsx` | 5 |
 | `frontend/src/pages/platform/Provisioning.test.jsx` | 13 |
 | `frontend/src/pages/storefrontPages.test.jsx` | 3 |

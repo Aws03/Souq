@@ -56,7 +56,7 @@
 | SEC-AUTHZ-11 | Nobody can disable themselves or the last administrator | Locking a store or the platform out of its own administration | `AccountStatusChanger.SetActiveAsync` (`CannotDisableSelf`, `LastAdministrator`) | `AccountsTests`, `PlatformAdministrationTests` | CURRENT |
 | SEC-AUTHZ-12 | The audit log is append-only | Covering tracks | `TenantWriteGuardInterceptor.GuardAuditAppendOnly` rejects any update or delete of an `AuditEntry` and logs at Critical | `PlatformAdministrationTests` (append-only), `TenantIsolationTests` | CURRENT. Read through `GET /api/platform/audit` behind `platform.audit.view` |
 
-**Permissions with no endpoint today:** `store.reports.view` and `platform.settings.manage` exist in the catalog and are granted, but no endpoint requires them yet (the dashboards are Phases 17–18). Every other permission is used by at least one route.
+**Permission with no endpoint today:** `platform.settings.manage` exists in the catalog and is granted to the platform owner, but no endpoint requires it and no platform-wide setting is defined — what belongs there is open decision P-07 in the [roadmap](../12-ROADMAP/ProductRoadmap.md#7-decision-log). Every other permission is used by at least one route.
 
 ---
 

@@ -168,6 +168,58 @@ reserved twice, **but** separate client secrets so no double charge, and both or
 
 ---
 
+## D-22 — Who may preview a closed store, and how?
+
+**The question.** Phase 18 asks for a storefront preview using a preview token. Five choices decide what that
+token is:
+- who may start a preview;
+- which store states it opens;
+- whether it is read-only;
+- how long it lives and whether it can be revoked;
+- how the credential travels from the platform host to the store's host.
+
+**Why it matters.** A preview token is a key that lets requests past the store-status gate. Answered loosely, it
+can do three kinds of harm:
+- show a store suspended for billing or abuse to people it was closed to;
+- let a closed store collect customers or orders;
+- leave a credential in URLs, logs or browser storage.
+
+Answered too tightly, it gives the owner nothing better than the settings editor's in-frame preview.
+
+**Affected code.** `TenantAvailabilityMiddleware` (the gate), `AccessTokenValidation` (tokens are bound to
+their host, so the owner's session cannot simply be reused), and the platform store page. The options, a
+recommendation for each, and the tests the feature must ship with are in
+[StorefrontPreview.md](../04-MODULES/Platform/StorefrontPreview.md).
+
+| Engineering | Deployment | First paying customer |
+|---|---|---|
+| **Yes** — the preview is not built until this is answered | No | No — provisioning, handover and the readiness checklist work without it |
+
+**Evidence that exists.** `ProvisioningBoundaryTests` and `frontend/e2e/platform-provisioning.spec.js` prove a
+closed store answers `503` to visitors and refuses the platform owner's token.
+**Evidence still required:** none. Only the choice.
+
+**Who decides.** The owner, as a security and product call.
+
+---
+
+## P-07 — What is a platform-wide setting?
+
+**The question.** `platform.settings.manage` is granted to the platform owner, but no endpoint requires it and
+no platform-wide setting exists. Which settings should exist? Candidates include the platform's name as shown in
+the console and in platform emails (a constant today), defaults for a new store, and a support contact.
+
+**Why it matters.** Engineering could build a settings screen, but without a decided setting it would either
+edit nothing or invent product behaviour.
+
+| Engineering | Deployment | First paying customer |
+|---|---|---|
+| **Yes** — for a platform settings screen only | No | No |
+
+**Who decides.** The owner, as a product call.
+
+---
+
 ## Smaller choices that are also not engineering's
 
 | Decision | The question | Consequence of leaving it |

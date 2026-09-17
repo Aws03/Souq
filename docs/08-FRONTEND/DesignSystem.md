@@ -152,7 +152,7 @@ Arabic and English are not two string tables over one layout. The rules:
 | Motion | `prefers-reduced-motion` removes both the transitions and the transforms (§4) |
 | Structure | One `<h1>` per page, sections labelled, the range picker is a `role="group"` with a label |
 | Labels | `FormField` gives its label and message to the control it wraps, including `PasswordInput` |
-| Automated checks | `frontend/src/a11y.test.jsx` runs axe-core over rendered pages; `frontend/e2e/store-administration.spec.js` and `frontend/e2e/platform-provisioning.spec.js` run it in a real browser, the latter in dark mode too, where colour contrast can actually be measured |
+| Automated checks | `frontend/src/a11y.test.jsx` runs axe-core over rendered pages; `frontend/e2e/store-administration.spec.js`, `frontend/e2e/platform-provisioning.spec.js` and `frontend/e2e/back-office.spec.js` run it in a real browser, the latter in dark mode too, where colour contrast can actually be measured |
 
 Automated checks find perhaps a third of real accessibility defects. The rest came from opening the pages.
 

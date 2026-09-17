@@ -193,7 +193,7 @@ Controllers: `src/Souq.API/Controllers/PlatformControllers.cs`, `src/Souq.API/Co
 
 ## Security and permissions
 
-- `platform.tenants.manage` (PlatformOwner, PlatformAdmin) runs stores. `platform.users.manage` and `platform.settings.manage` are the owner's alone. `platform.audit.view` and `platform.reports.view` are granted to both platform roles. `platform.settings.manage` is currently **used by no endpoint**.
+- `platform.tenants.manage` (PlatformOwner, PlatformAdmin) runs stores. `platform.users.manage` and `platform.settings.manage` are the owner's alone. `platform.audit.view` and `platform.reports.view` are granted to both platform roles. `platform.settings.manage` is currently **used by no endpoint**, and no platform-wide setting exists (open decision P-07).
 - Every controller in the platform area carries `[PlatformEndpoint]`, so it 404s on a store host, and a store token (which carries `tid`) is rejected with 401 on a platform host. `AuthorizationBoundaryTests` proves both, and also that no platform endpoint is anonymous.
 - Store-side settings endpoints carry no store id anywhere in the route: the store is the host's store, so editing another store's settings is impossible by construction rather than by a check that could be forgotten.
 - Branding files are never URLs from the client: the server generates the path under `/uploads/tenants/{id}/branding/`, the file type comes from sniffed content ([ADR-0016](../../11-ADR/0016-upload-validation.md)), and `Tenant.SetBrandingAsset` refuses any path outside that store's prefix.
@@ -298,7 +298,8 @@ Details in [ChangeGuide.md](ChangeGuide.md): adding a store setting; adding a mo
 - **The directory and storefront caches are per-process.** With more than one API instance, a suspension or a branding change takes up to 60 s to reach the others, and each instance computes its own ETag.
 - **The settings document cannot be queried inside.** "Find every store whose contact email is X" means scanning JSON.
 - **Audit gaps across scopes.** When a platform command writes inside a store (`InviteTenantAdminCommand`, `UpdateTenantPaymentAccountCommand`, `RemoveTenantPaymentAccountCommand`), the work commits in the store's `DbContext` while the audit line commits in the platform's — a crash in between leaves a change without its line. [ADR-0024](../../11-ADR/0024-platform-administration.md) records this for "two platform commands" and suggests the outbox (Phase 14) could close it; Phase 14 shipped and the gap is still open, and the payment commands were added to it in Phase 11.
-- **The audit log has no retention or purge**, no export, and no store-facing viewer (an audit viewer for store admins is **PLANNED**, Phase 17).
+- **The audit log has no retention or purge**, no export, and no store-facing viewer (an audit viewer for store admins is **PLANNED**, Phase 17). The platform viewer (`/platform/audit`) reads it with the server's filters and paging and says on screen what the log does not contain.
+- **An audit line names ids, not people or stores.** `AuditEntryDto` carries the actor's id and role and the store's id; the viewer shows them as such rather than fetching names, because every platform read is itself an audit line and a store's accounts are outside the platform's scope.
 - **Store queries are not audited** — only platform-area requests and store-side commands are. Sign-ins, sign-outs and other Identity events are not audited at all.
 - **`Archive` is terminal but empty.** No data export, anonymization or deletion happens; the store simply stops serving.
 - **No plans, quotas or subscriptions.** Module flags are the only commercial lever, and they are a fixed set of three keys.
@@ -307,7 +308,9 @@ Details in [ChangeGuide.md](ChangeGuide.md): adding a store setting; adding a mo
 ## Future evolution
 
 - **PLANNED (Phase 17 follow-up):** a store-facing audit view.
-- **PLANNED (Phase 18, remaining):** storefront preview with a preview token, platform accounts and settings screens (the home for `platform.users.manage` and `platform.settings.manage`), and an audit-log viewer. The store list, provisioning wizard and store page are delivered — see [FrontendArchitecture.md](../../08-FRONTEND/FrontendArchitecture.md) §5.
+- **DECISION REQUIRED (Phase 18, remaining):** storefront preview with a preview token — who may preview, which states, what a preview may do, lifetime and revocation, and how the credential crosses hosts. The brief is [StorefrontPreview.md](StorefrontPreview.md) (D-22).
+- **DECISION REQUIRED:** platform-wide settings (`platform.settings.manage`) — no setting is defined (P-07).
+- The store list, provisioning wizard, store page, platform accounts (`/platform/accounts`) and the activity log (`/platform/audit`) are delivered — see [FrontendArchitecture.md](../../08-FRONTEND/FrontendArchitecture.md) §5.
 - **PLANNED (Phase 23):** automated TLS and DNS verification for custom domains; per-store email-domain authentication.
 - **DEFERRED:** plans and subscriptions ("after launch" in the roadmap's Phase 4 notes).
 - **FUTURE:** an audited "support mode" that lets the platform act inside a store — described in [MultiTenancy.md](../../02-ARCHITECTURE/MultiTenancy.md) and [AuthenticationAndAuthorization.md](../../07-SECURITY/AuthenticationAndAuthorization.md) as Phase 18, but absent from the roadmap's Phase 18 scope.
