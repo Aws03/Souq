@@ -105,9 +105,9 @@
 - **Security:** consent and opt-out are part of the feature; never log addresses or tokens.
 - **Docs and ADR:** a new ADR (a new outbound message type and new personal data).
 
-## I need shoppers to choose a variant in the basket (PLANNED, V3)
+## I need to change how shoppers choose a variant (BUILT, V3)
 
-The server side is built ([ADR-0039](../../11-ADR/0039-product-variants-order-identity.md)), and merchants define options and variants since V2 ([ADR-0040](../../11-ADR/0040-product-option-model.md)): what remains is the storefront (V3 in [ProductVariants.md](../Catalog/ProductVariants.md)). `PricedLine.VariantLabel` is already composed from the options. Remove the temporary storefront gate (BR-CAT-24) in the same change.
+Built in V3 ([ADR-0041](../../11-ADR/0041-storefront-variant-selection.md)): the picker lives in `frontend/src/components/product/VariantPicker.jsx` over the pure algorithm in `frontend/src/features/catalog/variantSelection.js`, and the basket carries the chosen variant id. `PricedLine` composes the label per language (`VariantLabels`) for live display, and freezes `VariantLabel` on the order line.
 
 - **Inspect:** `AddBasketItemCommand` (optional `VariantId`) and `AddBasketItemHandler` (`Product.FindVariant`, `Product.CanSell`, `Product.ImplicitVariant`), `BasketLines.ByProduct` and `BasketLines.ByVariant`, `PricingLine` and `PricedLine` (`VariantId`, `VariantLabel`, `Sku`, `VariantRequired`), `BasketCheckout` (consumption per variant), `frontend/src/api/client.js` (product-keyed basket calls), `frontend/src/context/CartContext.jsx`, `frontend/src/features/basket/basketModel.js` (already carries `variantId`).
 - **Rules to respect:** the server decides which variant is bought; the client only names one. A product with several active variants needs an explicit choice (P-08c), and sold-out values stay visible but disabled. Never fall back to the default variant in the client.

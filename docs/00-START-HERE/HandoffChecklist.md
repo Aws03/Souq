@@ -10,7 +10,7 @@ At the last verification:
 - **Branches.** All work is on `phase/17-production-hardening`. It contains every earlier phase branch (`phase/1a-…`, `phase/1b-…`, `phase/2-15-…`, `phase/16-…`) and is **147 commits ahead of `main`**, which holds only Phase 1A. **Nothing on this branch has been pushed** (it has no upstream) **or merged.** Deciding how it reaches `main` is the first decision a new owner makes.
 - **Product.**
   - Roadmap Phases 1A–15 are complete.
-  - Phase 16 (Storefront) is 🟡: product variants can't be chosen yet (P-08 decided; V1 groundwork and V2 options and merchant admin built; V3 remains).
+  - Phase 16 (Storefront) is 🟡: product variants can't be chosen yet — **now ✅ with V3**: shoppers choose a variant ([ADR-0041](../11-ADR/0041-storefront-variant-selection.md)); only V4 reporting remains.
   - Phase 17 (Tenant admin dashboard) is ✅.
   - Phase 18 (Platform owner dashboard) is 🟡, waiting on owner decisions D-22 and P-07.
   - Phases 19–23 have not started.
@@ -140,7 +140,7 @@ Detail: [Payments module](../04-MODULES/Payments/README.md), [OwnerDecisions.md]
 - [ ] [ProductRoadmap.md](../12-ROADMAP/ProductRoadmap.md) status line and decision log read.
 - [ ] Next product work agreed. At the last verification, the options were:
   - storefront preview once D-22 is decided;
-  - product variants: the storefront selection (V3), after the owner confirms two presentation questions, per [ProductVariants.md](../04-MODULES/Catalog/ProductVariants.md);
+  - product variants: V4 — reporting per variant and the relabelled stock KPI, per [ProductVariants.md](../04-MODULES/Catalog/ProductVariants.md);
   - the roadmap's Phase 19 (Testing) and Phase 20 (Security review);
   - the engineering-owned release blockers.
 - [ ] Engineering missions (hardening, knowledge passes) take a name, not a roadmap number (`AGENTS.md` §5).

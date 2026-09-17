@@ -24,7 +24,7 @@
 
 ### Running the Playwright journeys
 
-`frontend/e2e/` holds 77 journeys in 9 files. They drive a real browser against a real stack, so they need one running:
+`frontend/e2e/` holds 83 journeys in 10 files. They drive a real browser against a real stack, so they need one running:
 
 1. **SQL Server reachable from the host on `localhost,1433`.** The `docker compose` stack does **not** serve this: its `db` service publishes no port, so a locally run API cannot reach it. Use a SQL Server of your own with a published port, as in [DevelopmentGuide.md](DevelopmentGuide.md) §1.
 2. **The API in Development**, with its output written to a file: `dotnet run --project src/Souq.API --urls http://localhost:5200 > /tmp/souq-api.log 2>&1`. Port 5200 is what `launchSettings.json` and the Vite proxy expect. Development seeds the demo default store and the development accounts — admin@souq.com / Admin@123 (store admin) and owner@souq.com / Owner@12345 (platform owner) — which the journeys sign in with.

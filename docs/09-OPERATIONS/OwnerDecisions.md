@@ -216,13 +216,13 @@ closed store answers `503` to visitors and refuses the platform owner's token.
 
 **What happened next.** The groundwork (V1) is built: order lines record the variant, basket and checkout carry it, and stock is administered per variant. The option model and merchant admin (V2) are built ([ADR-0040](../11-ADR/0040-product-option-model.md)): merchants define options and manage variants, and until V3 a product with more than one active variant is not shown in the storefront. The storefront selection (V3) is unblocked apart from the two confirmations below. The status and remaining plan are in [ProductVariants.md](../04-MODULES/Catalog/ProductVariants.md).
 
-**Still to confirm before V3 is built** (presentation defaults from the proposal, not covered by the answers above; **still open** — V2 did not answer them):
-- deactivated variants are hidden from shoppers rather than shown disabled;
-- a product with no purchasable variant stays listed as "unavailable".
+**The two presentation questions — answered in V3** (2026-09-17, [ADR-0041](../11-ADR/0041-storefront-variant-selection.md)). They were resolved from the repository's own lifecycle rules, not by a new product call, and either can be reversed by the owner with one condition in the read model:
+- **deactivated variants are hidden from shoppers** (a deactivated variant is a withdrawal from sale, like unpublishing a product, which disappears from the storefront), while **sold-out active variants stay visible and disabled** as P-08c requires;
+- **a product whose variants are all sold out stays listed as unavailable**, exactly as an out-of-stock simple product does today.
 
 | Engineering | Deployment | First paying customer |
 |---|---|---|
-| No longer blocked | No | No — unless that customer's catalogue needs variants before V3 ships |
+| No longer blocked; V1, V2 and V3 are built | No | No — a catalogue with sizes and colours now works end to end |
 
 ---
 

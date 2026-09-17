@@ -1,6 +1,6 @@
 # ADR-0040: Product options and variants as combinations, managed by the merchant
 
-- **Status:** Accepted, 2026-09-17. Implements V2 of [ProductVariants.md](../04-MODULES/Catalog/ProductVariants.md). The storefront selection (V3) is not built.
+- **Status:** Accepted, 2026-09-17. Implements V2 of [ProductVariants.md](../04-MODULES/Catalog/ProductVariants.md). Its temporary storefront gate was **removed by [ADR-0041](0041-storefront-variant-selection.md)** when the shopper's selection (V3) was built.
 - **Date:** 2026-09-17
 - **Related modules:** Catalog; Inventory; Shopping; Ordering; Notifications
 - **Related ADRs:** implements the option model decided in [ADR-0039](0039-product-variants-order-identity.md) (P-08a); keeps the default variant of [ADR-0025](0025-catalog-model.md) (D-21); opens stock through the port of [ADR-0026](0026-inventory-reservations.md); concurrency per [ADR-0013](0013-optimistic-concurrency.md); per-language texts per D-10; error codes per [ADR-0017](0017-error-contract.md); same-store keys per [ADR-0022](0022-tenancy-enforcement.md)
@@ -35,7 +35,7 @@ P-08a set the shape: **structured named options, at most 3 per product, 20 value
 | Product-level price and SKU (`PUT /api/products/{id}`) on a product with options | Accepted only if **unchanged**: an old client that sends back what it read can still rename the product. A real change answers `422 ProductHasVariants`. The admin form locks the fields and sends the read values | Ignoring the fields silently: a merchant believes a price changed. Refusing any PUT: breaks every existing client |
 | Creating variants | `POST variants` takes a batch (the admin's "create missing combinations"). Each item names value ids and sets price, compare-at, SKU, opening stock, threshold and active flag. **The batch is created all-or-nothing**, and its stock rows are opened through `IVariantStockInitializer` in the same transaction. The server resolves every value id inside the product; the browser's proposed combinations are never trusted | Generating all combinations on the server: a merchant rarely sells the full matrix (up to 8,000 combinations) |
 | The default variant | Movable (`PUT .../default`) to an **active** variant (`DefaultVariantMustBeActive`); the default can't be deactivated (`DefaultVariantCannotBeDeactivated`, and the V1 check constraint) | A fixed default: the original variant could never be retired |
-| The storefront before V3 | **Temporary gate:** storefront projections (`CatalogQueries` lists, detail, related products, and `WishlistQueries`) show a product only while it has **exactly one active variant**, the one the storefront can buy by product id. Storefront stock sums active variants only. The admin page tells the merchant, and new variants default to inactive while the product is visible. **V3 removes the gate** | Showing it: "Add to cart" would fail with `VariantRequired`. Refusing to publish a product with several variants: a merchant would have to unpublish a selling product to prepare sizes. Deciding a V3 presentation question now: the owner hasn't (§10 of ProductVariants.md) |
+| The storefront before V3 (**removed in [ADR-0041](0041-storefront-variant-selection.md)**) | **Temporary gate:** storefront projections (`CatalogQueries` lists, detail, related products, and `WishlistQueries`) show a product only while it has **exactly one active variant**, the one the storefront can buy by product id. Storefront stock sums active variants only. The admin page tells the merchant, and new variants default to inactive while the product is visible. **V3 removes the gate** | Showing it: "Add to cart" would fail with `VariantRequired`. Refusing to publish a product with several variants: a merchant would have to unpublish a selling product to prepare sizes. Deciding a V3 presentation question now: the owner hasn't (§10 of ProductVariants.md) |
 | Where the label is composed | One Domain rule, `VariantLabels.Compose`: value names in option order, joined by `" / "`, each in the requested culture or else the first available. It is used by `Product.VariantLabel` for the order snapshot, pricing and the low-stock notification, and by the inventory projection | A second composition in SQL or the frontend: the rules would drift. (The admin page composes labels in the interface language with the same rule in `variantModel.js`, for display only) |
 | The low-stock notification | The Notifications handler already loads the product for its name and now reads `Product.VariantLabel(variantId, culture)`, adding `variantId` and `variantLabel` to the data. Inventory still knows nothing about options, and the module-dependency ratchet is unchanged | Putting the label on the `StockBecameLow` event: Inventory would need Catalog's option model |
 
@@ -87,7 +87,7 @@ The options marked "Chosen" above.
   - Duplicate combinations, a variant with a missing value, a removed value that a variant uses, and cross-store value references are impossible even at the database level. Concurrent structural edits of one product are detected.
   - Single-variant products and historical orders are unchanged; the migration moves no rows.
 - **Negative / limits:**
-  - **Until V3, a product with more than one active variant is not shown in the storefront at all.** This is deliberate and temporary: the admin page says so, and new variants default to inactive on a visible product.
+  - ~~Until V3, a product with more than one active variant is not shown in the storefront at all.~~ **Removed in [ADR-0041](0041-storefront-variant-selection.md):** the storefront shows it and the shopper chooses. New variants are created active, and the admin page no longer warns about hiding.
   - A value used by an inactive variant can never be removed, only renamed. That is the price of never deleting variants.
   - The `PUT options` body is the whole definition. A client that edits from a stale read may remove a value another admin just added; the concurrency guard catches a simultaneous save but not a stale form submitted later.
   - The order-line label is a snapshot in the store's default culture only, as before.
@@ -96,7 +96,7 @@ The options marked "Chosen" above.
 
 ## Revisit when
 
-- **V3:** remove the storefront gate from `CatalogQueries` and `WishlistQueries`; add the option and variant lists to `ProductDto`; build the picker; decide the two open presentation questions (§10 of ProductVariants.md).
+- ~~**V3:** remove the storefront gate…~~ **Done in [ADR-0041](0041-storefront-variant-selection.md)**, which also answered the two presentation questions.
 - A merchant needs to reorder variants manually, or attach a gallery image to a variant.
 - A store needs more than 3 options, 20 values or 100 variants. That is a new owner decision, not a constant change.
 

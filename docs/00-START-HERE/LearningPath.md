@@ -147,7 +147,7 @@
 **Read:** the status line and the Phase 16–18 sections of [ProductRoadmap.md](../12-ROADMAP/ProductRoadmap.md), its decision log (§7), [OwnerDecisions.md](../09-OPERATIONS/OwnerDecisions.md), [TechnicalDebt.md](../12-ROADMAP/TechnicalDebt.md) and [RiskRegister.md](../02-ARCHITECTURE/RiskRegister.md).
 **State at the last verification:**
 - Phases 1A–15 are complete.
-- Phase 16 (Storefront) is 🟡: product variants can't be chosen yet. P-08 is decided, and the groundwork (V1) and the option model with its merchant admin (V2) are built; the storefront selection (V3) remains ([ProductVariants.md](../04-MODULES/Catalog/ProductVariants.md)).
+- Phase 16 (Storefront) is ✅: product variants are chosen in the storefront since V3 ([ProductVariants.md](../04-MODULES/Catalog/ProductVariants.md)); V4 (reporting per variant) remains and blocks nothing.
 - Phase 17 (Tenant admin dashboard) is ✅.
 - Phase 18 (Platform owner dashboard) is 🟡, waiting only on owner decisions D-22 (storefront preview) and P-07 (platform-wide settings).
 

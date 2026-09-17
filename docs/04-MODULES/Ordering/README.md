@@ -342,7 +342,7 @@ Add a status · change cancellation rules · change what happens on payment succ
 10. A refund never changes the order status, and never gives back a coupon use or stock ([ADR-0031](../../11-ADR/0031-payments-and-refunds.md), [ADR-0030](../../11-ADR/0030-coupon-redemptions.md)).
 11. The customer's free-text cancellation reason is stored and shown to staff.
 12. The order email shows each line's **purchased** name and price, not the catalogue's current ones — deliberate, because the invoice must not change when the catalogue does.
-13. **Order lines placed before variants were recorded have no SKU or variant label,** and never will: filling them from today's catalogue would invent invoice data. Their `VariantId` is exact. Lines placed since V2 carry the label composed from the variant's option values ([ADR-0040](../../11-ADR/0040-product-option-model.md)); the order screens and email don't show SKU or label yet, which arrives with the storefront selection (V3 in [ProductVariants.md](../Catalog/ProductVariants.md)).
+13. **Order lines placed before variants were recorded have no SKU or variant label,** and never will: filling them from today's catalogue would invent invoice data. Their `VariantId` is exact. Lines placed since V2 carry the label composed from the variant's option values ([ADR-0040](../../11-ADR/0040-product-option-model.md)), and since V3 the customer's order page, the admin order drawer and the order email print it ([ADR-0041](../../11-ADR/0041-storefront-variant-selection.md)). The SKU snapshot is still not displayed anywhere.
 
 ## Future evolution
 
