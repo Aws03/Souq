@@ -4,6 +4,7 @@ import { api } from '../../api/client';
 import { useToast } from '../../context/ToastContext';
 import FormField, { inputClass } from '../../components/common/FormField';
 import Button from '../../components/common/Button';
+import { useConfirmAction } from '../../components/common/useConfirmAction';
 import Spinner from '../../components/common/Spinner';
 import { ErrorBanner } from '../../components/common/StateViews';
 import { formatDateTime } from '../../i18n';
@@ -16,6 +17,7 @@ import styles from './Payments.module.css';
 export default function Payments() {
   const { t } = useTranslation();
   const toast = useToast();
+  const confirmation = useConfirmAction();
   const [account, setAccount] = useState(null);
   const [form, setForm] = useState(accountToForm(null));
   const [error, setError] = useState(null);
@@ -50,19 +52,17 @@ export default function Payments() {
     }
   };
 
-  const disconnect = async () => {
-    if (!window.confirm(t('admin.payments.confirmDisconnect'))) return;
-    setBusy(true);
-    try {
+  const disconnect = () => confirmation.ask({
+    title: t('admin.payments.confirmDisconnect.title'),
+    message: t('admin.payments.confirmDisconnect.message'),
+    confirmLabel: t('admin.payments.confirmDisconnect.action'),
+    danger: true,
+    action: async () => {
       await api.removeStorePayments();
       toast.success(t('admin.payments.disconnected'));
       load();
-    } catch (err) {
-      toast.error(err.message);
-    } finally {
-      setBusy(false);
-    }
-  };
+    },
+  });
 
   if (loadError) return <ErrorBanner message={loadError} />;
   if (!account) return <div className={styles.loading}><Spinner size={26} /></div>;
@@ -123,6 +123,7 @@ export default function Payments() {
           </div>
         </form>
       )}
+      {confirmation.dialog}
     </div>
   );
 }

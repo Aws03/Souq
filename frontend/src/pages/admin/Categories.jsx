@@ -5,6 +5,7 @@ import { useToast } from '../../context/ToastContext';
 import DataTable from '../../components/common/DataTable';
 import RowActionsMenu from '../../components/common/RowActionsMenu';
 import Button from '../../components/common/Button';
+import { useConfirmAction } from '../../components/common/useConfirmAction';
 import { getCategoryName } from '../../components/product/ProductBadges';
 import { activationPayload, orderAsTree } from '../../features/admin/categories/categoryForm';
 import CategoryFormDrawer from './CategoryFormDrawer';
@@ -15,6 +16,7 @@ import styles from './Admin.module.css';
 export default function Categories() {
   const { t } = useTranslation();
   const toast = useToast();
+  const confirmation = useConfirmAction();
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -52,14 +54,17 @@ export default function Categories() {
     } catch (e) { toast.error(e.message); }
   };
 
-  const remove = async (category) => {
-    if (!window.confirm(t('admin.categories.confirmDelete', { name: getCategoryName(category) }))) return;
-    try {
+  const remove = (category) => confirmation.ask({
+    title: t('admin.categories.confirmDelete.title', { name: getCategoryName(category) }),
+    message: t('admin.categories.confirmDelete.message'),
+    confirmLabel: t('admin.categories.confirmDelete.action'),
+    danger: true,
+    action: async () => {
       await api.deleteCategory(category.id);
       toast.success(t('admin.categories.deleted'));
       load();
-    } catch (e) { toast.error(e.message); }
-  };
+    },
+  });
 
   const columns = [
     {
@@ -105,6 +110,7 @@ export default function Categories() {
         <CategoryFormDrawer category={editing.id ? editing : null} categories={rows}
           onSave={save} onClose={() => setEditing(null)} />
       )}
+      {confirmation.dialog}
     </div>
   );
 }

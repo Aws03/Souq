@@ -6,6 +6,7 @@ import DataTable from '../../components/common/DataTable';
 import RowActionsMenu from '../../components/common/RowActionsMenu';
 import Pagination from '../../components/common/Pagination';
 import Button from '../../components/common/Button';
+import { useConfirmAction } from '../../components/common/useConfirmAction';
 import ProductImage from '../../components/product/ProductImage';
 import { formatPrice, getCategoryName } from '../../components/product/ProductBadges';
 import { SearchIcon } from '../../components/icons/Icons';
@@ -23,6 +24,7 @@ const STATUS_STYLE = { Active: 'delivered', Draft: 'pending', Archived: 'cancell
 export default function Products() {
   const { t } = useTranslation();
   const toast = useToast();
+  const confirmation = useConfirmAction();
   const [items, setItems] = useState([]);
   const [totalPages, setTotalPages] = useState(1);
   const [page, setPage] = useState(1);
@@ -63,13 +65,25 @@ export default function Products() {
     load();
   };
 
+  const applyStatus = async (product, target) => {
+    await api.setProductStatus(product.id, target);
+    toast.success(t(`admin.products.statusChanged.${target}`));
+    load();
+  };
+
+  // الأرشفة وحدها تُؤكَّد: تُخفي المنتج من المتجر. النشر والإخفاء المؤقّت والاستعادة تُنفَّذ مباشرة كما كانت.
   const changeStatus = async (product, target) => {
-    if (target === 'Archived' && !window.confirm(t('admin.products.confirmArchive', { name: product.name }))) return;
-    try {
-      await api.setProductStatus(product.id, target);
-      toast.success(t(`admin.products.statusChanged.${target}`));
-      load();
-    } catch (e) { toast.error(e.message); }
+    if (target === 'Archived') {
+      confirmation.ask({
+        title: t('admin.products.confirmArchive.title', { name: product.name }),
+        message: t('admin.products.confirmArchive.message'),
+        confirmLabel: t('admin.products.confirmArchive.action'),
+        danger: true,
+        action: () => applyStatus(product, target),
+      });
+      return;
+    }
+    try { await applyStatus(product, target); } catch (e) { toast.error(e.message); }
   };
 
   const statusActions = (p) => {
@@ -143,6 +157,7 @@ export default function Products() {
         <ProductFormDrawer product={editing.id ? editing : null} categories={categories}
           onSave={save} onImagesChanged={load} onClose={() => setEditing(null)} />
       )}
+      {confirmation.dialog}
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { api } from '../../api/client';
 import Drawer from '../../components/common/Drawer';
 import FormField, { inputClass } from '../../components/common/FormField';
 import Button from '../../components/common/Button';
+import { useConfirmAction } from '../../components/common/useConfirmAction';
 import { ErrorBanner } from '../../components/common/StateViews';
 import { CameraIcon, VideoIcon, CloseIcon } from '../../components/icons/Icons';
 import { getCategoryName } from '../../components/product/ProductBadges';
@@ -24,6 +25,7 @@ const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 export default function ProductFormDrawer({ product, categories, onSave, onImagesChanged, onClose }) {
   const { t } = useTranslation();
   const isEdit = !!product;
+  const confirmation = useConfirmAction();
   const [texts, setTexts] = useState(() => textsToForm(product?.translations));
   const [slug, setSlug] = useState(product?.slug ?? '');
   const [sku, setSku] = useState(product?.sku ?? '');
@@ -81,13 +83,18 @@ export default function ProductFormDrawer({ product, categories, onSave, onImage
     try { await action(); onImagesChanged?.(); } catch (err) { setError(err.message); } finally { setBusy(false); }
   };
 
-  const removeImage = (image) => {
-    if (!window.confirm(t('admin.productForm.confirmRemoveImage'))) return;
-    runGallery(async () => {
+  // التأكيد حوار فوق الدرج: Escape يغلق الحوار وحده (useDialog)، ورفض الخادم يُقرأ داخل الحوار.
+  const removeImage = (image) => confirmation.ask({
+    title: t('admin.productForm.confirmRemoveImage.title'),
+    message: t('admin.productForm.confirmRemoveImage.message'),
+    confirmLabel: t('admin.productForm.confirmRemoveImage.action'),
+    danger: true,
+    action: async () => {
       await api.removeProductImage(product.id, image.id);
       setImages((list) => list.filter((i) => i.id !== image.id));
-    });
-  };
+      onImagesChanged?.();
+    },
+  });
 
   // الترتيب الجديد يشمل كل الصور (عقد الخادم): المختارة أولاً ثم البقية كما هي.
   const makePrimary = (image) => runGallery(async () => {
@@ -277,6 +284,7 @@ export default function ProductFormDrawer({ product, categories, onSave, onImage
           </FormField>
         )}
       </form>
+      {confirmation.dialog}
     </Drawer>
   );
 }

@@ -6,6 +6,7 @@ import DataTable from '../../components/common/DataTable';
 import RowActionsMenu from '../../components/common/RowActionsMenu';
 import Pagination from '../../components/common/Pagination';
 import Button from '../../components/common/Button';
+import { useConfirmAction } from '../../components/common/useConfirmAction';
 import { formatPrice } from '../../components/product/ProductBadges';
 import { formatDate } from '../../i18n';
 import { getStoreCurrency } from '../../app/tenantModel';
@@ -20,6 +21,7 @@ const PAGE_SIZE = 20;
 export default function Coupons() {
   const { t } = useTranslation();
   const toast = useToast();
+  const confirmation = useConfirmAction();
   const [items, setItems] = useState([]);
   const [totalPages, setTotalPages] = useState(1);
   const [page, setPage] = useState(1);
@@ -53,14 +55,17 @@ export default function Coupons() {
     load();
   };
 
-  const remove = async (coupon) => {
-    if (!window.confirm(t('admin.coupons.confirmDelete', { code: coupon.code }))) return;
-    try {
+  const remove = (coupon) => confirmation.ask({
+    title: t('admin.coupons.confirmDelete.title', { code: coupon.code }),
+    message: t('admin.coupons.confirmDelete.message'),
+    confirmLabel: t('admin.coupons.confirmDelete.action'),
+    danger: true,
+    action: async () => {
       await api.deleteCoupon(coupon.id);
       toast.success(t('admin.coupons.deleted'));
       load();
-    } catch (e) { toast.error(e.message); }
-  };
+    },
+  });
 
   // ترتيب الأعمدة وعرضها ثابتان (colgroup في DataTable) — لا يتفاوتان حسب طول
   // المحتوى، فيبقى الجدول محاذىً بانتظام على كل صف.
@@ -121,6 +126,7 @@ export default function Coupons() {
         <CouponFormDrawer coupon={editing.id ? editing : null} onSave={save} onClose={() => setEditing(null)} />
       )}
       {viewing && <CouponRedemptionsDrawer coupon={viewing} onClose={() => setViewing(null)} />}
+      {confirmation.dialog}
     </div>
   );
 }

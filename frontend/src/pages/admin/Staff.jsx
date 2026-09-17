@@ -9,6 +9,7 @@ import DataTable from '../../components/common/DataTable';
 import Pagination from '../../components/common/Pagination';
 import RowActionsMenu from '../../components/common/RowActionsMenu';
 import Button from '../../components/common/Button';
+import { useConfirmAction } from '../../components/common/useConfirmAction';
 import { formatDateTime } from '../../i18n';
 import { PAGE_SIZE, accountState, staffActions } from '../../features/admin/staff/staffView';
 import InviteStaffDrawer from './InviteStaffDrawer';
@@ -24,6 +25,7 @@ const STATE_BADGE = { active: styles.delivered, invited: styles.pending, disable
 export default function Staff() {
   const { t } = useTranslation();
   const toast = useToast();
+  const confirmation = useConfirmAction();
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
@@ -47,8 +49,23 @@ export default function Staff() {
     reload();
   };
 
+  const disable = async (account) => {
+    await api.setStaffStatus(account.id, false);
+    toast.success(t('admin.staff.disabled', { name: account.fullName }));
+    reload();
+  };
+
   const run = async (account, action) => {
-    if (action === 'disable' && !window.confirm(t('admin.staff.confirmDisable', { name: account.fullName }))) return;
+    if (action === 'disable') {
+      confirmation.ask({
+        title: t('admin.staff.confirmDisable.title', { name: account.fullName }),
+        message: t('admin.staff.confirmDisable.message'),
+        confirmLabel: t('admin.staff.confirmDisable.action'),
+        danger: true,
+        action: () => disable(account),
+      });
+      return;
+    }
     setPendingId(account.id);
     try {
       if (action === 'resend') {
@@ -123,6 +140,7 @@ export default function Staff() {
       {data && <Pagination page={page} totalPages={data.totalPages} onChange={setPage} />}
 
       {inviting && <InviteStaffDrawer onInvite={invite} onClose={() => setInviting(false)} />}
+      {confirmation.dialog}
     </div>
   );
 }

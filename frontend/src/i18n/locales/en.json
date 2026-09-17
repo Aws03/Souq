@@ -340,7 +340,11 @@
       "unpublish": "Move to draft",
       "archive": "Archive",
       "restore": "Restore as draft",
-      "confirmArchive": "Archive product \"{{name, bidi}}\"? It disappears from the store, stays on past orders, and can be restored later.",
+      "confirmArchive": {
+        "title": "Archive the product \"{{name, bidi}}\"?",
+        "message": "It disappears from the store, stays on past orders, and can be restored later.",
+        "action": "Archive product"
+      },
       "statusChanged": {
         "Active": "Product published",
         "Draft": "Product moved to draft (hidden from the store)",
@@ -401,7 +405,11 @@
       "primaryImage": "Main image",
       "makePrimary": "Make main",
       "removeImage": "Remove",
-      "confirmRemoveImage": "Remove this image from the product?",
+      "confirmRemoveImage": {
+        "title": "Remove this image?",
+        "message": "The image is removed from the product straight away, not when you save the form.",
+        "action": "Remove image"
+      },
       "galleryFull": "This product has the maximum number of images — remove one to add another.",
       "nameLabel": "Product name (Arabic)",
       "nameEnLabel": "Product name (English)",
@@ -454,7 +462,11 @@
       "deactivated": "The category and its products are hidden from the store",
       "emptyTitle": "No categories yet",
       "emptyMessage": "Add your first category to organize your products.",
-      "confirmDelete": "Delete category \"{{name, bidi}}\"?",
+      "confirmDelete": {
+        "title": "Delete the category \"{{name, bidi}}\"?",
+        "message": "Deleting can't be undone. A category that still holds products or subcategories can't be deleted.",
+        "action": "Delete category"
+      },
       "deleted": "Category deleted",
       "updated": "Category updated",
       "created": "Category added"
@@ -491,7 +503,11 @@
       "inactive": "Inactive",
       "emptyTitle": "No coupons yet",
       "emptyMessage": "Add your first discount coupon for your customers.",
-      "confirmDelete": "Delete coupon \"{{code}}\"?",
+      "confirmDelete": {
+        "title": "Delete the coupon {{code, bidi}}?",
+        "message": "Deleting can't be undone. A coupon that has been used on orders can't be deleted — disable it instead so its records stay.",
+        "action": "Delete coupon"
+      },
       "deleted": "Coupon deleted",
       "updated": "Coupon updated",
       "created": "Coupon added",
@@ -672,7 +688,11 @@
       "saved": "Payment account saved",
       "disconnected": "Store account disconnected. New payments go to the platform's account.",
       "disconnect": "Disconnect",
-      "confirmDisconnect": "Disconnect the store's Stripe account? New payments will go to the platform's account, and payments taken by the store's account can't be refunded until it's reconnected.",
+      "confirmDisconnect": {
+        "title": "Disconnect the store's Stripe account?",
+        "message": "New payments will go to the platform's account, and payments taken by the store's account can't be refunded until it's reconnected.",
+        "action": "Disconnect"
+      },
       "form": {
         "publishableLabel": "Publishable key",
         "publishableHint": "Starts with pk_live_ (or pk_test_ for testing).",
@@ -697,7 +717,11 @@
       "created": "Shipping method added",
       "updated": "Shipping method saved",
       "deleted": "Shipping method deleted",
-      "confirmDelete": "Delete the shipping method \"{{name, bidi}}\"? Existing orders keep their copy of it.",
+      "confirmDelete": {
+        "title": "Delete the shipping method \"{{name, bidi}}\"?",
+        "message": "Deleting can't be undone. Existing orders keep their copy of it.",
+        "action": "Delete method"
+      },
       "colName": "Method",
       "colPrice": "Price",
       "colFreeOver": "Free from",
@@ -1034,7 +1058,11 @@
       "invite": "+ Invite member",
       "invited": "Invitation sent to {{email, bidi}}",
       "inviteRenewed": "A new invitation was sent to {{email, bidi}}; the previous link no longer works",
-      "confirmDisable": "Disable {{name, bidi}}? They are signed out immediately and can't sign in until enabled again.",
+      "confirmDisable": {
+        "title": "Disable {{name, bidi}}?",
+        "message": "They are signed out immediately and can't sign in until enabled again.",
+        "action": "Disable account"
+      },
       "enabled": "{{name, bidi}} can sign in again",
       "disabled": "{{name, bidi}} is disabled and signed out",
       "colName": "Name",

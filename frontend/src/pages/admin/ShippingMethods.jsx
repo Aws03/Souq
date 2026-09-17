@@ -5,6 +5,7 @@ import { useToast } from '../../context/ToastContext';
 import DataTable from '../../components/common/DataTable';
 import RowActionsMenu from '../../components/common/RowActionsMenu';
 import Button from '../../components/common/Button';
+import { useConfirmAction } from '../../components/common/useConfirmAction';
 import { formatPrice } from '../../components/product/ProductBadges';
 import { estimateLabel } from '../../features/checkout/shippingOptions';
 import ShippingMethodFormDrawer from './ShippingMethodFormDrawer';
@@ -15,6 +16,7 @@ import styles from './Admin.module.css';
 export default function ShippingMethods() {
   const { t } = useTranslation();
   const toast = useToast();
+  const confirmation = useConfirmAction();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -38,14 +40,17 @@ export default function ShippingMethods() {
     load();
   };
 
-  const remove = async (method) => {
-    if (!window.confirm(t('admin.shipping.confirmDelete', { name: method.name }))) return;
-    try {
+  const remove = (method) => confirmation.ask({
+    title: t('admin.shipping.confirmDelete.title', { name: method.name }),
+    message: t('admin.shipping.confirmDelete.message'),
+    confirmLabel: t('admin.shipping.confirmDelete.action'),
+    danger: true,
+    action: async () => {
       await api.deleteShippingMethod(method.id);
       toast.success(t('admin.shipping.deleted'));
       load();
-    } catch (e) { toast.error(e.message); }
-  };
+    },
+  });
 
   const columns = [
     { key: 'name', header: t('admin.shipping.colName'), width: '170px', truncate: true, tooltip: (m) => m.name, render: (m) => m.name },
@@ -97,6 +102,7 @@ export default function ShippingMethods() {
       {editing !== null && (
         <ShippingMethodFormDrawer method={editing.id ? editing : null} onSave={save} onClose={() => setEditing(null)} />
       )}
+      {confirmation.dialog}
     </div>
   );
 }

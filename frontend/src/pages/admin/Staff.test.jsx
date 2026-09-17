@@ -7,8 +7,8 @@ import { withQueryClient } from '../../test/queryWrapper';
 // ============================================================================
 // شاشة الفريق. الخادم يحرس القواعد؛ ما يُختبر هنا أن الشاشة:
 //   • لا تعرض على المدير إيقاف نفسه،
-//   • تسأل قبل الإيقاف ولا تُرسل شيئاً إن تراجع،
-//   • تُبلغ رفض الخادم كما هو (آخر مدير فعّال) لا نجاحاً،
+//   • تسأل قبل الإيقاف بحوار تأكيد ولا تُرسل شيئاً إن تراجع،
+//   • تُبلغ رفض الخادم كما هو (آخر مدير فعّال) داخل الحوار لا نجاحاً،
 //   • وتفحص الدعوة قبل إرسالها وتُرسل الدور الذي اختير صراحةً.
 // ============================================================================
 vi.mock('react-i18next', () => ({
@@ -47,7 +47,6 @@ beforeEach(() => {
   Object.values(client).forEach((fn) => fn.mockReset());
   toast.success.mockReset(); toast.error.mockReset();
   client.getStaff.mockResolvedValue(team());
-  vi.spyOn(window, 'confirm').mockReturnValue(true);
 });
 
 describe('القائمة', () => {
@@ -70,8 +69,7 @@ describe('القائمة', () => {
 });
 
 describe('الإيقاف', () => {
-  it('يسأل أولاً، ولا يُرسل شيئاً إن تراجع المدير', async () => {
-    window.confirm.mockReturnValue(false);
+  it('يسأل أولاً بحوار تأكيد، ولا يُرسل شيئاً إن تراجع المدير', async () => {
     render(withQueryClient(<Staff />));
     await screen.findByText('Clerk');
     const user = userEvent.setup();
@@ -79,11 +77,32 @@ describe('الإيقاف', () => {
     await openActions(user, 'Clerk');
     await user.click(await screen.findByRole('menuitem', { name: 'admin.staff.action.disable' }));
 
-    expect(window.confirm).toHaveBeenCalled();
+    const dialog = await screen.findByRole('alertdialog', { name: /admin\.staff\.confirmDisable\.title/ });
+    expect(dialog).toHaveAccessibleDescription('admin.staff.confirmDisable.message');
+    expect(client.setStaffStatus).not.toHaveBeenCalled();
+
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
     expect(client.setStaffStatus).not.toHaveBeenCalled();
   });
 
-  it('رفض الخادم (آخر مدير فعّال) يُعرض خطأً لا نجاحاً', async () => {
+  it('التأكيد يوقف الحساب ويُغلق الحوار', async () => {
+    client.setStaffStatus.mockResolvedValue(undefined);
+    render(withQueryClient(<Staff />));
+    await screen.findByText('Clerk');
+    const user = userEvent.setup();
+
+    await openActions(user, 'Clerk');
+    await user.click(await screen.findByRole('menuitem', { name: 'admin.staff.action.disable' }));
+    const dialog = await screen.findByRole('alertdialog');
+    await user.click(within(dialog).getByRole('button', { name: 'admin.staff.confirmDisable.action' }));
+
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+    expect(client.setStaffStatus).toHaveBeenCalledWith(2, false);
+    expect(toast.success).toHaveBeenCalled();
+  });
+
+  it('رفض الخادم (آخر مدير فعّال) يُقرأ داخل الحوار لا نجاحاً', async () => {
     client.setStaffStatus.mockRejectedValue(new Error('The last active administrator can\'t be disabled.'));
     render(withQueryClient(<Staff />));
     await screen.findByText('Clerk');
@@ -91,8 +110,10 @@ describe('الإيقاف', () => {
 
     await openActions(user, 'Clerk');
     await user.click(await screen.findByRole('menuitem', { name: 'admin.staff.action.disable' }));
+    const dialog = await screen.findByRole('alertdialog');
+    await user.click(within(dialog).getByRole('button', { name: 'admin.staff.confirmDisable.action' }));
 
-    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('The last active administrator can\'t be disabled.'));
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent('The last active administrator can\'t be disabled.');
     expect(client.setStaffStatus).toHaveBeenCalledWith(2, false);
     expect(toast.success).not.toHaveBeenCalled();
   });
