@@ -33,6 +33,15 @@ describe('searchDestination', () => {
   it('يقصّ الفراغ حول النصّ', () => {
     expect(searchDestination('/', '', '  shirt  ').search).toBe('?q=shirt');
   });
+
+  it('لا ينقل الإصرار على كلمة سابقة إلى كلمة جديدة', () => {
+    // ?exact=1 رفضٌ لتصحيح *ذاك* الاستعلام (M3، ADR-0042). لو بقي لكان كل بحث تالٍ بلا استرجاع
+    // بلا أن يطلب المتسوّق ذلك — ولا يرى سبباً لغياب "هل تعني…؟".
+    const result = searchDestination('/', '?q=مكلسة&exact=1', 'غسالة');
+    const params = new URLSearchParams(result.search);
+    expect(params.get('q')).toBe('غسالة');
+    expect(params.get('exact')).toBeNull();
+  });
 });
 
 describe('isCatalogRoute and isInPlace', () => {

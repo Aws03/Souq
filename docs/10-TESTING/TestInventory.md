@@ -10,8 +10,8 @@
 | [`Souq.Domain.Tests`](#souqdomaintests) | 28 | 220 | 44 |
 | [`Souq.Application.Tests`](#souqapplicationtests) | 43 | 320 | 15 |
 | [`Souq.ArchitectureTests`](#souqarchitecturetests) | 13 | 57 | 7 |
-| [`Souq.IntegrationTests`](#souqintegrationtests) | 49 | 261 | 21 |
-| [frontend (Vitest)](#frontend-vitest) | 75 | 577 | — |
+| [`Souq.IntegrationTests`](#souqintegrationtests) | 49 | 268 | 21 |
+| [frontend (Vitest)](#frontend-vitest) | 76 | 585 | — |
 
 ## Souq.Domain.Tests
 
@@ -122,7 +122,7 @@
 | `tests/Souq.IntegrationTests/AuthorizationMatrixTests.cs` | `AuthorizationMatrixTests` | 2 | 0 |
 | `tests/Souq.IntegrationTests/BasketTests.cs` | `BasketTests` | 5 | 0 |
 | `tests/Souq.IntegrationTests/BestSellingPerformanceTests.cs` | `BestSellingPerformanceTests`, `ScratchApp`, `SqlCapture`, `Sink` | 0 | 1 |
-| `tests/Souq.IntegrationTests/CatalogSearchTests.cs` | `CatalogSearchTests` | 11 | 0 |
+| `tests/Souq.IntegrationTests/CatalogSearchTests.cs` | `CatalogSearchTests` | 18 | 0 |
 | `tests/Souq.IntegrationTests/CatalogTests.cs` | `CatalogTests`, `ProductCommandCounter` | 9 | 0 |
 | `tests/Souq.IntegrationTests/CheckoutIdempotencyTests.cs` | `CheckoutIdempotencyTests` | 3 | 0 |
 | `tests/Souq.IntegrationTests/ConfigurationTests.cs` | `ConfigurationTests`, `ConfiguredFactory` | 10 | 6 |
@@ -184,6 +184,7 @@
 | `frontend/src/app/tenantModel.themes.test.js` | 20 |
 | `frontend/src/app/themeMode.test.js` | 9 |
 | `frontend/src/components/ProtectedRoute.test.jsx` | 11 |
+| `frontend/src/components/catalog/Catalog.test.jsx` | 7 |
 | `frontend/src/components/common/ConfirmDialog.test.jsx` | 5 |
 | `frontend/src/components/common/Drawer.test.jsx` | 6 |
 | `frontend/src/components/common/ErrorBoundary.test.jsx` | 5 |
@@ -207,7 +208,7 @@
 | `frontend/src/features/basket/basketModel.test.js` | 4 |
 | `frontend/src/features/catalog/catalogText.test.js` | 5 |
 | `frontend/src/features/catalog/productRouting.test.js` | 7 |
-| `frontend/src/features/catalog/searchRouting.test.js` | 7 |
+| `frontend/src/features/catalog/searchRouting.test.js` | 8 |
 | `frontend/src/features/catalog/variantSelection.test.js` | 19 |
 | `frontend/src/features/checkout/cardAppearance.test.js` | 5 |
 | `frontend/src/features/checkout/shippingChoice.test.js` | 4 |

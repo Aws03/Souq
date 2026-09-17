@@ -102,7 +102,18 @@ Every error is RFC 7807 `application/problem+json`:
   - Explicit, typed query parameters (`categoryIds=1&categoryIds=2`, `minPrice`, `status`).
   - Repeated keys for arrays. Comma-separated lists are not used.
 - **Sorting:** a `sortBy` enum per resource (an allowlist). Raw column names from the client are never accepted.
-- **Search:** `keyword`, bilingual `LIKE` today. A search port will abstract it if a search engine arrives.
+- **Search:** `keyword`, matched on the stored **normalized** form of catalog text since M3 ([ADR-0042](../11-ADR/0042-local-search-engine.md)). Every word in the keyword must match, in a product name, its description or its category name, in any language. `sortBy=Relevance` ranks server-side; it falls back to `Newest` when there is no keyword.
+  - `GET /api/products` adds one optional parameter and one optional response field, both additive:
+    - **`exact=true`** — do not attempt typo recovery, even if the query matches nothing. Sent when the shopper has been shown a correction and explicitly insisted on their own words.
+    - **`search`** — present only when the server did something worth saying. `null` otherwise, including whenever results were found for the shopper's own words:
+
+      ```json
+      { "items": [...], "totalCount": 3, "pageNumber": 1,
+        "search": { "term": "مكلسة", "searchedInstead": "مكنسه", "category": null } }
+      ```
+
+      `searchedInstead` means **these results belong to that word, not the one typed** — the storefront must say so rather than swap the words silently. When nothing matched at all, `searchedInstead` is `null` and `category` may carry `{ "id", "slug", "name" }` to offer instead of a dead end.
+  - Recovery runs only for queries of at most 3 words, each at least 3 characters: the endpoint is anonymous and has no rate-limit policy, so the bound is what stops a nonsense query from repeatedly costing a vocabulary read plus edit-distance work.
 - **Every *paged* list carries the same envelope and the same limits** — including `/api/orders/mine` (default 20) and the admin inventory lists (inventory 50, low stock 20, stock movements 50). A badge that only needs a count asks for `pageSize=1` and reads `totalCount`.
 - **Five lists are deliberately not paged, and two exports are unbounded.** Corrected in Phase 17 — this page previously claimed every list was paged, which was never true:
   - bounded by a domain rule, so paging would add nothing: `/api/wishlist` (200 items per customer) and `/api/account/addresses` (20).

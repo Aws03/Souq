@@ -22,8 +22,44 @@ internal sealed class CatalogQueries : ICatalogQueries
     private readonly AppDbContext _db;
     public CatalogQueries(AppDbContext db) => _db = db;
 
-    public async Task<PaginatedList<ProductDto>> SearchProductsAsync(
+    // ============================================================================
+    // البحث مع استرجاع الخطأ المطبعي (M3، ADR-0042). ثلاث محاولات، بهذا الترتيب:
+    //   1. بكلمات المتسوّق كما طبَّعها — وهي المسار الساخن: وُجدت نتائج ⇒ انتهى، بلا أي عمل إضافي.
+    //   2. لم يوجد شيء ⇒ تصحيح كل كلمة إلى أقرب كلمة في مفردات الكتالوج بمسافة تحرير محدودة، وإعادة البحث.
+    //      نجحت ⇒ تُعاد نتائجها **مع تسمية ما جرى** (SearchedInstead)، لا استبدالاً صامتاً لكلمات المتسوّق.
+    //   3. ما زال فارغاً ⇒ اقتراح فئة يطابق اسمها الاستعلام (أو تصحيحه): بابٌ بدل نهاية مسدودة.
+    //
+    // مسار 2 و3 لا يعملان إلا على استعلام معقول (RecoveryMaxTokens كلمات، كل كلمة ≥ RecoveryMinTokenLength حرفاً).
+    // ليس تجميلاً: نقطة البحث عامّة وبلا حدّ معدّل، ومسار التصحيح يقرأ مفردات المتجر ويحسب مسافات — فحدُّ المدخل
+    // هو ما يمنع استعلاماً عبثياً متكرّراً من تضخيم الكلفة. وتصحيح كلمة من حرفين بلا معنى أصلاً.
+    // ============================================================================
+    public async Task<ProductSearchPage> SearchProductsAsync(
         ProductSearch search, PageRequest page, string culture, CancellationToken ct)
+    {
+        var tokens = SearchText.Tokenize(search.Keyword, SearchText.MaxQueryTokens);
+        var found = await MatchAsync(search, tokens, page, culture, ct);
+        if (tokens.Count == 0 || found.TotalCount > 0) return new ProductSearchPage(found);
+
+        var corrected = !search.ExactOnly && WorthRecovering(tokens) ? await CorrectAsync(tokens, ct) : null;
+        var term = search.Keyword!.Trim();
+
+        if (corrected is not null)
+        {
+            var retry = await MatchAsync(search, corrected, page, culture, ct);
+            if (retry.TotalCount > 0)
+                return new ProductSearchPage(retry, new SearchRecovery(term, string.Join(' ', corrected), null));
+        }
+
+        var category = await SuggestCategoryAsync(corrected ?? tokens, culture, ct);
+        return new ProductSearchPage(found, category is null ? null : new SearchRecovery(term, null, category));
+    }
+
+    // كلمة أو كلمتان أو ثلاث، كلٌّ ≥ 3 أحرف: نطاق الخطأ المطبعي الحقيقي، وحدُّ كلفة مسار الاسترجاع معاً.
+    private static bool WorthRecovering(IReadOnlyList<string> tokens) =>
+        tokens.Count <= RecoveryMaxTokens && tokens.All(t => t.Length >= RecoveryMinTokenLength);
+
+    private async Task<PaginatedList<ProductDto>> MatchAsync(
+        ProductSearch search, IReadOnlyList<string> tokens, PageRequest page, string culture, CancellationToken ct)
     {
         var query = VisibleProducts();
 
@@ -38,7 +74,6 @@ internal sealed class CatalogQueries : ICatalogQueries
         // (التعليق السابق هنا قال CHARINDEX؛ تحقّقنا في M3 بـ ToQueryString أنّه LIKE، وصُحّح في Catalog/README.md
         // حيث كانت الدعوى مسجَّلة صريحاً أنّها غير متحقَّق منها.)
         // ============================================================================
-        var tokens = SearchText.Tokenize(search.Keyword, SearchText.MaxQueryTokens);
         var phrase = string.Join(' ', tokens);
         query = tokens.Aggregate(query, (current, token) => current.Where(MatchesToken(token)));
 
@@ -211,6 +246,110 @@ internal sealed class CatalogQueries : ICatalogQueries
 
     private static IReadOnlyDictionary<string, string> Names(IEnumerable<OptionTranslation> translations) =>
         translations.OrderBy(t => t.Culture, StringComparer.Ordinal).ToDictionary(t => t.Culture, t => t.Name);
+
+    // ── استرجاع الخطأ المطبعي (M3) ──────────────────────────────────────────
+
+    // حدود مسار الاسترجاع. أرقام مقيسة لا مختارة: انظر "Measured evidence" في ADR-0042.
+    private const int RecoveryMaxTokens = 3;
+    private const int RecoveryMinTokenLength = 3;
+
+    // سقف أسماء المفردات المقروءة. مفردات لغة طبيعية تتشبّع: متجر بخمسين ألف منتج لا يحمل خمسين ألف كلمة مختلفة.
+    // السقف يمنع استعلاماً واحداً من قراءة كتالوج ضخم كاملاً، ولا يُفقد استرجاعاً إلا في كتالوج أكبر من أي مقيس.
+    private const int VocabularyNameLimit = 5_000;
+
+    // ============================================================================
+    // تصحيح كل كلمة إلى أقرب كلمة في مفردات الكتالوج. الكلمة الموجودة أصلاً لا تُمسّ — وإلا صُحِّح ما هو صحيح.
+    // يعود null إن لم تتغيّر كلمة واحدة، فلا إعادة بحث بلا داعٍ.
+    // ============================================================================
+    private async Task<IReadOnlyList<string>?> CorrectAsync(IReadOnlyList<string> tokens, CancellationToken ct)
+    {
+        var vocabulary = await VocabularyAsync(ct);
+        if (vocabulary.Count == 0) return null;
+
+        var corrected = new List<string>(tokens.Count);
+        var changed = false;
+        foreach (var token in tokens)
+        {
+            if (vocabulary.ContainsKey(token)) { corrected.Add(token); continue; }
+
+            var closest = Closest(token, vocabulary);
+            corrected.Add(closest ?? token);
+            changed |= closest is not null;
+        }
+
+        return changed ? corrected : null;
+    }
+
+    // ============================================================================
+    // مفردات المتجر: كلمات أسماء المنتجات المعروضة والفئات المفعَّلة، مع تكرار كل كلمة.
+    // التكرار يُستعمل لكسر التعادل: كلمتان على المسافة نفسها ⇒ الأشيع أولى، لأنّها الأرجح أن تكون المقصودة.
+    // استعلامان منفصلان لا Union: كلاهما إسقاط عمود واحد، وUnion على تنقّلات متداخلة لا يُترجَم موثوقاً.
+    // ============================================================================
+    private async Task<Dictionary<string, int>> VocabularyAsync(CancellationToken ct)
+    {
+        var productNames = await VisibleProducts()
+            .SelectMany(p => p.Translations.Select(t => t.NameNormalized))
+            .Where(name => name != "")
+            .Distinct().Take(VocabularyNameLimit).ToListAsync(ct);
+
+        var categoryNames = await _db.Categories.AsNoTracking().Where(c => c.IsActive)
+            .SelectMany(c => c.Translations.Select(t => t.NameNormalized))
+            .Where(name => name != "")
+            .Distinct().Take(VocabularyNameLimit).ToListAsync(ct);
+
+        var vocabulary = new Dictionary<string, int>(StringComparer.Ordinal);
+        foreach (var name in productNames.Concat(categoryNames))
+            foreach (var word in SearchText.Tokenize(name))
+                vocabulary[word] = vocabulary.GetValueOrDefault(word) + 1;
+
+        return vocabulary;
+    }
+
+    // ============================================================================
+    // أقرب كلمة، **حتمياً**: أقلّ مسافة، ثم الأشيع، ثم الأسبق ترتيباً حرفياً. الكسر الثلاثي مقصود — بلا الكسر
+    // الأخير لكانت النتيجة تابعة لترتيب تعداد القاموس، أي إجابتين مختلفتين للاستعلام نفسه. ولا خروج مبكّر
+    // عند مسافة 1 للسبب عينه.
+    // ============================================================================
+    private static string? Closest(string token, Dictionary<string, int> vocabulary)
+    {
+        string? best = null;
+        int bestDistance = int.MaxValue, bestCount = 0;
+
+        foreach (var (word, count) in vocabulary)
+        {
+            var distance = SearchDistance.Between(word, token);
+            if (distance == SearchDistance.Beyond) continue;
+
+            var better = distance < bestDistance
+                         || (distance == bestDistance && count > bestCount)
+                         || (distance == bestDistance && count == bestCount && string.CompareOrdinal(word, best) < 0);
+            if (!better) continue;
+
+            best = word; bestDistance = distance; bestCount = count;
+        }
+
+        return best;
+    }
+
+    // فئة مفعَّلة يطابق اسمها المطبَّع أول كلمة — الأصغر ترتيباً ثم بالمعرّف، كترتيب قائمة الفئات نفسها.
+    private async Task<SearchCategorySuggestion?> SuggestCategoryAsync(
+        IReadOnlyList<string> tokens, string culture, CancellationToken ct)
+    {
+        if (tokens.Count == 0) return null;
+        var word = tokens[0];
+
+        var row = await _db.Categories.AsNoTracking()
+            .Where(c => c.IsActive && c.Translations.Any(t => t.NameNormalized.Contains(word)))
+            .OrderBy(c => c.SortOrder).ThenBy(c => c.Id)
+            .Select(c => new CategoryNameRow(c.Id, c.Slug,
+                c.Translations.Select(t => new NameRow(t.Culture, t.Name)).ToList()))
+            .FirstOrDefaultAsync(ct);
+        if (row is null) return null;
+
+        var names = Names(row.Names);
+        return new SearchCategorySuggestion(row.Id, row.Slug,
+            names.TryGetValue(culture, out var name) ? name : names.Values.FirstOrDefault() ?? row.Slug);
+    }
 
     // ── داخلي ───────────────────────────────────────────────────────────────
 
@@ -399,4 +538,6 @@ internal sealed class CatalogQueries : ICatalogQueries
     private sealed record VariantRow(int Id, decimal Price, decimal? CompareAtPrice, int Available, List<int> OptionValueIds);
 
     private sealed record CategoryRow(int Id, string Slug, int? ParentId, int SortOrder, bool IsActive, List<TextRow> Texts);
+
+    private sealed record CategoryNameRow(int Id, string Slug, List<NameRow> Names);
 }

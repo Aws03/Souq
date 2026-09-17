@@ -30,9 +30,9 @@ public class ProductsController : ControllerBase
         [FromQuery] string? keyword, [FromQuery] List<int>? categoryIds,
         [FromQuery] decimal? minPrice, [FromQuery] decimal? maxPrice,
         [FromQuery] ProductSortBy sortBy = ProductSortBy.Newest, [FromQuery] bool onSale = false,
-        [FromQuery] int page = 1, [FromQuery] int pageSize = 12)
+        [FromQuery] int page = 1, [FromQuery] int pageSize = 12, [FromQuery] bool exact = false)
         => Ok(await _mediator.Send(
-            new GetProductsQuery(keyword, categoryIds, page, pageSize, minPrice, maxPrice, sortBy, onSale)));
+            new GetProductsQuery(keyword, categoryIds, page, pageSize, minPrice, maxPrice, sortBy, onSale, exact)));
 
     [HttpGet("{id:int}")]
     [AllowAnonymous]

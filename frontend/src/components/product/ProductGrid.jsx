@@ -10,7 +10,9 @@ const SKELETON_COUNT = 10;
 // شبكة المنتجات: تتولّى حالات التحميل/الخطأ/الفراغ/العرض. view يحدّد التخطيط:
 // grid5 (افتراضي: 5 بالصف على سطح المكتب، 2 على الجوال)، grid4 (4 بالصف)، أو
 // list (صفّ واحد ببطاقات أفقية).
-export default function ProductGrid({ products, loading, error, onRetry, onAdded, view = 'grid5' }) {
+export default function ProductGrid({
+  products, loading, error, onRetry, onAdded, view = 'grid5', empty,
+}) {
   const { t } = useTranslation();
   if (error) return <ErrorBanner message={error} onRetry={onRetry} />;
 
@@ -33,8 +35,17 @@ export default function ProductGrid({ products, loading, error, onRetry, onAdded
     );
   }
 
+  // `empty` يسمح للمستدعي باستبدال نصّ الفراغ وإضافة إجراء — يستعمله البحث ليقترح فئة بدل نهاية مسدودة (M3).
   if (products.length === 0) {
-    return <EmptyState icon={PackageIcon} title={t('product.noMatchTitle')} message={t('product.noMatchMessage')} />;
+    return (
+      <EmptyState
+        icon={PackageIcon}
+        title={empty?.title ?? t('product.noMatchTitle')}
+        message={empty?.message ?? t('product.noMatchMessage')}
+        actionLabel={empty?.actionLabel}
+        onAction={empty?.onAction}
+      />
+    );
   }
 
   return (

@@ -13,24 +13,31 @@ import { queryKeys } from '../app/queryKeys';
 //   • حارس الإلغاء المكتوب بيد لم يعد ضرورياً: ردّ استعلام قديم لا يُكتب فوق الحالي (TD-25).
 //
 // refreshKey يبقى: إضافة إلى السلّة تُغيّر المتاح على الخادم، فتُبطِل الشبكة المعروضة.
+//
+// M3 (ADR-0042): الردّ يحمل الآن `search` — ما فعله الخادم باستعلام لم يُطابق شيئاً (كلمة بُحث بها بدلاً عن
+// كلمة المتسوّق، أو فئة مقترحة). الخادم هو من يقرّر؛ هذه الواجهة تعرض قراره ولا تخترع تصحيحاً من عندها.
 // ============================================================================
-const EMPTY_PAGE = { items: [], totalCount: 0, totalPages: 1, pageNumber: 1 };
+const EMPTY_PAGE = { items: [], totalCount: 0, totalPages: 1, pageNumber: 1, search: null };
 
 /**
  * @param {{keyword?: string, categoryIds?: number[], minPrice?: number, maxPrice?: number,
  *          sortBy?: string, page?: number, pageSize?: number, refreshKey?: number,
- *          onSale?: boolean}} [filters]
+ *          onSale?: boolean, exact?: boolean}} [filters]
  */
 export function useCatalog({
   keyword, categoryIds, minPrice, maxPrice, sortBy, page = 1, pageSize = 12, refreshKey, onSale = false,
+  exact = false,
 } = {}) {
   const params = {
     keyword, categoryIds: (categoryIds || []).join(','), minPrice, maxPrice, sortBy, page, pageSize, onSale, refreshKey,
+    exact,
   };
 
   const query = useQuery({
     queryKey: queryKeys.products(params),
-    queryFn: () => api.getProducts({ keyword, categoryIds, minPrice, maxPrice, sortBy, page, pageSize, onSale }),
+    queryFn: () => api.getProducts({
+      keyword, categoryIds, minPrice, maxPrice, sortBy, page, pageSize, onSale, exact: exact || undefined,
+    }),
     placeholderData: keepPreviousData,
   });
 

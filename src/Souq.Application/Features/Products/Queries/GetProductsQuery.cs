@@ -15,5 +15,6 @@ public record GetProductsQuery(
     decimal? MinPrice = null,
     decimal? MaxPrice = null,
     ProductSortBy SortBy = ProductSortBy.Newest,
-    bool OnSale = false
-) : IRequest<PaginatedList<ProductDto>>, IPagedQuery;
+    bool OnSale = false,
+    bool Exact = false
+) : IRequest<ProductSearchPage>, IPagedQuery;

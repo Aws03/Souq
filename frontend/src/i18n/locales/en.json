@@ -133,7 +133,8 @@
       "remove": "Remove {{name, bidi}} filter",
       "removePrice": "Remove price filter",
       "removeSort": "Reset to default sorting",
-      "clearAll": "Clear all"
+      "clearAll": "Clear all",
+      "sort_relevance": "Most relevant"
     },
     "promo1Headline": "Electronics collection",
     "promo1Subline": "The latest devices at competitive prices with a full authenticity guarantee.",
@@ -150,7 +151,14 @@
     "viewAria": "Grid view mode",
     "view_grid5": "5 per row",
     "view_grid4": "4 per row",
-    "view_list": "List view"
+    "view_list": "List view",
+    "search": {
+      "showingInstead": "Showing results for “{{searched, bidi}}” instead of “{{original, bidi}}”",
+      "searchOriginalInstead": "Search for “{{original, bidi}}” instead",
+      "noMatchTitle": "No results for “{{term, bidi}}”",
+      "categorySuggestion": "We do have a “{{name, bidi}}” category — it may have what you want.",
+      "browseCategory": "Browse {{name, bidi}}"
+    }
   },
   "offers": {
     "title": "Offers",

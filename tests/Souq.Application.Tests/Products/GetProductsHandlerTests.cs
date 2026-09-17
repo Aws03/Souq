@@ -16,7 +16,7 @@ public class GetProductsHandlerTests
     public async Task يمرّر_كل_الفلاتر_والترتيب_والصفحة_ولغة_المتجر_لمنفذ_القراءة()
     {
         var categories = new List<int> { 1, 2 };
-        var page = new PaginatedList<ProductDto>(new List<ProductDto>(), 25, 2, 12);
+        var page = new ProductSearchPage(new PaginatedList<ProductDto>(new List<ProductDto>(), 25, 2, 12));
         _catalog.SearchProductsAsync(Arg.Any<ProductSearch>(), Arg.Any<PageRequest>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns(page);
 
@@ -36,7 +36,7 @@ public class GetProductsHandlerTests
     public async Task بلا_فلاتر_يستخدم_الافتراضيات_والترتيب_الأحدث()
     {
         _catalog.SearchProductsAsync(Arg.Any<ProductSearch>(), Arg.Any<PageRequest>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
-            .Returns(new PaginatedList<ProductDto>(new List<ProductDto>(), 0, 1, 12));
+            .Returns(new ProductSearchPage(new PaginatedList<ProductDto>(new List<ProductDto>(), 0, 1, 12)));
 
         await new GetProductsHandler(_catalog, TestTenant.Context()).Handle(new GetProductsQuery(), CancellationToken.None);
 

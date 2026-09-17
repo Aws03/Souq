@@ -190,6 +190,114 @@ public class CatalogSearchTests
         (await SearchAsync(storeB.Anonymous(), categoryB, "مكنسه مشتركه")).Should().Equal(productB);
     }
 
+    [Fact]
+    public async Task مكلسة_تسترجع_نحو_مكنسة_وتقول_ذلك_صراحةً()
+    {
+        // الحالة التي يسمّيها SouqMasterPlan.md M3 بالاسم، من طرف إلى طرف: خطأ مطبعي بحرف واحد، بلا أي بيانات
+        // تصحيح مُدخلة — المفردات تأتي من الكتالوج نفسه، والمسافة المحدودة تفعل الباقي.
+        var admin = await _api.AdminAsync();
+        var category = await _api.CreateCategoryAsync(admin);
+        var vacuum = await CreateAsync(admin, category, "مكنسة كهربائية");
+
+        var page = await SearchPageAsync(category, "مكلسة");
+
+        page.Items.Select(i => i.Id).Should().Equal(new[] { vacuum }, "التصحيح أعاد البحث ووجد المنتج");
+        page.Search.Should().NotBeNull();
+        page.Search!.Term.Should().Be("مكلسة", "ما كتبه المتسوّق يُعاد كما كتبه");
+        page.Search.SearchedInstead.Should().Be("مكنسه", "والكلمة التي بُحث بها فعلاً تُسمّى صراحةً — لا استبدال صامت");
+    }
+
+    [Fact]
+    public async Task الاسترجاع_يعمل_على_كلمة_فريدة_أيضاً_وبأنواع_الأخطاء_الشائعة()
+    {
+        var admin = await _api.AdminAsync();
+        var category = await _api.CreateCategoryAsync(admin);
+        // كلمة لا ترد في أي اختبار آخر، فالتصحيح لا يمكن أن يأتي من بيانات غيرها.
+        var id = await CreateAsync(admin, category, "جهاز زبلفون");
+
+        // حرف ناقص من **آخر** الكلمة لا يحتاج استرجاعاً أصلاً: المطابقة احتواء، فـ"زبلفو" داخل "زبلفون".
+        var truncated = await SearchPageAsync(category, "زبلفو");
+        truncated.Items.Select(i => i.Id).Should().Equal(new[] { id });
+        truncated.Search.Should().BeNull("الاحتواء غطّى الحالة، فلا تصحيح يُنفَّذ");
+
+        // أمّا الخطأ داخل الكلمة فلا يغطّيه الاحتواء، وهو ما يوجد الاسترجاع لأجله:
+        (await SearchPageAsync(category, "زبلون")).Search!.SearchedInstead.Should().Be("زبلفون", "حرف ناقص من الوسط");
+        (await SearchPageAsync(category, "زبلفوني")).Search!.SearchedInstead.Should().Be("زبلفون", "حرف زائد");
+        (await SearchPageAsync(category, "زبلفول")).Search!.SearchedInstead.Should().Be("زبلفون", "حرف مُبدَل");
+        (await SearchPageAsync(category, "زبلفنو")).Search!.SearchedInstead.Should().Be("زبلفون", "جارَان مُبدَّلان");
+        (await SearchAsync(category, "زبلون")).Should().Equal(new[] { id }, "والتصحيح يعيد البحث فعلاً");
+    }
+
+    [Fact]
+    public async Task لا_تصحيح_حين_تُوجد_نتائج_بكلمات_المتسوّق()
+    {
+        var admin = await _api.AdminAsync();
+        var category = await _api.CreateCategoryAsync(admin);
+        await CreateAsync(admin, category, "مكنسة كهربائية");
+
+        var page = await SearchPageAsync(category, "مكنسة");
+
+        page.Items.Should().NotBeEmpty();
+        page.Search.Should().BeNull("وُجد ما طُلب، فلا شيء يُقال — ولا عمل استرجاع يُنفَّذ إطلاقاً");
+    }
+
+    [Fact]
+    public async Task ما_هو_أبعد_من_خطأ_مطبعي_لا_يُصحَّح()
+    {
+        var admin = await _api.AdminAsync();
+        var category = await _api.CreateCategoryAsync(admin);
+        await CreateAsync(admin, category, "جهاز زبلفون");
+
+        // مسافة 3 أو أكثر: كلمة أخرى لا خطأ مطبعي — لا نتائج ولا تصحيح مُختلَق.
+        var page = await SearchPageAsync(category, "زبلفونيات");
+        page.Items.Should().BeEmpty();
+        page.Search?.SearchedInstead.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task الاسترجاع_محدود_بعدد_الكلمات_وطولها()
+    {
+        var admin = await _api.AdminAsync();
+        var category = await _api.CreateCategoryAsync(admin);
+        await CreateAsync(admin, category, "جهاز زبلفون");
+
+        // أربع كلمات: فوق حدّ الاسترجاع، فلا يُحسب شيء — حدُّ كلفة على نقطة عامّة بلا حدّ معدّل.
+        (await SearchPageAsync(category, "زبلفو زبلفو زبلفو زبلفو")).Search?.SearchedInstead.Should().BeNull();
+        // كلمة من حرفين: تصحيحها بلا معنى.
+        (await SearchPageAsync(category, "زب")).Search?.SearchedInstead.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task الاسترجاع_حتميّ_يعطي_الجواب_نفسه_لكل_طلب()
+    {
+        // يهمّ لأنّ المرشَّحات تأتي من قاموس لا ترتيب له: بلا كسر تعادل صريح لكان الجواب تابعاً لترتيب التعداد.
+        var admin = await _api.AdminAsync();
+        var category = await _api.CreateCategoryAsync(admin);
+        await CreateAsync(admin, category, "جهاز زبلفون");
+
+        var answers = new List<string?>();
+        for (var attempt = 0; attempt < 4; attempt++)
+            answers.Add((await SearchPageAsync(category, "زبلون")).Search?.SearchedInstead);
+
+        answers.Distinct().Should().HaveCount(1, "استعلام واحد، جواب واحد، في كل مرّة");
+    }
+
+    [Fact]
+    public async Task لا_نتائج_بحال_تقترح_فئة_بدل_نهاية_مسدودة()
+    {
+        var admin = await _api.AdminAsync();
+        var slug = $"it-{Guid.NewGuid():N}"[..24];
+        var category = await CreateCategoryNamedAsync(admin, slug, "زقفونيات منزلية");
+        // الفئة موجودة ومفعَّلة لكنها فارغة: البحث عن اسمها لا يعطي منتجاً، فتُقترح هي.
+        var page = await SearchPageAsync(category: null, "زقفونيات");
+
+        page.Items.Should().BeEmpty();
+        page.Search.Should().NotBeNull();
+        page.Search!.Category.Should().NotBeNull();
+        page.Search.Category!.Slug.Should().Be(slug);
+        page.Search.Category.Name.Should().Be("زقفونيات منزلية");
+    }
+
     // ── أدوات ──────────────────────────────────────────────────────────────────
 
     private async Task<List<int>> SearchAsync(int category, string? keyword, string? sortBy = null) =>
@@ -246,6 +354,17 @@ public class CatalogSearchTests
         (await admin.GetFromJsonAsync<List<CategorySlugBody>>("/api/admin/categories", TestApi.Json))!
             .Single(c => c.Id == id).Slug;
 
+    private async Task<SearchPageBody> SearchPageAsync(int? category, string keyword)
+    {
+        var query = $"keyword={Uri.EscapeDataString(keyword)}&pageSize=50";
+        if (category is not null) query += $"&categoryIds={category}";
+        return (await _api.Anonymous().GetFromJsonAsync<SearchPageBody>($"/api/products?{query}", TestApi.Json))!;
+    }
+
     private sealed record SlugBody(int Id, string Slug);
     private sealed record CategorySlugBody(int Id, string Slug);
+
+    private sealed record SearchPageBody(List<TestApi.IdBody> Items, int TotalCount, RecoveryBody? Search);
+    private sealed record RecoveryBody(string Term, string? SearchedInstead, CategorySuggestionBody? Category);
+    private sealed record CategorySuggestionBody(int Id, string Slug, string Name);
 }

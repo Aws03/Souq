@@ -136,7 +136,8 @@
       "remove": "إزالة فلتر {{name, bidi}}",
       "removePrice": "إزالة فلتر السعر",
       "removeSort": "الرجوع للترتيب الافتراضي",
-      "clearAll": "مسح الكل"
+      "clearAll": "مسح الكل",
+      "sort_relevance": "الأكثر مطابقةً"
     },
     "promo1Headline": "تشكيلة الإلكترونيات",
     "promo1Subline": "أحدث الأجهزة بأسعار تنافسية وضمان أصالة كامل.",
@@ -153,7 +154,14 @@
     "viewAria": "طريقة عرض الشبكة",
     "view_grid5": "5 في الصف",
     "view_grid4": "4 في الصف",
-    "view_list": "عرض قائمة"
+    "view_list": "عرض قائمة",
+    "search": {
+      "showingInstead": "نتائج البحث عن «{{searched, bidi}}» بدلاً من «{{original, bidi}}»",
+      "searchOriginalInstead": "ابحث عن «{{original, bidi}}» كما كتبتها",
+      "noMatchTitle": "لا نتائج لـ «{{term, bidi}}»",
+      "categorySuggestion": "لكن لدينا فئة «{{name, bidi}}» — قد تجد فيها ما تبحث عنه.",
+      "browseCategory": "تصفّح {{name, bidi}}"
+    }
   },
   "offers": {
     "title": "العروض",

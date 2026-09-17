@@ -22,6 +22,9 @@ export function searchDestination(pathname, search, query) {
   else params.delete('q');
   // أي بحث جديد يبدأ من الصفحة الأولى؛ نتائج مختلفة كلياً.
   params.delete('page');
+  // والإصرار على كلمة سابقة لا ينتقل إلى كلمة جديدة (M3، ADR-0042): `exact` رفضٌ لتصحيح *ذاك* الاستعلام،
+  // فلو بقي لكان بحثٌ جديد بلا تصحيح بلا أن يطلب أحد ذلك.
+  params.delete('exact');
 
   const target = isCatalogRoute(pathname) ? pathname : '/';
   const queryString = params.toString();

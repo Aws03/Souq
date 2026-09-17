@@ -207,6 +207,14 @@ Search differs too. Since **M3** ([ADR-0042](../../11-ADR/0042-local-search-engi
 - The index that serves this is `IX_ProductTranslations_TenantId_NameNormalized` (and its category twin), which includes the owner key and culture so the `EXISTS` clause is answered from the index.
 - `string.Contains` with a parameter translates to `LIKE N'%…%' ESCAPE N'\'` and escapes `%`, `_` and `[` itself — no LIKE injection. (This page previously recorded the code comment's claim that it became `CHARINDEX`, flagged as unverified; M3 verified it with `ToQueryString` and it is `LIKE`. The comment has been corrected.)
 
+**Typo recovery**, also M3. When the shopper's own words match nothing, the search does not stop there:
+
+1. Each word is corrected to the closest word in **the store's own catalogue vocabulary** within a bounded Damerau–Levenshtein distance (`SearchDistance.MaxTypoDistance`), and the search is re-run. `مكلسة` recovers to `مكنسة` with **no seeded correction data at all** — the vocabulary is the catalogue itself.
+2. If that finds results, the response's `search.searchedInstead` names the word actually searched. The storefront **says so** and offers to insist on the original (`exact=true`); it never swaps the shopper's words silently, the same principle [ADR-0041](../../11-ADR/0041-storefront-variant-selection.md) applies to variant selection.
+3. If nothing matches even after correction, a category whose name matches is offered as the empty state's action instead of a dead end.
+
+The closest word is picked by distance, then by frequency in the catalogue, then ordinal — deterministic, so the same query always answers the same way. Recovery only runs for queries of at most 3 words of at least 3 characters each: the endpoint is anonymous and unthrottled, so that bound is what keeps a repeated nonsense query cheap. A word missing its **last** letters needs no recovery at all, since matching is by substring.
+
 ## Security and permissions
 
 - One permission for the whole module: `catalog.manage` (`Permissions.Catalog.Manage`), granted to `TenantAdmin` and `TenantStaff` by `RolePermissions`. Storefront reads are `[AllowAnonymous]` and only ever return visible products.

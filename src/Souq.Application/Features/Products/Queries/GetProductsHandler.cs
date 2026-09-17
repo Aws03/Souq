@@ -6,7 +6,7 @@ namespace Souq.Application.Features.Products.Queries;
 
 // معالج الاستعلام: يترجم الطلب إلى معايير بحث مطبوعة ويمرّرها لمنفذ القراءة مع لغة المتجر الافتراضية. لا يعرف
 // SQL ولا EF — الإسقاط والترتيب الحتمي في CatalogQueries (Infrastructure، ADR-0008).
-public class GetProductsHandler : IRequestHandler<GetProductsQuery, PaginatedList<ProductDto>>
+public class GetProductsHandler : IRequestHandler<GetProductsQuery, ProductSearchPage>
 {
     private readonly ICatalogQueries _catalog;
     private readonly ITenantContext _tenant;
@@ -16,8 +16,8 @@ public class GetProductsHandler : IRequestHandler<GetProductsQuery, PaginatedLis
         _catalog = catalog; _tenant = tenant;
     }
 
-    public Task<PaginatedList<ProductDto>> Handle(GetProductsQuery q, CancellationToken ct) =>
+    public Task<ProductSearchPage> Handle(GetProductsQuery q, CancellationToken ct) =>
         _catalog.SearchProductsAsync(
-            new ProductSearch(q.Keyword, q.CategoryIds, q.MinPrice, q.MaxPrice, q.SortBy, q.OnSale),
+            new ProductSearch(q.Keyword, q.CategoryIds, q.MinPrice, q.MaxPrice, q.SortBy, q.OnSale, q.Exact),
             PageRequest.From(q), _tenant.RequireTenant().DefaultCulture, ct);
 }

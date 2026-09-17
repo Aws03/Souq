@@ -11,7 +11,7 @@ namespace Souq.Application.Features.Products.Queries;
 // ============================================================================
 public interface ICatalogQueries
 {
-    Task<PaginatedList<ProductDto>> SearchProductsAsync(ProductSearch search, PageRequest page, string culture, CancellationToken ct);
+    Task<ProductSearchPage> SearchProductsAsync(ProductSearch search, PageRequest page, string culture, CancellationToken ct);
 
     // null ⇒ غير موجود أو غير معروض (مسودّة/مؤرشف/فئته معطّلة) — العميل لا يرى إلا المعروض.
     Task<ProductDto?> FindActiveProductAsync(int id, string culture, CancellationToken ct);
@@ -30,13 +30,16 @@ public interface ICatalogQueries
 }
 
 // معايير بحث المتجر — كلها اختيارية؛ null/فارغ = بلا تصفية على هذا البعد. OnSaleOnly: سعر مقارنة أعلى من السعر.
+// ExactOnly (M3، ADR-0042): المتسوّق أصرّ على كلماته بعد أن عُرض عليه تصحيح — فلا تصحيح، ولو كانت النتيجة فارغة.
+// إصراره قرارُه: هذا هو النصف الثاني من "لا استبدال صامت"، إذ لا معنى لإخباره بالتصحيح إن لم يستطع رفضه.
 public sealed record ProductSearch(
     string? Keyword = null,
     IReadOnlyCollection<int>? CategoryIds = null,
     decimal? MinPrice = null,
     decimal? MaxPrice = null,
     ProductSortBy SortBy = ProductSortBy.Newest,
-    bool OnSaleOnly = false);
+    bool OnSaleOnly = false,
+    bool ExactOnly = false);
 
 // بحث الإدارة: الاسم بأي لغة أو SKU أو المعرّف، وتصفية بالحالة والفئة.
 public sealed record AdminProductSearch(string? Keyword, ProductStatus? Status, int? CategoryId, AdminProductSortBy SortBy);
