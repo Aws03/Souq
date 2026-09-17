@@ -105,6 +105,7 @@ These cannot be made from the code; they are commercial or legal. Each one's ful
 | **P-03** | License and repository visibility (MIT today, with a public remote) | Selling the product |
 | **D-22** | Storefront preview: who may preview a closed store, which states, read-only or not, lifetime, and how the credential crosses hosts ([brief](../04-MODULES/Platform/StorefrontPreview.md)) | Phase 18's storefront preview |
 | **P-07** | Which platform-wide settings exist (`platform.settings.manage` has nothing to guard) | A platform settings screen |
+| **P-08** | Product variants: structured options or labels, how multi-variant prices show in lists, and how a variant is chosen ([proposal](../04-MODULES/Catalog/ProductVariants.md)) | A size/colour picker (Phase 16) |
 | **R-03** | May a staff member who manages orders, but not payments, refund money by cancelling a paid order? | Least-privilege store roles |
 | **F-8** | Should a duplicate checkout submission replay the order or be refused? | Idempotent checkout |
 | ~~D-19~~ | ~~TypeScript and a server-state library for the frontend~~ | **Decided:** TanStack Query adopted and JSDoc type-checking enforced in CI; a full TypeScript conversion was evaluated and not adopted ([ADR-0037](../11-ADR/0037-frontend-server-state-and-types.md), [ADR-0038](../11-ADR/0038-query-layer-adopted-and-type-checking.md)) |

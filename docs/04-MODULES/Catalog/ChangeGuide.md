@@ -44,7 +44,7 @@ Run `dotnet test` and, for frontend logic, `npm test` in `frontend`.
 
 ## I need to add product attributes, or real variant options (size, colour)
 
-Today the model has exactly one default variant per product, and that is DEFERRED work in [ADR-0025](../../11-ADR/0025-catalog-model.md), not a missing line of code. Expect it to touch four modules.
+Today the model has exactly one default variant per product, and that is DEFERRED work in [ADR-0025](../../11-ADR/0025-catalog-model.md), not a missing line of code. **Start with [ProductVariants.md](ProductVariants.md):** the traced assumptions, the proposed model, what needs owner decision P-08 and what doesn't, and a phased plan. The notes below are the original sketch.
 
 - **Inspect:** `Product.DefaultVariant`, `ProductVariantConfiguration` (the `IX_ProductVariants_ProductId_Default` filtered unique index), `CatalogQueries` (every projection reads `Variants.Where(v => v.IsDefault)`), `IInventoryRepository.GetForProductAsync`, `InventoryQueries.StockedItems`, `PricingService.Price`, `AddBasketItemHandler` (it resolves `product.DefaultVariant.Id`), `Basket.Add(productId, variantId, …)`, `OrderItem` (which stores `ProductId` only), `AdminInventoryController` (routes keyed by product id).
 - **Rules to respect:** one product keeps exactly one *default* variant for backward compatibility, or the invariant is replaced deliberately everywhere at once. Every sellable variant needs its own `InventoryItem`, created through `IVariantStockInitializer` — Catalog must still not reference Inventory. Order lines are immutable snapshots: adding `VariantId` to `OrderItem` changes Ordering's contract and its history.

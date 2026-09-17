@@ -119,7 +119,7 @@ Detail: [Payments module](../04-MODULES/Payments/README.md), [OwnerDecisions.md]
 
 ## 13. Open owner decisions
 
-- [ ] Every row of [OwnerDecisions.md](../09-OPERATIONS/OwnerDecisions.md) has a named decider and a date: P-03, P-05, P-06, D-13, R-03, F-8, D-22 (storefront preview, [brief](../04-MODULES/Platform/StorefrontPreview.md)), P-07 (platform-wide settings), plus the smaller choices listed there.
+- [ ] Every row of [OwnerDecisions.md](../09-OPERATIONS/OwnerDecisions.md) has a named decider and a date: P-03, P-05, P-06, D-13, R-03, F-8, D-22 (storefront preview, [brief](../04-MODULES/Platform/StorefrontPreview.md)), P-07 (platform-wide settings), P-08 (product variants, [proposal](../04-MODULES/Catalog/ProductVariants.md)), plus the smaller choices listed there.
 
 ## 14. External dependencies
 
