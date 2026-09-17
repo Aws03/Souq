@@ -10,9 +10,9 @@
 | [Platform](#platform) | `src/Souq.Application/Features/Platform`, `src/Souq.Application/Features/Stores` | 17 | 12 | 0 |
 | [Identity](#identity) | `src/Souq.Application/Features/Auth`, `src/Souq.Application/Features/Staff` | 11 | 2 | 0 |
 | [Catalog](#catalog) | `src/Souq.Application/Features/Products`, `src/Souq.Application/Features/Categories` | 11 | 8 | 1 |
-| [Inventory](#inventory) | `src/Souq.Application/Features/Inventory` | 2 | 3 | 2 |
+| [Inventory](#inventory) | `src/Souq.Application/Features/Inventory` | 4 | 4 | 2 |
 | [Customers](#customers) | `src/Souq.Application/Features/Customers` | 8 | 6 | 0 |
-| [Shopping](#shopping) | `src/Souq.Application/Features/Baskets`, `src/Souq.Application/Features/Wishlist` | 8 | 2 | 2 |
+| [Shopping](#shopping) | `src/Souq.Application/Features/Baskets`, `src/Souq.Application/Features/Wishlist` | 10 | 2 | 2 |
 | [Ordering](#ordering) | `src/Souq.Application/Features/Orders` | 7 | 4 | 0 |
 | [Payments](#payments) | `src/Souq.Application/Features/Payments` | 2 | 1 | 2 |
 | [Promotions](#promotions) | `src/Souq.Application/Features/Coupons` | 3 | 3 | 1 |
@@ -114,10 +114,13 @@ Module document: [Inventory/README.md](Inventory/README.md).
 | Use case | Kind | Handler | Validator | Audited | Sent by |
 |---|---|---|---|---|---|
 | `AdjustStockCommand` | command | `AdjustStockHandler` | `AdjustStockValidator` | yes | `POST /api/admin/inventory/{productId:int}/adjustments` |
+| `AdjustVariantStockCommand` | command | `AdjustVariantStockHandler` | `AdjustVariantStockValidator` | yes | `POST /api/admin/inventory/variants/{variantId:int}/adjustments` |
 | `SetLowStockThresholdCommand` | command | `SetLowStockThresholdHandler` | `SetLowStockThresholdValidator` | yes | `PUT /api/admin/inventory/{productId:int}/threshold` |
+| `SetVariantLowStockThresholdCommand` | command | `SetVariantLowStockThresholdHandler` | `SetVariantLowStockThresholdValidator` | yes | `PUT /api/admin/inventory/variants/{variantId:int}/threshold` |
 | `GetInventoryQuery` | query | `GetInventoryHandler` | `GetInventoryQueryValidator` | — | `GET /api/admin/inventory` |
 | `GetLowStockQuery` | query | `GetLowStockHandler` | `GetLowStockQueryValidator` | — | `GET /api/admin/inventory/low-stock` |
 | `GetStockMovementsQuery` | query | `GetStockMovementsHandler` | `GetStockMovementsQueryValidator` | — | `GET /api/admin/inventory/{productId:int}/movements` |
+| `GetVariantStockMovementsQuery` | query | `GetVariantStockMovementsHandler` | `GetVariantStockMovementsQueryValidator` | — | `GET /api/admin/inventory/variants/{variantId:int}/movements` |
 
 | Public contract | Implemented by |
 |---|---|
@@ -157,8 +160,10 @@ Module document: [Shopping/README.md](Shopping/README.md).
 | `MergeWishlistCommand` | command | `MergeWishlistHandler` | `MergeWishlistValidator` | — | `POST /api/wishlist/merge` |
 | `PurgeExpiredBasketsCommand` | command | `PurgeExpiredBasketsHandler` | — | — | no endpoint (sent internally) |
 | `RemoveBasketItemCommand` | command | `RemoveBasketItemHandler` | — | — | `DELETE /api/basket/items/{productId:int}` |
+| `RemoveBasketLineCommand` | command | `RemoveBasketLineHandler` | — | — | `DELETE /api/basket/items/variants/{variantId:int}` |
 | `RemoveFromWishlistCommand` | command | `RemoveFromWishlistHandler` | — | — | `DELETE /api/wishlist/{productId:int}` |
 | `SetBasketItemQuantityCommand` | command | `SetBasketItemQuantityHandler` | `SetBasketItemQuantityValidator` | — | `PUT /api/basket/items/{productId:int}` |
+| `SetBasketLineQuantityCommand` | command | `SetBasketLineQuantityHandler` | `SetBasketLineQuantityValidator` | — | `PUT /api/basket/items/variants/{variantId:int}` |
 | `GetBasketQuery` | query | `GetBasketHandler` | `GetBasketValidator` | — | `GET /api/basket`<br>`GET /api/basket/quote` |
 | `GetWishlistQuery` | query | `GetWishlistHandler` | — | — | `GET /api/wishlist` |
 

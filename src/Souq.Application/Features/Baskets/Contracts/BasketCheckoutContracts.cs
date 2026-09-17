@@ -9,6 +9,6 @@ public interface IBasketCheckout
 {
     Task<IReadOnlyList<PricingLine>> LinesForCustomerAsync(int customerId, CancellationToken ct);
 
-    // يُنقص من سلة العميل الكميات المشتراة لكل منتج (ويحذف ما نفد) — ما أضافه العميل بعد الطلب يبقى.
+    // يُنقص من سلة العميل الكميات المشتراة لكل متغيّر (ويحذف ما نفد) — ما أضافه العميل بعد الطلب يبقى.
     Task ConsumeAsync(int customerId, IReadOnlyList<PricingLine> purchased, CancellationToken ct);
 }

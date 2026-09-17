@@ -28,6 +28,7 @@ public class ProductConfiguration : IEntityTypeConfiguration<Product>
         builder.Ignore(p => p.IsActive);
         builder.Ignore(p => p.PrimaryImageUrl);
         builder.Ignore(p => p.DefaultVariant);
+        builder.Ignore(p => p.ImplicitVariant);
 
         // المخزون يُعدَّل بالتزامن (شراءان معاً، أو شراء مع تعديل الإدارة) ⇒ rowversion يمنع البيع الزائد
         // والتحديث الضائع (Phase 0 C1/C4).
@@ -102,7 +103,10 @@ public class ProductVariantConfiguration : IEntityTypeConfiguration<ProductVaria
 {
     public void Configure(EntityTypeBuilder<ProductVariant> builder)
     {
-        builder.ToTable("ProductVariants");
+        // الافتراضي نشط دائماً (Product.DeactivateVariant يرفض) — والقاعدة خطّ الدفاع الأخير: منتج بلا متغيّر نشط يمثّله
+        // يكسر كل عميل لا يعرف المتغيّرات.
+        builder.ToTable("ProductVariants", table =>
+            table.HasCheckConstraint("CK_ProductVariants_DefaultIsActive", "[IsDefault] = 0 OR [IsActive] = 1"));
         builder.HasKey(v => v.Id);
         builder.HasAlternateKey(v => new { v.TenantId, v.Id });
         builder.Property(v => v.Sku).HasMaxLength(ProductVariant.SkuMaxLength);

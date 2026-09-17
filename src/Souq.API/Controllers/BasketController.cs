@@ -46,13 +46,14 @@ public class BasketController : ControllerBase
         [FromQuery] string? couponCode, [FromQuery] int? shippingMethodId, [FromQuery] string? country) =>
         Respond(await _mediator.Send(new GetBasketQuery(GuestToken, couponCode, shippingMethodId, country)));
 
-    // POST /api/basket/items { "productId": 5, "quantity": 1 }
+    // POST /api/basket/items { "productId": 5, "variantId": 12, "quantity": 1 } — variantId اختياري لمنتج بمتغيّر نشط واحد
+    // (VariantRequired لغيره).
     [HttpPost("items")]
     [EnableRateLimiting(RateLimitPolicies.Basket)]
     public async Task<IActionResult> Add([FromBody] BasketItemRequest body) =>
-        Respond(await _mediator.Send(new AddBasketItemCommand(GuestToken, body.ProductId, body.Quantity)));
+        Respond(await _mediator.Send(new AddBasketItemCommand(GuestToken, body.ProductId, body.Quantity, body.VariantId)));
 
-    // PUT /api/basket/items/5 { "quantity": 3 } — صفر يحذف السطر.
+    // PUT /api/basket/items/5 { "quantity": 3 } — صفر يحذف السطر. بالمنتج: صالح ما دام للمنتج سطر واحد في السلة.
     [HttpPut("items/{productId:int}")]
     [EnableRateLimiting(RateLimitPolicies.Basket)]
     public async Task<IActionResult> SetQuantity(int productId, [FromBody] BasketQuantityRequest body) =>
@@ -62,6 +63,17 @@ public class BasketController : ControllerBase
     [EnableRateLimiting(RateLimitPolicies.Basket)]
     public async Task<IActionResult> Remove(int productId) =>
         Respond(await _mediator.Send(new RemoveBasketItemCommand(GuestToken, productId)));
+
+    // PUT /api/basket/items/variants/12 { "quantity": 3 } — السطر بمتغيّره: الصيغة التي لا تلتبس حين يحمل المنتج أكثر من سطر.
+    [HttpPut("items/variants/{variantId:int}")]
+    [EnableRateLimiting(RateLimitPolicies.Basket)]
+    public async Task<IActionResult> SetLineQuantity(int variantId, [FromBody] BasketQuantityRequest body) =>
+        Respond(await _mediator.Send(new SetBasketLineQuantityCommand(GuestToken, variantId, body.Quantity)));
+
+    [HttpDelete("items/variants/{variantId:int}")]
+    [EnableRateLimiting(RateLimitPolicies.Basket)]
+    public async Task<IActionResult> RemoveLine(int variantId) =>
+        Respond(await _mediator.Send(new RemoveBasketLineCommand(GuestToken, variantId)));
 
     [HttpDelete]
     [EnableRateLimiting(RateLimitPolicies.Basket)]
@@ -105,6 +117,6 @@ public class BasketController : ControllerBase
     };
 }
 
-public record BasketItemRequest(int ProductId, int Quantity = 1);
+public record BasketItemRequest(int ProductId, int Quantity = 1, int? VariantId = null);
 
 public record BasketQuantityRequest(int Quantity);

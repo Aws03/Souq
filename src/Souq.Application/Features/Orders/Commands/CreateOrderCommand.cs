@@ -19,7 +19,8 @@ public record CreateOrderCommand(
     int? ShippingMethodId = null
 ) : IRequest<Result<OrderCreatedDto>>;
 
-public record OrderLineInput(int ProductId, int Quantity);
+// VariantId اختياري بقاعدة السلة نفسها: بدونه متغيّر المنتج الضمني، ولمنتج بأكثر من متغيّر نشط VariantRequired.
+public record OrderLineInput(int ProductId, int Quantity, int? VariantId = null);
 
 public record OrderCreatedDto(
     int OrderId, int OrderNumber, string Status,

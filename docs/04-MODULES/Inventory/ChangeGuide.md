@@ -72,7 +72,7 @@ Set `Inventory:SweepIntervalSeconds` to `0` in any test that drives expiry itsel
 
 Not scheduled. [ADR-0026](../../11-ADR/0026-inventory-reservations.md) names "several warehouses" as one of its revisit triggers. This is what would have to change.
 
-- **Inspect before deciding:** the unique index `(TenantId, VariantId)` on `InventoryItems`; `IInventoryRepository.GetByVariantsAsync` and `IStockAvailability.AvailableAsync`, both of which build a dictionary **keyed by variant** and would throw on a second row per variant; `InventoryReservations.ReserveAsync` (one hold per variant); `InventoryRepository.GetForProductAsync` (a single row per product); `CatalogQueries` and `WishlistQueries`, which already `Sum` over a product's items and would keep working; `InventoryQueries.StockedItems`/`PageAsync`, which assume one row per product.
+- **Inspect before deciding:** the unique index `(TenantId, VariantId)` on `InventoryItems`; `IInventoryRepository.GetByVariantsAsync` and `IStockAvailability.AvailableAsync`, both of which build a dictionary **keyed by variant** and would throw on a second row per variant; `InventoryReservations.ReserveAsync` (one hold per variant); `InventoryRepository.GetForVariantAsync` (a single row per variant) and `StockTarget.Product` (which refuses a product with more than one row); `CatalogQueries` and `WishlistQueries`, which already `Sum` over a product's items and would keep working; `InventoryQueries.StockedItems`/`PageAsync`, which list one row per variant.
 - **Rules to respect:** `Available` stays non-negative per row; the ledger stays per item, so Σ movements = that item's on hand; a single order's reservation may now span several items for one line, so "reserve all or nothing" must hold across an allocation, not just across lines.
 - **Steps (sketch):**
   1. Domain: a warehouse/location entity (Platform or Inventory owned), `InventoryItem` gains a location, and the unique index becomes *(TenantId, VariantId, LocationId)*.
@@ -81,56 +81,20 @@ Not scheduled. [ADR-0026](../../11-ADR/0026-inventory-reservations.md) names "se
   4. Admin screens and endpoints: stock per location, transfers between locations (a pair of movements), and a location filter on the ledger.
   5. Shipping and Ordering may want the chosen location on the order; that is a separate decision.
 - **Tests:** the parallel-checkout tests must be repeated per location and across locations; add reconciliation tests per item; `InventoryReservationsTests` needs allocation cases (partial availability in two locations).
-- **API:** `InventoryItemDto.Id` is a product id today; a location dimension makes it a composite — a breaking change for the admin UI.
+- **API:** an inventory row is identified by (`InventoryItemDto.Id` product, `InventoryItemDto.VariantId`) today; a location dimension adds a third part — a breaking change for the admin UI.
 - **Database:** migrations for the location table, the wider unique index, and a data migration assigning existing rows to a default location. Reversible only while every variant has exactly one location.
 - **Security:** per-location permissions are a plausible follow-on (a branch manager sees only their stock); design the permission before shipping the data model.
 - **Docs and ADR:** a new ADR superseding the "where stock lives" row of [ADR-0026](../../11-ADR/0026-inventory-reservations.md), plus [Modules.md](../Modules.md), this README and [DatabaseDesign.md](../../06-DATABASE/DatabaseDesign.md).
 
-## I need to move the admin API from products to variants
+## I need to move the admin screen from products to variants
 
-A prerequisite for real variants (see [Catalog/ChangeGuide.md](../Catalog/ChangeGuide.md)) and worth doing on its own.
+The API side is done ([ADR-0039](../../11-ADR/0039-product-variants-order-identity.md)): `api/admin/inventory/variants/{variantId}/movements|adjustments|threshold` sit beside the product routes, which answer `422 VariantRequired` for a product with more than one stock row. What remains belongs to V2 of [ProductVariants.md](../Catalog/ProductVariants.md), when merchants can create a second variant.
 
-- **Inspect:** `AdminInventoryController` (every route is `{productId}`), `AdjustStockCommand`/`SetLowStockThresholdCommand`, `IInventoryRepository.GetForProductAsync`, `InventoryItemDto` (its `Id` is the product id), `GetStockMovementsQuery` (it filters `StockMovements.ProductId`), `frontend/src/pages/admin/Inventory.jsx` (it passes `item.id` to `adjustStock`).
-- **Rules to respect:** `StockMovement` already carries both `ProductId` and `InventoryItemId`, so a per-variant ledger needs no schema change. Keep the product-level view as an aggregate for the list screen; only the write operations must become unambiguous.
-- **Steps:** add variant-keyed commands and a repository lookup by variant (it exists: `GetByVariantsAsync`), keep the product-keyed routes working while a product has one variant, and move the UI over before removing them.
-- **Tests:** `InventoryCommandsTests` and `TenantIsolationTests` both address inventory by product id; add variant-keyed equivalents.
-- **API:** additive if the old routes stay; breaking when they are removed. Version the change.
+- **Inspect:** `frontend/src/pages/admin/Inventory.jsx` (it keys rows by `item.id`, a product id, and passes it to `adjustStock` and `getStockMovements`), `frontend/src/api/client.js` (the three inventory calls), `InventoryItemDto` (`Id` and `VariantId`), `AdjustVariantStockCommand`, `SetVariantLowStockThresholdCommand`, `GetVariantStockMovementsQuery`.
+- **Rules to respect:** the rules live in `InventoryItem` and both route families share `StockTarget.ChangeAsync`; don't copy them into the screen. A row needs the variant's label once options exist (the list shows the product name and the variant's SKU today).
+- **Steps:** key rows by `variantId`; call the variant routes; show the label from the option model; decide whether the product-keyed routes are then removed (a breaking change to version) or kept for single-variant products.
+- **Tests:** a Vitest file for the inventory page (none exists today); the browser journey for stock adjustment.
+- **API:** none, unless the product routes are removed.
 - **Database:** none.
-- **Security:** unchanged permissions.
-- **Docs and ADR:** README (Known limitations 1), [Endpoints.md](../../05-API/Endpoints.md).
-
-## I need to tune concurrency and contention
-
-- **Inspect:** `InventoryWriter` (`MaxAttempts`, `Reset()` on conflict, the savepoint note), `HasRowVersion` in `InventoryConfiguration`, `AppDbContext.SaveChangesAsync`'s exception translation, `InventoryReservations` (every operation goes through the writer), and `tests/Souq.IntegrationTests/InventoryAndOrderTests.cs` for the contention scenarios.
-- **Rules to respect:** the retry must re-read and re-apply through the entity, never patch the previously loaded copy — that is the whole reason the loser of a race gets a truthful `InsufficientStock` rather than an oversell. `Reset()` must keep detaching items, reservations **and** movements, otherwise a failed attempt's ledger line is saved twice. [ADR-0026](../../11-ADR/0026-inventory-reservations.md) rejected pessimistic locks and conditional `UPDATE`s on purpose: raw SQL is barred outside migrations, and a conditional update moves the rule out of the Domain.
-- **Steps:** raising `MaxAttempts` buys throughput at the cost of latency under heavy contention; measure first. The real options when one SKU is hot are the ones the ADR lists — a queue, or splitting the row — and both deserve an ADR.
-- **Tests:** `InventoryReservationsTests` covers "a conflict re-reads and then succeeds" and "repeated conflicts surface after the limit"; the parallel integration tests are the safety net. Keep both.
-- **API:** the only visible change is how often clients see `409 ConcurrencyConflict`.
-- **Database:** none, unless rows are split.
-- **Security:** none.
-- **Docs and ADR:** README (Known limitations 3), [ADR-0013](../../11-ADR/0013-optimistic-concurrency.md) revisit note.
-
-## I need to change the expiry sweep
-
-- **Inspect:** `ReservationExpiryService`, `StoreSweepService` (it lists active stores and runs the work in each store's scope), `InventorySettings.SweepIntervalSeconds`, `IInventoryRepository.FindExpiredReferencesAsync` (active holds past their expiry, grouped by reference, oldest first, capped), `ExpireStaleCheckoutsHandler` (the decisions), and the filtered index `(TenantId, ExpiresAt) WHERE [Status] = 0`.
-- **Rules to respect:** the sweep may never cancel an order that might have been paid — it asks the gateway first, and treats "processing" as "try again next tick". Every reference is independent: one failure is logged and retried, never aborting the batch. The batch cap plus the oldest-first ordering is what stops one store starving another. Inventory must not decide an order's fate: keep that logic in Ordering.
-- **Steps:** the interval and the batch size (`ExpireStaleCheckoutsCommand.Max`, default 50) are the safe knobs. For several application instances, add the distributed lock deferred to Phase 23 rather than relying on idempotency alone — correctness holds today, but the duplicated gateway calls do not.
-- **Tests:** `ExpireStaleCheckoutsHandlerTests` covers the per-reference decisions; `InventoryAndOrderTests` covers the abandoned-order path end to end; both drive the command directly with the sweep disabled (`SweepIntervalSeconds = 0`).
-- **API:** none.
-- **Database:** none; keep the filtered index if the query changes shape, or it will scan closed holds.
-- **Security:** none, but a sweep that cancels orders is a destructive background action — keep its logging (`StoreSweepService` logs per store, the handler logs per failed reference).
-- **Docs and ADR:** README (Events and background work, Known limitations 4), [ScalingStrategy.md](../../09-OPERATIONS/ScalingStrategy.md).
-
-## I need to let another module read or change stock
-
-- **Inspect:** `InventoryContracts.cs`, the `AllowedContracts` map in `tests/Souq.ArchitectureTests/ModuleAndContractRuleTests.cs`, and the existing callers (`CreateOrderHandler`, `OrderPaymentConfirmation`, `UpdateOrderStatusHandler`, `ExpireStaleCheckoutsHandler`, `BasketStock`, `BasketViews`).
-- **Rules to respect:** other modules talk to Inventory through `Features/Inventory/Contracts` — never through `IInventoryRepository`, never by querying `InventoryItems`, and never by mutating the entity. Reading availability is not holding it. The caller owns its reference string. Adding an arrow must not create a cycle; the test rejects one.
-- **Steps:**
-  1. Add the method to `IInventoryReservations` or `IStockAvailability`, or create a new focused contract; implement it on `InventoryReservations` through `InventoryWriter`.
-  2. Add the caller module to `AllowedContracts` in the architecture test, with a comment saying why — that map is the living dependency diagram.
-  3. For a read-only reporting need, prefer a projection in Infrastructure (like `InventoryQueries`) over widening a write contract.
-- **Tests:** an application test with NSubstitute doubles for the new contract, plus a case in `ModuleAndContractRuleTests` by virtue of the updated map.
-- **API:** none unless the new consumer is an endpoint.
-- **Database:** none.
-- **Security:** if the consumer is a background job, make sure it runs inside a tenant scope (`TenantScopes.RunAsync`), or the query filter will find nothing.
-- **Docs and ADR:** README (Public contracts, Dependencies), [Modules.md](../Modules.md) and [ModuleBoundaries.md](../../02-ARCHITECTURE/ModuleBoundaries.md).
+- **Security:** unchanged permissions (`inventory.view`, `inventory.manage`).
+- **Docs and ADR:** README (Known limitations 1), [Endpoints.md](../../05-API/Endpoints.md) if routes are removed.

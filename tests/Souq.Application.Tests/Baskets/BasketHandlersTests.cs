@@ -38,7 +38,11 @@ public class BasketHandlersTests
     private BasketViews Views(ICurrentUser user) => new(_pricing, _availability, user);
     private AddBasketItemHandler AddHandler(ICurrentUser user) => new(_products, _availability, Resolver(user), Views(user), _uow);
     private GetBasketHandler GetHandler(ICurrentUser user) => new(Resolver(user), Views(user), _uow);
-    private SetBasketItemQuantityHandler SetHandler(ICurrentUser user) => new(_availability, Resolver(user), Views(user), _uow);
+    private BasketLines Lines(ICurrentUser user) => new(_availability, Resolver(user), Views(user), _uow);
+    private SetBasketItemQuantityHandler SetHandler(ICurrentUser user) => new(Lines(user));
+    private SetBasketLineQuantityHandler SetLineHandler(ICurrentUser user) => new(Lines(user));
+    private RemoveBasketItemHandler RemoveHandler(ICurrentUser user) => new(Lines(user));
+    private RemoveBasketLineHandler RemoveLineHandler(ICurrentUser user) => new(Lines(user));
 
     private DateTime Tomorrow => _clock.UtcNow.AddDays(1);
 
@@ -46,7 +50,7 @@ public class BasketHandlersTests
     private static PriceQuote Quote(IReadOnlyList<PricingLine> lines)
     {
         var priced = lines.Select(l => new PricedLine(
-            l.ProductId, l.ProductId, "صنف", new Dictionary<string, string> { ["ar"] = "صنف" }, null,
+            l.ProductId, l.VariantId ?? l.ProductId, "صنف", new Dictionary<string, string> { ["ar"] = "صنف" }, null,
             new Money(10, "JOD"), l.Quantity, new Money(10 * l.Quantity, "JOD"), Sellable: true)).ToList();
         var total = new Money(priced.Sum(l => l.LineTotal.Amount), "JOD");
         return new PriceQuote("JOD", priced, total, null, Money.Zero("JOD"), Money.Zero("JOD"), Money.Zero("JOD"), total);
@@ -194,5 +198,94 @@ public class BasketHandlersTests
         purged.Should().Be(1);
         _baskets.Received(1).Remove(old);
         await _uow.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    // ── المتغيّرات (ProductVariants.md، V1) ── قميص (منتج 5) بمتغيّرين: الافتراضي 5 والثاني 51.
+    private Product ShirtExists()
+    {
+        var shirt = TestCatalog.Product(price: 20, id: 5);
+        TestCatalog.WithId(shirt.AddVariant(new Money(25, "JOD")), 51);
+        _products.GetByIdAsync(5, Arg.Any<CancellationToken>()).Returns(shirt);
+        return shirt;
+    }
+
+    private Basket CustomerBasket()
+    {
+        var mine = Basket.ForCustomer(1, Tomorrow);
+        _baskets.GetForCustomerAsync(1, Arg.Any<CancellationToken>()).Returns(mine);
+        return mine;
+    }
+
+    [Fact]
+    public async Task متغيّران_من_المنتج_نفسه_سطران_منفصلان_في_السلة()
+    {
+        ShirtExists();
+        var mine = CustomerBasket();
+        var handler = AddHandler(TestCurrentUser.Customer(1));
+
+        (await handler.Handle(new AddBasketItemCommand(null, 5, 1, VariantId: 5), CancellationToken.None)).IsSuccess.Should().BeTrue();
+        var result = await handler.Handle(new AddBasketItemCommand(null, 5, 2, VariantId: 51), CancellationToken.None);
+        await handler.Handle(new AddBasketItemCommand(null, 5, 1, VariantId: 51), CancellationToken.None);
+
+        mine.Lines.Select(l => (l.ProductId, l.VariantId, l.Quantity)).Should().Equal((5, 5, 1), (5, 51, 3));
+        result.Value!.Basket.Lines.Select(l => l.VariantId).Should().Equal(5, 51);
+    }
+
+    [Fact]
+    public async Task بلا_متغيّر_لمنتج_بأكثر_من_متغيّر_نشط_يُطلب_التحديد_والغريب_والمعطّل_404()
+    {
+        var shirt = ShirtExists();
+        var charger = TestCatalog.Product(price: 3, id: 6);
+        _products.GetByIdAsync(6, Arg.Any<CancellationToken>()).Returns(charger);
+        var handler = AddHandler(TestCurrentUser.Anonymous());
+
+        (await handler.Handle(new AddBasketItemCommand(null, 5, 1), CancellationToken.None)).ErrorCode.Should().Be("VariantRequired");
+        // متغيّر منتج آخر من المتجر نفسه لا يُضاف مع هذا المنتج (ولا مع ذاك).
+        (await handler.Handle(new AddBasketItemCommand(null, 6, 1, VariantId: 51), CancellationToken.None)).ErrorCode.Should().Be("NotFound");
+        (await handler.Handle(new AddBasketItemCommand(null, 5, 1, VariantId: 6), CancellationToken.None)).ErrorCode.Should().Be("NotFound");
+        shirt.DeactivateVariant(51);
+        (await handler.Handle(new AddBasketItemCommand(null, 5, 1, VariantId: 51), CancellationToken.None)).ErrorCode.Should().Be("NotFound");
+
+        _added.Should().BeNull();
+        await _uow.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+
+        // بعد تعطيل الثاني عاد للقميص متغيّر نشط واحد: الإضافة بلا متغيّر تعمل كما لمنتج بسيط.
+        (await handler.Handle(new AddBasketItemCommand(null, 5, 1), CancellationToken.None)).IsSuccess.Should().BeTrue();
+        _added!.Lines.Should().ContainSingle().Which.VariantId.Should().Be(5);
+    }
+
+    [Fact]
+    public async Task مسار_المنتج_ملتبس_حين_له_سطران_ومسار_المتغيّر_يصيب_سطره_وحده()
+    {
+        var mine = CustomerBasket();
+        mine.Add(5, 5, 2, Tomorrow);
+        mine.Add(5, 51, 3, Tomorrow);
+        var user = TestCurrentUser.Customer(1);
+
+        (await SetHandler(user).Handle(new SetBasketItemQuantityCommand(null, 5, 1), CancellationToken.None))
+            .ErrorCode.Should().Be("VariantRequired");
+        (await RemoveHandler(user).Handle(new RemoveBasketItemCommand(null, 5), CancellationToken.None))
+            .ErrorCode.Should().Be("VariantRequired");
+        mine.Lines.Select(l => l.Quantity).Should().Equal(2, 3);
+
+        (await SetLineHandler(user).Handle(new SetBasketLineQuantityCommand(null, 51, 1), CancellationToken.None)).IsSuccess.Should().BeTrue();
+        (await RemoveLineHandler(user).Handle(new RemoveBasketLineCommand(null, 5), CancellationToken.None)).IsSuccess.Should().BeTrue();
+        (await SetLineHandler(user).Handle(new SetBasketLineQuantityCommand(null, 99, 1), CancellationToken.None))
+            .ErrorCode.Should().Be("NotFound");
+
+        mine.Lines.Select(l => (l.VariantId, l.Quantity)).Should().Equal((51, 1));
+
+        // بقي للمنتج سطر واحد: مسار المنتج صالح من جديد.
+        (await RemoveHandler(user).Handle(new RemoveBasketItemCommand(null, 5), CancellationToken.None)).IsSuccess.Should().BeTrue();
+        mine.Lines.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void معرّف_المتغيّر_اختياري_وإن_أُرسل_فموجب()
+    {
+        new AddBasketItemValidator().Validate(new AddBasketItemCommand(null, 5, 1)).IsValid.Should().BeTrue();
+        new AddBasketItemValidator().Validate(new AddBasketItemCommand(null, 5, 1, VariantId: 0)).IsValid.Should().BeFalse();
+        new SetBasketLineQuantityValidator().Validate(new SetBasketLineQuantityCommand(null, 0, 1)).IsValid.Should().BeFalse();
+        new SetBasketLineQuantityValidator().Validate(new SetBasketLineQuantityCommand(null, 51, Basket.MaxQuantityPerLine + 1)).IsValid.Should().BeFalse();
     }
 }

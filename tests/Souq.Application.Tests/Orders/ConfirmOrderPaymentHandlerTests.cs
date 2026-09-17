@@ -43,7 +43,7 @@ public class ConfirmOrderPaymentHandlerTests
     private static Order PendingOrderWithIntent(string paymentIntentId = "pi_123", int quantity = 2)
     {
         var order = TestCatalog.WithId(new Order(1, "عمّان", "JOD"), 9);
-        order.AddItem(productId: 1, "سماعات", new Money(50, "JOD"), quantity);
+        order.AddItem(productId: 1, variantId: 1, "سماعات", new Money(50, "JOD"), quantity);
         order.SetPaymentIntent(paymentIntentId);
         return order;
     }

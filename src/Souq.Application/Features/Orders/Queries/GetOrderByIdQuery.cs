@@ -8,7 +8,10 @@ using Souq.Domain.Enums;
 
 namespace Souq.Application.Features.Orders.Queries;
 
-public record OrderItemDto(int ProductId, string ProductName, decimal UnitPrice, int Quantity, decimal LineTotal);
+// VariantId: المتغيّر المشترى. VariantLabel وSku لقطتا لحظة الشراء — null: لم يُسجَّلا (منتج بلا خيارات، أو سطر سبق التسجيل).
+public record OrderItemDto(
+    int ProductId, string ProductName, decimal UnitPrice, int Quantity, decimal LineTotal,
+    int VariantId, string? VariantLabel, string? Sku);
 
 // سطر في سجلّ حالة الطلب. الملاحظة ومن غيّرها للإدارة فقط؛ صاحب الطلب يرى الحالة وتاريخها.
 public record OrderHistoryEntryDto(string Status, DateTime ChangedAt, string? Note, string? ChangedBy, string? ChangedByName);

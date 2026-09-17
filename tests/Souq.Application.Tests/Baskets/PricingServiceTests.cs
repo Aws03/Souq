@@ -160,4 +160,53 @@ public class PricingServiceTests
         context.UseTenant(TestTenant.Info() with { Modules = new HashSet<string>() });
         return context;
     }
+
+    // ── المتغيّرات (ProductVariants.md، V1) ── منتج بمتغيّرين: الافتراضي (معرّفه معرّف المنتج) ومتغيّر ثانٍ.
+    private static Product Shirt(int id = 1, int secondVariantId = 12)
+    {
+        var shirt = TestCatalog.Product("قميص", price: 20m, id: id);
+        shirt.SetPricing(new Money(20m, "JOD"), null, "SHIRT-S");
+        TestCatalog.WithId(shirt.AddVariant(new Money(25m, "JOD"), sku: "SHIRT-L"), secondVariantId);
+        return shirt;
+    }
+
+    [Fact]
+    public async Task كل_سطر_يُسعَّر_بمتغيّره_المسمّى_ويحمل_SKU_لقطةً()
+    {
+        Catalog(Shirt());
+
+        var quote = await Pricing().QuoteAsync([new(1, 1, 1), new(1, 2, 12)], null, null, null, CancellationToken.None);
+
+        quote.Lines.Select(l => (l.ProductId, l.VariantId, l.UnitPrice.Amount, l.LineTotal.Amount, l.Sellable, l.Sku, l.VariantLabel))
+            .Should().Equal((1, 1, 20m, 20m, true, "SHIRT-S", (string?)null), (1, 12, 25m, 50m, true, "SHIRT-L", (string?)null));
+        quote.Subtotal.Amount.Should().Be(70m);
+    }
+
+    [Fact]
+    public async Task متغيّر_منتج_آخر_أو_معطّل_لا_يُسعَّر_ومنتج_بأكثر_من_متغيّر_بلا_تحديد_يطلبه()
+    {
+        var shirt = Shirt();
+        shirt.DeactivateVariant(12);
+        TestCatalog.WithId(shirt.AddVariant(new Money(30m, "JOD")), 13);
+        Catalog(shirt, TestCatalog.Product("شاحن", price: 4m, id: 2));
+
+        var quote = await Pricing().QuoteAsync(
+            [new(2, 1, 13), new(1, 1, 12), new(1, 1), new(2, 1)], null, null, null, CancellationToken.None);
+
+        quote.Lines.Select(l => (l.ProductId, l.Sellable, l.VariantRequired))
+            .Should().Equal((2, false, false), (1, false, false), (1, false, true), (2, true, false));
+        quote.Lines[0].UnitPrice.Amount.Should().Be(0, "متغيّر القميص لا يسعّر الشاحن أبداً");
+        (quote.Subtotal.Amount, quote.Total.Amount).Should().Be((4m, 4m));
+    }
+
+    [Fact]
+    public async Task منتج_بسيط_بلا_متغيّر_مسمّى_يُسعَّر_بمتغيّره_الافتراضي_كما_كان()
+    {
+        Catalog(TestCatalog.Product("سماعات", price: 12.5m, id: 1));
+
+        var quote = await Pricing().QuoteAsync([new(1, 2)], null, null, null, CancellationToken.None);
+
+        quote.Lines.Single().Should().BeEquivalentTo(new { VariantId = 1, Sellable = true, VariantRequired = false });
+        quote.Total.Amount.Should().Be(25m);
+    }
 }

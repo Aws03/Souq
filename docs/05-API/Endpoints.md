@@ -5,7 +5,7 @@
 >
 > Conventions (errors, paging, status codes): [ApiDocumentation.md](ApiDocumentation.md). Use cases per module: [UseCases.md](../04-MODULES/UseCases.md).
 
-**129 endpoints** in 25 controllers: 24 anonymous, 27 for any signed-in account, 78 behind a permission.
+**134 endpoints** in 25 controllers: 26 anonymous, 27 for any signed-in account, 81 behind a permission.
 
 ## How to read this table
 
@@ -35,6 +35,9 @@
 | PUT | `/api/admin/customers/{id:int}/status` | `customers.view` + `customers.manage` | store | — | — | `SetCustomerStatusCommand` | Customers |
 | GET | `/api/admin/inventory` | `inventory.view` | store | — | — | `GetInventoryQuery` | Inventory |
 | GET | `/api/admin/inventory/low-stock` | `inventory.view` | store | — | — | `GetLowStockQuery` | Inventory |
+| POST | `/api/admin/inventory/variants/{variantId:int}/adjustments` | `inventory.view` + `inventory.manage` | store | — | — | `AdjustVariantStockCommand` | Inventory |
+| GET | `/api/admin/inventory/variants/{variantId:int}/movements` | `inventory.view` | store | — | — | `GetVariantStockMovementsQuery` | Inventory |
+| PUT | `/api/admin/inventory/variants/{variantId:int}/threshold` | `inventory.view` + `inventory.manage` | store | — | — | `SetVariantLowStockThresholdCommand` | Inventory |
 | POST | `/api/admin/inventory/{productId:int}/adjustments` | `inventory.view` + `inventory.manage` | store | — | — | `AdjustStockCommand` | Inventory |
 | GET | `/api/admin/inventory/{productId:int}/movements` | `inventory.view` | store | — | — | `GetStockMovementsQuery` | Inventory |
 | PUT | `/api/admin/inventory/{productId:int}/threshold` | `inventory.view` + `inventory.manage` | store | — | — | `SetLowStockThresholdCommand` | Inventory |
@@ -78,6 +81,8 @@
 | GET | `/api/basket` | anonymous | store | — | — | `GetBasketQuery` | Shopping |
 | DELETE | `/api/basket` | anonymous | store | — | `basket` | `ClearBasketCommand` | Shopping |
 | POST | `/api/basket/items` | anonymous | store | — | `basket` | `AddBasketItemCommand` | Shopping |
+| PUT | `/api/basket/items/variants/{variantId:int}` | anonymous | store | — | `basket` | `SetBasketLineQuantityCommand` | Shopping |
+| DELETE | `/api/basket/items/variants/{variantId:int}` | anonymous | store | — | `basket` | `RemoveBasketLineCommand` | Shopping |
 | PUT | `/api/basket/items/{productId:int}` | anonymous | store | — | `basket` | `SetBasketItemQuantityCommand` | Shopping |
 | DELETE | `/api/basket/items/{productId:int}` | anonymous | store | — | `basket` | `RemoveBasketItemCommand` | Shopping |
 | GET | `/api/basket/quote` | anonymous | store | — | `coupon-preview` | `GetBasketQuery` | Shopping |

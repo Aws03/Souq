@@ -116,20 +116,34 @@ public class Order : Entity, ITenantOwned
     }
 
     // الباب الوحيد لإضافة منتج للطلب. القاعدة محمية: لا إضافة بعد التثبيت ولا بعد بدء المعالجة.
-    public void AddItem(int productId, string productName, Money unitPrice, int quantity)
+    // السطر متغيّر لا منتج: مقاسان من المنتج نفسه سطران بسعرين، والمتغيّر نفسه مرّتين سطر واحد بكميتهما.
+    public void AddItem(
+        int productId, int variantId, string productName, Money unitPrice, int quantity, string? variantLabel = null, string? sku = null)
     {
         EnsureOpen("لا يمكن تعديل طلب بدأت معالجته");
         if (quantity <= 0)
             throw new InvalidOrderOperationException("الكمية يجب أن تكون أكبر من صفر");
         if (unitPrice.Currency != Currency)
             throw new InvalidOrderOperationException("عملة السعر لا تطابق عملة الطلب");
+        if (productId <= 0 || variantId <= 0)
+            throw new InvalidOrderOperationException("سطر الطلب يخصّ متغيّراً محدّداً من منتج");
+        var label = Snapshot(variantLabel, OrderItem.VariantLabelMaxLength, "وصف المتغيّر");
+        var skuSnapshot = Snapshot(sku, ProductVariant.SkuMaxLength, "SKU");
 
-        // إن كان المنتج موجوداً مسبقاً، نزيد كميته بدل تكرار السطر (قاعدة من معايير القبول).
-        var existing = _items.FirstOrDefault(i => i.ProductId == productId);
-        if (existing is not null)
-            existing.IncreaseQuantity(quantity);
-        else
-            _items.Add(new OrderItem(productId, productName, unitPrice, quantity));
+        var existing = _items.FirstOrDefault(i => i.VariantId == variantId);
+        if (existing is null)
+        {
+            _items.Add(new OrderItem(productId, variantId, productName, label, skuSnapshot, unitPrice, quantity));
+            return;
+        }
+
+        // الدمج لا يُخفي تناقضاً: متغيّر واحد لا يخصّ منتجين، ولا يُباع في الطلب نفسه بسعرين (كان الدمج يُبقي السعر الأول
+        // بصمت).
+        if (existing.ProductId != productId)
+            throw new InvalidOrderOperationException("المتغيّر لا يخصّ هذا المنتج");
+        if (existing.UnitPrice != unitPrice)
+            throw new InvalidOrderOperationException("المتغيّر نفسه لا يُضاف للطلب بسعرين");
+        existing.IncreaseQuantity(quantity);
     }
 
     // تطبيق كوبون خصم — قبل التثبيت فقط. القيمة تصل جاهزة (خطّ التسعير في Application حسبها)؛ هنا نحرس فقط أن الحالة
@@ -245,6 +259,15 @@ public class Order : Entity, ITenantOwned
             throw new InvalidOrderOperationException(refusal);
         if (IsPlaced)
             throw new InvalidOrderOperationException("الطلب مثبَّت: أسطره وخصمه وإجمالياته لا تتغيّر");
+    }
+
+    private static string? Snapshot(string? value, int maxLength, string label)
+    {
+        var trimmed = value?.Trim();
+        if (string.IsNullOrEmpty(trimmed)) return null;
+        return trimmed.Length <= maxLength
+            ? trimmed
+            : throw new InvalidOrderOperationException($"{label} في سطر الطلب حتى {maxLength} حرفاً");
     }
 
     private static string Address(string? value, string label)

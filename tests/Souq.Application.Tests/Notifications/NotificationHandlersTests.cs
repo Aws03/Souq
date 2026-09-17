@@ -165,7 +165,7 @@ public class OrderNotificationHandlersTests
 
     public OrderNotificationHandlersTests()
     {
-        _order.AddItem(1, "سماعات", new Money(50, "JOD"), 1);
+        _order.AddItem(1, 1, "سماعات", new Money(50, "JOD"), 1);
         _order.AssignNumber(1001);
         _order.Place(new DateTime(2026, 9, 12, 0, 0, 0, DateTimeKind.Utc));   // الإجماليات المجمّدة مصدر البريد (R-06)
         _orders.GetByIdAsync(9, Arg.Any<CancellationToken>()).Returns(_order);
@@ -262,7 +262,7 @@ public class OrderNotificationHandlersTests
     public async Task بريد_الطلب_يحمل_أسطره_وإجمالياته_المجمّدة_لا_محسوبة_من_تجمّع_ناقص()
     {
         var order = TestCatalog.WithId(new Order(customerId: 3, "عمّان", "JOD"), 11);
-        order.AddItem(1, "سماعات", new Money(50, "JOD"), 2);
+        order.AddItem(1, 1, "سماعات", new Money(50, "JOD"), 2);
         order.ApplyCoupon("SAVE10", new Money(10, "JOD"));
         order.ApplyShipping("توصيل", new Money(5, "JOD"), "Aramex", null, 2, 4, "JO");
         order.AssignNumber(1042);

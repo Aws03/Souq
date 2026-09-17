@@ -36,7 +36,7 @@ The payment **webhook use case lives here**, not in Payments: Ordering depends o
 ## Business concepts
 
 - **Order** — one customer's purchase in one store, in the store's currency, frozen at placement.
-- **Order line** — a product with the name and unit price it had when bought.
+- **Order line** — one purchased variant of a product, with the product name and unit price it had when bought and the variant's SKU and label at that moment ([ADR-0039](../../11-ADR/0039-product-variants-order-identity.md)).
 - **Order number** — a per-store integer starting at 1001; unique inside the store, deliberately not contiguous.
 - **Tracking token** — 32 lowercase hex characters (128 random bits) that make the public tracking link unguessable.
 - **Placement** — the moment the invoice becomes fixed; the subtotal and total are stored as they were.
@@ -52,7 +52,7 @@ The payment **webhook use case lives here**, not in Payments: Ordering depends o
 | Type | Kind | Path | Invariants it guards |
 |---|---|---|---|
 | `Order` | aggregate root | `src/Souq.Domain/Entities/Order.cs` | Total = lines − discount + shipping, always; lines, coupon and shipping change only while Pending **and** before placement; currency is fixed at creation and every amount must match it; discount ≤ subtotal; the number is assigned once and must be positive; `Place` needs lines and a number and runs once; a payment intent binds only while Pending; every status change goes through `OrderTransitions` and writes a history row; cancelling a cancelled order is refused (stock can't be released twice); an empty order can't be paid; addresses are 1–500 characters; the shipping country is two ASCII letters |
-| `OrderItem` | entity in the aggregate | `src/Souq.Domain/Entities/OrderItem.cs` | Created only by `Order.AddItem` (internal constructor); name and unit price are frozen copies; the same product twice increases the quantity instead of duplicating the line |
+| `OrderItem` | entity in the aggregate | `src/Souq.Domain/Entities/OrderItem.cs` | Created only by `Order.AddItem` (internal constructor); references the purchased `VariantId`; name, unit price, variant label and SKU are frozen copies (label and SKU null when not recorded); the same variant twice increases the quantity, two variants of one product are two lines, and a variant is never merged under another product or at another price |
 | `OrderStatusHistory` | entity in the aggregate | `src/Souq.Domain/Entities/OrderStatusHistory.cs` | Created only by `Order.RecordStatusChange` (private), so a status cannot be reached without a record; the change time is `CreatedAt` |
 | `OrderTransitions` | policy (static) | `src/Souq.Domain/Entities/OrderTransitions.cs` | The only table of allowed transitions; a customer may only cancel a pending order |
 | `OrderNumberSequence` | aggregate root (one row per store) | `src/Souq.Domain/Entities/OrderNumberSequence.cs` | Numbering starts at `FirstNumber` (1001) so a new store's volume isn't visible |
@@ -163,13 +163,13 @@ Ordering has **no *Features/Orders/Contracts* folder**. What other modules actua
 | Table | EF configuration | Tenant | Concurrency | Indexes and rules that encode business rules |
 |---|---|---|---|---|
 | `Orders` | `OrderConfiguration` | `ITenantOwned` | `RowVersion` | unique (TenantId, OrderNumber); unique (TenantId, TrackingToken); (TenantId, CreatedAt) and (TenantId, Status, CreatedAt) for the admin list; FK (TenantId, CustomerId) → `Customers`, Restrict; money columns `decimal(19,4)`; discount stored as an optional owned pair of columns; token `char(32)`, non-Unicode |
-| `OrderItems` | `OrderItemConfiguration` | `ITenantOwned` | — | required cascade FK to the order; FK (TenantId, ProductId) → `Products`, Restrict; unit price stored as an owned money pair; the line total is computed, never stored |
+| `OrderItems` | `OrderItemConfiguration` | `ITenantOwned` | — | required cascade FK to the order; FK (TenantId, ProductId) → `Products` and FK (TenantId, VariantId) → `ProductVariants`, both Restrict; unique (OrderId, VariantId); unit price stored as an owned money pair; `VariantLabel` and `Sku` snapshots, null for lines placed before they were recorded; the line total is computed, never stored |
 | `OrderStatusHistories` | `OrderStatusHistoryConfiguration` | `ITenantOwned` | — | required cascade FK to the order; note ≤ 300 characters; the actor's account id is stored **without** a foreign key, so deactivating a staff account cannot break history |
 | `OrderNumberSequences` | `OrderNumberSequenceConfiguration` | `ITenantOwned` | — | unique TenantId: exactly one counter row per store |
 
-Other modules' data that Ordering reads: the Customers aggregate (repository), `Customers` and `Users` in the read model, basket lines and prices through contracts, availability through `IStockAvailability`. Everything the invoice must not lose is copied onto the order instead: product name (in the store's default culture) and unit price, both addresses, the shipping method with cost, carrier, estimate and tracking URL template, the coupon code and its discount, and the currency.
+Other modules' data that Ordering reads: the Customers aggregate (repository), `Customers` and `Users` in the read model, basket lines and prices through contracts, availability through `IStockAvailability`. Everything the invoice must not lose is copied onto the order instead: product name (in the store's default culture), unit price, the purchased variant's SKU and label, both addresses, the shipping method with cost, carrier, estimate and tracking URL template, the coupon code and its discount, and the currency.
 
-Migrations that shaped these tables: `src/Souq.Infrastructure/Migrations/20260911162641_Phase9Orders.cs` (numbers, tokens, billing snapshot, placement, with a backfill), `src/Souq.Infrastructure/Migrations/20260911174818_Phase11Payments.cs`, `src/Souq.Infrastructure/Migrations/20260911183736_Phase12Shipping.cs`.
+Migrations that shaped these tables: `src/Souq.Infrastructure/Migrations/20260911162641_Phase9Orders.cs` (numbers, tokens, billing snapshot, placement, with a backfill), `src/Souq.Infrastructure/Migrations/20260911174818_Phase11Payments.cs`, `src/Souq.Infrastructure/Migrations/20260911183736_Phase12Shipping.cs`, `src/Souq.Infrastructure/Migrations/20260917154933_OrderLinesRecordVariant.cs` (the purchased variant and its snapshots, with an exact backfill of existing lines — [Migrations.md](../../06-DATABASE/Migrations.md)).
 
 ## API
 
@@ -283,6 +283,7 @@ Only the payment gateway, and only through `IPaymentService`: `CreateIntentAsync
 | Application | `ConfirmOrderPaymentHandlerTests` | ownership, idempotent re-confirmation, failed payment cancelling and releasing, the concurrent-confirmation race in both directions |
 | Application | `CancelMyOrderHandlerTests`, `UpdateOrderStatusHandlerTests`, `ExpireStaleCheckoutsHandlerTests`, `GetOrderByIdHandlerTests`, `ProcessPaymentWebhookHandlerTests`, `ApplyPaymentEventHandlerTests` | each gateway outcome, admin actions and the automatic refund, sweep settlement cases, per-viewer shaping, webhook routing |
 | Integration | `OrderLifecycleTests`, `InventoryAndOrderTests`, `CouponRedemptionTests`, `ShippingTests`, `PaymentsAndRefundsTests`, `NotificationTests` | numbering from 1001 per store, basket consumed only after payment, parallel checkouts on the last unit, expiry releasing an abandoned order, frozen totals, JOD precision end to end |
+| Integration | `ProductVariantTests` | two variants of one product from basket to payment as two lines with their SKU snapshots and reservations; a snapshot surviving a catalogue change; a single-variant product through the old contracts; `VariantRequired`, foreign and deactivated variants; the database refusing a duplicate or variant-less line |
 | Integration | `TenantIsolationTests`, `AuthorizationBoundaryTests`, `AuthorizationMatrixTests`, `MigrationRehearsalTests` | every order and refund route isolated per store, the reviewed anonymous surface (tracking and webhook), a staff account without a customer profile cannot buy, the Phase 9 backfill |
 | Architecture | `ModuleAndContractRuleTests`, `DependencyRuleTests`, `TenancyRuleTests` | contracts, layering, tenancy |
 | Frontend | `frontend/src/features/orders/orderView.test.js` | the tracking link is built from the token, actor labels, empty admin filters dropped |
@@ -298,7 +299,8 @@ Gaps worth knowing: the hosted sweep service's timer is never exercised — test
 | Blocked customer | `CustomerBlocked` | 403 | — |
 | Address id not in the customer's book | `AddressNotFound` | 400 | nothing written |
 | No lines and an empty basket | `BasketEmpty` | 400 | nothing written |
-| Product unpublished or from another store | `ProductNotFound` | 400 | nothing written |
+| Product unpublished or from another store, or a variant that is deactivated or not this product's | `ProductNotFound` | 400 | nothing written |
+| A line names no variant and its product has more than one active variant | `VariantRequired` | 422 | nothing written |
 | Not enough stock (early check) | `InsufficientStock` | 422 | nothing written |
 | Stock lost between the check and the reservation | `InsufficientStock` | 422 | the whole checkout transaction rolls back — no order, no number consumed |
 | Coupon rejected by the quote | `ModuleDisabled`, `CouponNotFound`, `InvalidCoupon` | 404 / 422 | nothing written |
@@ -340,6 +342,7 @@ Add a status · change cancellation rules · change what happens on payment succ
 10. A refund never changes the order status, and never gives back a coupon use or stock ([ADR-0031](../../11-ADR/0031-payments-and-refunds.md), [ADR-0030](../../11-ADR/0030-coupon-redemptions.md)).
 11. The customer's free-text cancellation reason is stored and shown to staff.
 12. The order email shows each line's **purchased** name and price, not the catalogue's current ones — deliberate, because the invoice must not change when the catalogue does.
+13. **Order lines placed before variants were recorded have no SKU or variant label,** and never will: filling them from today's catalogue would invent invoice data. Their `VariantId` is exact. The order screens and email don't show SKU or label yet; that arrives with the option model and the storefront selection (V2/V3 in [ProductVariants.md](../Catalog/ProductVariants.md)).
 
 ## Future evolution
 

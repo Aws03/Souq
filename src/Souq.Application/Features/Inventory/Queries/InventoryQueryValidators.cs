@@ -14,3 +14,11 @@ public class GetStockMovementsQueryValidator : PagedQueryValidator<GetStockMovem
         RuleFor(x => x.ProductId).GreaterThan(0);
     }
 }
+
+public class GetVariantStockMovementsQueryValidator : PagedQueryValidator<GetVariantStockMovementsQuery>
+{
+    public GetVariantStockMovementsQueryValidator()
+    {
+        RuleFor(x => x.VariantId).GreaterThan(0);
+    }
+}

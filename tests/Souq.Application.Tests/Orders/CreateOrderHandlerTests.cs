@@ -260,4 +260,87 @@ public class CreateOrderHandlerTests
         await _uow.Received(2).SaveChangesAsync(Arg.Any<CancellationToken>());
         await _uow.Received(2).InTransactionAsync(Arg.Any<Func<Task>>(), Arg.Any<CancellationToken>());
     }
+
+    // ── المتغيّرات (ProductVariants.md، V1) ── المنتج 1 بمتغيّرين: الافتراضي 1 (50) والثاني 12 (60).
+    private static Product TwoVariantProduct()
+    {
+        var product = NewProduct();
+        product.SetPricing(new Money(50, "JOD"), null, "HP-BLACK");
+        TestCatalog.WithId(product.AddVariant(new Money(60, "JOD"), sku: "HP-WHITE"), 12);
+        return product;
+    }
+
+    [Fact]
+    public async Task متغيّرا_المنتج_نفسه_سطران_بسعريهما_ولقطة_SKU_وحجز_لكل_متغيّر()
+    {
+        Arrange(TwoVariantProduct());
+        _availability.AvailableAsync(Arg.Any<IReadOnlyCollection<int>>(), Arg.Any<CancellationToken>())
+            .Returns(new Dictionary<int, int> { [1] = 5, [12] = 5 });
+
+        var result = await CreateHandler().Handle(NewCommand() with
+        {
+            Items = [new(ProductId: 1, Quantity: 1, VariantId: 1), new(ProductId: 1, Quantity: 2, VariantId: 12), new(1, 1, 1)],
+        }, CancellationToken.None);
+
+        result.Value!.Subtotal.Should().Be(220);
+        _saved!.Items.Select(i => (i.ProductId, i.VariantId, i.UnitPrice.Amount, i.Quantity, i.Sku, i.VariantLabel))
+            .Should().Equal((1, 1, 50m, 2, "HP-BLACK", (string?)null), (1, 12, 60m, 2, "HP-WHITE", (string?)null));
+        await _reservations.Received(1).ReserveAsync(OrderStockReference.For(SavedOrderId),
+            Arg.Is<IReadOnlyList<ReservationLine>>(lines =>
+                lines.Where(l => l.VariantId == 1).Sum(l => l.Quantity) == 2 && lines.Where(l => l.VariantId == 12).Sum(l => l.Quantity) == 2),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task منتج_بأكثر_من_متغيّر_بلا_تحديد_أو_بمتغيّر_منتج_آخر_لا_يُطلب()
+    {
+        Arrange(TwoVariantProduct());
+
+        var required = await CreateHandler().Handle(NewCommand(), CancellationToken.None);
+        var foreign = await CreateHandler().Handle(NewCommand() with { Items = [new(1, 1, VariantId: 999)] }, CancellationToken.None);
+
+        required.ErrorCode.Should().Be("VariantRequired");
+        foreign.ErrorCode.Should().Be("ProductNotFound");
+        await _orders.DidNotReceive().AddAsync(Arg.Any<Order>(), Arg.Any<CancellationToken>());
+        _steps.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task متغيّر_معطّل_لا_يُطلب_ولو_سمّاه_الطلب()
+    {
+        var product = TwoVariantProduct();
+        product.DeactivateVariant(12);
+        Arrange(product);
+
+        var result = await CreateHandler().Handle(NewCommand() with { Items = [new(1, 1, VariantId: 12)] }, CancellationToken.None);
+
+        result.ErrorCode.Should().Be("ProductNotFound");
+        _steps.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task الطلب_من_السلة_يحفظ_متغيّر_كل_سطر_كما_في_السلة()
+    {
+        Arrange(TwoVariantProduct());
+        _availability.AvailableAsync(Arg.Any<IReadOnlyCollection<int>>(), Arg.Any<CancellationToken>())
+            .Returns(new Dictionary<int, int> { [1] = 5, [12] = 5 });
+        _baskets.LinesForCustomerAsync(1, Arg.Any<CancellationToken>())
+            .Returns(new List<PricingLine> { new(1, 1, 12) });
+
+        var result = await CreateHandler().Handle(NewCommand() with { Items = null }, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        _saved!.Items.Single().Should().BeEquivalentTo(new { VariantId = 12, Sku = "HP-WHITE", Quantity = 1 });
+        result.Value!.TotalAmount.Should().Be(60);
+    }
+
+    [Fact]
+    public void سطر_الطلب_بمتغيّر_غير_موجب_مرفوض_شكلاً()
+    {
+        var validator = new CreateOrderValidator();
+
+        validator.Validate(NewCommand() with { Items = [new(1, 1, VariantId: 0)] }).IsValid.Should().BeFalse();
+        validator.Validate(NewCommand() with { Items = [new(1, 1, VariantId: 12)] }).IsValid.Should().BeTrue();
+        validator.Validate(NewCommand()).IsValid.Should().BeTrue();
+    }
 }

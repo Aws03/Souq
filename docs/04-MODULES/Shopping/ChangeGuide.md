@@ -105,12 +105,14 @@
 - **Security:** consent and opt-out are part of the feature; never log addresses or tokens.
 - **Docs and ADR:** a new ADR (a new outbound message type and new personal data).
 
-## I need shoppers to choose a variant in the basket (FUTURE)
+## I need shoppers to choose a variant in the basket (PLANNED, V3)
 
-- **Inspect:** `AddBasketItemCommand` (product id only) and `AddBasketItemHandler` (it takes `product.DefaultVariant.Id`), `Basket.Add` and the unique `(BasketId, VariantId)` index (already variant-keyed), `Basket.LineFor` and the set/remove handlers (product-keyed), `PricingLine` (product id only), `PricingService.Price`, `IBasketCheckout.ConsumeAsync` (groups by product), and `CreateOrderHandler`'s reservation lines.
-- **Rules to respect:** the domain already supports several variants per basket; the API, the pricing contract and the product-keyed lookups do not. Catalog's option matrix is deferred, so this change starts there (D-21: the default variant is the sellable unit today).
-- **Steps:** add the variant to Catalog first; then to the commands and routes, `PricingLine`, `PricedLine`, the order item snapshot, and the product-keyed lookups; keep the old routes working by falling back to the default variant during the transition.
-- **Tests:** Domain `BasketTests` (two variants of one product), `PricingServiceTests`, `BasketCheckoutTests` (consumption per variant), `CreateOrderHandlerTests`.
-- **API:** breaking for `PUT` and `DELETE /api/basket/items/{productId}` unless the old shape is kept.
-- **Database:** none for baskets; order items may need a variant column.
-- **Docs and ADR:** an ADR, since it changes what "a line" means across Shopping and Ordering.
+The server side is built ([ADR-0039](../../11-ADR/0039-product-variants-order-identity.md)): what remains is the storefront, after merchants can define options (V2 in [ProductVariants.md](../Catalog/ProductVariants.md)).
+
+- **Inspect:** `AddBasketItemCommand` (optional `VariantId`) and `AddBasketItemHandler` (`Product.FindVariant`, `Product.CanSell`, `Product.ImplicitVariant`), `BasketLines.ByProduct` and `BasketLines.ByVariant`, `PricingLine` and `PricedLine` (`VariantId`, `VariantLabel`, `Sku`, `VariantRequired`), `BasketCheckout` (consumption per variant), `frontend/src/api/client.js` (product-keyed basket calls), `frontend/src/context/CartContext.jsx`, `frontend/src/features/basket/basketModel.js` (already carries `variantId`).
+- **Rules to respect:** the server decides which variant is bought; the client only names one. A product with several active variants needs an explicit choice (P-08c), and sold-out values stay visible but disabled. Never fall back to the default variant in the client.
+- **Steps:** send `variantId` from the product page; switch cart quantity and removal to `api/basket/items/variants/{variantId}`; show the variant label on basket lines (a new `BasketLineDto` field composed from options); handle `VariantRequired` with a message in both locale files.
+- **Tests:** Vitest for the client calls and the cart; the browser journey choosing a size, adding, checking out and seeing it on the order. Server behaviour is already pinned by `BasketHandlersTests`, `PricingServiceTests`, `BasketCheckoutTests`, `CreateOrderHandlerTests` and `ProductVariantTests`.
+- **API:** additive (a label on basket lines). The product-keyed routes stay for single-variant products unless a later change removes them.
+- **Database:** none.
+- **Docs and ADR:** this module's README (known limitations), [FrontendGuide.md](../../08-FRONTEND/FrontendGuide.md); a V3 ADR only if the presentation decisions go beyond P-08.

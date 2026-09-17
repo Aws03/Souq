@@ -67,7 +67,7 @@ dotnet ef migrations remove --project src/Souq.Infrastructure --startup-project 
 
 ## 4. The migrations, in order
 
-Twenty migrations; `Phase14Notifications` is the newest — no migration has been added since, so there is nothing later to look for. "Data" says what happens to existing rows.
+Twenty-one migrations; `OrderLinesRecordVariant` is the newest — no migration has been added since, so there is nothing later to look for. "Data" says what happens to existing rows.
 
 | # | Migration | Purpose | Data |
 |---|---|---|---|
@@ -91,6 +91,7 @@ Twenty migrations; `Phase14Notifications` is the newest — no migration has bee
 | 18 | `Phase12Shipping` | `ShippingMethods` and the order's shipping snapshot columns | Additive. `ShippingAmount` defaults to `0`, the other columns stay null, so existing totals are unchanged |
 | 19 | `Phase13ReviewsWishlist` | Review moderation, `Tenant.ReviewsAutoApprove`, `WishlistItems` | **Hand-written backfill:** `UPDATE [Reviews] SET [Status] = 1` (every existing review was public, so it is Approved — with no moderator and no decision time, because it was a policy, not a decision) and `UPDATE [Tenants] SET [ReviewsAutoApprove] = 1` (existing stores published at once and keep doing so; stores created afterwards start moderated). It also swaps `IX_Reviews_TenantId_ProductId` for the status-carrying indexes |
 | 20 | `Phase14Notifications` | `Notifications` and `OutboxMessages` with their filtered indexes | Additive, no existing data touched |
+| 21 | `OrderLinesRecordVariant` | `ProductVariants.IsActive` with `CK_ProductVariants_DefaultIsActive`; `OrderItems.VariantId` (same-store FK, restrict), `VariantLabel`, `Sku`; unique `(OrderId, VariantId)` replacing `IX_OrderItems_OrderId`; `IX_OrderItems_TenantId_VariantId` ([ADR-0039](../11-ADR/0039-product-variants-order-identity.md)) | **Hand-written backfill with abort guards.** See §4.8 |
 
 ### 4.1 `Phase2MultiTenancy` — the tenant backfill
 
@@ -158,6 +159,18 @@ Counters keep their old value and **gain the pending orders**, because the old m
 Every order with a `PaymentIntentId` gets a `Payment`: the fake gateway for `pi_fake_%` intents, otherwise the deployment Stripe account (no store accounts existed before this phase); the order's frozen total and currency; status Pending → Pending, Paid/Shipped/Delivered → Succeeded, and Cancelled → Succeeded **if its status history shows it was paid first** (so an admin can refund money that was kept), else Cancelled.
 
 The insert deliberately runs **after** the unique indexes are created, so a duplicated intent across two orders stops the migration instead of being hidden. `Down()` drops the three tables, including store accounts with their encrypted keys — development only.
+
+### 4.8 `OrderLinesRecordVariant` — every existing order line gets its exact variant
+
+Additive: no row and no data column is dropped.
+
+1. **Guard first:** if any `ProductVariants` row is not the default, the migration throws (`THROW 50001`) before changing anything. The backfill is exact only because every product has had exactly one variant for its whole life — since `Phase5Catalog` only the `Product` constructor creates variants — and a database where that isn't true needs a human-made mapping, not a guess.
+2. `ProductVariants.IsActive` is added with **default true**. EF generated false, which would have made every existing variant unsellable. `CK_ProductVariants_DefaultIsActive` follows.
+3. `OrderItems.VariantId` is added with a temporary default of 0, then set from the default variant of the line's product **in the same store** (`TenantId`, `ProductId`, `IsDefault = 1`). Two more guards throw if any line is still 0 (`50002`) or if an order has two lines for one product (`50003`), which `Order.AddItem` has never produced. The default constraint is then dropped through the same `DropDefaultConstraint` lookup as `Phase2MultiTenancy`, so an insert without a variant fails.
+4. `VariantLabel` and `Sku` are added **nullable and left null** for existing lines. Today's SKU may not be the one sold, so copying it would invent invoice data.
+5. The unique index `(OrderId, VariantId)` is created **before** `IX_OrderItems_OrderId`, which it covers, is dropped. Then come `IX_OrderItems_TenantId_VariantId` and the foreign key to `ProductVariants`.
+
+A throw rolls the migration's transaction back and leaves the schema as it was. `MigrationRehearsalTests` proves both the backfill on legacy rows and the abort. `Down()` drops the columns and indexes and restores `IX_OrderItems_OrderId`; the variant references recorded since are lost, so the safe rollback is a restore (§7).
 
 ## 5. The rehearsal test
 

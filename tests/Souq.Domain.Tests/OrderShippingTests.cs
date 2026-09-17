@@ -14,7 +14,7 @@ public class OrderShippingTests
     private static Order NewOrder()
     {
         var order = new Order(customerId: 1, "عمّان", "JOD");
-        order.AddItem(1, "سماعات", new Money(20, "JOD"), 2);
+        order.AddItem(1, 1, "سماعات", new Money(20, "JOD"), 2);
         return order;
     }
 

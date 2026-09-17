@@ -43,7 +43,10 @@ public class Basket : Entity, ITenantOwned
 
     public bool IsExpired(DateTime now) => ExpiresAt <= now;
 
-    public BasketLine? LineFor(int productId) => _lines.FirstOrDefault(l => l.ProductId == productId);
+    // السطر مفتاحه المتغيّر؛ المنتج قد يحمل أكثر من سطر (مقاسان من المنتج نفسه).
+    public BasketLine? LineForVariant(int variantId) => _lines.FirstOrDefault(l => l.VariantId == variantId);
+
+    public IReadOnlyList<BasketLine> LinesFor(int productId) => _lines.Where(l => l.ProductId == productId).ToList();
 
     // إضافة كمية لمتغيّر تُدمج مع سطره إن وُجد. طلب صريح يتجاوز الحدّ يُرفض — لا قصّ صامت لما طلبه العميل.
     public void Add(int productId, int variantId, int quantity, DateTime expiresAt)
@@ -105,7 +108,7 @@ public class Basket : Entity, ITenantOwned
     }
 
     private BasketLine Line(int variantId) =>
-        _lines.FirstOrDefault(l => l.VariantId == variantId)
+        LineForVariant(variantId)
         ?? throw new InvalidBasketOperationException("الصنف ليس في السلة");
 
     private static void EnsureQuantity(int quantity, bool allowZero)

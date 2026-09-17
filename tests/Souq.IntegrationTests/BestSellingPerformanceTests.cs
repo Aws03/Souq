@@ -135,13 +135,14 @@ public class BestSellingPerformanceTests
                    N'JOD', 20, 20, 0, @now, @now
             FROM n;
 
-            -- سطران لكل طلب على منتجَين مختلفين، موزّعان على الكتالوج كلّه.
-            INSERT INTO [OrderItems] ([TenantId], [OrderId], [ProductId], [ProductName], [UnitPrice], [Currency], [Quantity], [CreatedAt])
-            SELECT 1, o.[Id], p.[Id], N'x', 10.0000, N'JOD', 1 + (o.[Id] % 3), @now
+            -- سطران لكل طلب على منتجَين مختلفين (كلٌّ بمتغيّره الافتراضي)، موزّعان على الكتالوج كلّه.
+            INSERT INTO [OrderItems] ([TenantId], [OrderId], [ProductId], [VariantId], [ProductName], [UnitPrice], [Currency], [Quantity], [CreatedAt])
+            SELECT 1, o.[Id], p.[Id], v.[Id], N'x', 10.0000, N'JOD', 1 + (o.[Id] % 3), @now
             FROM [Orders] o
             JOIN [Products] p ON p.[Id] IN (
                 (SELECT MIN([Id]) FROM [Products]) + (o.[Id] % {products}),
-                (SELECT MIN([Id]) FROM [Products]) + ((o.[Id] + 7) % {products}));
+                (SELECT MIN([Id]) FROM [Products]) + ((o.[Id] + 7) % {products}))
+            JOIN [ProductVariants] v ON v.[ProductId] = p.[Id] AND v.[IsDefault] = 1;
             """);
     }
 

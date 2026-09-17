@@ -42,7 +42,8 @@ internal sealed class OrderQueries : IOrderQueries
             order.Subtotal.Amount, order.DiscountAmount?.Amount, order.CouponCode, order.TotalAmount.Amount, order.Currency,
             order.CreatedAt,
             order.Items.Select(i => new OrderItemDto(
-                i.ProductId, i.ProductName, i.UnitPrice.Amount, i.Quantity, i.LineTotal.Amount)).ToList(),
+                i.ProductId, i.ProductName, i.UnitPrice.Amount, i.Quantity, i.LineTotal.Amount,
+                i.VariantId, i.VariantLabel, i.Sku)).ToList(),
             order.TrackingNumber, order.ShippingCarrier, order.TrackingToken,
             Chronological(order).Select(h => new OrderHistoryEntryDto(
                 h.Status.ToString(), h.CreatedAt, h.Note, h.ChangedBy.ToString(),

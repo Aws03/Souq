@@ -39,6 +39,8 @@ public class AuthorizationBoundaryTests
         // السلة (المرحلة 8): للزائر برمز ملف تعريف ارتباط وللعميل بجلسته — لا بيانات غير سلة المتصل نفسه.
         "GET api/basket", "GET api/basket/quote", "POST api/basket/items", "PUT api/basket/items/{productId:int}",
         "DELETE api/basket/items/{productId:int}", "DELETE api/basket",
+        // السطر بمتغيّره (ADR-0039): السلة نفسها بالمالك نفسه — معرّف متغيّر ليس في سلة المتصل "غير موجود".
+        "PUT api/basket/items/variants/{variantId:int}", "DELETE api/basket/items/variants/{variantId:int}",
     };
 
     private readonly SouqApiFactory _factory;

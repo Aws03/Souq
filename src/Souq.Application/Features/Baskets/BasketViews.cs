@@ -26,7 +26,7 @@ public sealed class BasketViews
     {
         List<BasketLine> lines = basket?.Lines.OrderBy(l => l.Id).ToList() ?? [];
         var quote = await _pricing.QuoteAsync(
-            lines.Select(l => new PricingLine(l.ProductId, l.Quantity)).ToList(), couponCode, _currentUser.CustomerId, shipping, ct);
+            lines.Select(l => new PricingLine(l.ProductId, l.Quantity, l.VariantId)).ToList(), couponCode, _currentUser.CustomerId, shipping, ct);
 
         var variantIds = lines.Select(l => l.VariantId).Distinct().ToList();
         IReadOnlyDictionary<int, int> available = variantIds.Count == 0

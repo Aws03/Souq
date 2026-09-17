@@ -98,7 +98,7 @@ public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, Result<Ord
         // (1) الأسطر: المُرسَلة، وإلا سلة العميل. ثم التسعير: كل سطر من الكتالوج الحيّ لهذا المتجر (منتج غير منشور أو من
         //     متجر آخر غير قابل للبيع).
         var lines = cmd.Items is { Count: > 0 }
-            ? cmd.Items.Select(i => new PricingLine(i.ProductId, i.Quantity)).ToList()
+            ? cmd.Items.Select(i => new PricingLine(i.ProductId, i.Quantity, i.VariantId)).ToList()
             : await _baskets.LinesForCustomerAsync(customerId, ct);
         if (lines.Count == 0)
             return Result<OrderCreatedDto>.Failure(Error.Validation("BasketEmpty", "السلة فارغة — أضف منتجات قبل إتمام الطلب"));
@@ -106,7 +106,9 @@ public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, Result<Ord
         var quote = await _pricing.QuoteAsync(
             lines, cmd.CouponCode, customerId, new ShippingRequest(cmd.ShippingMethodId, shippingCountry), ct);
         if (quote.Lines.FirstOrDefault(l => !l.Sellable) is { } unsellable)
-            return Result<OrderCreatedDto>.Failure(Error.Validation("ProductNotFound", $"المنتج رقم {unsellable.ProductId} غير متاح"));
+            return Result<OrderCreatedDto>.Failure(unsellable.VariantRequired
+                ? Error.BusinessRule("VariantRequired", $"للمنتج رقم {unsellable.ProductId} أكثر من متغيّر: حدّد المتغيّر المطلوب")
+                : Error.Validation("ProductNotFound", $"المنتج رقم {unsellable.ProductId} غير متاح"));
 
         var available = await _availability.AvailableAsync(quote.Lines.Select(l => l.VariantId).Distinct().ToList(), ct);
         foreach (var group in quote.Lines.GroupBy(l => l.VariantId))
@@ -126,10 +128,11 @@ public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, Result<Ord
         if (quote.ShippingOutcome is { ErrorCode: { } shippingError } delivery)
             return Result<OrderCreatedDto>.Failure(Error.BusinessRule(shippingError, delivery.Message!));
 
-        // (2) الطلب بعملة المتجر ولقطات أسطر التسعير (الاسم بلغة المتجر الافتراضية — الفاتورة تبقى كما كانت لحظة الشراء).
+        // (2) الطلب بعملة المتجر ولقطات أسطر التسعير (الاسم بلغة المتجر الافتراضية، والمتغيّر المشترى بعينه مع SKU — الفاتورة
+        //     تبقى كما كانت لحظة الشراء). سطر لكل متغيّر: مقاسان من المنتج نفسه سطران.
         var order = new Order(customerId, shippingAddress, store.Currency, billingAddress);
         foreach (var line in quote.Lines)
-            order.AddItem(line.ProductId, line.Name, line.UnitPrice, line.Quantity);
+            order.AddItem(line.ProductId, line.VariantId, line.Name, line.UnitPrice, line.Quantity, line.VariantLabel, line.Sku);
         if (quote.Coupon is { Applied: true } applied)
             order.ApplyCoupon(applied.Code, quote.Discount);
         if (quote.ShippingOutcome?.Selected is { } method)

@@ -12,4 +12,11 @@
   <ItemGroup>
     <InternalsVisibleTo Include="Souq.Infrastructure" />
   </ItemGroup>
+  <!-- الاختبارات ترى Product.AddVariant (internal حتى نموذج الخيارات — V2) كي تثبت سلوك منتج بأكثر من متغيّر اليوم،
+       دون أن يصير إنشاء متغيّر بلا خيارات سلوكاً متاحاً للتطبيق. -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="Souq.Domain.Tests" />
+    <InternalsVisibleTo Include="Souq.Application.Tests" />
+    <InternalsVisibleTo Include="Souq.IntegrationTests" />
+  </ItemGroup>
 </Project>

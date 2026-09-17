@@ -72,7 +72,7 @@ public sealed class OrderPaymentConfirmation
         // دفعة الطلب (المرحلة 11) تُحسم ناجحةً في المعاملة نفسها.
         await _payments.MarkSucceededAsync(order.Id, ct);
 
-        await _baskets.ConsumeAsync(order.CustomerId, order.Items.Select(i => new PricingLine(i.ProductId, i.Quantity)).ToList(), ct);
+        await _baskets.ConsumeAsync(order.CustomerId, order.Items.Select(i => new PricingLine(i.ProductId, i.Quantity, i.VariantId)).ToList(), ct);
 
         try
         {

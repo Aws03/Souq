@@ -133,7 +133,7 @@ Read port for its own screens: **`IInventoryQueries`**, implemented by `Inventor
 
 | Leak | Where | Note |
 |---|---|---|
-| Inventory reads Catalog tables directly | `InventoryRepository.GetForProductAsync` (finds the item whose variant `IsDefault`), `InventoryQueries.StockedItems` and `PageAsync` (join `Products`, `ProductVariants`, `ProductTranslations`, `ProductImages`, `Categories`) | The direction Inventory → Catalog is allowed, but it happens by reading tables, not through a contract. It also means the admin API is keyed by **product** id, a Catalog identity |
+| Inventory reads Catalog tables directly | `InventoryQueries.StockedItems` and `PageAsync` (join `Products`, `ProductVariants`, `ProductTranslations`, `ProductImages`, `Categories`) | The direction Inventory → Catalog is allowed, but it happens by reading tables, not through a contract. The write side no longer does: since ADR-0039 `InventoryRepository.ListForProductAsync` counts the product's own stock rows instead of joining the variant's `IsDefault` flag. The admin API still accepts a **product** id, a Catalog identity, beside the variant id |
 | Catalog and Shopping read Inventory tables directly | `CatalogQueries`, `WishlistQueries` (`OnHand − Reserved`) | Accepted in [ADR-0026](../../11-ADR/0026-inventory-reservations.md) to keep list queries to one statement |
 | Infrastructure references an Ordering use case | `ReservationExpiryService` sends `ExpireStaleCheckoutsCommand` | Deliberate: only Ordering may decide what happens to an order. Infrastructure is not scanned by the module tests |
 
@@ -153,17 +153,20 @@ The module reads two Catalog tables it does not own (`Products`, `ProductVariant
 
 ## API
 
-All routes sit under `api/admin/inventory` with `[HasPermission(Permissions.Inventory.View)]` on the controller; the two write endpoints add `[HasPermission(Permissions.Inventory.Manage)]`, so a caller needs both policies. No module flag applies. Every list is paged and capped at `PagingRules.MaxPageSize`.
+All routes sit under `api/admin/inventory` with `[HasPermission(Permissions.Inventory.View)]` on the controller; the write endpoints add `[HasPermission(Permissions.Inventory.Manage)]`, so a caller needs both policies. No module flag applies. Every list is paged and capped at `PagingRules.MaxPageSize`.
 
 | Method | Route | Authorization | Module flag | Use case |
 |---|---|---|---|---|
-| GET | `/api/admin/inventory` | `inventory.view` | — | Items of non-archived products, lowest available first, product id as tie-breaker (default page size 50) |
+| GET | `/api/admin/inventory` | `inventory.view` | — | One row per variant of every non-archived product, lowest available first, then product and variant id (default page size 50) |
 | GET | `/api/admin/inventory/low-stock` | `inventory.view` | — | Same list filtered to `available <= threshold`; the Inventory page's low-stock banner reads `totalCount` with `pageSize=1` (default 20) |
-| GET | `/api/admin/inventory/{productId}/movements` | `inventory.view` | — | The product's ledger, newest first, id as tie-breaker (default 50) |
-| POST | `/api/admin/inventory/{productId}/adjustments` | `inventory.view` + `inventory.manage` | — | `{ "delta": -2, "reason": "…" }` → 200 `StockLevelDto` |
-| PUT | `/api/admin/inventory/{productId}/threshold` | `inventory.view` + `inventory.manage` | — | `{ "lowStockThreshold": 3 }` → 200 `StockLevelDto` |
+| GET | `/api/admin/inventory/{productId}/movements` | `inventory.view` | — | The ledger of all the product's variants, newest first, id as tie-breaker (default 50); each line carries its `VariantId` |
+| POST | `/api/admin/inventory/{productId}/adjustments` | `inventory.view` + `inventory.manage` | — | `{ "delta": -2, "reason": "…" }` → 200 `StockLevelDto`; `422 VariantRequired` when the product has more than one stock row |
+| PUT | `/api/admin/inventory/{productId}/threshold` | `inventory.view` + `inventory.manage` | — | `{ "lowStockThreshold": 3 }` → 200 `StockLevelDto`; `422 VariantRequired` as above |
+| GET | `/api/admin/inventory/variants/{variantId}/movements` | `inventory.view` | — | One variant's ledger, newest first (default 50) |
+| POST | `/api/admin/inventory/variants/{variantId}/adjustments` | `inventory.view` + `inventory.manage` | — | Same body and rules as the product route, for that variant's row; audited with target `ProductVariant` |
+| PUT | `/api/admin/inventory/variants/{variantId}/threshold` | `inventory.view` + `inventory.manage` | — | Same body and rules as the product route, for that variant's row |
 
-`InventoryItemDto.Id` is the **product** id, because every admin path is keyed by product while a product has one default variant. `StockLevelDto` returns `OnHand`, `Reserved`, `Available`, `LowStockThreshold` and `IsLowStock` so the UI can update its row without a second request. The inventory list shows `Draft` and `Active` products (stock is real for both) and excludes `Archived` ones.
+`InventoryItemDto.Id` is the **product** id and `InventoryItemDto.VariantId` the variant's: the product routes stay valid for a product with one variant, which every product still is, and the variant routes address any row ([ADR-0039](../../11-ADR/0039-product-variants-order-identity.md)). The admin screen still uses the product routes; it moves to the variant routes with the option model (V2). `StockLevelDto` returns `OnHand`, `Reserved`, `Available`, `LowStockThreshold`, `IsLowStock` and `VariantId` so the UI can update its row without a second request. The inventory list shows `Draft` and `Active` products (stock is real for both) and excludes `Archived` ones.
 
 ## Security and permissions
 
@@ -196,9 +199,10 @@ None directly. The gateway call that decides whether an expired checkout may be 
 | Domain | `InventoryItemTests` | A new item is empty and low at the default threshold; only saved variants get stock; receive, adjust (delta, reason, never below reserved), reserve (available only), commit once with a `Sale` line, release once without a line, restock only a committed hold, a foreign reservation rejected, the ledger matching on hand across every operation, the threshold rule |
 | Domain | `DomainEventTests`, `DomainExceptionCodeTests` | One event per downward crossing, no event from an unsaved item; the codes `InvalidInventoryOperation` and `InsufficientStock` |
 | Application | `InventoryReservationsTests` | Reserving with the configured lifetime and one save; two lines for one variant merged; a shortage in one line rejects the whole reservation and forgets partial changes; a conflict re-reads and then succeeds; repeated conflicts surface after the attempt limit; commit converts active holds once; cancel releases active holds and restocks committed ones with a `Cancellation` line; expiry marks the hold `Expired`; availability per variant |
-| Application | `InventoryCommandsTests` | A product without stock is 404; the delta is applied to the *current* value with its reason recorded; a correction below reserved is rejected without saving; the threshold is set from the inventory module |
+| Application | `InventoryCommandsTests` | A product without stock is 404; the delta is applied to the *current* value with its reason recorded; a correction below reserved is rejected without saving; the threshold is set from the inventory module; the product routes refuse a product with several stock rows (`VariantRequired`) and change nothing; the variant routes change only their row, with their audit records and validators |
 | Application | `CreateProductHandlerTests`, `CreateOrderHandlerTests`, `ExpireStaleCheckoutsHandlerTests`, `ConfirmOrderPaymentHandlerTests`, `CancelMyOrderHandlerTests`, `UpdateOrderStatusHandlerTests`, `ProcessPaymentWebhookHandlerTests`, `OrderNotificationHandlersTests` | Opening stock inside the creation transaction; the reserve/commit/cancel calls on every order path; the low-stock notification handler |
 | Integration | `InventoryAndOrderTests` | Two contexts reserving the last unit — the database rejects the second; parallel checkouts sell the last unit exactly once and never over-reserve; Σ ledger = on hand and Σ active holds = reserved after every step of the order lifecycle; cancelling a pending order releases its hold once; a correction neither erases a sale nor drops below reserved, and editing the product does not touch stock; the expiry sweep cancels an abandoned order and frees its hold |
+| Integration | `ProductVariantTests` | Variant-keyed adjustment and threshold change only their row; the product routes answer `VariantRequired` for a two-variant product; per-variant and per-product ledgers; one inventory row per variant with its own SKU; the audit target; the last unit of one variant sold once under concurrency while the other variant is untouched |
 | Integration | `QueryServiceTests`, `TenantIsolationTests`, `AuthorizationMatrixTests`, `NotificationTests`, `MigrationRehearsalTests`, `BasketTests` | Paged ledger newest first and paged low-stock with a usable `totalCount`; per-store isolation of every inventory endpoint; the role matrix for `GET /api/admin/inventory`; staff receiving the low-stock notification during an order lifecycle; the Phase 6 data copy; baskets checking availability without reserving |
 | Architecture | `ModuleAndContractRuleTests` | Only Catalog contracts inbound, only Ordering and Shopping outbound, no cycles |
 
@@ -212,8 +216,9 @@ None directly. The gateway call that decides whether an expired checkout may be 
 | A variant has no inventory row at all | `InsufficientStock` (available 0) | 422 | `InventoryReservations.ReserveAsync` treats missing stock as nothing available |
 | Early availability check before writing anything | `InsufficientStock` | 422 | `CreateOrderHandler` and `BasketStock.ShortageAsync` return `Error.BusinessRule` for a friendlier message; the real guard is still the reservation |
 | Correction that would push on hand below reserved | `InvalidInventoryOperation` | 422 | `InventoryItem.Adjust`; nothing is saved |
-| Delta of zero, missing reason, reason too long, delta beyond ±1,000,000, threshold outside 0–1,000,000 | `ValidationFailed` | 400 | `AdjustStockValidator`, `SetLowStockThresholdValidator` |
-| Product not found, archived variant, or another store's product | `NotFound` | 404 | `IInventoryRepository.GetForProductAsync` returns null |
+| Delta of zero, missing reason, reason too long, delta beyond ±1,000,000, threshold outside 0–1,000,000 | `ValidationFailed` | 400 | `AdjustStockValidator`, `SetLowStockThresholdValidator`, `AdjustVariantStockValidator`, `SetVariantLowStockThresholdValidator` |
+| Product or variant not found, or another store's | `NotFound` | 404 | `IInventoryRepository.ListForProductAsync` returns no row, or `GetForVariantAsync` returns null |
+| A product route for a product with more than one stock row | `VariantRequired` | 422 | `StockTarget.Product`; nothing is changed |
 | Another writer changed the same item first | retried up to `InventoryWriter.MaxAttempts` from a fresh read; after that `ConcurrencyConflict` | 409 | `InventoryWriter.SaveAsync` → `ConcurrencyConflictException` |
 | A check constraint is violated despite the entity rules | `ReferenceConflict` | 409 | SQL Server reports CHECK and FOREIGN KEY conflicts with the same error number, which `AppDbContext` maps to `ReferenceConstraintViolationException` (not exercised by a test) |
 | A reservation handed to the wrong item | `InvalidInventoryOperation` | 422 | `EnsureOwns` — a programming-error path |
@@ -223,18 +228,18 @@ None directly. The gateway call that decides whether an expired checkout may be 
 
 ## Common change scenarios
 
-Change the reservation window or policy · change low-stock alerting · record customer returns · add multi-warehouse stock · move the admin API from products to variants · tune the retry and contention behaviour · change the expiry sweep · add a new consumer of stock. Step-by-step in [ChangeGuide.md](ChangeGuide.md).
+Change the reservation window or policy · change low-stock alerting · record customer returns · add multi-warehouse stock · move the admin screen from products to variants · tune the retry and contention behaviour · change the expiry sweep · add a new consumer of stock. Step-by-step in [ChangeGuide.md](ChangeGuide.md).
 
 ## Known limitations
 
-1. **One item per variant and one variant per product,** so every admin route is keyed by product id and `GetForProductAsync` silently means "the default variant's stock".
+1. **The admin screen is still product-keyed.** The API addresses variants since ADR-0039, and every product still has one variant, but `frontend/src/pages/admin/Inventory.jsx` keys rows by product id and calls the product routes. It moves to the variant routes with the option model (V2).
 2. **Low-stock alerting is thin.** Only a downward crossing during an adjustment or a reservation raises the event; a product created below its threshold, a threshold raised above current stock, and a product that simply stays low never produce one. Delivery is an in-app notification only — the low-stock email deferred in Phase 6 did not arrive with the outbox in Phase 14.
 3. **The stock row is a hot row.** Every checkout writes it; a flash sale on one SKU serialises on it, and after five conflicting attempts the customer gets a 409 ([ADR-0026](../../11-ADR/0026-inventory-reservations.md) records this cost).
 4. **The sweep assumes one instance** (a distributed lock is DEFERRED to Phase 23 — the roadmap's Phase 6 entry defers it there, though Phase 23's scope list does not yet name it) and skips stores that are not `Active`, so a suspended store keeps its holds.
 5. **`StockMovementType.Return` is never written.** Nothing calls `Receive` with it; the only caller of `Receive` is `VariantStockInitializer` (and `DbSeeder`), both with `Purchase`. Customer returns as a stock flow do not exist yet.
 6. **The ledger records no actor.** Who made an adjustment is only in `AuditEntries`; [DatabaseDesign.md](../../06-DATABASE/DatabaseDesign.md) notes the user column as later work.
 7. **Adjustment reasons are free text** with no reason codes, so they cannot be aggregated (shrinkage vs damage vs stock-take).
-8. **A failed adjustment still writes its audit row.** `AuditBehavior` stages the entry into the unit of work before the handler runs, and `InventoryWriter.SaveAsync` saves unconditionally — even when the product was not found — so the later `Discard()` finds the row already committed. Analysis of `AuditTrail` plus `InventoryWriter`; not covered by a test.
+8. **A failed adjustment still writes its audit row.** `AuditBehavior` stages the entry into the unit of work before the handler runs, and `InventoryWriter.SaveAsync` saves unconditionally — even when the product was not found — so the later `Discard()` finds the row already committed. The variant-keyed commands share that path (`StockTarget.ChangeAsync`), so the same applies to them. Analysis of `AuditTrail` plus `InventoryWriter`; not covered by a test.
 9. **`StockMovements` indexes do not lead with `TenantId`,** unlike the rest of the schema; index review is Phase 21 work.
 10. **The reservation window is fixed at reservation time** and platform-wide. A slow payment (3-D Secure, a bank app) is not extended; the expiry path protects the customer by asking the gateway first, but the hold may already have been released for someone else to buy.
 11. **The reference is an opaque string Inventory never validates.** An unknown or malformed reference is simply released by the sweep.

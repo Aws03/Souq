@@ -43,6 +43,10 @@ public partial class ProductVariant : Entity, ITenantOwned
     public Money Price { get; private set; } = default!;
     public bool IsDefault { get; private set; }
 
+    // المتغيّر لا يُحذف أبداً بعد وجوده — أسطر الطلبات والحجوزات وسجلّ المخزون وأسطر السلال تشير إليه — بل يُعطَّل.
+    // المعطّل لا يُشترى، والافتراضي نشط دائماً (يحرسه Product وقيد فحص في القاعدة).
+    public bool IsActive { get; private set; } = true;
+
     // سعر المقارنة (قبل الخصم) بعملة السعر نفسها — عمود مبلغ واحد، والعملة من السعر.
     private decimal? _compareAtAmount;
     public Money? CompareAtPrice => _compareAtAmount is decimal amount ? new Money(amount, Price.Currency) : null;
@@ -55,6 +59,8 @@ public partial class ProductVariant : Entity, ITenantOwned
         IsDefault = isDefault;
         SetPricing(price, compareAtPrice, sku);
     }
+
+    internal void SetActive(bool active) => IsActive = active;
 
     internal void SetPricing(Money price, Money? compareAtPrice, string? sku)
     {

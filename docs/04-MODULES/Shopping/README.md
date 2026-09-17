@@ -123,9 +123,11 @@ Checkout re-checks availability and reserves atomically inside the order transac
 |---|---|---|---|---|
 | Read the basket (merges a guest basket after sign-in) | `GetBasketQuery` | `GetBasketHandler` | anonymous or customer | `GET /api/basket` |
 | Quote with a coupon and a shipping method | `GetBasketQuery` | `GetBasketHandler` | anonymous or customer | `GET /api/basket/quote` |
-| Add a product | `AddBasketItemCommand` | `AddBasketItemHandler` | anonymous or customer | `POST /api/basket/items` |
+| Add a product (optionally naming its variant) | `AddBasketItemCommand` | `AddBasketItemHandler` | anonymous or customer | `POST /api/basket/items` |
 | Set a line's quantity (0 removes it) | `SetBasketItemQuantityCommand` | `SetBasketItemQuantityHandler` | anonymous or customer | `PUT /api/basket/items/{productId}` |
 | Remove a line | `RemoveBasketItemCommand` | `RemoveBasketItemHandler` | anonymous or customer | `DELETE /api/basket/items/{productId}` |
+| Set a line's quantity by its variant (0 removes it) | `SetBasketLineQuantityCommand` | `SetBasketLineQuantityHandler` | anonymous or customer | `PUT /api/basket/items/variants/{variantId}` |
+| Remove a line by its variant | `RemoveBasketLineCommand` | `RemoveBasketLineHandler` | anonymous or customer | `DELETE /api/basket/items/variants/{variantId}` |
 | Empty the basket | `ClearBasketCommand` | `ClearBasketHandler` | anonymous or customer | `DELETE /api/basket` |
 | Purge expired baskets | `PurgeExpiredBasketsCommand` | `PurgeExpiredBasketsHandler` | system (`BasketCleanupService`) | — |
 | Read the wishlist | `GetWishlistQuery` | `GetWishlistHandler` | customer | `GET /api/wishlist` |
@@ -179,9 +181,11 @@ Validators: `GetBasketValidator` (coupon ≤ 50 characters, method id > 0, count
 |---|---|---|---|---|
 | GET | `/api/basket` | anonymous (guest cookie or customer session) | — | read |
 | GET | `/api/basket/quote?couponCode=&shippingMethodId=&country=` | anonymous; `coupon-preview` rate limit | — (`promotions` checked in the pipeline) | quote |
-| POST | `/api/basket/items` | anonymous; `basket` rate limit | — | add |
-| PUT | `/api/basket/items/{productId}` | anonymous; `basket` rate limit | — | set quantity |
-| DELETE | `/api/basket/items/{productId}` | anonymous; `basket` rate limit | — | remove |
+| POST | `/api/basket/items` | anonymous; `basket` rate limit | — | add `{ productId, variantId?, quantity }`; without `variantId` the product's only active variant, else `422 VariantRequired`; a variant not of this product, or deactivated, is `404` |
+| PUT | `/api/basket/items/{productId}` | anonymous; `basket` rate limit | — | set quantity; `422 VariantRequired` when the product has more than one line |
+| DELETE | `/api/basket/items/{productId}` | anonymous; `basket` rate limit | — | remove; `422 VariantRequired` when the product has more than one line |
+| PUT | `/api/basket/items/variants/{variantId}` | anonymous; `basket` rate limit | — | set the quantity of that variant's line ([ADR-0039](../../11-ADR/0039-product-variants-order-identity.md)) |
+| DELETE | `/api/basket/items/variants/{variantId}` | anonymous; `basket` rate limit | — | remove that variant's line |
 | DELETE | `/api/basket` | anonymous; `basket` rate limit; answers 204 | — | clear |
 | GET | `/api/wishlist` | authenticated customer | `wishlist` | read |
 | PUT | `/api/wishlist/{productId}` | authenticated customer | `wishlist` | add (idempotent) |
@@ -264,8 +268,9 @@ See [ChangeGuide.md](ChangeGuide.md): add a pricing stage (tax under P-06); chan
 
 - **Tax is zero** until P-06 is decided.
 - **`ReadyForCheckout` ignores shipping**, so a basket can read as ready while checkout would answer `ShippingMethodRequired`. The SPA compensates.
-- **Category visibility is not checked.** The pipeline and the add handlers look only at product status, so a product in a disabled category is still sellable in the basket and at checkout; `WishlistQueries` on the other hand hides it, and such a hidden wishlist item still counts toward the 200 cap. [ADR-0028](../../11-ADR/0028-basket-and-pricing-pipeline.md) deferred this to Phase 9 and it has not been built.
-- **One variant per product.** Basket commands take a product id and use the default variant; the domain already keys lines by variant, but the API, `PricingLine` and `Basket.LineFor` assume one.
+- ~~Category visibility is not checked.~~ **Resolved (R-07):** the pipeline and the add handlers use `Product.IsSellable` (an active product in an active category). A wishlist item hidden by its category still counts toward the 200 cap.
+- **The storefront still sends product ids only.** Since V1 of the variants work ([ADR-0039](../../11-ADR/0039-product-variants-order-identity.md)) a basket line, a pricing line and an order line carry their variant end to end, `POST /api/basket/items` accepts a `variantId`, and `api/basket/items/variants/{variantId}` edits a line. `frontend/src/api/client.js` keeps the product-keyed calls, which are correct while every product has one variant; it moves with the storefront selection (V3).
+- **The product-keyed line routes are conditional:** `PUT` and `DELETE api/basket/items/{productId}` answer `422 VariantRequired` when the product has more than one line in the basket.
 - **Last write wins** across tabs, and an unavailable line stays visible until the shopper removes it (both deliberate).
 - **The guest wishlist belongs to one browser**; there are no back-in-stock or price-drop alerts.
 - **The pipeline always evaluates shipping**, even on a plain basket read, so a slow or remote rate provider would be called on every basket response.

@@ -42,7 +42,7 @@ public sealed class PricingService : IPricing
             .ToDictionary(p => p.Id);
         var priced = lines
             .Select(line => products.TryGetValue(line.ProductId, out var product)
-                ? Price(product, line.Quantity, store.DefaultCulture)
+                ? Price(product, line, store.DefaultCulture, zero)
                 : Missing(line, zero))
             .ToList();
 
@@ -110,11 +110,20 @@ public sealed class PricingService : IPricing
         return (new CouponOutcome(coupon.Code, true, null, null), coupon.CalculateDiscount(subtotal));
     }
 
-    private static PricedLine Price(Product product, int quantity, string culture) => new(
-        product.Id, product.DefaultVariant.Id, product.NameIn(culture),
-        product.Translations.ToDictionary(t => t.Culture, t => t.Name), product.PrimaryImageUrl,
-        product.Price, quantity, product.Price.Multiply(quantity), product.IsSellable);
+    // المتغيّر من المنتج نفسه وحده: معرّف متغيّر منتج آخر (ولو من المتجر نفسه) لا يسعّر هذا المنتج أبداً ⇒ غير قابل للبيع.
+    private static PricedLine Price(Product product, PricingLine line, string culture, Money zero)
+    {
+        var variant = line.VariantId is int id ? product.FindVariant(id) : product.ImplicitVariant;
+        if (variant is null)
+            return Missing(line, zero) with { VariantRequired = line.VariantId is null };
+
+        return new PricedLine(
+            product.Id, variant.Id, product.NameIn(culture),
+            product.Translations.ToDictionary(t => t.Culture, t => t.Name), product.PrimaryImageUrl,
+            variant.Price, line.Quantity, variant.Price.Multiply(line.Quantity), product.CanSell(variant),
+            VariantLabel: null, Sku: variant.Sku);
+    }
 
     private static PricedLine Missing(PricingLine line, Money zero) => new(
-        line.ProductId, 0, "", new Dictionary<string, string>(), null, zero, line.Quantity, zero, Sellable: false);
+        line.ProductId, line.VariantId ?? 0, "", new Dictionary<string, string>(), null, zero, line.Quantity, zero, Sellable: false);
 }

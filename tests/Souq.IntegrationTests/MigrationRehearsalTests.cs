@@ -22,6 +22,7 @@ namespace Souq.IntegrationTests;
 public class MigrationRehearsalTests
 {
     private const string LastPhase1Migration = "20260911061506_Phase1AIntegrityPrecisionConcurrency";
+    private const string BeforeVariantMigration = "20260911200431_Phase14Notifications";
     private const string LegacyPassword = "Legacy-Pass-1";
 
     private static readonly string[] TenantOwnedTables =
@@ -176,6 +177,20 @@ public class MigrationRehearsalTests
             (await ScalarAsync(db, "SELECT COUNT(*) FROM [Orders] WHERE [ShippingAmount] <> 0 OR [ShippingMethodName] IS NOT NULL"))
                 .Should().Be(0);
 
+            // المتغيّرات V1 (OrderLinesRecordVariant): كل سطر طلب قديم رُبط بالمتغيّر الافتراضي لمنتجه في متجره — ربطاً يقينياً
+            // لا تخميناً — ولقطتا SKU والوصف فارغتان (لم تُسجَّلا لحظة البيع)، وكل متغيّر قائم نشط، ولا قيمة افتراضية متبقية.
+            (await ScalarAsync(db, """
+                SELECT COUNT(*) FROM [OrderItems] i
+                JOIN [ProductVariants] v ON v.[TenantId] = i.[TenantId] AND v.[Id] = i.[VariantId] AND v.[ProductId] = i.[ProductId] AND v.[IsDefault] = 1
+                """)).Should().Be(before["OrderItems"]);
+            (await ScalarAsync(db, "SELECT COUNT(*) FROM [OrderItems] WHERE [Sku] IS NOT NULL OR [VariantLabel] IS NOT NULL")).Should().Be(0);
+            (await ScalarAsync(db, "SELECT COUNT(*) FROM [ProductVariants] WHERE [IsActive] = 0")).Should().Be(0);
+            (await ScalarAsync(db, """
+                SELECT COUNT(*) FROM sys.default_constraints d
+                JOIN sys.columns c ON c.[object_id] = d.[parent_object_id] AND c.[column_id] = d.[parent_column_id]
+                WHERE d.[parent_object_id] = OBJECT_ID(N'[OrderItems]') AND c.[name] = N'VariantId'
+                """)).Should().Be(0);
+
             // المرشّحات على البيانات المُرحَّلة: المتجر 1 يرى صفوفه، ومتجر آخر لا يرى شيئاً — والتجمّع يُقرأ كاملاً.
             await using (var asDefault = new AppDbContext(options, Context(1)))
             {
@@ -190,6 +205,46 @@ public class MigrationRehearsalTests
             }
             await using (var asOther = new AppDbContext(options, Context(999)))
                 (await asOther.Customers.CountAsync()).Should().Be(0);
+        }
+        finally
+        {
+            await db.Database.EnsureDeletedAsync();
+        }
+    }
+
+    [Fact]
+    public async Task ربط_أسطر_الطلبات_بمتغيّراتها_يتوقّف_بدل_التخمين_حين_لمنتج_متغيّر_ثانٍ()
+    {
+        // الربط يقيني فقط لأن لكل منتج متغيّراً واحداً طوال عمره. قاعدة فيها متغيّر غير افتراضي (غير ممكن من التطبيق قبل
+        // الهجرة) لا تُرحَّل بتخمين: الهجرة تتوقّف ومعاملتها تُلغى كلها، والمخطّط يبقى كما كان.
+        _factory.CreateClient();
+        var connectionString = new SqlConnectionStringBuilder(_factory.ConnectionString)
+        {
+            InitialCatalog = $"variantguard_{Guid.NewGuid():N}"[..28],
+        }.ConnectionString;
+        var options = new DbContextOptionsBuilder<AppDbContext>().UseSqlServer(connectionString).Options;
+
+        await using var db = new AppDbContext(options, new TenantContext());
+        try
+        {
+            await db.GetService<IMigrator>().MigrateAsync(BeforeVariantMigration);
+            await ExecuteAsync(db, """
+                DECLARE @now datetime2 = SYSUTCDATETIME();
+                INSERT INTO [Categories] ([TenantId], [Slug], [IsActive], [SortOrder], [CreatedAt]) VALUES (1, N'guard', 1, 0, @now);
+                DECLARE @category int = SCOPE_IDENTITY();
+                INSERT INTO [Products] ([TenantId], [Slug], [Status], [CategoryId], [CreatedAt]) VALUES (1, N'guard', 1, @category, @now);
+                DECLARE @product int = SCOPE_IDENTITY();
+                INSERT INTO [ProductVariants] ([TenantId], [ProductId], [IsDefault], [Price], [Currency], [CreatedAt])
+                    VALUES (1, @product, 1, 10, N'JOD', @now), (1, @product, 0, 12, N'JOD', @now);
+                """);
+
+            var migrate = () => db.GetService<IMigrator>().MigrateAsync();
+
+            (await migrate.Should().ThrowAsync<SqlException>()).Which.Message.Should().Contain("OrderLinesRecordVariant");
+            (await ScalarAsync(db, "SELECT COUNT(*) FROM [__EFMigrationsHistory] WHERE [MigrationId] LIKE N'%OrderLinesRecordVariant'"))
+                .Should().Be(0);
+            (await ScalarAsync(db, "SELECT COUNT(*) FROM sys.columns WHERE [object_id] = OBJECT_ID(N'[OrderItems]') AND [name] = N'VariantId'"))
+                .Should().Be(0);
         }
         finally
         {

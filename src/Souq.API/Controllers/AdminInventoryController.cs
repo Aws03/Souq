@@ -11,7 +11,7 @@ namespace Souq.API.Controllers;
 // ============================================================================
 // AdminInventoryController — نقاط المخزون، القراءة بصلاحية inventory.view والتعديل بـ inventory.manage أيضاً. مسار
 // مستقلّ (api/admin/inventory) يفصل شؤون الإدارة عن نقاط المتجر العامة. كل القوائم مرقّمة (حدّ أقصى 100).
-// المرحلة 6: الموجود والمحجوز والمتاح لكل منتج، والتعديل تصحيحات بفارق وسبب لا تعيين مطلق (Phase 0 C4).
+// المرحلة 6: الموجود والمحجوز والمتاح لكل متغيّر، والتعديل تصحيحات بفارق وسبب لا تعيين مطلق (Phase 0 C4).
 // ============================================================================
 [ApiController]
 [Route("api/admin/inventory")]
@@ -47,6 +47,25 @@ public class AdminInventoryController : ControllerBase
     [HasPermission(Permissions.Inventory.Manage)]
     public async Task<IActionResult> SetThreshold(int productId, [FromBody] StockThresholdRequest body)
         => this.ToHttp(await _mediator.Send(new SetLowStockThresholdCommand(productId, body.LowStockThreshold)));
+
+    // ── بالمتغيّر: الصفّ نفسه. مسارات المنتج أعلاه صالحة لمنتج بمتغيّر واحد، وترفض غيره بـ VariantRequired ──
+
+    // GET /api/admin/inventory/variants/12/movements
+    [HttpGet("variants/{variantId:int}/movements")]
+    public async Task<IActionResult> GetVariantMovements(int variantId, [FromQuery] int page = 1, [FromQuery] int pageSize = 50)
+        => Ok(await _mediator.Send(new GetVariantStockMovementsQuery(variantId, page, pageSize)));
+
+    // POST /api/admin/inventory/variants/12/adjustments { "delta": -2, "reason": "تلف أثناء النقل" }
+    [HttpPost("variants/{variantId:int}/adjustments")]
+    [HasPermission(Permissions.Inventory.Manage)]
+    public async Task<IActionResult> AdjustVariant(int variantId, [FromBody] StockAdjustmentRequest body)
+        => this.ToHttp(await _mediator.Send(new AdjustVariantStockCommand(variantId, body.Delta, body.Reason ?? "")));
+
+    // PUT /api/admin/inventory/variants/12/threshold { "lowStockThreshold": 3 }
+    [HttpPut("variants/{variantId:int}/threshold")]
+    [HasPermission(Permissions.Inventory.Manage)]
+    public async Task<IActionResult> SetVariantThreshold(int variantId, [FromBody] StockThresholdRequest body)
+        => this.ToHttp(await _mediator.Send(new SetVariantLowStockThresholdCommand(variantId, body.LowStockThreshold)));
 }
 
 public record StockAdjustmentRequest(int Delta, string? Reason);

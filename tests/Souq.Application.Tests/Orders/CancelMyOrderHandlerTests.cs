@@ -33,7 +33,7 @@ public class CancelMyOrderHandlerTests
     private Order Arrange(string? intent = null, bool paid = false)
     {
         var order = TestCatalog.WithId(new Order(customerId: 1, "عمّان", "JOD"), 9);
-        order.AddItem(1, "سماعات", new Money(50, "JOD"), 1);
+        order.AddItem(1, 1, "سماعات", new Money(50, "JOD"), 1);
         if (intent is not null) order.SetPaymentIntent(intent);
         if (paid) order.MarkAsPaid();
         _orders.GetWithItemsAsync(9, Arg.Any<CancellationToken>()).Returns(order);

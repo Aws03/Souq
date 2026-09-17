@@ -8,12 +8,15 @@ namespace Souq.Application.Features.Inventory.Queries;
 // ============================================================================
 public interface IInventoryQueries
 {
-    // المنتجات النشطة، الأقلّ مخزوناً أولاً (الحرجة في الأعلى).
+    // صفّ لكل متغيّر من منتج غير مؤرشف، الأقلّ مخزوناً أولاً (الحرجة في الأعلى).
     Task<PaginatedList<InventoryItemDto>> ListAsync(PageRequest page, string culture, CancellationToken ct);
 
     // النشطة التي بلغ مخزونها حدّ التنبيه أو نزل تحته. TotalCount يكفي لشارة التنبيه.
     Task<PaginatedList<InventoryItemDto>> ListLowStockAsync(PageRequest page, string culture, CancellationToken ct);
 
-    // حركات مخزون منتج — الأحدث أولاً.
+    // حركات مخزون منتج (كل متغيّراته) — الأحدث أولاً.
     Task<PaginatedList<StockMovementDto>> ListMovementsAsync(int productId, PageRequest page, CancellationToken ct);
+
+    // حركات مخزون متغيّر — الأحدث أولاً.
+    Task<PaginatedList<StockMovementDto>> ListVariantMovementsAsync(int variantId, PageRequest page, CancellationToken ct);
 }

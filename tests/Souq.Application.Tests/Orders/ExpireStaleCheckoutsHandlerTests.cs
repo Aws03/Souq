@@ -35,7 +35,7 @@ public class ExpireStaleCheckoutsHandlerTests
     private Order PendingOrder(int id, string? intent = null)
     {
         var order = TestCatalog.WithId(new Order(1, "عمّان", "JOD"), id);
-        order.AddItem(1, "سماعات", new Money(10, "JOD"), 1);
+        order.AddItem(1, 1, "سماعات", new Money(10, "JOD"), 1);
         if (intent is not null) order.SetPaymentIntent(intent);
         _orders.GetWithItemsAsync(id, Arg.Any<CancellationToken>()).Returns(order);
         return order;

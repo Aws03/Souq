@@ -44,22 +44,21 @@ Run `dotnet test` and, for frontend logic, `npm test` in `frontend`.
 
 ## I need to add product attributes, or real variant options (size, colour)
 
-Today the model has exactly one default variant per product, and that is DEFERRED work in [ADR-0025](../../11-ADR/0025-catalog-model.md), not a missing line of code. **Start with [ProductVariants.md](ProductVariants.md):** the traced assumptions, the proposed model, what needs owner decision P-08 and what doesn't, and a phased plan. The notes below are the original sketch.
+The decisions are taken and the groundwork is built. **Start with [ProductVariants.md](ProductVariants.md)** (status, the traced assumptions, the model, the remaining phases) **and [ADR-0039](../../11-ADR/0039-product-variants-order-identity.md)** (P-08: up to 3 options, 20 values, 100 variants; "From" the lowest purchasable price; an explicit choice with sold-out values disabled). What V1 already provides, so V2 doesn't redo it: order lines record `VariantId` with label and SKU snapshots and merge by variant; `PricingLine` and the basket and order commands carry a variant id with `VariantRequired`; `Product.FindVariant`, `Product.ImplicitVariant`, `Product.CanSell`, `Product.DeactivateVariant`; `ProductVariant.IsActive`; variant-keyed stock administration.
 
-- **Inspect:** `Product.DefaultVariant`, `ProductVariantConfiguration` (the `IX_ProductVariants_ProductId_Default` filtered unique index), `CatalogQueries` (every projection reads `Variants.Where(v => v.IsDefault)`), `IInventoryRepository.GetForProductAsync`, `InventoryQueries.StockedItems`, `PricingService.Price`, `AddBasketItemHandler` (it resolves `product.DefaultVariant.Id`), `Basket.Add(productId, variantId, …)`, `OrderItem` (which stores `ProductId` only), `AdminInventoryController` (routes keyed by product id).
-- **Rules to respect:** one product keeps exactly one *default* variant for backward compatibility, or the invariant is replaced deliberately everywhere at once. Every sellable variant needs its own `InventoryItem`, created through `IVariantStockInitializer` — Catalog must still not reference Inventory. Order lines are immutable snapshots: adding `VariantId` to `OrderItem` changes Ordering's contract and its history.
-- **Steps (sketch, and it deserves its own ADR):**
-  1. Domain: an attribute/option type owned by `Product`, variant creation and deactivation methods, and a uniqueness rule for an option combination inside a product.
-  2. Application: commands to add and edit variants; extend `AdminProductDto` with the variant list; decide what `ProductDto.Price` means for a multi-variant product (lowest price? the default?).
-  3. Catalog reads: replace the `IsDefault` subqueries with an explicit choice per screen, and keep `ToPageAsync`'s single-statement shape — `CatalogTests` asserts a constant SQL command count.
-  4. Inventory: `GetForProductAsync` and the product-keyed admin endpoints must become variant-keyed; `InventoryItemDto.Id` is a product id today.
-  5. Shopping: `AddBasketItemCommand` must carry the chosen variant instead of deriving it.
-  6. Ordering: decide whether `OrderItem` gains `VariantId`, and migrate.
-- **Tests:** new Domain tests for option uniqueness; update every test that assumes one variant (`CreateProductHandlerTests`, `PricingServiceTests`, `BasketTests`, `InventoryAndOrderTests`); add an integration test that two variants of one product hold independent stock.
-- **API:** breaking for the admin product form and for basket calls; version or stage it behind the existing single-variant behaviour.
-- **Database:** migrations for the option tables and for relaxing the default-variant index; a data migration is not needed for existing products (they keep their default variant).
-- **Security:** no new surface; keep the same `catalog.manage` permission.
-- **Docs and ADR:** a new ADR that supersedes the "sellable unit" part of [ADR-0025](../../11-ADR/0025-catalog-model.md) and D-21, plus [Modules.md](../Modules.md), this README, [Inventory/README.md](../Inventory/README.md) and the roadmap entry.
+- **Inspect:** `Product.AddVariant` (internal today, the method V2 makes public with option values), `ProductVariantConfiguration` (the `IX_ProductVariants_ProductId_Default` filtered unique index and `CK_ProductVariants_DefaultIsActive`), `CatalogQueries` (every projection still reads `Variants.Where(v => v.IsDefault)`), `AdminProductDto`, `UpdateProductHandler` (it edits the default variant's price and SKU), `IVariantStockInitializer`, `OrderItem.VariantLabel` (null until options exist).
+- **Rules to respect:** the default variant stays and stays active, so clients that don't know variants keep working. A variant is never deleted. Every variant needs its own `InventoryItem`, opened through `IVariantStockInitializer` in the same transaction, and Catalog must still not reference Inventory. The limits are Domain rules and validators, published to the admin form, not copied into it.
+- **Steps (V2):**
+  1. Domain: *ProductOption* and *ProductOptionValue* owned by `Product`, translated like the rest of the catalog; one value per option per variant; a combination key unique per product; `AddVariant` public with option values; the limits.
+  2. Application and API: option and variant sub-resources under `api/admin/products/{id}` behind `catalog.manage`, audited; `AdminProductDto` with options and variants; the product `PUT` refuses to edit price or SKU of a multi-variant product.
+  3. The label snapshot: compose `PricedLine.VariantLabel` from the option values in the store's default culture.
+  4. Admin inventory screen: move to the variant routes (see [Inventory/ChangeGuide.md](../Inventory/ChangeGuide.md)); the low-stock notification names the variant.
+  5. V3 (storefront): `ProductDto` options and variants, the selector, "From" pricing in lists, filters and sort, disabled sold-out values, variant-keyed basket calls, labels in cart, checkout, order pages and email. Keep `ToPageAsync`'s single-statement shape: `CatalogTests` asserts a constant SQL command count.
+- **Tests:** Domain tests for every option invariant and limit; `CreateProductHandlerTests` and the admin handlers; integration tests for a duplicate combination under concurrency and the catalog query count with many variants; `ProductVariantTests` already covers basket, checkout, order and stock with two variants.
+- **API:** additive for the admin; the product `PUT` refusal is a new stable code for multi-variant products only.
+- **Database:** additive migrations for the option tables, the combination key and a variant image; no data migration (existing products keep one default variant and no options).
+- **Security:** no new permission; `catalog.manage` and auditing as for the rest of the catalog. Decide in the V2 ADR whether option texts reject control characters (they appear in order lines and emails).
+- **Docs and ADR:** a V2 ADR recording the option model, plus this README, [ProductVariants.md](ProductVariants.md), [BusinessRules.md](../../01-REQUIREMENTS/BusinessRules.md) and the roadmap's Phase 16 line.
 
 ## I need to change the slug or SKU rules
 

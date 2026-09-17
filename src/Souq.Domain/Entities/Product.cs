@@ -37,6 +37,10 @@ public class Product : Entity, ITenantOwned
     public IReadOnlyCollection<ProductVariant> Variants => _variants.AsReadOnly();
 
     public ProductVariant DefaultVariant => _variants.Single(v => v.IsDefault);
+
+    // المتغيّر الذي يُشترى حين لا يسمّي الطلب متغيّراً: الوحيد النشط — أي الافتراضي لمنتج بسيط، فكل عميل قديم يعمل كما
+    // كان. لمنتج بأكثر من متغيّر نشط لا يُفترض شيء: الاختيار صريح (P-08c) ⇒ null، والمستدعي يطلب التحديد.
+    public ProductVariant? ImplicitVariant => _variants.Count(v => v.IsActive) == 1 ? _variants.Single(v => v.IsActive) : null;
     public Money Price => DefaultVariant.Price;
     public Money? CompareAtPrice => DefaultVariant.CompareAtPrice;
     public string? Sku => DefaultVariant.Sku;
@@ -46,6 +50,13 @@ public class Product : Entity, ITenantOwned
     // وحدها — فيبقى منتج فئةٍ "أزالها" المتجر قابلاً للشراء بمعرّفه من السلة والدفع (R-07). القاعدة هنا كي تكون واحدة
     // لكل مسار شراء. الفئة تُحمَّل دائماً مع المنتج في مستودع الكتابة (ProductRepository): بلا فئة محمّلة لا بيع.
     public bool IsSellable => IsActive && Category is { IsActive: true };
+
+    // متغيّر يُشترى: من هذا المنتج نفسه (معرّف متغيّر منتج آخر لا يسعّر هذا المنتج أبداً)، نشط، ومنتجه قابل للبيع.
+    // المخزون شأن منفصل: متغيّر نافد قابل للبيع وغير متاح، كما المنتج اليوم.
+    public bool CanSell(ProductVariant variant) => IsSellable && variant.IsActive && _variants.Contains(variant);
+
+    public ProductVariant? FindVariant(int variantId) => variantId > 0 ? _variants.FirstOrDefault(v => v.Id == variantId) : null;
+
     public string? PrimaryImageUrl => _images.OrderBy(i => i.SortOrder).ThenBy(i => i.Id).FirstOrDefault()?.Url;
 
     // اسم للرسائل والسجلات؛ اللقطات التجارية تستخدم NameIn(لغة المتجر).
@@ -98,6 +109,34 @@ public class Product : Entity, ITenantOwned
 
     public void SetPricing(Money price, Money? compareAtPrice, string? sku) =>
         DefaultVariant.SetPricing(price, compareAtPrice, sku);
+
+    // ── المتغيّرات ───────────────────────────────────────────────────────────
+
+    // تعطيل متغيّر بدل حذفه. الافتراضي لا يُعطَّل: يبقى للمنتج دائماً متغيّر نشط يمثّله لكل عميل لا يعرف المتغيّرات.
+    public void DeactivateVariant(int variantId)
+    {
+        var variant = Variant(variantId);
+        if (variant.IsDefault)
+            throw new InvalidProductDataException("المتغيّر الافتراضي لا يُعطَّل");
+        variant.SetActive(false);
+    }
+
+    public void ActivateVariant(int variantId) => Variant(variantId).SetActive(true);
+
+    // متغيّر غير افتراضي. internal عمداً: متغيّر ثانٍ بلا خيارات يصفه يخالف نموذج الخيارات المعتمد (P-08a) — إنشاء
+    // المتغيّرات للتاجر يأتي مع الخيارات (V2، ProductVariants.md §11). حتى ذلك الحين تستخدمه الاختبارات وحدها لإثبات أن
+    // السلة والتسعير والطلب والمخزون صحيحة لمنتج بأكثر من متغيّر.
+    internal ProductVariant AddVariant(Money price, Money? compareAtPrice = null, string? sku = null)
+    {
+        if (price.Currency != DefaultVariant.Price.Currency)
+            throw new InvalidProductDataException("متغيّرات المنتج بعملة واحدة");
+        var variant = new ProductVariant(isDefault: false, price, compareAtPrice, sku);
+        _variants.Add(variant);
+        return variant;
+    }
+
+    private ProductVariant Variant(int variantId) =>
+        FindVariant(variantId) ?? throw new InvalidProductDataException("المتغيّر غير موجود في هذا المنتج");
 
     // ── دورة الحياة ───────────────────────────────────────────────────────────
 

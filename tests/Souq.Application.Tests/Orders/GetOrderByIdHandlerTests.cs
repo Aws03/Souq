@@ -16,7 +16,7 @@ public class GetOrderByIdHandlerTests
     private void OrderOwnedBy(int customerId, string status = "Pending") =>
         _orders.FindAsync(1, Arg.Any<CancellationToken>()).Returns(new OrderDto(
             1, 1001, customerId, status, "عمّان", "عمّان", 50, null, null, 50, "JOD", DateTime.UnixEpoch,
-            [new OrderItemDto(1, "سماعات", 50, 1, 50)], null, null, new string('a', 32),
+            [new OrderItemDto(1, "سماعات", 50, 1, 50, 1, null, null)], null, null, new string('a', 32),
             [new OrderHistoryEntryDto("Pending", DateTime.UnixEpoch, "ملاحظة داخلية", "Staff", "موظّف")], [], false));
 
     [Fact]

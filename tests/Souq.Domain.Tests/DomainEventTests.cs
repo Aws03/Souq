@@ -23,7 +23,7 @@ public class DomainEventTests
     private static Order PaidReadyOrder(int id = 9)
     {
         var order = new Order(customerId: 3, "عمّان", "JOD");
-        order.AddItem(1, "سماعات", new Money(50, "JOD"), 1);
+        order.AddItem(1, 1, "سماعات", new Money(50, "JOD"), 1);
         return id > 0 ? Saved(order, id) : order;
     }
 

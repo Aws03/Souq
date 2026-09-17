@@ -54,6 +54,7 @@ public static class DependencyInjection
         services.AddScoped<Features.Baskets.Contracts.IPricing, Features.Baskets.Pricing.PricingService>();
         services.AddScoped<Features.Baskets.BasketResolver>();
         services.AddScoped<Features.Baskets.BasketViews>();
+        services.AddScoped<Features.Baskets.BasketLines>();
         // وحدة Promotions (المرحلة 10): استخدامات الكوبونات — حجز عند إنشاء الطلب، تأكيد بالدفع، تحرير بالإلغاء.
         services.AddScoped<Features.Coupons.Contracts.ICouponRedemptions, Features.Coupons.Redemptions.CouponRedemptions>();
         // وحدة Payments (المرحلة 11): دفعة الطلب واستردادها لـ Ordering، ومحرّر حساب بوّابة المتجر لمساري المتجر والمنصّة.

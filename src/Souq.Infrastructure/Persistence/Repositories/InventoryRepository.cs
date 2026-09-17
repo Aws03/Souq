@@ -14,9 +14,11 @@ public class InventoryRepository : IInventoryRepository
     public async Task AddAsync(InventoryItem item, CancellationToken ct = default) =>
         await _db.InventoryItems.AddAsync(item, ct);
 
-    public Task<InventoryItem?> GetForProductAsync(int productId, CancellationToken ct = default) =>
-        _db.InventoryItems.FirstOrDefaultAsync(
-            i => i.ProductId == productId && _db.Set<ProductVariant>().Any(v => v.Id == i.VariantId && v.IsDefault), ct);
+    public async Task<IReadOnlyList<InventoryItem>> ListForProductAsync(int productId, CancellationToken ct = default) =>
+        await _db.InventoryItems.Where(i => i.ProductId == productId).OrderBy(i => i.VariantId).ToListAsync(ct);
+
+    public Task<InventoryItem?> GetForVariantAsync(int variantId, CancellationToken ct = default) =>
+        _db.InventoryItems.FirstOrDefaultAsync(i => i.VariantId == variantId, ct);
 
     public async Task<IReadOnlyList<InventoryItem>> GetByVariantsAsync(IReadOnlyCollection<int> variantIds, CancellationToken ct = default) =>
         await _db.InventoryItems.Where(i => variantIds.Contains(i.VariantId)).ToListAsync(ct);

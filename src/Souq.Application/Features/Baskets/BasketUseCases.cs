@@ -50,13 +50,18 @@ public class GetBasketHandler : IRequestHandler<GetBasketQuery, Result<BasketRes
     }
 }
 
-public record AddBasketItemCommand(string? GuestToken, int ProductId, int Quantity = 1) : IRequest<Result<BasketResult>>;
+// VariantId اختياري: بدونه يُضاف متغيّر المنتج الضمني (الوحيد النشط — كل منتج اليوم)، ولمنتج بأكثر من متغيّر نشط يُرفض
+// بـ VariantRequired بدل افتراض الافتراضي بصمت (P-08c). معه: متغيّر نشط من هذا المنتج نفسه وإلا 404 — معرّف متغيّر
+// منتج آخر أو متجر آخر "غير موجود" هنا، فلا يُسعَّر منتج بمتغيّر غيره.
+public record AddBasketItemCommand(string? GuestToken, int ProductId, int Quantity = 1, int? VariantId = null)
+    : IRequest<Result<BasketResult>>;
 
 public class AddBasketItemValidator : AbstractValidator<AddBasketItemCommand>
 {
     public AddBasketItemValidator()
     {
         RuleFor(c => c.ProductId).GreaterThan(0);
+        RuleFor(c => c.VariantId).GreaterThan(0).When(c => c.VariantId is not null);
         RuleFor(c => c.Quantity).InclusiveBetween(1, Basket.MaxQuantityPerLine);
     }
 }
@@ -81,19 +86,32 @@ public class AddBasketItemHandler : IRequestHandler<AddBasketItemCommand, Result
         if (product is not { IsSellable: true })
             return Result<BasketResult>.Failure(Error.NotFound("المنتج غير متاح"));
 
+        ProductVariant variant;
+        if (cmd.VariantId is int requested)
+        {
+            if (product.FindVariant(requested) is not { } found || !product.CanSell(found))
+                return Result<BasketResult>.Failure(Error.NotFound("المتغيّر غير متاح"));
+            variant = found;
+        }
+        else if (product.ImplicitVariant is { } implicitVariant)
+            variant = implicitVariant;
+        else
+            return Result<BasketResult>.Failure(BasketLines.VariantRequired());
+
         var resolved = await _resolver.ResolveAsync(cmd.GuestToken, ct);
-        var variantId = product.DefaultVariant.Id;
-        var requested = (resolved.Basket?.Lines.FirstOrDefault(l => l.VariantId == variantId)?.Quantity ?? 0) + cmd.Quantity;
-        if (await BasketStock.ShortageAsync(_availability, variantId, requested, ct) is { } shortage)
+        var quantity = (resolved.Basket?.LineForVariant(variant.Id)?.Quantity ?? 0) + cmd.Quantity;
+        if (await BasketStock.ShortageAsync(_availability, variant.Id, quantity, ct) is { } shortage)
             return Result<BasketResult>.Failure(shortage);
 
         resolved = await _resolver.EnsureAsync(resolved, ct);
         var basket = resolved.Basket!;
-        basket.Add(product.Id, variantId, cmd.Quantity, _resolver.ExpiryFor(basket));
+        basket.Add(product.Id, variant.Id, cmd.Quantity, _resolver.ExpiryFor(basket));
         await _uow.SaveChangesAsync(ct);
         return Result<BasketResult>.Success(resolved.Written(await _views.BuildAsync(basket, null, ct)));
     }
 }
+
+// ── تعديل سطر وحذفه: بالمنتج (العقد الأصلي، صالح ما دام للمنتج سطر واحد في السلة) أو بالمتغيّر (السطر نفسه) ──
 
 // صفر يحذف السطر. الزيادة وحدها تُقاس بالمتاح؛ الإنقاص مسموح دائماً.
 public record SetBasketItemQuantityCommand(string? GuestToken, int ProductId, int Quantity) : IRequest<Result<BasketResult>>;
@@ -109,56 +127,111 @@ public class SetBasketItemQuantityValidator : AbstractValidator<SetBasketItemQua
 
 public class SetBasketItemQuantityHandler : IRequestHandler<SetBasketItemQuantityCommand, Result<BasketResult>>
 {
-    private readonly IStockAvailability _availability;
-    private readonly BasketResolver _resolver;
-    private readonly BasketViews _views;
-    private readonly IUnitOfWork _uow;
+    private readonly BasketLines _lines;
+    public SetBasketItemQuantityHandler(BasketLines lines) => _lines = lines;
 
-    public SetBasketItemQuantityHandler(IStockAvailability availability, BasketResolver resolver, BasketViews views, IUnitOfWork uow)
+    public Task<Result<BasketResult>> Handle(SetBasketItemQuantityCommand cmd, CancellationToken ct) =>
+        _lines.SetQuantityAsync(cmd.GuestToken, basket => BasketLines.ByProduct(basket, cmd.ProductId), cmd.Quantity, ct);
+}
+
+public record SetBasketLineQuantityCommand(string? GuestToken, int VariantId, int Quantity) : IRequest<Result<BasketResult>>;
+
+public class SetBasketLineQuantityValidator : AbstractValidator<SetBasketLineQuantityCommand>
+{
+    public SetBasketLineQuantityValidator()
     {
-        _availability = availability; _resolver = resolver; _views = views; _uow = uow;
+        RuleFor(c => c.VariantId).GreaterThan(0);
+        RuleFor(c => c.Quantity).InclusiveBetween(0, Basket.MaxQuantityPerLine);
     }
+}
 
-    public async Task<Result<BasketResult>> Handle(SetBasketItemQuantityCommand cmd, CancellationToken ct)
-    {
-        var resolved = await _resolver.ResolveAsync(cmd.GuestToken, ct);
-        var basket = resolved.Basket;
-        var line = basket?.LineFor(cmd.ProductId);
-        if (basket is null || line is null)
-            return Result<BasketResult>.Failure(Error.NotFound("الصنف ليس في السلة"));
+public class SetBasketLineQuantityHandler : IRequestHandler<SetBasketLineQuantityCommand, Result<BasketResult>>
+{
+    private readonly BasketLines _lines;
+    public SetBasketLineQuantityHandler(BasketLines lines) => _lines = lines;
 
-        if (cmd.Quantity > line.Quantity
-            && await BasketStock.ShortageAsync(_availability, line.VariantId, cmd.Quantity, ct) is { } shortage)
-            return Result<BasketResult>.Failure(shortage);
-
-        basket.SetQuantity(line.VariantId, cmd.Quantity, _resolver.ExpiryFor(basket));
-        await _uow.SaveChangesAsync(ct);
-        return Result<BasketResult>.Success(resolved.Written(await _views.BuildAsync(basket, null, ct)));
-    }
+    public Task<Result<BasketResult>> Handle(SetBasketLineQuantityCommand cmd, CancellationToken ct) =>
+        _lines.SetQuantityAsync(cmd.GuestToken, basket => BasketLines.ByVariant(basket, cmd.VariantId), cmd.Quantity, ct);
 }
 
 public record RemoveBasketItemCommand(string? GuestToken, int ProductId) : IRequest<Result<BasketResult>>;
 
 public class RemoveBasketItemHandler : IRequestHandler<RemoveBasketItemCommand, Result<BasketResult>>
 {
+    private readonly BasketLines _lines;
+    public RemoveBasketItemHandler(BasketLines lines) => _lines = lines;
+
+    public Task<Result<BasketResult>> Handle(RemoveBasketItemCommand cmd, CancellationToken ct) =>
+        _lines.RemoveAsync(cmd.GuestToken, basket => BasketLines.ByProduct(basket, cmd.ProductId), ct);
+}
+
+public record RemoveBasketLineCommand(string? GuestToken, int VariantId) : IRequest<Result<BasketResult>>;
+
+public class RemoveBasketLineHandler : IRequestHandler<RemoveBasketLineCommand, Result<BasketResult>>
+{
+    private readonly BasketLines _lines;
+    public RemoveBasketLineHandler(BasketLines lines) => _lines = lines;
+
+    public Task<Result<BasketResult>> Handle(RemoveBasketLineCommand cmd, CancellationToken ct) =>
+        _lines.RemoveAsync(cmd.GuestToken, basket => BasketLines.ByVariant(basket, cmd.VariantId), ct);
+}
+
+// ما يشترك فيه تعديل السطر بالمنتج وبالمتغيّر بعد تحديد السطر — قواعد الكمية نفسها في Basket، لا نسخة ثانية منها.
+public sealed class BasketLines
+{
+    private readonly IStockAvailability _availability;
     private readonly BasketResolver _resolver;
     private readonly BasketViews _views;
     private readonly IUnitOfWork _uow;
 
-    public RemoveBasketItemHandler(BasketResolver resolver, BasketViews views, IUnitOfWork uow)
+    public BasketLines(IStockAvailability availability, BasketResolver resolver, BasketViews views, IUnitOfWork uow)
     {
-        _resolver = resolver; _views = views; _uow = uow;
+        _availability = availability; _resolver = resolver; _views = views; _uow = uow;
     }
 
-    public async Task<Result<BasketResult>> Handle(RemoveBasketItemCommand cmd, CancellationToken ct)
-    {
-        var resolved = await _resolver.ResolveAsync(cmd.GuestToken, ct);
-        var basket = resolved.Basket;
-        var line = basket?.LineFor(cmd.ProductId);
-        if (basket is null || line is null)
-            return Result<BasketResult>.Failure(Error.NotFound("الصنف ليس في السلة"));
+    public static Error VariantRequired() =>
+        Error.BusinessRule("VariantRequired", "لهذا المنتج أكثر من متغيّر: حدّد المتغيّر المطلوب");
 
-        basket.Remove(line.VariantId, _resolver.ExpiryFor(basket));
+    // بالمنتج: سطره الوحيد. سطران لمتغيّرين من المنتج نفسه ⇒ المسار ملتبس، فيُطلب التحديد بدل تعديل سطر لم يقصده العميل.
+    public static Result<BasketLine> ByProduct(Basket? basket, int productId) =>
+        basket?.LinesFor(productId) switch
+        {
+            null or { Count: 0 } => Result<BasketLine>.Failure(Error.NotFound("الصنف ليس في السلة")),
+            { Count: 1 } lines => Result<BasketLine>.Success(lines[0]),
+            _ => Result<BasketLine>.Failure(VariantRequired()),
+        };
+
+    public static Result<BasketLine> ByVariant(Basket? basket, int variantId) =>
+        basket?.LineForVariant(variantId) is { } line
+            ? Result<BasketLine>.Success(line)
+            : Result<BasketLine>.Failure(Error.NotFound("الصنف ليس في السلة"));
+
+    public async Task<Result<BasketResult>> SetQuantityAsync(
+        string? guestToken, Func<Basket?, Result<BasketLine>> find, int quantity, CancellationToken ct)
+    {
+        var resolved = await _resolver.ResolveAsync(guestToken, ct);
+        var basket = resolved.Basket;
+        var found = find(basket);
+        if (!found.IsSuccess) return Result<BasketResult>.Failure(found.Error!);
+        var line = found.Value!;
+
+        if (quantity > line.Quantity
+            && await BasketStock.ShortageAsync(_availability, line.VariantId, quantity, ct) is { } shortage)
+            return Result<BasketResult>.Failure(shortage);
+
+        basket!.SetQuantity(line.VariantId, quantity, _resolver.ExpiryFor(basket));
+        await _uow.SaveChangesAsync(ct);
+        return Result<BasketResult>.Success(resolved.Written(await _views.BuildAsync(basket, null, ct)));
+    }
+
+    public async Task<Result<BasketResult>> RemoveAsync(string? guestToken, Func<Basket?, Result<BasketLine>> find, CancellationToken ct)
+    {
+        var resolved = await _resolver.ResolveAsync(guestToken, ct);
+        var basket = resolved.Basket;
+        var found = find(basket);
+        if (!found.IsSuccess) return Result<BasketResult>.Failure(found.Error!);
+
+        basket!.Remove(found.Value!.VariantId, _resolver.ExpiryFor(basket));
         await _uow.SaveChangesAsync(ct);
         return Result<BasketResult>.Success(resolved.Written(await _views.BuildAsync(basket, null, ct)));
     }

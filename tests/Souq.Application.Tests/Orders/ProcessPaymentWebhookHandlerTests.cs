@@ -141,7 +141,7 @@ public class ApplyPaymentEventHandlerTests
     public async Task حدث_دفعة_يؤكّد_الطلب_بعد_التحقّق_لدى_البوّابة_بلا_أي_مستخدم()
     {
         var order = new Order(customerId: 7, "عمّان", "JOD");
-        order.AddItem(1, "سماعات", new Money(50, "JOD"), 1);
+        order.AddItem(1, 1, "سماعات", new Money(50, "JOD"), 1);
         order.SetPaymentIntent("pi_42");
         _orders.GetWithItemsAsync(42, Arg.Any<CancellationToken>()).Returns(order);
         _payment.ConfirmAsync("pi_42", Arg.Any<CancellationToken>()).Returns(PaymentConfirmationResult.Ok());

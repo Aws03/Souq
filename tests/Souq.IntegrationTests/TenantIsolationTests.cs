@@ -33,7 +33,7 @@ public class TenantIsolationTests
     private enum Actor { Anonymous, Admin, Customer }
     private enum Resource
     {
-        Product, ProductImage, Category, Coupon, Order, StaffAccount, Customer, CustomerAddress, ShippingMethod, Review, Notification,
+        Product, ProductVariant, ProductImage, Category, Coupon, Order, StaffAccount, Customer, CustomerAddress, ShippingMethod, Review, Notification,
     }
 
     private sealed record ForeignCase(string Method, string Route, Resource Resource, Actor Actor, Func<HttpContent>? Body = null);
@@ -88,6 +88,11 @@ public class TenantIsolationTests
             () => JsonBody(new { delta = 50, reason = "محاولة من متجر آخر" })),
         new("PUT", "api/admin/inventory/{productId:int}/threshold", Resource.Product, Actor.Admin,
             () => JsonBody(new { lowStockThreshold = 99 })),
+        // مخزون بالمتغيّر (ProductVariants.md، V1): متغيّر منتج A لا يُصحَّح مخزونه ولا حدّه من B.
+        new("POST", "api/admin/inventory/variants/{variantId:int}/adjustments", Resource.ProductVariant, Actor.Admin,
+            () => JsonBody(new { delta = 50, reason = "محاولة من متجر آخر" })),
+        new("PUT", "api/admin/inventory/variants/{variantId:int}/threshold", Resource.ProductVariant, Actor.Admin,
+            () => JsonBody(new { lowStockThreshold = 99 })),
         new("GET", "api/admin/customers/{id:int}", Resource.Customer, Actor.Admin),
         new("PUT", "api/admin/customers/{id:int}/status", Resource.Customer, Actor.Admin, () => JsonBody(new { status = "Blocked" })),
         new("GET", "api/admin/customers/{id:int}/export", Resource.Customer, Actor.Admin),
@@ -102,12 +107,15 @@ public class TenantIsolationTests
         // المخصّص أدناه يرسل رمز سلة A الحقيقي إلى B).
         new("PUT", "api/basket/items/{productId:int}", Resource.Product, Actor.Anonymous, () => JsonBody(new { quantity = 1 })),
         new("DELETE", "api/basket/items/{productId:int}", Resource.Product, Actor.Anonymous),
+        new("PUT", "api/basket/items/variants/{variantId:int}", Resource.ProductVariant, Actor.Anonymous, () => JsonBody(new { quantity = 1 })),
+        new("DELETE", "api/basket/items/variants/{variantId:int}", Resource.ProductVariant, Actor.Anonymous),
     ];
 
-    // قوائم تحت منتج لـ A: 200 بلا أي صف (القائمة موجودة؛ المنتج "لا صفوف له" من منظور B).
+    // قوائم تحت منتج (أو متغيّر) لـ A: 200 بلا أي صف (القائمة موجودة؛ المورد "لا صفوف له" من منظور B).
     private static readonly (string Route, Actor Actor)[] ScopedListings =
     [
         ("api/admin/inventory/{productId:int}/movements", Actor.Admin),
+        ("api/admin/inventory/variants/{variantId:int}/movements", Actor.Admin),
         ("api/products/{productId:int}/reviews", Actor.Anonymous),
     ];
 
@@ -201,10 +209,12 @@ public class TenantIsolationTests
 
         // في A توجد حركة المخزون الابتدائي فعلاً — B لا يراها.
         (await CountAsync(s.AdminA, $"/api/admin/inventory/{productId}/movements")).Should().BeGreaterThan(0);
+        (await CountAsync(s.AdminA, $"/api/admin/inventory/variants/{s.AIds[Resource.ProductVariant]}/movements")).Should().BeGreaterThan(0);
 
         foreach (var (route, actor) in ScopedListings)
         {
-            var url = "/" + Regex.Replace(route, @"\{[^}]+\}", productId.ToString());
+            var url = "/" + Regex.Replace(route, @"\{(\w+)[^}]*\}", m =>
+                (m.Groups[1].Value == "variantId" ? s.AIds[Resource.ProductVariant] : productId).ToString());
             (await CountAsync(ClientFor(s, actor), url)).Should().Be(0, $"GET {url} من متجر B");
         }
     }
@@ -264,6 +274,18 @@ public class TenantIsolationTests
 
         (await ProblemAsync(await s.StoreB.PlaceOrderAsync(s.CustomerB, aProduct, 1)))
             .Should().Be((HttpStatusCode.BadRequest, "ProductNotFound"));
+
+        // متغيّر A مع منتج B الحقيقي (المتغيّرات، V1): لا يُسعَّر منتج B به ولا يدخل سلة — المتغيّر يُقبل من منتج السطر نفسه.
+        var aVariant = s.AIds[Resource.ProductVariant];
+        (await ProblemAsync(await s.CustomerB.PostAsJsonAsync("/api/orders", new
+            {
+                shippingAddress = "عمّان — عنوان اختبار",
+                items = new[] { new { productId = bProduct, quantity = 1, variantId = aVariant } },
+            })))
+            .Should().Be((HttpStatusCode.BadRequest, "ProductNotFound"));
+        (await ProblemAsync(await s.CustomerB.PostAsJsonAsync("/api/basket/items", new { productId = bProduct, variantId = aVariant, quantity = 1 })))
+            .Should().Be((HttpStatusCode.NotFound, "NotFound"));
+        (await s.StoreB.WithDbAsync(db => db.Baskets.SelectMany(b => b.Lines).CountAsync(l => l.VariantId == aVariant))).Should().Be(0);
 
         // منتج A لا يدخل سلة على مضيف B — لزائر ولا لعميل (غير موجود من منظور B).
         (await ProblemAsync(await s.StoreB.Anonymous().PostAsJsonAsync("/api/basket/items", new { productId = aProduct, quantity = 1 })))
@@ -503,12 +525,15 @@ public class TenantIsolationTests
         var staffEmail = await _factory.CreateStoreUserAsync(await _factory.DefaultTenantAsync(), Roles.TenantStaff);
         var staffId = await storeA.WithDbAsync(db => db.Users.Where(u => u.Email == staffEmail).Select(u => u.Id).SingleAsync());
 
+        var variantId = await storeA.WithDbAsync(db =>
+            db.Products.Where(p => p.Id == productId).SelectMany(p => p.Variants).Select(v => v.Id).SingleAsync());
+
         var b = await _factory.CreateStoreAsync();
         var storeB = storeA.ForStore(b);
         return new Arranged(storeA, storeB, b, adminA, await storeB.AdminAsync(), (await storeB.NewCustomerAsync()).Client,
             new Dictionary<Resource, int>
             {
-                [Resource.Product] = productId, [Resource.ProductImage] = imageId, [Resource.Category] = categoryId,
+                [Resource.Product] = productId, [Resource.ProductVariant] = variantId, [Resource.ProductImage] = imageId, [Resource.Category] = categoryId,
                 [Resource.Coupon] = couponId, [Resource.Order] = orderId, [Resource.StaffAccount] = staffId,
                 [Resource.Customer] = customerId, [Resource.CustomerAddress] = addressId, [Resource.ShippingMethod] = shippingMethodId,
                 [Resource.Review] = reviewId, [Resource.Notification] = notificationId,

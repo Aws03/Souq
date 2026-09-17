@@ -103,13 +103,13 @@ public class OrderLifecycleTests
     {
         var order = NewOrder();
         order.AssignNumber(1001);
-        order.AddItem(1, "سماعات", new Money(50, "JOD"), 2);
+        order.AddItem(1, 1, "سماعات", new Money(50, "JOD"), 2);
         order.ApplyCoupon("SAVE10", new Money(10, "JOD"));
 
         order.Place(Now);
 
         (order.IsPlaced, order.PlacedAt, order.PlacedSubtotal, order.PlacedTotal).Should().Be((true, Now, 100m, 90m));
-        ((Action)(() => order.AddItem(2, "شاحن", new Money(5, "JOD"), 1))).Should().Throw<InvalidOrderOperationException>();
+        ((Action)(() => order.AddItem(2, 2, "شاحن", new Money(5, "JOD"), 1))).Should().Throw<InvalidOrderOperationException>();
         ((Action)(() => order.ApplyCoupon("MORE", new Money(20, "JOD")))).Should().Throw<InvalidOrderOperationException>();
         ((Action)(() => order.Place(Now))).Should().Throw<InvalidOrderOperationException>();
         (order.Subtotal.Amount, order.TotalAmount.Amount).Should().Be((100m, 90m));
@@ -127,7 +127,7 @@ public class OrderLifecycleTests
         ((Action)(() => empty.Place(Now))).Should().Throw<InvalidOrderOperationException>();
 
         var unnumbered = NewOrder();
-        unnumbered.AddItem(1, "سماعات", new Money(50, "JOD"), 1);
+        unnumbered.AddItem(1, 1, "سماعات", new Money(50, "JOD"), 1);
         ((Action)(() => unnumbered.Place(Now))).Should().Throw<InvalidOrderOperationException>();
 
         unnumbered.AssignNumber(1002);
@@ -156,7 +156,7 @@ public class OrderLifecycleTests
     {
         var order = NewOrder();
         order.AssignNumber(1001);
-        order.AddItem(1, "سماعات", new Money(50, "JOD"), 1);
+        order.AddItem(1, 1, "سماعات", new Money(50, "JOD"), 1);
         order.Place(Now);
         return order;
     }

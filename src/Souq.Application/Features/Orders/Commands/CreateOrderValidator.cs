@@ -18,6 +18,7 @@ public class CreateOrderValidator : AbstractValidator<CreateOrderCommand>
         {
             item.RuleFor(i => i.Quantity).GreaterThan(0);
             item.RuleFor(i => i.ProductId).GreaterThan(0);
+            item.RuleFor(i => i.VariantId).GreaterThan(0).When(i => i.VariantId is not null);
         });
     }
 }

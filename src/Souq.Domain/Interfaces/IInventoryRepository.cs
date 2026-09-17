@@ -10,8 +10,10 @@ public interface IInventoryRepository
 {
     Task AddAsync(InventoryItem item, CancellationToken ct = default);
 
-    // مخزون المتغيّر الافتراضي لمنتج (المنتج = متغيّر افتراضي واحد حتى مصفوفة الخيارات).
-    Task<InventoryItem?> GetForProductAsync(int productId, CancellationToken ct = default);
+    // مخزون متغيّرات منتج (صفّ لكل متغيّر). مسارات الإدارة بالمنتج تقبل منتجاً بصفّ واحد فقط.
+    Task<IReadOnlyList<InventoryItem>> ListForProductAsync(int productId, CancellationToken ct = default);
+
+    Task<InventoryItem?> GetForVariantAsync(int variantId, CancellationToken ct = default);
 
     Task<IReadOnlyList<InventoryItem>> GetByVariantsAsync(IReadOnlyCollection<int> variantIds, CancellationToken ct = default);
 

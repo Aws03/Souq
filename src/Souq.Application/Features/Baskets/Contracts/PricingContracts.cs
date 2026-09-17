@@ -16,16 +16,21 @@ public interface IPricing
         IReadOnlyList<PricingLine> lines, string? couponCode, int? customerId, ShippingRequest? shipping, CancellationToken ct);
 }
 
-public sealed record PricingLine(int ProductId, int Quantity);
+// VariantId: المتغيّر المطلوب بعينه (سطر سلة، أو سطر طلب سمّى متغيّراً). null ⇒ متغيّر المنتج الضمني — الوحيد النشط؛
+// لمنتج بأكثر من متغيّر نشط لا يُفترض شيء (VariantRequired). المتغيّر يُقبل من منتج السطر نفسه فقط.
+public sealed record PricingLine(int ProductId, int Quantity, int? VariantId = null);
 
 // طلب الشحن: الطريقة المختارة (null: لم تُختر) ودولة العنوان برمز ISO (null: غير معروفة ⇒ الطرق غير المقيَّدة بدول).
 public sealed record ShippingRequest(int? MethodId, string? Country);
 
-// سطر مسعَّر، بترتيب أسطر الطلب نفسه. Sellable=false: المنتج لم يعد منشوراً أو ليس في هذا المتجر ⇒ خارج المجموع،
-// والدفع يرفضه. Names بكل لغات المنتج للعرض، وName بلغة المتجر الافتراضية للقطة الطلب.
+// سطر مسعَّر، بترتيب أسطر الطلب نفسه. Sellable=false: المنتج لم يعد منشوراً أو ليس في هذا المتجر، أو المتغيّر معطّل أو لا
+// يخصّ المنتج ⇒ خارج المجموع، والدفع يرفضه. VariantRequired: السطر لم يسمِّ متغيّراً ولمنتجه أكثر من متغيّر نشط. Names
+// بكل لغات المنتج للعرض، وName بلغة المتجر الافتراضية للقطة الطلب. VariantLabel وSku لقطتا المتغيّر للطلب (الوصف null
+// حتى خيارات المتغيّرات — V2).
 public sealed record PricedLine(
     int ProductId, int VariantId, string Name, IReadOnlyDictionary<string, string> Names, string? ImageUrl,
-    Money UnitPrice, int Quantity, Money LineTotal, bool Sellable);
+    Money UnitPrice, int Quantity, Money LineTotal, bool Sellable,
+    string? VariantLabel = null, string? Sku = null, bool VariantRequired = false);
 
 // الكوبون كما قُيِّم: مطبَّق، أو مرفوض برمز الخطأ ورسالته (ModuleDisabled، CouponNotFound، InvalidCoupon).
 public sealed record CouponOutcome(string Code, bool Applied, string? ErrorCode, string? Message);

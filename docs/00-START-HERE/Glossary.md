@@ -24,7 +24,7 @@
 
 | Term | Meaning in Souq |
 |---|---|
-| **Product / Variant** | A `Product` is what the customer sees; a `ProductVariant` is what is actually sold and priced (today one default variant per product). Stock hangs off the variant. |
+| **Product / Variant** | A `Product` is what the customer sees; a `ProductVariant` is what is actually sold, priced and recorded on the order line. Every product has a default variant, and today it is the only one; variants are deactivated, never deleted. Stock hangs off the variant. |
 | **Slug** | The URL-safe identifier of a product or category, unique per store. |
 | **SKU** | The store's own stock-keeping code on a variant, unique per store. |
 | **Basket** | The server-side list of what a shopper intends to buy. Never reserves stock and never stores prices — it re-reads them. |

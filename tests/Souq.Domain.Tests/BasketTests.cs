@@ -57,6 +57,18 @@ public class BasketTests
     }
 
     [Fact]
+    public void متغيّرا_المنتج_نفسه_سطران_ومتغيّر_واحد_سطر_واحد()
+    {
+        var basket = Basket.ForCustomer(7, Now);
+        basket.Add(1, 11, 1, Now);
+        basket.Add(1, 12, 2, Now);
+        basket.Add(1, 11, 3, Later);
+
+        basket.LinesFor(1).Select(l => (l.VariantId, l.Quantity)).Should().Equal((11, 4), (12, 2));
+        basket.LineForVariant(12)!.ProductId.Should().Be(1);
+    }
+
+    [Fact]
     public void الكمية_صفر_تحذف_والسطر_الغائب_يُرفض()
     {
         var basket = Basket.ForCustomer(7, Now);
@@ -67,8 +79,9 @@ public class BasketTests
         basket.SetQuantity(22, 0, Later);
 
         basket.Lines.Should().ContainSingle().Which.Quantity.Should().Be(4);
-        basket.LineFor(1)!.VariantId.Should().Be(11);
-        basket.LineFor(2).Should().BeNull();
+        basket.LinesFor(1).Should().ContainSingle().Which.VariantId.Should().Be(11);
+        basket.LinesFor(2).Should().BeEmpty();
+        basket.LineForVariant(22).Should().BeNull();
         ((Action)(() => basket.SetQuantity(22, 1, Later))).Should().Throw<InvalidBasketOperationException>();
         ((Action)(() => basket.Remove(22, Later))).Should().Throw<InvalidBasketOperationException>();
     }

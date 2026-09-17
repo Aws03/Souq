@@ -37,10 +37,11 @@
 
 | Capability | Implementation | Tests | Gaps |
 |---|---|---|---|
-| Products exist per store with per-language text and one default variant | `Product`, `CreateProductCommand` | D: `ProductTests` · A: `ProductHandlersTests` · I: `CatalogTests` | — |
+| Products exist per store with per-language text and a default variant | `Product`, `CreateProductCommand` | D: `ProductTests` · A: `ProductHandlersTests` · I: `CatalogTests` | — |
 | Slugs and SKUs are unique per store | `Product`, unique indexes | I: `CatalogTests` | — |
 | Only published products in an active category are sellable | `Product.IsSellable` (active product **and** active category) in the pricing pipeline, the basket and the wishlist | D: `ProductTests`; A: `PricingServiceTests`, `BasketHandlersTests`, `WishlistHandlersTests`; I: `CatalogTests` | Closed in Phase 17 (was R-07): sellability is one Domain rule, so visibility and purchasability can no longer disagree (BR-CAT-17) |
 | Stock never goes negative; every change is ledgered | `InventoryItem` | D: `InventoryItemTests` · A: `InventoryCommandsTests` · I: `InventoryAndOrderTests` | — |
+| An order line records the exact variant bought, with SKU and label snapshots, and never merges two variants; basket, pricing and checkout carry the variant; a foreign, deactivated or missing variant is refused; stock is administered per variant | `Order.AddItem`, `Product.FindVariant`/`CanSell`/`ImplicitVariant`, `PricingService`, `BasketLines`, `StockTarget`, migration `OrderLinesRecordVariant` | D: `OrderTests`, `ProductVariantTests`, `BasketTests` · A: `PricingServiceTests`, `BasketHandlersTests`, `BasketCheckoutTests`, `CreateOrderHandlerTests`, `InventoryCommandsTests` · I: `ProductVariantTests`, `TenantIsolationTests`, `MigrationRehearsalTests` | No merchant can create a second variant until V2; the multi-variant paths are exercised through the internal `Product.AddVariant` |
 | Checkout reserves, payment commits, cancellation releases | `InventoryReservations`, `OrderPaymentConfirmation` | A: `InventoryReservationsTests`, `ConfirmOrderPaymentHandlerTests` · I: `InventoryAndOrderTests` | — |
 | Abandoned checkouts are settled | `ExpireStaleCheckoutsCommand` + the hosted sweep | A: `ExpireStaleCheckoutsHandlerTests` · I: `InventoryAndOrderTests` | The sweep skips stores that are not Active (R-24) |
 | Low stock raises an event | `InventoryItem`, `StockBecameLowHandler` | D: `DomainEventTests` · I: `NotificationTests` | No low-stock email exists (the ADR expected one) |

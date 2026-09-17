@@ -39,7 +39,7 @@ public class UpdateOrderStatusHandlerTests
     private static Order OrderInStatus(OrderStatus status)
     {
         var order = TestCatalog.WithId(new Order(customerId: 1, "عمّان", "JOD"), 4);
-        order.AddItem(1, "سماعات", new Money(50, "JOD"), 2);
+        order.AddItem(1, 1, "سماعات", new Money(50, "JOD"), 2);
         if (status is OrderStatus.Paid or OrderStatus.Shipped or OrderStatus.Delivered) order.MarkAsPaid();
         if (status is OrderStatus.Shipped or OrderStatus.Delivered) order.MarkAsShipped();
         if (status is OrderStatus.Delivered) order.MarkAsDelivered();
