@@ -2,6 +2,7 @@
 
 > **Read this before touching anything.** You have no memory of how this system came to be, and neither does the next agent. Everything you need is in the repository; everything you learn that matters must go back into it.
 > **Human counterpart:** [HandoffGuide.md](HandoffGuide.md). **The rules themselves:** [AGENTS.md](../../AGENTS.md).
+> **Last verified against the code:** 2026-09-17, branch `phase/17-production-hardening`.
 
 ## 1. The first rule
 
@@ -58,13 +59,17 @@ Corollary: **never say "as we decided earlier"** unless you can point at a commi
 
 ## 6. Before you report work as complete
 
+The canonical gate — the commands and exactly what CI runs — is [DeveloperQualityGates.md](../09-OPERATIONS/DeveloperQualityGates.md). In short:
+
 ```bash
-dotnet build
+dotnet build -warnaserror
 dotnet test tests/Souq.Domain.Tests tests/Souq.Application.Tests
 dotnet test tests/Souq.ArchitectureTests          # boundaries, endpoints, documentation, inventories
-dotnet test tests/Souq.IntegrationTests           # needs ~2 GB free Docker memory
-cd frontend && npx vitest run && npx vite build
+dotnet test tests/Souq.IntegrationTests           # needs free Docker memory for SQL Server
+cd frontend && npm run lint && npm run typecheck && npx vitest run && npm run build
 ```
+
+Changed a user flow? Run its browser journey in `frontend/e2e` against a live stack (the runbook is in DeveloperQualityGates.md).
 
 Changed a controller, a use case, a module boundary or test files?
 

@@ -2,6 +2,8 @@
 
 > **The scenario this page is written for:** the people who built Souq are gone, and your team has the repository. Everything you need to run, understand, change, deploy and extend the system is in the repository — this page is the order to take it in, and the honest list of what is missing.
 > **First hour:** [SystemOverview.md](SystemOverview.md), then this page, then [DevelopmentGuide.md](../09-OPERATIONS/DevelopmentGuide.md) to get it running.
+> **The practical checklist** — access, versions, secrets, backups, TLS, payments, open decisions — is [HandoffChecklist.md](HandoffChecklist.md). The numbered reading order is [LearningPath.md](LearningPath.md).
+> **Last verified against the repository:** 2026-09-17, branch `phase/17-production-hardening`.
 
 ## 1. What you have received
 
@@ -12,13 +14,13 @@ A **white-label, multi-tenant e-commerce platform**: one ASP.NET Core API, one S
 | Backend | .NET 10, ASP.NET Core, EF Core 10, SQL Server 2022, MediatR 12, FluentValidation |
 | Frontend | React 18, Vite 8, React Router 6, TanStack Query, i18next, JavaScript type-checked with JSDoc, CSS Modules |
 | Integrations | Stripe (payments), Resend / Brevo / Gmail SMTP (email), local disk (uploads) |
-| Tests | five suites; the boundaries and the documentation are themselves tested |
+| Tests | six suites: Domain, Application, Architecture and Integration (.NET), Vitest, and Playwright browser journeys run by hand; the boundaries and the documentation are themselves tested |
 | Documentation | `docs/`, numbered by purpose; this is the primary knowledge base |
 
 ## 2. Read in this order
 
-1. [SystemOverview.md](SystemOverview.md) — what the system is and what happens on a request.
-2. [HowToReadThisRepository.md](HowToReadThisRepository.md) — pick Path A, then B.
+1. [SystemOverview.md](SystemOverview.md) and [ProjectMap.md](ProjectMap.md) — what the system is, and how its parts relate.
+2. [LearningPath.md](LearningPath.md) — the numbered reading order; a new owner reads steps 00, 01, 15, 18, then 13 and 09.
 3. [AGENTS.md](../../AGENTS.md) — the rules, and what enforces each one.
 4. [Modules.md](../04-MODULES/Modules.md) — the thirteen capabilities and who owns what.
 5. [docs/11-ADR/README.md](../11-ADR/README.md) — the decisions, grouped, with what later ADRs changed.
@@ -74,16 +76,22 @@ Read [IncidentResponse.md](../09-OPERATIONS/IncidentResponse.md) and [Troublesho
 - Migrations run automatically at startup, in every environment. Back up first.
 - **CI runs but does not block merges yet** — switch on branch protection for `main` so a red run cannot be merged ([`.github/workflows/ci.yml`](../../.github/workflows/ci.yml)).
 - There is **no scheduled backup**. A rehearsed backup/restore procedure exists ([BackupAndRestore.md](../09-OPERATIONS/BackupAndRestore.md)) but nothing runs it for you — wire up the schedule and an off-site copy before real data exists. Health checks exist (`/health/live`, `/health/ready` — [Deployment.md](../09-OPERATIONS/Deployment.md) §6); nothing outside the stack watches them yet.
-- The application connects to SQL Server as `sa`, the API container runs as root, and the repository contains no TLS or security-header configuration. Fix before public traffic.
+- The compose stack connects to SQL Server as `sa` (least-privilege logins are scripted and verified, not yet applied — [DatabasePrivileges.md](../07-SECURITY/DatabasePrivileges.md)), the API container runs as root, and **no TLS is configured** anywhere in the repository. Security headers exist in the API and nginx; the SPA's Content-Security-Policy is report-only. Fix before public traffic.
 - A fresh database always contains store id 1, and outside Development it keeps the seeded demo name with no catalog until you adopt or archive it ([SeedAndBootstrap.md](../09-OPERATIONS/SeedAndBootstrap.md)). The demo *catalog* is seeded only in Development/Testing, or on explicit request.
 
 ## 8. What is incomplete
 
-- **Roadmap:** [ProductRoadmap.md](../12-ROADMAP/ProductRoadmap.md) — Phases 2–15 are implemented; the storefront rebuild, the tenant admin dashboard and the platform console (Phases 16–18) are not. The platform area today is a shell: sign-in and a placeholder.
-- **Debt:** [TechnicalDebt.md](../12-ROADMAP/TechnicalDebt.md) — 39 recorded items, prioritized.
+- **Roadmap:** [ProductRoadmap.md](../12-ROADMAP/ProductRoadmap.md) is the authority. At the last verification:
+  - Phases 1A–15 are complete.
+  - Phase 16 (Storefront) is 🟡: product variants can't be chosen, a model and API change.
+  - Phase 17 (Tenant admin dashboard) is ✅.
+  - Phase 18 (Platform owner dashboard) is 🟡, waiting only on owner decisions D-22 (storefront preview) and P-07 (platform-wide settings).
+  - Phases 19–23 (testing, security review, performance, documentation, production) have not started.
+- **Branches:** all of it is on `phase/17-production-hardening`, far ahead of `main` and neither pushed nor merged ([HandoffChecklist.md](HandoffChecklist.md) §0).
+- **Debt:** [TechnicalDebt.md](../12-ROADMAP/TechnicalDebt.md) — the recorded items, prioritized.
 - **Risks:** [RiskRegister.md](../02-ARCHITECTURE/RiskRegister.md) — read §1 (money) before taking real payments.
-- **Tests:** frontend component tests cover the guards, the error boundary, the account shell and the order screens (Phase 16) but not the forms or checkout; no adapter tests for Stripe or email; no load test. CI exists but does not yet block merges.
-- **Release blockers:** [ReleaseReadiness.md](../09-OPERATIONS/ReleaseReadiness.md) — what actually stops a first paying customer, triaged. Read its **final assessment** first: a full area-by-area matrix with evidence, and twenty-one plain answers including whether this is ready for a first deployment (conditionally yes) and for a first paying customer (no, and exactly why). Three engineering missions have run outside the roadmap — a knowledge pass, production hardening (`6a520b7`), then **operational readiness** (`1bd8ace`) — and none of them is a roadmap phase. The next one is **enforcement and monitoring**, and it is entirely operational.
+- **Tests:** what each suite covers and its known gaps are in [TestingStrategy.md](../10-TESTING/TestingStrategy.md) §5. The browser journeys are manual and not in CI; CI runs but doesn't block merges until branch protection is on.
+- **Release blockers:** [ReleaseReadiness.md](../09-OPERATIONS/ReleaseReadiness.md) — what actually stops a first paying customer, triaged. Read its **final assessment** first. Several engineering missions ran outside the roadmap (a knowledge pass, production hardening, operational readiness, enforcement and monitoring, storefront experience, back-office completion); none took a roadmap number.
 
 ## 9. Decisions waiting for an owner
 
@@ -97,7 +105,9 @@ These cannot be made from the code; they are commercial or legal. Each one's ful
 | **P-03** | License and repository visibility (MIT today, with a public remote) | Selling the product |
 | **D-22** | Storefront preview: who may preview a closed store, which states, read-only or not, lifetime, and how the credential crosses hosts ([brief](../04-MODULES/Platform/StorefrontPreview.md)) | Phase 18's storefront preview |
 | **P-07** | Which platform-wide settings exist (`platform.settings.manage` has nothing to guard) | A platform settings screen |
-| ~~D-19~~ | ~~TypeScript and a server-state library for the frontend~~ | **Decided in Phase 17** ([ADR-0037](../11-ADR/0037-frontend-server-state-and-types.md)): a query library is the target, adopted at the first screen rebuilt; TypeScript waits for a CI pipeline |
+| **R-03** | May a staff member who manages orders, but not payments, refund money by cancelling a paid order? | Least-privilege store roles |
+| **F-8** | Should a duplicate checkout submission replay the order or be refused? | Idempotent checkout |
+| ~~D-19~~ | ~~TypeScript and a server-state library for the frontend~~ | **Decided:** TanStack Query adopted and JSDoc type-checking enforced in CI; a full TypeScript conversion was evaluated and not adopted ([ADR-0037](../11-ADR/0037-frontend-server-state-and-types.md), [ADR-0038](../11-ADR/0038-query-layer-adopted-and-type-checking.md)) |
 
 ## 10. What must never be changed casually
 

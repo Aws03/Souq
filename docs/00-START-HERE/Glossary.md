@@ -2,6 +2,7 @@
 
 > Words used in this repository, defined as **Souq uses them** — not as a textbook defines them. When a term maps to code, the code is named. Business terms come first, because they are the ones that make the code readable.
 > **Related:** [SystemOverview.md](SystemOverview.md) · [EngineeringMentalModel.md](EngineeringMentalModel.md) · [DDD.md](../03-DOMAIN/DDD.md) · [ModuleBoundaries.md](../02-ARCHITECTURE/ModuleBoundaries.md)
+> **Last verified against the code:** 2026-09-17, branch `phase/17-production-hardening`.
 
 ## 1. The business
 
@@ -58,7 +59,7 @@
 | **Value object** | A thing defined only by its values, immutable, that carries rules: `Money` (amount + currency with currency-aware rounding), `PostalAddress`, `CatalogText`. |
 | **Aggregate / Aggregate root** | A cluster of objects that changes as one unit, entered only through its root. `Order` owns its lines and status history; `Product` owns variants, images and translations. Other aggregates are referenced **by id**. |
 | **Invariant** | A rule that must be true before and after every change ("available stock never goes negative", "a shipped order cannot be cancelled"). Invariants live in the aggregate. |
-| **Domain service** | A rule that spans aggregates and needs no I/O, e.g. the pricing pipeline. |
+| **Domain service** | A rule that spans aggregates and needs no I/O. **None exists today:** pricing needs lookups, so it is an application service (`PricingService` behind `IPricing`). |
 | **Domain event** | A fact an aggregate raises after a state change (`OrderStatusChanged`, `StockBecameLow`), written to the outbox in the same save ([Events.md](../02-ARCHITECTURE/Events.md)). |
 
 ## 5. Application and API
@@ -103,5 +104,6 @@
 | **Architecture test** | A test that fails the build when a boundary is crossed (`tests/Souq.ArchitectureTests`). |
 | **Testcontainers** | The library that starts a real SQL Server in Docker for the integration suite. |
 | **ADR** | Architecture Decision Record: context, problem, options, decision, consequences ([docs/11-ADR/](../11-ADR/README.md)). |
-| **CURRENT / PLANNED / DEFERRED / FUTURE** | Documentation labels: implemented today / scheduled in the roadmap / consciously postponed with a reason / an option nobody has scheduled. |
+| **PLANNED / DEFERRED / FUTURE** | Documentation labels. An unlabelled statement is current. PLANNED: scheduled in the roadmap. DEFERRED: consciously postponed with a reason. FUTURE: an option nobody has scheduled. |
+| **L0–L3** | Learning levels in [LearningPath.md](LearningPath.md): orientation, beginner, working developer, advanced/architectural. |
 | **D-xx, P-xx** | Open decisions in the roadmap's decision log: `D` architectural, `P` product or commercial (for example P-05 JOD minor units, P-06 tax). |

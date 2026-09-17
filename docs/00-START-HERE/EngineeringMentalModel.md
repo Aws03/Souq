@@ -2,6 +2,7 @@
 
 > **What this page is:** how to *think* about a change in this repository, before you think about code. It gives you the chain from a business request to a commit, the vocabulary with real Souq examples, and the test for deciding where a piece of code belongs.
 > **Read after:** [SystemOverview.md](SystemOverview.md). **Read with:** [HowToAddAFeature.md](HowToAddAFeature.md), [DDD.md](../03-DOMAIN/DDD.md).
+> **Last verified against the code:** 2026-09-17, branch `phase/17-production-hardening`.
 
 ## 1. The chain
 

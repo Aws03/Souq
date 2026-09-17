@@ -1,7 +1,8 @@
 # System overview
 
 > **Read this first.** It explains what Souq is, who uses it, and what actually happens when a request arrives — the runtime behaviour, not the folder names. Everything else in `docs/` is a zoom-in on something here.
-> **Next:** [HowToReadThisRepository.md](HowToReadThisRepository.md) for reading paths · [EngineeringMentalModel.md](EngineeringMentalModel.md) for how to think about changes · [AGENTS.md](../../AGENTS.md) for the rules.
+> **Next:** [ProjectMap.md](ProjectMap.md) for the system on one page · [LearningPath.md](LearningPath.md) for the numbered reading order · [RequestLifecycle.md](RequestLifecycle.md) for one request through every layer · [AGENTS.md](../../AGENTS.md) for the rules.
+> **Level:** L0. **Last verified against the code:** 2026-09-17, branch `phase/17-production-hardening`.
 
 ## 1. What Souq is
 
@@ -17,7 +18,7 @@ The business model it supports: a platform owner sells and operates stores for c
 |---|---|---|
 | **Visitor / customer** | A store's own domain | Browse, search, basket, checkout, pay, track orders, review, wishlist, manage their account |
 | **Store staff / admin** | `/admin` on their store's domain | Catalog, inventory, orders, customers, coupons, shipping, reviews, store settings, payment account — each behind a permission |
-| **Platform owner / admin** | The platform host | Create stores, assign domains and modules, invite store admins, platform statistics, audit log |
+| **Platform owner / admin** | `/platform` on the platform host | Create and provision stores (domains, branding, modules, first administrator), suspend or archive them, platform statistics, the activity log; the owner alone manages platform accounts |
 
 Identity and commerce are separate on purpose: a `User` signs in; a `Customer` is the commercial profile in one store. A platform account belongs to no store.
 
@@ -135,8 +136,8 @@ The frontend is **never** authoritative: guards, hidden menus and disabled butto
 
 - **One database**, code-first migrations as the only schema source, applied at startup ([Migrations.md](../06-DATABASE/Migrations.md)).
 - **Money** is a value object carrying its currency, stored at fixed precision, rounded to the currency's minor units.
-- **Optimistic concurrency** (`rowversion`) on contended rows: stock, coupons, orders, payments, users, stores. Conflicts retry or surface as 409.
-- **Time** is injected (`TimeProvider`); no code reads the clock directly, so expiry, lockout and validity windows are testable.
+- **Optimistic concurrency** (`rowversion`) on contended rows: stock, coupons, orders, payments, products, users, stores. Conflicts retry or surface as 409.
+- **Time** is stored in UTC and injected (`TimeProvider`); no code reads the clock directly, so expiry, lockout and validity windows are testable. Every instant in an API response ends in `Z`, so browsers display it correctly in the store's time zone ([ApiDocumentation.md](../05-API/ApiDocumentation.md) §1).
 - Who owns which table: [OwnershipMap.md](../06-DATABASE/OwnershipMap.md).
 
 ## 10. Failure, safety and operations
@@ -145,7 +146,7 @@ The frontend is **never** authoritative: guards, hidden menus and disabled butto
 - The API **refuses to start** when something that must be configured is missing: a weak JWT key, no payment provider (unless the fake is explicitly chosen), no email provider (unless logging is explicitly chosen), an invalid secrets key.
 - Secrets never live in committed configuration; store payment keys are encrypted in the database.
 - Background services: outbox dispatch, checkout expiry, basket cleanup.
-- What to do when something breaks: [Troubleshooting.md](../09-OPERATIONS/Troubleshooting.md). How it is deployed and what is still missing (backups, CI): [Deployment.md](../09-OPERATIONS/Deployment.md).
+- What to do when something breaks: [Troubleshooting.md](../09-OPERATIONS/Troubleshooting.md). How it is deployed, and what is still missing before production (TLS, scheduled off-site backups, merge-blocking CI, external monitoring): [Deployment.md](../09-OPERATIONS/Deployment.md) and [ReleaseReadiness.md](../09-OPERATIONS/ReleaseReadiness.md).
 
 ## 11. What is deliberately not here
 

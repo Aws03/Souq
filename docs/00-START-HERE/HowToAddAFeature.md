@@ -1,134 +1,208 @@
-# How to add a feature
+# Build your first feature
 
 > **Who this is for:** anyone adding new behaviour to Souq. Changing behaviour that already exists? Use [HowToChangeExistingCode.md](HowToChangeExistingCode.md).
-> **Before you start:** [EngineeringMentalModel.md](EngineeringMentalModel.md) explains where each kind of logic belongs; this page is the working sequence.
+> **Level:** L2. **Read first:** [RequestLifecycle.md](RequestLifecycle.md) (how a request moves), [EngineeringMentalModel.md](EngineeringMentalModel.md) (where each kind of logic belongs), [CriticalInvariants.md](CriticalInvariants.md) (what you must not break).
+> **Last verified against the code:** 2026-09-17, branch `phase/17-production-hardening`.
 
-## The sequence
+## The reference feature: store shipping methods
 
-Work in this order. It is not bureaucracy: each step prevents a specific, expensive mistake.
+Every step below shows how an existing feature did it, so you can open real files instead of imagining them.
 
-### 1. Understand the requirement in business language
+**Store shipping methods** (Phase 12, [ADR-0032](../11-ADR/0032-shipping-methods.md)) lets a store's staff define ways to ship:
+- a price in the store's currency;
+- an optional free-shipping threshold;
+- the countries served;
+- a delivery estimate;
+- a carrier with a tracking-link template.
 
-Write one or two sentences describing what a **person** will be able to do, and for whom: a customer, a store's staff, the platform owner. If you cannot name the actor, the requirement is not ready.
+Checkout then offers the methods that serve the customer's country, and the order keeps a snapshot of the one chosen. It is small enough to read in an hour, and it touches every layer: a domain rule, a permission, a tenant-owned table, a migration, an admin screen, a contract another module uses, and tests at four levels.
 
-Then ask the questions the code will force you to answer anyway:
-
-- Who may do it? (a permission, or the owner of the resource)
-- Is it optional per store? (then it is a **module flag**)
-- Does it involve money, stock, or personal data? (then the rules are stricter and the tests are mandatory)
-- What must *not* happen? (the failure cases are the real specification)
-
-### 2. Find the owning module
-
-One module owns the concept ([Modules.md](../04-MODULES/Modules.md), [ModuleBoundaries.md](../02-ARCHITECTURE/ModuleBoundaries.md)). If the feature seems to belong to two, it usually means:
-
-- the concept belongs to one and the other only *reads* it (use a contract), or
-- you have found a genuinely new capability (a new module — see step 14).
-
-Read the module's `README.md` and its `ChangeGuide.md` before designing anything.
-
-### 3. Reuse the concepts that already exist
-
-Search the domain before inventing: is there already a status, a snapshot, a limit, a value object for this? Souq has `Money`, `PostalAddress`, `CatalogText`, paging primitives, `Result`/`Error`, an audit behaviour, an outbox. Reusing them keeps behaviour consistent and gives you their tests for free.
-
-### 4. Write down the business rules
-
-State each rule as something that must always be true, and where it is decided. Add them to [BusinessRules.md](../01-REQUIREMENTS/BusinessRules.md) when they are new. A rule with no owner is a bug waiting to happen.
-
-### 5. Decide whether the domain changes
-
-- A new invariant, a new state, a new guarded transition → the **Domain** changes (a method on an aggregate, maybe a value object).
-- Only new coordination of existing rules → no domain change.
-- Never add a field to an entity "for the UI". Entities carry business state, not display state.
-
-Write the domain test **first** — it is the cheapest place to discover that the rule is ambiguous.
-
-### 6. Design the use case
-
-One command (it changes state) or one query (it reads). Name it as an intention. Decide:
-
-- input (a DTO — never an entity, never a `TenantId`);
-- who may call it (permission and/or ownership);
-- what it returns (`Result`, an id, a DTO);
-- its failure cases and their **stable error codes** ([ApiDocumentation.md](../05-API/ApiDocumentation.md)).
-
-### 7. Define ports and contracts, if needed
-
-- Needs something from **another module**? Use its contract. If none fits, add one to that module's `Contracts` folder, keep it small, and make sure the arrow is allowed in [ModuleBoundaries.md](../02-ARCHITECTURE/ModuleBoundaries.md) (adding an arrow is a boundary decision — see step 15).
-- Needs something from **outside the system**? Define a port in Application in Souq's own language (no provider types), and implement it in Infrastructure.
-- One implementation and no real variation point? Use a concrete application service; not every class needs an interface.
-
-### 8. Implement the Infrastructure side
-
-The EF configuration, the repository method, the query service projection, the adapter. Remember:
-
-- tenant-owned tables implement `ITenantOwned` and get the filter and composite keys automatically enforced by tests;
-- reads project into DTOs and are paged;
-- provider exceptions are translated at the adapter;
-- a schema change means a **migration** ([Migrations.md](../06-DATABASE/Migrations.md)) — additive first, data moves reviewed by hand.
-
-### 9. Add the API surface
-
-A thin controller action: bind, authorize (`[HasPermission]`, `[Authorize]`, or a deliberate `[AllowAnonymous]`), send one request, map the result. Add `[RequiresModule]` if the feature is optional per store. Follow the conventions: plural resources, sub-resource actions instead of invented verbs, paging on every list.
-
-### 10. Add the frontend
-
-The UI reflects server decisions: it never computes prices, stock, permissions or tenancy. Hide what the store disabled (`useModule`), show what the permission allows (`can`), translate every string, and handle the three states every data view needs: loading, error, empty ([FrontendGuide.md](../08-FRONTEND/FrontendGuide.md)).
-
-### 11. Write the tests that matter
-
-| Level | What to cover |
+| Layer | Shipping methods |
 |---|---|
-| Domain | Every new invariant, including the failure |
-| Application | The orchestration, the permission and ownership checks, the error codes |
-| Integration | The endpoint end to end, the authorization matrix, **cross-tenant access (another store's id must answer 404)**, concurrency where relevant |
-| Frontend | Pure logic (payload builders, formatting, view models) with Vitest |
+| Domain | `src/Souq.Domain/Entities/ShippingMethod.cs`, `src/Souq.Domain/Exceptions/InvalidShippingMethodException.cs`, `src/Souq.Domain/Interfaces/IShippingMethodRepository.cs` |
+| Application | `src/Souq.Application/Features/Shipping/ShippingMethodUseCases.cs`, `src/Souq.Application/Features/Shipping/Contracts/ShippingContracts.cs`, `src/Souq.Application/Features/Shipping/StoreShippingRates.cs` |
+| Infrastructure | `src/Souq.Infrastructure/Persistence/Configurations/ShippingMethodConfiguration.cs`, `src/Souq.Infrastructure/Persistence/Repositories/ShippingMethodRepository.cs`, `src/Souq.Infrastructure/Migrations/20260911183736_Phase12Shipping.cs` |
+| API | `src/Souq.API/Controllers/ShippingMethodsController.cs` |
+| Frontend | `frontend/src/pages/admin/ShippingMethods.jsx`, `frontend/src/pages/admin/ShippingMethodFormDrawer.jsx`, `frontend/src/features/admin/shipping/shippingForm.js`, `frontend/src/features/checkout/shippingOptions.js` |
+| Tests | `tests/Souq.Domain.Tests/ShippingMethodTests.cs`, `tests/Souq.Application.Tests/Shipping/ShippingMethodHandlersTests.cs`, `tests/Souq.IntegrationTests/ShippingTests.cs`, `frontend/src/features/admin/shipping/shippingForm.test.js` |
+| Documents | [Shipping module](../04-MODULES/Shipping/README.md), BR-SHP rules in [BusinessRules.md](../01-REQUIREMENTS/BusinessRules.md), [ADR-0032](../11-ADR/0032-shipping-methods.md) |
 
-A feature that touches money, stock or personal data without an integration test is not finished.
+---
 
-### 12. Update the documentation in the same change
+## 1. Identify the module that owns it
 
-- The module document: business concepts, use cases, data ownership, failure modes.
-- [BusinessRules.md](../01-REQUIREMENTS/BusinessRules.md) for new rules; [Traceability.md](../10-TESTING/Traceability.md) if you added a capability.
-- Regenerate the inventories: `SOUQ_UPDATE_DOCS=1 dotnet test tests/Souq.ArchitectureTests --filter "FullyQualifiedName~GeneratedDocs"`.
+Write one sentence naming the **actor** and what they can do: *"A store's staff defines how its orders ship, and a customer chooses one at checkout."* If you cannot name the actor, the requirement isn't ready.
 
-### 13. Write an ADR if the decision was architectural
+Then find the owner in [Modules.md](../04-MODULES/Modules.md) and [ModuleBoundaries.md](../02-ARCHITECTURE/ModuleBoundaries.md). The concept belongs to **one** module. Other modules may *read* it through a contract.
 
-New dependency, new boundary, new technology, a different consistency or transaction strategy, a new public contract, or a deliberate non-choice worth recording ([docs/11-ADR/README.md](../11-ADR/README.md)).
+> **In Souq:** shipping methods belong to **Shipping**. Checkout (Ordering and Shopping) needs the rates but doesn't own them, so Shipping publishes `IShippingRateProvider` in its `Contracts` folder, implemented by `StoreShippingRates`. The pricing pipeline calls that contract; it never touches the table.
 
-### 14. If it is a new module
+Read the module's `README.md` and `ChangeGuide.md` before designing. If the feature seems to need two owners, see [ModuleBoundaries.md](../02-ARCHITECTURE/ModuleBoundaries.md) §6 before inventing a new module.
 
-1. Name it after a **capability**, not an entity.
-2. Write what it owns and what it must not own, in [Modules.md](../04-MODULES/Modules.md).
-3. Add it to the dependency graph — refuse any cycle.
-4. Add its feature folder to `ModuleMap` and its allowed contracts to the architecture test.
-5. Create `docs/04-MODULES/<Module>/README.md` from the shape the other modules use.
-6. Tenant-owned tables implement `ITenantOwned` and get isolation tests.
+## 2. Put the business rules in the Domain
 
-### 15. Run the quality gates
+List the rules as things that must always be true. Put each one in the aggregate that owns the state, and write the domain test **first**: it is the cheapest place to discover the rule is ambiguous.
+
+- A rule true regardless of screen, database or provider → Domain.
+- A rule that needs a lookup ("this name is already used") → the handler, because the aggregate can't query.
+- Never add a field to an entity "for the UI".
+
+> **In Souq:** `ShippingMethod.Update` validates everything **before** assigning anything, so a rejected value changes nothing:
+> - a name up to `NameMaxLength`;
+> - a free-over threshold above zero, in the price's currency;
+> - an estimate within `MaxEstimateDays`;
+> - a tracking template that is an absolute https URL containing `{number}`.
+>
+> Violations throw `InvalidShippingMethodException`, which the API turns into `422` with a stable code. Rules BR-SHP-01…03 in [BusinessRules.md](../01-REQUIREMENTS/BusinessRules.md) name the code and the test.
+
+**Don't:** invent a rule that changes prices, limits, refunds or eligibility because it seems reasonable. If it isn't in [BusinessRules.md](../01-REQUIREMENTS/BusinessRules.md), a test or an ADR, it's a business decision: stop and ask (`AGENTS.md` §9).
+
+## 3. Write the use cases in the Application layer
+
+One command per state change, one query per read, named as intentions, each with a validator.
+
+- **Input** is a DTO: never an entity, never a store id.
+- **Output** is a `Result`, an id or a DTO: never an entity (an architecture test enforces this).
+- **Failures** carry stable error codes ([ApiDocumentation.md](../05-API/ApiDocumentation.md) §4).
+- The handler orchestrates: load, call one domain method, save. It doesn't decide business rules.
+
+> **In Souq:** `ShippingMethodUseCases.cs` holds `ListShippingMethodsQuery`, `CreateShippingMethodCommand`, `UpdateShippingMethodCommand` and `DeleteShippingMethodCommand`, their handlers, and `ShippingMethodInputValidator` (shape and ranges before the domain runs).
+>
+> `CreateShippingMethodHandler` takes the currency from the **store** (`ITenantContext`), not from the request. A client can't price a method in another currency.
+
+**If another module needs your data**, publish a small interface in your module's `Contracts` folder, as Shipping did. If you need another module's data, use *its* contract. A new arrow between modules is a boundary decision (step 11).
+
+## 4. Define authorization
+
+Every endpoint declares its access explicitly. `tests/Souq.ArchitectureTests/EndpointRuleTests.cs` fails the build otherwise.
+
+- A back-office capability gets a **permission** (`[HasPermission(...)]`). Reuse an existing one when the audience is the same, and add one to `src/Souq.Application/Common/Security/Permissions.cs` only when a role should be able to lack it. Grants to roles live in the same file (`RolePermissions`).
+- A customer's own resource is protected by **ownership inside the use case**: another customer's id answers `404`, not `403`.
+- Public endpoints are marked `[AllowAnonymous]` on purpose, never by omission.
+- A platform capability uses a `platform.*` permission and `[PlatformEndpoint]`.
+
+> **In Souq:** `ShippingMethodsController` carries `[HasPermission(Permissions.Store.Shipping)]` (`store.shipping.manage`), granted to store administrators only. The admin route in `frontend/src/App.jsx` is guarded with the same string, but only for the user experience. The customer-facing rates arrive through the basket quote, not through this controller.
+
+## 5. Keep it inside the store: tenant isolation
+
+You rarely write isolation code; you make sure you're covered by it.
+
+- A new table owned by a store implements `ITenantOwned` in the Domain. `AppDbContext` then applies the tenant query filter, the write guard refuses cross-store writes, and `tests/Souq.ArchitectureTests/TenancyRuleTests.cs` requires the foreign key to `Tenants`.
+- No request type carries a `TenantId`; handlers read the store from `ITenantContext`.
+- No `IgnoreQueryFilters`, raw SQL or bulk `ExecuteUpdate` in feature code. They are restricted to reviewed places by `TenancyRuleTests`.
+- **Every new endpoint with a resource id must be added to the isolation table** in `tests/Souq.IntegrationTests/TenantIsolationTests.cs`. The test lists every such route and fails if yours is missing. It then proves that another store's id answers `404` for reads, updates and deletes.
+
+> **In Souq:** `ShippingMethod : Entity, ITenantOwned`. The `PUT` and `DELETE /api/admin/shipping-methods/{id:int}` routes appear in the isolation table beside products, coupons and orders.
+
+## 6. Add persistence and the API endpoint
+
+**Persistence** (`src/Souq.Infrastructure`):
+- an EF configuration (lengths from the entity's constants, indexes that lead with `TenantId`);
+- a repository behind the Domain interface;
+- for reads that shape data for a screen, a query service behind an Application port.
+
+A schema change needs a **migration**. Additive first; a data move is written and reviewed by hand; a destructive change needs the owner's approval ([Migrations.md](../06-DATABASE/Migrations.md)). Read the generated migration before keeping it.
 
 ```bash
-dotnet build
-dotnet test tests/Souq.Domain.Tests tests/Souq.Application.Tests
-dotnet test tests/Souq.ArchitectureTests
-dotnet test tests/Souq.IntegrationTests      # needs Docker
-cd frontend && npx vitest run && npx vite build
+dotnet ef migrations add <Name> --project src/Souq.Infrastructure --startup-project src/Souq.API
 ```
 
-### 16. Review the dependency boundaries, then commit
+**The endpoint** is a thin controller action: bind, authorize, send one request, map the result with `ToHttp` or `Failure` (`src/Souq.API/Http/ResultHttpExtensions.cs`). Follow the conventions: plural resources, sub-resource actions instead of invented verbs, paging on lists that grow, `[RequiresModule(...)]` if the capability is optional per store.
 
-Ask: did I add an arrow between modules? Did I put a rule outside the domain? Did I make the frontend authoritative for anything? Then commit with a Conventional Commit message that says what changed and why.
+> **In Souq:** `ShippingMethodConfiguration` indexes `(TenantId, IsActive, SortOrder)`, the order checkout reads them in. `Phase12Shipping` added the table and the order's shipping snapshot. The controller is about 40 lines: `GET`, `POST`, `PUT {id}`, `DELETE {id}` under `api/admin/shipping-methods`, each sending one request.
+
+## 7. Add the frontend API call
+
+Add one named function per endpoint to `frontend/src/api/client.js`, next to its neighbours. It speaks the domain's language and hides HTTP from pages. Errors arrive as exceptions carrying the server's stable `code`; never parse messages.
+
+> **In Souq:** `getShippingMethods`, `createShippingMethod`, `updateShippingMethod` and `deleteShippingMethod` call `/admin/shipping-methods`.
+
+## 8. Build the screen
+
+The UI reflects server decisions and never makes them.
+
+- **Route and guard:** add the page to `frontend/src/App.jsx` with its permission (`guarded(...)` for store admin, `platformGuarded(...)` for the platform) and to the navigation with the same permission.
+- **Server state:** new screens use TanStack Query. Add a key in `frontend/src/app/queryKeys.js`, read with `useQuery` (`keepPreviousData` for paged lists), and invalidate the key after a write. The step-by-step recipe is the "Build a server-state screen" section of [FrontendGuide.md](../08-FRONTEND/FrontendGuide.md) §16; `frontend/src/pages/platform/Accounts.jsx` is the reference to copy.
+- **Pure logic** (form ↔ payload, validation that mirrors server limits) goes in a typed `.js` file under `frontend/src/features` with a Vitest test. `npm run typecheck` checks `.js` files, not `.jsx`.
+- **Every state:** loading, error with retry, empty, and success.
+- **Destructive actions** confirm through `useConfirmAction` (`frontend/src/components/common/useConfirmAction.jsx`). The server's refusal is shown inside the dialog.
+- **Text:** every string in both `frontend/src/i18n/locales/en.json` and `frontend/src/i18n/locales/ar.json`. Wrap names inside sentences with the `bidi` formatter. No brand or currency literals (`whiteLabel.test.js` and `WhiteLabelSourceTests` fail otherwise).
+- **Layout and accessibility:** design-system components (`DataTable`, `Drawer`, `FormField`, `Button`), logical CSS properties so right-to-left works, labels linked to inputs.
+
+> **In Souq:** `ShippingMethods.jsx` lists the methods in a `DataTable`, edits them in `ShippingMethodFormDrawer.jsx` and confirms deletion with `useConfirmAction`. `shippingForm.js` converts between the form and the payload and is unit-tested.
+>
+> This screen predates the query layer and still loads with `useEffect`. Write new screens the Accounts way, not this way.
+
+## 9. Add the tests
+
+| Level | What to prove | Shipping methods |
+|---|---|---|
+| Domain | Every invariant, including the refusal | `tests/Souq.Domain.Tests/ShippingMethodTests.cs` |
+| Application | Orchestration, the store's currency, error codes | `tests/Souq.Application.Tests/Shipping/ShippingMethodHandlersTests.cs` |
+| Integration (real API, real SQL Server) | The endpoint end to end; rules refused with their code; a customer can't reach admin routes; another store's id answers `404` | `tests/Souq.IntegrationTests/ShippingTests.cs`, `tests/Souq.IntegrationTests/TenantIsolationTests.cs` |
+| Frontend unit (Vitest) | Payload builders, view logic, and the page's behaviour with a mocked API | `frontend/src/features/admin/shipping/shippingForm.test.js`, `frontend/src/features/checkout/shippingOptions.test.js` |
+
+A feature that touches **money, stock or personal data** without an integration test isn't finished. Neither is one that adds an endpoint with an id without an isolation row.
+
+## 10. Add a browser journey when the flow needs one
+
+Vitest can't prove what only a browser shows: real hosts, contrast in dark mode, focus, a multi-step flow across pages. Add or extend a Playwright journey in `frontend/e2e` when the feature:
+- is a user flow that crosses pages or hosts;
+- adds a destructive action;
+- changes something visual in both languages or modes.
+
+Run it against a live stack ([DeveloperQualityGates.md](../09-OPERATIONS/DeveloperQualityGates.md) has the runbook). Keep one sign-in per file: the server allows ten sign-ins a minute. Clean up any data the journey creates.
+
+> **In Souq:** the store-admin confirmations, including deleting a category and removing a product image, are proven in `frontend/e2e/back-office.spec.js`. The screens' phone layout is checked in `frontend/e2e/responsive.spec.js`.
+
+## 11. Record the documentation and decisions
+
+In the same commit as the code:
+- the module's `README.md`: concepts, use cases, data ownership, failure modes, screens;
+- new rules in [BusinessRules.md](../01-REQUIREMENTS/BusinessRules.md), a new capability in [Traceability.md](../10-TESTING/Traceability.md);
+- regenerate the inventories after changing a controller, a use case or a test file:
+  `SOUQ_UPDATE_DOCS=1 dotnet test tests/Souq.ArchitectureTests --filter "FullyQualifiedName~GeneratedDocs"`
+- **an ADR** if the decision is architectural: a new dependency, a new module boundary or contract arrow, a different transaction or consistency strategy, anything touching tenant isolation, authentication or payment flow, or a deliberate non-choice ([ADR index §1](../11-ADR/README.md#1-how-to-use-this-index)). Shipping got one ([ADR-0032](../11-ADR/0032-shipping-methods.md)) because it defined how rates enter the pricing pipeline and what an order freezes.
+
+Backticks in documents mean "exists in the repository"; write planned names in *italics*. `DocumentationTests` enforces this.
+
+## 12. Verify before committing
+
+Run the gate in [DeveloperQualityGates.md](../09-OPERATIONS/DeveloperQualityGates.md), the canonical list that CI mirrors:
+- backend build with warnings as errors;
+- the Domain, Application and Architecture suites;
+- the Integration suite (needs Docker);
+- frontend lint, typecheck, Vitest and build;
+- the browser journeys your change affects.
+
+Then review your own diff with [CodeReviewGuide.md](CodeReviewGuide.md) and ask:
+- Did I add an arrow between modules?
+- Did I put a rule outside the Domain?
+- Did I make the frontend authoritative for anything?
+- Is every new id-bearing endpoint in the isolation table?
+
+Commit with a Conventional Commit message that says what changed and why (`feat(shipping): …`).
+
+---
 
 ## When the sequence is shorter
 
 | Kind of feature | What changes |
 |---|---|
-| **Read-only screen** | No domain change: a query, a projection in the module's query service, an endpoint, a page. Still paged, still authorized, still tested. |
-| **A new setting for stores** | Platform module: the settings document, validation, the storefront config if the frontend needs it, cache invalidation, and a frontend that reads it. No new module. |
-| **Frontend-only change** | No backend work — but check that the server already enforces whatever the UI now implies. |
-| **A new optional capability** | Add a module flag so stores can turn it off, and enforce it on the server as well as in the UI. |
-| **An internal job** | A command plus a hosted service; make it idempotent and give it an explicit tenant scope. |
+| **Read-only screen** | No domain change: a query, a projection in the module's query service, an endpoint, a page. Still paged, authorized and tested. |
+| **A new setting for stores** | Platform module: the settings document and its validation in `src/Souq.Domain/Platform/StoreSettings.cs`, the options the editor may offer, the storefront configuration if visitors need it. The settings editor is shared by the store admin and the platform, so change it once. |
+| **Frontend-only change** | No backend work, but check that the server already enforces whatever the UI now implies. |
+| **An optional capability** | A module flag stores can turn off, enforced on the server (`[RequiresModule]` and in the use case) as well as hidden in the UI (`useModule`). |
+| **An internal job** | A command plus a hosted service; make it idempotent and run it inside an explicit store scope (`StoreSweepService` is the base for per-store sweeps). |
+| **A new module** | Name it after a capability; add it to [Modules.md](../04-MODULES/Modules.md), `tests/Souq.ArchitectureTests/ModuleMap.cs` and the allowed contracts in the architecture tests; refuse cycles; create its `docs/04-MODULES/<Module>/README.md`; write an ADR. |
 
 ## When to stop and ask
 
-Before building: anything that changes commercial behaviour by guessing (prices, refunds, limits, tax), stores new personal data, creates a new public endpoint with sensitive data, requires a new dependency, or contradicts an ADR. Do the safe part, then ask ([AGENTS.md](../../AGENTS.md) §9).
+Before building, stop for anything that:
+- changes commercial behaviour by guessing (prices, refunds, limits, tax);
+- stores new personal data;
+- opens a new public endpoint to sensitive data;
+- needs a new dependency;
+- contradicts an ADR.
+
+Do the safe part, then ask (`AGENTS.md` §9). The storefront preview is a worked example of stopping: [StorefrontPreview.md](../04-MODULES/Platform/StorefrontPreview.md).

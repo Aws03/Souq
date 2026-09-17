@@ -7,18 +7,20 @@ It is a commercial product, not a sample application: real payments, real multi-
 | | |
 |---|---|
 | **Backend** | .NET 10 · ASP.NET Core · EF Core 10 · SQL Server 2022 · MediatR 12 · FluentValidation |
-| **Frontend** | React 18 · Vite 5 · React Router 6 · i18next · CSS Modules (RTL and LTR) |
+| **Frontend** | React 18 · Vite 8 · React Router 6 · TanStack Query · i18next · CSS Modules (RTL and LTR) · JSDoc type-checking |
 | **Integrations** | Stripe · Resend / Brevo / Gmail SMTP · local file storage |
 | **Architecture** | Modular monolith · Clean Architecture · ports and adapters · selective CQRS and DDD |
-| **Tests** | Domain · Application · Architecture · Integration (real SQL Server via Testcontainers) · Vitest |
+| **Tests** | Domain · Application · Architecture · Integration (real SQL Server via Testcontainers) · Vitest · Playwright browser journeys (run by hand) |
 
 ## Where to start reading
 
 | Question | Answer |
 |---|---|
-| What is this system, and what happens on a request? | [docs/00-START-HERE/SystemOverview.md](docs/00-START-HERE/SystemOverview.md) |
+| Where do I start, and what do I read next? | [docs/00-START-HERE/LearningPath.md](docs/00-START-HERE/LearningPath.md) — the numbered path, 00 to 18 |
+| What is this system, and what happens on a request? | [docs/00-START-HERE/SystemOverview.md](docs/00-START-HERE/SystemOverview.md) · [ProjectMap.md](docs/00-START-HERE/ProjectMap.md) |
 | How do I find my way around? | [docs/00-START-HERE/HowToReadThisRepository.md](docs/00-START-HERE/HowToReadThisRepository.md) |
-| What are the rules for changing code? | [AGENTS.md](AGENTS.md) |
+| What are the rules for changing code? | [AGENTS.md](AGENTS.md) · [CriticalInvariants.md](docs/00-START-HERE/CriticalInvariants.md) |
+| I'm taking the project over | [HandoffChecklist.md](docs/00-START-HERE/HandoffChecklist.md) |
 | Where is the documentation map? | [docs/README.md](docs/README.md) |
 
 ## Run it
@@ -77,12 +79,12 @@ Dependencies point inwards only; the Domain depends on nothing. Inside those lay
 
 1. Read the owning module's document and its change guide.
 2. Follow [HowToAddAFeature.md](docs/00-START-HERE/HowToAddAFeature.md) or [HowToChangeExistingCode.md](docs/00-START-HERE/HowToChangeExistingCode.md).
-3. Run the gate:
+3. Run the gate in [DeveloperQualityGates.md](docs/09-OPERATIONS/DeveloperQualityGates.md) — the canonical list that CI mirrors. In short:
 
 ```bash
-dotnet build
+dotnet build -warnaserror
 dotnet test                                        # integration tests need Docker
-cd frontend && npx vitest run && npx vite build
+cd frontend && npm run lint && npm run typecheck && npx vitest run && npm run build
 ```
 
 The architecture tests fail the build when a layer, a module boundary, tenant isolation, an endpoint's authorization or the documentation drifts from the code. That is deliberate: those tests are the written memory of the decisions ([docs/10-TESTING/TestingStrategy.md](docs/10-TESTING/TestingStrategy.md)).
@@ -91,8 +93,8 @@ The architecture tests fail the build when a layer, a module boundary, tenant is
 
 Honest and maintained, rather than discovered later:
 
-- **Open product decisions:** JOD minor units at Stripe (P-05), the payment-account model (D-13), tax (P-06), licensing (P-03), storefront preview access (D-22), platform-wide settings (P-07) — see [the roadmap's decision log](docs/12-ROADMAP/ProductRoadmap.md). The frontend stack (D-19) was decided in Phase 17 ([ADR-0037](docs/11-ADR/0037-frontend-server-state-and-types.md)).
-- **Not built yet:** the storefront rebuild, the store dashboard and the platform console (roadmap Phases 16–18; the platform area is a shell today).
+- **Open owner decisions:** JOD minor units at Stripe (P-05), the payment-account model (D-13), tax (P-06), licensing (P-03), refunds on `orders.manage` alone (R-03), duplicate checkout (F-8), storefront preview access (D-22), platform-wide settings (P-07) — each with its evidence in [OwnerDecisions.md](docs/09-OPERATIONS/OwnerDecisions.md). The frontend stack (D-19) is decided ([ADR-0037](docs/11-ADR/0037-frontend-server-state-and-types.md), [ADR-0038](docs/11-ADR/0038-query-layer-adopted-and-type-checking.md)).
+- **Not built yet:** choosing a product variant in the storefront (Phase 16 🟡), the storefront preview and platform-wide settings (Phase 18 🟡, waiting on D-22 and P-07), and roadmap Phases 19–23. Current status: [ProductRoadmap.md](docs/12-ROADMAP/ProductRoadmap.md).
 - **Operations gaps:** CI runs but does not yet block merges (branch protection is a GitHub setting); backups are rehearsed but not scheduled or off-site ([BackupAndRestore.md](docs/09-OPERATIONS/BackupAndRestore.md)); nothing outside the stack watches the health endpoints.
 - **Everything else:** [docs/12-ROADMAP/TechnicalDebt.md](docs/12-ROADMAP/TechnicalDebt.md) and [docs/02-ARCHITECTURE/RiskRegister.md](docs/02-ARCHITECTURE/RiskRegister.md).
 

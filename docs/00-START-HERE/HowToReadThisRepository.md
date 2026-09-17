@@ -2,6 +2,8 @@
 
 > **What this page is:** reading paths, not a file list. Pick the path that matches your situation and follow it in order. Each path says what to read, what to *skip*, and what you should be able to answer at the end.
 > **Prerequisite:** [SystemOverview.md](SystemOverview.md) — 10 minutes, and every path below assumes it.
+> **Looking for one ordered path from zero to handoff?** That is [LearningPath.md](LearningPath.md) (numbered steps 00–18 with learning levels). This page is for when you arrive with a specific situation.
+> **Last verified against the code:** 2026-09-17, branch `phase/17-production-hardening`.
 
 The repository is organized so that you can answer three questions without grep: **who owns this concept** (modules), **why is it like this** (ADRs), and **what is true regardless of the UI** (business rules).
 
@@ -30,7 +32,7 @@ docs/archive         historical snapshots — context, not instructions
 2. [Modules.md](../04-MODULES/Modules.md) §1 — the thirteen modules and what each owns.
 3. [ADR-0001](../11-ADR/0001-target-architecture.md) — why a modular monolith and not microservices.
 4. [ExplicitNonGoals.md](../02-ARCHITECTURE/ExplicitNonGoals.md) — skim the headings only, to know what not to propose.
-5. `docs/05-API/Endpoints.md` — skim: the whole product surface is about 100 endpoints, with their permissions.
+5. `docs/05-API/Endpoints.md` — skim: the whole product surface is about 130 endpoints, with their permissions.
 
 **Skip for now:** every module document, the ADR list, the database tables.
 

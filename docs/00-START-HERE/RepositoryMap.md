@@ -2,6 +2,7 @@
 
 > **What this page is:** the shape of the repository, folder by folder, with the rule for what belongs in each and what must never be added there. It answers "where do I put this?" and "why does this file exist?" without opening 400 files.
 > **Related:** [HowToReadThisRepository.md](HowToReadThisRepository.md) (reading paths) · [DependencyRules.md](../02-ARCHITECTURE/DependencyRules.md) (what may reference what) · [Modules.md](../04-MODULES/Modules.md) (business modules)
+> **Last verified against the code:** 2026-09-17, branch `phase/17-production-hardening`.
 
 ## Top level
 
@@ -9,10 +10,10 @@
 |---|---|
 | `src/` | The backend: four layer projects (below) |
 | `frontend/` | The React single-page app that renders any store |
-| `tests/` | Four .NET test projects; frontend tests live beside the code they test |
+| `tests/` | Four .NET test projects; frontend unit tests live beside the code they test, and browser journeys in `frontend/e2e` |
 | `docs/` | This knowledge system, numbered by purpose |
-| `scripts/` | Operational scripts (backup, restore, restore drill) — `bash` + `sqlcmd`, no build step |
-| `.github/` | The CI pipeline — build, the five suites, dependency audit and secret scan |
+| `scripts/` | Operational scripts — `bash` + `sqlcmd`, no build step: backup, verification, restore and the restore drill; the release gate (`scripts/release-gate.sh`); the smoke test; the configuration audit; the least-privilege logins (`scripts/sql`) and their verification. Index: `scripts/README.md` |
+| `.github/` | The CI pipeline (`.github/workflows/ci.yml`): build with warnings as errors, the four .NET suites, frontend lint, type-check, Vitest and build, dependency audits and a secret scan. It doesn't run the Playwright journeys, and it blocks merges only once branch protection is on |
 | `docker-compose.yml` | The three-container stack: database, API, web |
 | `.env.example` | Every environment variable the stack reads, documented. The real `.env` is the owner's and is never read or committed |
 | `AGENTS.md` | The engineering contract for humans and AI agents. Read before changing anything |
@@ -93,11 +94,12 @@ One build renders any store; the server decides, the UI displays ([FrontendGuide
 
 | Path | Holds | Do not add |
 |---|---|---|
-| `frontend/src/app` | Boot: the store configuration, the theme, boot screens, the platform shell | Feature logic |
+| `frontend/src/app` | Boot and app-wide wiring: the store configuration (`TenantProvider.jsx`), theme and dark mode, boot screens, date locale, page metadata, the query layer (`QueryProvider.jsx`, `queryKeys.js`), the platform layout | Feature logic |
 | `frontend/src/api` | The HTTP client: base URL, credentials, silent refresh, error normalization | Business rules |
-| `frontend/src/pages` | Screens, grouped by area (storefront, `account`, `admin`, `auth`, `checkout`) | Reusable logic (extract to `features/`) |
+| `frontend/src/pages` | Screens, grouped by area: storefront, `account`, `admin`, `auth`, `checkout`, `platform` | Reusable logic (extract to `features/`) |
+| `frontend/src/hooks` | Shared React hooks, such as the storefront catalogue query (`useCatalog.js`) | Business rules |
 | `frontend/src/features` | Pure, testable logic per feature: payload builders, view models, formatting | React components |
-| `frontend/src/components` | The UI kit and shared components | Anything that calls the API directly |
+| `frontend/src/components` | The UI kit and shared components, including `ConfirmDialog` and `useConfirmAction` for destructive actions, and the shared store settings editor | Anything that calls the API directly |
 | `frontend/src/context` | Cross-cutting client state: auth, cart, wishlist, toasts | Server state caches |
 | `frontend/src/i18n` | Translations and locale helpers | Hard-coded user-visible strings anywhere else |
 | `frontend/src/styles.css` | Semantic design tokens and the reset | Brand colours or fonts (they come from the store) |
@@ -110,7 +112,8 @@ One build renders any store; the server decides, the UI displays ([FrontendGuide
 | `tests/Souq.Application.Tests` | Use-case orchestration, permissions and ownership, with test doubles |
 | `tests/Souq.ArchitectureTests` | The boundaries themselves: layers, modules, tenancy, endpoints, documentation, and the generated inventories |
 | `tests/Souq.IntegrationTests` | The real API over SQL Server in Docker: HTTP contract, tenant isolation, concurrency, migrations |
-| `frontend/src/**/*.test.js` | Pure frontend logic (Vitest) |
+| `frontend/src` (`*.test.js`, `*.test.jsx`) | Frontend unit and component tests (Vitest), next to the code they test |
+| `frontend/e2e` | Browser journeys (Playwright) against a live stack, run by hand; see [DeveloperQualityGates.md](../09-OPERATIONS/DeveloperQualityGates.md) |
 
 Details and what belongs where: [TestingStrategy.md](../10-TESTING/TestingStrategy.md).
 
@@ -135,3 +138,5 @@ Details and what belongs where: [TestingStrategy.md](../10-TESTING/TestingStrate
 | `frontend/src/app/TenantProvider.jsx` | The frontend's first request: the store's identity, languages, currency and modules |
 | `frontend/src/api/client.js` | Every call the frontend makes, plus session handling and error translation |
 | `frontend/src/components/ProtectedRoute.jsx` | The UX guards: authentication, permission and module gates (never the enforcement) |
+| `frontend/src/app/queryKeys.js` | Every server-state cache key in one place, so a write invalidates what it should |
+| `scripts/release-gate.sh` | One verdict on configuration, backups, suites, dependency audits and a live smoke test; anything not given is *skipped*, never passed |

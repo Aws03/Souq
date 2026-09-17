@@ -2,6 +2,7 @@
 
 > **Who this is for:** anyone — human or AI — about to modify behaviour that already works and already has customers depending on it. Adding something new? Read [HowToAddAFeature.md](HowToAddAFeature.md) instead.
 > **The principle:** the existing code is a set of decisions, most of them deliberate. Your job is to find the decision before you change it.
+> **Last verified against the code:** 2026-09-17, branch `phase/17-production-hardening`.
 
 ## The loop
 
@@ -80,13 +81,17 @@ Before editing, list what must still be true afterwards. Typically:
 
 ## 8. Run the gates
 
+The canonical gate — the commands and exactly what CI runs — is [DeveloperQualityGates.md](../09-OPERATIONS/DeveloperQualityGates.md). In short:
+
 ```bash
-dotnet build
-dotnet test tests/Souq.Domain.Tests tests/Souq.Application.Tests   # fast feedback
-dotnet test tests/Souq.ArchitectureTests                           # boundaries + documentation
-dotnet test tests/Souq.IntegrationTests                            # needs Docker (~2 GB free)
-cd frontend && npx vitest run && npx vite build
+dotnet build -warnaserror
+dotnet test tests/Souq.Domain.Tests tests/Souq.Application.Tests
+dotnet test tests/Souq.ArchitectureTests          # boundaries, endpoints, documentation, inventories
+dotnet test tests/Souq.IntegrationTests           # needs free Docker memory for SQL Server
+cd frontend && npm run lint && npm run typecheck && npx vitest run && npm run build
 ```
+
+Changed a user flow? Run its browser journey in `frontend/e2e` against a live stack (the runbook is in DeveloperQualityGates.md).
 
 Changed a controller, a use case, or test files? Regenerate the inventories:
 

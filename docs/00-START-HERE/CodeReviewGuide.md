@@ -2,6 +2,7 @@
 
 > **What this page is:** what a reviewer of Souq actually looks for, in the order that catches the most damage per minute. It is written for this codebase — a multi-tenant commerce platform where a mistake can leak another store's data or charge the wrong amount — not as a generic checklist.
 > **Use it on your own diff first.** Self-review with this list before asking anyone else.
+> **Last verified against the code:** 2026-09-17, branch `phase/17-production-hardening`.
 
 ## How to review, in order
 
@@ -87,7 +88,12 @@
 - Does the UI decide anything the server must decide (price, permission, stock, tenancy)? Guards are UX only.
 - Are module-gated features hidden *and* enforced server-side?
 - Loading, error and empty states handled? Is the error message the server's translated code, not a raw dump?
-- Are all strings translated, with no brand or currency literals (a test enforces the literals)?
+- Are all strings translated in both locale files, with no brand or currency literals (a test enforces the literals)? Do names inside sentences use the `bidi` formatter, and does the layout use logical properties so right-to-left works?
+- Server state: does the screen read through a key in `frontend/src/app/queryKeys.js` and invalidate it after a write, rather than caching server data in component state? The cache is never the authority.
+- Is new pure logic in a type-checked `.js` module with a Vitest test, rather than buried in a `.jsx` component?
+- Does every destructive action confirm through `useConfirmAction`, showing the server's refusal inside the dialog?
+- Are instants displayed through the date helpers (store time zone, reader's language), and never parsed from a string without its `Z`?
+- For a changed user flow: was its browser journey run, including axe in dark mode?
 
 ## 12. Tests
 

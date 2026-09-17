@@ -20,10 +20,11 @@ This file is the working contract for **AI agents and engineers** in the Souq re
 
 | You are about to | Read first |
 |---|---|
-| Anything at all | [docs/00-START-HERE/SystemOverview.md](docs/00-START-HERE/SystemOverview.md) |
+| Anything at all | [docs/00-START-HERE/SystemOverview.md](docs/00-START-HERE/SystemOverview.md), then the numbered [LearningPath.md](docs/00-START-HERE/LearningPath.md) |
 | Work as an AI agent in this repo | [docs/00-START-HERE/AIHandoff.md](docs/00-START-HERE/AIHandoff.md) |
 | Find your way around | [docs/00-START-HERE/HowToReadThisRepository.md](docs/00-START-HERE/HowToReadThisRepository.md) · [RepositoryMap.md](docs/00-START-HERE/RepositoryMap.md) |
-| Add a feature | [HowToAddAFeature.md](docs/00-START-HERE/HowToAddAFeature.md) |
+| Trace a feature through the code | [HowToReadTheCode.md](docs/00-START-HERE/HowToReadTheCode.md) · [RequestLifecycle.md](docs/00-START-HERE/RequestLifecycle.md) |
+| Add a feature | [HowToAddAFeature.md](docs/00-START-HERE/HowToAddAFeature.md) · [CriticalInvariants.md](docs/00-START-HERE/CriticalInvariants.md) |
 | Change existing behaviour | [HowToChangeExistingCode.md](docs/00-START-HERE/HowToChangeExistingCode.md) + the module's `ChangeGuide.md` |
 | Touch a module | [docs/04-MODULES/](docs/04-MODULES/) — the module's `README.md` |
 | Touch the database | [docs/06-DATABASE/OwnershipMap.md](docs/06-DATABASE/OwnershipMap.md) · [Migrations.md](docs/06-DATABASE/Migrations.md) |
@@ -64,7 +65,7 @@ Every rule below is enforced by a test unless the last column says otherwise. Br
 | 15 | Every endpoint declares its access explicitly; platform endpoints require a `platform.*` permission | `EndpointRuleTests` |
 | 16 | Every command and query has exactly one handler | `EndpointRuleTests` |
 | 17 | No brand or currency literal in product code or committed configuration | `WhiteLabelSourceTests`, `whiteLabel.test.js` |
-| 18 | Documentation links, paths, code names and ADR structure stay valid | `DocumentationTests` |
+| 18 | Documentation links, paths, code names and ADR structure stay valid; every current document is reachable from the entry pages; the learning path stays numbered 00–18; navigation pages carry a dated "last verified" line | `DocumentationTests` |
 | 19 | The generated inventories match the code | `GeneratedDocsTests` |
 | 20 | No transaction is held open across a network call | ADR-0021, code review |
 | 21 | No secret in committed configuration; no token, password, card data or personal data in logs | ADR-0020, `StartupAndSecurityTests`, code review |
@@ -88,7 +89,7 @@ Every rule below is enforced by a test unless the last column says otherwise. Br
 - **Comments are in Arabic** and explain *why*, an invariant, a security concern, or non-obvious behaviour — never what the line already says ([code comment policy](docs/00-START-HERE/CodeReviewGuide.md#comment-policy)).
 - **Frontend:** the server is authoritative; guards are UX only; no business rules; every user-visible string goes through i18n; no brand or currency literals ([FrontendGuide.md](docs/08-FRONTEND/FrontendGuide.md)).
 - **Dependencies:** MediatR stays pinned to 12.x (13+ is commercially licensed). A new dependency is a decision — propose it, don't add it quietly.
-- **Phases:** roadmap phases in [ProductRoadmap.md](docs/12-ROADMAP/ProductRoadmap.md) §6 describe **product capability** and are never renumbered or reused. Engineering missions — hardening, release readiness, knowledge passes — are separate: they run on their own branch, close against the registers, and **take no roadmap number**. Give such a mission a name, not the next free phase. The number in a branch like `phase/17-production-hardening` is a branch sequence; roadmap Phase 17 is a different thing and is still ⏳.
+- **Phases:** roadmap phases in [ProductRoadmap.md](docs/12-ROADMAP/ProductRoadmap.md) §6 describe **product capability** and are never renumbered or reused. Engineering missions — hardening, release readiness, knowledge passes — are separate: they run on their own branch, close against the registers, and **take no roadmap number**. Give such a mission a name, not the next free phase. The number in a branch like `phase/17-production-hardening` is a branch sequence, not roadmap Phase 17 (the tenant admin dashboard), which is a different thing.
 - **Commits:** Conventional Commits (`feat(module): …`). One coherent change per commit; the repository must build at every commit.
 
 ## 6. Before you change code: inspect
@@ -103,14 +104,18 @@ Every rule below is enforced by a test unless the last column says otherwise. Br
 
 ## 7. Before you say the work is done: run
 
+The canonical gate, and exactly what CI runs, is [DeveloperQualityGates.md](docs/09-OPERATIONS/DeveloperQualityGates.md). In short:
+
 ```bash
-dotnet build                                   # backend builds with no warnings
+dotnet build -warnaserror                      # backend builds with no warnings
 dotnet test tests/Souq.Domain.Tests            # fast: business rules
 dotnet test tests/Souq.Application.Tests       # fast: use cases
 dotnet test tests/Souq.ArchitectureTests       # layer, module, tenancy, endpoint and documentation rules
 dotnet test tests/Souq.IntegrationTests        # real API + SQL Server (needs Docker; see Troubleshooting.md)
-cd frontend && npx vitest run && npx vite build
+cd frontend && npm run lint && npm run typecheck && npx vitest run && npm run build
 ```
+
+- Changed a user flow? Run its browser journey in `frontend/e2e` against a live stack (runbook in DeveloperQualityGates.md). The journeys are not in CI.
 
 - Changed a controller, a use case or a test file? Regenerate the inventories:
   `SOUQ_UPDATE_DOCS=1 dotnet test tests/Souq.ArchitectureTests --filter "FullyQualifiedName~GeneratedDocs"`
