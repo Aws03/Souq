@@ -22,7 +22,9 @@ import styles from './SearchBar.module.css';
 export default function SearchBar({ value, onChange, onSubmit, onNavigate, className = '' }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const listId = useId();
+  // useId يعطي صيغة مثل ":r0:" — معرّف HTML صالح تماماً ومرجع ARIA سليم، لكنه **ليس** مُعرِّف CSS صالحاً
+  // (النقطتان محرف خاصّ في المحدِّدات). يُنظَّف كي يبقى قابلاً للتحديد في CSS وفي رحلات المتصفّح.
+  const listId = `souq-search-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`;
   const optionId = (index) => `${listId}-option-${index}`;
 
   const [focused, setFocused] = useState(false);
@@ -95,30 +97,43 @@ export default function SearchBar({ value, onChange, onSubmit, onNavigate, class
         onKeyDown={handleKeyDown}
       />
 
-      {/* قائمة موجودة دائماً في الشجرة كي يبقى aria-controls صالحاً، وتُفرَّغ حين تُغلق. */}
-      <ul className={styles.list} id={listId} role="listbox" aria-label={t('nav.searchSuggestionsAria')}
+      {/* قائمة موجودة دائماً في الشجرة كي يبقى aria-controls صالحاً، وتُفرَّغ حين تُغلق.
+          div لا ul: أبناء role="listbox" يجب أن يكونوا option، أمّا li فيحمل دور listitem ضمنياً وهو دور
+          غير مسموح داخل listbox — فالقائمة الدلالية هنا تناقض دور ARIA بدل أن تخدمه. */}
+      <div className={styles.list} id={listId} role="listbox" aria-label={t('nav.searchSuggestionsAria')}
         hidden={!open}>
+        {/* ============================================================================
+            الخيار **هو** العنصر التفاعلي: لا زرّ داخله. زرّ داخل role="option" عنصر تفاعلي داخل عنصر تفاعلي
+            (قاعدة axe: nested-interactive) وقارئ الشاشة لا يعرف أيّهما يُعلِن — عطلٌ وجدته رحلة المتصفّح على
+            حزمة الحاويات ولم تجده بيئة jsdom.
+            
+            tabIndex={-1}: الخيار قابل للتركيز برمجياً وغير قابل للوصول بـ Tab. لا نُركّزه فعلاً (التركيز يبقى
+            في الحقل، وaria-activedescendant هو ما يسمّي النشط)، لكنّ الدور التفاعلي يقتضي قابلية التركيز.
+            
+            وأمّا مستمع المفاتيح فهو على combobox أعلاه (الأسهم/Home/End/Enter/Escape) كما يقتضي النمط نفسه:
+            الخيار لا يُركَّز، فمستمع مفاتيح عليه لن يُستدعى أبداً وكان سيكون كوداً ميتاً. القاعدة أدناه لا
+            تُميّز هذا النمط؛ وما تحرسه فعلاً — أنّ القائمة تُشغَّل بالكامل بلوحة المفاتيح — مُختبَر في
+            SearchBar.test.jsx وفي e2e/search.spec.js، لا متروكاً للثقة.
+            ============================================================================ */}
         {open && items.map((item, index) => (
-          <li key={`${item.kind}-${item.id}`} id={optionId(index)} role="option"
+          // eslint-disable-next-line jsx-a11y/click-events-have-key-events
+          <div key={`${item.kind}-${item.id}`} id={optionId(index)} role="option" tabIndex={-1}
             aria-selected={index === activeIndex}
-            className={`${styles.option} ${index === activeIndex ? styles.optionActive : ''}`}>
-            <button type="button" className={styles.optionButton}
-              // يمنع خروج التركيز من الحقل، فلا يُغلق blur القائمة قبل أن تصل النقرة.
-              onMouseDown={(e) => e.preventDefault()}
-              onMouseEnter={() => setActiveIndex(index)}
-              onClick={() => select(item)}
-              tabIndex={-1}>
-              <span className={styles.optionIcon} aria-hidden="true">
-                {item.kind === 'category' ? <TagIcon size={14} /> : <PackageIcon size={14} />}
-              </span>
-              <span className={styles.optionName}>{item.name}</span>
-              {item.kind === 'category' && (
-                <span className={styles.optionKind}>{t('nav.searchSuggestionCategory')}</span>
-              )}
-            </button>
-          </li>
+            className={`${styles.option} ${index === activeIndex ? styles.optionActive : ''}`}
+            // يمنع خروج التركيز من الحقل، فلا يُغلق blur القائمة قبل أن تصل النقرة.
+            onMouseDown={(e) => e.preventDefault()}
+            onMouseEnter={() => setActiveIndex(index)}
+            onClick={() => select(item)}>
+            <span className={styles.optionIcon} aria-hidden="true">
+              {item.kind === 'category' ? <TagIcon size={14} /> : <PackageIcon size={14} />}
+            </span>
+            <span className={styles.optionName}>{item.name}</span>
+            {item.kind === 'category' && (
+              <span className={styles.optionKind}>{t('nav.searchSuggestionCategory')}</span>
+            )}
+          </div>
         ))}
-      </ul>
+      </div>
 
       {/* منطقة حيّة مهذّبة: عدد الاقتراحات يُعلَن بلا مقاطعة الكتابة. polite لا assertive لهذا السبب. */}
       <span className="souq-visually-hidden" role="status" aria-live="polite">

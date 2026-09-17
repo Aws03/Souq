@@ -10,6 +10,11 @@ import { defineConfig, devices } from '@playwright/test';
 //   4) npx playwright test e2e/<ملف>.spec.js --project=desktop   — ملفاً ملفاً بفاصل دقيقة (حدّ الدخول 10/دقيقة)
 // الدليل الكامل: docs/09-OPERATIONS/DeveloperQualityGates.md
 //
+// SOUQ_E2E_BASE_URL يوجّه الرحلات إلى مكدّس آخر — أُضيف في M3 كي تُشغَّل على **حزمة الحاويات** لا على خادم
+// التطوير وحده. الاثنان بيئتا تشغيل مختلفتان (وسائط Production، ترويسات nginx، فحص صحّة الحاوية)، وعطلٌ قد
+// يوجد في إحداهما دون الأخرى — وهو ما تطلبه سياسة Docker في SouqMasterPlan.md §3 صراحةً.
+//   SOUQ_E2E_BASE_URL=http://localhost:8091 npx playwright test e2e/search.spec.js --project=desktop
+//
 // المضيف هو ما يحدّد المتجر (الخادم يحلّه)، ووكيل Vite يمرّر ترويسة Host كما هي — فمتجرٌ ثانٍ
 // يُزار على second.localhost:5173 ويُحَلّ فعلاً إلى متجر آخر. هذا هو معيار خروج المرحلة:
 // "الرحلات الحرجة تمرّ لمتجرين".
@@ -23,7 +28,7 @@ export default defineConfig({
   retries: 0,
   reporter: [['list']],
   use: {
-    baseURL: 'http://localhost:5173',
+    baseURL: process.env.SOUQ_E2E_BASE_URL || 'http://localhost:5173',
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     locale: 'en-US',

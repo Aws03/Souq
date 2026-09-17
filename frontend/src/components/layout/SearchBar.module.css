@@ -26,7 +26,6 @@
   overflow-y: auto;
   margin: 0;
   padding: var(--space-1);
-  list-style: none;
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
   background: var(--color-surface);
@@ -35,27 +34,23 @@
 
 .list[hidden] { display: none; }
 
-.option { margin: 0; }
-
-.optionButton {
+/* الخيار نفسه هو الصفّ التفاعلي (لا زرّ داخله — قاعدة axe: nested-interactive). */
+.option {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  width: 100%;
   /* 44px هدف لمس مريح على الجوال — أصغر من ذلك يُخطئه الإصبع. */
   min-height: 44px;
+  margin: 0;
   padding: var(--space-2) var(--space-3);
-  border: 0;
   border-radius: var(--radius-sm);
-  background: none;
   color: var(--color-text);
-  font: inherit;
   text-align: start;
   cursor: pointer;
 }
 
-.optionActive .optionButton,
-.optionButton:hover { background: var(--color-surface-alt); }
+.optionActive,
+.option:hover { background: var(--color-surface-alt); }
 
 .optionIcon { display: inline-flex; flex-shrink: 0; color: var(--color-text-muted); }
 
