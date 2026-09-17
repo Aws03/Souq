@@ -267,6 +267,17 @@ export const api = {
   removeProductImage: (id, imageId) => request(`/admin/products/${id}/images/${imageId}`, { method: 'DELETE' }),
   reorderProductImages: (id, imageIds) =>
     request(`/admin/products/${id}/images/order`, { method: 'PUT', body: JSON.stringify({ imageIds }) }),
+  // خيارات المنتج ومتغيّراته (catalog.manage، ADR-0040). المعرّفات تُحلّ على الخادم داخل المنتج في المسار.
+  setProductOptions: (id, payload) =>
+    request(`/admin/products/${id}/options`, { method: 'PUT', body: JSON.stringify(payload) }),
+  createProductVariants: (id, payload) =>
+    request(`/admin/products/${id}/variants`, { method: 'POST', body: JSON.stringify(payload) }),
+  updateProductVariant: (id, variantId, payload) =>
+    request(`/admin/products/${id}/variants/${variantId}`, { method: 'PUT', body: JSON.stringify(payload) }),
+  setProductVariantStatus: (id, variantId, isActive) =>
+    request(`/admin/products/${id}/variants/${variantId}/status`, { method: 'PUT', body: JSON.stringify({ isActive }) }),
+  setDefaultProductVariant: (id, variantId) =>
+    request(`/admin/products/${id}/variants/${variantId}/default`, { method: 'PUT' }),
   createProduct: (payload) => request('/products', { method: 'POST', body: JSON.stringify(payload) }),
   updateProduct: (id, payload) => request(`/products/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
   uploadProductImage: (id, file) => {
@@ -290,13 +301,15 @@ export const api = {
   // كلها مرقّمة (PaginatedList). الشارة تكفيها low-stock بـ pageSize=1 ثم totalCount.
   getInventory: (params = {}) => request(`/admin/inventory${toQueryString(params)}`),
   getLowStock: (params = {}) => request(`/admin/inventory/low-stock${toQueryString(params)}`),
-  getStockMovements: (productId, params = {}) =>
-    request(`/admin/inventory/${productId}/movements${toQueryString(params)}`),
+  // بالمتغيّر (ADR-0039/0040): صفّ الجرد متغيّر، ومساراته تصيب صفّه وحده — لمنتج بسيط هو متغيّره الوحيد. مسارات المنتج باقية
+  // على الخادم للعملاء القدامى وترفض منتجاً متعدّد المتغيّرات، فالواجهة لا تستعملها.
+  getVariantStockMovements: (variantId, params = {}) =>
+    request(`/admin/inventory/variants/${variantId}/movements${toQueryString(params)}`),
   // تصحيح بفارق وسبب (inventory.manage) يعيد مستوى المخزون الجديد — لا تعيين مطلق (C4).
-  adjustStock: (productId, delta, reason) =>
-    request(`/admin/inventory/${productId}/adjustments`, { method: 'POST', body: JSON.stringify({ delta, reason }) }),
-  setStockThreshold: (productId, lowStockThreshold) =>
-    request(`/admin/inventory/${productId}/threshold`, { method: 'PUT', body: JSON.stringify({ lowStockThreshold }) }),
+  adjustVariantStock: (variantId, delta, reason) =>
+    request(`/admin/inventory/variants/${variantId}/adjustments`, { method: 'POST', body: JSON.stringify({ delta, reason }) }),
+  setVariantStockThreshold: (variantId, lowStockThreshold) =>
+    request(`/admin/inventory/variants/${variantId}/threshold`, { method: 'PUT', body: JSON.stringify({ lowStockThreshold }) }),
 
   // ── عملاء المتجر (أدمن، المرحلة 7) ── سجلّ طلبات عميل من getOrders({ customerId }).
   getCustomers: (params = {}) => request(`/admin/customers${toQueryString(params)}`),

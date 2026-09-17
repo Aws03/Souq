@@ -11,7 +11,7 @@
 | [`Souq.Application.Tests`](#souqapplicationtests) | 43 | 320 | 15 |
 | [`Souq.ArchitectureTests`](#souqarchitecturetests) | 13 | 57 | 7 |
 | [`Souq.IntegrationTests`](#souqintegrationtests) | 47 | 243 | 21 |
-| [frontend (Vitest)](#frontend-vitest) | 72 | 520 | — |
+| [frontend (Vitest)](#frontend-vitest) | 74 | 544 | — |
 
 ## Souq.Domain.Tests
 
@@ -191,8 +191,9 @@
 | `frontend/src/features/admin/coupons/couponForm.test.js` | 4 |
 | `frontend/src/features/admin/customers/customerActions.test.js` | 4 |
 | `frontend/src/features/admin/payments/paymentView.test.js` | 6 |
-| `frontend/src/features/admin/products/productPayload.test.js` | 8 |
+| `frontend/src/features/admin/products/productPayload.test.js` | 9 |
 | `frontend/src/features/admin/products/productQuery.test.js` | 4 |
+| `frontend/src/features/admin/products/variantModel.test.js` | 15 |
 | `frontend/src/features/admin/reviews/reviewModeration.test.js` | 2 |
 | `frontend/src/features/admin/settings/settingsForm.test.js` | 19 |
 | `frontend/src/features/admin/shipping/shippingForm.test.js` | 4 |
@@ -205,7 +206,7 @@
 | `frontend/src/features/checkout/cardAppearance.test.js` | 5 |
 | `frontend/src/features/checkout/shippingChoice.test.js` | 4 |
 | `frontend/src/features/checkout/shippingOptions.test.js` | 4 |
-| `frontend/src/features/notifications/notificationView.test.js` | 4 |
+| `frontend/src/features/notifications/notificationView.test.js` | 5 |
 | `frontend/src/features/orders/orderView.test.js` | 3 |
 | `frontend/src/features/platform/audit.test.js` | 9 |
 | `frontend/src/features/platform/provisioning.test.js` | 22 |
@@ -226,6 +227,7 @@
 | `frontend/src/pages/account/AccountLayout.test.jsx` | 6 |
 | `frontend/src/pages/admin/BusinessOverview.test.jsx` | 10 |
 | `frontend/src/pages/admin/Dashboard.test.jsx` | 11 |
+| `frontend/src/pages/admin/ProductVariants.test.jsx` | 7 |
 | `frontend/src/pages/admin/Staff.test.jsx` | 8 |
 | `frontend/src/pages/admin/StoreSettings.test.jsx` | 10 |
 | `frontend/src/pages/checkout/Checkout.test.jsx` | 7 |

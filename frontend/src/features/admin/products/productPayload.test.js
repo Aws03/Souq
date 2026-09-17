@@ -61,4 +61,11 @@ describe('buildProductPayload', () => {
     expect(buildProductPayload(form(), original).videoUrl).toBe('/uploads/videos/v.mp4');
     expect(buildProductPayload(form({ videoRemoved: true }), original).videoUrl).toBeNull();
   });
+
+  it('keeps the default variant pricing as read for a product with options (prices are edited per variant)', () => {
+    const withOptions = { ...original, options: [{ id: 1 }], price: 20, compareAtPrice: null, sku: 'TEE-M' };
+    const payload = buildProductPayload(form({ price: '99', compareAtPrice: '120', sku: 'other' }), withOptions);
+
+    expect(payload).toMatchObject({ price: 20, compareAtPrice: null, sku: 'TEE-M' });
+  });
 });

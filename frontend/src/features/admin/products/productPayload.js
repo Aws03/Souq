@@ -31,6 +31,12 @@ export function buildProductPayload(form, original) {
     videoUrl: form.videoRemoved ? null : (original?.videoUrl ?? null),
   };
 
+  // منتج بخيارات (ADR-0040): السعر وSKU لكل متغيّر من صفحة المتغيّرات. نموذج المنتج يعيد ما قرأه للمتغيّر الافتراضي كما هو،
+  // فيقبله الخادم (أي تغيير هنا يرفضه برمز ProductHasVariants) ولا يُعدَّل متغيّر من غير قصد.
+  if (original?.options?.length) {
+    Object.assign(payload, { price: original.price, compareAtPrice: original.compareAtPrice ?? null, sku: original.sku ?? null });
+  }
+
   if (original) return { ...payload, slug: slug ?? original.slug };
 
   const threshold = optionalNumber(form.lowStockThreshold);

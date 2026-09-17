@@ -21,6 +21,19 @@ describe('notification view', () => {
     expect(low.text).toContain('سماعات');
   });
 
+  it('names the variant of a product with options, and keeps older notifications without one unchanged', () => {
+    const seen = [];
+    const spy = (key, values) => { seen.push([key, values]); return key; };
+
+    describeNotification({ kind: 'stock.low', data: { productName: 'قميص', variantLabel: 'M / أحمر', available: '2' } }, spy);
+    describeNotification({ kind: 'stock.low', data: { productName: 'سماعات', available: '3' } }, spy);
+
+    expect(seen).toEqual([
+      ['notifications.lowStockVariant', { name: 'قميص', variant: 'M / أحمر', available: '2' }],
+      ['notifications.lowStock', { name: 'سماعات', available: '3' }],
+    ]);
+  });
+
   it('falls back to a generic text for an unknown kind', () => {
     expect(describeNotification({ kind: 'future.kind', data: {} }, t)).toEqual({ text: 'notifications.generic', link: null });
     expect(describeNotification(undefined, t).link).toBeNull();

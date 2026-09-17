@@ -23,7 +23,13 @@ export function describeNotification(notification, t) {
     case 'order.new':
       return { text: t('notifications.newOrder', { number: data.orderNumber }), link: '/admin/orders' };
     case 'stock.low':
-      return { text: t('notifications.lowStock', { name: data.productName, available: data.available }), link: '/admin/inventory' };
+      // وصف المتغيّر ("M / أحمر") يرسله الخادم لمنتج بخيارات فقط (ADR-0040)؛ الإشعارات الأقدم بلا وصف كما كانت.
+      return {
+        text: data.variantLabel
+          ? t('notifications.lowStockVariant', { name: data.productName, variant: data.variantLabel, available: data.available })
+          : t('notifications.lowStock', { name: data.productName, available: data.available }),
+        link: '/admin/inventory',
+      };
     default:
       return { text: t('notifications.generic'), link: null };
   }

@@ -31,6 +31,8 @@ export const queryKeys = {
   platformUsers: (page, pageSize) => ['platform-users', page, pageSize],
   platformAudit: (params) => ['platform-audit', params],
 
+  adminProduct: (id) => ['admin-product', String(id)],
+
   storeSettings: () => ['store-settings'],
   storeSettingsOptions: () => ['store-settings-options'],
   staff: (page, pageSize) => ['staff', page, pageSize],

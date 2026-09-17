@@ -22,9 +22,11 @@ const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 // درج إضافة/تعديل منتج (المرحلة 5): نصوص لكل لغة، السعر وسعر المقارنة وSKU (المتغيّر الافتراضي)، المعرّف في
 // الرابط، ومعرض الصور. الصورة الجديدة والفيديو يُرفعان بعد حفظ المنتج (نقاط الرفع تتطلّب معرّفاً موجوداً) — هنا
 // نلتقطهما ونعرض معاينتهما. إزالة صورة موجودة أو جعلها رئيسية عملية مستقلّة على المعرض تُنفَّذ فوراً.
-export default function ProductFormDrawer({ product, categories, onSave, onImagesChanged, onClose }) {
+export default function ProductFormDrawer({ product, categories, onSave, onImagesChanged, onClose, onManageVariants }) {
   const { t } = useTranslation();
   const isEdit = !!product;
+  // منتج بخيارات (ADR-0040): السعر وSKU لكل متغيّر في صفحة المتغيّرات؛ هنا للعرض فقط ويُرسلان كما قُرئا (buildProductPayload).
+  const hasOptions = (product?.options?.length ?? 0) > 0;
   const confirmation = useConfirmAction();
   const [texts, setTexts] = useState(() => textsToForm(product?.translations));
   const [slug, setSlug] = useState(product?.slug ?? '');
@@ -226,12 +228,31 @@ export default function ProductFormDrawer({ product, categories, onSave, onImage
             value={texts.en.description} onChange={setText('en', 'description')} />
         </FormField>
 
+        <section className={styles.variantsBlock} aria-labelledby="product-variants-title">
+          <div id="product-variants-title" className={styles.galleryTitle}>{t('admin.productForm.variantsTitle')}</div>
+          {isEdit ? (
+            <>
+              <small className={styles.galleryHint}>
+                {hasOptions
+                  ? t('admin.productForm.variantsSummary', { options: product.options.length, count: product.variants.length })
+                  : t('admin.productForm.variantsNone')}
+              </small>
+              <Button variant="ghost" size="sm" disabled={busy} onClick={() => onManageVariants?.(product.id)}>
+                {t('admin.productForm.manageVariants')}
+              </Button>
+            </>
+          ) : <small className={styles.galleryHint}>{t('admin.productForm.variantsAfterCreate')}</small>}
+        </section>
+
+        {hasOptions && <p className={styles.pricedPerVariant}>{t('admin.productForm.pricedPerVariant')}</p>}
+
         <div className={styles.row}>
           <FormField label={t('admin.productForm.priceLabel')}>
-            <input className={inputClass(false)} type="number" min="0" step="0.001" value={price} onChange={(e) => setPrice(e.target.value)} />
+            <input className={inputClass(false)} type="number" min="0" step="0.001" value={price} disabled={hasOptions}
+              onChange={(e) => setPrice(e.target.value)} />
           </FormField>
           <FormField label={t('admin.productForm.compareAtLabel')} hint={t('admin.productForm.compareAtHint')}>
-            <input className={inputClass(false)} type="number" min="0" step="0.001" value={compareAtPrice}
+            <input className={inputClass(false)} type="number" min="0" step="0.001" value={compareAtPrice} disabled={hasOptions}
               onChange={(e) => setCompareAtPrice(e.target.value)} />
           </FormField>
         </div>
@@ -266,7 +287,7 @@ export default function ProductFormDrawer({ product, categories, onSave, onImage
 
         <div className={styles.row}>
           <FormField label={t('admin.productForm.skuLabel')}>
-            <input className={inputClass(false)} value={sku} dir="ltr" maxLength={64} placeholder="HP-01"
+            <input className={inputClass(false)} value={sku} dir="ltr" maxLength={64} placeholder="HP-01" disabled={hasOptions}
               onChange={(e) => setSku(e.target.value)} />
           </FormField>
           <FormField label={t('admin.productForm.slugLabel')} hint={isEdit ? undefined : t('admin.productForm.slugHint')}>

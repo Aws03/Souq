@@ -1,0 +1,122 @@
+/* صفحة خيارات المنتج ومتغيّراته (ADR-0040). رموز التصميم وحدها — فتتبع هوية المتجر والوضع الداكن بلا قيم ثابتة،
+   وخصائص منطقية (inline/block) فتنعكس بين RTL وLTR تلقائياً. */
+
+.page { display: flex; flex-direction: column; gap: var(--space-5); max-width: 1080px; }
+.page > .card { margin: 0; }
+
+.back {
+  display: inline-flex; align-items: center; gap: var(--space-1); align-self: flex-start;
+  color: var(--color-text-muted); font-size: var(--fs-caption); font-weight: 600; text-decoration: none;
+}
+.back:hover { color: var(--color-text); }
+
+.titleRow { display: flex; justify-content: space-between; align-items: flex-end; gap: var(--space-3); flex-wrap: wrap; }
+.productLine { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; margin-top: var(--space-1); font-weight: 600; }
+
+.notice {
+  display: flex; align-items: flex-start; gap: var(--space-2);
+  background: var(--color-info-soft); color: var(--color-text); border: 1px solid var(--color-border);
+  border-inline-start: 3px solid var(--color-info); border-radius: var(--radius-sm);
+  padding: var(--space-3) var(--space-4); font-size: var(--fs-body-sm);
+}
+html[data-theme='dark'] .notice { background: var(--color-surface); }
+.notice svg { flex-shrink: 0; margin-top: 2px; color: var(--color-info); }
+
+/* ── بطاقة قسم ── */
+.card {
+  background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius);
+  box-shadow: var(--shadow-sm); padding: var(--space-5);
+}
+.cardHead { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--space-3); margin-bottom: var(--space-4); }
+.cardTitle { font-size: var(--fs-heading); color: var(--color-text); display: flex; align-items: center; gap: var(--space-2); }
+.cardHint { display: block; color: var(--color-text-muted); font-size: var(--fs-caption); margin-top: 2px; font-weight: 400; }
+.cardFoot {
+  display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); flex-wrap: wrap;
+  border-top: 1px solid var(--color-border); margin-top: var(--space-4); padding-top: var(--space-4);
+}
+.footActions { display: flex; gap: var(--space-2); flex-wrap: wrap; }
+.empty { color: var(--color-text-muted); font-size: var(--fs-body-sm); padding: var(--space-3) 0; }
+.count {
+  font-size: var(--fs-caption); font-weight: 700; color: var(--color-text-muted);
+  background: var(--color-surface-alt); border-radius: var(--radius-pill); padding: 1px 10px;
+}
+.unsaved {
+  flex-shrink: 0; font-size: var(--fs-caption); font-weight: 700; color: var(--color-accent);
+  border: 1px solid currentColor; border-radius: var(--radius-pill); padding: 2px 10px;
+}
+
+/* ── الخيارات ── */
+.optionList { list-style: none; display: flex; flex-direction: column; gap: var(--space-4); }
+.option { border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-bg); }
+.fieldset { border: 0; min-width: 0; padding: var(--space-4); position: relative; }
+.option .fieldset { padding-top: var(--space-3); }
+.legend { float: inline-start; font-weight: 700; font-size: var(--fs-body-sm); margin-bottom: var(--space-3); }
+.legendName { color: var(--color-text-muted); font-weight: 600; }
+.optionTools { float: inline-end; display: flex; align-items: center; gap: var(--space-1); }
+.pair { clear: both; display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); }
+
+.valuesHead { font-weight: 700; font-size: var(--fs-label); margin: var(--space-1) 0 var(--space-2); }
+.valueList { list-style: none; display: flex; flex-direction: column; gap: var(--space-2); margin-bottom: var(--space-3); }
+.valueRow { display: grid; grid-template-columns: 1fr 1fr auto; gap: var(--space-2); align-items: center; }
+.valueTools { display: flex; gap: 2px; }
+.valueNote { grid-column: 1 / -1; color: var(--color-text-muted); font-size: 12px; margin-top: -2px; }
+
+.iconBtn {
+  width: 32px; height: 32px; display: inline-grid; place-items: center; border-radius: var(--radius-sm);
+  color: var(--color-text-muted); transition: background var(--ease-hover), color var(--ease-hover);
+}
+.iconBtn:hover:not(:disabled) { background: var(--color-surface-alt); color: var(--color-text); }
+.iconBtn:disabled { opacity: .35; cursor: not-allowed; }
+.textBtn {
+  display: inline-flex; align-items: center; gap: var(--space-1); padding: 6px 10px; border-radius: var(--radius-sm);
+  font-size: var(--fs-caption); font-weight: 600;
+}
+.textBtn:hover:not(:disabled) { background: var(--color-surface-alt); }
+.danger { color: var(--color-danger); }
+.iconBtn.danger:hover:not(:disabled) { color: var(--color-danger); }
+
+/* ── جدول المتغيّرات ── */
+.variantCell { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+.variantName { font-weight: 600; }
+.defaultBadge {
+  font-size: 11.5px; font-weight: 700; color: var(--color-on-primary); background: var(--color-primary);
+  border-radius: var(--radius-pill); padding: 1px 9px;
+}
+html[data-theme='dark'] .defaultBadge { color: var(--color-bg); background: var(--color-text); }
+
+/* ── إنشاء التركيبات ── */
+.selectionBar { display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); flex-wrap: wrap; margin-bottom: var(--space-3); }
+.combinations {
+  list-style: none; display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: var(--space-2);
+  max-height: 320px; overflow-y: auto; padding: 2px;
+}
+.combination {
+  display: flex; align-items: center; gap: var(--space-2); cursor: pointer;
+  border: 1px solid var(--color-border); border-radius: var(--radius-sm); padding: var(--space-2) var(--space-3);
+  font-size: var(--fs-body-sm); background: var(--color-surface); transition: border-color var(--ease-hover), background var(--ease-hover);
+}
+.combination:hover { border-color: var(--color-text-muted); }
+.combinationOn { border-color: var(--color-primary); background: var(--color-surface-alt); }
+html[data-theme='dark'] .combinationOn { border-color: var(--color-text); }
+.combination input { accent-color: var(--color-primary); width: 16px; height: 16px; flex-shrink: 0; }
+
+.sharedGrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-3); margin-top: var(--space-4); }
+.toggle { display: flex; align-items: flex-start; gap: var(--space-2); cursor: pointer; font-weight: 600; font-size: var(--fs-body-sm); }
+.toggle input { margin-top: 4px; width: 16px; height: 16px; accent-color: var(--color-primary); }
+
+@media (max-width: 900px) {
+  .sharedGrid { grid-template-columns: 1fr 1fr; }
+}
+
+/* على الجوال: حقول الخيار والقيمة تتكدّس، وأدوات القيمة في سطرها. */
+@media (max-width: 640px) {
+  .card { padding: var(--space-4); }
+  .pair { grid-template-columns: 1fr; gap: 0; }
+  .valueRow { grid-template-columns: 1fr; gap: var(--space-1); padding-bottom: var(--space-2); border-bottom: 1px dashed var(--color-border); }
+  .valueTools { justify-content: flex-end; }
+  .legend, .optionTools { float: none; }
+  .optionTools { margin-bottom: var(--space-2); }
+  .sharedGrid { grid-template-columns: 1fr; gap: 0; }
+  .cardFoot > * { width: 100%; }
+  .footActions { justify-content: flex-end; }
+}

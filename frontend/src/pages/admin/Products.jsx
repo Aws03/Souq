@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { api } from '../../api/client';
 import { useToast } from '../../context/ToastContext';
@@ -25,6 +26,7 @@ export default function Products() {
   const { t } = useTranslation();
   const toast = useToast();
   const confirmation = useConfirmAction();
+  const navigate = useNavigate();
   const [items, setItems] = useState([]);
   const [totalPages, setTotalPages] = useState(1);
   const [page, setPage] = useState(1);
@@ -102,6 +104,7 @@ export default function Products() {
         <div>
           <div>{p.name}</div>
           {p.sku && <div className={styles.nameSecondary} dir="ltr">{p.sku}</div>}
+          {p.variantCount > 1 && <div className={styles.nameSecondary}>{t('admin.products.variantsCount', { count: p.variantCount })}</div>}
         </div>
       ),
     },
@@ -121,7 +124,11 @@ export default function Products() {
     { key: 'stock', header: t('admin.products.colStock'), width: '90px', align: 'end', render: (p) => p.available },
     {
       key: 'actions', header: t('admin.products.colActions'), width: '64px', align: 'end', render: (p) => (
-        <RowActionsMenu actions={[{ label: t('common.edit'), onClick: () => openEditor(p) }, ...statusActions(p)]} />
+        <RowActionsMenu actions={[
+          { label: t('common.edit'), onClick: () => openEditor(p) },
+          { label: t('admin.products.manageVariants'), onClick: () => navigate(`/admin/products/${p.id}/variants`) },
+          ...statusActions(p),
+        ]} />
       ),
     },
   ];
@@ -155,7 +162,8 @@ export default function Products() {
 
       {editing !== null && (
         <ProductFormDrawer product={editing.id ? editing : null} categories={categories}
-          onSave={save} onImagesChanged={load} onClose={() => setEditing(null)} />
+          onSave={save} onImagesChanged={load} onClose={() => setEditing(null)}
+          onManageVariants={(id) => navigate(`/admin/products/${id}/variants`)} />
       )}
       {confirmation.dialog}
     </div>

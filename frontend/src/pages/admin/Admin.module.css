@@ -93,3 +93,6 @@
 /* اسم ثانوي (اللغة الأخرى) أسفل الاسم الأساسي في جدول المنتجات — الإدارة
    ترى الاسمين معاً بغضّ النظر عن لغة الواجهة الحالية. */
 .nameSecondary { color: var(--color-text-muted); font-size: var(--fs-caption); margin-top: 2px; }
+
+/* وصف المتغيّر تحت اسم المنتج (ADR-0040): "M / أحمر" — نصّ التاجر، واتجاهه من محتواه (dir="auto"). */
+.variantLabel { color: var(--color-text); font-size: var(--fs-caption); font-weight: 600; }
