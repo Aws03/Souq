@@ -235,6 +235,32 @@ public class OrderNotificationHandlersTests
     }
 
     [Fact]
+    public async Task إشعار_المخزون_المنخفض_يسمّي_المتغيّر_بوصفه_لمنتج_بخيارات()
+    {
+        var product = TestCatalog.Product("قميص", id: 4);
+        var large = TestCatalog.WithId(TestCatalog.AddVariant(product, new Souq.Domain.ValueObjects.Money(25, "JOD")), 41);
+        var products = Substitute.For<IProductRepository>();
+        products.GetByIdAsync(4, Arg.Any<CancellationToken>()).Returns(product);
+
+        await new StockBecameLowHandler(products, _users, _notifications, TestTenant.Context(), _uow)
+            .HandleAsync(new StockBecameLow(4, large.Id, 1, 5), CancellationToken.None);
+
+        _added[0].Data.Should().Contain("\"variantLabel\":\"L\"").And.Contain("\"variantId\":\"41\"").And.Contain("قميص");
+    }
+
+    [Fact]
+    public async Task إشعار_منتج_بسيط_بلا_وصف_متغيّر()
+    {
+        var products = Substitute.For<IProductRepository>();
+        products.GetByIdAsync(4, Arg.Any<CancellationToken>()).Returns(TestCatalog.Product("سماعات", id: 4));
+
+        await new StockBecameLowHandler(products, _users, _notifications, TestTenant.Context(), _uow)
+            .HandleAsync(new StockBecameLow(4, 4, 3, 5), CancellationToken.None);
+
+        _added[0].Data.Should().NotContain("variantLabel");
+    }
+
+    [Fact]
     public async Task بريد_الطلب_بقالب_حالته_ورابط_التتبّع_على_نطاق_المتجر()
     {
         var tenants = Substitute.For<ITenantRepository>();

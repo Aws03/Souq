@@ -29,6 +29,7 @@ public class ProductConfiguration : IEntityTypeConfiguration<Product>
         builder.Ignore(p => p.PrimaryImageUrl);
         builder.Ignore(p => p.DefaultVariant);
         builder.Ignore(p => p.ImplicitVariant);
+        builder.Ignore(p => p.HasOptions);
 
         // المخزون يُعدَّل بالتزامن (شراءان معاً، أو شراء مع تعديل الإدارة) ⇒ rowversion يمنع البيع الزائد
         // والتحديث الضائع (Phase 0 C1/C4).
@@ -40,6 +41,8 @@ public class ProductConfiguration : IEntityTypeConfiguration<Product>
         builder.Navigation(p => p.Images).UsePropertyAccessMode(PropertyAccessMode.Field);
         builder.HasMany(p => p.Variants).WithOne().HasForeignKey("ProductId").IsRequired().OnDelete(DeleteBehavior.Cascade);
         builder.Navigation(p => p.Variants).UsePropertyAccessMode(PropertyAccessMode.Field);
+        builder.HasMany(p => p.Options).WithOne().HasForeignKey("ProductId").IsRequired().OnDelete(DeleteBehavior.Cascade);
+        builder.Navigation(p => p.Options).UsePropertyAccessMode(PropertyAccessMode.Field);
 
         // Restrict لا Cascade: حذف فئة لا يجوز أن يمحو منتجاتها. المفتاح داخل المتجر (TenantId, CategoryId) ⇒
         // (TenantId, Id): يستحيل حتى على مستوى القاعدة أن يشير منتج لفئة متجر آخر (MultiTenancy.md §6).
@@ -123,8 +126,83 @@ public class ProductVariantConfiguration : IEntityTypeConfiguration<ProductVaria
         builder.Ignore(v => v.IsOnSale);
 
         builder.HasIndex(v => new { v.TenantId, v.Sku }).IsUnique().HasFilter("[Sku] IS NOT NULL");
+
+        // تركيبة القيم فريدة داخل المنتج (ADR-0040): الفحص في Product، والفهرس يغلق سباق مديرَين. null لمنتج بلا خيارات.
+        builder.Property(v => v.CombinationKey).HasMaxLength(ProductVariant.CombinationKeyMaxLength).IsUnicode(false);
+        builder.HasIndex("ProductId", nameof(ProductVariant.CombinationKey)).IsUnique().HasFilter("[CombinationKey] IS NOT NULL");
+        builder.HasMany(v => v.OptionValues).WithOne().HasForeignKey("ProductVariantId").IsRequired().OnDelete(DeleteBehavior.Cascade);
+        builder.Navigation(v => v.OptionValues).UsePropertyAccessMode(PropertyAccessMode.Field);
         builder.HasIndex("ProductId", nameof(ProductVariant.IsDefault));
         builder.HasIndex("ProductId").IsUnique().HasFilter("[IsDefault] = 1")
                .HasDatabaseName("IX_ProductVariants_ProductId_Default");
+    }
+}
+
+// ============================================================================
+// خيارات المنتج وقيمها (ADR-0040): أبناء التجمّع بمفاتيح ظلّ، ونصوصها لكل لغة (فريدة لكل مالك). القيمة لها مفتاح بديل
+// (TenantId, Id) كي يشير إليها متغيّر داخل متجرها وحده، والمرجع مقيَّد: قيمة يستخدمها متغيّر لا تُحذف حتى من القاعدة.
+// ============================================================================
+internal static class OptionTranslationMapping
+{
+    public static void Map<T>(EntityTypeBuilder<T> builder, string table, string ownerKey) where T : OptionTranslation
+    {
+        builder.ToTable(table);
+        builder.HasKey(t => t.Id);
+        builder.Property(t => t.Culture).HasMaxLength(CatalogTranslation.CultureMaxLength).IsRequired();
+        builder.Property(t => t.Name).HasMaxLength(OptionTranslation.NameMaxLength).IsRequired();
+        builder.HasIndex(ownerKey, nameof(OptionTranslation.Culture)).IsUnique();
+    }
+}
+
+public class ProductOptionConfiguration : IEntityTypeConfiguration<ProductOption>
+{
+    public void Configure(EntityTypeBuilder<ProductOption> builder)
+    {
+        builder.ToTable("ProductOptions");
+        builder.HasKey(o => o.Id);
+        builder.HasIndex("ProductId", nameof(ProductOption.Position));
+        builder.HasMany(o => o.Translations).WithOne().HasForeignKey("ProductOptionId").IsRequired().OnDelete(DeleteBehavior.Cascade);
+        builder.Navigation(o => o.Translations).UsePropertyAccessMode(PropertyAccessMode.Field);
+        builder.HasMany(o => o.Values).WithOne().HasForeignKey("ProductOptionId").IsRequired().OnDelete(DeleteBehavior.Cascade);
+        builder.Navigation(o => o.Values).UsePropertyAccessMode(PropertyAccessMode.Field);
+    }
+}
+
+public class ProductOptionValueConfiguration : IEntityTypeConfiguration<ProductOptionValue>
+{
+    public void Configure(EntityTypeBuilder<ProductOptionValue> builder)
+    {
+        builder.ToTable("ProductOptionValues");
+        builder.HasKey(v => v.Id);
+        builder.HasAlternateKey(v => new { v.TenantId, v.Id });
+        builder.HasIndex("ProductOptionId", nameof(ProductOptionValue.Position));
+        builder.HasMany(v => v.Translations).WithOne().HasForeignKey("ProductOptionValueId").IsRequired().OnDelete(DeleteBehavior.Cascade);
+        builder.Navigation(v => v.Translations).UsePropertyAccessMode(PropertyAccessMode.Field);
+    }
+}
+
+public class ProductOptionTranslationConfiguration : IEntityTypeConfiguration<ProductOptionTranslation>
+{
+    public void Configure(EntityTypeBuilder<ProductOptionTranslation> builder) =>
+        OptionTranslationMapping.Map(builder, "ProductOptionTranslations", "ProductOptionId");
+}
+
+public class ProductOptionValueTranslationConfiguration : IEntityTypeConfiguration<ProductOptionValueTranslation>
+{
+    public void Configure(EntityTypeBuilder<ProductOptionValueTranslation> builder) =>
+        OptionTranslationMapping.Map(builder, "ProductOptionValueTranslations", "ProductOptionValueId");
+}
+
+public class ProductVariantOptionValueConfiguration : IEntityTypeConfiguration<ProductVariantOptionValue>
+{
+    public void Configure(EntityTypeBuilder<ProductVariantOptionValue> builder)
+    {
+        builder.ToTable("ProductVariantOptionValues");
+        builder.HasKey(v => v.Id);
+        builder.HasOne(v => v.OptionValue).WithMany()
+               .HasForeignKey(v => new { v.TenantId, v.OptionValueId })
+               .HasPrincipalKey(v => new { v.TenantId, v.Id })
+               .OnDelete(DeleteBehavior.Restrict);
+        builder.HasIndex("ProductVariantId", nameof(ProductVariantOptionValue.OptionValueId)).IsUnique();
     }
 }

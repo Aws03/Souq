@@ -27,6 +27,7 @@ public class DomainExceptionCodeTests
         { new InvalidPaymentOperationException("x", "RefundExceedsPayment"), "RefundExceedsPayment" },
         { new InvalidShippingMethodException("x"), "InvalidShippingMethod" },
         { new InvalidNotificationException("x"), "InvalidNotification" },
+        { new InvalidProductVariantException("DuplicateVariantCombination", "x"), "DuplicateVariantCombination" },
     };
 
     [Theory]

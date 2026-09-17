@@ -48,6 +48,36 @@ public class AdminCatalogController : ControllerBase
     public async Task<IActionResult> ReorderImages(int id, [FromBody] ImageOrderRequest body)
         => this.ToHttp(await _mediator.Send(new ReorderProductImagesCommand(id, body.ImageIds ?? [])));
 
+    // ── الخيارات والمتغيّرات (ADR-0040). المتغيّر يُحلّ داخل المنتج في المسار: متغيّر منتج آخر ⇒ 404 ──
+
+    // PUT /api/admin/products/5/options { "options": [{ "id": 3, "names": { "ar": "المقاس" }, "values": [...] }] }
+    [HttpPut("products/{id:int}/options")]
+    public async Task<IActionResult> SetOptions(int id, [FromBody] ProductOptionsRequest body)
+        => this.ToHttp(await _mediator.Send(new SetProductOptionsCommand(id, body.Options ?? [])));
+
+    // POST /api/admin/products/5/variants { "variants": [{ "optionValueIds": [7, 12], "price": 25, "initialStock": 4 }] }
+    [HttpPost("products/{id:int}/variants")]
+    public async Task<IActionResult> CreateVariants(int id, [FromBody] ProductVariantsRequest body)
+    {
+        var result = await _mediator.Send(new CreateProductVariantsCommand(id, body.Variants ?? []));
+        return result.IsSuccess ? Ok(new { ids = result.Value }) : this.Failure(result);
+    }
+
+    // PUT /api/admin/products/5/variants/12 { "price": 25, "compareAtPrice": null, "sku": "SHIRT-L" }
+    [HttpPut("products/{id:int}/variants/{variantId:int}")]
+    public async Task<IActionResult> UpdateVariant(int id, int variantId, [FromBody] ProductVariantPricingRequest body)
+        => this.ToHttp(await _mediator.Send(new UpdateProductVariantCommand(id, variantId, body.Price!.Value, body.CompareAtPrice, body.Sku)));
+
+    // PUT /api/admin/products/5/variants/12/status { "isActive": false } — تعطيل بدل حذف.
+    [HttpPut("products/{id:int}/variants/{variantId:int}/status")]
+    public async Task<IActionResult> SetVariantStatus(int id, int variantId, [FromBody] ProductVariantStatusRequest body)
+        => this.ToHttp(await _mediator.Send(new SetProductVariantStatusCommand(id, variantId, body.IsActive!.Value)));
+
+    // PUT /api/admin/products/5/variants/12/default
+    [HttpPut("products/{id:int}/variants/{variantId:int}/default")]
+    public async Task<IActionResult> SetDefaultVariant(int id, int variantId)
+        => this.ToHttp(await _mediator.Send(new SetDefaultProductVariantCommand(id, variantId)));
+
     [HttpGet("categories")]
     public async Task<IActionResult> ListCategories() => Ok(await _mediator.Send(new ListAdminCategoriesQuery()));
 }
@@ -55,3 +85,9 @@ public class AdminCatalogController : ControllerBase
 // قابل للعدم و[Required]: بنوع غير قابل للعدم كان {} يعني Draft (العضو صفر) فيُخفى المنتج من المتجر بجواب ناجح.
 public record ProductStatusRequest([Required] ProductStatus? Status);
 public record ImageOrderRequest(IReadOnlyList<int>? ImageIds);
+public record ProductOptionsRequest(IReadOnlyList<ProductOptionInput>? Options);
+public record ProductVariantsRequest(IReadOnlyList<NewProductVariantInput>? Variants);
+
+// قابلة للعدم و[Required] للسبب نفسه: {} لا يعني سعر صفر ولا تعطيلاً صامتاً.
+public record ProductVariantPricingRequest([Required] decimal? Price, decimal? CompareAtPrice, string? Sku);
+public record ProductVariantStatusRequest([Required] bool? IsActive);

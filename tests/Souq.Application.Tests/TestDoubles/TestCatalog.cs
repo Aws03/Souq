@@ -62,6 +62,28 @@ public static class TestCatalog
         return item;
     }
 
+    // متغيّر إضافي كما يُنشئه المدير (ADR-0040): خيار "المقاس" يُعرَّف أول مرّة وتأخذ المتغيّرات القائمة قيمته الأولى (S)، ثم لكل
+    // متغيّر جديد قيمة جديدة (L، XL…). المعرّفات تُعطى كما بعد الحفظ؛ id المتغيّر يضبطه المستدعي.
+    private static readonly string[] Sizes = ["S", "L", "XL", "XXL", "3XL"];
+    private static int _nextId = 9000;
+
+    public static ProductVariant AddVariant(Product product, Money price, string? sku = null, Money? compareAt = null, bool isActive = true)
+    {
+        var option = product.Options.SingleOrDefault();
+        var values = option?.Values.OrderBy(v => v.Position)
+                         .Select(v => new ProductOptionValueDefinition(v.Id, v.Translations.ToDictionary(t => t.Culture, t => t.Name)))
+                         .ToList()
+                     ?? [new ProductOptionValueDefinition(null, new Dictionary<string, string> { ["ar"] = Sizes[0] })];
+        values.Add(new ProductOptionValueDefinition(null, new Dictionary<string, string> { ["ar"] = Sizes[values.Count] }));
+        product.SetOptions([new ProductOptionDefinition(option?.Id, new Dictionary<string, string> { ["ar"] = "المقاس" }, values, ExistingVariantsValue: 0)]);
+
+        foreach (var created in product.Options.Where(o => o.Id == 0)) WithId(created, Interlocked.Increment(ref _nextId));
+        foreach (var created in product.Options.SelectMany(o => o.Values).Where(v => v.Id == 0)) WithId(created, Interlocked.Increment(ref _nextId));
+
+        var newest = product.Options.Single().Values.OrderBy(v => v.Position).Last();
+        return product.AddVariant([newest.Id], price, compareAt, sku, isActive);
+    }
+
     public static T WithId<T>(T entity, int id) where T : Souq.Domain.Common.Entity
     {
         typeof(Souq.Domain.Common.Entity).GetProperty("Id")!.SetValue(entity, id);

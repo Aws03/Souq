@@ -6,10 +6,64 @@ using Souq.Domain.ValueObjects;
 
 namespace Souq.Domain.Tests;
 
-// المتغيّرات قبل خياراتها (ProductVariants.md، V1): أيّ متغيّر يُشترى حين لا يُسمّى، ومتى يُشترى متغيّر مسمّى، والتعطيل
-// بدل الحذف مع افتراضي نشط دائماً. متغيّر ثانٍ يُنشأ بـ AddVariant الداخلي — الطريق الوحيد إليه قبل نموذج الخيارات.
+// المتغيّرات (ProductVariants.md، V1 وV2): أيّ متغيّر يُشترى حين لا يُسمّى، ومتى يُشترى متغيّر مسمّى، والتعطيل بدل الحذف مع
+// افتراضي نشط دائماً. متغيّر ثانٍ يُنشأ كما يُنشئه المدير: خيار "المقاس" أولاً، ثم متغيّر بقيمة منه (قواعد الخيارات في ProductOptionTests).
 public class ProductVariantTests
 {
+    [Fact]
+    public void الافتراضي_ينتقل_لمتغيّر_نشط_فقط_ثم_يُعطَّل_القديم()
+    {
+        var product = NewProduct();
+        var second = Second(product);
+
+        product.DeactivateVariant(second.Id);
+        ((Action)(() => product.SetDefaultVariant(second.Id))).Should().Throw<InvalidProductVariantException>()
+            .Which.Code.Should().Be("DefaultVariantMustBeActive");
+
+        product.ActivateVariant(second.Id);
+        product.SetDefaultVariant(second.Id);
+        product.DeactivateVariant(11);
+
+        product.DefaultVariant.Should().BeSameAs(second);
+        product.Variants.Count(v => v.IsDefault).Should().Be(1);
+        product.Price.Should().Be(new Money(25, "JOD"), "سعر المنتج في القوائم اختصار الافتراضي الجديد");
+        product.ImplicitVariant.Should().BeSameAs(second);
+    }
+
+    [Fact]
+    public void تعديل_متغيّر_بقواعد_التسعير_وSKU_غير_مكرّر_داخل_المنتج()
+    {
+        var product = NewProduct();
+        product.SetPricing(new Money(20, "JOD"), null, "SHIRT-S");
+        var second = Second(product);
+
+        product.UpdateVariant(second.Id, new Money(27, "JOD"), new Money(30, "JOD"), " shirt-xl ");
+        (second.Price, second.CompareAtPrice, second.Sku).Should().Be((new Money(27, "JOD"), new Money(30, "JOD"), "SHIRT-XL"));
+
+        ((Action)(() => product.UpdateVariant(second.Id, new Money(27, "JOD"), null, "shirt-s"))).Should()
+            .Throw<InvalidProductVariantException>().Which.Code.Should().Be("DuplicateVariantSku");
+        ((Action)(() => product.UpdateVariant(second.Id, new Money(27, "JOD"), new Money(20, "JOD"), null))).Should()
+            .Throw<InvalidProductDataException>();
+        ((Action)(() => product.UpdateVariant(second.Id, new Money(27, "KWD"), null, null))).Should()
+            .Throw<InvalidProductDataException>();
+        second.Sku.Should().Be("SHIRT-XL", "رفض التعديل لا يغيّر شيئاً");
+    }
+
+    [Fact]
+    public void سعر_المنتج_من_نموذجه_يُرفض_لمنتج_بخيارات_إلا_إن_لم_يتغيّر()
+    {
+        var product = NewProduct();
+        product.SetPricing(new Money(20, "JOD"), null, "SHIRT-S");
+        Second(product);
+
+        product.SetPricing(new Money(20.000m, "JOD"), null, " shirt-s ");
+        ((Action)(() => product.SetPricing(new Money(21, "JOD"), null, "SHIRT-S"))).Should()
+            .Throw<InvalidProductVariantException>().Which.Code.Should().Be("ProductHasVariants");
+        ((Action)(() => product.SetPricing(new Money(20, "JOD"), null, "OTHER"))).Should()
+            .Throw<InvalidProductVariantException>().Which.Code.Should().Be("ProductHasVariants");
+        product.Price.Should().Be(new Money(20, "JOD"));
+    }
+
     private static Product NewProduct(bool categoryActive = true)
     {
         var product = new Product("shirt", categoryId: 1,
@@ -21,8 +75,17 @@ public class ProductVariantTests
         return product;
     }
 
-    private static ProductVariant Second(Product product, decimal price = 25, int id = 12) =>
-        WithId(product.AddVariant(new Money(price, "JOD"), sku: "SHIRT-L"), id);
+    private static ProductVariant Second(Product product, decimal price = 25, int id = 12)
+    {
+        product.SetOptions([new ProductOptionDefinition(null, new Dictionary<string, string> { ["ar"] = "المقاس" },
+            [new(null, new Dictionary<string, string> { ["ar"] = "S" }), new(null, new Dictionary<string, string> { ["ar"] = "L" })],
+            ExistingVariantsValue: 0)]);
+        var values = product.Options.Single().Values.OrderBy(v => v.Position).ToList();
+        WithId(product.Options.Single(), id * 100);
+        WithId(values[0], id * 100 + 1);
+        WithId(values[1], id * 100 + 2);
+        return WithId(product.AddVariant([values[1].Id], new Money(price, "JOD"), sku: "SHIRT-L"), id);
+    }
 
     private static T WithId<T>(T entity, int id) where T : Entity
     {
@@ -70,8 +133,10 @@ public class ProductVariantTests
     {
         var product = NewProduct();
 
-        ((Action)(() => product.DeactivateVariant(11))).Should().Throw<InvalidProductDataException>();
-        ((Action)(() => product.DeactivateVariant(99))).Should().Throw<InvalidProductDataException>();
+        ((Action)(() => product.DeactivateVariant(11))).Should().Throw<InvalidProductVariantException>()
+            .Which.Code.Should().Be("DefaultVariantCannotBeDeactivated");
+        ((Action)(() => product.DeactivateVariant(99))).Should().Throw<InvalidProductVariantException>()
+            .Which.Code.Should().Be("VariantNotFound");
         product.DefaultVariant.IsActive.Should().BeTrue();
     }
 
@@ -101,8 +166,12 @@ public class ProductVariantTests
         var product = NewProduct();
 
         Second(product, price: 25).Price.Should().Be(new Money(25, "JOD"));
-        ((Action)(() => product.AddVariant(new Money(0, "JOD")))).Should().Throw<InvalidProductDataException>();
-        ((Action)(() => product.AddVariant(new Money(10, "KWD")))).Should().Throw<InvalidProductDataException>();
+        product.SetOptions([new ProductOptionDefinition(product.Options.Single().Id, new Dictionary<string, string> { ["ar"] = "المقاس" },
+            [.. product.Options.Single().Values.Select(v => new ProductOptionValueDefinition(v.Id, new Dictionary<string, string> { ["ar"] = v.NameIn("ar") })),
+             new(null, new Dictionary<string, string> { ["ar"] = "XL" })])]);
+        var xl = WithId(product.Options.Single().Values.Single(v => v.Id == 0), 1299);
+        ((Action)(() => product.AddVariant([xl.Id], new Money(0, "JOD")))).Should().Throw<InvalidProductDataException>();
+        ((Action)(() => product.AddVariant([xl.Id], new Money(10, "KWD")))).Should().Throw<InvalidProductDataException>();
         product.Price.Should().Be(new Money(20, "JOD"), "سعر المنتج يبقى اختصار متغيّره الافتراضي");
     }
 }

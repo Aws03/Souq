@@ -53,6 +53,15 @@ public class TenantIsolationTests
         new("POST", "api/Products/{id:int}/image", Resource.Product, Actor.Admin, () => FileBody(PngBytes, "a.png")),
         new("POST", "api/Products/{id:int}/video", Resource.Product, Actor.Admin, () => FileBody(Mp4Bytes, "a.mp4")),
         new("GET", "api/admin/products/{id:int}", Resource.Product, Actor.Admin),
+        // الخيارات والمتغيّرات (ADR-0040): منتج A لا تُعرَّف خياراته ولا تُنشأ متغيّراته من B، ومتغيّره لا يُعدَّل ولا يُعطَّل ولا يصير افتراضياً.
+        new("PUT", "api/admin/products/{id:int}/options", Resource.Product, Actor.Admin,
+            () => JsonBody(new { options = new[] { new { names = new { ar = "من B" }, values = new[] { new { names = new { ar = "س" } } }, existingVariantsValue = 0 } } })),
+        new("POST", "api/admin/products/{id:int}/variants", Resource.Product, Actor.Admin,
+            () => JsonBody(new { variants = new[] { new { optionValueIds = new[] { 1 }, price = 1m } } })),
+        new("PUT", "api/admin/products/{id:int}/variants/{variantId:int}", Resource.ProductVariant, Actor.Admin, () => JsonBody(new { price = 1m })),
+        new("PUT", "api/admin/products/{id:int}/variants/{variantId:int}/status", Resource.ProductVariant, Actor.Admin,
+            () => JsonBody(new { isActive = false })),
+        new("PUT", "api/admin/products/{id:int}/variants/{variantId:int}/default", Resource.ProductVariant, Actor.Admin),
         new("PUT", "api/admin/products/{id:int}/status", Resource.Product, Actor.Admin, () => JsonBody(new { status = "Archived" })),
         new("DELETE", "api/admin/products/{id:int}/images/{imageId:int}", Resource.Product, Actor.Admin),
         new("PUT", "api/admin/products/{id:int}/images/order", Resource.Product, Actor.Admin,
@@ -307,6 +316,48 @@ public class TenantIsolationTests
     }
 
     [Fact]
+    public async Task خيارات_متجر_آخر_وقيمه_ومتغيّراته_لا_تُستخدم_مع_منتج_المتصل()
+    {
+        var s = await ArrangeAsync();
+        var adminA = s.AdminA;
+        var aProduct = await s.StoreA.CreateProductAsync(adminA, price: 10m, stock: 3);
+        (await VariantAdminApi.SetOptionsAsync(adminA, aProduct, [VariantAdminApi.Option("المقاس", ["S", "M"])])).EnsureSuccessStatusCode();
+        var aDetails = await VariantAdminApi.ProductAsync(adminA, aProduct);
+        var aValue = VariantAdminApi.ValueId(aDetails, "المقاس", "M");
+        var aVariant = (await VariantAdminApi.CreateVariantsOkAsync(adminA, aProduct, new { optionValueIds = new[] { aValue }, price = 12m })).Single();
+
+        var bProduct = await s.StoreB.CreateProductAsync(s.AdminB, price: 7m, stock: 2);
+        (await VariantAdminApi.SetOptionsAsync(s.AdminB, bProduct, [VariantAdminApi.Option("المقاس", ["S", "M"])])).EnsureSuccessStatusCode();
+        var bDetails = await VariantAdminApi.ProductAsync(s.AdminB, bProduct);
+
+        // معرّف خيار A أو قيمته داخل تعريف منتج B: غير موجود في منتج B — ولا يُنسخ ولا يُنقل.
+        (await ProblemAsync(await VariantAdminApi.SetOptionsAsync(s.AdminB, bProduct, [new
+            {
+                id = aDetails.Options.Single().Id, names = VariantAdminApi.Names("المقاس"),
+                values = new[] { new { id = (int?)aValue, names = VariantAdminApi.Names("M") } },
+            }])))
+            .Should().Be((HttpStatusCode.UnprocessableEntity, "OptionNotFound"));
+        (await ProblemAsync(await VariantAdminApi.CreateVariantsAsync(s.AdminB, bProduct, [new { optionValueIds = new[] { aValue }, price = 5m }])))
+            .Should().Be((HttpStatusCode.UnprocessableEntity, "OptionValueNotFound"));
+        foreach (var route in new[] { $"variants/{aVariant}", $"variants/{aVariant}/status", $"variants/{aVariant}/default" })
+            (await s.AdminB.PutAsJsonAsync($"/api/admin/products/{bProduct}/{route}", new { price = 1m, isActive = false })).StatusCode
+                .Should().Be(HttpStatusCode.NotFound, $"متغيّر A عبر منتج B ({route})");
+
+        // القاعدة نفسها ترفض ربط متغيّر B بقيمة A — المفتاح الأجنبي يحمل المتجر.
+        var bVariant = bDetails.Variants.Single().Id;
+        var crossStoreLink = () => s.StoreB.WithDbAsync(db => db.Database.ExecuteSqlInterpolatedAsync($"""
+            INSERT INTO [ProductVariantOptionValues] ([TenantId], [OptionValueId], [ProductVariantId], [CreatedAt])
+            SELECT [TenantId], {aValue}, [Id], SYSUTCDATETIME() FROM [ProductVariants] WHERE [Id] = {bVariant}
+            """));
+        await crossStoreLink.Should().ThrowAsync<Microsoft.Data.SqlClient.SqlException>();
+
+        var aState = await VariantAdminApi.ProductAsync(adminA, aProduct);
+        aState.Variants.Should().HaveCount(2).And.OnlyContain(v => v.IsActive && v.Price >= 10m);
+        aState.Options.Single().Values.Select(v => v.Names["ar"]).Should().Equal("S", "M");
+        (await VariantAdminApi.ProductAsync(s.AdminB, bProduct)).Variants.Should().ContainSingle();
+    }
+
+    [Fact]
     public async Task توكن_متجر_على_مضيف_متجر_آخر_يُرفض_بـ_401()
     {
         var s = await ArrangeAsync();
@@ -546,6 +597,8 @@ public class TenantIsolationTests
         "/" + Regex.Replace(c.Route, @"\{(\w+)[^}]*\}", m => m.Groups[1].Value switch
         {
             "imageId" => s.AIds[Resource.ProductImage].ToString(),
+            "variantId" => s.AIds[Resource.ProductVariant].ToString(),
+            "id" when c.Resource == Resource.ProductVariant => s.AIds[Resource.Product].ToString(),
             "slug" => s.AProductSlug,
             "token" => s.AOrderToken,
             _ => s.AIds[c.Resource].ToString(),

@@ -31,12 +31,15 @@ public class ProductImage : Entity, ITenantOwned
 
 // ============================================================================
 // ProductVariant — الوحدة القابلة للبيع (D-21): SKU والسعر وسعر المقارنة هنا لا على المنتج، ولكل منتج متغيّر
-// افتراضي واحد بالضبط (فهرس فريد مرشَّح في القاعدة). المنتج البسيط = متغيّره الافتراضي؛ المتغيّرات المتعدّدة
-// (مقاس/لون) تُضاف لاحقاً بلا هجرة مؤلمة. المخزون ليس هنا: لكل متغيّر InventoryItem تملكه وحدة Inventory.
+// افتراضي واحد بالضبط (فهرس فريد مرشَّح في القاعدة). المنتج البسيط = متغيّره الافتراضي بلا خيارات؛ منتج بخيارات
+// (ADR-0040) لكل متغيّر فيه قيمة من كل خيار، وتركيبته فريدة. المخزون ليس هنا: لكل متغيّر InventoryItem تملكه Inventory.
 // ============================================================================
 public partial class ProductVariant : Entity, ITenantOwned
 {
     public const int SkuMaxLength = 64;
+    public const int CombinationKeyMaxLength = 110;
+
+    private readonly List<ProductVariantOptionValue> _optionValues = new();
 
     public int TenantId { get; private set; }
     public string? Sku { get; private set; }
@@ -46,6 +49,11 @@ public partial class ProductVariant : Entity, ITenantOwned
     // المتغيّر لا يُحذف أبداً بعد وجوده — أسطر الطلبات والحجوزات وسجلّ المخزون وأسطر السلال تشير إليه — بل يُعطَّل.
     // المعطّل لا يُشترى، والافتراضي نشط دائماً (يحرسه Product وقيد فحص في القاعدة).
     public bool IsActive { get; private set; } = true;
+
+    // قيمه من خيارات المنتج (واحدة لكل خيار)، ومفتاحها المُطبَّع: مفاتيح القيم مرتّبة — null لمنتج بلا خيارات. فهرس فريد
+    // على (المنتج، المفتاح) يجعل تكرار التركيبة مستحيلاً حتى مع مديرَين متزامنين.
+    public IReadOnlyCollection<ProductVariantOptionValue> OptionValues => _optionValues.AsReadOnly();
+    public string? CombinationKey { get; private set; }
 
     // سعر المقارنة (قبل الخصم) بعملة السعر نفسها — عمود مبلغ واحد، والعملة من السعر.
     private decimal? _compareAtAmount;
@@ -61,6 +69,25 @@ public partial class ProductVariant : Entity, ITenantOwned
     }
 
     internal void SetActive(bool active) => IsActive = active;
+
+    internal void SetDefault(bool isDefault) => IsDefault = isDefault;
+
+    internal bool Uses(ProductOptionValue value) => _optionValues.Any(v => v.OptionValue == value);
+
+    internal ProductOptionValue? ValueOf(ProductOption option) =>
+        _optionValues.Select(v => v.OptionValue).FirstOrDefault(option.Values.Contains);
+
+    internal void SetOptionValues(IEnumerable<ProductOptionValue> values)
+    {
+        var target = values.ToList();
+        _optionValues.RemoveAll(current => !target.Contains(current.OptionValue));
+        foreach (var value in target.Where(value => _optionValues.All(current => current.OptionValue != value)))
+            _optionValues.Add(new ProductVariantOptionValue(value));
+        CombinationKey = KeyOf(target);
+    }
+
+    internal static string? KeyOf(IReadOnlyCollection<ProductOptionValue> values) =>
+        values.Count == 0 ? null : string.Join('.', values.Select(v => v.Key.ToString("N")).Order(StringComparer.Ordinal));
 
     internal void SetPricing(Money price, Money? compareAtPrice, string? sku)
     {
@@ -79,7 +106,7 @@ public partial class ProductVariant : Entity, ITenantOwned
         Sku = NormalizeSku(sku);
     }
 
-    private static string? NormalizeSku(string? sku)
+    internal static string? NormalizeSku(string? sku)
     {
         var trimmed = sku?.Trim();
         if (string.IsNullOrEmpty(trimmed)) return null;

@@ -191,6 +191,12 @@ public class MigrationRehearsalTests
                 WHERE d.[parent_object_id] = OBJECT_ID(N'[OrderItems]') AND c.[name] = N'VariantId'
                 """)).Should().Be(0);
 
+            // المتغيّرات V2 (ProductOptionsAndVariants): إضافية بلا نقل — كل منتج قديم بسيط كما كان: بلا خيارات، ومتغيّره الوحيد
+            // بلا تركيبة، وجداول الخيارات فارغة.
+            (await ScalarAsync(db, "SELECT COUNT(*) FROM [ProductVariants] WHERE [CombinationKey] IS NOT NULL")).Should().Be(0);
+            foreach (var table in new[] { "ProductOptions", "ProductOptionValues", "ProductVariantOptionValues" })
+                (await ScalarAsync(db, $"SELECT COUNT(*) FROM [{table}]")).Should().Be(0, table);
+
             // المرشّحات على البيانات المُرحَّلة: المتجر 1 يرى صفوفه، ومتجر آخر لا يرى شيئاً — والتجمّع يُقرأ كاملاً.
             await using (var asDefault = new AppDbContext(options, Context(1)))
             {

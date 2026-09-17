@@ -16,4 +16,8 @@ public interface IProductRepository : IRepository<Product>
     Task<bool> SlugExistsAsync(string slug, int? exceptProductId, CancellationToken ct = default);
 
     Task<bool> SkuExistsAsync(string sku, int? exceptProductId, CancellationToken ct = default);
+
+    // تعديل الخيارات والمتغيّرات يكتب صفوف الأبناء وحدها فلا يمرّ بـ rowversion الجذر — ومديران يضيفان خياراً ومتغيّراً معاً
+    // قد يتركان متغيّراً بلا قيمة للخيار الجديد. هذا يجعل الحفظ التالي يحدّث صف المنتج نفسه، فيُرفض أحدهما بتعارض (409).
+    void GuardConcurrentEdit(Product product);
 }

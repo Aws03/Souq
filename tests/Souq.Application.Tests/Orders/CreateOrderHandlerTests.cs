@@ -266,7 +266,7 @@ public class CreateOrderHandlerTests
     {
         var product = NewProduct();
         product.SetPricing(new Money(50, "JOD"), null, "HP-BLACK");
-        TestCatalog.WithId(product.AddVariant(new Money(60, "JOD"), sku: "HP-WHITE"), 12);
+        TestCatalog.WithId(TestCatalog.AddVariant(product, new Money(60, "JOD"), sku: "HP-WHITE"), 12);
         return product;
     }
 
@@ -284,7 +284,7 @@ public class CreateOrderHandlerTests
 
         result.Value!.Subtotal.Should().Be(220);
         _saved!.Items.Select(i => (i.ProductId, i.VariantId, i.UnitPrice.Amount, i.Quantity, i.Sku, i.VariantLabel))
-            .Should().Equal((1, 1, 50m, 2, "HP-BLACK", (string?)null), (1, 12, 60m, 2, "HP-WHITE", (string?)null));
+            .Should().Equal((1, 1, 50m, 2, "HP-BLACK", "S"), (1, 12, 60m, 2, "HP-WHITE", "L"));
         await _reservations.Received(1).ReserveAsync(OrderStockReference.For(SavedOrderId),
             Arg.Is<IReadOnlyList<ReservationLine>>(lines =>
                 lines.Where(l => l.VariantId == 1).Sum(l => l.Quantity) == 2 && lines.Where(l => l.VariantId == 12).Sum(l => l.Quantity) == 2),

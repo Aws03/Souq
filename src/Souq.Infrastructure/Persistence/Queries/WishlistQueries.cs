@@ -17,7 +17,9 @@ internal sealed class WishlistQueries : IWishlistQueries
 
     public async Task<IReadOnlyList<WishlistItemDto>> ListAsync(int customerId, string culture, CancellationToken ct)
     {
-        var visible = _db.Products.AsNoTracking().Where(p => p.Status == ProductStatus.Active && p.Category!.IsActive);
+        // الظاهر كما في قوائم الكتالوج (CatalogQueries): ومنه شرط المتغيّر الضمني المؤقّت حتى اختيار المتغيّر في V3 (ADR-0040).
+        var visible = _db.Products.AsNoTracking().Where(p => p.Status == ProductStatus.Active && p.Category!.IsActive
+                                                             && p.Variants.Count(v => v.IsActive) == 1);
 
         var rows = await _db.WishlistItems.AsNoTracking()
             .Where(w => w.CustomerId == customerId)
@@ -29,7 +31,8 @@ internal sealed class WishlistQueries : IWishlistQueries
                 x.Product.Variants.Where(v => v.IsDefault).Select(v => v.Price.Amount).FirstOrDefault(),
                 x.Product.Variants.Where(v => v.IsDefault).Select(v => EF.Property<decimal?>(v, "_compareAtAmount")).FirstOrDefault(),
                 x.Product.Variants.Where(v => v.IsDefault).Select(v => v.Price.Currency).FirstOrDefault() ?? "",
-                _db.InventoryItems.Where(s => s.ProductId == x.Product.Id).Sum(s => (int?)(s.OnHand - s.Reserved)) ?? 0,
+                _db.InventoryItems.Where(s => s.ProductId == x.Product.Id && x.Product.Variants.Any(v => v.Id == s.VariantId && v.IsActive))
+                    .Sum(s => (int?)(s.OnHand - s.Reserved)) ?? 0,
                 x.Product.Images.OrderBy(i => i.SortOrder).ThenBy(i => i.Id).Select(i => i.Url).FirstOrDefault(),
                 x.Item.CreatedAt))
             .ToListAsync(ct);

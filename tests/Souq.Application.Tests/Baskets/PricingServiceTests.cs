@@ -166,7 +166,7 @@ public class PricingServiceTests
     {
         var shirt = TestCatalog.Product("قميص", price: 20m, id: id);
         shirt.SetPricing(new Money(20m, "JOD"), null, "SHIRT-S");
-        TestCatalog.WithId(shirt.AddVariant(new Money(25m, "JOD"), sku: "SHIRT-L"), secondVariantId);
+        TestCatalog.WithId(TestCatalog.AddVariant(shirt, new Money(25m, "JOD"), sku: "SHIRT-L"), secondVariantId);
         return shirt;
     }
 
@@ -178,7 +178,7 @@ public class PricingServiceTests
         var quote = await Pricing().QuoteAsync([new(1, 1, 1), new(1, 2, 12)], null, null, null, CancellationToken.None);
 
         quote.Lines.Select(l => (l.ProductId, l.VariantId, l.UnitPrice.Amount, l.LineTotal.Amount, l.Sellable, l.Sku, l.VariantLabel))
-            .Should().Equal((1, 1, 20m, 20m, true, "SHIRT-S", (string?)null), (1, 12, 25m, 50m, true, "SHIRT-L", (string?)null));
+            .Should().Equal((1, 1, 20m, 20m, true, "SHIRT-S", "S"), (1, 12, 25m, 50m, true, "SHIRT-L", "L"));
         quote.Subtotal.Amount.Should().Be(70m);
     }
 
@@ -187,7 +187,7 @@ public class PricingServiceTests
     {
         var shirt = Shirt();
         shirt.DeactivateVariant(12);
-        TestCatalog.WithId(shirt.AddVariant(new Money(30m, "JOD")), 13);
+        TestCatalog.WithId(TestCatalog.AddVariant(shirt, new Money(30m, "JOD")), 13);
         Catalog(shirt, TestCatalog.Product("شاحن", price: 4m, id: 2));
 
         var quote = await Pricing().QuoteAsync(

@@ -38,12 +38,33 @@ public sealed record ProductImageDto(int Id, string Url, int SortOrder);
 // سطر في جدول منتجات الإدارة — كل الحالات. Available = المتاح للبيع من وحدة Inventory (المرحلة 6).
 public sealed record AdminProductListItemDto(
     int Id, string Slug, string Name, string Status, string? Sku, decimal Price, decimal? CompareAtPrice, string Currency,
-    int Available, int LowStockThreshold, string? ImageUrl, int CategoryId, string? CategoryName, DateTime CreatedAt);
+    int Available, int LowStockThreshold, string? ImageUrl, int CategoryId, string? CategoryName, DateTime CreatedAt,
+    int VariantCount);
 
 // نموذج تعديل منتج كاملاً (كل اللغات، كل الصور بمعرّفاتها). المخزون للعرض فقط: تعديله تصحيحات في وحدة Inventory.
+// Sku/Price/CompareAtPrice للمتغيّر الافتراضي، والمخزون مجموع متغيّراته (منتج بسيط: متغيّره الوحيد) وحدّ تنبيه الافتراضي.
+// Options وVariants (ADR-0040): بمعرّفاتها لنموذج الخيارات وجدول المتغيّرات، وVariantLimits حدود Product كما يطبّقها الخادم —
+// تُنشر ولا تُنسخ في الواجهة.
 public sealed record AdminProductDto(
     int Id, string Slug, string Status, IReadOnlyDictionary<string, CatalogTextDto> Translations,
     string? Sku, decimal Price, decimal? CompareAtPrice, string Currency,
     int OnHand, int Reserved, int Available, int LowStockThreshold,
     IReadOnlyList<ProductImageDto> Images, string? VideoUrl, int CategoryId, string? Brand,
-    DateTime CreatedAt, DateTime? UpdatedAt);
+    DateTime CreatedAt, DateTime? UpdatedAt,
+    IReadOnlyList<AdminProductOptionDto> Options, IReadOnlyList<AdminProductVariantDto> Variants, ProductVariantLimitsDto VariantLimits);
+
+public sealed record AdminProductOptionDto(
+    int Id, int Position, IReadOnlyDictionary<string, string> Names, IReadOnlyList<AdminProductOptionValueDto> Values);
+
+public sealed record AdminProductOptionValueDto(int Id, int Position, IReadOnlyDictionary<string, string> Names);
+
+// متغيّر في جدول الإدارة: قيمه بمعرّفاتها (الوصف يُبنى بلغة الواجهة من أسماء الخيارات)، وتسعيره، وأرقام مخزونه للعرض من Inventory.
+public sealed record AdminProductVariantDto(
+    int Id, bool IsDefault, bool IsActive, string? Sku, decimal Price, decimal? CompareAtPrice, IReadOnlyList<int> OptionValueIds,
+    int OnHand, int Reserved, int Available, int LowStockThreshold);
+
+public sealed record ProductVariantLimitsDto(int MaxOptions, int MaxValuesPerOption, int MaxVariants, int NameMaxLength, int SkuMaxLength)
+{
+    public static ProductVariantLimitsDto Current { get; } = new(
+        Product.MaxOptions, Product.MaxValuesPerOption, Product.MaxVariants, OptionTranslation.NameMaxLength, ProductVariant.SkuMaxLength);
+}

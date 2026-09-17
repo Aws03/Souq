@@ -5,7 +5,7 @@
 >
 > Conventions (errors, paging, status codes): [ApiDocumentation.md](ApiDocumentation.md). Use cases per module: [UseCases.md](../04-MODULES/UseCases.md).
 
-**134 endpoints** in 25 controllers: 26 anonymous, 27 for any signed-in account, 81 behind a permission.
+**139 endpoints** in 25 controllers: 26 anonymous, 27 for any signed-in account, 86 behind a permission.
 
 ## How to read this table
 
@@ -45,7 +45,12 @@
 | GET | `/api/admin/products/{id:int}` | `catalog.manage` | store | — | — | `GetAdminProductQuery` | Catalog |
 | PUT | `/api/admin/products/{id:int}/images/order` | `catalog.manage` | store | — | — | `ReorderProductImagesCommand` | Catalog |
 | DELETE | `/api/admin/products/{id:int}/images/{imageId:int}` | `catalog.manage` | store | — | — | `RemoveProductImageCommand` | Catalog |
+| PUT | `/api/admin/products/{id:int}/options` | `catalog.manage` | store | — | — | `SetProductOptionsCommand` | Catalog |
 | PUT | `/api/admin/products/{id:int}/status` | `catalog.manage` | store | — | — | `ChangeProductStatusCommand` | Catalog |
+| POST | `/api/admin/products/{id:int}/variants` | `catalog.manage` | store | — | — | `CreateProductVariantsCommand` | Catalog |
+| PUT | `/api/admin/products/{id:int}/variants/{variantId:int}` | `catalog.manage` | store | — | — | `UpdateProductVariantCommand` | Catalog |
+| PUT | `/api/admin/products/{id:int}/variants/{variantId:int}/default` | `catalog.manage` | store | — | — | `SetDefaultProductVariantCommand` | Catalog |
+| PUT | `/api/admin/products/{id:int}/variants/{variantId:int}/status` | `catalog.manage` | store | — | — | `SetProductVariantStatusCommand` | Catalog |
 | GET | `/api/admin/reports/dashboard` | `store.reports.view` | store | — | — | `GetStoreDashboardQuery` | Reporting |
 | GET | `/api/admin/reviews` | `reviews.moderate` | store | `reviews` | — | `ListReviewsForModerationQuery` | Reviews |
 | GET | `/api/admin/reviews/settings` | `reviews.moderate` | store | `reviews` | — | `GetReviewSettingsQuery` | Platform |

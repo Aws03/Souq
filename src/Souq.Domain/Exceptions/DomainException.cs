@@ -76,3 +76,10 @@ public class InvalidTenantOperationException : DomainException
 {
     public InvalidTenantOperationException(string message) : base("InvalidTenantOperation", message) { }
 }
+
+// خطأ: قاعدة خيارات المنتج ومتغيّراته (P-08a، ADR-0040) — لكل حالة رمزها الثابت (TooManyOptions، OptionValueInUse،
+// DuplicateVariantCombination…) كي تشرحها الواجهة بلغتها بدل رسالة عامة.
+public class InvalidProductVariantException : DomainException
+{
+    public InvalidProductVariantException(string code, string message) : base(code, message) { }
+}

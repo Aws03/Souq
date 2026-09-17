@@ -5,7 +5,7 @@ using Souq.Domain.Interfaces;
 namespace Souq.Infrastructure.Persistence.Repositories;
 
 // مستودع المنتجات لجهة الكتابة فقط؛ القراءات في CatalogQueries/InventoryQueries. التجمّع يُحمَّل بأبنائه كلهم
-// (استعلامات منفصلة بدل JOIN يضاعف الصفوف ترجماتٍ × صوراً × متغيّرات).
+// (استعلامات منفصلة بدل JOIN يضاعف الصفوف ترجماتٍ × صوراً × متغيّرات × خيارات).
 public class ProductRepository : RepositoryBase<Product>, IProductRepository
 {
     public ProductRepository(AppDbContext db) : base(db) { }
@@ -23,7 +23,9 @@ public class ProductRepository : RepositoryBase<Product>, IProductRepository
         .Include(p => p.Category)
         .Include(p => p.Translations)
         .Include(p => p.Images)
-        .Include(p => p.Variants)
+        .Include(p => p.Variants).ThenInclude(v => v.OptionValues)
+        .Include(p => p.Options).ThenInclude(o => o.Translations)
+        .Include(p => p.Options).ThenInclude(o => o.Values).ThenInclude(v => v.Translations)
         .AsSplitQuery();
 
     // بأي حالة (مسودّة/مؤرشف أيضاً): المفتاح الأجنبي قائم بغضّ النظر عنها.
@@ -36,4 +38,10 @@ public class ProductRepository : RepositoryBase<Product>, IProductRepository
     public Task<bool> SkuExistsAsync(string sku, int? exceptProductId, CancellationToken ct = default)
         => Db.Set<ProductVariant>().AnyAsync(
             v => v.Sku == sku && EF.Property<int>(v, "ProductId") != exceptProductId, ct);
+
+    public void GuardConcurrentEdit(Product product)
+    {
+        var entry = Db.Entry(product);
+        if (entry.State == EntityState.Unchanged) entry.State = EntityState.Modified;
+    }
 }

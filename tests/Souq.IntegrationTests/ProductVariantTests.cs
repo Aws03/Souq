@@ -3,12 +3,6 @@ using System.Net.Http.Json;
 using AwesomeAssertions;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
-using Souq.Application.Features.Products.Contracts;
-using Souq.Domain.Entities;
-using Souq.Domain.Enums;
-using Souq.Domain.ValueObjects;
-using Souq.Infrastructure.Persistence;
 using Souq.IntegrationTests.Infrastructure;
 
 namespace Souq.IntegrationTests;
@@ -16,8 +10,8 @@ namespace Souq.IntegrationTests;
 // ============================================================================
 // المتغيّرات V1 (ProductVariants.md §11، ADR-0039) عبر HTTP وSQL Server الحقيقيين: هوية المتغيّر من السلة إلى التسعير
 // فالطلب فالدفع فالمخزون، لقطة SKU على سطر الطلب، رفض المتغيّر الغريب والمعطّل وغياب التحديد، مسارات المخزون بالمتغيّر،
-// وقيود القاعدة. منتج بمتغيّرين لا يُنشأ من التطبيق قبل خيارات المتغيّرات (V2): يُزرع بـ Product.AddVariant الداخلي ويُفتح
-// مخزونه بمنفذ Inventory نفسه الذي يستعمله إنشاء المنتج. العزل بين المتاجر في TenantIsolationTests.
+// وقيود القاعدة. منتج بمتغيّرين يُنشأ كما يُنشئه التاجر منذ V2: خيار "المقاس" ثم متغيّر بقيمته عبر نقاط الإدارة (ADR-0040؛
+// إدارة الخيارات نفسها في ProductOptionAdminTests). العزل بين المتاجر في TenantIsolationTests.
 // ============================================================================
 [Collection(IntegrationCollection.Name)]
 public class ProductVariantTests
@@ -58,7 +52,8 @@ public class ProductVariantTests
 
         var order = await OrderAsync(customer, created.OrderId);
         order.Items.Select(i => (i.ProductId, i.VariantId, i.UnitPrice, i.Quantity, i.Sku, i.VariantLabel))
-            .Should().BeEquivalentTo(new[] { (productId, small, 20m, 2, smallSku, (string?)null), (productId, large, 25m, 2, largeSku, (string?)null) });
+            .Should().BeEquivalentTo(new[] { (productId, small, 20m, 2, smallSku, "S"), (productId, large, 25m, 2, largeSku, "L") },
+                "الوصف لقطة من قيم الخيارات بلغة المتجر (V2)");
 
         // حجز لكل متغيّر من مخزونه وحده، والدفع يلتزمهما ويستهلك سطرَي السلة.
         (await StockAsync(small)).Should().Be((5, 2));
@@ -68,15 +63,18 @@ public class ProductVariantTests
         (await StockAsync(large)).Should().Be((1, 0));
         (await ReadBasketAsync(await customer.GetAsync("/api/basket"))).Lines.Should().BeEmpty();
 
-        // اللقطة لا تتبع الكتالوج: تغيير SKU المتغيّر بعد الشراء لا يغيّر الطلب.
-        await _api.WithDbAsync(async db =>
+        // اللقطة لا تتبع الكتالوج: تغيير SKU المتغيّر وسعره، وإعادة تسمية قيمته، بعد الشراء لا تغيّر الطلب.
+        (await admin.PutAsJsonAsync($"/api/admin/products/{productId}/variants/{small}",
+            new { price = 19m, sku = $"NEW{Guid.NewGuid():N}"[..12] })).EnsureSuccessStatusCode();
+        var options = VariantAdminApi.Current(await VariantAdminApi.ProductAsync(admin, productId));
+        options[0]["values"] = new object[]
         {
-            var product = await db.Products.Include(p => p.Variants).SingleAsync(p => p.Id == productId);
-            product.SetPricing(new Money(19m, "JOD"), null, $"NEW{Guid.NewGuid():N}"[..12]);
-            return await db.SaveChangesAsync();
-        });
+            new { id = (int?)VariantAdminApi.ValueId(await VariantAdminApi.ProductAsync(admin, productId), "المقاس", "S"), names = VariantAdminApi.Names("صغير") },
+            new { id = (int?)VariantAdminApi.ValueId(await VariantAdminApi.ProductAsync(admin, productId), "المقاس", "L"), names = VariantAdminApi.Names("L") },
+        };
+        (await VariantAdminApi.SetOptionsAsync(admin, productId, options)).EnsureSuccessStatusCode();
         (await OrderAsync(customer, created.OrderId)).Items.Single(i => i.VariantId == small)
-            .Should().BeEquivalentTo(new { Sku = smallSku, UnitPrice = 20m });
+            .Should().BeEquivalentTo(new { Sku = smallSku, UnitPrice = 20m, VariantLabel = "S" });
     }
 
     [Fact]
@@ -129,12 +127,8 @@ public class ProductVariantTests
 
         // المتغيّر يُعطَّل وهو في السلة: سطره غير قابل للبيع، والدفع يرفضه، ولا يُضاف من جديد.
         await AddAsync(customer, new { productId, variantId = large, quantity = 1 });
-        await _api.WithDbAsync(async db =>
-        {
-            var product = await db.Products.Include(p => p.Variants).SingleAsync(p => p.Id == productId);
-            product.DeactivateVariant(large);
-            return await db.SaveChangesAsync();
-        });
+        (await admin.PutAsJsonAsync($"/api/admin/products/{productId}/variants/{large}/status", new { isActive = false }))
+            .EnsureSuccessStatusCode();
 
         var basket = await ReadBasketAsync(await customer.GetAsync("/api/basket"));
         (basket.Lines.Single().Sellable, basket.ReadyForCheckout, basket.Total).Should().Be((false, false, 0m));
@@ -247,7 +241,7 @@ public class ProductVariantTests
 
     // ── أدوات ──
 
-    // منتج بسعر 20 (المتغيّر الافتراضي) ومتغيّر ثانٍ بسعر 25، لكلٍّ SKU ومخزون.
+    // منتج بسعر 20 (المتغيّر الافتراضي، المقاس S) ومتغيّر ثانٍ بسعر 25 (المقاس L)، لكلٍّ SKU ومخزون — عبر نقاط الإدارة.
     private async Task<(int ProductId, int Small, int Large, string SmallSku, string LargeSku)> TwoVariantProductAsync(
         HttpClient admin, int smallStock, int largeStock)
     {
@@ -258,15 +252,14 @@ public class ProductVariantTests
         created.StatusCode.Should().Be(HttpStatusCode.Created, await created.Content.ReadAsStringAsync());
         var productId = (await created.Content.ReadFromJsonAsync<TestApi.IdBody>(TestApi.Json))!.Id;
 
-        await using var scope = await _factory.TenantScopeAsync();
-        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        var product = await db.Products.Include(p => p.Variants).SingleAsync(p => p.Id == productId);
-        var large = product.AddVariant(new Money(25m, product.Price.Currency), sku: largeSku);
-        await db.SaveChangesAsync();
-        await scope.ServiceProvider.GetRequiredService<IVariantStockInitializer>()
-            .InitializeAsync(productId, large.Id, largeStock, InventoryItem.DefaultLowStockThreshold, CancellationToken.None);
+        var defined = await VariantAdminApi.SetOptionsAsync(admin, productId, [VariantAdminApi.Option("المقاس", ["S", "L"], existing: 0)]);
+        defined.StatusCode.Should().Be(HttpStatusCode.NoContent, await defined.Content.ReadAsStringAsync());
+        var product = await VariantAdminApi.ProductAsync(admin, productId);
+        var large = (await VariantAdminApi.CreateVariantsOkAsync(admin, productId,
+            new { optionValueIds = new[] { VariantAdminApi.ValueId(product, "المقاس", "L") }, price = 25m, sku = largeSku, initialStock = largeStock }))
+            .Single();
 
-        return (productId, product.DefaultVariant.Id, large.Id, smallSku, largeSku);
+        return (productId, product.Variants.Single(v => v.IsDefault).Id, large, smallSku, largeSku);
     }
 
     private Task<int> DefaultVariantAsync(int productId) => _api.WithDbAsync(db =>

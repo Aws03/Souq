@@ -204,7 +204,7 @@ public class BasketHandlersTests
     private Product ShirtExists()
     {
         var shirt = TestCatalog.Product(price: 20, id: 5);
-        TestCatalog.WithId(shirt.AddVariant(new Money(25, "JOD")), 51);
+        TestCatalog.WithId(TestCatalog.AddVariant(shirt, new Money(25, "JOD")), 51);
         _products.GetByIdAsync(5, Arg.Any<CancellationToken>()).Returns(shirt);
         return shirt;
     }

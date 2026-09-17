@@ -45,12 +45,14 @@ internal sealed class InventoryQueries : IInventoryQueries
         _db.InventoryItems.AsNoTracking().Where(i =>
             _db.Products.Any(p => p.Id == i.ProductId && p.Status != ProductStatus.Archived));
 
-    // الأقلّ متاحاً أولاً (الحرج في الأعلى)، والمنتج كاسر تعادل.
-    private Task<PaginatedList<InventoryItemDto>> PageAsync(
-        IQueryable<InventoryItem> items, PageRequest page, string culture, CancellationToken ct) =>
-        items.Join(_db.Products, i => i.ProductId, p => p.Id, (i, p) => new { Item = i, Product = p })
+    // الأقلّ متاحاً أولاً (الحرج في الأعلى)، والمنتج كاسر تعادل. وصف المتغيّر: أسماء قيمه بترتيب الخيارات، يُركَّب بقاعدة Catalog
+    // الواحدة (VariantLabels) بعد القراءة — القراءة هنا من جداول الكتالوج كما الاسم وSKU، والجرد لا يملك منها شيئاً.
+    private async Task<PaginatedList<InventoryItemDto>> PageAsync(
+        IQueryable<InventoryItem> items, PageRequest page, string culture, CancellationToken ct)
+    {
+        var rows = await items.Join(_db.Products, i => i.ProductId, p => p.Id, (i, p) => new { Item = i, Product = p })
             .OrderBy(x => x.Item.OnHand - x.Item.Reserved).ThenBy(x => x.Product.Id).ThenBy(x => x.Item.VariantId)
-            .ToPageAsync(x => new InventoryItemDto(
+            .ToPageAsync(x => new ItemRow(
                 x.Product.Id,
                 x.Product.Translations.Where(t => t.Culture == culture).Select(t => t.Name).FirstOrDefault()
                     ?? x.Product.Translations.OrderBy(t => t.Culture).Select(t => t.Name).FirstOrDefault() ?? x.Product.Slug,
@@ -58,8 +60,31 @@ internal sealed class InventoryQueries : IInventoryQueries
                 x.Product.Images.OrderBy(im => im.SortOrder).ThenBy(im => im.Id).Select(im => im.Url).FirstOrDefault(),
                 x.Product.Category!.Translations.Where(t => t.Culture == culture).Select(t => t.Name).FirstOrDefault()
                     ?? x.Product.Category.Translations.OrderBy(t => t.Culture).Select(t => t.Name).FirstOrDefault(),
-                x.Item.OnHand, x.Item.Reserved, x.Item.OnHand - x.Item.Reserved, x.Item.LowStockThreshold,
-                x.Item.OnHand - x.Item.Reserved <= x.Item.LowStockThreshold, x.Item.VariantId), page, ct);
+                x.Item.OnHand, x.Item.Reserved, x.Item.LowStockThreshold, x.Item.VariantId,
+                x.Product.Variants.Where(v => v.Id == x.Item.VariantId).Select(v => v.IsActive).FirstOrDefault(),
+                x.Product.Variants.Where(v => v.Id == x.Item.VariantId).SelectMany(v => v.OptionValues)
+                    .Select(ov => new ValueRow(
+                        _db.Set<ProductOption>()
+                            .Where(o => o.Id == EF.Property<int>(ov.OptionValue, "ProductOptionId"))
+                            .Select(o => o.Position).FirstOrDefault(),
+                        ov.OptionValue.Translations.Select(t => new NameRow(t.Culture, t.Name)).ToList()))
+                    .ToList()), page, ct);
+
+        return rows.Map(r => new InventoryItemDto(
+            r.ProductId, r.Name, r.Sku, r.ImageUrl, r.CategoryName, r.OnHand, r.Reserved, r.OnHand - r.Reserved, r.LowStockThreshold,
+            r.OnHand - r.Reserved <= r.LowStockThreshold, r.VariantId,
+            VariantLabels.Compose(r.Values.OrderBy(v => v.OptionPosition)
+                .Select(v => (IReadOnlyDictionary<string, string>)v.Names.ToDictionary(n => n.Culture, n => n.Name)), culture),
+            r.VariantIsActive));
+    }
+
+    private sealed record ItemRow(
+        int ProductId, string Name, string? Sku, string? ImageUrl, string? CategoryName, int OnHand, int Reserved, int LowStockThreshold,
+        int VariantId, bool VariantIsActive, List<ValueRow> Values);
+
+    private sealed record ValueRow(int OptionPosition, List<NameRow> Names);
+
+    private sealed record NameRow(string Culture, string Name);
 
     private sealed record MovementRow(
         int Id, StockMovementType Type, int QuantityChange, int NewQuantity, string? Note, DateTime CreatedAt, int VariantId);

@@ -128,38 +128,74 @@ internal sealed class CatalogQueries : ICatalogQueries
             p.CategoryId,
             p.Category!.Translations.Where(t => t.Culture == culture).Select(t => t.Name).FirstOrDefault()
                 ?? p.Category.Translations.OrderBy(t => t.Culture).Select(t => t.Name).FirstOrDefault(),
-            p.CreatedAt), page, ct);
+            p.CreatedAt,
+            p.Variants.Count()), page, ct);
     }
 
     // نموذج التعديل: التجمّع كاملاً (صف واحد) — استعلامات منفصلة للأبناء بدل ضرب الصفوف.
     public async Task<AdminProductDto?> FindAdminProductAsync(int id, CancellationToken ct)
     {
         var product = await _db.Products.AsNoTracking()
-            .Include(p => p.Translations).Include(p => p.Images).Include(p => p.Variants)
+            .Include(p => p.Translations).Include(p => p.Images)
+            .Include(p => p.Variants).ThenInclude(v => v.OptionValues)
+            .Include(p => p.Options).ThenInclude(o => o.Translations)
+            .Include(p => p.Options).ThenInclude(o => o.Values).ThenInclude(v => v.Translations)
             .AsSplitQuery()
             .FirstOrDefaultAsync(p => p.Id == id, ct);
         if (product is null) return null;
 
-        // المخزون للعرض فقط (يُعدَّل بتصحيحات في وحدة Inventory) — مخزون المتغيّر الافتراضي.
+        // المخزون للعرض فقط (يُعدَّل بتصحيحات في وحدة Inventory): صفّ لكل متغيّر.
         var stock = await _db.InventoryItems.AsNoTracking()
-            .Where(i => i.ProductId == id && _db.Set<ProductVariant>().Any(v => v.Id == i.VariantId && v.IsDefault))
-            .Select(i => new { i.OnHand, i.Reserved, i.LowStockThreshold })
-            .FirstOrDefaultAsync(ct);
-        int onHand = stock?.OnHand ?? 0, reserved = stock?.Reserved ?? 0;
+            .Where(i => i.ProductId == id)
+            .Select(i => new { i.VariantId, i.OnHand, i.Reserved, i.LowStockThreshold })
+            .ToDictionaryAsync(i => i.VariantId, ct);
+
+        var options = product.Options.OrderBy(o => o.Position).ThenBy(o => o.Id).ToList();
+        var valuePosition = options.SelectMany((o, index) => o.Values.Select(v => (v.Id, Rank: index * 100 + v.Position)))
+            .ToDictionary(v => v.Id, v => v.Rank);
+
+        // ترتيب المتغيّرات بقيمها وفق ترتيب الخيارات (S قبل M، ثم اللون) — مشتقّ لا مخزَّن.
+        var variants = product.Variants
+            .Select(v => (Variant: v, ValueIds: v.OptionValues.Select(ov => ov.OptionValueId)
+                .OrderBy(valueId => valuePosition.GetValueOrDefault(valueId)).ToList()))
+            .OrderBy(v => string.Join(',', v.ValueIds.Select(valueId => valuePosition.GetValueOrDefault(valueId).ToString("D5"))), StringComparer.Ordinal)
+            .ThenBy(v => v.Variant.Id)
+            .Select(v =>
+            {
+                var level = stock.GetValueOrDefault(v.Variant.Id);
+                int onHandV = level?.OnHand ?? 0, reservedV = level?.Reserved ?? 0;
+                return new AdminProductVariantDto(v.Variant.Id, v.Variant.IsDefault, v.Variant.IsActive, v.Variant.Sku,
+                    v.Variant.Price.Amount, v.Variant.CompareAtPrice?.Amount, v.ValueIds,
+                    onHandV, reservedV, onHandV - reservedV, level?.LowStockThreshold ?? 0);
+            })
+            .ToList();
+
+        int onHand = variants.Sum(v => v.OnHand), reserved = variants.Sum(v => v.Reserved);
+        var defaultVariant = product.DefaultVariant;
 
         return new AdminProductDto(
             product.Id, product.Slug, product.Status.ToString(),
             product.Translations.ToDictionary(t => t.Culture, t => new CatalogTextDto(t.Name, t.Description, t.MetaTitle, t.MetaDescription)),
             product.Sku, product.Price.Amount, product.CompareAtPrice?.Amount, product.Price.Currency,
-            onHand, reserved, onHand - reserved, stock?.LowStockThreshold ?? 0,
+            onHand, reserved, onHand - reserved, stock.GetValueOrDefault(defaultVariant.Id)?.LowStockThreshold ?? 0,
             product.Images.OrderBy(i => i.SortOrder).ThenBy(i => i.Id).Select(i => new ProductImageDto(i.Id, i.Url, i.SortOrder)).ToList(),
-            product.VideoUrl, product.CategoryId, product.Brand, product.CreatedAt, product.UpdatedAt);
+            product.VideoUrl, product.CategoryId, product.Brand, product.CreatedAt, product.UpdatedAt,
+            options.Select(o => new AdminProductOptionDto(o.Id, o.Position, Names(o.Translations),
+                o.Values.OrderBy(v => v.Position).ThenBy(v => v.Id)
+                    .Select(v => new AdminProductOptionValueDto(v.Id, v.Position, Names(v.Translations))).ToList())).ToList(),
+            variants, ProductVariantLimitsDto.Current);
     }
+
+    private static IReadOnlyDictionary<string, string> Names(IEnumerable<OptionTranslation> translations) =>
+        translations.OrderBy(t => t.Culture, StringComparer.Ordinal).ToDictionary(t => t.Culture, t => t.Name);
 
     // ── داخلي ───────────────────────────────────────────────────────────────
 
+    // المعروض: نشط، في فئة مفعّلة، وله متغيّر ضمني (نشط واحد) — V2 مؤقتاً (ADR-0040): واجهة المتجر تشتري بمعرّف المنتج وحده
+    // حتى يُبنى اختيار المتغيّر (V3)، فمنتج بأكثر من متغيّر نشط لا تستطيع بيعه لا يُعرض فيها بدل زرّ إضافة يفشل.
     private IQueryable<Product> VisibleProducts() =>
-        _db.Products.AsNoTracking().Where(p => p.Status == ProductStatus.Active && p.Category!.IsActive);
+        _db.Products.AsNoTracking().Where(p => p.Status == ProductStatus.Active && p.Category!.IsActive
+                                               && p.Variants.Count(v => v.IsActive) == 1);
 
     private async Task<ProductDto?> DetailAsync(IQueryable<Product> product, string culture, CancellationToken ct)
     {
@@ -179,14 +215,16 @@ internal sealed class CatalogQueries : ICatalogQueries
         p => p.Translations.Where(t => t.Culture == culture).Select(t => t.Name).FirstOrDefault()
              ?? p.Translations.OrderBy(t => t.Culture).Select(t => t.Name).FirstOrDefault();
 
-    // المتاح للبيع من وحدة Inventory (المرحلة 6): الموجود − المحجوز، استعلام فرعي مترابط في SQL نفسه.
+    // المتاح للبيع من وحدة Inventory (المرحلة 6): الموجود − المحجوز، استعلام فرعي مترابط في SQL نفسه — للمتغيّرات النشطة وحدها:
+    // مخزون متغيّر معطّل لا يُباع.
     private Expression<Func<Product, ProductRow>> Row(string culture) => p => new ProductRow(
         p.Id, p.Slug,
         p.Translations.Select(t => new TextRow(t.Culture, t.Name, t.Description, t.MetaTitle, t.MetaDescription)).ToList(),
         p.Variants.Where(v => v.IsDefault).Select(v => v.Price.Amount).FirstOrDefault(),
         p.Variants.Where(v => v.IsDefault).Select(v => EF.Property<decimal?>(v, "_compareAtAmount")).FirstOrDefault(),
         p.Variants.Where(v => v.IsDefault).Select(v => v.Price.Currency).FirstOrDefault() ?? "",
-        _db.InventoryItems.Where(s => s.ProductId == p.Id).Sum(s => (int?)(s.OnHand - s.Reserved)) ?? 0,
+        _db.InventoryItems.Where(s => s.ProductId == p.Id && p.Variants.Any(v => v.Id == s.VariantId && v.IsActive))
+            .Sum(s => (int?)(s.OnHand - s.Reserved)) ?? 0,
         p.Images.OrderBy(i => i.SortOrder).ThenBy(i => i.Id).Select(i => i.Url).FirstOrDefault(),
         p.VideoUrl, p.CategoryId,
         p.Category!.Translations.Where(t => t.Culture == culture).Select(t => t.Name).FirstOrDefault()

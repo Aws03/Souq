@@ -89,9 +89,19 @@ public sealed class StockBecameLowHandler : INotificationMessageHandler<StockBec
     public async Task HandleAsync(StockBecameLow low, CancellationToken ct)
     {
         var product = await _products.GetByIdAsync(low.ProductId, ct);
-        var name = NotificationData.Short(product?.NameIn(_tenant.RequireTenant().DefaultCulture) ?? $"#{low.ProductId}");
-        var data = NotificationData.Of(
-            ("productId", low.ProductId), ("productName", name), ("available", low.Available), ("threshold", low.Threshold));
+        var culture = _tenant.RequireTenant().DefaultCulture;
+        var name = NotificationData.Short(product?.NameIn(culture) ?? $"#{low.ProductId}");
+
+        // الحدث من Inventory يحمل معرّف المتغيّر وحده؛ الوصف ("M / أحمر") يُقرأ هنا من تجمّع المنتج نفسه الذي يُحمَّل للاسم —
+        // فلا تعرف Inventory شيئاً عن الخيارات. منتج بلا خيارات لا وصف له، والإشعار كما كان.
+        var label = product?.VariantLabel(low.VariantId, culture);
+        var fields = new List<(string Key, object Value)>
+        {
+            ("productId", low.ProductId), ("productName", name), ("variantId", low.VariantId),
+            ("available", low.Available), ("threshold", low.Threshold),
+        };
+        if (!string.IsNullOrEmpty(label)) fields.Add(("variantLabel", NotificationData.Short(label)));
+        var data = NotificationData.Of([.. fields]);
 
         await OrderStatusChangedHandler.NotifyStaffAsync(_users, _notifications, Permissions.Inventory.View, NotificationKinds.LowStock, data, ct);
         await _uow.SaveChangesAsync(ct);
