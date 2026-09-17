@@ -17,7 +17,7 @@ If a client asks for something none of those can express, it becomes a product f
 
 ## 2. What can be customized, and by whom
 
-"Provision" means the platform owner sets it before handover, through the platform API. "Tenant" means the tenant administrator can edit it afterwards, through PUT `/api/admin/store/settings` (permission `store.settings.manage`). Both paths apply the same validation: `StoreSettingsEditor` on top of the `StoreSettings` value objects.
+"Provision" means the platform owner sets it before handover, through the platform API. "Tenant" means the tenant administrator can edit it afterwards, through the settings screen at `/admin/settings`, which calls PUT `/api/admin/store/settings` (permission `store.settings.manage`). Both paths apply the same validation: `StoreSettingsEditor` on top of the `StoreSettings` value objects.
 
 | Setting | Provision (platform) | After handover (tenant admin) | Validation and notes |
 |---|---|---|---|
@@ -83,7 +83,7 @@ sequenceDiagram
 ## 6. Migration from today
 
 1. **Done in Phase 4:** the settings model was created and the first store was seeded with the original brand's exact look — its palette, its `kufi-tajawal` typography preset, its footer contact details and its announcement. That brand stopped being the product and became a tenant.
-2. **Done in Phase 15** ([ADR-0035](../11-ADR/0035-white-label-runtime.md)): brand references and the hard-coded currency were removed from the frontend, `frontend/index.html` and the committed backend configuration; tenant branding replaced the visitor theme switcher; the four old palettes are no longer offered to visitors. Selectable colour presets belong in a branding editor (**PLANNED**); until then a store's colours are set through the settings API.
+2. **Done in Phase 15** ([ADR-0035](../11-ADR/0035-white-label-runtime.md)): brand references and the hard-coded currency were removed from the frontend, `frontend/index.html` and the committed backend configuration; tenant branding replaced the visitor theme switcher; the four old palettes are no longer offered to visitors. The branding editor now exists (`/admin/settings`), with a live preview in both modes and the Domain's contrast rules checked as the merchant types. Selectable colour *presets* are still not offered: a merchant enters colours.
 
    A visitor-facing **light/dark toggle** returned afterwards, and it is not the old theme switcher: it chooses a *mode*, not a palette. Both modes are derived from the store's own colours, so the identity survives the switch.
 

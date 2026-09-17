@@ -104,6 +104,8 @@ The shell is one `Route` carrying `ProtectedRoute` and `AccountLayout`, so the g
 | `/admin/shipping` | `store.shipping.manage` | — |
 | `/admin/payments` | `store.payments.manage` | — |
 | `/admin/reviews` | `reviews.moderate` | `reviews` |
+| `/admin/staff` | `store.staff.manage` | — |
+| `/admin/settings` | `store.settings.manage` | — |
 
 The same list drives the navigation: `ADMIN_NAV` in `frontend/src/pages/admin/AdminSidebar.jsx` carries the permission and module of each entry, and `useAdminNav` filters it, so the sidebar and the mobile tab bar hide exactly what the route guard would redirect away from.
 

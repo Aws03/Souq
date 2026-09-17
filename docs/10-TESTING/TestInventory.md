@@ -11,7 +11,7 @@
 | [`Souq.Application.Tests`](#souqapplicationtests) | 42 | 288 | 15 |
 | [`Souq.ArchitectureTests`](#souqarchitecturetests) | 13 | 54 | 7 |
 | [`Souq.IntegrationTests`](#souqintegrationtests) | 43 | 218 | 21 |
-| [frontend (Vitest)](#frontend-vitest) | 60 | 399 | — |
+| [frontend (Vitest)](#frontend-vitest) | 64 | 447 | — |
 
 ## Souq.Domain.Tests
 
@@ -170,7 +170,7 @@
 | `frontend/src/app/robots.test.js` | 5 |
 | `frontend/src/app/structuredData.test.js` | 8 |
 | `frontend/src/app/tenantModel.test.js` | 7 |
-| `frontend/src/app/tenantModel.themes.test.js` | 16 |
+| `frontend/src/app/tenantModel.themes.test.js` | 17 |
 | `frontend/src/app/themeMode.test.js` | 9 |
 | `frontend/src/components/ProtectedRoute.test.jsx` | 11 |
 | `frontend/src/components/common/Drawer.test.jsx` | 6 |
@@ -185,7 +185,9 @@
 | `frontend/src/features/admin/products/productPayload.test.js` | 8 |
 | `frontend/src/features/admin/products/productQuery.test.js` | 4 |
 | `frontend/src/features/admin/reviews/reviewModeration.test.js` | 2 |
+| `frontend/src/features/admin/settings/settingsForm.test.js` | 19 |
 | `frontend/src/features/admin/shipping/shippingForm.test.js` | 4 |
+| `frontend/src/features/admin/staff/staffView.test.js` | 11 |
 | `frontend/src/features/auth/safeRedirect.test.js` | 5 |
 | `frontend/src/features/basket/basketModel.test.js` | 4 |
 | `frontend/src/features/catalog/catalogText.test.js` | 5 |
@@ -213,6 +215,8 @@
 | `frontend/src/pages/account/AccountLayout.test.jsx` | 6 |
 | `frontend/src/pages/admin/BusinessOverview.test.jsx` | 10 |
 | `frontend/src/pages/admin/Dashboard.test.jsx` | 11 |
+| `frontend/src/pages/admin/Staff.test.jsx` | 7 |
+| `frontend/src/pages/admin/StoreSettings.test.jsx` | 10 |
 | `frontend/src/pages/checkout/Checkout.test.jsx` | 7 |
 | `frontend/src/pages/checkout/stripeClient.test.js` | 3 |
 | `frontend/src/pages/storefrontPages.test.jsx` | 3 |

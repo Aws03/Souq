@@ -47,6 +47,8 @@ That ordering is the reason dark mode is an *input to derivation* rather than a 
 - `readableAgainst(colour, background, target)` lightens a colour step by step until it clears the ratio. A near-black brand colour that would vanish on a dark background is lightened until it reads, rather than left as a dark smudge.
 - `mutedText` keeps secondary text at 4.5:1, not the 3:1 that "muted" usually degrades into.
 - `readableOn` picks black or white for text sitting on a filled colour.
+- Status colours are made readable against **their own soft surface**, not the page background. A badge is status text on its soft tint; the tint is darker than the background in light mode and lighter in dark mode, so text readable on the tint is readable on the background too. The earlier derivation checked the background only, and green on its badge measured 4.20:1.
+- A highlighted row on the inverted panel keeps `--color-on-panel` for its text and uses the accent only for its edge. Accent text on a lightened overlay fell to 3.39:1, because `--color-accent-on-panel` is computed against the panel, not against what is drawn over it.
 
 `frontend/src/app/tenantModel.themes.test.js` asserts these as ratios, in both modes, including for deliberately hostile palettes (a near-black brand colour, a near-white one).
 
@@ -147,7 +149,7 @@ Arabic and English are not two string tables over one layout. The rules:
 | Screen readers | Charts have table alternatives; decorative SVG is `aria-hidden`; toggles carry `aria-pressed`; alerts use `role="alert"` |
 | Motion | `prefers-reduced-motion` removes both the transitions and the transforms (§4) |
 | Structure | One `<h1>` per page, sections labelled, the range picker is a `role="group"` with a label |
-| Automated checks | `frontend/src/a11y.test.jsx` runs axe-core over rendered pages |
+| Automated checks | `frontend/src/a11y.test.jsx` runs axe-core over rendered pages; `frontend/e2e/store-administration.spec.js` runs it in a real browser, where colour contrast can actually be measured |
 
 Automated checks find perhaps a third of real accessibility defects. The rest came from opening the pages.
 

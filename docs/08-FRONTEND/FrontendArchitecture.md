@@ -227,6 +227,19 @@ Historical record: each table describes what changed **in that phase**, not nece
 | The confirmation page reads its order from the server via `?order=`, and its delivery estimate from the order | Refreshing after payment used to send the buyer back to the storefront as if nothing had happened |
 | **Component, accessibility and source-invariant tests** — 110 → 249 | The empty files, the crashes and the cache leak were all found by writing tests, not by reading code |
 
+**Store settings and team (Phase 17 screens):**
+
+| Change | Reason |
+|---|---|
+| `/admin/settings` (`store.settings.manage`): identity per language, logo, favicon and sharing image, colours with live readability checks, typeface, theme preset and mode, opening reveal, languages and time zone, contact, social links, search text and the announcement bar. Currency is shown read-only | The last store-owned configuration that needed Swagger. Currency, domains and modules are the platform's ([WhiteLabel.md](WhiteLabel.md) §2) |
+| The allowlists, limits and contrast thresholds come from `GET /api/admin/store/settings/options`; `frontend/src/features/admin/settings/settingsForm.js` (tested) checks before saving | Every settings rule reaches the client as one code (`InvalidTenantOperation`) with an Arabic message; an English-speaking merchant would read "not allowed" for any mistake. A copy of the lists in the frontend would drift |
+| The form is built from a full read and sent whole; edits live in a draft over the saved values, so a newer read (an upload, a refocus) never overwrites what was typed | `PUT` replaces the settings document. A form that sent only what it showed would erase social links or SEO text |
+| `StorePreview` applies `themeVariables` to its own frame, light and dark, with the store's own texts and no invented products | The preview shows the derivation the storefront will use, without re-theming the admin around an unsaved choice |
+| `TenantProvider` exposes `refresh()`: re-reads the configuration without the boot screen | `retry()` replaced the whole app with a loading screen; saving a colour must not throw away the page |
+| `/admin/staff` (`store.staff.manage`): server-paged team list, invite with the role explained, resend, enable, disable behind a confirmation. `frontend/src/features/admin/staff/staffView.js` (tested) | Self-disable and the last administrator stay server rules; the screen hides only the action the server is certain to refuse (disabling yourself) |
+| `RowActionsMenu` takes a `label`; the trigger had no accessible name in every admin table | Found by axe in a browser |
+| Status tokens are derived readable against their own soft surface; the active sidebar link uses `--color-on-panel` text | Both failed contrast on real pages (4.20:1 and 3.39:1). See [DesignSystem.md](DesignSystem.md) §2.2 |
+| Browser journeys: `frontend/e2e/store-administration.spec.js`, and both screens added to `frontend/e2e/responsive.spec.js` | One sign-in per file: the auth limiter allows ten a minute, and a reload that aborts an in-flight refresh leaves the browser holding a rotated token |
 
 ## 6. Migration plan: status
 
