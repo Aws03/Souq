@@ -214,14 +214,20 @@ test.describe('اختيار المتغيّر في المتجر', () => {
     await expect(buyButton()).toBeEnabled();
 
     // نفد المتغيّر بعد أن رآه المتسوّق: الصفحة بيدها متاح قديم، والخادم يرفض بما يملكه الآن.
-    const level = await (await request.get(`/api/admin/inventory/variants/${variants.largeRed}/movements`, authed())).json();
-    expect(level.totalCount).toBeGreaterThan(0);
+    const row = (await (await request.get('/api/admin/inventory?pageSize=100', authed())).json())
+      .items.find((i) => i.variantId === variants.largeRed);
+    expect(row.available).toBeGreaterThan(0);
     const drain = await request.post(`/api/admin/inventory/variants/${variants.largeRed}/adjustments`,
-      authed({ data: { delta: -3, reason: 'QA drain' } }));
+      authed({ data: { delta: -row.available, reason: 'QA drain' } }));
     expect(drain.status()).toBe(200);
 
-    await buyButton().click();
-    await expect(page.getByText(/InsufficientStock|المتاح|available/i).first()).toBeVisible({ timeout: 15_000 });
+    // نقرة على الواجهة القديمة كما هي (بلا انتظار حالة الزرّ: الصفحة قد تكون حدّثت نفسها بينهما).
+    await buyButton().dispatchEvent('click');
+
+    // النتيجة التي تهمّ: لا شيء دخل السلّة — الخادم هو من يقرّر، لا حالة الصفحة.
+    await page.goto('/cart');
+    await expect(page.getByText('L / Red')).toHaveCount(0);
+    await expect(page.getByText(/your cart is empty|cart is empty|لا أصناف|سلّتك فارغة/i).first()).toBeVisible();
   });
 
   test('5 · a product whose every variant is sold out stays listed as unavailable', async ({ request }) => {
@@ -251,8 +257,11 @@ test.describe('اختيار المتغيّر في المتجر', () => {
         authed({ data: { delta: 4, reason: 'QA restock' } }))).status()).toBe(200);
     }
 
-    await page.evaluate(() => { localStorage.setItem('souq_lang', 'ar'); localStorage.setItem('souq_theme', 'dark'); });
+    // التبديل من الواجهة نفسها (كما يفعل الزائر): زرّ اللغة ثم زرّ الوضع في الشريط العلوي.
     await page.goto(`/products/${productId}`);
+    await page.getByRole('button', { name: 'Toggle language' }).click();
+    await expect.poll(() => page.evaluate(() => document.documentElement.dir)).toBe('rtl');
+    await page.getByRole('button', { name: 'التبديل بين الفاتح والداكن' }).click();
     await expect.poll(() => page.evaluate(() => document.documentElement.dir)).toBe('rtl');
     await expect.poll(() => page.evaluate(() => document.documentElement.dataset.theme)).toBe('dark');
 
