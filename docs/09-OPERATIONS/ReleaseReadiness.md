@@ -190,7 +190,7 @@ not engineering's to close.
 13. **Has F-8 been classified/resolved?** Measured and designed; **awaiting one owner decision**.
 14. **What remains external?** P-05 only.
 15. **What remains owner/business/legal?** P-03, P-06, D-13, R-03, F-8, branch protection, and the backup schedule/retention.
-16. **What remains purely product functionality?** From roadmap Phases 16–18: product variants in the storefront (Phase 16 🟡 — a model and API change, since every product sells through one default variant), and the storefront preview (D-22) and platform-wide settings (P-07) in Phase 18 🟡, both waiting on owner decisions. Phase 17 is ✅. Phases 19–23 follow.
+16. **What remains purely product functionality?** From roadmap Phases 16–18: product variants in the storefront (Phase 16 🟡 — P-08 is decided and the groundwork is built; the option model and the storefront selection remain, [ProductVariants.md](../04-MODULES/Catalog/ProductVariants.md)), and the storefront preview (D-22) and platform-wide settings (P-07) in Phase 18 🟡, both waiting on owner decisions. Phase 17 is ✅. Phases 19–23 follow.
 17. **Is Souq technically ready for a first deployment?** **Yes, conditionally** — TLS terminated, least-privilege logins applied, backup scheduled. All three are deployment actions with tested mechanisms, and two of the three now announce themselves if skipped.
 18. **Is Souq commercially ready for the first paying customer?** **No.**
 19. **If not, exactly what prevents it?** The licence (P-03), tax (P-06), the JOD verification (P-05), and the three deployment actions above.

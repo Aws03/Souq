@@ -10,7 +10,7 @@ At the last verification:
 - **Branches.** All work is on `phase/17-production-hardening`. It contains every earlier phase branch (`phase/1a-…`, `phase/1b-…`, `phase/2-15-…`, `phase/16-…`) and is **136 commits ahead of `main`**, which holds only Phase 1A. **Nothing on this branch has been pushed** (it has no upstream) **or merged.** Deciding how it reaches `main` is the first decision a new owner makes.
 - **Product.**
   - Roadmap Phases 1A–15 are complete.
-  - Phase 16 (Storefront) is 🟡: product variants can't be chosen.
+  - Phase 16 (Storefront) is 🟡: product variants can't be chosen yet (P-08 decided, V1 groundwork built; V2 and V3 remain).
   - Phase 17 (Tenant admin dashboard) is ✅.
   - Phase 18 (Platform owner dashboard) is 🟡, waiting on owner decisions D-22 and P-07.
   - Phases 19–23 have not started.
@@ -119,7 +119,7 @@ Detail: [Payments module](../04-MODULES/Payments/README.md), [OwnerDecisions.md]
 
 ## 13. Open owner decisions
 
-- [ ] Every row of [OwnerDecisions.md](../09-OPERATIONS/OwnerDecisions.md) has a named decider and a date: P-03, P-05, P-06, D-13, R-03, F-8, D-22 (storefront preview, [brief](../04-MODULES/Platform/StorefrontPreview.md)), P-07 (platform-wide settings), P-08 (product variants, [proposal](../04-MODULES/Catalog/ProductVariants.md)), plus the smaller choices listed there.
+- [ ] Every row of [OwnerDecisions.md](../09-OPERATIONS/OwnerDecisions.md) has a named decider and a date: P-03, P-05, P-06, D-13, R-03, F-8, D-22 (storefront preview, [brief](../04-MODULES/Platform/StorefrontPreview.md)), P-07 (platform-wide settings), plus the smaller choices listed there.
 
 ## 14. External dependencies
 
@@ -140,7 +140,7 @@ Detail: [Payments module](../04-MODULES/Payments/README.md), [OwnerDecisions.md]
 - [ ] [ProductRoadmap.md](../12-ROADMAP/ProductRoadmap.md) status line and decision log read.
 - [ ] Next product work agreed. At the last verification, the options were:
   - storefront preview once D-22 is decided;
-  - product variants in the storefront, which needs a model and API change;
+  - product variants: the option model and admin (V2), then the storefront selection (V3), per [ProductVariants.md](../04-MODULES/Catalog/ProductVariants.md);
   - the roadmap's Phase 19 (Testing) and Phase 20 (Security review);
   - the engineering-owned release blockers.
 - [ ] Engineering missions (hardening, knowledge passes) take a name, not a roadmap number (`AGENTS.md` §5).

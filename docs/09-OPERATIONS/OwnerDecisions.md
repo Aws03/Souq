@@ -207,30 +207,22 @@ closed store answers `503` to visitors and refuses the platform owner's token.
 
 ---
 
-## P-08 — Product variants: how they differ, how they are priced on screen, how they are chosen
+## P-08 — Product variants: how they differ, how they are priced on screen, how they are chosen — DECIDED
 
-**The question.** Three answers unblock a variant picker (size, colour, capacity…):
-- **(a)** do variants differ by up to three structured options with translated values, or by a free-form label each?
-- **(b)** for a product whose variants have different prices, what do cards, search, sorting, price filters, the on-sale badge and structured data show: the default variant's price, "from" the lowest sellable price, or a range?
-- **(c)** must a shopper choose explicitly, or is a variant preselected; and are sold-out combinations shown disabled or hidden?
+**Decided by the owner on 2026-09-17** and recorded in [ADR-0039](../11-ADR/0039-product-variants-order-identity.md):
+- **(a) How variants differ:** structured named options, with at most 3 options per product, 20 values per option and 100 variants per product.
+- **(b) The price a multi-variant product shows in lists:** "From" the lowest price among variants that can currently be purchased.
+- **(c) Choosing a variant:** an explicit choice is required, and sold-out options stay visible but disabled.
 
-Also for confirmation: the proposed limits of 3 options, 20 values per option and 100 variants per product.
+**What happened next.** The groundwork (V1) is built: order lines record the variant, basket and checkout carry it, and stock is administered per variant. The option model and admin (V2) and the storefront selection (V3) are unblocked. The status and remaining plan are in [ProductVariants.md](../04-MODULES/Catalog/ProductVariants.md).
 
-**Why it matters.** These decide what a merchant enters and what a shopper sees and pays for.
-- A preselected wrong size is a return.
-- A price shown in a list that no available variant has is a broken promise.
-- Choosing free-form labels now and structured options later means re-entering every variant.
-
-**Affected code.** Catalog (`Product`, `ProductVariant`), the storefront projections (`CatalogQueries`), the basket and checkout contracts (`PricingLine`), order lines (`OrderItem`), inventory administration, and the storefront and admin screens. The traced analysis and a proposed model are in [ProductVariants.md](../04-MODULES/Catalog/ProductVariants.md).
+**Still to confirm when V3 is built** (presentation defaults from the proposal, not covered by the answers above):
+- deactivated variants are hidden from shoppers rather than shown disabled;
+- a product with no purchasable variant stays listed as "unavailable".
 
 | Engineering | Deployment | First paying customer |
 |---|---|---|
-| **Partly** — the groundwork (phase V1: variant on order lines, variant ids through basket and checkout, variant-keyed inventory administration) needs no decision; the model, admin and storefront phases do | No | No — unless that customer's catalogue needs variants |
-
-**Evidence that exists.** Every place the one-variant assumption lives, traced in the code; the proof that existing order lines can be backfilled with their exact variant (every product has had exactly one variant since Phase 5).
-**Evidence still required:** none. Only the choices.
-
-**Who decides.** The owner, as a merchandising and customer-experience call.
+| No longer blocked | No | No — unless that customer's catalogue needs variants before V3 ships |
 
 ---
 
