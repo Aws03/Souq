@@ -12,8 +12,8 @@ const SCHEMA = 'https://schema.org';
 
 /**
  * ما تعرفه واجهة المتجر عن منتج (ProductDto من الخادم) — الحقول التي يقرؤها هذا الملف فقط.
- * @typedef {{price?: number, currency?: string, stockQuantity?: number,
- *            brand?: string|null, categoryName?: string|null} & Record<string, any>} StorefrontProduct
+ * @typedef {{price?: number, currency?: string, stockQuantity?: number, brand?: string|null, categoryName?: string|null,
+ *            variants?: {price: number, available: number}[]|null} & Record<string, any>} StorefrontProduct
  */
 
 /**
@@ -35,12 +35,31 @@ export function productStructuredData({ product, url, name, description, image, 
   if (product.brand) data.brand = { '@type': 'Brand', name: product.brand };
   if (product.categoryName) data.category = product.categoryName;
 
-  if (product.price != null && product.currency) {
+  // العرض (V3): منتج بعدّة متغيّرات يمكن شراؤها بأسعار مختلفة يُنشر كنطاق (AggregateOffer) من أسعار ما **يمكن
+  // شراؤه الآن** فقط — فلا يُعلَن سعرٌ لمتغيّر معطّل أو نافد، ولا سعرٌ لا يستطيع أحد شراءه به.
+  const purchasable = (product.variants ?? []).filter((variant) => variant.available > 0);
+  if (purchasable.length > 1 && product.currency) {
+    const prices = purchasable.map((variant) => Number(variant.price));
+    const low = Math.min(...prices);
+    const high = Math.max(...prices);
+    data.offers = {
+      '@type': 'AggregateOffer',
+      lowPrice: String(low),
+      highPrice: String(high),
+      offerCount: purchasable.length,
+      priceCurrency: product.currency,
+      availability: `${SCHEMA}/InStock`,
+      url,
+    };
+  } else if (product.price != null && product.currency) {
+    // السعر الواحد: سعر المتغيّر الوحيد القابل للشراء، أو سعر المنتج كما حسبه الخادم — والتوفّر من المتاح فعلاً.
+    const single = purchasable.length === 1 ? Number(purchasable[0].price) : product.price;
+    const inStock = (product.variants ? purchasable.length > 0 : product.stockQuantity > 0);
     data.offers = {
       '@type': 'Offer',
-      price: String(product.price),
+      price: String(single),
       priceCurrency: product.currency,
-      availability: `${SCHEMA}/${product.stockQuantity > 0 ? 'InStock' : 'OutOfStock'}`,
+      availability: `${SCHEMA}/${inStock ? 'InStock' : 'OutOfStock'}`,
       url,
     };
   }

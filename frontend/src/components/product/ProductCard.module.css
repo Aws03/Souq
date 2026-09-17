@@ -91,3 +91,14 @@
   .card:hover .media img { transform: none; }
   .wishBtn:hover { transform: none; }
 }
+
+/* "اختر الخيارات" (V3): رابط بهيئة زرّ ثانوي — انتقال لصفحة المنتج لا إضافة تفترض مقاساً. */
+.chooseLink {
+  display: inline-flex; align-items: center; justify-content: center; white-space: nowrap;
+  padding: 7px 14px; border-radius: 10px; border: 1px solid var(--color-border);
+  background: var(--color-surface); color: var(--color-primary);
+  font-size: var(--fs-caption); font-weight: 700; text-decoration: none;
+  transition: border-color var(--ease-hover), background var(--ease-hover);
+}
+.chooseLink:hover { border-color: var(--color-primary); }
+html[data-theme='dark'] .chooseLink { color: var(--color-text); }

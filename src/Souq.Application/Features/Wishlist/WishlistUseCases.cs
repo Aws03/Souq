@@ -16,9 +16,12 @@ namespace Souq.Application.Features.Wishlist;
 
 // الشكل نفسه الذي تعرضه بطاقة المنتج في الواجهة (id، translations، price…) كي تُعرض المفضّلة بالبطاقة ذاتها.
 public sealed record WishlistText(string Name);
+// السعر كما في المتجر (V3): أرخص ما يمكن شراؤه. PriceIsFrom وVariantChoiceRequired بمعناهما في ProductDto — بطاقة
+// المفضّلة هي بطاقة المنتج نفسها، فتحتاج ما تحتاجه: "ابتداءً من"، وأن الإضافة تمرّ بصفحة المنتج لاختيار المتغيّر.
 public sealed record WishlistItemDto(
     int Id, string Slug, string Name, IReadOnlyDictionary<string, WishlistText> Translations,
-    decimal Price, decimal? CompareAtPrice, string Currency, int StockQuantity, string? ImageUrl, DateTime AddedAt);
+    decimal Price, decimal? CompareAtPrice, string Currency, int StockQuantity, string? ImageUrl, DateTime AddedAt,
+    bool PriceIsFrom = false, bool VariantChoiceRequired = false);
 public sealed record WishlistDto(IReadOnlyList<WishlistItemDto> Items);
 
 public interface IWishlistQueries

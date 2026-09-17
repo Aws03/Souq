@@ -22,6 +22,8 @@ export const toCartItems = (basket) => (basket?.lines ?? []).map((line) => ({
   currency: basket.currency,
   sellable: line.sellable,
   available: line.available,
+  // وصف المتغيّر الحيّ من الخادم (V3): null لمنتج بلا خيارات.
+  variantLabel: line.variantLabel ?? null,
 }));
 
 // مشكلة سطر تمنع الدفع: لم يعد متاحاً للبيع، أو كميته أكبر من المتاح الآن (السلة لا تحجز — ADR-0026).

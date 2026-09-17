@@ -6,6 +6,10 @@
 // داخل المنتج نفسه (قيمة منتج آخر، تركيبة مكرّرة، قيمة مستخدمة) مهما قال هذا الملف.
 // ============================================================================
 import { CATALOG_CULTURES } from '../../catalog/catalogText';
+import { LABEL_SEPARATOR, combinationKey, nameIn, variantLabel } from '../../catalog/variantLabel';
+
+// قاعدة الوصف وأسماء اللغات مشتركة مع واجهة المتجر (variantLabel.js) — تُعاد هنا كي يبقى مستوردوها كما هم.
+export { LABEL_SEPARATOR, combinationKey, nameIn, variantLabel };
 
 /**
  * @typedef {Record<string, string>} Names
@@ -22,8 +26,6 @@ import { CATALOG_CULTURES } from '../../catalog/catalogText';
  * @typedef {{ key: string, id: number|null, names: Names, values: ValueForm[], existingVariantsValue: string|null }} OptionForm
  */
 
-export const LABEL_SEPARATOR = ' / ';
-
 let nextKey = 0;
 const newKey = () => `new-${++nextKey}`;
 
@@ -31,18 +33,6 @@ const emptyNames = () => Object.fromEntries(CATALOG_CULTURES.map((culture) => [c
 
 /** @param {Names|undefined} names @returns {Names} */
 const namesToForm = (names) => ({ ...emptyNames(), ...(names ?? {}) });
-
-/**
- * الاسم بلغة الواجهة، وإلا أول لغة متاحة بترتيب ثابت — القاعدة نفسها على الخادم (VariantLabels).
- * @param {Names|undefined} names
- * @param {string} lang
- */
-export function nameIn(names, lang) {
-  const value = names?.[lang]?.trim();
-  if (value) return value;
-  const fallback = Object.keys(names ?? {}).sort().map((culture) => names?.[culture]?.trim()).find(Boolean);
-  return fallback ?? '';
-}
 
 // ── نموذج الخيارات ──────────────────────────────────────────────────────────
 
@@ -145,27 +135,6 @@ export function usedValueIds(variants) {
 }
 
 // ── المتغيّرات ──────────────────────────────────────────────────────────────
-
-/**
- * وصف المتغيّر بلغة الواجهة: قيمه بترتيب الخيارات ("M / أحمر")؛ فارغ لمنتج بلا خيارات.
- * @param {ProductOption[]} options
- * @param {number[]} valueIds
- * @param {string} lang
- */
-export function variantLabel(options, valueIds, lang) {
-  const ids = new Set(valueIds);
-  return [...(options ?? [])].sort((a, b) => a.position - b.position)
-    .map((option) => option.values.find((value) => ids.has(value.id)))
-    .filter(Boolean)
-    .map((value) => nameIn(value?.names, lang))
-    .join(LABEL_SEPARATOR);
-}
-
-/**
- * مفتاح تركيبة للمقارنة في الواجهة (المعرّفات مرتّبة) — الخادم يفرض تفرّدها بمفتاحه وفهرسه.
- * @param {number[]} valueIds
- */
-export const combinationKey = (valueIds) => [...valueIds].sort((a, b) => a - b).join('.');
 
 /**
  * التركيبات التي لا متغيّر لها بعد (المعطّل يُعدّ موجوداً)، بترتيب الخيارات والقيم — أساس "أنشئ التركيبات الناقصة".

@@ -28,7 +28,7 @@ export default function CartDrawer({ open, onClose, onCheckout }) {
       {items.length === 0 ? (
         <EmptyState icon={PackageIcon} title={t('cart.emptyTitle')} message={t('cart.emptyMessage')} />
       ) : (
-        items.map((i) => <CartLine key={i.id} item={i} onInc={inc} onDec={dec} onRemove={remove} />)
+        items.map((i) => <CartLine key={i.variantId} item={i} onInc={inc} onDec={dec} onRemove={remove} />)
       )}
     </Drawer>
   );

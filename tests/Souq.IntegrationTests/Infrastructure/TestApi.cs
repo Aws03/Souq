@@ -186,7 +186,7 @@ public sealed class TestApi
         decimal Shipping, decimal Tax, decimal Total, BasketCouponBody? Coupon, bool ReadyForCheckout);
     public sealed record BasketLineBody(
         int ProductId, int VariantId, string Name, string? ImageUrl, decimal UnitPrice, int Quantity, decimal LineTotal,
-        bool Sellable, int Available);
+        bool Sellable, int Available, string? VariantLabel = null);
     public sealed record BasketCouponBody(string Code, bool Applied, string? ErrorCode, string? Message);
 
     // شكل PaginatedList في JSON — عقد كل القوائم المرقّمة.

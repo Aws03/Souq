@@ -89,7 +89,16 @@
     "tabVideo": "فيديو",
     "relatedTitle": "منتجات ذات صلة",
     "breadcrumbAria": "مسار التصفّح",
-    "openGallery": "عرض صور {{name, bidi}}"
+    "openGallery": "عرض صور {{name, bidi}}",
+    "priceFrom": "ابتداءً من {{price}}",
+    "chooseOptions": "اختر الخيارات",
+    "variant": {
+      "choose": "اختر",
+      "chooseFirst": "اختر {{options}} لإضافته إلى سلّتك.",
+      "separator": " و",
+      "soldOut": "نفد",
+      "unavailableWithSelection": "هذه التركيبة غير متاحة. اختر قيمة أخرى."
+    }
   },
   "reviews": {
     "addTitle": "أضف تقييمك",

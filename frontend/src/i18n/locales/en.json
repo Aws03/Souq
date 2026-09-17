@@ -86,7 +86,16 @@
     "tabVideo": "Video",
     "relatedTitle": "Related products",
     "breadcrumbAria": "Breadcrumb",
-    "openGallery": "View images of {{name, bidi}}"
+    "openGallery": "View images of {{name, bidi}}",
+    "priceFrom": "From {{price}}",
+    "chooseOptions": "Choose options",
+    "variant": {
+      "choose": "Choose",
+      "chooseFirst": "Choose {{options}} to add this to your basket.",
+      "separator": " and ",
+      "soldOut": "sold out",
+      "unavailableWithSelection": "That combination is not available. Try another value."
+    }
   },
   "reviews": {
     "addTitle": "Add your review",

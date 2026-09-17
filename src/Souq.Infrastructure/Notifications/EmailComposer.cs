@@ -48,6 +48,10 @@ internal sealed class EmailComposer : IEmailComposer
         yield return (labels.Total, Money("total"));
     }
 
+    // وصف المتغيّر بين قوسين بعد اسم المنتج ("قميص (M / أحمر)") — لقطة الطلب كما هي، ولا شيء لمنتج بلا خيارات (V3).
+    private static string Variant(EmailLine line) =>
+        string.IsNullOrWhiteSpace(line.Variant) ? "" : $" ({line.Variant})";
+
     private sealed record OrderText(string Items, string Subtotal, string Discount, string Shipping, string Total);
 
     private static readonly IReadOnlyDictionary<string, OrderText> OrderLabels = new Dictionary<string, OrderText>
@@ -100,7 +104,7 @@ internal sealed class EmailComposer : IEmailComposer
           <table width=""100%"" cellpadding=""0"" cellspacing=""0"" style=""border-collapse:collapse;font-size:14px;"">");
             foreach (var line in lines)
                 html.Append($@"
-            <tr><td style=""padding:6px 0;border-bottom:1px solid #EFEDE8;text-align:{align};"">{E(line.Name)} × {line.Quantity}</td>
+            <tr><td style=""padding:6px 0;border-bottom:1px solid #EFEDE8;text-align:{align};"">{E(line.Name)}{E(Variant(line))} × {line.Quantity}</td>
                 <td style=""padding:6px 0;border-bottom:1px solid #EFEDE8;text-align:{(rtl ? "left" : "right")};"" dir=""ltr"">{E(line.LineTotal)}</td></tr>");
             foreach (var (label, value) in totals)
                 html.Append($@"
@@ -138,7 +142,7 @@ internal sealed class EmailComposer : IEmailComposer
         if (lines.Count > 0)
         {
             text.AppendLine().AppendLine(OrderLabels[culture].Items);
-            foreach (var line in lines) text.AppendLine($"- {line.Name} × {line.Quantity}: {line.LineTotal}");
+            foreach (var line in lines) text.AppendLine($"- {line.Name}{Variant(line)} × {line.Quantity}: {line.LineTotal}");
             foreach (var (label, value) in totals) text.AppendLine($"{label}: {value}");
         }
         if (url is not null) text.AppendLine().AppendLine(url);

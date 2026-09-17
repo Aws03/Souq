@@ -5,7 +5,7 @@ const basket = {
   currency: 'JOD',
   lines: [
     { productId: 5, variantId: 50, name: 'سماعات', translations: { ar: { name: 'سماعات' } }, imageUrl: '/a.png',
-      unitPrice: 12.5, quantity: 2, lineTotal: 25, sellable: true, available: 4 },
+      unitPrice: 12.5, quantity: 2, lineTotal: 25, sellable: true, available: 4, variantLabel: 'M / أحمر' },
     { productId: 6, variantId: 60, name: 'شاحن', translations: {}, imageUrl: null,
       unitPrice: 3, quantity: 1, lineTotal: 3, sellable: false, available: 0 },
   ],
@@ -17,8 +17,10 @@ describe('basket model', () => {
 
     expect(first).toEqual({
       id: 5, variantId: 50, name: 'سماعات', translations: { ar: { name: 'سماعات' } }, imageUrl: '/a.png',
-      price: 12.5, qty: 2, lineTotal: 25, currency: 'JOD', sellable: true, available: 4,
+      price: 12.5, qty: 2, lineTotal: 25, currency: 'JOD', sellable: true, available: 4, variantLabel: 'M / أحمر',
     });
+    // سطر لمنتج بلا خيارات: لا وصف (المنتج البسيط كما كان قبل V3).
+    expect(toCartItems(basket)[1].variantLabel).toBeNull();
     expect(toCartItems(null)).toEqual([]);
   });
 

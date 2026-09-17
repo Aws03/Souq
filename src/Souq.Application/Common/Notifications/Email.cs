@@ -26,7 +26,8 @@ public enum EmailTemplate
 public sealed record EmailBranding(string StoreName, string? LogoUrl, string PrimaryColor, string OnPrimaryColor, string? ContactEmail);
 
 // سطر في رسالة طلب: لقطة الاسم والكمية وإجمالي السطر كما جُمّدت على الطلب لحظة الشراء — لا يُحسب شيء عند الإرسال.
-public sealed record EmailLine(string Name, int Quantity, string LineTotal);
+// Variant: لقطة وصف المتغيّر المشترى ("M / أحمر"؛ null لمنتج بلا خيارات) — من الطلب لا من الكتالوج اليوم (V3).
+public sealed record EmailLine(string Name, int Quantity, string LineTotal, string? Variant = null);
 
 // Values: قيم القالب (رقم الطلب، الإجمالي، اسم الجهة الداعية…) نصوصاً خاماً — القالب يرمّزها لـ HTML.
 // Lines: أسطر الطلب حين تعني الرسالة طلباً؛ فارغة لغيرها.

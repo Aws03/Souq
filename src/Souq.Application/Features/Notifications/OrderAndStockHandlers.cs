@@ -156,7 +156,7 @@ public sealed class OrderEmailHandler : INotificationMessageHandler<OrderEmailRe
         if (order.ShippingAmount > 0) values["shipping"] = Amount(order.ShippingAmount);
 
         var lines = order.Items
-            .Select(item => new EmailLine(item.ProductName, item.Quantity, Amount(item.LineTotal.Amount)))
+            .Select(item => new EmailLine(item.ProductName, item.Quantity, Amount(item.LineTotal.Amount), item.VariantLabel))
             .ToList();
 
         await _emails.SendAsync(customer.Email, template!.Value, origin, StorefrontLinks.OrderTracking(origin, order.TrackingToken),

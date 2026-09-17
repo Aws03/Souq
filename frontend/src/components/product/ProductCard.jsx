@@ -9,6 +9,7 @@ import ProductImage from './ProductImage';
 import { HeartIcon } from '../icons/Icons';
 import { PriceTag, getProductName } from './ProductBadges';
 import { productPath } from '../../features/catalog/productRouting';
+import { hasVariantChoice } from '../../features/catalog/variantSelection';
 import styles from './ProductCard.module.css';
 
 // بطاقة منتج نظيفة (نمط الكتالوج المرجعي): صورة كاملة بلا قصّ، الاسم، السعر،
@@ -32,6 +33,9 @@ export default function ProductCard({ product, onAdded, isNew = false, layout = 
   const wishlistEnabled = useModule('wishlist');   // وحدة المفضّلة (المرحلة 15): معطّلة ⇒ لا قلب
   const [adding, setAdding] = useState(false);
   const outOfStock = product.stockQuantity <= 0;
+  // منتج بأكثر من متغيّر معروض يُختار متغيّره في صفحته (P-08c): البطاقة تقود إليها بدل إضافة يرفضها الخادم
+  // (VariantRequired). الشرط من الخادم (variantChoiceRequired) لا من السعر ولا من تخمين في الواجهة.
+  const needsChoice = product.variantChoiceRequired || hasVariantChoice(product);
   const inWishlist = wishlist.has(product.id);
   const name = getProductName(product);
   const variant = CARD_VARIANTS.includes(layout) ? layout : 'grid';
@@ -66,12 +70,18 @@ export default function ProductCard({ product, onAdded, isNew = false, layout = 
           <Link to={productPath(product)} className={styles.nameLink}>{name}</Link>
         </h3>
         <div className={styles.foot}>
-          <PriceTag amount={product.price} currency={product.currency} compareAt={product.compareAtPrice} />
-          {showAddButton && (
+          <PriceTag amount={product.price} currency={product.currency} compareAt={product.compareAtPrice}
+            from={!!product.priceIsFrom} />
+          {/* منتج بخيارات: رابط لصفحته (اختيار المتغيّر هناك) لا زرّ إضافة يفترض مقاساً — ورابطٌ لا زرّ لأنه انتقال. */}
+          {showAddButton && (needsChoice ? (
+            <Link to={productPath(product)} className={styles.chooseLink}>
+              {outOfStock ? t('product.outOfStock') : t('product.chooseOptions')}
+            </Link>
+          ) : (
             <Button variant="primary" size="sm" loading={adding} disabled={outOfStock} onClick={handleAdd}>
               {outOfStock ? t('product.outOfStock') : t('product.addToCart')}
             </Button>
-          )}
+          ))}
         </div>
       </div>
     </article>

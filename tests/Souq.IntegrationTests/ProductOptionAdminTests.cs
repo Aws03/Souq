@@ -178,20 +178,28 @@ public class ProductOptionAdminTests
     }
 
     [Fact]
-    public async Task واجهة_المتجر_تخفي_منتجاً_بأكثر_من_متغيّر_نشط_حتى_اختيار_المتغيّر_وتعيده_بمتغيّر_واحد()
+    public async Task واجهة_المتجر_تعرض_منتجاً_بأكثر_من_متغيّر_نشط_وتسعّره_بأرخص_ما_يمكن_شراؤه()
     {
         var admin = await _api.AdminAsync();
         var (productId, product) = await SizedProductAsync(admin, ["S", "M"], stock: 4);
         var anonymous = _api.Anonymous();
-        (await anonymous.GetAsync($"/api/products/{productId}")).StatusCode.Should().Be(HttpStatusCode.OK, "بخيار ومتغيّر واحد ما زال منتجاً بسيطاً للمتجر");
+        (await anonymous.GetAsync($"/api/products/{productId}")).StatusCode.Should().Be(HttpStatusCode.OK);
 
-        var medium = (await CreateVariantsOkAsync(admin, productId, new { optionValueIds = new[] { ValueId(product, "المقاس", "M") }, price = 12m, initialStock = 9 })).Single();
-        (await anonymous.GetAsync($"/api/products/{productId}")).StatusCode.Should().Be(HttpStatusCode.NotFound);
-        (await IdsAsync(anonymous, "/api/products?pageSize=100")).Should().NotContain(productId);
+        // بوّابة V2 المؤقّتة (متغيّر نشط واحد) أُزيلت في V3 مع بناء اختيار المتغيّر (ADR-0041): المنتج يُعرض ويُشترى
+        // باختيار صريح، وسعره أرخص ما يمكن شراؤه — لا سعر المتغيّر الافتراضي.
+        var medium = (await CreateVariantsOkAsync(admin, productId,
+            new { optionValueIds = new[] { ValueId(product, "المقاس", "M") }, price = 8m, initialStock = 9 })).Single();
 
-        (await admin.PutAsJsonAsync($"/api/admin/products/{productId}/variants/{medium}/status", new { isActive = false })).EnsureSuccessStatusCode();
-        var visible = await anonymous.GetFromJsonAsync<StorefrontProductBody>($"/api/products/{productId}", TestApi.Json);
-        visible.Should().BeEquivalentTo(new { Price = 10m, StockQuantity = 4 }, "مخزون المتغيّر المعطّل لا يُعرض متاحاً للبيع");
+        var shown = await anonymous.GetFromJsonAsync<StorefrontProductBody>($"/api/products/{productId}", TestApi.Json);
+        shown.Should().BeEquivalentTo(new { Price = 8m, StockQuantity = 13, PriceIsFrom = true });
+        (await IdsAsync(anonymous, "/api/products?pageSize=100")).Should().Contain(productId);
+
+        // تعطيل المتغيّر الأرخص يعيد السعر المعروض إلى ما بقي شراؤه ممكناً.
+        (await admin.PutAsJsonAsync($"/api/admin/products/{productId}/variants/{medium}/status", new { isActive = false }))
+            .EnsureSuccessStatusCode();
+        var afterDeactivation = await anonymous.GetFromJsonAsync<StorefrontProductBody>($"/api/products/{productId}", TestApi.Json);
+        afterDeactivation.Should().BeEquivalentTo(new { Price = 10m, StockQuantity = 4, PriceIsFrom = false },
+            "مخزون المتغيّر المعطّل لا يُعرض متاحاً للبيع");
     }
 
     [Fact]
@@ -325,6 +333,6 @@ public class ProductOptionAdminTests
     private sealed record InventoryRowBody(int Id, int VariantId, string? Sku, int OnHand, string? VariantLabel, bool VariantIsActive);
     private sealed record OrderBody(List<OrderItemBody> Items);
     private sealed record OrderItemBody(int VariantId, string? VariantLabel, string? Sku);
-    private sealed record StorefrontProductBody(int Id, decimal Price, int StockQuantity);
+    private sealed record StorefrontProductBody(int Id, decimal Price, int StockQuantity, bool PriceIsFrom);
     private sealed record NotificationBody(int Id, string Kind, Dictionary<string, string> Data, bool IsRead);
 }

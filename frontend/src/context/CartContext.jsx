@@ -40,18 +40,19 @@ export function CartProvider({ children }) {
   const items = useMemo(() => toCartItems(basket), [basket]);
 
   const value = useMemo(() => {
-    const change = (id, delta) => {
-      const item = items.find((i) => i.id === id);
-      return item ? run(() => api.setBasketQuantity(id, nextQuantity(item, delta))) : Promise.resolve(false);
+    // السطر يُعرَّف بمتغيّره لا بمنتجه (V3): منتج واحد بمقاسين سطران، ومسارات المنتج تردّ VariantRequired عليهما.
+    const change = (variantId, delta) => {
+      const item = items.find((i) => i.variantId === variantId);
+      return item ? run(() => api.setBasketVariantQuantity(variantId, nextQuantity(item, delta))) : Promise.resolve(false);
     };
     return {
       basket, items, loaded,
       total: basket.subtotal,
       count: basket.itemCount,
-      add: (product, quantity = 1) => run(() => api.addToBasket(product.id, quantity)),
-      inc: (id) => change(id, 1),
-      dec: (id) => change(id, -1),
-      remove: (id) => run(() => api.removeFromBasket(id)),
+      add: (product, quantity = 1, variantId = null) => run(() => api.addToBasket(product.id, quantity, variantId)),
+      inc: (variantId) => change(variantId, 1),
+      dec: (variantId) => change(variantId, -1),
+      remove: (variantId) => run(() => api.removeBasketVariant(variantId)),
       reload,
     };
   }, [basket, items, loaded, run, reload]);

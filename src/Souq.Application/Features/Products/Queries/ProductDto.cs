@@ -26,12 +26,38 @@ public static class CatalogTexts
         input is not null && input.Keys.Any(k => string.Equals(k?.Trim(), culture, StringComparison.OrdinalIgnoreCase));
 }
 
+// ============================================================================
 // منتج في المتجر (قائمة أو تفاصيل). Images: كل الصور المرتّبة في التفاصيل، وnull في القوائم (الرئيسية تكفي).
+//
+// السعر (V3، ADR-0041): سعر أرخص متغيّر يمكن شراؤه الآن (نشط وله متاح) — "ابتداءً من" حين تختلف أسعار ما يمكن شراؤه
+// (PriceIsFrom، قرار P-08b). لا متغيّر قابلاً للشراء ⇒ سعر أرخص متغيّر نشط، والمنتج يبقى معروضاً غير متاح (StockQuantity=0).
+// CompareAtPrice لمتغيّر السعر المعروض نفسه — لا تركيب بين متغيّرين.
+//
+// VariantChoiceRequired: للمنتج أكثر من متغيّر معروض ⇒ لا يُضاف بمعرّف المنتج وحده (VariantRequired من الخادم)، فالقائمة
+// تقود لصفحته بدل زرّ إضافة يفشل. وهو شرط الخادم نفسه (Product.ImplicitVariant is null) لا تخميناً في الواجهة.
+//
+// Options وVariants في التفاصيل وحدها، ولمنتج له خيارات فقط (منتج بسيط: null، فعقده كما كان حرفياً). المعطّل لا يُعرض
+// إطلاقاً: لا متغيّراً ولا قيمةَ خيار لا يستخدمها متغيّر نشط. SKU ليس في العقد العام (رمز مستودع، يظهر للمشتري على طلبه).
+// ============================================================================
 public sealed record ProductDto(
     int Id, string Slug, string Name, string? Description, IReadOnlyDictionary<string, CatalogTextDto> Translations,
     decimal Price, decimal? CompareAtPrice, string Currency, int StockQuantity,
     string? ImageUrl, IReadOnlyList<string>? Images, string? VideoUrl,
-    int CategoryId, string? CategoryName, string? Brand);
+    int CategoryId, string? CategoryName, string? Brand,
+    bool PriceIsFrom = false,
+    bool VariantChoiceRequired = false,
+    IReadOnlyList<ProductOptionDto>? Options = null,
+    IReadOnlyList<ProductVariantDto>? Variants = null);
+
+// خيار وقيمه بكل لغات المتجر (الواجهة تعرض لغتها وتعود لغيرها) — بترتيب التاجر.
+public sealed record ProductOptionDto(
+    int Id, IReadOnlyDictionary<string, string> Names, IReadOnlyList<ProductOptionValueDto> Values);
+
+public sealed record ProductOptionValueDto(int Id, IReadOnlyDictionary<string, string> Names);
+
+// متغيّر نشط كما يحتاجه اختيار المتسوّق: قيمه، سعره وسعر مقارنته، والمتاح الآن (0 ⇒ نفد: يُعرض ولا يُشترى، P-08c).
+public sealed record ProductVariantDto(
+    int Id, IReadOnlyList<int> OptionValueIds, decimal Price, decimal? CompareAtPrice, int Available);
 
 public sealed record ProductImageDto(int Id, string Url, int SortOrder);
 

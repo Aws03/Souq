@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate, useOutletContext, useParams } from 'react-router-dom';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Link, useNavigate, useOutletContext, useParams, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
@@ -15,6 +15,7 @@ import { ErrorBanner } from '../components/common/StateViews';
 import { CategoryBadge, PriceTag, StockBadge, getProductDescription, getProductName } from '../components/product/ProductBadges';
 import { ChevronIcon } from '../components/icons/Icons';
 import ProductZoom from '../components/product/ProductZoom';
+import VariantPicker from '../components/product/VariantPicker';
 import StarRating from '../components/product/StarRating';
 import RatingSummary from '../components/reviews/RatingSummary';
 import ReviewForm from '../components/reviews/ReviewForm';
@@ -22,6 +23,9 @@ import ReviewList from '../components/reviews/ReviewList';
 import ProductSection from '../components/store/ProductSection';
 import Stepper from '../components/common/Stepper';
 import { isProductId, needsCanonicalRedirect, productPath } from '../features/catalog/productRouting';
+import {
+  allSoldOut, hasVariantChoice, initialSelection, missingOptionNames, purchaseState, selectValue, valueStates, variantFor,
+} from '../features/catalog/variantSelection';
 import { breadcrumbStructuredData, productStructuredData } from '../app/structuredData';
 import { useStructuredData } from '../app/useStructuredData';
 import { canonicalUrl } from '../app/pageMetadata';
@@ -33,8 +37,10 @@ const REVIEWS_PAGE_SIZE = 5;
 // صفحة تفصيل منتج: صورة كبيرة + بيانات كاملة + إضافة للسلة، وأسفلها التقييمات
 // (متوسط + قائمة مرقّمة + نموذج إضافة تقييم لمن يحقّ له).
 export default function ProductDetail() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const lang = i18n.language?.startsWith('en') ? 'en' : 'ar';
   const { handle } = useParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
   const { add } = useCart();
@@ -44,6 +50,8 @@ export default function ProductDetail() {
   const [adding, setAdding] = useState(false);
   const [quantity, setQuantity] = useState(1);
   const [page, setPage] = useState(1);
+  // اختيار المتسوّق، أو null قبل أن يختار: حينها الاختيار الابتدائي من الرابط (?variant=) أو من المتغيّر الوحيد.
+  const [chosen, setChosen] = useState(null);
 
   // الرابط قد يحمل الاسم (القانوني) أو المعرّف (روابط قديمة ومشاركات سابقة) — كلاهما يعمل.
   const { data: product, error: productError } = useQuery({
@@ -56,10 +64,39 @@ export default function ProductDetail() {
   useEffect(() => {
     if (!needsCanonicalRedirect(handle, product)) return;
     queryClient.setQueryData(queryKeys.product(product.slug), product);
-    navigate(productPath(product), { replace: true });
+    // الاستعلام يبقى: رابط مُشارَك بمعرّف المنتج ومتغيّره (?variant=) لا يفقد المتغيّر عند تحويله لشكله القانوني.
+    navigate({ pathname: productPath(product), search: window.location.search }, { replace: true });
   }, [handle, product, navigate, queryClient]);
 
-  useEffect(() => { setQuantity(1); setPage(1); }, [handle]);
+  useEffect(() => { setQuantity(1); setPage(1); setChosen(null); }, [handle]);
+
+  // ── اختيار المتغيّر (V3) ────────────────────────────────────────────────
+  // معرّف المتغيّر في الرابط يجعل الرابط المُشارَك يفتح المقاس نفسه؛ معرّف بطل (عُطّل، أو لمنتج آخر) يُتجاهَل بلا اختيار.
+  const variantParam = searchParams.get('variant');
+  const selection = useMemo(
+    () => chosen ?? initialSelection(product, variantParam),
+    [chosen, product, variantParam]);
+  const states = useMemo(() => (product ? valueStates(product, selection) : {}), [product, selection]);
+  const purchase = useMemo(() => purchaseState(product, selection, lang), [product, selection, lang]);
+  // الكمية لا تتجاوز متاح المتغيّر المختار: من بدّل لمتغيّر أقلّ متاحاً لا يُرسل كميةً يرفضها الخادم.
+  const buyQuantity = Math.min(quantity, Math.max(purchase.available, 1));
+
+  const chooseValue = useCallback(
+    (optionId, valueId) => setChosen((current) => selectValue(current ?? selection, optionId, valueId)),
+    [selection]);
+
+  // الرابط يتبع الاختيار (بلا خطوة في سجلّ الرجوع): تركيبة كاملة ⇒ معرّفها، وغير ذلك ⇒ لا معرّف — فلا يبقى في
+  // الرابط معرّف لا يمثّل ما هو معروض، ولا يُستعاد اختيار بطل عند إعادة التحميل.
+  useEffect(() => {
+    if (!product) return;
+    const variant = variantFor(product, selection);
+    const current = searchParams.get('variant');
+    const wanted = variant ? String(variant.id) : null;
+    if (current === wanted) return;
+    const next = new URLSearchParams(searchParams);
+    if (wanted) next.set('variant', wanted); else next.delete('variant');
+    setSearchParams(next, { replace: true });
+  }, [product, selection, searchParams, setSearchParams]);
 
   // أهمّ صفحة للاكتشاف: عنوانها اسم المنتج، ووصفها وصفه، وصورة مشاركتها صورته.
   // كانت كل صفحات المتجر تحمل عنوان المتجر ووصفه نفسيهما، فلا منتج يُصنَّف على اسمه
@@ -92,10 +129,11 @@ export default function ProductDetail() {
   const reviewsError = reviewsQuery.error?.message ?? null;
   const reloadReviews = () => queryClient.invalidateQueries({ queryKey: ['product', String(productId), 'reviews'] });
 
-  // الخادم يؤكّد الإضافة — الإشعار بعد نجاحها فقط؛ خطؤها (نفاد المتاح) يعرضه سياق السلة.
+  // الخادم يؤكّد الإضافة — الإشعار بعد نجاحها فقط؛ خطؤها (نفاد المتاح، متغيّر عُطّل بين التحميل والإضافة) يعرضه سياق
+  // السلة. المتغيّر يُرسَل بمعرّفه، والخادم يعيد التحقّق منه ومن سعره: لا سعر ولا توفّر من المتصفّح.
   const handleAdd = async () => {
     setAdding(true);
-    const added = await add(product, quantity);
+    const added = await add(product, buyQuantity, purchase.variant?.id);
     setAdding(false);
     if (added) showToast(getProductName(product));
   };
@@ -135,7 +173,13 @@ export default function ProductDetail() {
     );
   }
 
-  const outOfStock = product.stockQuantity <= 0;
+  const choosable = hasVariantChoice(product);
+  const outOfStock = choosable ? allSoldOut(product) : product.stockQuantity <= 0;
+  // نفد كل المعروض من المنتج ⇒ لا معنى لمطالبته باختيار: الزرّ يقول "نفد" ولا تلميح.
+  const blockedMessage = outOfStock ? null
+    : purchase.blocked === 'chooseOptions'
+      ? t('product.variant.chooseFirst', { options: missingOptionNames(product, selection, lang).join(t('product.variant.separator')) })
+      : purchase.blocked === 'unavailable' && choosable ? t('product.variant.unavailableWithSelection') : null;
   const totalPages = reviews ? Math.ceil(reviews.totalCount / reviews.pageSize) : 1;
   const name = getProductName(product);
 
@@ -168,20 +212,33 @@ export default function ProductDetail() {
             </div>
           )}
           <p className={styles.desc}>{getProductDescription(product)}</p>
-          <StockBadge quantity={product.stockQuantity} />
+
+          {/* المتغيّرات (V3): الخيارات بقيمها كما أرسلها الخادم — المعطّل ليس فيها، والنافد معطّل لا مخفيّ. */}
+          {choosable && (
+            <VariantPicker product={product} selection={selection} states={states} onSelect={chooseValue} lang={lang} />
+          )}
+
+          {/* شارة المخزون تخصّ ما سيُشترى فعلاً: متغيّراً مختاراً، أو المنتج البسيط، أو منتجاً نفد كل المعروض منه.
+              قبل اكتمال الاختيار لا رقم — رقم المنتج كله يضلّل من يشتري مقاساً واحداً. */}
+          {(!choosable || purchase.variant || outOfStock) && <StockBadge quantity={purchase.variant ? purchase.available : (outOfStock ? 0 : product.stockQuantity)} />}
+
           <div className={styles.buyRow}>
-            <PriceTag amount={product.price} currency={product.currency} compareAt={product.compareAtPrice} />
+            {/* السعر: المتغيّر المختار، أو "ابتداءً من" أرخص ما يمكن شراؤه كما حسبه الخادم (P-08b). */}
+            <PriceTag amount={purchase.price} currency={product.currency} compareAt={purchase.compareAtPrice}
+              from={purchase.priceIsFrom} />
             {/* شراء قطعتين كان يعني الضغط مرّتين ثم فتح السلة للتأكّد. الحدّ الأعلى هو المتاح
                 الآن على الخادم — والخادم يبقى الفاصل: ردّه هو ما يدخل السلة. */}
-            {!outOfStock && (
-              <Stepper value={quantity} max={product.stockQuantity}
-                onInc={() => setQuantity((q) => Math.min(q + 1, product.stockQuantity))}
+            {purchase.available > 0 && (
+              <Stepper value={buyQuantity} max={purchase.available}
+                onInc={() => setQuantity((q) => Math.min(q + 1, purchase.available))}
                 onDec={() => setQuantity((q) => Math.max(1, q - 1))} />
             )}
-            <Button variant="primary" loading={adding} disabled={outOfStock} onClick={handleAdd}>
-              {outOfStock ? t('product.outOfStock') : t('product.addToCart')}
+            <Button variant="primary" loading={adding} disabled={!!purchase.blocked} onClick={handleAdd}>
+              {purchase.blocked === 'soldOut' || outOfStock ? t('product.outOfStock') : t('product.addToCart')}
             </Button>
           </div>
+          {/* سبب تعطيل الزرّ مكتوب لا مُستنتَج: أيّ خيار بقي، أو أن التركيبة المختارة لا تُباع. */}
+          {blockedMessage && <p className={styles.variantHint} role="status">{blockedMessage}</p>}
         </div>
       </div>
 

@@ -13,3 +13,6 @@
 /* سطر لم يعد متاحاً أو يتجاوز المتاح (المرحلة 8): الاسم باهت وسبب المشكلة تحته. */
 .problem .name { color: var(--color-text-muted); }
 .warning { color: var(--color-danger); font-size: var(--fs-caption); font-weight: 700; margin-top: 2px; white-space: normal; }
+
+/* وصف المتغيّر تحت اسم المنتج (V3): "M / أحمر" — نصّ التاجر، واتجاهه من محتواه. */
+.variant { color: var(--color-text-muted); font-size: var(--fs-caption); font-weight: 600; margin-top: 2px; }

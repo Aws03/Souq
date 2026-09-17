@@ -14,7 +14,8 @@ vi.mock('../../app/TenantProvider', () => ({ useModule: () => true }));
 vi.mock('./ProductImage', () => ({ default: () => <img alt="" /> }));
 vi.mock('./ProductBadges', () => ({
   getProductName: (p) => p.name,
-  PriceTag: ({ amount, compareAt }) => <span>{compareAt ? `${amount} was ${compareAt}` : String(amount)}</span>,
+  PriceTag: ({ amount, compareAt, from }) =>
+    <span>{`${from ? 'from ' : ''}${amount}${compareAt ? ` was ${compareAt}` : ''}`}</span>,
 }));
 
 const ProductCard = (await import('./ProductCard')).default;
@@ -86,5 +87,38 @@ describe('السلوك واحد مهما اختلفت الصيغة', () => {
       expect(screen.getByText('20 was 30')).toBeInTheDocument();
       unmount();
     }
+  });
+});
+
+// ============================================================================
+// المتغيّرات في البطاقة (V3، P-08b/c): السعر "ابتداءً من" أرخص ما يمكن شراؤه كما حسبه الخادم، ومنتج يحتاج اختياراً
+// يقود لصفحته بدل زرّ إضافة يرفضه الخادم (VariantRequired).
+// ============================================================================
+describe('المتغيّرات', () => {
+  const card = (overrides) =>
+    render(<MemoryRouter><ProductCard product={product(overrides)} /></MemoryRouter>);
+
+  it('تعرض "ابتداءً من" حين تختلف أسعار ما يمكن شراؤه', () => {
+    card({ priceIsFrom: true, variantChoiceRequired: true });
+    expect(screen.getByText('from 20')).toBeInTheDocument();
+  });
+
+  it('منتج يحتاج اختياراً: رابط لصفحته لا زرّ إضافة', () => {
+    card({ variantChoiceRequired: true });
+
+    const link = screen.getByRole('link', { name: 'product.chooseOptions' });
+    expect(link).toHaveAttribute('href', '/products/blue-shirt');
+    expect(screen.queryByRole('button', { name: 'product.addToCart' })).toBeNull();
+  });
+
+  it('منتج نفد يحتاج اختياراً: يبقى الرابط ويقول "نفد"', () => {
+    card({ variantChoiceRequired: true, stockQuantity: 0 });
+    expect(screen.getByRole('link', { name: 'product.outOfStock' })).toBeInTheDocument();
+  });
+
+  it('منتج بمتغيّر واحد يبقى بزرّ الإضافة كما كان', () => {
+    card({});
+    expect(screen.getByRole('button', { name: 'product.addToCart' })).toBeInTheDocument();
+    expect(screen.getByText('20')).toBeInTheDocument();
   });
 });

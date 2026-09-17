@@ -1,0 +1,44 @@
+/* اختيار المتغيّر (V3). رموز التصميم وحدها — تتبع هوية المتجر والوضع الداكن؛ وخصائص منطقية فتنعكس في RTL تلقائياً. */
+
+.picker { display: flex; flex-direction: column; gap: var(--space-4); margin: var(--space-4) 0; }
+
+.option { border: 0; padding: 0; min-width: 0; }
+
+.legend {
+  display: flex; align-items: baseline; gap: var(--space-2); flex-wrap: wrap;
+  font-size: var(--fs-label); font-weight: 700; margin-bottom: var(--space-2); padding: 0;
+}
+.optionName { color: var(--color-text); }
+.chosen { color: var(--color-text-muted); font-weight: 600; }
+.chooseHint { color: var(--color-accent); font-weight: 600; }
+
+.values { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+
+/* التسمية هي الرقعة: النقر عليها يحدّد زرّ الاختيار المخفيّ بصرياً (لا عن المتصفّح). */
+.value {
+  position: relative; display: inline-flex; align-items: center; justify-content: center;
+  min-width: 46px; min-height: 40px; padding: 8px 14px; cursor: pointer;
+  border: 1px solid var(--color-border); border-radius: var(--radius-pill);
+  background: var(--color-surface); color: var(--color-text);
+  font-size: var(--fs-body-sm); font-weight: 600; line-height: 1;
+  transition: border-color var(--ease-hover), background var(--ease-hover), color var(--ease-hover);
+}
+.value:hover:not(.disabled) { border-color: var(--color-text-muted); }
+
+.selected {
+  border-color: var(--color-primary); background: var(--color-primary); color: var(--color-on-primary);
+}
+html[data-theme='dark'] .selected { border-color: var(--color-text); background: var(--color-text); color: var(--color-bg); }
+
+/* غير القابل للشراء الآن: باهت ومشطوب — يُرى ولا يُنقر (P-08c)، وسببه في نصّ مخفيّ بصرياً للقارئ. */
+.disabled {
+  cursor: not-allowed; color: var(--color-text-muted); background: var(--color-surface-alt);
+  border-style: dashed; text-decoration: line-through;
+}
+
+/* حلقة التركيز على الرقعة لا على الحقل المخفيّ: التنقّل بلوحة المفاتيح يجب أن يُرى. */
+.value:has(input:focus-visible) { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+
+@media (max-width: 480px) {
+  .value { min-height: 44px; }   /* هدف لمس مريح على الجوال */
+}

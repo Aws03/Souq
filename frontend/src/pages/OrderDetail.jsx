@@ -81,8 +81,12 @@ export default function OrderDetail() {
 
           <ul className={styles.items}>
             {order.items.map((item) => (
-              <li key={item.productId} className={styles.item}>
-                <span className={styles.itemName}>{item.productName}</span>
+              <li key={item.variantId} className={styles.item}>
+                <span className={styles.itemName}>
+                  {item.productName}
+                  {/* لقطة وصف المتغيّر لحظة الشراء — لا تتبع تغيّر الكتالوج بعدها (V1/V3). */}
+                  {item.variantLabel && <span className={styles.itemVariant} dir="auto">{item.variantLabel}</span>}
+                </span>
                 <span className={styles.itemQty}>× {item.quantity}</span>
                 <span className={styles.itemTotal}>{formatPrice(item.lineTotal, order.currency)}</span>
               </li>

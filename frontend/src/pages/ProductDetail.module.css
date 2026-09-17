@@ -27,3 +27,6 @@
 .breadcrumb a { color: var(--color-text-muted); }
 .breadcrumb a:hover { color: var(--color-primary); }
 .breadcrumb [aria-current='page'] { color: var(--color-text); overflow-wrap: anywhere; }
+
+/* سبب تعطيل زرّ الإضافة (V3): أيّ خيار بقي، أو أن التركيبة المختارة لا تُباع — نصّ لا لون وحده. */
+.variantHint { margin-top: var(--space-2); color: var(--color-text-muted); font-size: var(--fs-body-sm); }

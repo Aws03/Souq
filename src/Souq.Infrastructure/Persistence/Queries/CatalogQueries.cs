@@ -10,8 +10,11 @@ namespace Souq.Infrastructure.Persistence.Queries;
 
 // ============================================================================
 // CatalogQueries — تنفيذ ICatalogQueries (ADR-0008): AsNoTracking + إسقاط مباشر إلى صفوف قراءة، ثم DTO في الذاكرة
-// (قاموس اللغات، اختيار لغة المتجر). السعر وسعر المقارنة وSKU من المتغيّر الافتراضي (D-21) باستعلامات فرعية في
-// SQL نفسه؛ الاسم بلغة مطلوبة وإلا أول لغة. المتجر: النشط في فئة مفعّلة فقط.
+// (قاموس اللغات، اختيار لغة المتجر). الاسم بلغة مطلوبة وإلا أول لغة. المتجر: النشط في فئة مفعّلة فقط.
+//
+// السعر المعروض (V3، ADR-0041): أرخص متغيّر **يمكن شراؤه الآن** — نشط وله متاح — لا المتغيّر الافتراضي (P-08b). يُحسب في
+// SQL هنا لا في الواجهة: الترتيب والتصفية والعرض يجب أن تتفق على الرقم نفسه، والعميل لا يحسب أسعاراً. لا متغيّر قابلاً
+// للشراء ⇒ أرخص متغيّر نشط والمنتج غير متاح. أسعار المعطّلة لا تُحتسب أبداً.
 // ============================================================================
 internal sealed class CatalogQueries : ICatalogQueries
 {
@@ -32,13 +35,21 @@ internal sealed class CatalogQueries : ICatalogQueries
         }
         if (search.CategoryIds is { Count: > 0 } categoryIds)
             query = query.Where(p => categoryIds.Contains(p.CategoryId));
-        if (search.MinPrice is decimal min)
-            query = query.Where(p => p.Variants.Any(v => v.IsDefault && v.Price.Amount >= min));
-        if (search.MaxPrice is decimal max)
-            query = query.Where(p => p.Variants.Any(v => v.IsDefault && v.Price.Amount <= max));
+        // نطاق السعر: متغيّر واحد يقع داخل النطاق كاملاً (لا حدٌّ من متغيّر وحدٌّ من آخر). المطابقة على ما يمكن شراؤه؛
+        // ومنتج لا يمكن شراء شيء منه يُطابَق بمتغيّراته النشطة كي يبقى في نطاق سعره وهو نافد.
+        if (search.MinPrice is not null || search.MaxPrice is not null)
+        {
+            decimal? min = search.MinPrice, max = search.MaxPrice;
+            query = query.Where(p =>
+                p.Variants.Any(v => v.IsActive && _db.InventoryItems.Any(i => i.VariantId == v.Id && i.OnHand - i.Reserved > 0) && (min == null || v.Price.Amount >= min) && (max == null || v.Price.Amount <= max))
+                || (!p.Variants.Any(v => v.IsActive && _db.InventoryItems.Any(i => i.VariantId == v.Id && i.OnHand - i.Reserved > 0))
+                    && p.Variants.Any(v => v.IsActive && (min == null || v.Price.Amount >= min) && (max == null || v.Price.Amount <= max))));
+        }
         if (search.OnSaleOnly)
-            query = query.Where(p => p.Variants.Any(v =>
-                v.IsDefault && EF.Property<decimal?>(v, "_compareAtAmount") > v.Price.Amount));
+            query = query.Where(p =>
+                p.Variants.Any(v => v.IsActive && _db.InventoryItems.Any(i => i.VariantId == v.Id && i.OnHand - i.Reserved > 0) && EF.Property<decimal?>(v, "_compareAtAmount") > v.Price.Amount)
+                || (!p.Variants.Any(v => v.IsActive && _db.InventoryItems.Any(i => i.VariantId == v.Id && i.OnHand - i.Reserved > 0))
+                    && p.Variants.Any(v => v.IsActive && EF.Property<decimal?>(v, "_compareAtAmount") > v.Price.Amount)));
 
         return (await Sort(query, search.SortBy).ToPageAsync(Row(culture), page, ct)).Map(r => ToDto(r, culture));
     }
@@ -191,11 +202,10 @@ internal sealed class CatalogQueries : ICatalogQueries
 
     // ── داخلي ───────────────────────────────────────────────────────────────
 
-    // المعروض: نشط، في فئة مفعّلة، وله متغيّر ضمني (نشط واحد) — V2 مؤقتاً (ADR-0040): واجهة المتجر تشتري بمعرّف المنتج وحده
-    // حتى يُبنى اختيار المتغيّر (V3)، فمنتج بأكثر من متغيّر نشط لا تستطيع بيعه لا يُعرض فيها بدل زرّ إضافة يفشل.
+    // المعروض: نشط وفي فئة مفعّلة. بوّابة V2 المؤقّتة (متغيّر نشط واحد) أُزيلت في V3 مع بناء اختيار المتغيّر: منتج
+    // بعدّة متغيّرات نشطة يُعرض ويُشترى باختيار صريح، ومنتج نفد كل المتاح منه يبقى معروضاً غير متاح (قرار V3-b).
     private IQueryable<Product> VisibleProducts() =>
-        _db.Products.AsNoTracking().Where(p => p.Status == ProductStatus.Active && p.Category!.IsActive
-                                               && p.Variants.Count(v => v.IsActive) == 1);
+        _db.Products.AsNoTracking().Where(p => p.Status == ProductStatus.Active && p.Category!.IsActive);
 
     private async Task<ProductDto?> DetailAsync(IQueryable<Product> product, string culture, CancellationToken ct)
     {
@@ -205,24 +215,75 @@ internal sealed class CatalogQueries : ICatalogQueries
         var images = await _db.Set<ProductImage>().AsNoTracking()
             .Where(i => EF.Property<int>(i, "ProductId") == row.Id)
             .OrderBy(i => i.SortOrder).ThenBy(i => i.Id).Select(i => i.Url).ToListAsync(ct);
-        return ToDto(row, culture, images);
+        var (options, variants) = await VariantModelAsync(row.Id, ct);
+        return ToDto(row, culture, images, options, variants);
     }
+
+    // ============================================================================
+    // نموذج الاختيار للمتسوّق (V3): المتغيّرات النشطة بقيمها وأسعارها ومتاحها، والخيارات بقيمها المستخدمة في متغيّر نشط.
+    //   • المعطّل مخفيّ تماماً (قرار V3-a): التاجر سحبه من البيع كما يُسحب منتج، فلا يُعرض ولا يُعطّل زرّاً.
+    //   • النافد (متاح 0) يُعرض معطّلاً: المخزون مؤقّت (P-08c) — والواجهة تعرف ذلك من Available.
+    //   • منتج بلا خيارات: لا شيء — عقده كما كان قبل V3 حرفياً (المتغيّر الضمني يحلّه الخادم عند الإضافة).
+    // ============================================================================
+    private async Task<(IReadOnlyList<ProductOptionDto>?, IReadOnlyList<ProductVariantDto>?)> VariantModelAsync(
+        int productId, CancellationToken ct)
+    {
+        var options = await _db.Set<ProductOption>().AsNoTracking()
+            .Where(o => EF.Property<int>(o, "ProductId") == productId)
+            .OrderBy(o => o.Position).ThenBy(o => o.Id)
+            .Select(o => new OptionRow(o.Id,
+                o.Translations.Select(t => new NameRow(t.Culture, t.Name)).ToList(),
+                o.Values.OrderBy(v => v.Position).ThenBy(v => v.Id)
+                    .Select(v => new ValueRow(v.Id, v.Translations.Select(t => new NameRow(t.Culture, t.Name)).ToList())).ToList()))
+            .ToListAsync(ct);
+        if (options.Count == 0) return (null, null);
+
+        var variants = await _db.Set<ProductVariant>().AsNoTracking()
+            .Where(v => EF.Property<int>(v, "ProductId") == productId && v.IsActive)
+            .Select(v => new VariantRow(v.Id, v.Price.Amount, EF.Property<decimal?>(v, "_compareAtAmount"),
+                _db.InventoryItems.Where(i => i.VariantId == v.Id).Select(i => i.OnHand - i.Reserved).FirstOrDefault(),
+                v.OptionValues.Select(ov => ov.OptionValueId).ToList()))
+            .ToListAsync(ct);
+
+        var used = variants.SelectMany(v => v.OptionValueIds).ToHashSet();
+        return (
+            options.Select(o => new ProductOptionDto(o.Id, Names(o.Names),
+                    o.Values.Where(v => used.Contains(v.Id)).Select(v => new ProductOptionValueDto(v.Id, Names(v.Names))).ToList()))
+                .Where(o => o.Values.Count > 0).ToList(),
+            variants.Select(v => new ProductVariantDto(
+                    v.Id, v.OptionValueIds, v.Price, v.CompareAtPrice, Math.Max(v.Available, 0)))
+                .ToList());
+    }
+
+    private static IReadOnlyDictionary<string, string> Names(IEnumerable<NameRow> names) =>
+        names.OrderBy(n => n.Culture, StringComparer.Ordinal).ToDictionary(n => n.Culture, n => n.Name);
 
     private static readonly Expression<Func<Product, decimal>> PriceExpr =
         p => p.Variants.Where(v => v.IsDefault).Select(v => v.Price.Amount).FirstOrDefault();
+
+    // السعر الذي يُرتَّب به المتجر = السعر المعروض: أرخص ما يمكن شراؤه، وإلا أرخص متغيّر نشط.
+    private Expression<Func<Product, decimal>> StorefrontPriceExpr => p =>
+        (p.Variants.Where(v => v.IsActive && _db.InventoryItems.Any(i => i.VariantId == v.Id && i.OnHand - i.Reserved > 0))
+             .Select(v => (decimal?)v.Price.Amount).Min()
+         ?? p.Variants.Where(v => v.IsActive).Select(v => (decimal?)v.Price.Amount).Min()) ?? 0m;
 
     private static Expression<Func<Product, string?>> NameExpr(string culture) =>
         p => p.Translations.Where(t => t.Culture == culture).Select(t => t.Name).FirstOrDefault()
              ?? p.Translations.OrderBy(t => t.Culture).Select(t => t.Name).FirstOrDefault();
 
-    // المتاح للبيع من وحدة Inventory (المرحلة 6): الموجود − المحجوز، استعلام فرعي مترابط في SQL نفسه — للمتغيّرات النشطة وحدها:
-    // مخزون متغيّر معطّل لا يُباع.
+    // المتاح للبيع من وحدة Inventory (المرحلة 6): الموجود − المحجوز، استعلام فرعي مترابط في SQL نفسه — للمتغيّرات النشطة
+    // وحدها: مخزون متغيّر معطّل لا يُباع. والسعر من أرخص متغيّر قابل للشراء (Cheapest)، وإلا أرخص نشط (CheapestActive).
     private Expression<Func<Product, ProductRow>> Row(string culture) => p => new ProductRow(
         p.Id, p.Slug,
         p.Translations.Select(t => new TextRow(t.Culture, t.Name, t.Description, t.MetaTitle, t.MetaDescription)).ToList(),
-        p.Variants.Where(v => v.IsDefault).Select(v => v.Price.Amount).FirstOrDefault(),
-        p.Variants.Where(v => v.IsDefault).Select(v => EF.Property<decimal?>(v, "_compareAtAmount")).FirstOrDefault(),
-        p.Variants.Where(v => v.IsDefault).Select(v => v.Price.Currency).FirstOrDefault() ?? "",
+        p.Variants.Where(v => v.IsActive && _db.InventoryItems.Any(i => i.VariantId == v.Id && i.OnHand - i.Reserved > 0))
+            .OrderBy(v => v.Price.Amount).ThenBy(v => v.Id)
+            .Select(v => new PriceRow(v.Price.Amount, EF.Property<decimal?>(v, "_compareAtAmount"), v.Price.Currency)).FirstOrDefault(),
+        p.Variants.Where(v => v.IsActive).OrderBy(v => v.Price.Amount).ThenBy(v => v.Id)
+            .Select(v => new PriceRow(v.Price.Amount, EF.Property<decimal?>(v, "_compareAtAmount"), v.Price.Currency)).FirstOrDefault(),
+        p.Variants.Where(v => v.IsActive && _db.InventoryItems.Any(i => i.VariantId == v.Id && i.OnHand - i.Reserved > 0))
+            .Select(v => (decimal?)v.Price.Amount).Max(),
+        p.Variants.Count(v => v.IsActive),
         _db.InventoryItems.Where(s => s.ProductId == p.Id && p.Variants.Any(v => v.Id == s.VariantId && v.IsActive))
             .Sum(s => (int?)(s.OnHand - s.Reserved)) ?? 0,
         p.Images.OrderBy(i => i.SortOrder).ThenBy(i => i.Id).Select(i => i.Url).FirstOrDefault(),
@@ -231,14 +292,20 @@ internal sealed class CatalogQueries : ICatalogQueries
             ?? p.Category.Translations.OrderBy(t => t.Culture).Select(t => t.Name).FirstOrDefault(),
         p.Brand);
 
-    private static ProductDto ToDto(ProductRow r, string culture, IReadOnlyList<string>? images = null)
+    private static ProductDto ToDto(
+        ProductRow r, string culture, IReadOnlyList<string>? images = null,
+        IReadOnlyList<ProductOptionDto>? options = null, IReadOnlyList<ProductVariantDto>? variants = null)
     {
         var texts = Texts(r.Texts);
         var main = Pick(texts, culture);
+        // "ابتداءً من" حين يختلف أرخص ما يمكن شراؤه عن أغلاه؛ بسعر واحد لا معنى لها، وبلا متغيّر قابل للشراء لا تُعرض.
+        var price = r.Cheapest ?? r.CheapestActive;
+        var priceIsFrom = r.Cheapest is not null && r.HighestPurchasable > r.Cheapest.Price;
         return new ProductDto(
             r.Id, r.Slug, main?.Name ?? r.Slug, main?.Description, texts,
-            r.Price, r.CompareAtPrice, r.Currency, r.StockQuantity,
-            r.ImageUrl, images, r.VideoUrl, r.CategoryId, r.CategoryName, r.Brand);
+            price?.Price ?? 0m, price?.CompareAtPrice, price?.Currency ?? "", r.StockQuantity,
+            r.ImageUrl, images, r.VideoUrl, r.CategoryId, r.CategoryName, r.Brand,
+            priceIsFrom, r.ActiveVariants > 1, options, variants);
     }
 
     private static IReadOnlyDictionary<string, CatalogTextDto> Texts(IEnumerable<TextRow> rows) =>
@@ -252,8 +319,8 @@ internal sealed class CatalogQueries : ICatalogQueries
     // كل ترتيب ينتهي بكاسر تعادل بالمعرّف: منتجان بنفس السعر لا يتبادلان موقعيهما بين طلبين.
     private IOrderedQueryable<Product> Sort(IQueryable<Product> query, ProductSortBy sortBy) => sortBy switch
     {
-        ProductSortBy.PriceAsc => query.OrderBy(PriceExpr).ThenByDescending(p => p.Id),
-        ProductSortBy.PriceDesc => query.OrderByDescending(PriceExpr).ThenByDescending(p => p.Id),
+        ProductSortBy.PriceAsc => query.OrderBy(StorefrontPriceExpr).ThenByDescending(p => p.Id),
+        ProductSortBy.PriceDesc => query.OrderByDescending(StorefrontPriceExpr).ThenByDescending(p => p.Id),
         ProductSortBy.BestSelling => BestSellingFirst(query),
         _ => query.OrderByDescending(p => p.Id),
     };
@@ -270,8 +337,17 @@ internal sealed class CatalogQueries : ICatalogQueries
     private sealed record TextRow(string Culture, string Name, string? Description, string? MetaTitle, string? MetaDescription);
 
     private sealed record ProductRow(
-        int Id, string Slug, List<TextRow> Texts, decimal Price, decimal? CompareAtPrice, string Currency, int StockQuantity,
-        string? ImageUrl, string? VideoUrl, int CategoryId, string? CategoryName, string? Brand);
+        int Id, string Slug, List<TextRow> Texts, PriceRow? Cheapest, PriceRow? CheapestActive, decimal? HighestPurchasable,
+        int ActiveVariants, int StockQuantity, string? ImageUrl, string? VideoUrl, int CategoryId, string? CategoryName,
+        string? Brand);
+
+    // سعر متغيّر واحد بعملته وسعر مقارنته — الزوج معاً كي لا يُركَّب سعرُ متغيّر مع مقارنةِ آخر.
+    private sealed record PriceRow(decimal Price, decimal? CompareAtPrice, string Currency);
+
+    private sealed record NameRow(string Culture, string Name);
+    private sealed record OptionRow(int Id, List<NameRow> Names, List<ValueRow> Values);
+    private sealed record ValueRow(int Id, List<NameRow> Names);
+    private sealed record VariantRow(int Id, decimal Price, decimal? CompareAtPrice, int Available, List<int> OptionValueIds);
 
     private sealed record CategoryRow(int Id, string Slug, int? ParentId, int SortOrder, bool IsActive, List<TextRow> Texts);
 }

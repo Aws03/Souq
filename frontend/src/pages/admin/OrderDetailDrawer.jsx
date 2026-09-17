@@ -116,8 +116,11 @@ export default function OrderDetailDrawer({ orderId, onClose, onChanged }) {
             <h4 className={styles.sectionTitle}>{t('admin.orders.itemsTitle')}</h4>
             <ul className={styles.list}>
               {order.items.map((item) => (
-                <li key={item.productId} className={styles.row}>
-                  <span className={styles.grow}>{item.productName}</span>
+                <li key={item.variantId} className={styles.row}>
+                  <span className={styles.grow}>
+                    {item.productName}
+                    {item.variantLabel && <span className={styles.variantLabel} dir="auto"> · {item.variantLabel}</span>}
+                  </span>
                   <span className={styles.meta}>{formatPrice(item.unitPrice, order.currency)} × {item.quantity}</span>
                   <b>{formatPrice(item.lineTotal, order.currency)}</b>
                 </li>

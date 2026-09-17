@@ -159,11 +159,13 @@ export const api = {
   // shipping (المرحلة 12): { methodId, country } — طريقة الشحن المختارة ودولة العنوان.
   quoteBasket: (couponCode, shipping = {}) =>
     request(`/basket/quote${toQueryString({ couponCode, shippingMethodId: shipping.methodId, country: shipping.country })}`),
-  addToBasket: (productId, quantity = 1) =>
-    request('/basket/items', { method: 'POST', body: JSON.stringify({ productId, quantity }) }),
-  setBasketQuantity: (productId, quantity) =>
-    request(`/basket/items/${productId}`, { method: 'PUT', body: JSON.stringify({ quantity }) }),
-  removeFromBasket: (productId) => request(`/basket/items/${productId}`, { method: 'DELETE' }),
+  // variantId (V3): المتغيّر الذي اختاره المتسوّق. null لمنتج بلا خيارات — الخادم يحلّ متغيّره الضمني كما قبل V3.
+  addToBasket: (productId, quantity = 1, variantId = null) =>
+    request('/basket/items', { method: 'POST', body: JSON.stringify({ productId, quantity, variantId }) }),
+  // السطر يُعدَّل ويُحذف بمعرّف متغيّره (ADR-0039): مسارات المنتج باقية على الخادم للعملاء الأقدم وترفض منتجاً بسطرين.
+  setBasketVariantQuantity: (variantId, quantity) =>
+    request(`/basket/items/variants/${variantId}`, { method: 'PUT', body: JSON.stringify({ quantity }) }),
+  removeBasketVariant: (variantId) => request(`/basket/items/variants/${variantId}`, { method: 'DELETE' }),
   // تتبّع بلا مصادقة (رابط قابل للمشاركة) — نفس نقطة الخادم العامة تُستخدم هنا
   // وفي صفحة تفصيل الطلب داخل التطبيق معاً (لا فرق بين الحالتين من الواجهة).
   // رابط التتبّع العام بالرمز العشوائي (المرحلة 9 — لا بالمعرّف التسلسلي، B8).

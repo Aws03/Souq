@@ -12,10 +12,11 @@ export default function OrderSummaryPanel({ items, subtotal, discountAmount, shi
       <h2 className={styles.panelTitle}>{t('checkout.orderSummaryTitle')}</h2>
       <div className={styles.items}>
         {items.map((i) => (
-          <div className={styles.item} key={i.id}>
+          <div className={styles.item} key={i.variantId}>
             <div className={styles.itemThumb}><ProductImage product={i} /></div>
             <div className={styles.itemInfo}>
               <div className={styles.itemName}>{getProductName(i)}</div>
+              {i.variantLabel && <div className={styles.itemVariant} dir="auto">{i.variantLabel}</div>}
               <div className={styles.itemQty}>{t('checkout.itemQty', { qty: i.qty })}</div>
             </div>
             <div className={styles.itemTotal}>{formatPrice(i.price * i.qty, i.currency)}</div>

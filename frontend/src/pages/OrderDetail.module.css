@@ -78,3 +78,6 @@
   .panel { padding: 20px 16px; }
   .addresses { grid-template-columns: 1fr; }
 }
+
+/* لقطة وصف المتغيّر على سطر الطلب (V3) — بعد اسم المنتج، بلون ثانوي. */
+.itemVariant { color: var(--color-text-muted); font-size: var(--fs-caption); font-weight: 600; margin-inline-start: 8px; }

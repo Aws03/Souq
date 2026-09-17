@@ -25,8 +25,15 @@ export function formatPrice(amount, currency = getStoreCurrency()) {
 }
 
 // سعر المقارنة (قبل الخصم) يظهر مشطوباً فقط حين يعلو السعر — الخادم يضمن ذلك، والشرط هنا دفاعي.
-export function PriceTag({ amount, currency, compareAt }) {
-  const price = <span className={styles.price}>{formatPrice(amount, currency)}</span>;
+// from (V3، P-08b): المنتج بعدّة متغيّرات بأسعار مختلفة ⇒ "ابتداءً من" أرخص ما يمكن شراؤه — الرقم من الخادم لا يُحسب هنا.
+export function PriceTag({ amount, currency, compareAt, from = false }) {
+  const { t } = useTranslation();
+  const money = formatPrice(amount, currency);
+  const price = (
+    <span className={styles.price}>
+      {from ? t('product.priceFrom', { price: money }) : money}
+    </span>
+  );
   if (compareAt == null || Number(compareAt) <= Number(amount)) return price;
   return (
     <span className={styles.onSale}>

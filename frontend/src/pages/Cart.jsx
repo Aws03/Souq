@@ -49,7 +49,7 @@ export default function Cart() {
         <div className={styles.grid}>
           <section className={styles.lines}>
             {items.map((item) => (
-              <CartLine key={item.id} item={item} onInc={inc} onDec={dec} onRemove={remove} />
+              <CartLine key={item.variantId} item={item} onInc={inc} onDec={dec} onRemove={remove} />
             ))}
           </section>
 

@@ -10,8 +10,8 @@
 | [`Souq.Domain.Tests`](#souqdomaintests) | 25 | 200 | 35 |
 | [`Souq.Application.Tests`](#souqapplicationtests) | 43 | 320 | 15 |
 | [`Souq.ArchitectureTests`](#souqarchitecturetests) | 13 | 57 | 7 |
-| [`Souq.IntegrationTests`](#souqintegrationtests) | 47 | 243 | 21 |
-| [frontend (Vitest)](#frontend-vitest) | 74 | 544 | — |
+| [`Souq.IntegrationTests`](#souqintegrationtests) | 48 | 250 | 21 |
+| [frontend (Vitest)](#frontend-vitest) | 75 | 577 | — |
 
 ## Souq.Domain.Tests
 
@@ -154,6 +154,7 @@
 | `tests/Souq.IntegrationTests/StoreAdministrationTests.cs` | `StoreAdministrationTests` | 7 | 0 |
 | `tests/Souq.IntegrationTests/StoreBrandingPersistenceTests.cs` | `StoreBrandingPersistenceTests` | 4 | 0 |
 | `tests/Souq.IntegrationTests/StoreDashboardTests.cs` | `StoreDashboardTests` | 10 | 0 |
+| `tests/Souq.IntegrationTests/StorefrontVariantTests.cs` | `StorefrontVariantTests` | 7 | 0 |
 | `tests/Souq.IntegrationTests/StripeAmountConverterTests.cs` | `StripeAmountConverterTests` | 0 | 1 |
 | `tests/Souq.IntegrationTests/TenantIsolationTests.cs` | `TenantIsolationTests` | 13 | 0 |
 | `tests/Souq.IntegrationTests/TenantResolutionMiddlewareTests.cs` | `TenantResolutionMiddlewareTests`, `FakeDirectory` | 3 | 3 |
@@ -184,7 +185,7 @@
 | `frontend/src/components/common/ErrorBoundary.test.jsx` | 5 |
 | `frontend/src/components/common/FormField.test.jsx` | 3 |
 | `frontend/src/components/common/useConfirmAction.test.jsx` | 4 |
-| `frontend/src/components/product/ProductCard.test.jsx` | 7 |
+| `frontend/src/components/product/ProductCard.test.jsx` | 11 |
 | `frontend/src/components/store/OpeningExperience.test.jsx` | 12 |
 | `frontend/src/features/account/addressForm.test.js` | 6 |
 | `frontend/src/features/admin/categories/categoryForm.test.js` | 5 |
@@ -203,6 +204,7 @@
 | `frontend/src/features/catalog/catalogText.test.js` | 5 |
 | `frontend/src/features/catalog/productRouting.test.js` | 7 |
 | `frontend/src/features/catalog/searchRouting.test.js` | 7 |
+| `frontend/src/features/catalog/variantSelection.test.js` | 19 |
 | `frontend/src/features/checkout/cardAppearance.test.js` | 5 |
 | `frontend/src/features/checkout/shippingChoice.test.js` | 4 |
 | `frontend/src/features/checkout/shippingOptions.test.js` | 4 |
@@ -223,7 +225,7 @@
 | `frontend/src/pages/Confirmation.test.jsx` | 7 |
 | `frontend/src/pages/MyOrders.test.jsx` | 7 |
 | `frontend/src/pages/OrderTracking.test.jsx` | 6 |
-| `frontend/src/pages/ProductDetail.test.jsx` | 9 |
+| `frontend/src/pages/ProductDetail.test.jsx` | 19 |
 | `frontend/src/pages/account/AccountLayout.test.jsx` | 6 |
 | `frontend/src/pages/admin/BusinessOverview.test.jsx` | 10 |
 | `frontend/src/pages/admin/Dashboard.test.jsx` | 11 |

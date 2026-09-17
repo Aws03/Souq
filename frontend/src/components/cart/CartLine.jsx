@@ -18,12 +18,15 @@ export default function CartLine({ item, onInc, onDec, onRemove }) {
       <div className={styles.thumb}><ProductImage product={item} /></div>
       <div className={styles.info}>
         <div className={styles.name}>{name}</div>
+        {/* وصف المتغيّر الحيّ من الخادم ("M / أحمر")، واتجاهه من محتواه: نصّ التاجر قد يمزج العربية واللاتينية. */}
+        {item.variantLabel && <div className={styles.variant} dir="auto">{item.variantLabel}</div>}
         <div className={styles.unit}>{formatPrice(item.price, item.currency)} {t('cart.perUnit')}</div>
         {problem && <div className={styles.warning}>{t(`cart.${problem.code}`, { count: problem.count })}</div>}
       </div>
-      <Stepper value={item.qty} onInc={() => onInc(item.id)} onDec={() => onDec(item.id)} />
+      <Stepper value={item.qty} onInc={() => onInc(item.variantId)} onDec={() => onDec(item.variantId)} />
       <div className={styles.lineTotal}>{item.sellable ? formatPrice(item.lineTotal, item.currency) : '—'}</div>
-      <button type="button" className={styles.remove} onClick={() => onRemove(item.id)} aria-label={t('cart.removeAria', { name })}>
+      <button type="button" className={styles.remove} onClick={() => onRemove(item.variantId)}
+        aria-label={t('cart.removeAria', { name: item.variantLabel ? `${name} (${item.variantLabel})` : name })}>
         <TrashIcon />
       </button>
     </div>
