@@ -46,17 +46,20 @@ public class StorefrontVariantTests
 
         var product = await StorefrontAsync(_api.Anonymous(), shirt.ProductId);
 
-        product.Options.Select(o => o.Names["ar"]).Should().Equal("المقاس", "اللون");
+        // منتج بخيارات: العقد يحمل القائمتين (null لمنتج بسيط — الاختبار المخصّص أدناه).
+        product.Options.Should().NotBeNull();
+        product.Variants.Should().NotBeNull();
+        product.Options!.Select(o => o.Names["ar"]).Should().Equal("المقاس", "اللون");
         // تُعرض القيم التي يستخدمها متغيّر معروض وحدها: XL لا يستخدمها إلا المعطّل، وM لم يُنشئ لها التاجر متغيّراً —
         // وكلتاهما ليست خياراً حقيقياً للمتسوّق. أما أزرق فيستخدمها متغيّر نشط نفد ⇒ تُعرض (معطّلة في الواجهة، P-08c).
-        product.Options[0].Values.Select(v => v.Names["ar"]).Should().Equal(["S", "L"]);
-        product.Options[1].Values.Select(v => v.Names["ar"]).Should().Equal(["أحمر", "أزرق"]);
-        product.Variants.Should().HaveCount(3).And.NotContain(v => v.Id == xl);
-        product.Variants.Select(v => (v.Id, v.Price, v.Available)).Should().BeEquivalentTo(new[]
+        product.Options![0].Values.Select(v => v.Names["ar"]).Should().Equal(["S", "L"]);
+        product.Options![1].Values.Select(v => v.Names["ar"]).Should().Equal(["أحمر", "أزرق"]);
+        product.Variants!.Should().HaveCount(3).And.NotContain(v => v.Id == xl);
+        product.Variants!.Select(v => (v.Id, v.Price, v.Available)).Should().BeEquivalentTo(new[]
         {
             (shirt.SmallRed, 20m, 5), (shirt.SmallBlue, 20m, 0), (shirt.LargeRed, 25m, 4),
         });
-        product.Variants.Should().OnlyContain(v => v.OptionValueIds.Count == 2);
+        product.Variants!.Should().OnlyContain(v => v.OptionValueIds.Count == 2);
         // "ابتداءً من 20": أرخص ما يمكن شراؤه، وأغلى ما يمكن شراؤه 25 ⇒ نطاق حقيقي.
         (product.Price, product.PriceIsFrom).Should().Be((20m, true));
         product.StockQuantity.Should().Be(9, "مجموع متاح المتغيّرات النشطة");
@@ -93,7 +96,7 @@ public class StorefrontVariantTests
             .EnsureSuccessStatusCode();
         var soldOut = await StorefrontAsync(anonymous, shirt.ProductId);
         (soldOut.Price, soldOut.PriceIsFrom, soldOut.StockQuantity).Should().Be((20m, false, 0));
-        soldOut.Variants.Should().OnlyContain(v => v.Available == 0);
+        soldOut.Variants!.Should().OnlyContain(v => v.Available == 0);
         (await ListIdsAsync(anonymous, $"/api/products?categoryIds={categoryId}&pageSize=50")).Should().Contain(shirt.ProductId);
     }
 
@@ -206,7 +209,7 @@ public class StorefrontVariantTests
         (await ProblemAsync(await customer.PostAsJsonAsync("/api/basket/items",
                 new { productId = shirt.ProductId, variantId = shirt.LargeRed, quantity = 1 })))
             .Should().Be((HttpStatusCode.NotFound, "NotFound"));
-        (await StorefrontAsync(_api.Anonymous(), shirt.ProductId)).Variants.Should().NotContain(v => v.Id == shirt.LargeRed);
+        (await StorefrontAsync(_api.Anonymous(), shirt.ProductId)).Variants!.Should().NotContain(v => v.Id == shirt.LargeRed);
 
         // لا سطر دخل سلّة العميل من كل ما رُفض أعلاه.
         (await _api.WithDbAsync(db => Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.CountAsync(
