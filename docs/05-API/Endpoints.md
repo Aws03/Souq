@@ -5,7 +5,7 @@
 >
 > Conventions (errors, paging, status codes): [ApiDocumentation.md](ApiDocumentation.md). Use cases per module: [UseCases.md](../04-MODULES/UseCases.md).
 
-**127 endpoints** in 25 controllers: 24 anonymous, 27 for any signed-in account, 76 behind a permission.
+**128 endpoints** in 25 controllers: 24 anonymous, 27 for any signed-in account, 77 behind a permission.
 
 ## How to read this table
 
@@ -64,6 +64,7 @@
 | DELETE | `/api/admin/store/payments` | `store.payments.manage` | store | — | — | `RemoveStorePaymentAccountCommand` | Platform |
 | GET | `/api/admin/store/settings` | `store.settings.manage` | store | — | — | `GetStoreSettingsQuery` | Platform |
 | PUT | `/api/admin/store/settings` | `store.settings.manage` | store | — | — | `UpdateStoreSettingsCommand` | Platform |
+| GET | `/api/admin/store/settings/options` | `store.settings.manage` | store | — | — | `GetStoreSettingsOptionsQuery` | Platform |
 | POST | `/api/auth/change-password` | signed in | store + platform, during provisioning | — | `auth` | `ChangePasswordCommand` | Identity |
 | POST | `/api/auth/forgot-password` | anonymous | store + platform, during provisioning | — | `auth` | `ForgotPasswordCommand` | Identity |
 | POST | `/api/auth/login` | anonymous | store + platform, even when closed | — | `auth` | `LoginCommand` | Identity |

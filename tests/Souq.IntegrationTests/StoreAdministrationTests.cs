@@ -49,6 +49,42 @@ public class StoreAdministrationTests
     }
 
     [Fact]
+    public async Task خيارات_المحرّر_تُقرأ_من_الخادم_وما_يُعرض_منها_يُحفظ()
+    {
+        var store = _api.ForStore(await _factory.CreateStoreAsync());
+        var admin = await store.AdminAsync();
+        (await store.Anonymous().GetAsync("/api/admin/store/settings/options")).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+
+        var options = (await admin.GetFromJsonAsync<OptionsBody>("/api/admin/store/settings/options", TestApi.Json))!;
+        options.Cultures.Should().Equal(Tenant.SupportedCultures);
+        options.Typography.Should().Equal(BrandPresets.Typography);
+        options.SocialNetworks.Should().Contain(n => n.Network == "instagram" && n.Domains.Contains("instagram.com"));
+        options.Limits.DisplayName.Should().Be(StoreSettings.DisplayNameMaxLength);
+
+        // آخر خيار في كل قائمة، محفوظاً عبر HTTP ومقروءاً من إعداد الواجهة — الطريق الذي يسلكه المحرّر.
+        var body = new Dictionary<string, object?>
+        {
+            ["displayName"] = new Dictionary<string, string> { ["ar"] = new string('س', options.Limits.DisplayName) },
+            ["locale"] = new { defaultCulture = "ar", enabledCultures = options.Cultures, timeZone = "Asia/Amman" },
+            ["branding"] = new
+            {
+                colors = new { primary = "#12355B", secondary = "#EEF2F7", accent = "#F2A541", background = "#FFFFFF", text = "#1F2933" },
+                typography = options.Typography[^1], themePreset = options.ThemePresets[^1], themeMode = options.ThemeModes[^1],
+                opening = new { enabled = true, style = options.OpeningStyles[^1] },
+            },
+        };
+        var saved = await admin.PutAsJsonAsync("/api/admin/store/settings", body);
+        saved.StatusCode.Should().Be(HttpStatusCode.NoContent, await saved.Content.ReadAsStringAsync());
+
+        (await store.Anonymous().GetFromJsonAsync<ConfigBody>("/api/storefront/config", TestApi.Json))!
+            .Settings.Branding.Typography.Should().Be(options.Typography[^1]);
+        var stored = (await admin.GetFromJsonAsync<StoredSettingsBody>("/api/admin/store/settings", TestApi.Json))!;
+        stored.Branding.ThemePreset.Should().Be(options.ThemePresets[^1]);
+        stored.Branding.ThemeMode.Should().Be(options.ThemeModes[^1]);
+        stored.DisplayName["ar"].Should().HaveLength(options.Limits.DisplayName);
+    }
+
+    [Fact]
     public async Task لوحة_غير_مقروءة_تُرفض_ولا_يتغيّر_شيء()
     {
         var store = _api.ForStore(await _factory.CreateStoreAsync());
@@ -91,6 +127,7 @@ public class StoreAdministrationTests
             await _factory.CreateStoreUserAsync(store.Tenant, Roles.TenantStaff), SouqApiFactory.StoreAdminPassword);
 
         (await staff.GetAsync("/api/admin/store/settings")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await staff.GetAsync("/api/admin/store/settings/options")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
         (await staff.GetAsync("/api/admin/staff")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
         (await staff.GetAsync("/api/admin/inventory")).StatusCode.Should().Be(HttpStatusCode.OK);
     }
@@ -156,4 +193,11 @@ public class StoreAdministrationTests
     };
 
     private sealed record InvitationBody(int UserId, bool Renewed);
+    private sealed record OptionsBody(
+        List<string> Cultures, List<string> Typography, List<string> ThemePresets, List<string> ThemeModes,
+        List<string> OpeningStyles, List<NetworkBody> SocialNetworks, LimitsBody Limits);
+    private sealed record StoredSettingsBody(Dictionary<string, string> DisplayName, StoredBrandingBody Branding);
+    private sealed record StoredBrandingBody(string ThemePreset, string ThemeMode);
+    private sealed record NetworkBody(string Network, List<string> Domains);
+    private sealed record LimitsBody(int DisplayName, int Announcement, int SeoTitle, int SeoDescription);
 }

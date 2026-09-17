@@ -7,7 +7,7 @@
 
 | Module | Feature folders | Commands | Queries | Contracts |
 |---|---|---|---|---|
-| [Platform](#platform) | `src/Souq.Application/Features/Platform`, `src/Souq.Application/Features/Stores` | 17 | 10 | 0 |
+| [Platform](#platform) | `src/Souq.Application/Features/Platform`, `src/Souq.Application/Features/Stores` | 17 | 11 | 0 |
 | [Identity](#identity) | `src/Souq.Application/Features/Auth`, `src/Souq.Application/Features/Staff` | 11 | 2 | 0 |
 | [Catalog](#catalog) | `src/Souq.Application/Features/Products`, `src/Souq.Application/Features/Categories` | 11 | 8 | 1 |
 | [Inventory](#inventory) | `src/Souq.Application/Features/Inventory` | 2 | 3 | 2 |
@@ -46,6 +46,7 @@ Module document: [Platform/README.md](Platform/README.md).
 | `UploadTenantBrandingCommand` | command | `UploadTenantBrandingHandler` | — | yes | `POST /api/platform/tenants/{id:int}/branding/{asset}` |
 | `GetReviewSettingsQuery` | query | `GetReviewSettingsHandler` | — | — | `GET /api/admin/reviews/settings` |
 | `GetStorePaymentAccountQuery` | query | `GetStorePaymentAccountHandler` | — | — | `GET /api/admin/store/payments` |
+| `GetStoreSettingsOptionsQuery` | query | `GetStoreSettingsOptionsHandler` | — | — | `GET /api/admin/store/settings/options` |
 | `GetStoreSettingsQuery` | query | `GetStoreSettingsHandler` | — | — | `GET /api/admin/store/settings` |
 | `GetStorefrontConfigQuery` | query | `GetStorefrontConfigHandler` | — | — | `GET /api/storefront/config` |
 | `GetTenantPaymentAccountQuery` | query | `GetTenantPaymentAccountHandler` | — | yes | `GET /api/platform/tenants/{id:int}/payments` |

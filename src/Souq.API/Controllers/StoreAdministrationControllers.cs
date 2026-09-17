@@ -33,6 +33,10 @@ public class StoreSettingsController : ControllerBase
     [HttpGet("settings")]
     public async Task<IActionResult> Get() => Ok(await _mediator.Send(new GetStoreSettingsQuery()));
 
+    // القوائم والحدود التي يقبلها الخادم — كي لا تحمل الواجهة نسخة منها تفترق.
+    [HttpGet("settings/options")]
+    public async Task<IActionResult> Options() => Ok(await _mediator.Send(new GetStoreSettingsOptionsQuery()));
+
     [HttpPut("settings")]
     public async Task<IActionResult> Update([FromBody] StoreSettingsInput settings)
         => this.ToHttp(await _mediator.Send(new UpdateStoreSettingsCommand(settings)));

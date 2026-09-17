@@ -8,9 +8,9 @@
 | Suite | Files | Facts | Theories |
 |---|---|---|---|
 | [`Souq.Domain.Tests`](#souqdomaintests) | 23 | 165 | 34 |
-| [`Souq.Application.Tests`](#souqapplicationtests) | 41 | 284 | 14 |
+| [`Souq.Application.Tests`](#souqapplicationtests) | 42 | 288 | 15 |
 | [`Souq.ArchitectureTests`](#souqarchitecturetests) | 13 | 54 | 7 |
-| [`Souq.IntegrationTests`](#souqintegrationtests) | 43 | 217 | 21 |
+| [`Souq.IntegrationTests`](#souqintegrationtests) | 43 | 218 | 21 |
 | [frontend (Vitest)](#frontend-vitest) | 60 | 399 | — |
 
 ## Souq.Domain.Tests
@@ -85,6 +85,7 @@
 | `tests/Souq.Application.Tests/Stores/ReviewSettingsHandlersTests.cs` | `ReviewSettingsHandlersTests` | 2 | 0 |
 | `tests/Souq.Application.Tests/Stores/StoreBrandingSettingsTests.cs` | `StoreBrandingSettingsTests` | 6 | 1 |
 | `tests/Souq.Application.Tests/Stores/StorePaymentAccountEditorTests.cs` | `StorePaymentAccountEditorTests` | 5 | 1 |
+| `tests/Souq.Application.Tests/Stores/StoreSettingsOptionsTests.cs` | `StoreSettingsOptionsTests` | 4 | 1 |
 | `tests/Souq.Application.Tests/Wishlist/WishlistHandlersTests.cs` | `WishlistHandlersTests` | 9 | 1 |
 
 ## Souq.ArchitectureTests
@@ -143,7 +144,7 @@
 | `tests/Souq.IntegrationTests/SeedSafetyTests.cs` | `SeedSafetyTests`, `FreshDatabaseFactory` | 4 | 0 |
 | `tests/Souq.IntegrationTests/ShippingTests.cs` | `ShippingTests` | 3 | 0 |
 | `tests/Souq.IntegrationTests/StartupAndSecurityTests.cs` | `StartupAndSecurityTests`, `LoggerAdapter` | 7 | 1 |
-| `tests/Souq.IntegrationTests/StoreAdministrationTests.cs` | `StoreAdministrationTests` | 6 | 0 |
+| `tests/Souq.IntegrationTests/StoreAdministrationTests.cs` | `StoreAdministrationTests` | 7 | 0 |
 | `tests/Souq.IntegrationTests/StoreBrandingPersistenceTests.cs` | `StoreBrandingPersistenceTests` | 4 | 0 |
 | `tests/Souq.IntegrationTests/StoreDashboardTests.cs` | `StoreDashboardTests` | 10 | 0 |
 | `tests/Souq.IntegrationTests/StripeAmountConverterTests.cs` | `StripeAmountConverterTests` | 0 | 1 |
