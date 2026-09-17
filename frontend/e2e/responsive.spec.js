@@ -133,13 +133,13 @@ test.describe('لوحة الإدارة على هاتف', () => {
 });
 
 // ============================================================================
-// منطقة المنصّة على هاتف: قائمة المتاجر وصفحة متجر وخطوة إنشاء — بلا تمرير أفقي في الاتجاهين، والجدول العريض
+// منطقة المنصّة على هاتف: قائمة المتاجر وصفحة متجر وخطوة إنشاء وحسابات المنصّة وسجلّ النشاط — بلا تمرير أفقي في الاتجاهين، والجدول العريض
 // يمرّر داخل حاويته. مالك منصّة يتابع تجهيز متجر عميل من هاتفه حالة عادية كالتاجر.
 // ============================================================================
 test.describe('منطقة المنصّة على هاتف', () => {
   const PLATFORM = 'http://admin.localhost:5173';
 
-  test('المتاجر، صفحة متجر، وإنشاء متجر — بلا تمرير أفقي في الاتجاهين', async ({ page }) => {
+  test('المتاجر، صفحة متجر، إنشاء متجر، الحسابات والسجلّ — بلا تمرير أفقي في الاتجاهين', async ({ page }) => {
     await page.goto(`${PLATFORM}/login`);
     await page.locator('input[type="email"]').fill('owner@souq.com');
     await page.locator('input[type="password"]').fill('Owner@12345');
@@ -161,6 +161,14 @@ test.describe('منطقة المنصّة على هاتف', () => {
       await page.goto(`${PLATFORM}/platform/stores/new`);
       await page.locator('input').first().waitFor({ timeout: 30_000 });
       expect(await pageOverflows(page), `متجر جديد ${language}`).toBe(false);
+
+      await page.goto(`${PLATFORM}/platform/accounts`);
+      await page.locator('tbody tr').first().waitFor({ timeout: 30_000 });
+      expect(await pageOverflows(page), `حسابات المنصّة ${language}`).toBe(false);
+
+      await page.goto(`${PLATFORM}/platform/audit`);
+      await page.getByRole('status').waitFor({ timeout: 30_000 });
+      expect(await pageOverflows(page), `سجلّ النشاط ${language}`).toBe(false);
     }
     await page.evaluate(() => localStorage.setItem('souq_lang', 'en'));
   });

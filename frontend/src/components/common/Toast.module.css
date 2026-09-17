@@ -10,7 +10,8 @@
   background: var(--color-panel); color: var(--color-on-panel);
   animation: rise .25s ease;
 }
-.toast.success { background: var(--color-primary); }
+/* النجاح على الأساسي بنصّه المضمون (--color-on-primary)، لا بنصّ اللوحة: الزوجان يُشتقّان لكل متجر على حدة. */
+.toast.success { background: var(--color-primary); color: var(--color-on-primary); }
 .toast.error { background: #7a2f20; }
 .msg { flex: 1; font-size: var(--fs-body-sm); }
 .close { color: inherit; opacity: .75; flex-shrink: 0; }

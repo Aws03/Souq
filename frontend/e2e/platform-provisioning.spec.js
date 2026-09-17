@@ -36,7 +36,9 @@ test.skip(!API_LOG, 'SOUQ_API_LOG must point to the running API\'s log to follow
 let page;
 let storeId;
 
+// التنبيهات والأدراج تظهر بحركة: فحص التباين في منتصفها يقيس لوناً ممزوجاً بالشفافية لا يراه أحد.
 const axe = async (target) => {
+  await target.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished.catch(() => null))));
   await target.addScriptTag({ content: axeSource });
   return target.evaluate(async () =>
     // @ts-ignore — axe يُحقن في الصفحة

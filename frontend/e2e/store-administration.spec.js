@@ -165,9 +165,13 @@ test.describe('فريق المتجر', () => {
     const row = page.locator('tr', { hasText: email });
     await expect(row.getByText(/Invitation pending|بانتظار قبول الدعوة/)).toBeVisible();
 
-    page.once('dialog', (d) => d.accept());
+    // الإيقاف يُؤكَّد في حوار اللوحة (لا window.confirm): لا طلب قبل زرّ التأكيد.
     await row.getByRole('button').click();
     await page.getByRole('menuitem', { name: /^(Disable|إيقاف)$/ }).click();
+    const confirm = page.getByRole('alertdialog');
+    await expect(confirm).toContainText('QA Staff');
+    await confirm.getByRole('button', { name: /^(Disable account|إيقاف الحساب)$/ }).click();
+    await expect(confirm).toBeHidden();
     await expect(row.getByText(/^(Disabled|موقوف)$/)).toBeVisible();
   });
 

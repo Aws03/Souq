@@ -69,7 +69,7 @@ export default function Audit() {
       key: 'target', header: t('platform.audit.colTarget'), width: '170px', truncate: true,
       tooltip: (e) => [e.targetType, e.targetId].filter(Boolean).join(' '),
       render: (e) => (e.targetType || e.targetId
-        ? <span dir="ltr" className={styles.mono}>{[e.targetType, e.targetId].filter(Boolean).join(' · ')}</span>
+        ? <span dir="ltr" className={`${styles.mono} ${styles.auditCode}`}>{[e.targetType, e.targetId].filter(Boolean).join(' · ')}</span>
         : '—'),
     },
     {

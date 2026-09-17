@@ -193,6 +193,8 @@
 .resultCount { color: var(--color-text-muted); font-size: var(--fs-body-sm); margin: 0 0 var(--space-2); }
 .auditAction { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .auditAction code { font-size: 12px; color: var(--color-text-muted); overflow-wrap: anywhere; }
+/* الخطّ الأحادي أعرض من نصّ الواجهة بالحجم نفسه: المعرّفات والعناوين أصغر درجةً كي لا تعلو على ما حولها. */
+.auditCode, .auditFacts .mono { font-size: 13px; }
 .auditEntry { display: flex; flex-direction: column; gap: var(--space-4); }
 .auditFacts { display: flex; flex-direction: column; gap: var(--space-2); margin: 0; }
 .auditFacts > div { display: grid; grid-template-columns: minmax(110px, 35%) minmax(0, 1fr); gap: var(--space-3); padding-block: 6px; border-block-end: 1px solid var(--color-border); }
