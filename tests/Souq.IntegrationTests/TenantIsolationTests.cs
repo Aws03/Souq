@@ -34,6 +34,7 @@ public class TenantIsolationTests
     private enum Resource
     {
         Product, ProductVariant, ProductImage, Category, Coupon, Order, StaffAccount, Customer, CustomerAddress, ShippingMethod, Review, Notification,
+        SearchSynonym,
     }
 
     private sealed record ForeignCase(string Method, string Route, Resource Resource, Actor Actor, Func<HttpContent>? Body = null);
@@ -86,6 +87,10 @@ public class TenantIsolationTests
         new("PUT", "api/admin/shipping-methods/{id:int}", Resource.ShippingMethod, Actor.Admin,
             () => JsonBody(new { name = "من B", price = 1m })),
         new("DELETE", "api/admin/shipping-methods/{id:int}", Resource.ShippingMethod, Actor.Admin),
+        // مفردات البحث (M3، ADR-0042): مفردة A لا تُعدَّل ولا تُحذف من B — وإلّا غيّر تاجرٌ ما يجده زبائن متجر آخر.
+        new("PUT", "api/admin/search-synonyms/{id:int}", Resource.SearchSynonym, Actor.Admin,
+            () => JsonBody(new { culture = "ar", term = "منB", expansion = "هاتف" })),
+        new("DELETE", "api/admin/search-synonyms/{id:int}", Resource.SearchSynonym, Actor.Admin),
         // الإشراف والمفضّلة (المرحلة 13): تقييم A لا يُعتمد ولا يُرفض من B؛ منتج A لا يدخل مفضّلة عميل B ولا يُحذف منها.
         new("POST", "api/admin/reviews/{id:int}/approve", Resource.Review, Actor.Admin),
         new("POST", "api/admin/reviews/{id:int}/reject", Resource.Review, Actor.Admin, () => JsonBody(new { note = "من B" })),
@@ -542,6 +547,11 @@ public class TenantIsolationTests
         var methodResponse = await adminA.PostAsJsonAsync("/api/admin/shipping-methods", new { name = "عزل", price = 1m, isActive = false });
         methodResponse.StatusCode.Should().Be(HttpStatusCode.Created, await methodResponse.Content.ReadAsStringAsync());
         var shippingMethodId = (await methodResponse.Content.ReadFromJsonAsync<TestApi.IdBody>(TestApi.Json))!.Id;
+        // مفردة بحث لمتجر A (M3): لا أثر لها على بقيّة الاختبارات — كلمة لا ترد في أي كتالوج.
+        var synonymResponse = await adminA.PostAsJsonAsync("/api/admin/search-synonyms",
+            new { culture = "ar", term = $"زقفون{Guid.NewGuid():N}"[..14], expansion = "مكنسة" });
+        synonymResponse.StatusCode.Should().Be(HttpStatusCode.Created, await synonymResponse.Content.ReadAsStringAsync());
+        var searchSynonymId = (await synonymResponse.Content.ReadFromJsonAsync<TestApi.IdBody>(TestApi.Json))!.Id;
         var (customerA, customerEmail) = await storeA.NewCustomerAsync();
         var addressResponse = await customerA.PostAsJsonAsync("/api/account/addresses", new
         {
@@ -587,6 +597,7 @@ public class TenantIsolationTests
                 [Resource.Product] = productId, [Resource.ProductVariant] = variantId, [Resource.ProductImage] = imageId, [Resource.Category] = categoryId,
                 [Resource.Coupon] = couponId, [Resource.Order] = orderId, [Resource.StaffAccount] = staffId,
                 [Resource.Customer] = customerId, [Resource.CustomerAddress] = addressId, [Resource.ShippingMethod] = shippingMethodId,
+                [Resource.SearchSynonym] = searchSynonymId,
                 [Resource.Review] = reviewId, [Resource.Notification] = notificationId,
             },
             couponCode, productSlug, orderToken);

@@ -11,3 +11,9 @@ public sealed class InvalidCategoryParentException : DomainException
 {
     public InvalidCategoryParentException(string message) : base("InvalidParent", message) { }
 }
+
+// مرادف بحث غير صالح (لغة، طول، أكثر من كلمة، أو كلمة إلى نفسها) — M3، ADR-0042.
+public sealed class InvalidSearchSynonymException : DomainException
+{
+    public InvalidSearchSynonymException(string message) : base("InvalidSearchSynonym", message) { }
+}

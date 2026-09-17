@@ -7,11 +7,11 @@
 
 | Suite | Files | Facts | Theories |
 |---|---|---|---|
-| [`Souq.Domain.Tests`](#souqdomaintests) | 28 | 220 | 44 |
-| [`Souq.Application.Tests`](#souqapplicationtests) | 43 | 320 | 15 |
-| [`Souq.ArchitectureTests`](#souqarchitecturetests) | 13 | 57 | 7 |
-| [`Souq.IntegrationTests`](#souqintegrationtests) | 49 | 273 | 21 |
-| [frontend (Vitest)](#frontend-vitest) | 77 | 603 | — |
+| [`Souq.Domain.Tests`](#souqdomaintests) | 29 | 227 | 47 |
+| [`Souq.Application.Tests`](#souqapplicationtests) | 44 | 329 | 15 |
+| [`Souq.ArchitectureTests`](#souqarchitecturetests) | 14 | 58 | 7 |
+| [`Souq.IntegrationTests`](#souqintegrationtests) | 49 | 281 | 21 |
+| [frontend (Vitest)](#frontend-vitest) | 78 | 610 | — |
 
 ## Souq.Domain.Tests
 
@@ -37,6 +37,7 @@
 | `tests/Souq.Domain.Tests/RefreshTokenTests.cs` | `RefreshTokenTests` | 3 | 0 |
 | `tests/Souq.Domain.Tests/ReviewTests.cs` | `ReviewTests` | 8 | 1 |
 | `tests/Souq.Domain.Tests/SearchDistanceTests.cs` | `SearchDistanceTests` | 7 | 3 |
+| `tests/Souq.Domain.Tests/SearchSynonymTests.cs` | `SearchSynonymTests` | 7 | 3 |
 | `tests/Souq.Domain.Tests/SearchTextTests.cs` | `SearchTextTests` | 5 | 6 |
 | `tests/Souq.Domain.Tests/ShippingMethodTests.cs` | `ShippingMethodTests` | 4 | 1 |
 | `tests/Souq.Domain.Tests/StorePaymentAccountTests.cs` | `StorePaymentAccountTests` | 3 | 2 |
@@ -82,6 +83,7 @@
 | `tests/Souq.Application.Tests/Products/GetRelatedProductsHandlerTests.cs` | `GetRelatedProductsHandlerTests` | 3 | 0 |
 | `tests/Souq.Application.Tests/Products/ProductHandlersTests.cs` | `CreateProductHandlerTests`, `UpdateProductHandlerTests`, `ProductLifecycleHandlerTests`, `GetProductByIdHandlerTests` | 17 | 0 |
 | `tests/Souq.Application.Tests/Products/ProductVariantHandlersTests.cs` | `ProductVariantHandlersTests` | 14 | 0 |
+| `tests/Souq.Application.Tests/Products/SearchSynonymHandlersTests.cs` | `CreateSearchSynonymHandlerTests`, `UpdateSearchSynonymHandlerTests`, `DeleteSearchSynonymHandlerTests` | 9 | 0 |
 | `tests/Souq.Application.Tests/Products/UploadProductMediaHandlerTests.cs` | `UploadProductMediaHandlerTests` | 7 | 0 |
 | `tests/Souq.Application.Tests/Reporting/StoreDashboardTests.cs` | `StoreDashboardWindowTests` | 6 | 2 |
 | `tests/Souq.Application.Tests/Reviews/CreateReviewHandlerTests.cs` | `CreateReviewHandlerTests` | 7 | 0 |
@@ -109,6 +111,7 @@
 | `tests/Souq.ArchitectureTests/MigrationSafetyTests.cs` | `MigrationSafetyTests` | 3 | 0 |
 | `tests/Souq.ArchitectureTests/ModuleAndContractRuleTests.cs` | `ModuleAndContractRuleTests` | 8 | 1 |
 | `tests/Souq.ArchitectureTests/OperationalScriptTests.cs` | `OperationalScriptTests`, `TempEnv` | 3 | 2 |
+| `tests/Souq.ArchitectureTests/SearchRuntimeRuleTests.cs` | `SearchRuntimeRuleTests` | 1 | 0 |
 | `tests/Souq.ArchitectureTests/TenancyRuleTests.cs` | `TenancyRuleTests` | 7 | 0 |
 | `tests/Souq.ArchitectureTests/WhiteLabelSourceTests.cs` | `WhiteLabelSourceTests` | 1 | 0 |
 
@@ -122,7 +125,7 @@
 | `tests/Souq.IntegrationTests/AuthorizationMatrixTests.cs` | `AuthorizationMatrixTests` | 2 | 0 |
 | `tests/Souq.IntegrationTests/BasketTests.cs` | `BasketTests` | 5 | 0 |
 | `tests/Souq.IntegrationTests/BestSellingPerformanceTests.cs` | `BestSellingPerformanceTests`, `ScratchApp`, `SqlCapture`, `Sink` | 0 | 1 |
-| `tests/Souq.IntegrationTests/CatalogSearchTests.cs` | `CatalogSearchTests` | 23 | 0 |
+| `tests/Souq.IntegrationTests/CatalogSearchTests.cs` | `CatalogSearchTests` | 31 | 0 |
 | `tests/Souq.IntegrationTests/CatalogTests.cs` | `CatalogTests`, `ProductCommandCounter` | 9 | 0 |
 | `tests/Souq.IntegrationTests/CheckoutIdempotencyTests.cs` | `CheckoutIdempotencyTests` | 3 | 0 |
 | `tests/Souq.IntegrationTests/ConfigurationTests.cs` | `ConfigurationTests`, `ConfiguredFactory` | 10 | 6 |
@@ -202,6 +205,7 @@
 | `frontend/src/features/admin/products/productQuery.test.js` | 4 |
 | `frontend/src/features/admin/products/variantModel.test.js` | 15 |
 | `frontend/src/features/admin/reviews/reviewModeration.test.js` | 2 |
+| `frontend/src/features/admin/search/synonymForm.test.js` | 7 |
 | `frontend/src/features/admin/settings/settingsForm.test.js` | 19 |
 | `frontend/src/features/admin/shipping/shippingForm.test.js` | 4 |
 | `frontend/src/features/admin/staff/staffView.test.js` | 11 |

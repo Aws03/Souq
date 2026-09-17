@@ -229,6 +229,24 @@ public class CatalogSearchTests
     }
 
     [Fact]
+    public async Task الاسترجاع_يعمل_بالإنجليزية_كما_بالعربية()
+    {
+        // معيار قبول M3 يذكر اللغتين معاً: التطبيع والمسافة دالّتان واحدتان لا مساران، وهذا ما يثبته.
+        var admin = await _api.AdminAsync();
+        var category = await _api.CreateCategoryAsync(admin);
+        var unique = Digits();
+        var id = await CreateAsync(admin, category, $"Zqphonic Vacuum {unique}");
+
+        // حرف مُبدَل داخل الكلمة (لا في آخرها، وإلّا غطّاها الاحتواء).
+        (await SearchPageAsync(category, $"Zqphomic {unique}")).Search!.SearchedInstead
+            .Should().StartWith("zqphonic", "التصحيح يعمل على الإنجليزية بالمسافة نفسها");
+        (await SearchAsync(category, $"Zqphomic {unique}")).Should().Equal(new[] { id });
+
+        // وحالة الأحرف واللهجات تُطوى كما يُطوى التشكيل العربي.
+        (await SearchAsync(category, $"ZQPHONIC {unique}")).Should().Equal(new[] { id });
+    }
+
+    [Fact]
     public async Task لا_تصحيح_حين_تُوجد_نتائج_بكلمات_المتسوّق()
     {
         var admin = await _api.AdminAsync();
@@ -379,6 +397,132 @@ public class CatalogSearchTests
         fromB.Should().Contain(productB).And.NotContain(productA);
     }
 
+    // ── مفردات المتجر (M3) ───────────────────────────────────────────────────
+
+    [Fact]
+    public async Task مرادف_يعلّمه_التاجر_يجد_ما_لا_يجده_التصحيح_الآلي()
+    {
+        // الحالة التي توجد المفردات لأجلها: كلمة لا تشبه أي كلمة في الكتالوج، فمسافة التحرير لا تصل إليها أبداً.
+        var admin = await _api.AdminAsync();
+        var category = await _api.CreateCategoryAsync(admin);
+        // لاحقتان مختلفتان عمداً: لاحقة واحدة تجعل الكلمتين على مسافة تحرير 2، فيجدها الاسترجاع الآلي قبل
+        // أن يُضاف أي مرادف — ولا يعود الاختبار يقيس ما يدّعي قياسه.
+        var shopperWord = $"زقفون{Digits()}";
+        var catalogWord = $"هتفون{Digits()}";
+        var product = await CreateAsync(admin, category, $"جهاز {catalogWord}");
+
+        (await SearchAsync(category, shopperWord)).Should().BeEmpty("قبل المرادف: كلمة لا تشبه شيئاً");
+
+        await CreateSynonymAsync(admin, "ar", shopperWord, catalogWord);
+
+        (await SearchAsync(category, shopperWord)).Should().Equal(new[] { product }, "وبعده: يجد ما يقصده التاجر");
+    }
+
+    [Fact]
+    public async Task التوسيع_يضيف_ولا_يستبدل()
+    {
+        // الفرق الذي يجعل المرادف مرادفاً لا تصحيحاً: من كتب الكلمة يجد ما يحملها **ومعه** ما يحمل مرادفها.
+        var admin = await _api.AdminAsync();
+        var category = await _api.CreateCategoryAsync(admin);
+        var word = $"زقفون{Digits()}";
+        var synonym = $"هتفون{Digits()}";
+        var literal = await CreateAsync(admin, category, $"جهاز {word}");
+        var viaSynonym = await CreateAsync(admin, category, $"جهاز {synonym}");
+
+        await CreateSynonymAsync(admin, "ar", word, synonym);
+
+        (await SearchAsync(category, word)).Should().BeEquivalentTo(new[] { literal, viaSynonym },
+            "المرادف يوسّع الشرط إلى (الكلمة أو مرادفها)، فلا يُحرَم من يحمل الكلمة نفسها");
+    }
+
+    [Fact]
+    public async Task التوسيع_من_مستوى_واحد_فلا_تعدٍّ()
+    {
+        // أ←ب و ب←ج لا تجعل أ تساوي ج: أثر كل صفّ يبقى مرئياً لمن أضافه، وحلقةٌ في البيانات لا تُنتج
+        // استعلاماً لا ينتهي.
+        var admin = await _api.AdminAsync();
+        var category = await _api.CreateCategoryAsync(admin);
+        // ثلاث لواحق مختلفة: كلمات متباعدة فعلاً، فلا يخلط الاسترجاع الآلي نتيجته بنتيجة التوسيع.
+        string first = $"زقفونا{Digits()}", second = $"هتفونب{Digits()}", third = $"مرقاجج{Digits()}";
+        var viaSecond = await CreateAsync(admin, category, $"جهاز {second}");
+        var viaThird = await CreateAsync(admin, category, $"جهاز {third}");
+
+        await CreateSynonymAsync(admin, "ar", first, second);
+        await CreateSynonymAsync(admin, "ar", second, third);
+
+        var hits = await SearchAsync(category, first);
+        hits.Should().Contain(viaSecond);
+        hits.Should().NotContain(viaThird, "مرادف المرادف لا يُطبَّق");
+    }
+
+    [Fact]
+    public async Task المرادف_يطابق_مطبَّعاً_من_الطرفين()
+    {
+        var admin = await _api.AdminAsync();
+        var category = await _api.CreateCategoryAsync(admin);
+        var unique = Digits();
+        var product = await CreateAsync(admin, category, $"مِكْنَسَة زقفون{unique}");
+
+        // التاجر كتب المرادف مشكَّلاً بتاء مربوطة، والمتسوّق يكتب الكلمة بلا تشكيل: كلاهما يمرّ بالتطبيع نفسه.
+        await CreateSynonymAsync(admin, "ar", $"هوفر{unique}", "مَكْنَسَة");
+
+        (await SearchAsync(category, $"هوفر{unique}")).Should().Equal(new[] { product });
+    }
+
+    [Fact]
+    public async Task مفردات_المتجر_تُدار_من_لوحته_ولا_تُقبل_المكرَّرة()
+    {
+        var admin = await _api.AdminAsync();
+        var unique = Digits();
+        var term = $"زقفون{unique}";
+
+        var id = await CreateSynonymAsync(admin, "ar", term, "مكنسة");
+        var listed = (await ListSynonymsAsync(admin)).Single(x => x.Id == id);
+        listed.Term.Should().Be(term);
+        listed.ExpansionNormalized.Should().Be("مكنسه", "الصورة المطبَّعة تُعرض كي يفهم التاجر ما يُطابَق فعلاً");
+
+        // المكرّر يُقاس على الصورة المطبَّعة: "مكنسه" و"مكنسة" الزوج نفسه.
+        (await ProblemAsync(await admin.PostAsJsonAsync("/api/admin/search-synonyms",
+            new { culture = "ar", term, expansion = "مكنسه" })))
+            .Should().Be((HttpStatusCode.Conflict, "SearchSynonymExists"));
+
+        (await admin.PutAsJsonAsync($"/api/admin/search-synonyms/{id}",
+            new { culture = "en", term = $"hoover{unique}", expansion = "vacuum" })).IsSuccessStatusCode.Should().BeTrue();
+        (await ListSynonymsAsync(admin)).Single(x => x.Id == id).Culture.Should().Be("en");
+
+        (await admin.DeleteAsync($"/api/admin/search-synonyms/{id}")).IsSuccessStatusCode.Should().BeTrue();
+        (await ListSynonymsAsync(admin)).Should().NotContain(x => x.Id == id);
+    }
+
+    [Fact]
+    public async Task مرادف_غير_صالح_يُرفض_برمز_ثابت()
+    {
+        var admin = await _api.AdminAsync();
+
+        // كلمة إلى نفسها: قاعدة مجال (422 برمز InvalidSearchSynonym).
+        (await ProblemAsync(await admin.PostAsJsonAsync("/api/admin/search-synonyms",
+            new { culture = "ar", term = "مكنسة", expansion = "مكنسه" })))
+            .Should().Be((HttpStatusCode.UnprocessableEntity, "InvalidSearchSynonym"));
+
+        // فارغ: تحقّق شكلي (400).
+        (await admin.PostAsJsonAsync("/api/admin/search-synonyms", new { culture = "ar", term = "", expansion = "هاتف" }))
+            .StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task مفردات_المتجر_لا_يراها_متجر_آخر()
+    {
+        var storeB = _api.ForStore(await _factory.CreateStoreAsync());
+        var adminA = await _api.AdminAsync();
+        var adminB = await storeB.AdminAsync();
+        var unique = Digits();
+
+        var id = await CreateSynonymAsync(adminA, "ar", $"زقفون{unique}", "مكنسة");
+
+        (await ListSynonymsAsync(adminB)).Should().NotContain(x => x.Id == id,
+            "المفردات ملك المتجر: قائمة B لا تحمل صفّ A");
+    }
+
     // ── أدوات ──────────────────────────────────────────────────────────────────
 
     private async Task<List<int>> SearchAsync(int category, string? keyword, string? sortBy = null) =>
@@ -450,6 +594,24 @@ public class CatalogSearchTests
             $"/api/products/suggestions?q={Uri.EscapeDataString(keyword)}", TestApi.Json))!;
 
     private sealed record SuggestionBody(string Kind, int Id, string Slug, string Name, string? ImageUrl);
+    // لاحقة رقمية فريدة: الأرقام تنجو من التطبيع، فتُعزل كلمات كل اختبار عن غيره في قاعدة مشتركة.
+    private static string Digits() => Math.Abs(Guid.NewGuid().GetHashCode()).ToString()[..6];
+
+    private static async Task<int> CreateSynonymAsync(HttpClient admin, string culture, string term, string expansion)
+    {
+        var response = await admin.PostAsJsonAsync("/api/admin/search-synonyms", new { culture, term, expansion });
+        response.StatusCode.Should().Be(HttpStatusCode.Created, await response.Content.ReadAsStringAsync());
+        return (await response.Content.ReadFromJsonAsync<TestApi.IdBody>(TestApi.Json))!.Id;
+    }
+
+    private static async Task<List<SynonymBody>> ListSynonymsAsync(HttpClient admin) =>
+        (await admin.GetFromJsonAsync<List<SynonymBody>>("/api/admin/search-synonyms", TestApi.Json))!;
+
+    private static async Task<(HttpStatusCode, string?)> ProblemAsync(HttpResponseMessage response) =>
+        (response.StatusCode, (await response.Content.ReadFromJsonAsync<TestApi.ProblemBody>(TestApi.Json))?.Code);
+
+    private sealed record SynonymBody(
+        int Id, string Culture, string Term, string TermNormalized, string Expansion, string ExpansionNormalized);
     private sealed record SlugBody(int Id, string Slug);
     private sealed record CategorySlugBody(int Id, string Slug);
 

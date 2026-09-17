@@ -141,6 +141,11 @@ export const api = {
 
   // ── الكتالوج ── (سلسلة الاستعلام لكل القوائم من toQueryString: مصفوفات بمفتاح متكرّر)
   getProducts: (params = {}) => request(`/products${toQueryString(params)}`),
+  // مفردات بحث المتجر (M3، ADR-0042، أدمن): يُعلِّمها التاجر فيتوسّع بها استعلام المتسوّق.
+  getSearchSynonyms: () => request('/admin/search-synonyms'),
+  createSearchSynonym: (payload) => request('/admin/search-synonyms', { method: 'POST', body: JSON.stringify(payload) }),
+  updateSearchSynonym: (id, payload) => request(`/admin/search-synonyms/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
+  deleteSearchSynonym: (id) => request(`/admin/search-synonyms/${id}`, { method: 'DELETE' }),
   // اقتراحات أثناء الكتابة (M3، ADR-0042): منتجات وفئات معروضة، مطابَقة على الصورة المطبَّعة على الخادم.
   getSearchSuggestions: (params = {}) => request(`/products/suggestions${toQueryString(params)}`),
   getProduct: (id) => request(`/products/${id}`),

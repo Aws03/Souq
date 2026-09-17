@@ -215,6 +215,11 @@ Search differs too. Since **M3** ([ADR-0042](../../11-ADR/0042-local-search-engi
 
 The closest word is picked by distance, then by frequency in the catalogue, then ordinal — deterministic, so the same query always answers the same way. Recovery only runs for queries of at most 3 words of at least 3 characters each: the endpoint is anonymous and unthrottled, so that bound is what keeps a repeated nonsense query cheap. A word missing its **last** letters needs no recovery at all, since matching is by substring.
 
+**Merchant vocabulary** (`SearchSynonyms`, admin screen behind `catalog.manage`) is the third layer, and it exists for the one case the other two cannot reach: recovery corrects toward words **the catalogue already contains**, so it can never reach a word that resembles none of them — a local term, or a brand name used as a common noun. A merchant teaches directed one-word pairs ("customers type *جوال*, also search *هاتف*"), and every query word is expanded to `(the word OR its synonyms)` on the **first** attempt, not as a fallback: a shopper searching a word the catalogue does contain must still see the synonym's products, which is the whole reason the pair was added.
+
+Expansion is **one level and never transitive**: `أ→ب` plus `ب→ج` does not make `أ` find `ج`. That keeps each row's effect visible to whoever added it and makes a cycle in the data harmless. The table stores both what the merchant typed and its normalized form, and the admin screen shows both — so a merchant can see why "مكنسة" and "مكنسه" are one pair, not two. It is capped at `SearchSynonym.MaxPerStore` because it is read on every keyword search.
+
+
 **Suggestions while typing** (`GET /api/products/suggestions`) return visible **products** first, then active **categories**, ranked by the same expression the results page uses — so the dropdown and the results page never disagree for the same word. They suggest *destinations*, not words: a suggested product is where the shopper was going, and it confirms the thing exists before they finish typing. They deliberately do **not** correct typos, because the shopper is still typing and "correcting" a half-written word jumps under their hands; recovery belongs to the executed search, where the word is final. Below two normalized characters nothing is queried at all.
 
 ## Security and permissions

@@ -1,5 +1,7 @@
 .pageTitle { font-size: 24px; color: var(--color-primary); }
 .pageSub { color: var(--color-text-muted); margin: 4px 0 24px; }
+/* نصّ ثانوي داخل خلية جدول: الصورة المطبَّعة للمفردة (M3) تُعرض أخفت من نصّ التاجر نفسه. */
+.muted { color: var(--color-text-muted); font-size: var(--fs-caption); }
 
 .toolbar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 20px; }
 .toolbar select {

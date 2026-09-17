@@ -31,6 +31,9 @@ public interface ICatalogQueries
         AdminProductSearch search, PageRequest page, string culture, CancellationToken ct);
 
     Task<AdminProductDto?> FindAdminProductAsync(int id, CancellationToken ct);
+
+    // مفردات البحث لشاشة التاجر (M3): الجدول صغير بحدّه، فقائمة كاملة بلا ترقيم.
+    Task<IReadOnlyList<SearchSynonymDto>> ListSearchSynonymsAsync(CancellationToken ct);
 }
 
 // معايير بحث المتجر — كلها اختيارية؛ null/فارغ = بلا تصفية على هذا البعد. OnSaleOnly: سعر مقارنة أعلى من السعر.

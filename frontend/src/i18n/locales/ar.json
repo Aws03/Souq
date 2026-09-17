@@ -47,7 +47,8 @@
     "searchSuggestionsCount_two": "اقتراحان",
     "searchSuggestionsCount_few": "{{count}} اقتراحات",
     "searchSuggestionsCount_many": "{{count}} اقتراحاً",
-    "searchSuggestionsCount_other": "{{count}} اقتراح"
+    "searchSuggestionsCount_other": "{{count}} اقتراح",
+    "searchSynonyms": "مفردات البحث"
   },
   "cart": {
     "title": "سلّتك",
@@ -1282,6 +1283,38 @@
         "roleInvalid": "اختر دوراً."
       },
       "actionsFor": "إجراءات {{name, bidi}}"
+    },
+    "searchSynonyms": {
+      "title": "مفردات البحث",
+      "subtitle": "علِّم البحث كلمات زبائنك التي لا ترد في كتالوجك: لهجة محلية، اسم تجاري شائع، أو تسمية أخرى للشيء نفسه.",
+      "add": "إضافة مفردة",
+      "created": "أُضيفت المفردة",
+      "updated": "حُدِّثت المفردة",
+      "deleted": "حُذفت المفردة",
+      "colCulture": "اللغة",
+      "colTerm": "يكتب الزبون",
+      "colExpansion": "فيُبحث أيضاً عن",
+      "colMatched": "ما يُطابَق فعلاً",
+      "emptyTitle": "لا مفردات بعد",
+      "emptyMessage": "البحث يصحّح الأخطاء المطبعية من كتالوجك تلقائياً. أضف مفردة حين يكتب زبائنك كلمة لا تشبه أي كلمة في منتجاتك.",
+      "confirmDelete": {
+        "title": "حذف «{{term, bidi}}»؟",
+        "message": "لن يعود البحث يوسّع هذه الكلمة. لا أثر على منتجاتك.",
+        "action": "حذف"
+      },
+      "form": {
+        "addTitle": "إضافة مفردة",
+        "editTitle": "تعديل مفردة",
+        "cultureLabel": "اللغة",
+        "cultureAr": "العربية",
+        "cultureEn": "الإنجليزية",
+        "termLabel": "الكلمة التي يكتبها الزبون",
+        "termHint": "كلمة واحدة. مثال: جوال",
+        "expansionLabel": "الكلمة التي تُبحث معها",
+        "expansionHint": "كلمة واحدة موجودة في كتالوجك. مثال: هاتف",
+        "bothRequired": "الكلمتان مطلوبتان",
+        "singleWord": "كلمة واحدة لكل طرف — للعبارة أضف مفردة لكل كلمة"
+      }
     }
   },
   "wishlist": {
@@ -1407,7 +1440,10 @@
       "DefaultVariantMustBeActive": "فعّل المتغيّر قبل جعله افتراضياً.",
       "DefaultVariantCannotBeDeactivated": "المتغيّر الافتراضي لا يُعطَّل. اجعل متغيّراً آخر افتراضياً أولاً.",
       "VariantNotFound": "هذا المتغيّر لا يخصّ هذا المنتج.",
-      "ProductHasVariants": "لهذا المنتج خيارات: عدّل السعر وSKU لكل متغيّر."
+      "ProductHasVariants": "لهذا المنتج خيارات: عدّل السعر وSKU لكل متغيّر.",
+      "InvalidSearchSynonym": "مفردة غير صالحة: كلمة واحدة لكل طرف، ولا كلمة إلى نفسها.",
+      "SearchSynonymExists": "هذا الزوج مُضاف مسبقاً لهذه اللغة.",
+      "SearchSynonymLimitReached": "بلغت الحدّ الأقصى لعدد المفردات في المتجر."
     },
     "boundaryTitle": "حدث خطأ في عرض هذه الصفحة",
     "boundaryMessage": "تعذّر عرض الصفحة. يمكنك إعادة المحاولة أو العودة إلى المتجر.",

@@ -9,7 +9,7 @@
 |---|---|---|---|---|
 | [Platform](#platform) | `src/Souq.Application/Features/Platform`, `src/Souq.Application/Features/Stores` | 15 | 11 | 0 |
 | [Identity](#identity) | `src/Souq.Application/Features/Auth`, `src/Souq.Application/Features/Staff` | 11 | 2 | 0 |
-| [Catalog](#catalog) | `src/Souq.Application/Features/Products`, `src/Souq.Application/Features/Categories` | 16 | 9 | 1 |
+| [Catalog](#catalog) | `src/Souq.Application/Features/Products`, `src/Souq.Application/Features/Categories` | 19 | 10 | 1 |
 | [Inventory](#inventory) | `src/Souq.Application/Features/Inventory` | 4 | 4 | 2 |
 | [Customers](#customers) | `src/Souq.Application/Features/Customers` | 8 | 6 | 0 |
 | [Shopping](#shopping) | `src/Souq.Application/Features/Baskets`, `src/Souq.Application/Features/Wishlist` | 10 | 2 | 2 |
@@ -84,8 +84,10 @@ Module document: [Catalog/README.md](Catalog/README.md).
 | `CreateCategoryCommand` | command | `CreateCategoryHandler` | `CreateCategoryValidator` | yes | `POST /api/categories` |
 | `CreateProductCommand` | command | `CreateProductHandler` | `CreateProductValidator` | yes | `POST /api/products` |
 | `CreateProductVariantsCommand` | command | `CreateProductVariantsHandler` | `CreateProductVariantsValidator` | yes | `POST /api/admin/products/{id:int}/variants` |
+| `CreateSearchSynonymCommand` | command | `CreateSearchSynonymHandler` | `CreateSearchSynonymValidator` | yes | `POST /api/admin/search-synonyms` |
 | `DeleteCategoryCommand` | command | `DeleteCategoryHandler` | `DeleteCategoryValidator` | yes | `DELETE /api/categories/{id:int}` |
 | `DeleteProductCommand` | command | `DeleteProductHandler` | `DeleteProductValidator` | yes | `DELETE /api/products/{id:int}` |
+| `DeleteSearchSynonymCommand` | command | `DeleteSearchSynonymHandler` | `DeleteSearchSynonymValidator` | yes | `DELETE /api/admin/search-synonyms/{id:int}` |
 | `RemoveProductImageCommand` | command | `RemoveProductImageHandler` | — | yes | `DELETE /api/admin/products/{id:int}/images/{imageId:int}` |
 | `ReorderProductImagesCommand` | command | `ReorderProductImagesHandler` | `ReorderProductImagesValidator` | yes | `PUT /api/admin/products/{id:int}/images/order` |
 | `SetDefaultProductVariantCommand` | command | `SetDefaultProductVariantHandler` | `SetDefaultProductVariantValidator` | yes | `PUT /api/admin/products/{id:int}/variants/{variantId:int}/default` |
@@ -94,6 +96,7 @@ Module document: [Catalog/README.md](Catalog/README.md).
 | `UpdateCategoryCommand` | command | `UpdateCategoryHandler` | `UpdateCategoryValidator` | yes | `PUT /api/categories/{id:int}` |
 | `UpdateProductCommand` | command | `UpdateProductHandler` | `UpdateProductValidator` | yes | `PUT /api/products/{id:int}` |
 | `UpdateProductVariantCommand` | command | `UpdateProductVariantHandler` | `UpdateProductVariantValidator` | yes | `PUT /api/admin/products/{id:int}/variants/{variantId:int}` |
+| `UpdateSearchSynonymCommand` | command | `UpdateSearchSynonymHandler` | `UpdateSearchSynonymValidator` | yes | `PUT /api/admin/search-synonyms/{id:int}` |
 | `UploadProductImageCommand` | command | `UploadProductImageHandler` | — | yes | `POST /api/products/{id:int}/image` |
 | `UploadProductVideoCommand` | command | `UploadProductVideoHandler` | — | yes | `POST /api/products/{id:int}/video` |
 | `GetAdminProductQuery` | query | `GetAdminProductHandler` | — | — | `GET /api/admin/products/{id:int}` |
@@ -105,6 +108,7 @@ Module document: [Catalog/README.md](Catalog/README.md).
 | `GetSearchSuggestionsQuery` | query | `GetSearchSuggestionsHandler` | `GetSearchSuggestionsValidator` | — | `GET /api/products/suggestions` |
 | `ListAdminCategoriesQuery` | query | `GetCategoriesHandler` | — | — | `GET /api/admin/categories` |
 | `ListAdminProductsQuery` | query | `ListAdminProductsHandler` | `ListAdminProductsQueryValidator` | — | `GET /api/admin/products` |
+| `ListSearchSynonymsQuery` | query | `ListSearchSynonymsHandler` | — | — | `GET /api/admin/search-synonyms` |
 
 | Public contract | Implemented by |
 |---|---|

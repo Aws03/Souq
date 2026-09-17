@@ -43,7 +43,8 @@
     "searchSuggestionsAria": "Search suggestions",
     "searchSuggestionCategory": "Category",
     "searchSuggestionsCount_one": "1 suggestion",
-    "searchSuggestionsCount_other": "{{count}} suggestions"
+    "searchSuggestionsCount_other": "{{count}} suggestions",
+    "searchSynonyms": "Search vocabulary"
   },
   "cart": {
     "title": "Your Cart",
@@ -1234,6 +1235,38 @@
         "roleInvalid": "Choose a role."
       },
       "actionsFor": "Actions for {{name, bidi}}"
+    },
+    "searchSynonyms": {
+      "title": "Search vocabulary",
+      "subtitle": "Teach search the words your customers use that your catalogue does not: a local term, a common brand name, or another name for the same thing.",
+      "add": "Add entry",
+      "created": "Entry added",
+      "updated": "Entry updated",
+      "deleted": "Entry deleted",
+      "colCulture": "Language",
+      "colTerm": "Customer types",
+      "colExpansion": "Also search for",
+      "colMatched": "What actually matches",
+      "emptyTitle": "No entries yet",
+      "emptyMessage": "Search already recovers typos from your own catalogue. Add an entry when customers type a word that resembles nothing in your products.",
+      "confirmDelete": {
+        "title": "Delete “{{term, bidi}}”?",
+        "message": "Search will stop expanding this word. Your products are unaffected.",
+        "action": "Delete"
+      },
+      "form": {
+        "addTitle": "Add entry",
+        "editTitle": "Edit entry",
+        "cultureLabel": "Language",
+        "cultureAr": "Arabic",
+        "cultureEn": "English",
+        "termLabel": "Word the customer types",
+        "termHint": "One word. Example: cell",
+        "expansionLabel": "Word to search alongside it",
+        "expansionHint": "One word that exists in your catalogue. Example: phone",
+        "bothRequired": "Both words are required",
+        "singleWord": "One word per side — for a phrase, add an entry per word"
+      }
     }
   },
   "wishlist": {
@@ -1359,7 +1392,10 @@
       "DefaultVariantMustBeActive": "Activate the variant before making it the default.",
       "DefaultVariantCannotBeDeactivated": "The default variant can’t be deactivated. Make another variant the default first.",
       "VariantNotFound": "That variant doesn’t belong to this product.",
-      "ProductHasVariants": "This product has options: change price and SKU for each variant."
+      "ProductHasVariants": "This product has options: change price and SKU for each variant.",
+      "InvalidSearchSynonym": "Invalid entry: one word per side, and not a word mapped to itself.",
+      "SearchSynonymExists": "That pair already exists for this language.",
+      "SearchSynonymLimitReached": "You have reached the maximum number of vocabulary entries."
     },
     "boundaryTitle": "Something went wrong on this page",
     "boundaryMessage": "The page could not be displayed. You can try again, or go back to the store.",

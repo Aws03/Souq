@@ -5,8 +5,7 @@ import { useStoreConfig } from '../../app/TenantProvider';
 import StoreBrand from '../../app/StoreBrand';
 import { isModuleEnabled } from '../../app/tenantModel';
 import {
-  GridIcon, PackageIcon, InventoryIcon, TagIcon, ReceiptIcon, PercentIcon, UserIcon, CardIcon, TruckIcon,
-  StarIcon, TrendIcon, SlidersIcon, TeamIcon,
+  GridIcon, PackageIcon, InventoryIcon, TagIcon, ReceiptIcon, PercentIcon, UserIcon, CardIcon, TruckIcon, StarIcon, TrendIcon, SlidersIcon, TeamIcon, SearchIcon,
 } from '../../components/icons/Icons';
 import styles from './AdminLayout.module.css';
 
@@ -17,6 +16,7 @@ export const ADMIN_NAV = [
   { to: '/admin/products', label: 'admin.nav.products', icon: PackageIcon, permission: 'catalog.manage' },
   { to: '/admin/inventory', label: 'admin.nav.inventory', icon: InventoryIcon, permission: 'inventory.view' },
   { to: '/admin/categories', label: 'admin.nav.categories', icon: TagIcon, permission: 'catalog.manage' },
+  { to: '/admin/search-synonyms', label: 'admin.nav.searchSynonyms', icon: SearchIcon, permission: 'catalog.manage' },
   { to: '/admin/coupons', label: 'admin.nav.coupons', icon: PercentIcon, permission: 'promotions.manage', module: 'promotions' },
   { to: '/admin/orders', label: 'admin.nav.orders', icon: ReceiptIcon, permission: 'orders.view' },
   { to: '/admin/customers', label: 'admin.nav.customers', icon: UserIcon, permission: 'customers.view' },

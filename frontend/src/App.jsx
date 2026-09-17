@@ -58,6 +58,7 @@ const Orders = lazy(() => import('./pages/admin/Orders'));
 const Customers = lazy(() => import('./pages/admin/Customers'));
 const Payments = lazy(() => import('./pages/admin/Payments'));
 const ShippingMethods = lazy(() => import('./pages/admin/ShippingMethods'));
+const SearchSynonyms = lazy(() => import('./pages/admin/SearchSynonyms'));
 const ReviewModeration = lazy(() => import('./pages/admin/ReviewModeration'));
 const StoreSettings = lazy(() => import('./pages/admin/StoreSettings'));
 const Staff = lazy(() => import('./pages/admin/Staff'));
@@ -140,6 +141,8 @@ function StoreRoutes() {
         <Route path="products/:productId/variants" element={guarded(<ProductVariants />, 'catalog.manage')} />
         <Route path="inventory" element={guarded(<Inventory />, 'inventory.view')} />
         <Route path="categories" element={guarded(<Categories />, 'catalog.manage')} />
+        {/* مفردات البحث (M3، ADR-0042): إعداد كتالوج، فبصلاحية الكتالوج نفسها. */}
+        <Route path="search-synonyms" element={guarded(<SearchSynonyms />, 'catalog.manage')} />
         <Route path="coupons" element={guarded(<Coupons />, 'promotions.manage', 'promotions')} />
         <Route path="orders" element={guarded(<Orders />, 'orders.view')} />
         <Route path="customers" element={guarded(<Customers />, 'customers.view')} />

@@ -28,6 +28,7 @@ public class DomainExceptionCodeTests
         { new InvalidShippingMethodException("x"), "InvalidShippingMethod" },
         { new InvalidNotificationException("x"), "InvalidNotification" },
         { new InvalidProductVariantException("DuplicateVariantCombination", "x"), "DuplicateVariantCombination" },
+        { new InvalidSearchSynonymException("x"), "InvalidSearchSynonym" },
     };
 
     [Theory]

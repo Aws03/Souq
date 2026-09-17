@@ -37,7 +37,8 @@ internal sealed class CatalogQueries : ICatalogQueries
         ProductSearch search, PageRequest page, string culture, CancellationToken ct)
     {
         var tokens = SearchText.Tokenize(search.Keyword, SearchText.MaxQueryTokens);
-        var found = await MatchAsync(search, tokens, page, culture, ct);
+        var expansions = await ExpandAsync(tokens, ct);
+        var found = await MatchAsync(search, tokens, expansions, page, culture, ct);
         if (tokens.Count == 0 || found.TotalCount > 0) return new ProductSearchPage(found);
 
         var corrected = !search.ExactOnly && WorthRecovering(tokens) ? await CorrectAsync(tokens, ct) : null;
@@ -45,7 +46,8 @@ internal sealed class CatalogQueries : ICatalogQueries
 
         if (corrected is not null)
         {
-            var retry = await MatchAsync(search, corrected, page, culture, ct);
+            // الكلمة المصحَّحة تُوسَّع بمرادفاتها هي، لا بمرادفات الكلمة الخاطئة.
+            var retry = await MatchAsync(search, corrected, await ExpandAsync(corrected, ct), page, culture, ct);
             if (retry.TotalCount > 0)
                 return new ProductSearchPage(retry, new SearchRecovery(term, string.Join(' ', corrected), null));
         }
@@ -59,7 +61,8 @@ internal sealed class CatalogQueries : ICatalogQueries
         tokens.Count <= RecoveryMaxTokens && tokens.All(t => t.Length >= RecoveryMinTokenLength);
 
     private async Task<PaginatedList<ProductDto>> MatchAsync(
-        ProductSearch search, IReadOnlyList<string> tokens, PageRequest page, string culture, CancellationToken ct)
+        ProductSearch search, IReadOnlyList<string> tokens, IReadOnlyList<IReadOnlyList<string>> expansions,
+        PageRequest page, string culture, CancellationToken ct)
     {
         var query = VisibleProducts();
 
@@ -75,7 +78,10 @@ internal sealed class CatalogQueries : ICatalogQueries
         // حيث كانت الدعوى مسجَّلة صريحاً أنّها غير متحقَّق منها.)
         // ============================================================================
         var phrase = string.Join(' ', tokens);
-        query = tokens.Aggregate(query, (current, token) => current.Where(MatchesToken(token)));
+        // كل كلمة تُوسَّع بمرادفاتها التي علّمها التاجر (M3): الشرط يصير "الكلمة أو أحد مرادفيها" — والشروط
+        // بين الكلمات تبقى AND. يُطبَّق على المسار الساخن لا في الاسترجاع وحده: من كتب "جوال" في متجر يبيع
+        // "هاتف" يجب أن يجد الهواتف **مع** أي منتج يحمل كلمة "جوال"، لا أن يُحرَم منها لأنّ شيئاً وُجد.
+        query = expansions.Aggregate(query, (current, group) => current.Where(MatchesAny(group)));
 
         if (search.CategoryIds is { Count: > 0 } categoryIds)
             query = query.Where(p => categoryIds.Contains(p.CategoryId));
@@ -297,6 +303,14 @@ internal sealed class CatalogQueries : ICatalogQueries
     private static IReadOnlyDictionary<string, string> Names(IEnumerable<OptionTranslation> translations) =>
         translations.OrderBy(t => t.Culture, StringComparer.Ordinal).ToDictionary(t => t.Culture, t => t.Name);
 
+    // مفردات المتجر لشاشة التاجر: مرتَّبة كما يقرؤها إنسان (لغة، ثم الكلمة، ثم مرادفها) لا بترتيب الإدراج.
+    public async Task<IReadOnlyList<SearchSynonymDto>> ListSearchSynonymsAsync(CancellationToken ct) =>
+        await _db.SearchSynonyms.AsNoTracking()
+            .OrderBy(s => s.Culture).ThenBy(s => s.TermNormalized).ThenBy(s => s.ExpansionNormalized)
+            .Select(s => new SearchSynonymDto(
+                s.Id, s.Culture, s.Term, s.TermNormalized, s.Expansion, s.ExpansionNormalized))
+            .ToListAsync(ct);
+
     // ── استرجاع الخطأ المطبعي (M3) ──────────────────────────────────────────
 
     // حدود مسار الاسترجاع. أرقام مقيسة لا مختارة: انظر "Measured evidence" في ADR-0042.
@@ -306,6 +320,79 @@ internal sealed class CatalogQueries : ICatalogQueries
     // سقف أسماء المفردات المقروءة. مفردات لغة طبيعية تتشبّع: متجر بخمسين ألف منتج لا يحمل خمسين ألف كلمة مختلفة.
     // السقف يمنع استعلاماً واحداً من قراءة كتالوج ضخم كاملاً، ولا يُفقد استرجاعاً إلا في كتالوج أكبر من أي مقيس.
     private const int VocabularyNameLimit = 5_000;
+
+    // ============================================================================
+    // توسيع كلمات الاستعلام بمفردات المتجر (M3، ADR-0042): لكل كلمة قائمةٌ تبدأ بها هي ثم مرادفاتها.
+    //
+    // استعلام واحد مفهرس لكل بحث ((المستأجر، اللغة، الكلمة المطبَّعة) مع المرادف عموداً مُضمَّناً)، ويعود فارغاً
+    // في متجر لا مفردات له — وهو الحال الغالب. الكلفة المقيسة لبحثٍ في فهرس كهذا 0.2ms (ADR-0042)، وهي الثمن
+    // المقبول لأن يعمل المرادف على المسار الساخن بدل أن يكون خطّة احتياطية لا تعمل إلا حين لا نتائج.
+    //
+    // **بلا تعدٍّ**: مرادف المرادف لا يُطبَّق (انظر SearchSynonym) — فحلقةٌ في البيانات لا تُنتج استعلاماً
+    // لا ينتهي، وأثر كل صفّ مرئي لمن أضافه.
+    //
+    // اللغة لا تُصفّى عند المطابقة: البحث يطابق ترجمات كل اللغات أصلاً، والكلمات نفسها خاصّة بلغتها فعلياً.
+    // عمود Culture تسميةٌ للتاجر في شاشته ونطاقٌ للفريد، لا مرشّح قراءة.
+    // ============================================================================
+    private async Task<IReadOnlyList<IReadOnlyList<string>>> ExpandAsync(
+        IReadOnlyList<string> tokens, CancellationToken ct)
+    {
+        if (tokens.Count == 0) return [];
+
+        var rows = await _db.SearchSynonyms.AsNoTracking()
+            .Where(s => tokens.Contains(s.TermNormalized))
+            .Select(s => new { s.TermNormalized, s.ExpansionNormalized })
+            .ToListAsync(ct);
+
+        if (rows.Count == 0) return tokens.Select(t => (IReadOnlyList<string>)[t]).ToList();
+
+        return tokens.Select(token =>
+        {
+            // الكلمة نفسها أولاً دائماً، ثم مرادفاتها مرتَّبةً — فالنتيجة لا تتبع ترتيب صفوف القاعدة.
+            var words = new List<string> { token };
+            words.AddRange(rows.Where(r => r.TermNormalized == token)
+                .Select(r => r.ExpansionNormalized)
+                .Where(e => e != token)
+                .Distinct(StringComparer.Ordinal)
+                .OrderBy(e => e, StringComparer.Ordinal));
+            return (IReadOnlyList<string>)words;
+        }).ToList();
+    }
+
+    // ============================================================================
+    // "الكلمة أو أحد مرادفيها": شرط واحد بـ OR بين مطابقات الكلمات.
+    //
+    // تُبنى شجرة التعبير بيد لأنّ عدد المرادفات متغيّر، ولا يمكن التعبير عنه بـ LINQ ساكن: EF يترجم
+    // `list.Contains(column)` إلى IN، لكن لا يترجم `list.Any(w => column.Contains(w))` — والمطلوب هو الثاني.
+    // ولا نستعمل Expression.Invoke (لا يُترجَم): تُعاد كتابة مُعامِل كل تعبير إلى مُعامِل واحد مشترك بزائر،
+    // وهي الطريقة القياسية لتركيب المُسنَدات في EF.
+    // ============================================================================
+    private static Expression<Func<Product, bool>> MatchesAny(IReadOnlyList<string> words)
+    {
+        var first = MatchesToken(words[0]);
+        if (words.Count == 1) return first;
+
+        var parameter = first.Parameters[0];
+        var body = first.Body;
+        for (var index = 1; index < words.Count; index++)
+        {
+            var next = MatchesToken(words[index]);
+            var rebound = new ParameterRebinder(next.Parameters[0], parameter).Visit(next.Body)!;
+            body = Expression.OrElse(body, rebound);
+        }
+
+        return Expression.Lambda<Func<Product, bool>>(body, parameter);
+    }
+
+    private sealed class ParameterRebinder : ExpressionVisitor
+    {
+        private readonly ParameterExpression _from;
+        private readonly ParameterExpression _to;
+
+        public ParameterRebinder(ParameterExpression from, ParameterExpression to) { _from = from; _to = to; }
+
+        protected override Expression VisitParameter(ParameterExpression node) => node == _from ? _to : node;
+    }
 
     // ============================================================================
     // تصحيح كل كلمة إلى أقرب كلمة في مفردات الكتالوج. الكلمة الموجودة أصلاً لا تُمسّ — وإلا صُحِّح ما هو صحيح.
