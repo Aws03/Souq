@@ -58,6 +58,9 @@ public class ModuleAndContractRuleTests
         ["Inventory"] = ["Catalog"],    // تنفّذ منفذ Catalog IVariantStockInitializer (عكس الاعتماد، المرحلة 6)
         // IStockAvailability لعرض المتاح في السلة — لا حجز (المرحلة 8)؛ IShippingRateProvider لمرحلة الشحن في التسعير (12)
         ["Shopping"] = ["Inventory", "Shipping"],
+        // IStorePaymentAccountEditor: منطقة المنصّة تدخل نطاق متجر مستهدف (ITenantScopeRunner) وتربط حسابه — استُخرج
+        // عقداً في التدقيق المعماري M1 (TD-04/R-04) بدل إشارة Platform المباشرة لصنف Payments (الصنف D سابقاً).
+        ["Platform"] = ["Payments"],
     };
 
     [Theory]

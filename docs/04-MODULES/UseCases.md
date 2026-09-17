@@ -7,14 +7,14 @@
 
 | Module | Feature folders | Commands | Queries | Contracts |
 |---|---|---|---|---|
-| [Platform](#platform) | `src/Souq.Application/Features/Platform`, `src/Souq.Application/Features/Stores` | 17 | 12 | 0 |
+| [Platform](#platform) | `src/Souq.Application/Features/Platform`, `src/Souq.Application/Features/Stores` | 15 | 11 | 0 |
 | [Identity](#identity) | `src/Souq.Application/Features/Auth`, `src/Souq.Application/Features/Staff` | 11 | 2 | 0 |
 | [Catalog](#catalog) | `src/Souq.Application/Features/Products`, `src/Souq.Application/Features/Categories` | 16 | 8 | 1 |
 | [Inventory](#inventory) | `src/Souq.Application/Features/Inventory` | 4 | 4 | 2 |
 | [Customers](#customers) | `src/Souq.Application/Features/Customers` | 8 | 6 | 0 |
 | [Shopping](#shopping) | `src/Souq.Application/Features/Baskets`, `src/Souq.Application/Features/Wishlist` | 10 | 2 | 2 |
 | [Ordering](#ordering) | `src/Souq.Application/Features/Orders` | 7 | 4 | 0 |
-| [Payments](#payments) | `src/Souq.Application/Features/Payments` | 2 | 1 | 2 |
+| [Payments](#payments) | `src/Souq.Application/Features/Payments` | 4 | 2 | 3 |
 | [Promotions](#promotions) | `src/Souq.Application/Features/Coupons` | 3 | 3 | 1 |
 | [Shipping](#shipping) | `src/Souq.Application/Features/Shipping` | 3 | 1 | 1 |
 | [Reviews](#reviews) | `src/Souq.Application/Features/Reviews` | 3 | 2 | 0 |
@@ -32,12 +32,10 @@ Module document: [Platform/README.md](Platform/README.md).
 | `CreateTenantCommand` | command | `CreateTenantHandler` | `CreateTenantValidator` | yes | `POST /api/platform/tenants` |
 | `InvitePlatformUserCommand` | command | `InvitePlatformUserHandler` | `InvitePlatformUserValidator` | yes | `POST /api/platform/users` |
 | `InviteTenantAdminCommand` | command | `InviteTenantAdminHandler` | `InviteTenantAdminValidator` | yes | `POST /api/platform/tenants/{id:int}/admins` |
-| `RemoveStorePaymentAccountCommand` | command | `RemoveStorePaymentAccountHandler` | — | yes | `DELETE /api/admin/store/payments` |
 | `RemoveTenantPaymentAccountCommand` | command | `RemoveTenantPaymentAccountHandler` | — | yes | `DELETE /api/platform/tenants/{id:int}/payments` |
 | `SetPlatformUserStatusCommand` | command | `SetPlatformUserStatusHandler` | — | yes | `POST /api/platform/users/{id:int}/status` |
 | `SetTenantModulesCommand` | command | `SetTenantModulesHandler` | `SetTenantModulesValidator` | yes | `PUT /api/platform/tenants/{id:int}/modules` |
 | `UpdateReviewSettingsCommand` | command | `UpdateReviewSettingsHandler` | — | yes | `PUT /api/admin/reviews/settings` |
-| `UpdateStorePaymentAccountCommand` | command | `UpdateStorePaymentAccountHandler` | `UpdateStorePaymentAccountValidator` | yes | `PUT /api/admin/store/payments` |
 | `UpdateStoreSettingsCommand` | command | `UpdateStoreSettingsHandler` | `UpdateStoreSettingsValidator` | yes | `PUT /api/admin/store/settings` |
 | `UpdateTenantCommand` | command | `UpdateTenantHandler` | `UpdateTenantValidator` | yes | `PUT /api/platform/tenants/{id:int}` |
 | `UpdateTenantPaymentAccountCommand` | command | `UpdateTenantPaymentAccountHandler` | `UpdateTenantPaymentAccountValidator` | yes | `PUT /api/platform/tenants/{id:int}/payments` |
@@ -46,7 +44,6 @@ Module document: [Platform/README.md](Platform/README.md).
 | `UploadTenantBrandingCommand` | command | `UploadTenantBrandingHandler` | — | yes | `POST /api/platform/tenants/{id:int}/branding/{asset}` |
 | `GetProvisioningOptionsQuery` | query | `GetProvisioningOptionsHandler` | — | yes | `GET /api/platform/tenants/options` |
 | `GetReviewSettingsQuery` | query | `GetReviewSettingsHandler` | — | — | `GET /api/admin/reviews/settings` |
-| `GetStorePaymentAccountQuery` | query | `GetStorePaymentAccountHandler` | — | — | `GET /api/admin/store/payments` |
 | `GetStoreSettingsOptionsQuery` | query | `GetStoreSettingsOptionsHandler` | — | — | `GET /api/admin/store/settings/options` |
 | `GetStoreSettingsQuery` | query | `GetStoreSettingsHandler` | — | — | `GET /api/admin/store/settings` |
 | `GetStorefrontConfigQuery` | query | `GetStorefrontConfigHandler` | — | — | `GET /api/storefront/config` |
@@ -202,13 +199,17 @@ Module document: [Payments/README.md](Payments/README.md).
 | Use case | Kind | Handler | Validator | Audited | Sent by |
 |---|---|---|---|---|---|
 | `RefundOrderCommand` | command | `RefundOrderHandler` | `RefundOrderValidator` | yes | `POST /api/orders/{id:int}/refunds` |
+| `RemoveStorePaymentAccountCommand` | command | `RemoveStorePaymentAccountHandler` | — | yes | `DELETE /api/admin/store/payments` |
 | `RetryRefundCommand` | command | `RetryRefundHandler` | — | yes | `POST /api/orders/{id:int}/refunds/{refundId:int}/retry` |
+| `UpdateStorePaymentAccountCommand` | command | `UpdateStorePaymentAccountHandler` | `UpdateStorePaymentAccountValidator` | yes | `PUT /api/admin/store/payments` |
 | `GetPaymentConfigQuery` | query | `GetPaymentConfigHandler` | — | — | `GET /api/payments/config` |
+| `GetStorePaymentAccountQuery` | query | `GetStorePaymentAccountHandler` | — | — | `GET /api/admin/store/payments` |
 
 | Public contract | Implemented by |
 |---|---|
 | `IOrderPayments` | `OrderPayments` |
 | `IPaymentQueries` | `PaymentQueries` |
+| `IStorePaymentAccountEditor` | `StorePaymentAccountEditor` |
 
 ## Promotions
 

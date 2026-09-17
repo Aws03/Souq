@@ -9,6 +9,8 @@ using Souq.API.Security;
 using Souq.API.Tenancy;
 using Souq.Application.Common.Models;
 using Souq.Application.Common.Security;
+using Souq.Application.Features.Payments;
+using Souq.Application.Features.Payments.Contracts;
 using Souq.Application.Features.Staff;
 using Souq.Application.Features.Stores;
 using Souq.Domain.Platform;

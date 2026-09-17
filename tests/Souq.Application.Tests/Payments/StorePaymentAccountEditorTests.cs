@@ -1,16 +1,18 @@
 using AwesomeAssertions;
 using NSubstitute;
 using Souq.Application.Common.Interfaces;
-using Souq.Application.Features.Stores;
+using Souq.Application.Features.Payments;
+using Souq.Application.Features.Payments.Contracts;
 using Souq.Application.Tests.TestDoubles;
 using Souq.Domain.Exceptions;
 using Souq.Domain.Interfaces;
 using Souq.Domain.Entities;
 
-namespace Souq.Application.Tests.Stores;
+namespace Souq.Application.Tests.Payments;
 
 // ============================================================================
-// حساب بوّابة المتجر (المرحلة 11، D-13): السرّان يُشفَّران مربوطَين بالمتجر ولا يُحفظ نصّهما، المفاتيح التجريبية لا تُقبل
+// حساب بوّابة المتجر (المرحلة 11، D-13؛ نُقل مع Features/Payments/StorePaymentAccounts.cs في التدقيق المعماري M1):
+// السرّان يُشفَّران مربوطَين بالمتجر ولا يُحفظ نصّهما، المفاتيح التجريبية لا تُقبل
 // حيث تمنعها السياسة (دفع وهمي صامت)، الصيغ الخاطئة ترفض برمز واحد، التعديل بلا سرّ يبقي المحفوظ، ولا سرّ في أي قراءة.
 // ============================================================================
 public class StorePaymentAccountEditorTests

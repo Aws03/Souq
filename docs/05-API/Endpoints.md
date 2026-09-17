@@ -67,9 +67,9 @@
 | POST | `/api/admin/store/branding/favicon` | `store.settings.manage` | store | — | — | — | — |
 | POST | `/api/admin/store/branding/logo` | `store.settings.manage` | store | — | — | — | — |
 | POST | `/api/admin/store/branding/social-image` | `store.settings.manage` | store | — | — | — | — |
-| GET | `/api/admin/store/payments` | `store.payments.manage` | store | — | — | `GetStorePaymentAccountQuery` | Platform |
-| PUT | `/api/admin/store/payments` | `store.payments.manage` | store | — | — | `UpdateStorePaymentAccountCommand` | Platform |
-| DELETE | `/api/admin/store/payments` | `store.payments.manage` | store | — | — | `RemoveStorePaymentAccountCommand` | Platform |
+| GET | `/api/admin/store/payments` | `store.payments.manage` | store | — | — | `GetStorePaymentAccountQuery` | Payments |
+| PUT | `/api/admin/store/payments` | `store.payments.manage` | store | — | — | `UpdateStorePaymentAccountCommand` | Payments |
+| DELETE | `/api/admin/store/payments` | `store.payments.manage` | store | — | — | `RemoveStorePaymentAccountCommand` | Payments |
 | GET | `/api/admin/store/settings` | `store.settings.manage` | store | — | — | `GetStoreSettingsQuery` | Platform |
 | PUT | `/api/admin/store/settings` | `store.settings.manage` | store | — | — | `UpdateStoreSettingsCommand` | Platform |
 | GET | `/api/admin/store/settings/options` | `store.settings.manage` | store | — | — | `GetStoreSettingsOptionsQuery` | Platform |

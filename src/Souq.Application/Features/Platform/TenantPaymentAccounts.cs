@@ -3,13 +3,17 @@ using MediatR;
 using Souq.Application.Common.Auditing;
 using Souq.Application.Common.Models;
 using Souq.Application.Common.Tenancy;
-using Souq.Application.Features.Stores;
+using Souq.Application.Features.Payments.Contracts;
 
 namespace Souq.Application.Features.Platform;
 
 // ============================================================================
-// حساب بوّابة متجر من منطقة المنصّة (المرحلة 11، platform.tenants.manage): المحرّر نفسه داخل نطاق المتجر المستهدف
-// (ITenantScopeRunner) — التشفير مربوط بذلك المتجر وحارس الكتابة يختمه، لا تجاوز لمرشّح المستأجر.
+// حساب بوّابة متجر من منطقة المنصّة (المرحلة 11، platform.tenants.manage): المحرّر الفعلي يملكه Payments
+// (Features/Payments/StorePaymentAccounts.cs)؛ منطقة المنصّة تدخل نطاق المتجر المستهدف عبر ITenantScopeRunner
+// وتطلب IStorePaymentAccountEditor وحده من Payments.Contracts — عقد منشور لا صنف وحدة أخرى مباشرة
+// (ModuleBoundaryAudit.md، التدقيق المعماري M1 — TD-04/R-04). التشفير مربوط بذلك المتجر وحارس الكتابة يختمه،
+// لا تجاوز لمرشّح المستأجر. الأمر يبقى هنا لا في Payments لأنه يحمل TenantId من مسار المنصّة، وحدها
+// Features.Platform يُباح لطلباتها ذلك (MultiTenancy.md §2).
 // ============================================================================
 // قراءة المنصّة لبيانات متجر مُدقَّقة كغيرها من طلبات المنطقة (ما يُعرض: التلميح لا السرّ).
 public record GetTenantPaymentAccountQuery(int TenantId) : IRequest<Result<StorePaymentAccountDto>>, IAuditable
@@ -32,7 +36,7 @@ public class GetTenantPaymentAccountHandler : IRequestHandler<GetTenantPaymentAc
         var store = await _directory.FindByIdAsync(query.TenantId, ct);
         if (store is null) return Result<StorePaymentAccountDto>.Failure(PlatformTenants.NotFound);
         return Result<StorePaymentAccountDto>.Success(
-            await _scopes.RunAsync<StorePaymentAccountEditor, StorePaymentAccountDto>(store, editor => editor.GetAsync(ct)));
+            await _scopes.RunAsync<IStorePaymentAccountEditor, StorePaymentAccountDto>(store, editor => editor.GetAsync(ct)));
     }
 }
 
@@ -65,7 +69,7 @@ public class UpdateTenantPaymentAccountHandler : IRequestHandler<UpdateTenantPay
     {
         var store = await _directory.FindByIdAsync(cmd.TenantId, ct);
         if (store is null) return Result.Failure(PlatformTenants.NotFound);
-        return await _scopes.RunAsync<StorePaymentAccountEditor, Result>(store, editor => editor.SaveAsync(cmd.Account, ct));
+        return await _scopes.RunAsync<IStorePaymentAccountEditor, Result>(store, editor => editor.SaveAsync(cmd.Account, ct));
     }
 }
 
@@ -88,6 +92,6 @@ public class RemoveTenantPaymentAccountHandler : IRequestHandler<RemoveTenantPay
     {
         var store = await _directory.FindByIdAsync(cmd.TenantId, ct);
         if (store is null) return Result.Failure(PlatformTenants.NotFound);
-        return await _scopes.RunAsync<StorePaymentAccountEditor, Result>(store, editor => editor.RemoveAsync(ct));
+        return await _scopes.RunAsync<IStorePaymentAccountEditor, Result>(store, editor => editor.RemoveAsync(ct));
     }
 }

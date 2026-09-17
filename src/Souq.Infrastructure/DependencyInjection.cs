@@ -221,7 +221,7 @@ public static class DependencyInjection
 
         // مفاتيح Stripe التجريبية لحسابات المتاجر: التطوير والاختبار وحدهما، إلا بإذن صريح مُحذَّر منه.
         var allowTestKeys = local || config.GetValue<bool>("Payments:AllowTestModeStoreAccounts");
-        services.AddSingleton(new Application.Features.Stores.StorePaymentPolicy { AllowTestKeys = allowTestKeys });
+        services.AddSingleton(new Application.Features.Payments.StorePaymentPolicy { AllowTestKeys = allowTestKeys });
         if (allowTestKeys && !local)
             report.Warn("Payments:AllowTestModeStoreAccounts مفعّل: متجر بمفاتيح Stripe تجريبية يقبل بطاقات الاختبار بلا مال حقيقي.");
     }

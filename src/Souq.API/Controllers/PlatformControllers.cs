@@ -6,6 +6,7 @@ using Souq.API.Security;
 using Souq.API.Tenancy;
 using Souq.Application.Common.Models;
 using Souq.Application.Common.Security;
+using Souq.Application.Features.Payments.Contracts;
 using Souq.Application.Features.Platform;
 using Souq.Application.Features.Reporting;
 using Souq.Application.Features.Stores;

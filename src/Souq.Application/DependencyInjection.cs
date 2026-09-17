@@ -60,7 +60,11 @@ public static class DependencyInjection
         // وحدة Payments (المرحلة 11): دفعة الطلب واستردادها لـ Ordering، ومحرّر حساب بوّابة المتجر لمساري المتجر والمنصّة.
         // سياسة مفاتيحه (StorePaymentPolicy) يسجّلها Infrastructure من الإعداد والبيئة.
         services.AddScoped<Features.Payments.Contracts.IOrderPayments, Features.Payments.OrderPayments>();
-        services.AddScoped<Features.Stores.StorePaymentAccountEditor>();
+        // المحرّر مسجَّل بنوعه الفعلي ليُحلّ محلّياً (معالجات Payments)، وبعقده أيضاً (يفتح نفس نسخة النطاق) —
+        // فقط عبر ذلك العقد يصل إليه مسار المنصّة في وحدة أخرى (Features/Platform/TenantPaymentAccounts.cs).
+        services.AddScoped<Features.Payments.StorePaymentAccountEditor>();
+        services.AddScoped<Features.Payments.Contracts.IStorePaymentAccountEditor>(
+            sp => sp.GetRequiredService<Features.Payments.StorePaymentAccountEditor>());
         // وحدة Shipping (المرحلة 12): استراتيجية أسعار الشحن — اليوم جدول طرق المتجر؛ مزوّد ناقل يستبدل هذا التسجيل.
         services.AddScoped<Features.Shipping.Contracts.IShippingRateProvider, Features.Shipping.StoreShippingRates>();
         // الدفع من السلة (المرحلة 9): Ordering يقرأ أسطرها ويستهلك المشترى منها عند تأكيد الدفع.

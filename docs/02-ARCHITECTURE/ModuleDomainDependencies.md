@@ -12,7 +12,7 @@ This file makes those crossings countable. It lists every place one module's use
 - **A new crossing changes this file and fails the test.** That is the point: it should be a decision, made in review, not a quiet import. Prefer adding a contract to the owning module; if the crossing is deliberate, regenerate the file so the diff shows what you added.
 - **Removing a crossing also changes this file.** Regenerate, and the count goes down.
 
-**Today: 79 crossings across 16 module pairs.**
+**Today: 74 crossings across 15 module pairs.**
 
 | From | To | Crossings |
 |---|---|---|
@@ -21,7 +21,6 @@ This file makes those crossings countable. It lists every place one module's use
 | Notifications | Ordering | 9 |
 | Customers | Identity | 8 |
 | Notifications | Platform | 6 |
-| Platform | Payments | 5 |
 | Customers | Shopping | 4 |
 | Identity | Customers | 4 |
 | Notifications | Customers | 4 |
@@ -37,11 +36,6 @@ This file makes those crossings countable. It lists every place one module's use
 
 | From | To | Domain type | Used by |
 |---|---|---|---|
-| Platform | Payments | `IStorePaymentAccountRepository` | `StorePaymentAccountEditor` |
-| Platform | Payments | `InvalidPaymentOperationException` | `StorePaymentAccountEditor` |
-| Platform | Payments | `PaymentKeyRules` | `StorePaymentAccountEditor` |
-| Platform | Payments | `PaymentKeyRules` | `StorePaymentAudit` |
-| Platform | Payments | `StorePaymentAccount` | `StorePaymentAccountEditor` |
 | Identity | Customers | `Customer` | `RegisterHandler` |
 | Identity | Customers | `ICustomerRepository` | `AuthSessionIssuer` |
 | Identity | Customers | `ICustomerRepository` | `GetCurrentUserHandler` |

@@ -5,14 +5,17 @@ using Souq.Application.Common.Interfaces;
 using Souq.Application.Common.Models;
 using Souq.Application.Common.Security;
 using Souq.Application.Common.Tenancy;
+using Souq.Application.Features.Payments.Contracts;
 using Souq.Domain.Exceptions;
 using Souq.Domain.Interfaces;
 using Souq.Domain.Entities;
 
-namespace Souq.Application.Features.Stores;
+namespace Souq.Application.Features.Payments;
 
 // ============================================================================
-// حساب بوّابة الدفع الخاص بالمتجر (المرحلة 11، D-13): مدير المتجر (store.payments.manage) أو المنصّة يربطان مفاتيح Stripe
+// حساب بوّابة الدفع الخاص بالمتجر (المرحلة 11، D-13؛ نُقل من Features/Stores إلى وحدته الصحيحة Payments في التدقيق
+// المعماري M1 — TD-04/R-04: السرّ الأشدّ حساسية في النظام كان منسوباً لوحدة Platform بالخطأ). مدير المتجر
+// (store.payments.manage) أو المنصّة (عبر عقد IStorePaymentAccountEditor في Contracts) يربطان مفاتيح Stripe
 // للمتجر فيُقبض ماله في حسابه؛ بدونها يعمل حساب النشر. السرّان يُشفَّران مربوطَين بالمتجر ولا يُعادان في أي ردّ ولا يدخلان
 // سجلّ التدقيق — الواجهة ترى تلميح المفتاح وهل سرّ الإشعارات مضبوط فقط.
 // ============================================================================
@@ -24,25 +27,8 @@ public sealed class StorePaymentPolicy
     public bool AllowTestKeys { get; init; }
 }
 
-// SecretKey/WebhookSecret فارغان ⇒ يبقى المحفوظ (التعديل لا يلزم إعادة إدخال السرّ).
-public record StorePaymentAccountInput(string PublishableKey, string? SecretKey, string? WebhookSecret);
-
-public record StorePaymentAccountDto(
-    bool UsesStoreAccount, string? Provider, string? PublishableKey, bool? LiveMode, string? SecretKeyHint,
-    bool HasWebhookSecret, DateTime? UpdatedAt, bool CanStoreSecrets, bool TestKeysAllowed);
-
-public sealed class StorePaymentAccountInputValidator : AbstractValidator<StorePaymentAccountInput>
-{
-    public StorePaymentAccountInputValidator()
-    {
-        RuleFor(x => x.PublishableKey).NotEmpty().MaximumLength(StorePaymentAccount.KeyMaxLength);
-        RuleFor(x => x.SecretKey).MaximumLength(StorePaymentAccount.KeyMaxLength);
-        RuleFor(x => x.WebhookSecret).MaximumLength(StorePaymentAccount.KeyMaxLength);
-    }
-}
-
-// المحرّر الواحد لمساري المتجر والمنصّة — يعمل في نطاق المتجر المعني (المنصّة تدخله عبر ITenantScopeRunner).
-public sealed class StorePaymentAccountEditor
+// ينفّذ IStorePaymentAccountEditor (Contracts) — Platform يستدعيه بذلك العقد وحده عبر ITenantScopeRunner.
+public sealed class StorePaymentAccountEditor : IStorePaymentAccountEditor
 {
     private readonly IStorePaymentAccountRepository _accounts;
     private readonly ISecretProtector _secrets;
@@ -121,23 +107,12 @@ public sealed class StorePaymentAccountEditor
     private static string? Blank(string? text) => string.IsNullOrWhiteSpace(text) ? null : text.Trim();
 }
 
-// ما يدخل سجلّ التدقيق: ما تغيّر لا المفاتيح نفسها.
-internal static class StorePaymentAudit
-{
-    public static Dictionary<string, object?> Meta(StorePaymentAccountInput? input) => new()
-    {
-        ["liveMode"] = PaymentKeyRules.PublishableMode(input?.PublishableKey),
-        ["secretKeyChanged"] = !string.IsNullOrWhiteSpace(input?.SecretKey),
-        ["webhookSecretChanged"] = !string.IsNullOrWhiteSpace(input?.WebhookSecret),
-    };
-}
-
 public record GetStorePaymentAccountQuery : IRequest<StorePaymentAccountDto>;
 
 public class GetStorePaymentAccountHandler : IRequestHandler<GetStorePaymentAccountQuery, StorePaymentAccountDto>
 {
-    private readonly StorePaymentAccountEditor _editor;
-    public GetStorePaymentAccountHandler(StorePaymentAccountEditor editor) => _editor = editor;
+    private readonly IStorePaymentAccountEditor _editor;
+    public GetStorePaymentAccountHandler(IStorePaymentAccountEditor editor) => _editor = editor;
 
     public Task<StorePaymentAccountDto> Handle(GetStorePaymentAccountQuery query, CancellationToken ct) => _editor.GetAsync(ct);
 }
@@ -155,8 +130,8 @@ public sealed class UpdateStorePaymentAccountValidator : AbstractValidator<Updat
 
 public class UpdateStorePaymentAccountHandler : IRequestHandler<UpdateStorePaymentAccountCommand, Result>
 {
-    private readonly StorePaymentAccountEditor _editor;
-    public UpdateStorePaymentAccountHandler(StorePaymentAccountEditor editor) => _editor = editor;
+    private readonly IStorePaymentAccountEditor _editor;
+    public UpdateStorePaymentAccountHandler(IStorePaymentAccountEditor editor) => _editor = editor;
 
     public Task<Result> Handle(UpdateStorePaymentAccountCommand cmd, CancellationToken ct) => _editor.SaveAsync(cmd.Account, ct);
 }
@@ -168,8 +143,8 @@ public record RemoveStorePaymentAccountCommand : IRequest<Result>, IAuditable
 
 public class RemoveStorePaymentAccountHandler : IRequestHandler<RemoveStorePaymentAccountCommand, Result>
 {
-    private readonly StorePaymentAccountEditor _editor;
-    public RemoveStorePaymentAccountHandler(StorePaymentAccountEditor editor) => _editor = editor;
+    private readonly IStorePaymentAccountEditor _editor;
+    public RemoveStorePaymentAccountHandler(IStorePaymentAccountEditor editor) => _editor = editor;
 
     public Task<Result> Handle(RemoveStorePaymentAccountCommand cmd, CancellationToken ct) => _editor.RemoveAsync(ct);
 }
