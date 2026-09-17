@@ -5,6 +5,7 @@
 ## 1. Style
 
 - **REST over HTTPS with JSON.** Resources are nouns; HTTP methods are the verbs. Enums travel as strings (`"Shipped"`).
+- **Every instant in a response is UTC and says so** (`"2026-09-17T12:39:47.758192Z"`). Storage is UTC, but a `DateTime` read from the database has no kind, and without the `Z` a browser reads the text in its own time zone — every order time, sign-in and audit line was shifted by the reader's offset. `UtcDateTimeJsonConverter` (`src/Souq.API/Http/UtcDateTimeJsonConverter.cs`) writes the suffix. Request bodies and query strings are read as before; send an instant with `Z` or an explicit offset. Proven by `PlatformAuditViewerTests`.
 - Commands that don't map to CRUD become **sub-resource actions**, for example `POST /api/orders/{id}/confirm-payment` and `PUT /api/orders/{id}/status`. Invented verb endpoints are avoided — the distinction is that the action hangs off the resource it changes, rather than becoming a verb of its own.
 - **Controllers are thin.** A controller:
   - binds the request;

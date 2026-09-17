@@ -38,6 +38,7 @@ builder.Services.AddControllers()
     .AddJsonOptions(o =>
     {
         o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+        o.JsonSerializerOptions.Converters.Add(new UtcDateTimeJsonConverter());   // لحظات الردود UTC بلاحقة Z
         o.AllowInputFormatterExceptionMessages = false;
     });
 
