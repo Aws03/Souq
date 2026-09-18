@@ -38,6 +38,27 @@ public class EnforcementDiagnosticsTests
         Souq.API.Observability.ProxyTrustDiagnostics.WasForwardedProtoIgnored(context).Should().Be(expected);
     }
 
+    // ========================================================================
+    // السبب الثاني لنفس الأعراض (M15): السلسلة أطول من ForwardLimit.
+    //
+    // الفحص الأول أعلاه لا يراه إطلاقاً: nginx **يستبدل** X-Forwarded-Proto فتصل بقيمة واحدة تُستهلك
+    // بنجاح ولا يبقى منها شيء — بينما **يُلحق** X-Forwarded-For، فقفزتان تعنيان قيمتين والحدّ واحد.
+    // النتيجة عنوان وكيلٍ مكان عنوان كل زائر: حدّ معدّل واحد للجميع، وتدقيقٌ ينسب كل شيء إلى الحافّة.
+    // ========================================================================
+    [Theory]
+    [InlineData("203.0.113.9", true)]                  // بقيت قيمة ⇒ استُهلك أقلّ ممّا وصل: هذا هو العطل
+    [InlineData("203.0.113.9, 198.51.100.4", true)]    // بقيت قيمتان ⇒ سلسلة أطول بكثير
+    [InlineData("", false)]                            // فرغت ⇒ استُهلكت كلّها: سليم
+    [InlineData("   ", false)]                         // فراغٌ فقط ⇒ كأنّها فرغت
+    [InlineData(null, false)]                          // لا ترويسة ⇒ لا وكيل
+    public void اكتشاف_سلسلة_وكلاء_أطول_من_الحدّ_يقوم_على_بقاء_قيمة_في_الترويسة(string? remaining, bool expected)
+    {
+        var context = new Microsoft.AspNetCore.Http.DefaultHttpContext();
+        if (remaining is not null) context.Request.Headers["X-Forwarded-For"] = remaining;
+
+        Souq.API.Observability.ProxyTrustDiagnostics.HasUnconsumedForwardedFor(context).Should().Be(expected);
+    }
+
     [Fact]
     public async Task فحص_صلاحيات_القاعدة_يقرأ_الهوية_الحقيقية_من_القاعدة()
     {

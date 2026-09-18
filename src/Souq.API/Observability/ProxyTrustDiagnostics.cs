@@ -14,6 +14,15 @@ namespace Souq.API.Observability;
 // الكشف دقيق لا تخميني: وسيط الإطار *يحذف* القيمة التي استهلكها من الترويسة. فبقاء
 // X-Forwarded-Proto بعده مع مخطّط http يعني بالضبط "وصلت الترويسة ولم تُصدَّق".
 // يُسجَّل مرّة واحدة لكل عملية: تحذير يتكرّر مع كل طلب يُطفَأ، لا يُقرأ.
+//
+// ── وسببٌ ثانٍ لنفس الأعراض، أُضيف في M15: سلسلة أطول من الحدّ ──
+// ForwardLimit افتراضه **واحد**، وDeployment.md يوصي بإنهاء TLS عند الحافّة — أي أمام nginx. وnginx
+// يُلحق ولا يستبدل، فتصل X-Forwarded-For بقيمتين ("الزائر، المُنهي")، ويُستهلك الأيمن وحده: فيصير عنوان
+// كل زائر هو عنوان المُنهي. نفس ثلاثة الأعراض أعلاه بالضبط، وبسبب مختلف تماماً — ولا يكشفه الفحص الأول،
+// لأنّ X-Forwarded-Proto تصل بقيمة واحدة (nginx يستبدلها) فتُستهلك بنجاح ولا يبقى منها شيء.
+//
+// والكشف هنا دقيق بنفس القدر ولنفس السبب: بقاء قيمةٍ في X-Forwarded-For بعد الوسيط يعني بالضبط
+// "السلسلة أطول ممّا استُهلك"، أي أنّ RemoteIpAddress وكيلٌ لا زائر.
 // ============================================================================
 public sealed class ProxyTrustDiagnostics
 {
@@ -28,16 +37,30 @@ public sealed class ProxyTrustDiagnostics
 
     public Task InvokeAsync(HttpContext context)
     {
-        if (Volatile.Read(ref _reported) == 0 && WasForwardedProtoIgnored(context)
+        if (Volatile.Read(ref _reported) == 0 && Warning(context) is { } warning
             && Interlocked.Exchange(ref _reported, 1) == 0)
-        {
-            _logger.LogWarning("Configuration warning: {ConfigurationWarning}",
-                $"وصلت X-Forwarded-Proto من {context.Connection.RemoteIpAddress} ولم تُصدَّق: هذا العنوان ليس في " +
-                "ForwardedHeaders:KnownNetworks. النتيجة: لا HSTS، وروابط بريد بـ http، وحدّ معدّل مشترك بين كل " +
-                "الزوّار. اضبط الشبكة التي يأتي منها الوكيل (TRUSTED_PROXY_NETWORKS في حزمة Compose).");
-        }
+            _logger.LogWarning("Configuration warning: {ConfigurationWarning}", warning);
 
         return _next(context);
+    }
+
+    // السببان يُفحصان بترتيبهما: "وكيل غير موثوق" يمنع تصديق الترويسات أصلاً، فلا معنى لفحص طول السلسلة
+    // بعده. ورسالةٌ واحدة تُسجَّل لا اثنتان: التشخيص الثاني يصير صحيحاً غالباً بعد إصلاح الأول.
+    private static string? Warning(HttpContext context)
+    {
+        if (WasForwardedProtoIgnored(context))
+            return $"وصلت X-Forwarded-Proto من {context.Connection.RemoteIpAddress} ولم تُصدَّق: هذا العنوان ليس في "
+                + "ForwardedHeaders:KnownNetworks. النتيجة: لا HSTS، وروابط بريد بـ http، وحدّ معدّل مشترك بين كل "
+                + "الزوّار. اضبط الشبكة التي يأتي منها الوكيل (TRUSTED_PROXY_NETWORKS في حزمة Compose).";
+
+        if (HasUnconsumedForwardedFor(context))
+            return $"بقيت قيم في X-Forwarded-For بعد معالجتها: {context.Request.Headers["X-Forwarded-For"]}. "
+                + $"السلسلة أطول من ForwardedHeaders:ForwardLimit، فـ {context.Connection.RemoteIpAddress} عنوان "
+                + "وكيلٍ لا عنوان زائر. النتيجة: حدّ معدّل واحد يتشاركه كل الزوّار، وكل سطر تدقيق منسوب إلى "
+                + "الوكيل. اضبط ForwardedHeaders:ForwardLimit على عدد الوكلاء بين الزائر والـ API "
+                + "(وكيلان مثلاً إن كان TLS يُنهى أمام nginx).";
+
+        return null;
     }
 
     // بعد UseForwardedHeaders: الترويسة باقية + المخطّط http ⇒ لم تُصدَّق. عامّة كي تُختبر
@@ -48,4 +71,10 @@ public sealed class ProxyTrustDiagnostics
         && context.Request.Headers.TryGetValue("X-Forwarded-Proto", out var proto)
         && proto.Count > 0
         && proto.ToString().Contains("https", StringComparison.OrdinalIgnoreCase);
+
+    // بعد UseForwardedHeaders: بقاء أي قيمة في X-Forwarded-For ⇒ السلسلة أطول من الحدّ. عامّة لتُختبر
+    // مباشرةً، كأختها.
+    public static bool HasUnconsumedForwardedFor(HttpContext context) =>
+        context.Request.Headers.TryGetValue("X-Forwarded-For", out var forwarded)
+        && !string.IsNullOrWhiteSpace(forwarded.ToString());
 }

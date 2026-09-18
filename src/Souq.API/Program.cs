@@ -115,6 +115,15 @@ builder.Services.Configure<ForwardedHeadersOptions>(o =>
     o.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
     foreach (var network in ReadList(builder.Configuration, "ForwardedHeaders:KnownNetworks"))
         o.KnownIPNetworks.Add(System.Net.IPNetwork.Parse(network));
+
+    // ── عدد الوكلاء بين الزائر والـ API (M15) ──
+    // افتراضي الإطار **واحد**، وهو صحيح لطوبولوجيا هذا المستودع: المتصفّح ⇒ nginx ⇒ API.
+    // لكن Deployment.md نفسه يوصي بإنهاء TLS عند الحافّة، أي أمام nginx — وتلك قفزتان. وnginx
+    // **يُلحق** ولا يستبدل (`$proxy_add_x_forwarded_for`)، فتصل الترويسة "الزائر، المُنهي"؛
+    // والحدّ واحد فيُستهلك الأيمن وحده، فيصير عنوان كل زائر هو عنوان المُنهي: حدّ معدّل واحد
+    // للجميع، وسطر تدقيق ينسب كل شيء إلى الحافّة. صامتٌ تماماً — ولهذا يكشفه ProxyTrustDiagnostics.
+    // يبقى الافتراضي كما كان: تغييره هنا يُغيّر وضع أمان كل نشر قائم بلا أن يطلبه أحد.
+    o.ForwardLimit = builder.Configuration.GetValue<int?>("ForwardedHeaders:ForwardLimit") ?? 1;
 });
 
 // ── HSTS (R-16): المدّة قابلة للضبط، وبلا includeSubDomains ولا preload افتراضاً.

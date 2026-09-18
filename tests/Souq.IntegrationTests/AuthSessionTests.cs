@@ -247,6 +247,44 @@ public class AuthSessionTests
         (await ProblemCode(last)).Should().Be("TooManyRequests");
     }
 
+    // ========================================================================
+    // حدّ المعدّل يُقاس بالمتجر، لا بصيغة كتابة مضيفه (M15).
+    //
+    // كان `Request.Host.Host` يدخل مفتاح الدلو كما وصل، بينما يُطبّعه تحديد المتجر — فـ"shop.test"
+    // و"Shop.test" و"shop.test." متجرٌ واحد وثلاثة دلاء. وتبديل حالة الأحرف لا يحتاج شيئاً: لا وكيلاً
+    // يُتجاوز، ولا ترويسةً تُزوَّر، ولا عنواناً يُبدَّل. أُثبت على حزمة حاويات تعمل قبل الإصلاح: عشرة
+    // طلبات بمضيف ثابت ثمّ 429، وأربعة عشر باختلاف الحالة وحدها — كلّها مرّت.
+    //
+    // وما كان مفتوحاً هو بالضبط ما وُضع الحدّ لأجله: حشو بيانات الاعتماد، وإغراق بريد إعادة التعيين،
+    // وتخمين الكوبونات، وإنشاء الحسابات.
+    // ========================================================================
+    [Theory]
+    [InlineData("localhost", "LOCALHOST")]      // حالة الأحرف
+    [InlineData("localhost", "LocalHost")]      // حالة مختلطة
+    [InlineData("localhost", "localhost.")]     // النقطة الأخيرة (جذر DNS)
+    public async Task صيغة_كتابة_المضيف_لا_تفتح_دلو_حدٍّ_جديداً(string first, string variant)
+    {
+        await using var strict = _factory.WithWebHostBuilder(b => b.UseSetting("RateLimiting:Auth:PermitLimit", "3"));
+
+        async Task<HttpStatusCode> LoginOn(string host)
+        {
+            var client = strict.CreateClient();
+            client.DefaultRequestHeaders.Host = host;
+            var response = await client.PostAsJsonAsync(
+                "/api/auth/login", new { email = "nobody@souq.test", password = "Wrong-Pass-9" });
+            return response.StatusCode;
+        }
+
+        // يُستهلك الحدّ بالصيغة الأولى حتى الرفض — فيصير الرفض هو الحالة القائمة.
+        HttpStatusCode last = default;
+        for (var i = 0; i < 4; i++) last = await LoginOn(first);
+        last.Should().Be(HttpStatusCode.TooManyRequests, "الحدّ لا يعمل أصلاً — الاختبار بعده بلا معنى");
+
+        // ثمّ الصيغة الأخرى لنفس المضيف: يجب أن تجد الدلو نفسه مستنفداً.
+        (await LoginOn(variant)).Should().Be(HttpStatusCode.TooManyRequests,
+            $"'{variant}' و'{first}' مضيف واحد ومتجر واحد — فدلو الحدّ واحد");
+    }
+
     private async Task<HttpResponseMessage> RefreshWith(string refreshToken)
     {
         var request = new HttpRequestMessage(HttpMethod.Post, "/api/auth/refresh");

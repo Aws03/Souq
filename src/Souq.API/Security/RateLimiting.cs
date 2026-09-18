@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.RateLimiting;
 using Souq.API.Http;
+using Souq.API.Tenancy;
 
 namespace Souq.API.Security;
 
@@ -74,7 +75,10 @@ public static class RateLimitingSetup
 
     private static void AddPolicy(RateLimiterOptions limiter, string policy, WindowLimit limit) =>
         limiter.AddPolicy(policy, context => RateLimitPartition.GetFixedWindowLimiter(
-            $"{context.Request.Host.Host}|{context.Connection.RemoteIpAddress}",
+            // المضيف بصيغته القانونية لا كما وصل (M15): `Request.Host.Host` يحفظ حالة الأحرف والنقطة
+            // الأخيرة، وتحديد المتجر يُطبّعها — فمتجرٌ واحد كان له دلوٌ لكل صيغة، وتبديل حالة الأحرف
+            // وحده كان يُلغي الحدّ تماماً. أُثبت على حزمة تعمل قبل الإصلاح، ويحرسه اختبار انحدار.
+            $"{RequestHost.Canonical(context)}|{context.Connection.RemoteIpAddress}",
             _ => new FixedWindowRateLimiterOptions
             {
                 PermitLimit = limit.PermitLimit,

@@ -37,7 +37,8 @@ public sealed class TenantResolutionMiddleware
             return;
         }
 
-        var host = context.Request.Host.Host.TrimEnd('.').ToLowerInvariant();
+        // نفس التطبيع الذي يفتح به حدّ المعدّل دلوه — من موضع واحد، كي لا يفترقا ثانيةً (M15).
+        var host = RequestHost.Canonical(context);
         if (_options.PlatformHosts.Contains(host, StringComparer.OrdinalIgnoreCase))
         {
             tenantContext.UsePlatform();
