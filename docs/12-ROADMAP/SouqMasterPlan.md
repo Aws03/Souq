@@ -29,12 +29,12 @@
 
 ```yaml
 plan_version: 1.0.0
-current_phase: M16
+current_phase: M17
 phase_status: done
-next_phase: M17         # M2 remains blocked on TD-42 and is independent of the phases after it; see M2's own STOP entry
+next_phase: M18         # M2 remains blocked on TD-42 and is independent of the phases after it; see M2's own STOP entry
 blocked_decisions: ["TD-42"]    # owner decisions that block a phase currently in flight; see §5 and OwnerDecisions.md
 last_verified_date: 2026-09-18
-last_verified_head: 4a62d49     # M16 closed: measured — no N+1, one index 237× wrong, caching declined on evidence
+last_verified_head: 5161bd3     # M17 closed: R-18's migration step built, TD-18 closed, least privilege re-verified, metrics with no dependency
 baseline_branch: phase/17-production-hardening
 ```
 
@@ -59,6 +59,17 @@ store's own catalogue vocabulary and **says which word it searched**, with the s
 customers use. SQL Server Full-Text Search was **measured unavailable** in the pinned image and rejected on
 evidence rather than assumption — see M3's "Completion evidence" above and
 [ADR-0042](../11-ADR/0042-local-search-engine.md).
+
+**M17 — done, to the boundary the phase's own text draws.** R-18 stopped being an accepted risk with a described
+remedy and became a built one: migrations at startup is now an **explicit choice** outside Development, and
+turning it off gives the deliberate bundle step — built *before* a second instance exists, because the moment one
+is added is the moment nobody is thinking about it. TD-18 closed along the way and stopped being a convenience:
+`dotnet ef` now runs from a clean checkout with no secrets, which the deliberate step requires. R-12 was
+re-verified against today's code and was overdue — M13 added two background services since the last measurement,
+exactly the shape that fails silently — and passed with zero permission denials and every reverse check still
+refusing. Metrics are instrumented with **no new dependency** (ADR-0045 separates what to measure, an engineering
+decision, from where to send it, a deployment's). What remains open is named one by one, each because it needs a
+real certificate, domain, account or spend. See M17's "Completion evidence" above.
 
 **M16 — done.** Measured first, then changed almost nothing — which is the result the phase's own rule asks for.
 There is **no N+1** in any read path (now guarded by a command-count test rather than a timing one), and every
@@ -2040,7 +2051,55 @@ repository.
   `OwnerDecisions.md`'s explicit "smaller choices" and the P0 items marked "deployment action, now with a
   measured recipe") are closed; whatever remains open is because it genuinely needs the owner's real account,
   domain or infrastructure spend, named explicitly.
-- **Completion evidence.** *(fill in on close)*
+- **Completion evidence.** **Done, to the boundary this phase's own text draws.** The acceptance criterion is
+  that what engineering can close without the owner is closed, and whatever remains open is named explicitly
+  because it needs a real account, domain or spend. Both halves are below.
+  - **R-18 is no longer accepted-and-described; it is built.** `Database:MigrateOnStartup` must be chosen
+    explicitly outside Development/Testing — the API refuses to start otherwise, the same rule `Email:Provider`
+    already sets — and `false` gives the deliberate step with a self-contained migration bundle. Built
+    deliberately **before** a second instance exists, because the moment one is added is the moment nobody is
+    thinking about this. The half that matters is what `false` does when the step is forgotten: it logs an
+    **error naming the pending migrations** rather than booting a version against a schema it does not match and
+    failing on the first request with a missing-column error one step from the real cause.
+  - **TD-18 closed, and it stopped being a convenience on the way.** `dotnet ef migrations list --project
+    src/Souq.Infrastructure` now runs from a clean checkout with no API host, no appsettings and no secrets —
+    verified. The deliberate migration step needs exactly that, because it runs from a deploy machine or a
+    bundle, and neither has (nor should have) the runtime's secrets.
+  - **R-12 re-verified against today's code, and it was overdue.** `DatabasePrivileges.md` asks for a re-run
+    after any new background job; since the last measurement the codebase gained M13's table and **two**
+    background services, which is precisely the shape that warning describes — a job missing a permission fails
+    silently, in no response. The harness passed unchanged: ready in 11 s, six real paths at 200, **zero
+    permission denials**, and the reverse checks still refusing a table create, a drop, a self-grant, a database
+    create and any other login's password hash. So `db_datareader + db_datawriter` covers a bulk `ExecuteDelete`
+    and a write path outside any request.
+  - **Metrics instrumented with no new dependency** ([ADR-0045](../11-ADR/0045-production-edge-and-observability-stack.md)).
+    ADR-0018 deferred OpenTelemetry because it needs a backend — true of the *exporter*, never true of the
+    *instrumentation*. Four counters on the runtime's own `System.Diagnostics.Metrics`, chosen against one test
+    (*would this wake a person?*), with high-cardinality tags deliberately excluded. Each already had a log line:
+    a log says what happened in one request, a counter says how often this hour, and only the second is
+    something an alert is built on.
+  - **Backup retention got a mechanism and deliberately not a policy.** Retention is recorded as an owner
+    decision and a legal one; `--prune-older-than <days>` deletes nothing unless asked, and only sets that
+    completed — a directory without `SHA256SUMS` was interrupted or is being written now, and deleting it would
+    hide a failure rather than tidy one.
+  - **Named explicitly as still open, because each needs the owner's real infrastructure:** a TLS certificate
+    and terminator (R-16 — the behaviour, headers, HSTS and both proxy diagnostics exist; the certificate does
+    not); automated TLS for merchant domains (R7 — needs an edge that can answer an ACME challenge, though the
+    `TenantDomains` data it would read exists); the backup schedule, off-site copy and alert destination (R-19 —
+    script, verifier, drill and prune all exist); a metrics exporter destination; applying least-privilege
+    logins to a real server (the recipe is re-verified, the server does not exist); per-tenant SPF/DKIM (R9 —
+    needs real domains); and branch protection (R-20 — a GitHub setting). TD-20 (uploads on local disk) is
+    deferred rather than closed: `IFileStorage` is already the seam, and local disk is correct until a second
+    instance exists.
+  - **Evidence.** Commits `b017f73`, `c12e227`, `5161bd3` plus this closure. Tests: 422 integration (1 new),
+    427 Application (2 new), 524 Domain, 94 architecture — all green. Runtime: the least-privilege harness run
+    end to end on throwaway infrastructure against today's image; `dotnet ef` verified working from the
+    Infrastructure project alone.
+  - **One harness fixed rather than tolerated.** M16's query-budget test measured more than it meant to: M13's
+    background writer flushes every 20 ms in the test host and *this test provokes it* — a keyword search
+    enqueues a row whose INSERT lands in the next window. It passed alone and failed in the suite, which is the
+    worst way to fail because it reads as random.
+- **Technical debt.** TD-18 closed. TD-20 and TD-35 untouched and re-confirmed as open. None opened.
 - **Next-phase trigger.** M18 may start independently, though it naturally follows since CI/CD needs a real
   deployment target to deploy *to*.
 
