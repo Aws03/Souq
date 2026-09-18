@@ -74,6 +74,19 @@ Two things it *can* do, both expected and neither worth chasing:
   No application data lives in `master`, and this is SQL Server's default posture rather than something these
   grants control.
 
+**Re-verified 2026-09-18 (M17), and it was due.** This page asks for a re-run "after any schema change, new
+background job, or anything that introduces raw SQL", and since the measurement above the codebase gained M13's
+`SearchQueryLogs` table together with **two new background services** — the batch writer that drains the search
+log into each store's tenant scope, and the retention sweep that deletes from it. Those are precisely the shape
+the warning describes: a background job that needs a permission nobody granted fails silently, in no response.
+
+The harness passed unchanged. Migrations applied under the migrator identity, the application was ready in 11 s,
+all six paths returned 200, **zero permission denials in the log** — the new background services included — and
+the reverse checks still refused the runtime identity a table create, a table drop, a self-grant, a database
+create, another application database, and any other login's password hash. So `db_datareader + db_datawriter`
+remains sufficient for everything M13 and M15 added, including a bulk `ExecuteDelete` (the retention purge) and
+a write path that runs outside any request.
+
 Re-run the harness after any schema change, new background job, or anything that introduces raw SQL — those are
 exactly the changes that quietly need a permission nobody granted.
 

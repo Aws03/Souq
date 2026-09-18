@@ -33,6 +33,7 @@ usage() {
   --skip-uploads               لا تلتقط الوسائط (ناقصة عمداً — يُسجَّل في البيان)
   --out <dir>                  جذر الإخراج (الافتراضي ./backups)
   --no-compression             لخوادم لا تدعم ضغط النسخ
+  --prune-older-than <days>    احذف المجموعات الأقدم من هذا العدد من الأيام (لا شيء افتراضاً)
 USAGE
     exit "${1:-0}"
 }
@@ -49,6 +50,7 @@ while [[ $# -gt 0 ]]; do
         --uploads-container-path) UPLOADS_CONTAINER_PATH="$2"; shift 2;;
         --skip-uploads) UPLOADS_DIR=""; UPLOADS_CONTAINER=""; SKIP_UPLOADS=1; shift;;
         --out) OUT_ROOT="$2"; shift 2;;
+        --prune-older-than) PRUNE_DAYS="$2"; shift 2;;
         --no-compression) COMPRESSION=0; shift;;
         -h|--help) usage 0;;
         *) die "خيار غير معروف: $1 (جرّب --help)";;
@@ -149,5 +151,24 @@ ok "المجموعة: $SET_DIR"
 log ""
 sed 's/^/    /' "$SET_DIR/manifest.txt" >&2
 log ""
+# ============================================================================
+# الحذف بالعمر — **آلةٌ بلا سياسة** (M17).
+#
+# BackupAndRestore.md §4 يقول إنّ مدّة الحفظ **قرار مالك، وقانوني حيث تدخل بيانات العملاء**. فلا رقم
+# افتراضي هنا: بلا `--prune-older-than` لا يُحذف شيء، تماماً كما كان. ومن يعرف المدّة يمرّرها، فيجد
+# الأداة جاهزة بدل أن يكتب `find -delete` بيده على مجلّد نسخ احتياطية — وهو آخر مكان يُرتجل فيه أمر حذف.
+#
+# ويُحذف ما اكتمل وحده: مجلّد بلا SHA256SUMS مجموعةٌ لم تتمّ (أو تُكتب الآن)، وحذفُها يُخفي عطلاً.
+# ============================================================================
+if [[ -n "${PRUNE_DAYS:-}" ]]; then
+    [[ "$PRUNE_DAYS" =~ ^[0-9]+$ ]] || die "--prune-older-than يحتاج عدد أيام."
+    pruned=0
+    while IFS= read -r old_set; do
+        [[ -f "$old_set/SHA256SUMS" ]] || continue
+        rm -rf "$old_set" && pruned=$((pruned + 1))
+    done < <(find "$OUT_ROOT" -mindepth 1 -maxdepth 1 -type d -mtime "+$PRUNE_DAYS" 2>/dev/null)
+    ok "حُذفت $pruned مجموعة أقدم من $PRUNE_DAYS يوماً (المجموعات غير المكتملة لا تُحذف)."
+fi
+
 warn "الخطوة الخاصة بالنشر (ليست هنا عمداً): انسخ هذا المجلد خارج هذا الجهاز، واحفظ"
 warn "  الأسرار (SECRETS_KEY وغيره) في مخزن أسرار منفصل. BackupAndRestore.md §3 و §7."

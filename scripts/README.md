@@ -5,7 +5,7 @@ runbook and the recorded drill: **[docs/09-OPERATIONS/BackupAndRestore.md](../do
 
 | Script | Does | Safe to run against production? |
 |---|---|---|
-| `backup.sh` | Database + uploads → one dated set with a manifest and SHA-256 sums | **Yes** — reads only |
+| `backup.sh` | Database + uploads → one dated set with a manifest and SHA-256 sums. `--prune-older-than <days>` deletes completed older sets; without it nothing is deleted, because retention is the owner's policy and a legal question, not a default | **Yes** — reads only, unless `--prune-older-than` is passed |
 | `restore.sh` | Restores a set into a database you name explicitly | **Only deliberately** — see the guards below |
 | `release-gate.sh` | Composes the checks below into one verdict, and **counts anything unchecked as unchecked** rather than passing | **Yes** — read-only unless `--suites` |
 | `audit-config.sh` | Answers whether an env file would produce a *safe* deployment for a named environment | **Yes** — reads a file, connects to nothing |
@@ -14,6 +14,7 @@ runbook and the recorded drill: **[docs/09-OPERATIONS/BackupAndRestore.md](../do
 | `smoke-test.sh` | Runs the first-deployment checks against a running stack: health, tenant resolution and isolation, auth, catalog, basket, order, payment posture, proxy headers, HSTS behind TLS termination, correlation ids in logs, and no secrets in logs | **Yes** — it writes one test customer and one test order |
 | `verify-least-privilege.sh` | Measures what the application actually needs from SQL Server, and proves the runtime identity is restricted | **Yes** — throwaway infrastructure only |
 | `sql/least-privilege-logins.sql` | Creates the runtime and migration identities (run once, by an admin) | Run deliberately, against the target server |
+| `load-test.py` | Measures p50/p95/p99 and error rate per route against a running stack, and fails on a missed target. Python standard library only, so it needs no install — a tool that must be installed first is a tool that is not run (M16) | **No** — it generates load; run it against staging |
 | `lib.sh` | Shared helpers; not run directly | — |
 
 **Conventions these follow, and that anything added here should follow too:**

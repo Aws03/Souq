@@ -145,7 +145,7 @@ a retention policy on the owner's behalf.
    ```
 
 4. **Alert when it fails.** The script's exit code is the signal; nothing here delivers it to a human.
-5. **Apply the retention policy** from §4 — nothing deletes old sets.
+5. **Apply the retention policy** from §4. The *policy* is still the owner's and still a legal question where customer data is involved — so nothing has a default. The *mechanism* exists since M17: `./scripts/backup.sh --prune-older-than <days>` deletes sets older than that, and only ones that completed (a directory without `SHA256SUMS` is a set that was interrupted or is being written now, and deleting it would hide a failure). Without the flag nothing is deleted, exactly as before. The point is that whoever knows the number should not have to improvise a `find -delete` over a backup directory, which is the last place to improvise a delete.
 
 ### Monitoring: how you find out it stopped
 
