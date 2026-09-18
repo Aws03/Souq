@@ -10,7 +10,7 @@
 | [`Souq.Domain.Tests`](#souqdomaintests) | 29 | 227 | 47 |
 | [`Souq.Application.Tests`](#souqapplicationtests) | 44 | 329 | 15 |
 | [`Souq.ArchitectureTests`](#souqarchitecturetests) | 14 | 58 | 7 |
-| [`Souq.IntegrationTests`](#souqintegrationtests) | 50 | 284 | 21 |
+| [`Souq.IntegrationTests`](#souqintegrationtests) | 50 | 288 | 22 |
 | [frontend (Vitest)](#frontend-vitest) | 78 | 610 | — |
 
 ## Souq.Domain.Tests
@@ -122,7 +122,7 @@
 | `tests/Souq.IntegrationTests/AuditTimestampsTests.cs` | `AuditTimestampsTests`, `SettableClock` | 1 | 0 |
 | `tests/Souq.IntegrationTests/AuthSessionTests.cs` | `AuthSessionTests` | 10 | 0 |
 | `tests/Souq.IntegrationTests/AuthorizationBoundaryTests.cs` | `AuthorizationBoundaryTests` | 7 | 0 |
-| `tests/Souq.IntegrationTests/AuthorizationMatrixTests.cs` | `AuthorizationMatrixTests` | 2 | 0 |
+| `tests/Souq.IntegrationTests/AuthorizationMatrixTests.cs` | `AuthorizationMatrixTests` | 3 | 0 |
 | `tests/Souq.IntegrationTests/BackgroundSweepScopeTests.cs` | `BackgroundSweepScopeTests` | 2 | 0 |
 | `tests/Souq.IntegrationTests/BasketTests.cs` | `BasketTests` | 5 | 0 |
 | `tests/Souq.IntegrationTests/BestSellingPerformanceTests.cs` | `BestSellingPerformanceTests`, `ScratchApp`, `SqlCapture`, `Sink` | 0 | 1 |
@@ -143,7 +143,7 @@
 | `tests/Souq.IntegrationTests/MigrationRehearsalTests.cs` | `MigrationRehearsalTests` | 2 | 0 |
 | `tests/Souq.IntegrationTests/MigrationRollbackTests.cs` | `MigrationRollbackTests` | 1 | 0 |
 | `tests/Souq.IntegrationTests/NotificationTests.cs` | `NotificationTests` | 6 | 0 |
-| `tests/Souq.IntegrationTests/ObservabilityTests.cs` | `ObservabilityTests` | 8 | 0 |
+| `tests/Souq.IntegrationTests/ObservabilityTests.cs` | `ObservabilityTests` | 9 | 0 |
 | `tests/Souq.IntegrationTests/OrderLifecycleTests.cs` | `OrderLifecycleTests` | 6 | 0 |
 | `tests/Souq.IntegrationTests/PaymentAdapterTests.cs` | `SecretProtectorTests`, `FakeGatewayTests` | 6 | 1 |
 | `tests/Souq.IntegrationTests/PaymentDataRulesTests.cs` | `PaymentDataRulesTests` | 2 | 0 |
@@ -163,7 +163,7 @@
 | `tests/Souq.IntegrationTests/StoreBrandingPersistenceTests.cs` | `StoreBrandingPersistenceTests` | 4 | 0 |
 | `tests/Souq.IntegrationTests/StoreDashboardTests.cs` | `StoreDashboardTests` | 10 | 0 |
 | `tests/Souq.IntegrationTests/StorefrontVariantTests.cs` | `StorefrontVariantTests` | 7 | 0 |
-| `tests/Souq.IntegrationTests/StripeAmountConverterTests.cs` | `StripeAmountConverterTests` | 0 | 1 |
+| `tests/Souq.IntegrationTests/StripeAmountConverterTests.cs` | `StripeAmountConverterTests` | 2 | 2 |
 | `tests/Souq.IntegrationTests/TenantIsolationTests.cs` | `TenantIsolationTests` | 13 | 0 |
 | `tests/Souq.IntegrationTests/TenantResolutionMiddlewareTests.cs` | `TenantResolutionMiddlewareTests`, `FakeDirectory` | 3 | 3 |
 | `tests/Souq.IntegrationTests/TenantResolutionTests.cs` | `TenantResolutionTests` | 6 | 0 |

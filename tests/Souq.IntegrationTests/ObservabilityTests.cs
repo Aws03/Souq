@@ -113,6 +113,41 @@ public class ObservabilityTests
         everything.Should().NotContain(s => s.Contains("Bearer ", StringComparison.OrdinalIgnoreCase));
     }
 
+    // ============================================================================
+    // SEC-CFG-08 كان يقول "بالبناء" بلا اختبار خلفه (وُجد في تدقيق M6): الاختباران المذكوران في الجدول يحرسان
+    // كلمات المرور والتوكنات وترويسة التفويض، ولا شيء فيهما يذكر سرّ Stripe لمتجر. والسرّ يمرّ فعلاً بمسار
+    // كتابة (الربط) ومسار قراءة (فكّ التشفير لاستعمال البوّابة)، فالادّعاء يستحقّ قياساً لا ثقة.
+    //
+    // الطُّعم قيمة فريدة لا ترد في أي مكان آخر: لو ظهرت في رسالة، أو في خاصيّة، أو في نطاق، أو في أمر SQL
+    // مسجَّل — سقط الاختبار وقال أين.
+    // ============================================================================
+    [Fact]
+    public async Task سرّ_Stripe_لمتجر_لا_يظهر_في_أي_سجلّ_لا_عند_ربطه_ولا_عند_قراءته()
+    {
+        const string canary = "sk_test_51M6ObservabilityCanaryZq";
+        var store = await _factory.CreateStoreAsync();
+        var storeApi = _api.ForStore(store);
+        var storeAdmin = await storeApi.AdminAsync();
+
+        (await storeAdmin.PutAsJsonAsync("/api/admin/store/payments",
+                new { publishableKey = "pk_test_51M6ObservabilityPub", secretKey = canary, webhookSecret = "whsec_m6_canary" }))
+            .StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        // ثم مسارات تقرأ الحساب فعلاً: إعداد الواجهة (يقرأ المفتاح العلني)، وعرض الحساب في اللوحة.
+        await storeApi.Anonymous().GetAsync("/api/payments/config");
+        await storeAdmin.GetAsync("/api/admin/store/payments");
+
+        var everything = _factory.Logs.Entries
+            .SelectMany(e => new[] { e.Message }
+                .Concat(e.Properties.Values.Select(v => v?.ToString()))
+                .Concat(e.Scope.Values.Select(v => v?.ToString())))
+            .OfType<string>()
+            .ToList();
+
+        everything.Should().NotContain(s => s.Contains(canary), "سرّ حساب المتجر لا يُسجَّل أبداً");
+        everything.Should().NotContain(s => s.Contains("whsec_m6_canary"), "ولا سرّ إشعاره");
+    }
+
     private IEnumerable<CapturedLog> RequestLines(string correlationId) =>
         _factory.Logs.Entries.Where(e => e.Category == RequestLogCategory
                                          && Equals(e.Scope.GetValueOrDefault("CorrelationId"), correlationId));

@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using AwesomeAssertions;
+using Microsoft.EntityFrameworkCore;
 using Souq.Domain.Common;
 using Souq.IntegrationTests.Infrastructure;
 
@@ -20,6 +21,54 @@ public class AuthorizationMatrixTests
     {
         _factory = factory;
         _api = new TestApi(factory);
+    }
+
+    // ============================================================================
+    // R-03 — من يستطيع أن يُخرِج مالاً؟ **هذا الاختبار يثبّت جواب اليوم، ولا يقترح غيره.**
+    //
+    // الاسترداد الصريح (POST /api/orders/{id}/refunds) خلف store.payments.manage، ويملكها TenantAdmin وحده.
+    // لكنّ إلغاء طلب **مدفوع** عبر PUT /api/orders/{id}/status يسترد ثمنه كاملاً، وهو خلف orders.manage التي
+    // يملكها الموظّف أيضاً. فالموظّف يستطيع أن يُخرِج المال من الباب الأول لا الثاني.
+    //
+    // ليس هذا تصميماً بل تسلسلاً: البوّابة وُضعت يوم كانت النقطة تنقل الحالات ولا تمسّ مالاً، ثمّ أُضيف
+    // الاسترداد إلى المعالج نفسه في المرحلة 11. **هل يبقى كذلك؟ قرار المالك (R-03)، لا قرار هذا الاختبار.**
+    //
+    // ولماذا يُكتب الآن (M6): بلا هذا التثبيت، إضافةُ حارس store.payments.manage داخل المعالج — أي تنفيذُ
+    // جواب "نعم" — تُبقي المجموعة كلّها خضراء: لا سمة تتغيّر فجرد النقاط المولَّد لا يتحرّك، وكلّ من يستدعي
+    // /status في الاختبارات مديرٌ يملك الصلاحيتين. فكان أخطر ما في R-03 أنّ سلوكه غير مثبَّت أصلاً: يُقلَب
+    // عمداً أو سهواً بلا اختبار أحمر واحد. الآن يسقط هذا الاختبار، فيُقرأ ويُحدَّث بقرار صريح.
+    // ============================================================================
+    [Fact]
+    public async Task الموظّف_يستطيع_اليوم_أن_يسترد_بإلغاء_طلب_مدفوع_وهو_ما_يسأل_عنه_R03()
+    {
+        var tenant = await _factory.DefaultTenantAsync();
+        var admin = await _api.AdminAsync();
+        var staff = await _api.LoginAsync(
+            await _factory.CreateStoreUserAsync(tenant, Roles.TenantStaff), SouqApiFactory.StoreAdminPassword);
+
+        var productId = await _api.CreateProductAsync(admin, price: 10m, stock: 2);
+        var (customer, _) = await _api.NewCustomerAsync();
+        var placed = await _api.PlaceOrderAsync(customer, productId, 1);
+        placed.StatusCode.Should().Be(HttpStatusCode.Created, await placed.Content.ReadAsStringAsync());
+        var orderId = (await placed.Content.ReadFromJsonAsync<TestApi.OrderCreatedBody>(TestApi.Json))!.OrderId;
+        (await customer.PostAsync($"/api/orders/{orderId}/confirm-payment", null))
+            .StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // الباب المغلق أمام الموظّف: طلب استرداد صريح.
+        (await staff.PostAsJsonAsync($"/api/orders/{orderId}/refunds", new { amount = 1m }))
+            .StatusCode.Should().Be(HttpStatusCode.Forbidden,
+                "الاسترداد الصريح خلف store.payments.manage ويملكها المدير وحده");
+
+        // والباب المفتوح: إلغاء الطلب المدفوع — وهو يسترد ثمنه كاملاً.
+        var cancelled = await staff.PutAsJsonAsync($"/api/orders/{orderId}/status", new { action = "Cancel" });
+        cancelled.StatusCode.Should().NotBe(HttpStatusCode.Forbidden,
+            "orders.manage وحدها تكفي اليوم لإلغاء طلب مدفوع — وهذا هو سؤال R-03 بعينه");
+        cancelled.IsSuccessStatusCode.Should().BeTrue(await cancelled.Content.ReadAsStringAsync());
+
+        // والمال خرج فعلاً: الإلغاء استرد، لا أنّه غيّر حالة وحدها.
+        var refunded = await _api.WithDbAsync(async db =>
+            await db.Payments.Where(p => p.OrderId == orderId).Select(p => p.RefundedAmount).SingleAsync());
+        refunded.Should().BeGreaterThan(0m, "إلغاء طلب مدفوع يسترد ثمنه — فالموظّف أخرج مالاً بصلاحية الطلبات وحدها");
     }
 
     [Fact]

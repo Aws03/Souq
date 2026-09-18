@@ -49,7 +49,7 @@ Payments records the money side of an order — one payment per order, how it se
 - **Provider payment id** — the intent id at the provider; the only thing we keep from the card flow.
 - **Refundable** — amount − refunded − pending; the ceiling for the next refund.
 - **Pending refund** — money promised to a refund that the gateway hasn't confirmed yet.
-- **Idempotency key** — `souq-refund-{tenantId}-{refundId}`: retrying sends the same key, so money can't go back twice.
+- **Idempotency key** — `souq-refund-{tenantId}-{refundId}`: retrying sends the same key, so money can't go back twice **while the provider still remembers the key**. Stripe keeps them for 24 hours; a retry after that window is a fresh request to Stripe. `RetryRefundAsync` has no age limit, so this page said "can't go back twice" without qualification until M6 measured it — see TD-51.
 - **Deployment account** — the platform's own gateway account, used by every store that hasn't connected one.
 - **Store account** — a store's own keys: publishable, secret, and optionally a webhook secret, with a live/test mode and a four-character hint.
 - **Minor units** — the integer the provider charges in.
@@ -259,3 +259,22 @@ Add a provider · change refund rules · support a new currency or change minor-
 - **DEFERRED**: refund webhooks and an automatic sweep for pending refunds — a manual retry covers today's volume.
 - **FUTURE**: a second provider; a secrets vault instead of configuration keys; refund notifications.
 - **Open decision P-06** (tax) would change what an order's amount means, and therefore what is charged and refunded.
+
+
+## What M6's audit established
+
+M6 verified this module against the code rather than re-reading this page. Nothing about payment behaviour was
+changed — that needs an ADR ([AGENTS.md](../../../AGENTS.md) §0 rule 3) — but four things are now true that were
+not before:
+
+- **P-05 is prepared, not decided.** `StripeAmountConverter` now derives its multiplier through one switch,
+  `HonoursIsoDecimals` (`false` today). `StripeAmountConverterTests` asserts **both** hypotheses: the live ×100
+  for JOD, and the ×1000 that becomes correct if the owner's real test charge comes back three-decimal. So the
+  answer, when it arrives, is flipping one value in front of an already-green test — not writing conversion and
+  rounding logic under the pressure of a discovery in production. The tests also pin the trap: ISK and UGX are
+  zero-decimal in ISO but ×100 at Stripe, so a naive `10^decimals` derivation would silently charge a hundredth.
+- **Refunds follow the account *kind*, not the account.** Three places in the repository claimed otherwise; they
+  now say what the code does, and the consequence is recorded as **TD-50**.
+- **The refund idempotency key is time-bounded.** Stripe forgets keys after 24 hours — **TD-51**.
+- **The router has no tests** because it constructs its gateway inline. All four of its routing rules were
+  verified by reading; the coverage gap is **TD-52**.
