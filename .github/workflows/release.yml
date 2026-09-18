@@ -1,0 +1,206 @@
+# ============================================================================
+# خطّ الإصدار — النصف الذي لم يكن في `ci.yml` (M18).
+#
+# `ci.yml` يجيب عن «هل هذا التغيير سليم؟». وهذا يجيب عن «كيف يصل إلى الإنتاج، وكيف يُتراجَع عنه؟».
+#
+# **يبدأ من وسم**، لا من دفعة: النشر يحتاج اسماً يُنادى به لاحقاً. `v1.4.0` يُنتج صورتين موسومتين
+# بالنسخة وبالبصمة معاً — الأولى ليقولها إنسان، والثانية لأنّ الوسم قد يُحرَّك والبصمة لا تُحرَّك.
+#
+# **ويشترط بوّابةً خضراء قبل أن يبني شيئاً.** هذا شرطٌ يجب أن يكون في مكانين لا واحد:
+#   • هنا (المهمّة `gate`)، وهو ما يمنع إصدار وسمٍ من شجرةٍ حمراء.
+#   • وفي **حماية الفرع على GitHub** (TD-31)، وهي إعدادٌ لا يملكه أي ملفّ في هذا المستودع.
+# بلا الثانية يبقى ممكناً دمج تشغيلٍ أحمر في `main` ثمّ وسمه. وهذا مذكورٌ هنا صراحةً كي لا يُقرأ
+# وجود هذا الملفّ على أنّه إغلاقٌ لما لم يُغلق: docs/09-OPERATIONS/OwnerDecisions.md.
+#
+# **وما لا يفعله هذا الملفّ عمداً:** لا يَنشر. مهمّة النشر أدناه معطّلة بشرطٍ لا يتحقّق حتى يوجد
+# هدفٌ حقيقي وأسراره — لأنّ خطّ نشرٍ يشير إلى لا شيء ويُعلَن «جاهزاً» هو أسوأ أنواع التوثيق الكاذب.
+# الجوهر كلّه في `scripts/deploy.sh`، وهو **مُجرَّب فعلاً** (نشر، فشل، رجوع تلقائي، ورفض الرجوع
+# حين يتحرّك المخطّط) على حزمة الحاويات. ما ينقص هو الخادم، لا الآليّة. ADR-0046.
+# ============================================================================
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'وسم النسخة (v1.4.0) — للتجربة اليدوية'
+        required: true
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false   # خلافاً لـ CI: إصدارٌ نصفُه منشور أسوأ من انتظار سابقه
+
+permissions:
+  contents: read
+  packages: write             # لدفع الصور إلى GHCR، ولا شيء غير ذلك
+
+env:
+  REGISTRY: ghcr.io
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  # ── البوّابة: لا يُبنى قرصٌ واحد من شجرةٍ حمراء ────────────────────────────
+  gate:
+    name: Release gate (build + all suites)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    outputs:
+      version: ${{ steps.version.outputs.value }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Resolve version
+        id: version
+        run: |
+          ref="${{ github.event.inputs.version || github.ref_name }}"
+          # وسمٌ بصيغة SemVer وحده: وسمٌ حرّ يصير اسم صورة لا يُرتَّب ولا يُقارَن.
+          # docs/09-OPERATIONS/Deployment.md §13 يصف الاصطلاح.
+          if ! printf '%s' "$ref" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$'; then
+            echo "::error::وسم الإصدار '$ref' لا يطابق vMAJOR.MINOR.PATCH[-prerelease]"
+            exit 1
+          fi
+          echo "value=$ref" >> "$GITHUB_OUTPUT"
+
+      - run: dotnet restore
+      - run: dotnet build --no-restore -warnaserror
+      - run: dotnet test tests/Souq.Domain.Tests --no-build
+      - run: dotnet test tests/Souq.Application.Tests --no-build
+      - run: dotnet test tests/Souq.ArchitectureTests --no-build
+      # مجموعة التكامل داخل البوّابة وإن كانت بطيئة: إصدارٌ يتخطّى SQL Server حقيقياً
+      # يتخطّى بالضبط ما يكسر في الإنتاج (عزل المستأجر، التزامن، الهجرات).
+      - run: dotnet test tests/Souq.IntegrationTests
+
+      - name: Working tree must be clean
+        run: git diff --exit-code
+
+  # ── الصور: تُبنى مرّة، وتُوسَم بالنسخة وبالبصمة ──────────────────────────
+  images:
+    name: Build and publish images
+    needs: gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # الصورتان بنفس الوسمين: النسخة (يقولها إنسان) والبصمة (لا تُحرَّك أبداً). النشر يمرّر
+      # النسخة، والتحقيق بعد حادثة يمرّر البصمة حين يُشَكّ في أنّ الوسم حُرِّك.
+      - name: Build and push API image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: src/Souq.API/Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/souq-api:${{ needs.gate.outputs.version }}
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/souq-api:sha-${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build and push web image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/souq-web:${{ needs.gate.outputs.version }}
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/souq-web:sha-${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ── حزمة الهجرات: قطعة إصدارٍ أولى الدرجة ───────────────────────────────
+  # تُبنى هنا لا على خادم النشر: الخادم لا يملك SDK ولا مصدراً، ولا يجوز أن يملكهما. والحزمة
+  # مكتفية بذاتها ولا تحتاج إلا سلسلة اتصال — وهي ما يجعل خطوة «رحّل، تحقّق، ثمّ أطلق» ممكنة (R-18).
+  migrations-bundle:
+    name: Migration bundle
+    needs: gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - run: dotnet tool install --global dotnet-ef
+      - name: Build self-contained bundle
+        run: |
+          dotnet ef migrations bundle --project src/Souq.Infrastructure \
+            --startup-project src/Souq.API --self-contained -r linux-x64 \
+            -o ./migrate --force
+      - uses: actions/upload-artifact@v4
+        with:
+          name: migrations-bundle-${{ needs.gate.outputs.version }}
+          path: ./migrate
+          retention-days: 90
+
+  # ── النشر ────────────────────────────────────────────────────────────────
+  # معطّلة حتى يوجد هدف. الشرط ليس زينة: بلا `DEPLOY_HOST` في أسرار البيئة لا تعمل هذه المهمّة
+  # أصلاً، فلا يمرّ خطٌّ أخضر موهماً بأنّ شيئاً نُشر. وحين يوجد الهدف، ما يُضاف هو الأسرار — لا الشيفرة.
+  #
+  # والبيئة `staging` اسمٌ لبيئة GitHub: أسرارها تخصّها وحدها، ولا يبلغها تشغيلٌ من تفرّع أو
+  # من فرعٍ غير محميّ. هذا هو الشرط الأمني الذي تنصّ عليه المرحلة: خطّ النشر لا يصير سطحَ تسريبٍ جديداً.
+  deploy-staging:
+    name: Deploy to staging
+    needs: [gate, images, migrations-bundle]
+    if: ${{ vars.DEPLOY_HOST != '' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: migrations-bundle-${{ needs.gate.outputs.version }}
+          path: ./bundle
+
+      # النشر نفسه سطرٌ واحد، لأنّ الجوهر في السكربت لا في هذا الملفّ: يقرأ النسخة العاملة،
+      # ويقرأ رأس المخطّط قبل وبعد، وينتظر /health/ready، ويرجع تلقائياً إن لم يتحرّك المخطّط —
+      # ويرفض الرجوع التلقائي إن تحرّك، ويقول ماذا يُفعل بدلاً منه. وهو مُجرَّب على حزمة الحاويات.
+      # ⚠ هذه الخطوة وحدها **لم تُنفَّذ قط**، لأنّه لا خادم. كل ما تستدعيه مُجرَّب؛ الاتصال بخادمٍ
+      # حقيقي هو ما لم يُجرَّب. لا تُقرأ خضرةُ هذا الملفّ على أنّها نشرٌ مُثبَت — انظر ReleaseReadiness.md.
+      - name: Deploy over SSH
+        env:
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ vars.DEPLOY_USER }}
+          DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
+          STAGING_URL: ${{ vars.STAGING_BASE_URL }}
+          VERSION: ${{ needs.gate.outputs.version }}
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          # مفتاح المضيف يُثبَّت مسبقاً: قبول أي مفتاح يعني أنّ وسيطاً يستقبل أسرار النشر.
+          printf '%s\n' "${{ vars.DEPLOY_HOST_KEY }}" > ~/.ssh/known_hosts
+
+          scp -i ~/.ssh/id_deploy ./bundle/migrate "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/migrate"
+          ssh -i ~/.ssh/id_deploy "$DEPLOY_USER@$DEPLOY_HOST" bash -s <<EOF
+            set -euo pipefail
+            cd "$DEPLOY_PATH"
+            chmod +x ./migrate
+            SOUQ_IMAGE_API=${{ env.REGISTRY }}/${{ github.repository_owner }}/souq-api \
+            SOUQ_IMAGE_WEB=${{ env.REGISTRY }}/${{ github.repository_owner }}/souq-web \
+            ./scripts/deploy.sh --version "$VERSION" \
+              --env-file /etc/souq/.env \
+              --backup-dir /var/backups/souq \
+              --migrate-bundle ./migrate \
+              --base-url "$STAGING_URL" --api-url http://localhost:5201
+          EOF
+
+      - name: Remove the deploy key
+        if: always()
+        run: rm -f ~/.ssh/id_deploy

@@ -43,6 +43,43 @@ public class BackupVerificationScriptTests
         Run(backups.Path).Should().Be(1);
     }
 
+    // ── العمر يُفشَل مغلقاً (M18) ──────────────────────────────────────────
+    // العطل الذي كُشف في مشوار Linux: العمر كان يُحسب بـ python3، وحين يغيب المفسّر كان السكربت
+    // يطبع "لا فحص عمر" ويخرج **بنجاح**. أي أنّ نسخةً عمرها تسعة أيام تمرّ على خادم مُقتصَد،
+    // وهو المضيف الأرجح لمهمّة نسخ احتياطي. الحالتان التاليتان تُثبّتان الاتّجاه الصحيح للفشل.
+
+    [Fact]
+    public void طابع_زمني_لا_يُقرأ_يفشل()
+    {
+        using var backups = new TempDirectory();
+        var set = Path.Combine(backups.Path, "souq-backup-not-a-timestamp");
+        Directory.CreateDirectory(set);
+        File.WriteAllText(Path.Combine(set, "database.bak"), "backup bytes");
+
+        Run(backups.Path).Should().Be(1, "اسم لا يحمل طابعاً يعني أنّ حداثة النسخة غير قابلة للإثبات");
+    }
+
+    [Fact]
+    public void طابع_في_المستقبل_يفشل()
+    {
+        // ساعة خاطئة على مضيف النسخ تجعل كل نسخة تبدو حديثة إلى الأبد — فالحدّ نفسه يصير بلا معنى.
+        using var backups = new TempDirectory();
+        WriteSet(backups.Path, DateTime.UtcNow.AddDays(3));
+
+        Run(backups.Path).Should().Be(1);
+    }
+
+    [Fact]
+    public void فحص_العمر_لا_يعتمد_على_مفسّر_قد_يغيب()
+    {
+        // فحص شكلي مقصود: الحالتان أعلاه تُشغَّلان على آلة فيها python3، فلا تريان عودة الاعتماد.
+        // وهذا يراها — وأي بديل (perl، node) له العطل نفسه: أداة غائبة تُسكِت إنذاراً.
+        var script = File.ReadAllText(Script);
+
+        script.Should().NotContain("python3", "حساب العمر يجب أن يبقى بـ date وحده (utc_epoch في lib.sh)");
+        script.Should().NotContain("perl", "للسبب نفسه");
+    }
+
     [Fact]
     public void تجزئة_لا_تطابق_تفشل()
     {

@@ -24,11 +24,19 @@ services:
       start_period: 25s
 
   api:
+    # الصورة موسومة بنسخة (M18): `docker compose build` يسِمها بهذا الاسم، و`scripts/deploy.sh`
+    # ينشر وسماً بعينه ويعود إلى سابقه عند الفشل. بلا وسم كان النشر «ابنِ من المصدر الحاضر»،
+    # وهو ما لا يمكن الرجوع عنه لأنّ ما كان يعمل قبل دقيقة لا اسم له.
+    image: ${SOUQ_IMAGE_API:-souq-api}:${SOUQ_VERSION:-dev}
     build:
       context: .
       dockerfile: src/Souq.API/Dockerfile
     environment:
       ASPNETCORE_ENVIRONMENT: Production
+      # اختيارٌ صريح يفرضه التطبيق خارج التطوير (M17، R-18): بلا هذا المفتاح يرفض الـ API الإقلاع.
+      # `true` هو الصحيح لهذه الحزمة — نسخة واحدة تُوقَف ثمّ تُشغَّل. `false` يعني خطوة ترحيل متعمّدة
+      # قبل الإطلاق، وهو ما يفعله `scripts/deploy.sh --migrate-bundle`. docs/06-DATABASE/Migrations.md §2
+      Database__MigrateOnStartup: ${DATABASE_MIGRATE_ON_STARTUP:-true}
       ConnectionStrings__Default: "Server=db,1433;Database=SouqDb;User Id=sa;Password=${DB_SA_PASSWORD};TrustServerCertificate=True"
       # هوية الهجرات (R-12): بلا قيمة تعمل الهجرات بهوية التشغيل نفسها — سلوك هذه الحزمة التجريبية.
       # في نشر حقيقي: طبّق scripts/sql/least-privilege-logins.sql ثم اضبط السلسلتين على souq_app
@@ -94,6 +102,7 @@ services:
       - "5201:8080"   # وصول مباشر اختياري للـ API/Swagger أثناء التشخيص
 
   web:
+    image: ${SOUQ_IMAGE_WEB:-souq-web}:${SOUQ_VERSION:-dev}
     build:
       context: ./frontend
       dockerfile: Dockerfile

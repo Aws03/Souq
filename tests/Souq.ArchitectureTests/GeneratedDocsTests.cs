@@ -463,7 +463,15 @@ public class GeneratedDocsTests
 
     private static readonly Regex XunitTest = new(@"\[(?<kind>Fact|Theory)\b", RegexOptions.Compiled);
     private static readonly Regex TestClass = new(@"\bclass\s+(?<name>\w+)", RegexOptions.Compiled);
-    private static readonly Regex VitestCase = new(@"^\s*(it|test)(\.each\(.*\))?\s*\(", RegexOptions.Compiled | RegexOptions.Multiline);
+    // النمط السابق كان `^\s*(it|test)(\.each\(.*\))?\s*\(` — و**أعطى نتيجتين مختلفتين على نظامين**: صفر تطابق
+    // على macOS وواحداً على Linux لنفس البايتات ونفس .NET 10. السبب أنّ `.*` الشَرِه داخل مجموعة اختيارية يجعل
+    // المطابقة معتمدة على تحسين "الذرّية التلقائية" في محرّك .NET: إن مُنع التراجع داخل `.*` تفشل المجموعة،
+    // ولأنّها اختيارية تُتخطّى، فيفشل السطر كلّه. وهذا ما كان يُفشل CI وحده: الجرد المُلتزَم مولَّد على macOS.
+    //
+    // فالنمط الآن **لا يبحث عن قوس إغلاق مطابق أصلاً**: `it`/`test` في أوّل السطر، ولاحقة `.each` وحدها —
+    // وهي الوحيدة التي تُعلن حالة اختبار. أمّا `test.describe`/`beforeAll`/`skip` فهي تجهيزات لا حالات،
+    // وتبقى غير معدودة كما كانت. ولا تراجع في النمط، فلا فرق بين محرّك ومحرّك.
+    private static readonly Regex VitestCase = new(@"^[ \t]*(it|test)(\.each)?\s*\(", RegexOptions.Compiled | RegexOptions.Multiline);
 
     private static string TestInventoryDocument()
     {

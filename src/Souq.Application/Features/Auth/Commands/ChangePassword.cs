@@ -2,11 +2,9 @@ using FluentValidation;
 using MediatR;
 using Souq.Application.Common.Interfaces;
 using Souq.Application.Common.Models;
+using Souq.Application.Common.Notifications;
 using Souq.Application.Common.Security;
 using Souq.Domain.Interfaces;
-
-using Souq.Application.Common.Notifications;
-using Souq.Application.Common.Interfaces;
 
 namespace Souq.Application.Features.Auth.Commands;
 

@@ -35,38 +35,58 @@ public class SouqMetricsTests
         return (captured, listener);
     }
 
+    // ── عن عزل هذين الاختبارين (أُصلح في M18) ─────────────────────────────────
+    // `Meter` عامٌّ على مستوى العملية، والمستمع يلتقط ما يُصدره **أي** اختبار يعمل بالتوازي —
+    // و`AuthHandlersTests` يُشغّل `LoginHandler` الذي يُصدر `souq.auth.login_failed`. فكان
+    // التأكيد على تساوي القائمة تماماً يفشل نحو مرّة كل ستّ تشغيلات، حين يسبق قياسٌ غريب قياساتنا.
+    // (لم يظهر محلّياً؛ ظهر أوّل ما شُغِّلت البوّابة على Linux — scripts/ci-local.sh.)
+    //
+    // والعلاج ليس إضعاف التأكيد بل تصويبه إلى ما يمكن للاختبار إثباته فعلاً:
+    //   • وسمٌ فريد لعدّاد الدخول ⇒ قياسات الاختبارات الأخرى تُستبعَد باسمها لا بتوقيتها.
+    //   • `Distinct()` على الأسماء ⇒ «أيّ العدّادات أصدرت» يبقى تأكيداً دقيقاً، ولا يكسره
+    //     قياسٌ مكرّر من اختبارٍ متوازٍ. وعدّادٌ توقّف عن الإصدار ما زال يُفشل الاختبار، وهو غرضه.
+    private const string OutboxDeadLettered = "souq.outbox.dead_lettered";
+    private const string CrossTenantBlocked = "souq.tenancy.cross_tenant_write_blocked";
+    private const string LoginFailed = "souq.auth.login_failed";
+    private const string SearchLogDropped = "souq.search.log_dropped";
+
     [Fact]
     public void كل_عدّاد_يُصدر_قيمته()
     {
+        // قيمة لا يستعملها أي مسار إنتاج ولا اختبار آخر: تمييز قياساتنا عن قياسات المتوازين.
+        const string outcome = "OnlyThisTest";
+
         var (measurements, listener) = Listen();
         using (listener)
         {
             SouqMetrics.RecordOutboxDeadLettered("PasswordResetRequested");
             SouqMetrics.RecordCrossTenantWriteBlocked();
-            SouqMetrics.RecordLoginFailed("WrongPassword");
+            SouqMetrics.RecordLoginFailed(outcome);
             SouqMetrics.RecordSearchLogDropped();
         }
 
-        measurements.Select(m => m.Name).Should().BeEquivalentTo([
-            "souq.outbox.dead_lettered",
-            "souq.tenancy.cross_tenant_write_blocked",
-            "souq.auth.login_failed",
-            "souq.search.log_dropped",
-        ]);
-        measurements.Should().OnlyContain(m => m.Value == 1);
+        var ours = measurements.Where(m => m.Name != LoginFailed || m.Tag == outcome).ToList();
+
+        ours.Select(m => m.Name).Distinct()
+            .Should().BeEquivalentTo([OutboxDeadLettered, CrossTenantBlocked, LoginFailed, SearchLogDropped]);
+        ours.Should().OnlyContain(m => m.Value == 1);
     }
 
     // الوسم هو ما يجعل العدّاد مفيداً: بلا السبب لا يُميَّز مستخدمٌ نسي كلمته من حملةِ حشو.
     [Fact]
     public void عدّاد_الدخول_الفاشل_موسومٌ_بسببه()
     {
+        const string forgot = "NoSuchAccount-OnlyThisTest";
+        const string locked = "AccountLocked-OnlyThisTest";
+
         var (measurements, listener) = Listen();
         using (listener)
         {
-            SouqMetrics.RecordLoginFailed("NoSuchAccount");
-            SouqMetrics.RecordLoginFailed("AccountLocked");
+            SouqMetrics.RecordLoginFailed(forgot);
+            SouqMetrics.RecordLoginFailed(locked);
         }
 
-        measurements.Select(m => m.Tag).Should().BeEquivalentTo(["NoSuchAccount", "AccountLocked"]);
+        measurements.Where(m => m.Name == LoginFailed).Select(m => m.Tag)
+            .Should().Contain([forgot, locked]);
     }
 }

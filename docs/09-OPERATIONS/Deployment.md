@@ -3,7 +3,7 @@
 > What exists today to run Souq, what happens when the API starts, what one instance assumes, and what must be true before real customers use it.
 > Settings: [Configuration.md](Configuration.md) · Failures: [Troubleshooting.md](Troubleshooting.md) · Local work: [DevelopmentGuide.md](DevelopmentGuide.md) · Scaling: [ScalingStrategy.md](ScalingStrategy.md).
 >
-> What exists: `docker-compose.yml` with two Dockerfiles; a CI pipeline, [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml), which builds and tests but **does not deploy** (and does not block a merge until branch protection is switched on — [OwnerDecisions.md](OwnerDecisions.md), "Branch protection"); and operational scripts in `scripts/` — `scripts/release-gate.sh`, `scripts/smoke-test.sh`, `scripts/backup.sh`, `scripts/backup-verify.sh`, `scripts/restore.sh`, `scripts/rehearse-restore.sh`, `scripts/audit-config.sh` and `scripts/verify-least-privilege.sh` ([scripts/README.md](../../scripts/README.md)). What does not exist: continuous deployment, a staging definition, infrastructure-as-code or a script that deploys. CD and defined environments are **PLANNED** for Phase 23 in [ProductRoadmap.md](../12-ROADMAP/ProductRoadmap.md).
+> What exists: `docker-compose.yml` with two Dockerfiles; a CI pipeline, [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml), which builds and tests but **does not deploy** (and does not block a merge until branch protection is switched on — [OwnerDecisions.md](OwnerDecisions.md), "Branch protection"); and operational scripts in `scripts/` — `scripts/release-gate.sh`, `scripts/smoke-test.sh`, `scripts/backup.sh`, `scripts/backup-verify.sh`, `scripts/restore.sh`, `scripts/rehearse-restore.sh`, `scripts/audit-config.sh` and `scripts/verify-least-privilege.sh` ([scripts/README.md](../../scripts/README.md)). Since M18 there is also a release pipeline, [`.github/workflows/release.yml`](../../.github/workflows/release.yml), and `scripts/deploy.sh` — a tagged release builds versioned images and a migration bundle, and the deploy script verifies readiness and rolls back (§13). **What still does not exist: a server.** The pipeline's SSH deploy step has never executed, and neither has the pipeline itself — GitHub Actions has refused to start every job since before M13 for billing reasons, which is an owner action ([OwnerDecisions.md](OwnerDecisions.md)). Until it is resolved, `scripts/ci-local.sh` runs CI's fast job on Linux from a development machine.
 
 ## 1. Current topology
 
@@ -321,13 +321,64 @@ Read from the code; none of these were reproduced by running the stack.
 
 [IncidentResponse.md](IncidentResponse.md) is the runbook: which layer is broken, what to capture before changing anything, the two meanings of a failing readiness check, money incidents (where an unrecorded payment matters more than an outage), security incidents, and what this repository deliberately does not provide — no alerting, no metrics, no on-call rotation.
 
+## 13. Releasing and deploying a version (M18)
+
+A release is a **SemVer tag**. [`.github/workflows/release.yml`](../../.github/workflows/release.yml) triggers on `v*`, rejects a tag that is not `vMAJOR.MINOR.PATCH[-prerelease]`,
+runs the full gate (build with warnings as errors, all four suites including integration over real SQL Server, and a
+clean-tree check), then builds two images tagged with **both** the version and the commit, plus a self-contained
+migration bundle kept as an artifact for 90 days.
+
+Why the version is in the image tag at all: before M18 `docker-compose.yml` had no `image:`, so a deployment was
+"build from whatever source is present". That cannot be rolled back, because what was running a minute ago never had
+a name. It does now: `${SOUQ_IMAGE_API:-souq-api}:${SOUQ_VERSION:-dev}`.
+
+**Deploying**, on the host:
+
+```bash
+./scripts/deploy.sh --version v1.4.0 \
+  --env-file /etc/souq/.env --backup-dir /var/backups/souq \
+  --migrate-bundle ./migrate \
+  --base-url https://store.example --api-url http://localhost:5201
+```
+
+The script, in order: reads the currently running version from the running container (not a state file — a state
+file drifts silently, a running container does not lie about what it runs); reads the schema head from
+`__EFMigrationsHistory`; takes a backup if `--backup-dir` is given, and **refuses to migrate without one if the
+backup fails**; stops `api` and `web` before migrating, because two versions cannot share this database across a
+data-moving migration (§11); runs the bundle; starts the new version; waits for `/health/ready`; and runs the smoke
+test when a base URL is given. `docker compose up` reporting a started container is not health, and the difference
+between those two claims is the entire subject of a failed deployment.
+
+**Rollback** is conditional on the schema, and this is deliberate:
+
+| Situation | `deploy.sh` does | Exit |
+|---|---|---|
+| Healthy | reports success; warns if the schema moved, since rollback from here needs a restore | `0` |
+| Failed, schema unchanged | **rolls back automatically** to the previous tag and re-verifies readiness | `1` |
+| Failed, schema moved **or unreadable** | **refuses**, and prints the restore path and the previous version | `1` |
+
+The third row is the point. An older image against a newer schema reads columns that are gone — worse than the
+outage being escaped. "Unreadable" is grouped with "moved" on purpose: a deployment that cannot establish what the
+schema did has not earned the right to act by itself.
+
+**What has been verified, and what has not.** All three rows above were exercised against the container stack: a
+real deployment, a deliberately broken version that failed its health check and was automatically rolled back, and
+the same failure with the schema state withheld, which refused. The migration bundle was built, run against the live
+database, stepped back one migration and forward again, and driven through `deploy.sh --migrate-bundle` with
+`Database:MigrateOnStartup=false`. **Not verified:** the SSH step in [`.github/workflows/release.yml`](../../.github/workflows/release.yml), because there is no server; and
+[`.github/workflows/release.yml`](../../.github/workflows/release.yml) itself, because GitHub Actions is billing-blocked. [ADR-0046](../11-ADR/0046-continuous-delivery-and-rollback.md).
+
+**Before pushing**, `./scripts/ci-local.sh` runs CI's fast job on Linux in a container against exactly what CI would
+check out. It exists because the macOS/Linux gap hid four real defects at once — including a regex that counted a
+different number of tests on each platform, and a backup age check that silently passed on a host without `python3`.
+
 ## 12. Planned and future work
 
 | Item | Status | Source |
 |---|---|---|
-| CI | **exists** — [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) builds and tests; it blocks merges only once branch protection is on | roadmap Phase 23 (delivered early) |
-| CD and defined environments | **PLANNED** Phase 23 | roadmap |
-| Migrations as a deployment step (migration bundle) instead of at startup | **PLANNED** Phase 23 | roadmap, [DatabaseDesign.md](../06-DATABASE/DatabaseDesign.md) §10 |
+| CI | **exists** — [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) builds and tests; it blocks merges only once branch protection is on, and **since before M13 it has not run at all**: GitHub Actions refuses to start jobs for billing reasons (owner action). `scripts/ci-local.sh` runs its fast job locally on Linux meanwhile | roadmap Phase 23 (delivered early) |
+| CD and defined environments | **exists, unexercised** — [`.github/workflows/release.yml`](../../.github/workflows/release.yml) and `scripts/deploy.sh` (§13). The mechanism is verified against the container stack; the SSH step and a `staging` environment need a host | M18, [ADR-0046](../11-ADR/0046-continuous-delivery-and-rollback.md) |
+| Migrations as a deployment step (migration bundle) instead of at startup | **exists** — `Database:MigrateOnStartup=false` (M17) plus the bundle built by [`.github/workflows/release.yml`](../../.github/workflows/release.yml) and applied by `deploy.sh --migrate-bundle` (M18), rehearsed back and forward against a live database | M17/M18, R-18 |
 | Metrics, traces, alerting (OpenTelemetry over the existing trace ids) | **PLANNED** Phase 23 | [ADR-0018](../11-ADR/0018-observability.md) |
 | Automated TLS for custom domains, and DNS/TLS domain verification | **PLANNED** Phase 23 | roadmap, risk R7 |
 | Per-store sending domains with SPF/DKIM | **PLANNED** Phase 23 | [ADR-0034](../11-ADR/0034-notifications-outbox.md), risk R9 |

@@ -60,24 +60,20 @@ note "أحدث مجموعة: $(basename "$LATEST")"
 
 # ── العمر ────────────────────────────────────────────────────────────────
 STAMP="$(basename "$LATEST" | sed 's/^souq-backup-//')"
-AGE_HOURS=""
-if command -v python3 >/dev/null 2>&1; then
-    AGE_HOURS="$(python3 - "$STAMP" <<'PY'
-import sys, datetime
-try:
-    taken = datetime.datetime.strptime(sys.argv[1], "%Y%m%dT%H%M%SZ").replace(tzinfo=datetime.timezone.utc)
-    print(int((datetime.datetime.now(datetime.timezone.utc) - taken).total_seconds() // 3600))
-except Exception:
-    print("")
-PY
-)"
-fi
-if [[ -z "$AGE_HOURS" ]]; then
-    note "تعذّر قراءة الطابع الزمني من الاسم؛ لا فحص عمر"
-elif (( AGE_HOURS > MAX_AGE_HOURS )); then
-    problem "أحدث نسخة عمرها ${AGE_HOURS} ساعة (الحدّ ${MAX_AGE_HOURS}) — المهمّة متوقّفة أو تفشل بصمت"
+# يُفشَل مغلقاً: طابع لا يُقرأ يعني إمّا اسماً تالفاً وإمّا أداةً معطوبة، وكلاهما يستحقّ إنساناً.
+# وكان هذا السطر يُفشَل مفتوحاً (`note`) فيُسكِت الإنذار كلّه حين يغيب المفسّر — انظر utc_epoch في lib.sh.
+if taken_epoch="$(utc_epoch "$STAMP")"; then
+    AGE_HOURS=$(( ( $(date -u +%s) - taken_epoch ) / 3600 ))
+    if (( AGE_HOURS < 0 )); then
+        # طابع في المستقبل: ساعة مضيف النسخ خاطئة، فكل حساب عمر بعده كذبة — ومنها الحدّ نفسه.
+        problem "طابع أحدث نسخة في المستقبل (${AGE_HOURS} ساعة) — ساعة مضيف النسخ الاحتياطي خاطئة"
+    elif (( AGE_HOURS > MAX_AGE_HOURS )); then
+        problem "أحدث نسخة عمرها ${AGE_HOURS} ساعة (الحدّ ${MAX_AGE_HOURS}) — المهمّة متوقّفة أو تفشل بصمت"
+    else
+        good "العمر ${AGE_HOURS} ساعة، ضمن الحدّ ${MAX_AGE_HOURS}"
+    fi
 else
-    good "العمر ${AGE_HOURS} ساعة، ضمن الحدّ ${MAX_AGE_HOURS}"
+    problem "تعذّرت قراءة الطابع الزمني من اسم المجموعة '$STAMP' — لا يمكن إثبات حداثة النسخة"
 fi
 
 # ── اكتمال المجموعة ──────────────────────────────────────────────────────
@@ -120,16 +116,8 @@ if (( REQUIRE_DRILL_DAYS > 0 )); then
         problem "لا دليل على أي تجربة استعادة — نسخة لم تُستعَد ليست نسخة بعد (scripts/rehearse-restore.sh)"
     else
         drill_age=""
-        if command -v python3 >/dev/null 2>&1; then
-            drill_age="$(python3 - "$(head -1 "$DRILL")" <<'PY'
-import sys, datetime
-try:
-    when = datetime.datetime.strptime(sys.argv[1].strip(), "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=datetime.timezone.utc)
-    print(int((datetime.datetime.now(datetime.timezone.utc) - when).total_seconds() // 86400))
-except Exception:
-    print("")
-PY
-)"
+        if drill_epoch="$(utc_epoch "$(head -1 "$DRILL" | tr -d '[:space:]')")"; then
+            drill_age=$(( ( $(date -u +%s) - drill_epoch ) / 86400 ))
         fi
         if [[ -z "$drill_age" ]]; then
             problem "ملف تجربة الاستعادة غير مقروء: $DRILL"

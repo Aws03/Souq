@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using AwesomeAssertions;
 
 namespace Souq.ArchitectureTests;
@@ -55,6 +56,45 @@ public class ConfigurationSourceTests
             .Where(p => !Souq.Infrastructure.Services.JwtSettingsValidator.LooksLikePlaceholder(p.Value))
             .Select(p => p.Name)
             .Should().BeEmpty("قيمة سرّية صالحة في .env.example تصبح سرّ الإنتاج لمن ينسخ الملف");
+    }
+
+    // ── كل إعدادٍ يرفض التطبيق الإقلاع بدونه، تضبطه الحزمة المشحونة (M18) ──────────────────
+    //
+    // العطل الذي وقع فعلاً: M17 أضافت حارساً يرمي حين يغيب `Database:MigrateOnStartup` خارج التطوير —
+    // وهو حارسٌ صائب — ولم تُضبط القيمة في `docker-compose.yml`. فصار `docker compose up` (وهو مسار
+    // النشر الوحيد الموثَّق، وما يفعله كل من يستنسخ المستودع) يسقط باستثناء غير مُعالَج عند الإقلاع.
+    // لم يُكتشف لأنّ لا أحد أقلع الحزمة بعد ذلك التغيير: الاختبارات كلّها تعمل خارجها.
+    //
+    // والقائمة **تُشتقّ من المصدر لا تُكتب**: أي حارسٍ لاحق يُكتب بالصيغة نفسها ("المفتاح غير مضبوط")
+    // يدخل هذا الفحص تلقائياً. حارسٌ جديد بلا سطرٍ في الحزمة يُفشل هنا، لا عند أول نشر.
+    private static readonly Regex RequiredSetting =
+        new(@"""(?<key>[A-Z][A-Za-z]+(?::[A-Za-z]+)+) غير مضبوط", RegexOptions.Compiled);
+
+    // `Key__Sub: value` — مُدخَل بيئة في docker-compose، لا تعليقاً ولا اسماً يحتوي المفتاح.
+    private static readonly Regex ComposeEnvironmentEntry =
+        new(@"^(?<name>[A-Za-z][A-Za-z0-9_]*):\s", RegexOptions.Compiled);
+
+    [Fact]
+    public void كل_إعداد_يمنع_الإقلاع_بغيابه_مضبوط_في_حزمة_docker()
+    {
+        var startup = File.ReadAllText(RepositoryPaths.Combine("src/Souq.API/Program.cs"));
+        var required = RequiredSetting.Matches(startup).Select(m => m.Groups["key"].Value).Distinct().ToList();
+
+        required.Should().NotBeEmpty("الصيغة التي يقرأها هذا الفحص تغيّرت — لا قيمة لفحصٍ لا يجد شيئاً");
+
+        // مُدخَلات بيئةٍ فعلية لا مجرّد ورود النصّ: سطرٌ معلَّق يذكر المفتاح، أو مفتاحٌ آخر يحتويه
+        // كجزء من اسمه، يجعل الفحص يمرّ على حزمةٍ لا تُقلع. (وهو ما فعلته أوّل صياغة لهذا الفحص.)
+        var supplied = File.ReadAllLines(RepositoryPaths.Combine("docker-compose.yml"))
+            .Select(l => l.Trim())
+            .Where(l => !l.StartsWith('#'))
+            .Select(l => ComposeEnvironmentEntry.Match(l))
+            .Where(m => m.Success)
+            .Select(m => m.Groups["name"].Value)
+            .ToHashSet(StringComparer.Ordinal);
+
+        // متغيّرات البيئة تكتب المفتاح بشرطتين سفليتين بدل النقطتين (اصطلاح .NET).
+        required.Where(key => !supplied.Contains(key.Replace(":", "__")))
+            .Should().BeEmpty("إعداد يرفض التطبيق الإقلاع بدونه وحزمة docker لا تضبطه ⇒ `docker compose up` يسقط");
     }
 
     private static bool IsSecretName(string name) =>

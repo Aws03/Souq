@@ -17,6 +17,19 @@ import jsxA11y from 'eslint-plugin-jsx-a11y';
 export default [
   { ignores: ['dist/**', 'node_modules/**', 'coverage/**'] },
 
+  // ── سكربتات Node داخل الواجهة ────────────────────────────────────────────
+  // `scripts/bundle-budget.mjs` يعمل في Node لا في متصفّح، وكانت بيئته تُقرأ متصفّحاً — فيسقط
+  // `npm run lint` بأربعة عشر خطأ `no-undef` على `process` و`console`. أي أنّ **مهمّة الواجهة في
+  // الخطّ كانت حمراء منذ M16**، ولم يرها أحد لأنّ الخطّ نفسه لم يكن يعمل (TD-31). وُجد في M18
+  // حين شُغّلت البوّابة محلّياً.
+  //
+  // والعالميان معاً مقصودان: الملفّ نصّه Node، وما بداخل `page.evaluate` يعمل في المتصفّح
+  // فيذكر `localStorage` و`performance` لفظاً وإن لم ينفّذهما Node.
+  {
+    files: ['scripts/**/*.mjs'],
+    languageOptions: { globals: { ...globals.node, ...globals.browser } },
+  },
+
   js.configs.recommended,
 
   {

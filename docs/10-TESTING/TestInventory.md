@@ -9,9 +9,9 @@
 |---|---|---|---|
 | [`Souq.Domain.Tests`](#souqdomaintests) | 29 | 227 | 47 |
 | [`Souq.Application.Tests`](#souqapplicationtests) | 48 | 356 | 18 |
-| [`Souq.ArchitectureTests`](#souqarchitecturetests) | 16 | 63 | 7 |
+| [`Souq.ArchitectureTests`](#souqarchitecturetests) | 16 | 67 | 7 |
 | [`Souq.IntegrationTests`](#souqintegrationtests) | 52 | 325 | 25 |
-| [frontend (Vitest)](#frontend-vitest) | 85 | 665 | — |
+| [frontend (Vitest)](#frontend-vitest) | 86 | 669 | — |
 | [frontend (Playwright)](#frontend-playwright) | 19 | 124 | — |
 
 ## Souq.Domain.Tests
@@ -105,9 +105,9 @@
 
 | File | Classes | Facts | Theories |
 |---|---|---|---|
-| `tests/Souq.ArchitectureTests/BackupVerificationScriptTests.cs` | `BackupVerificationScriptTests`, `TempDirectory` | 7 | 1 |
+| `tests/Souq.ArchitectureTests/BackupVerificationScriptTests.cs` | `BackupVerificationScriptTests`, `TempDirectory` | 10 | 1 |
 | `tests/Souq.ArchitectureTests/ClockRuleTests.cs` | `ClockRuleTests` | 0 | 1 |
-| `tests/Souq.ArchitectureTests/ConfigurationSourceTests.cs` | `ConfigurationSourceTests` | 1 | 1 |
+| `tests/Souq.ArchitectureTests/ConfigurationSourceTests.cs` | `ConfigurationSourceTests` | 2 | 1 |
 | `tests/Souq.ArchitectureTests/ContentSecurityPolicyTests.cs` | `ContentSecurityPolicyTests` | 4 | 0 |
 | `tests/Souq.ArchitectureTests/DependencyRuleTests.cs` | `DependencyRuleTests` | 8 | 0 |
 | `tests/Souq.ArchitectureTests/DocumentationTests.cs` | `DocumentationTests` | 7 | 0 |
@@ -202,6 +202,7 @@
 | `frontend/src/components/common/Drawer.test.jsx` | 6 |
 | `frontend/src/components/common/ErrorBoundary.test.jsx` | 5 |
 | `frontend/src/components/common/FormField.test.jsx` | 3 |
+| `frontend/src/components/common/RowActionsMenu.test.jsx` | 3 |
 | `frontend/src/components/common/Tabs.test.jsx` | 7 |
 | `frontend/src/components/common/useConfirmAction.test.jsx` | 4 |
 | `frontend/src/components/layout/SearchBar.test.jsx` | 18 |
@@ -267,7 +268,7 @@
 | `frontend/src/pages/platform/Provisioning.test.jsx` | 13 |
 | `frontend/src/pages/storefrontPages.test.jsx` | 3 |
 | `frontend/src/rtl.test.js` | 2 |
-| `frontend/src/whiteLabel.test.js` | 1 |
+| `frontend/src/whiteLabel.test.js` | 2 |
 
 ## Frontend (Playwright)
 

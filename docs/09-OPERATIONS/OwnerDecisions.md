@@ -322,6 +322,45 @@ Until this is on, CI reports and does not block: a red run can still be merged. 
 verified step by step, and the secret scan has already earned its place by catching a literal password in a
 tracked script.
 
+**M18 adds a fifth check to select once the release pipeline has run at least once:** `Release gate (build + all
+suites)` from [`release.yml`](../../.github/workflows/release.yml). Do not select it before then — a required check
+that has never reported blocks every merge.
+
+## GitHub Actions is billing-blocked — nothing has run since before M13
+
+**This is the most consequential open item M18 found, and it is not an engineering one.**
+
+Every workflow run since `35313506879` (M10's closing commit) has failed in about three seconds with the same
+annotation on all four jobs:
+
+> The job was not started because recent account payments have failed or your spending limit needs to be
+> increased. Please check the 'Billing & plans' section in your settings
+
+The repository is **private**, so Actions minutes are billed. Nothing in the repository can change this.
+
+**What it means in practice:**
+
+- The CI pipeline described everywhere in these docs has not executed for the whole of M11–M18. Every statement
+  that "CI runs X" describes a pipeline that is configured to run X, not one observed doing so recently.
+- The release pipeline added in M18 has never run at all.
+- Branch protection (above) cannot be switched on usefully until runs happen: required checks that never report
+  block every merge.
+
+**The owner's options**, in the order they cost:
+
+1. **Resolve the billing failure or raise the spending limit** in GitHub → Settings → Billing & plans. This is the
+   direct fix and keeps the repository private.
+2. **Make the repository public**, which makes Actions minutes free on standard runners. This is a disclosure
+   decision, not a technical one — it publishes all history — and it is therefore the owner's alone. Note the
+   repository has been scanned for secrets continuously (`gitleaks`, plus a live-payment-key scan) and that
+   history is not rewritten here, so a leak found later could not be erased.
+3. **Leave it as is and rely on the local gate.** `scripts/ci-local.sh` runs CI's fast job on Linux in a container
+   against exactly what CI would check out. It is a real gate and it found four defects in M18 alone, but it is
+   run by whoever remembers to run it, which is precisely the property that makes a control not a control.
+
+**Do not read the last option as equivalent to the first two.** It covers the fast suites only: the integration
+suite (Testcontainers inside a container), the frontend job and the supply-chain scans still need the pipeline.
+
 ## What engineering will not do
 
 To be explicit, because these are the ways this page could quietly stop being true:

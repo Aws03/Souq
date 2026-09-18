@@ -135,9 +135,22 @@ test('10 · the account shell links profile, addresses and orders', async () => 
 });
 
 test('11 · a product can be added with a chosen quantity and reviewed in the cart page', async () => {
+  // **منتجٌ يتّسع لاثنين، لا أوّل منتج على الرفّ.** أوّل منتج قد يكون مخزونه واحداً — إمّا لأنّ رحلةً
+  // أخرى أنقصته، وإمّا لأنّه أُنشئ شحيحاً عمداً (checkout-reliability) — فيكون زرّ الزيادة **معطّلاً
+  // بحقّ**، وهو سلوك صحيح للمتجر تقرؤه هذه الرحلة كعطل. الرحلة تريد "منتجاً يمكن شراء اثنين منه"،
+  // فلتطلب ذلك صراحةً بدل أن تفترضه في أوّل بطاقة.
   await page.goto('/');
-  await page.locator('article a[href^="/products/"]').first().click();
-  await page.getByRole('heading', { level: 1 }).waitFor();
+  const cards = page.locator('article a[href^="/products/"]');
+  await cards.first().waitFor();
+
+  let opened = false;
+  for (let i = 0; i < Math.min(await cards.count(), 8); i += 1) {
+    await page.goto('/');
+    await cards.nth(i).click();
+    await page.getByRole('heading', { level: 1 }).waitFor();
+    if (await page.getByRole('button', { name: 'Increase quantity' }).isEnabled()) { opened = true; break; }
+  }
+  expect(opened, 'لا منتج على الصفحة الأولى يتّسع لكمّية اثنين — بذرة المتجر أو رحلةٌ سابقة استنزفت المخزون').toBe(true);
 
   // زرّ الإضافة في نصف الشراء، لا الذي داخل بطاقة منتج مشابه أسفل الصفحة.
   const buyRow = page.locator('h1').locator('xpath=following::button[normalize-space()="Add to cart"][1]');

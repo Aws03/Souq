@@ -94,7 +94,7 @@
 
 Be aware of these when you plan work:
 
-1. **CI runs but does not yet block merges.** [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) runs the .NET suites and the frontend lint, type-check, tests and build on every push; until branch protection is switched on, a red run can still be merged (TD-31). The Playwright journeys are not in CI at all.
+1. **CI does not run at all right now, and would not block merges even then.** [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) runs the .NET suites and the frontend lint, type-check, tests and build on every push; until branch protection is switched on, a red run can still be merged — and since before M13 GitHub Actions has refused to start any job for billing reasons, so nothing reports (TD-31, [OwnerDecisions.md](../09-OPERATIONS/OwnerDecisions.md)). The Playwright journeys are not in CI at all.
 2. **Frontend component coverage is partial**: the guards, the error boundary, the account shell, the order screens and checkout's money barriers are tested; form-level interaction and most admin screens are verified only by the Playwright journeys or by hand (TD-32).
 3. **External adapters are untested**: Stripe and the three email providers are exercised only through fakes (TD-33).
 4. **Some rules are untested**, listed in the gaps section of [BusinessRules.md](../01-REQUIREMENTS/BusinessRules.md) — notably the sweeps for non-active stores, the password policy itself, and several length limits.

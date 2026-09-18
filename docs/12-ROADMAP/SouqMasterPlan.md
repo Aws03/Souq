@@ -29,12 +29,12 @@
 
 ```yaml
 plan_version: 1.0.0
-current_phase: M17
+current_phase: M18
 phase_status: done
-next_phase: M18         # M2 remains blocked on TD-42 and is independent of the phases after it; see M2's own STOP entry
-blocked_decisions: ["TD-42"]    # owner decisions that block a phase currently in flight; see §5 and OwnerDecisions.md
+next_phase: M19         # M2 remains blocked on TD-42 and is independent of the phases after it; see M2's own STOP entry
+blocked_decisions: ["TD-42", "GitHub Actions billing"]   # see §5 and OwnerDecisions.md; the billing block stops CI running at all
 last_verified_date: 2026-09-18
-last_verified_head: 5161bd3     # M17 closed: R-18's migration step built, TD-18 closed, least privilege re-verified, metrics with no dependency
+last_verified_head: M18HEAD     # M18 closed: CD built and its rollback verified; five defects that had been keeping CI red, fixed
 baseline_branch: phase/17-production-hardening
 ```
 
@@ -59,6 +59,49 @@ store's own catalogue vocabulary and **says which word it searched**, with the s
 customers use. SQL Server Full-Text Search was **measured unavailable** in the pinned image and rejected on
 evidence rather than assumption — see M3's "Completion evidence" above and
 [ADR-0042](../11-ADR/0042-local-search-engine.md).
+
+**M18 — done, and it began by discovering that CI had never been green.** The first act of the phase was to look
+at the actual runs rather than the workflow file, and every run on GitHub had failed: the recent ones in three
+seconds on *"recent account payments have failed"*, and the last one that executed on a **test-inventory mismatch
+between macOS and Linux**. Five real defects came out of that, none of them findable by running `dotnet test`
+again on the development machine:
+
+1. A regex counting frontend tests gave **different answers on macOS and Linux for identical bytes on identical
+   .NET 10** — a greedy `.*` inside an *optional* group, resolved differently by the engine's auto-atomicity
+   optimization. Reproduced both ways in a container before it was touched; the committed inventory was wrong by
+   one, so CI was red on every push.
+2. Two duplicate `using` directives: warnings locally, **errors** under CI's `-warnaserror`.
+3. `backup-verify.sh` computed backup age with `python3` and, on a host without it, printed "no age check" and
+   **exited 0** — the backup alarm failing open on exactly the minimal host a backup job runs on. Now `date`-only
+   with GNU/BSD fallbacks, failing *closed*, and a future-dated stamp is a failure too (a wrong clock makes every
+   backup look fresh forever).
+4. `docker compose up` **crashed on startup**: M17's `Database:MigrateOnStartup` guard was correct and nothing
+   set the value, so the only documented deployment path was dead. A test now derives the required settings from
+   `Program.cs`'s own guards and asserts the shipped stack supplies each — mutation-tested three ways.
+5. A flaky test: `SouqMetricsTests` asserted exact equality over a **process-global** `Meter` that parallel tests
+   emit into. 120 consecutive Linux runs clean after the fix, and the fix still catches a counter that stops
+   emitting.
+
+Then the CD half itself: a SemVer-tagged release builds versioned images and a migration bundle, and
+`scripts/deploy.sh` deploys, waits for `/health/ready`, and **rolls back only when the schema did not move** —
+refusing, and printing the restore path, when it did or cannot be read, because an old image on a newer schema is
+worse than the outage being escaped. All three branches were exercised on a real stack, including a deliberately
+broken version that was automatically rolled back. R-18's deliberate step stopped being a description: the bundle
+was built, run against a live database, stepped **back one migration and forward again**, and driven through
+`deploy.sh --migrate-bundle` with `MigrateOnStartup=false`.
+
+Browser QA against what the pipeline deployed found a **real keyboard-accessibility defect**: the row actions
+menu closed on any scroll, and `scroll-behavior: smooth` means tabbing to a row below the fold scrolls for dozens
+of events after the menu opens — so the menu opened and vanished, measured at 32 scroll events and zero menus.
+That control was unusable by keyboard on any row below the fold. It now repositions instead of closing; the first
+attempted fix (closing when the trigger leaves the viewport) reproduced the same bug from the other side and was
+rejected on measurement.
+
+**What M18 did not close, and cannot:** GitHub Actions is billing-blocked, so neither pipeline has run — the CI
+fixes above are verified on Linux locally, not observed green on GitHub — and there is no server, so the SSH
+deploy step has never executed. Both are owner actions, written out in
+[OwnerDecisions.md](../09-OPERATIONS/OwnerDecisions.md) with the options and what each costs. See M18's
+"Completion evidence" above and [ADR-0046](../11-ADR/0046-continuous-delivery-and-rollback.md).
 
 **M17 — done, to the boundary the phase's own text draws.** R-18 stopped being an accepted risk with a described
 remedy and became a built one: migrations at startup is now an **explicit choice** outside Development, and
@@ -2135,7 +2178,87 @@ repository.
 - **Acceptance criteria.** A tagged commit can be deployed to the defined environment(s) through the pipeline,
   observed to succeed, and rolled back cleanly if it needs to be — rollback is not optional in this phase's
   acceptance criteria even though it is easy to defer.
-- **Completion evidence.** *(fill in on close)*
+- **Completion evidence.**
+  - **The phase's first finding was that CI had never been green.** `gh run list` showed every run failed:
+    the last fifteen in ~3 s with *"the job was not started because recent account payments have failed or your
+    spending limit needs to be increased"*, and the last one that actually executed (`35313506879`, M10's close)
+    on `GeneratedDocsTests.جرد_الاختبارات_مطابق_للمصدر`. The workflow file had been described as comprehensive
+    in six documents; none of them had looked at a run.
+  - **Defect 1 — a platform-dependent regex.** `VitestCase` was `^\s*(it|test)(\.each\(.*\))?\s*\(`.
+    Reproduced in isolation: the line `it.each(FORBIDDEN)('…')` matched **0 times on macOS and 1 on Linux**, same
+    bytes, same .NET 10.0.12, both arm64. Cause is the greedy `.*` inside an *optional* group and .NET's
+    auto-atomicity optimization; proven by bisecting the pattern (making the group mandatory, or the quantifier
+    lazy or bounded, made both agree). Fixed to `^[ \t]*(it|test)(\.each)?\s*\(`, which never looks for a
+    closing paren; `test.describe`/`beforeAll`/`skip` stay uncounted as before. Inventory regenerated: 665 → 666.
+  - **Defect 2 — `-warnaserror`.** Duplicate `using Souq.Application.Common.Interfaces;` in `ChangePassword.cs`
+    and `ResetPassword.cs` (CS0105), added in M15. Warnings locally, build errors in CI.
+  - **Defect 3 — the backup alarm failed open.** `backup-verify.sh` computed age with `python3` and, when absent,
+    took the `note "no age check"` branch and exited 0 — a nine-day-old backup passing on a minimal host. Age is
+    now computed by `utc_epoch` in `lib.sh` (`date -u -d`, falling back to BSD `date -u -j -f`, the same
+    two-implementation shape as `sha256_of`), the unreadable branch is `problem` not `note`, and a future-dated
+    stamp fails too. Three tests added, including a shape check that the verifier must not depend on an
+    interpreter that may be absent.
+  - **Defect 4 — the shipped stack did not boot.** `docker compose up` died with
+    `InvalidOperationException: Database:MigrateOnStartup غير مضبوط` — M17's guard is right and nothing in
+    `docker-compose.yml`, `appsettings*` or `.env.example` set it. Observed on a real boot before it was fixed.
+    `ConfigurationSourceTests.كل_إعداد_يمنع_الإقلاع_بغيابه_مضبوط_في_حزمة_docker` now derives the required keys
+    from `Program.cs`'s own guard messages and asserts compose supplies each as a real environment entry;
+    mutation-tested three ways (renamed so the substring still matched, commented out, deleted) — the first
+    version of the test passed the renamed mutation and was tightened.
+  - **Defect 5 — a flaky test.** `SouqMetricsTests.كل_عدّاد_يُصدر_قيمته` compared measurements from a
+    process-global `Meter` for exact equality while `AuthHandlersTests` emits `souq.auth.login_failed` in
+    parallel — ~1 failure in 6 Linux runs. Fixed by a unique tag and `Distinct()` on names, which keeps "which
+    counters fired" exact; proven still able to catch a counter that stops emitting (temporarily emptied
+    `RecordSearchLogDropped` → failed; restored → passed). **120 consecutive Linux runs clean** afterwards.
+  - **Defect 6 — `npm run lint` exited non-zero.** 14 `no-undef` errors in `frontend/scripts/bundle-budget.mjs`
+    (M16): a Node script linted with browser globals. CI's frontend job had been red since M16 for this alone.
+    ESLint now has a `scripts/**/*.mjs` block with Node **and** browser globals (the file's `page.evaluate`
+    bodies name browser APIs lexically). Zero errors; the 8 remaining warnings are the known
+    `set-state-in-effect` set awaiting TD-23.
+  - **CD built.** [`.github/workflows/release.yml`](../../.github/workflows/release.yml): SemVer-tagged trigger
+    with a rejecting tag check, a gate job running all four suites (integration included) plus a clean-tree
+    check, images pushed to GHCR tagged with **both** version and commit, and a self-contained migration bundle
+    kept 90 days. `docker-compose.yml` gained `image:` with a version variable — without it a deployment is
+    "build from present source", which cannot be rolled back because the previous state never had a name.
+  - **Rollback verified, all three branches, on a real stack** (`souq-qa`, ports 5291/8091):
+    | Case | Observed |
+    |---|---|
+    | Deploy `v0.0.1` | `DEPLOY OK v0.0.1`, readiness 200, schema head read before and after |
+    | Deploy `v0.0.2-broken` (entrypoint replaced so it never becomes healthy), schema unchanged | compose reported the container unhealthy, script took the failure path, **rolled back to `v0.0.1`** and re-verified ready; exit 1 |
+    | Same failure with the schema state withheld | **refused to roll back**, printed the restore path and the previous version; exit 1 |
+    Staging the second case exposed a defect in the script itself — `up` failing called `die` and skipped the
+    rollback, leaving the environment broken. Fixed so `up` failure takes the same path as a failed health check.
+  - **R-18's deliberate step rehearsed, not described.** Bundle built `--self-contained -r linux-arm64`, run in
+    the compose network against the live database (reported up to date), then **reverted
+    `20260918125847_SearchLogInsightIndex` and applied it again**, then driven through
+    `deploy.sh --migrate-bundle` with `DATABASE_MIGRATE_ON_STARTUP=false`: stop → migrate → start → ready.
+  - **Local Linux gate.** `scripts/ci-local.sh` runs CI's `fast` job (and `--frontend`) inside the SDK/node
+    containers against `git ls-files` content — exactly what CI checks out. Green: 524 Domain, 427 Application,
+    100 architecture, nothing regenerated, frontend lint 0 errors, typecheck clean, 86 test files / 673 tests,
+    build. It does **not** cover the integration suite (Testcontainers in a container) or the supply-chain scans,
+    and says so rather than implying coverage it lacks.
+  - **Browser QA on the pipeline-deployed stack → a real accessibility defect, fixed.** `RowActionsMenu` closed
+    on any scroll event; with `html { scroll-behavior: smooth }`, focusing a row's ⋮ below the fold scrolls for
+    dozens of events, so a keyboard user pressing Enter got a menu that vanished. Measured before: 32 scroll
+    events, menu count **0** at 150 ms and after settling; a visible row opened fine, isolating it to the scroll.
+    The menu now **repositions** on scroll (rAF-throttled) instead of closing. The first fix attempt closed when
+    the trigger left the viewport and reproduced the same bug from the other side (at open time the smooth scroll
+    has only begun) — rejected on measurement, not argument. After: menu stays open in both cases. Three Vitest
+    tests added and mutation-tested against the original behaviour.
+  - **Journeys, against what `deploy.sh` deployed:** storefront 17/17, back-office 2 passed + 4 skipped (the
+    platform-account journeys need `SOUQ_API_LOG`), store-administration / admin-inventory / product-variants /
+    search all passing, phone project 11/11. `storefront.spec.js` test 11 was fixed rather than accommodated: it
+    took the *first* product and pressed "Increase quantity", which is **correctly disabled** when that product's
+    stock is 1 — it now picks a product that can actually hold two, and says so when none can.
+  - **Suites at close:** 524 Domain, 427 Application, 100 architecture, 422 integration, 673 frontend unit —
+    all green on macOS **and** the fast three re-verified on Linux.
+  - **TD-31 escalated, not worked around**, and it grew: branch protection was already owner-only, and the
+    billing block means CI does not run at all. Both are in
+    [OwnerDecisions.md](../09-OPERATIONS/OwnerDecisions.md) with three options and what each costs — including
+    that making the repository public is a *disclosure* decision and therefore not an engineering call.
+  - **Not verified, and not claimed:** the SSH deploy step (no server) and either pipeline actually running on
+    GitHub (billing). `release.yml`'s deploy job is gated on `vars.DEPLOY_HOST` so a green run can never imply a
+    deployment that did not happen.
 - **Next-phase trigger.** M19 may start independently of M18.
 
 ### M19 — Full product acceptance and UX certification
