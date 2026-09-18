@@ -8,9 +8,9 @@
 | Suite | Files | Facts | Theories |
 |---|---|---|---|
 | [`Souq.Domain.Tests`](#souqdomaintests) | 29 | 227 | 47 |
-| [`Souq.Application.Tests`](#souqapplicationtests) | 46 | 341 | 17 |
+| [`Souq.Application.Tests`](#souqapplicationtests) | 46 | 345 | 17 |
 | [`Souq.ArchitectureTests`](#souqarchitecturetests) | 14 | 59 | 7 |
-| [`Souq.IntegrationTests`](#souqintegrationtests) | 50 | 296 | 22 |
+| [`Souq.IntegrationTests`](#souqintegrationtests) | 51 | 308 | 22 |
 | [frontend (Vitest)](#frontend-vitest) | 83 | 651 | — |
 | [frontend (Playwright)](#frontend-playwright) | 16 | 107 | — |
 
@@ -82,7 +82,7 @@
 | `tests/Souq.Application.Tests/Payments/OrderPaymentsTests.cs` | `OrderPaymentsTests` | 10 | 0 |
 | `tests/Souq.Application.Tests/Payments/StorePaymentAccountEditorTests.cs` | `StorePaymentAccountEditorTests` | 5 | 1 |
 | `tests/Souq.Application.Tests/Platform/TenantAdministrationTests.cs` | `TenantAdministrationTests` | 5 | 0 |
-| `tests/Souq.Application.Tests/Products/GetProductsHandlerTests.cs` | `GetProductsHandlerTests` | 2 | 0 |
+| `tests/Souq.Application.Tests/Products/GetProductsHandlerTests.cs` | `GetProductsHandlerTests` | 6 | 0 |
 | `tests/Souq.Application.Tests/Products/GetRelatedProductsHandlerTests.cs` | `GetRelatedProductsHandlerTests` | 3 | 0 |
 | `tests/Souq.Application.Tests/Products/ProductHandlersTests.cs` | `CreateProductHandlerTests`, `UpdateProductHandlerTests`, `ProductLifecycleHandlerTests`, `GetProductByIdHandlerTests` | 17 | 0 |
 | `tests/Souq.Application.Tests/Products/ProductVariantHandlersTests.cs` | `ProductVariantHandlersTests` | 14 | 0 |
@@ -158,6 +158,7 @@
 | `tests/Souq.IntegrationTests/ProvisioningBoundaryTests.cs` | `ProvisioningBoundaryTests` | 4 | 0 |
 | `tests/Souq.IntegrationTests/QueryServiceTests.cs` | `QueryServiceTests` | 10 | 1 |
 | `tests/Souq.IntegrationTests/ReviewModerationTests.cs` | `ReviewModerationTests` | 4 | 0 |
+| `tests/Souq.IntegrationTests/SearchAnalyticsTests.cs` | `SearchAnalyticsTests` | 12 | 0 |
 | `tests/Souq.IntegrationTests/SecurityHeadersTests.cs` | `SecurityHeadersTests` | 4 | 1 |
 | `tests/Souq.IntegrationTests/SeedSafetyTests.cs` | `SeedSafetyTests`, `FreshDatabaseFactory` | 4 | 0 |
 | `tests/Souq.IntegrationTests/ShippingTests.cs` | `ShippingTests` | 3 | 0 |

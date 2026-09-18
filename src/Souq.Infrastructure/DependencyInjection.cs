@@ -56,6 +56,7 @@ public static class DependencyInjection
         AddPersistence(services, config);
         AddInventory(services, config);
         AddBaskets(services, config);
+        AddSearchLog(services, config);
         AddPayments(services, config, environment, report);
         AddEmail(services, config, environment, report);
         AddNotifications(services, config);
@@ -171,6 +172,36 @@ public static class DependencyInjection
             .ValidateOnStart();
         services.AddSingleton(sp => sp.GetRequiredService<IOptions<Application.Features.Baskets.BasketSettings>>().Value);
         services.AddHostedService<BackgroundJobs.BasketCleanupService>();
+    }
+
+    // ============================================================================
+    // سجلّ البحث (M13): القناة مفردة، والمُسجِّل بنطاق الطلب، والكاتب والمنسّق خدمتان مستضافتان.
+    //
+    // **الفصل بين القناة والمُسجِّل هو التسجيل نفسه لا تفصيلاً فيه**: القناة يتشاركها كاتبٌ خلفي عمره عمر
+    // التطبيق، والمُسجِّل يقرأ `ITenantContext` بنطاق الطلب. صنفٌ واحد كان سيعني خدمةً بنطاق داخل مفردة —
+    // وهو العيب الذي منع الـ API من الإقلاع في Development حتى M11، ويكشفه الآن فحص النطاقات في الاختبارات.
+    //
+    // ومدّة الحفظ مُتحقَّق منها عند الإقلاع: جدولٌ بلا حدٍّ لنموّه لا يُطلق بإعدادٍ خاطئ يمرّ بصمت.
+    // ============================================================================
+    private static void AddSearchLog(IServiceCollection services, IConfiguration config)
+    {
+        services.AddOptions<Application.Features.Products.SearchLogSettings>()
+            .Bind(config.GetSection("Search:Log"))
+            .Validate(s => s.RetentionDays is >= 7 and <= 730, "Search:Log:RetentionDays بين 7 و730 يوماً.")
+            .Validate(s => s.PurgeIntervalMinutes == 0 || s.PurgeIntervalMinutes is >= 5 and <= 1440,
+                "Search:Log:PurgeIntervalMinutes صفر (معطّل) أو بين 5 و1440 دقيقة.")
+            .Validate(s => s.PurgeBatchSize is >= 100 and <= 50_000, "Search:Log:PurgeBatchSize بين 100 و50000 صفّاً.")
+            .Validate(s => s.WriteBatchMilliseconds is >= 10 and <= 60_000,
+                "Search:Log:WriteBatchMilliseconds بين 10 و60000 مللي ثانية.")
+            .ValidateOnStart();
+        services.AddSingleton(sp =>
+            sp.GetRequiredService<IOptions<Application.Features.Products.SearchLogSettings>>().Value);
+
+        services.AddSingleton<BackgroundJobs.SearchLogChannel>();
+        services.AddScoped<Application.Features.Products.Contracts.ISearchLog, BackgroundJobs.SearchLogBuffer>();
+        services.AddScoped<Application.Features.Products.Contracts.ISearchLogRetention, Persistence.SearchLogRetention>();
+        services.AddHostedService<BackgroundJobs.SearchLogWriterService>();
+        services.AddHostedService<BackgroundJobs.SearchLogPurgeService>();
     }
 
     // بوّابة الدفع: القرار هنا فقط — لا كود آخر في النظام يعرف أيّها يعمل. البوّابة التجريبية لا تعمل ضمنياً خارج

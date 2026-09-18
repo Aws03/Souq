@@ -9,7 +9,7 @@
 |---|---|---|---|---|
 | [Platform](#platform) | `src/Souq.Application/Features/Platform`, `src/Souq.Application/Features/Stores` | 15 | 11 | 0 |
 | [Identity](#identity) | `src/Souq.Application/Features/Auth`, `src/Souq.Application/Features/Staff` | 11 | 2 | 2 |
-| [Catalog](#catalog) | `src/Souq.Application/Features/Products`, `src/Souq.Application/Features/Categories` | 19 | 10 | 1 |
+| [Catalog](#catalog) | `src/Souq.Application/Features/Products`, `src/Souq.Application/Features/Categories` | 20 | 11 | 3 |
 | [Inventory](#inventory) | `src/Souq.Application/Features/Inventory` | 4 | 4 | 2 |
 | [Customers](#customers) | `src/Souq.Application/Features/Customers` | 8 | 6 | 0 |
 | [Shopping](#shopping) | `src/Souq.Application/Features/Baskets`, `src/Souq.Application/Features/Wishlist` | 10 | 2 | 2 |
@@ -93,6 +93,7 @@ Module document: [Catalog/README.md](Catalog/README.md).
 | `DeleteCategoryCommand` | command | `DeleteCategoryHandler` | `DeleteCategoryValidator` | yes | `DELETE /api/categories/{id:int}` |
 | `DeleteProductCommand` | command | `DeleteProductHandler` | `DeleteProductValidator` | yes | `DELETE /api/products/{id:int}` |
 | `DeleteSearchSynonymCommand` | command | `DeleteSearchSynonymHandler` | `DeleteSearchSynonymValidator` | yes | `DELETE /api/admin/search-synonyms/{id:int}` |
+| `PurgeSearchLogCommand` | command | `PurgeSearchLogHandler` | — | — | no endpoint (sent internally) |
 | `RemoveProductImageCommand` | command | `RemoveProductImageHandler` | — | yes | `DELETE /api/admin/products/{id:int}/images/{imageId:int}` |
 | `ReorderProductImagesCommand` | command | `ReorderProductImagesHandler` | `ReorderProductImagesValidator` | yes | `PUT /api/admin/products/{id:int}/images/order` |
 | `SetDefaultProductVariantCommand` | command | `SetDefaultProductVariantHandler` | `SetDefaultProductVariantValidator` | yes | `PUT /api/admin/products/{id:int}/variants/{variantId:int}/default` |
@@ -114,9 +115,12 @@ Module document: [Catalog/README.md](Catalog/README.md).
 | `ListAdminCategoriesQuery` | query | `GetCategoriesHandler` | — | — | `GET /api/admin/categories` |
 | `ListAdminProductsQuery` | query | `ListAdminProductsHandler` | `ListAdminProductsQueryValidator` | — | `GET /api/admin/products` |
 | `ListSearchSynonymsQuery` | query | `ListSearchSynonymsHandler` | — | — | `GET /api/admin/search-synonyms` |
+| `SearchInsightsQuery` | query | `SearchInsightsHandler` | `SearchInsightsQueryValidator` | — | `GET /api/admin/search-synonyms/insights` |
 
 | Public contract | Implemented by |
 |---|---|
+| `ISearchLog` | `SearchLogBuffer` |
+| `ISearchLogRetention` | `SearchLogRetention` |
 | `IVariantStockInitializer` | `VariantStockInitializer` |
 
 ## Inventory

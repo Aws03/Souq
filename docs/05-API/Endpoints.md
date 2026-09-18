@@ -5,7 +5,7 @@
 >
 > Conventions (errors, paging, status codes): [ApiDocumentation.md](ApiDocumentation.md). Use cases per module: [UseCases.md](../04-MODULES/UseCases.md).
 
-**143 endpoints** in 26 controllers: 26 anonymous, 27 for any signed-in account, 90 behind a permission.
+**144 endpoints** in 26 controllers: 26 anonymous, 27 for any signed-in account, 91 behind a permission.
 
 ## How to read this table
 
@@ -59,6 +59,7 @@
 | POST | `/api/admin/reviews/{id:int}/reject` | `reviews.moderate` | store | `reviews` | — | `RejectReviewCommand` | Reviews |
 | GET | `/api/admin/search-synonyms` | `catalog.manage` | store | — | — | `ListSearchSynonymsQuery` | Catalog |
 | POST | `/api/admin/search-synonyms` | `catalog.manage` | store | — | — | `CreateSearchSynonymCommand` | Catalog |
+| GET | `/api/admin/search-synonyms/insights` | `catalog.manage` | store | — | — | `SearchInsightsQuery` | Catalog |
 | PUT | `/api/admin/search-synonyms/{id:int}` | `catalog.manage` | store | — | — | `UpdateSearchSynonymCommand` | Catalog |
 | DELETE | `/api/admin/search-synonyms/{id:int}` | `catalog.manage` | store | — | — | `DeleteSearchSynonymCommand` | Catalog |
 | GET | `/api/admin/shipping-methods` | `store.shipping.manage` | store | — | — | `ListShippingMethodsQuery` | Shipping |

@@ -62,6 +62,8 @@ public class AppDbContext : DbContext, IUnitOfWork
     public DbSet<Product> Products => Set<Product>();
     // مفردات بحث المتجر (M3، ADR-0042): يقرؤها مسار البحث ويكتبها التاجر من لوحته.
     public DbSet<SearchSynonym> SearchSynonyms => Set<SearchSynonym>();
+    // أثر ما بحث عنه المتسوّقون (M13): يكتبه كاتبٌ خلفي على دفعات، وتقرؤه لوحة التاجر ليُصلح المفردات أعلاه.
+    public DbSet<SearchQueryLog> SearchQueryLogs => Set<SearchQueryLog>();
     public DbSet<Category> Categories => Set<Category>();
     public DbSet<Order> Orders => Set<Order>();
     public DbSet<OrderItem> OrderItems => Set<OrderItem>();

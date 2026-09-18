@@ -34,6 +34,9 @@ public interface ICatalogQueries
 
     // مفردات البحث لشاشة التاجر (M3): الجدول صغير بحدّه، فقائمة كاملة بلا ترقيم.
     Task<IReadOnlyList<SearchSynonymDto>> ListSearchSynonymsAsync(CancellationToken ct);
+
+    // أثر البحث مُجمَّعاً بالكلمة (M13) — مُرقَّم لأنّ الجدول هنا بلا حدّ أعلى، خلاف المفردات أعلاه.
+    Task<SearchInsightsPage> ListSearchInsightsAsync(SearchInsightFilter filter, PageRequest page, CancellationToken ct);
 }
 
 // معايير بحث المتجر — كلها اختيارية؛ null/فارغ = بلا تصفية على هذا البعد. OnSaleOnly: سعر مقارنة أعلى من السعر.

@@ -311,6 +311,93 @@ internal sealed class CatalogQueries : ICatalogQueries
                 s.Id, s.Culture, s.Term, s.TermNormalized, s.Expansion, s.ExpansionNormalized))
             .ToListAsync(ct);
 
+    // ============================================================================
+    // أثر البحث مُجمَّعاً بالكلمة (M13). الجدول الأكبر في النظام، فكل ما يلي مقصودٌ لئلّا يُقرأ منه صفٌّ زائد:
+    //
+    //   • **العدّ والتجميع في SQL**: `GROUP BY` على بادئة الفهرس (المستأجر، اللغة، الصورة المطبَّعة) وعددُ
+    //     النتائج عمودٌ مُضمَّن فيه — فـ"كم بحثاً" و"كم منها بلا نتيجة" يُحسبان من الفهرس بلا لمس صفّ.
+    //   • **الملخّص باستعلامٍ ثانٍ لا بجمع الصفحة**: صفحةُ عشرين كلمةً لا تعرف مجموع النافذة، وجمعُها كان
+    //     سيُنتج رقماً يتغيّر بتغيّر الصفحة — وهو بالضبط الخطأ الذي أصلحه M12 في لوحة التقارير.
+    //   • **وترتيبٌ حتميّ**: الأكثر بحثاً، ثم الأحدث، ثم الكلمة أبجدياً. بلا الفاصل الأخير تتبادل كلمتان
+    //     متساويتان موضعيهما بين صفحةٍ وأخرى فتُعرض إحداهما مرّتين وتغيب الثانية.
+    // ============================================================================
+    public async Task<SearchInsightsPage> ListSearchInsightsAsync(
+        SearchInsightFilter filter, PageRequest page, CancellationToken ct)
+    {
+        var rows = _db.SearchQueryLogs.AsNoTracking().Where(l => l.SearchedAt >= filter.Since);
+        if (!string.IsNullOrWhiteSpace(filter.Culture))
+            rows = rows.Where(l => l.Culture == filter.Culture);
+
+        var grouped = rows
+            .GroupBy(l => new { l.Culture, l.TermNormalized })
+            .Select(g => new
+            {
+                g.Key.Culture,
+                g.Key.TermNormalized,
+                Searches = g.Count(),
+                ZeroResultSearches = g.Count(l => l.ResultCount == 0),
+                LastSearchedAt = g.Max(l => l.SearchedAt),
+            });
+
+        // ============================================================================
+        // الملخّص كلّه من تجميعٍ **فوق** التجميع، لا من ثلاثة استعلامات:
+        //   • مجموع البحوث   = SUM على الصفوف المُجمَّعة
+        //   • الكلمات المختلفة = COUNT على الصفوف المُجمَّعة — لا `COUNT(DISTINCT ...)` على عمودين، فتلك
+        //     ليست SQL صحيحة أصلاً (رفضها المُحوِّل: "DISTINCT * بلا تعيين نوع") والتجميع القائم يُغني عنها.
+        //   • وهو على النافذة كما هي، **قبل** مرشّح "بلا نتيجة": لو طُبِّق المرشّح أولاً لصار المجموع مساوياً
+        //     للصفر دائماً، فقرأ التاجر أنّ كل بحوثه تفشل.
+        // ============================================================================
+        var summary = await grouped
+            .GroupBy(_ => 1)
+            .Select(g => new SearchInsightsSummary(
+                g.Sum(x => x.Searches), g.Count(), g.Sum(x => x.ZeroResultSearches)))
+            .FirstOrDefaultAsync(ct) ?? SearchInsightsSummary.Empty;
+
+        // "لم تجد شيئاً ولا مرّة" — المقارنة بين مُجمَّعين، فهي في HAVING لا في WHERE.
+        var listed = grouped;
+        if (filter.OnlyZeroResults)
+            listed = grouped.Where(g => g.ZeroResultSearches == g.Searches);
+
+        // بلا مرشّحٍ فعددُ الصفحات هو عدد الكلمات المختلفة الذي حُسب أعلاه — فلا استعلام عدٍّ ثانٍ.
+        var total = filter.OnlyZeroResults ? await listed.CountAsync(ct) : summary.DistinctTerms;
+        var slice = await listed
+            .OrderByDescending(g => g.Searches)
+            .ThenByDescending(g => g.LastSearchedAt)
+            .ThenBy(g => g.TermNormalized)
+            .Skip(page.Skip).Take(page.PageSize)
+            .ToListAsync(ct);
+
+        // ما كُتب فعلاً لكلمات هذه الصفحة وحدها: استعلامٌ ثانٍ محدودٌ بعشرين مفتاحاً، لا نافذةٌ كاملة تُقرأ
+        // إلى الذاكرة. ويُطلب أحدثُ صورةٍ كُتبت لأنّها أقرب إلى ما يكتبه الزبائن الآن.
+        var keys = slice.Select(g => g.TermNormalized).Distinct().ToList();
+        var typed = (await rows
+                .Where(l => keys.Contains(l.TermNormalized))
+                .GroupBy(l => new { l.Culture, l.TermNormalized })
+                .Select(g => new
+                {
+                    g.Key.Culture,
+                    g.Key.TermNormalized,
+                    Term = g.OrderByDescending(l => l.SearchedAt).ThenByDescending(l => l.Id)
+                        .Select(l => l.Term).First(),
+                })
+                .ToListAsync(ct))
+            .ToDictionary(t => (t.Culture, t.TermNormalized), t => t.Term);
+
+        var items = slice
+            .Select(g => new SearchTermInsightDto(
+                g.Culture,
+                // الصورة المطبَّعة بديلاً لا يُتوقَّع بلوغه: الصفّ الذي جاء منه المفتاح موجودٌ بالتعريف.
+                typed.GetValueOrDefault((g.Culture, g.TermNormalized), g.TermNormalized),
+                g.TermNormalized,
+                g.Searches,
+                g.ZeroResultSearches,
+                g.LastSearchedAt))
+            .ToList();
+
+        return new SearchInsightsPage(
+            new PaginatedList<SearchTermInsightDto>(items, total, page.Page, page.PageSize), summary);
+    }
+
     // ── استرجاع الخطأ المطبعي (M3) ──────────────────────────────────────────
 
     // حدود مسار الاسترجاع. أرقام مقيسة لا مختارة: انظر "Measured evidence" في ADR-0042.

@@ -1,0 +1,42 @@
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using Souq.Domain.Entities;
+
+namespace Souq.Infrastructure.Persistence.Configurations;
+
+// ============================================================================
+// سجلّ ما بحث عنه المتسوّقون (M13). أكثر جدولٍ يُكتب فيه في هذا النظام — صفٌّ لكل بحث — وأقلّ جدولٍ
+// يُقرأ: مرّتين في شاشة واحدة. ففهارسه للقراءتين لا للكتابة، والكتابة تبقى INSERT بلا قراءة.
+//
+// **فهرسان، وكلٌّ يجيب سؤالاً من الشاشة:**
+//   • (المستأجر، اللغة، الصورة المطبَّعة) — "أكثر ما يُبحث": GROUP BY على بادئة الفهرس، وعددُ النتائج
+//     عمودٌ مُضمَّن كي يُحسب "كم منها بلا نتيجة" من الفهرس بلا لمس الصفّ.
+//   • (المستأجر، تاريخ البحث) — لمسحِ الحفظ (`DELETE WHERE SearchedAt < ...`)، وهو ما يجعل المسح
+//     بحثاً في نطاقٍ لا مسحاً كاملاً للجدول. بلا هذا الفهرس يصير تطبيقُ سياسة الحفظ أغلى من تركها.
+//
+// ولا فهرس على `Term` غير المطبَّعة: لا يُبحث بها، تُعرَض وحدها.
+//
+// TenantId ومرشّحه ومفتاحه الأجنبي إلى Tenants لا تُضبط هنا: حلقة الانعكاس في AppDbContext تفعل ذلك لكل
+// ITenantOwned. والمفتاح `Restrict` كبقيّة الجداول: سجلّ متجرٍ يمنع حذف صفّ المتجر، وهو المقصود — المنصّة
+// تُوقف المتاجر ولا تحذفها (لا مسار حذفٍ في النظام أصلاً)، فالقيد يحرس ذلك بدل أن يُفرغ جدولاً صامتاً.
+//
+// ولا فهرس على (المستأجر، عدد النتائج): مرشّح "بلا نتيجة" يُطبَّق على مُجمَّعٍ بعد التجميع (HAVING) لا على
+// صفوف، فلن يستعمله المُحسِّن. وفهرسٌ لا يُقرأ على أكثر جدولٍ يُكتب فيه كلفةٌ صافية.
+// ============================================================================
+public class SearchQueryLogConfiguration : IEntityTypeConfiguration<SearchQueryLog>
+{
+    public void Configure(EntityTypeBuilder<SearchQueryLog> builder)
+    {
+        builder.ToTable("SearchQueryLogs");
+        builder.HasKey(l => l.Id);
+
+        builder.Property(l => l.Culture).HasMaxLength(CatalogTranslation.CultureMaxLength).IsRequired();
+        builder.Property(l => l.Term).HasMaxLength(SearchQueryLog.TermMaxLength).IsRequired();
+        builder.Property(l => l.TermNormalized).HasMaxLength(SearchQueryLog.TermMaxLength).IsRequired();
+
+        builder.HasIndex(l => new { l.TenantId, l.Culture, l.TermNormalized })
+            .IncludeProperties(l => new { l.ResultCount });
+
+        builder.HasIndex(l => new { l.TenantId, l.SearchedAt });
+    }
+}

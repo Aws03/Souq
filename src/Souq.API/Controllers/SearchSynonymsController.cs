@@ -27,6 +27,16 @@ public class SearchSynonymsController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> List() => Ok(await _mediator.Send(new ListSearchSynonymsQuery()));
 
+    // ============================================================================
+    // أثر البحث (M13) — في هذا المتحكّم لا في متحكّمٍ خاصّ، وبنفس صلاحيته.
+    //
+    // لأنّه نصف الحلقة نفسها: التاجر يقرأ ما بُحث عنه ولم يوجد، فيضيف مرادفاً من الشاشة نفسها. فصلُه في
+    // مسارٍ آخر كان سيفصل السؤال عن جوابه في واجهةٍ وفي صلاحيةٍ، وهما شيء واحد في عمل التاجر.
+    // ============================================================================
+    [HttpGet("insights")]
+    public async Task<IActionResult> Insights([FromQuery] SearchInsightsQuery query) =>
+        Ok(await _mediator.Send(query));
+
     // { "culture": "ar", "term": "جوال", "expansion": "هاتف" }
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CreateSearchSynonymCommand command)

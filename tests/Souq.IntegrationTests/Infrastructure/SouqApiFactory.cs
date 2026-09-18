@@ -85,6 +85,11 @@ public sealed class SouqApiFactory : WebApplicationFactory<Program>, IAsyncLifet
         builder.UseSetting("Basket:CleanupIntervalMinutes", "0");
         // وكذلك مُرسِل صندوق الصادر (المرحلة 14): الاختبارات تشغّل دورته صراحةً (DispatchNotificationsAsync) — حتمية بلا انتظار.
         builder.UseSetting("Notifications:DispatchIntervalSeconds", "0");
+        // وكذلك منسّق مسح سجلّ البحث (M13): SearchAnalyticsTests ترسل أمر المسح مباشرة.
+        builder.UseSetting("Search:Log:PurgeIntervalMinutes", "0");
+        // أمّا كاتب السجلّ فيبقى يعمل — هو مسار الكتابة نفسه، ولا يُفحص بتعطيله. تُقصَّر نافذة تجميعه وحدها
+        // من ثانيتين إلى عشرين مللي ثانية: نفس الكود ونفس النطاقات، بلا انتظارٍ في كل اختبار.
+        builder.UseSetting("Search:Log:WriteBatchMilliseconds", "20");
         builder.UseSetting("Secrets:ActiveKeyId", SecretsKeyId);
         builder.UseSetting($"Secrets:Keys:{SecretsKeyId}", SecretsKey);
         builder.UseSetting("Payments:Fake:WebhookSecret", FakeWebhookSecret);

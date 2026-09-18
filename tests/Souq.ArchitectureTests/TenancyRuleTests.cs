@@ -53,6 +53,9 @@ public class TenancyRuleTests
         "Souq.Infrastructure.Persistence.OrderNumbers",
         "Souq.Infrastructure.Persistence.Repositories.NotificationRepository",
         "Souq.Infrastructure.Persistence.Outbox.OutboxProcessor",
+        // M13: مسح سجلّ البحث. حذفٌ مجمَّع مراجَع — `SearchQueryLog` كيان `ITenantOwned` فمرشّح المستأجر
+        // يُطبَّق على الجملة، والحذف يقع في نطاق متجرٍ يُرسله المنسّق. ولا طوابع تُفوَّت: الصفّ يُحذف لا يُعدَّل.
+        "Souq.Infrastructure.Persistence.SearchLogRetention",
     };
 
     [Fact]
