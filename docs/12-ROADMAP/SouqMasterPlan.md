@@ -29,12 +29,12 @@
 
 ```yaml
 plan_version: 1.0.0
-current_phase: M3
+current_phase: M4
 phase_status: done
-next_phase: M4          # M2 remains blocked on TD-42 and is independent of M4; see M2's own STOP entry
+next_phase: M5          # M2 remains blocked on TD-42 and is independent of the phases after it; see M2's own STOP entry
 blocked_decisions: ["TD-42"]    # owner decisions that block a phase currently in flight; see §5 and OwnerDecisions.md
 last_verified_date: 2026-09-18
-last_verified_head: e0bed4e     # M3 closed: the local search engine, its browser verification and the merchant vocabulary
+last_verified_head: b0d4b8c     # M4 closed: the storefront responsive/accessibility matrix and the five defects it found
 baseline_branch: phase/17-production-hardening
 ```
 
@@ -59,6 +59,14 @@ store's own catalogue vocabulary and **says which word it searched**, with the s
 customers use. SQL Server Full-Text Search was **measured unavailable** in the pinned image and rejected on
 evidence rather than assumption — see M3's "Completion evidence" above and
 [ADR-0042](../11-ADR/0042-local-search-engine.md).
+
+**M4 — done.** Every storefront route now holds its layout at 320/768/1280/2560 in both languages, with no
+control outside the viewport, no touch target under 24px, and no axe violation in either language or either
+theme — asserted by `frontend/e2e/responsive-storefront.spec.js` against the container stack. Five defects were
+found and fixed, each visible at only one width in one language; the most serious was a navbar that **silently
+clipped the cart button** between 768px and ~940px because `overflow-x: hidden` hid the overflow instead of
+showing it. The one acceptance criterion **not** met — a cyclic focus trap in dialogs — is recorded as TD-48
+rather than claimed. See M4's "Completion evidence" above.
 
 Keep this block current in the same commit that closes a phase: `current_phase`, `phase_status`
 (`not_started` | `in_progress` | `blocked` | `done`), `next_phase`, `blocked_decisions` (the exact ID from
@@ -649,7 +657,50 @@ repository.
 - **Acceptance criteria.** Every storefront route holds at 320px and 2560px with no horizontal scroll; every
   dialog is a real dialog (focus trap, Escape, scroll lock — the pattern Phase 17 already established for the
   admin area); axe reports zero violations across the full route list in both languages and both themes.
-- **Completion evidence.** *(fill in on close)*
+- **Completion evidence.** One commit on `phase/17-production-hardening` from checkpoint `89a3ee3`. The phase's
+  output is `frontend/e2e/responsive-storefront.spec.js` — every storefront route at **320/768/1280/2560**, in
+  **both languages**, plus axe across every route in **both languages and both themes** — and the five defects
+  that matrix found. **Every one of them appeared at exactly one width in one language**, which is the argument
+  for the matrix: a single viewport would have found none.
+  - **The navbar was silently clipping the cart, wishlist and notification buttons between 768px and ~940px.**
+    A signed-in bar needs 941px in English; the only rule that thinned it was `max-width: 767px`, and the bar's
+    `overflow-x: hidden` — a safety net against spilling — swallowed the controls rather than overflowing. No
+    scrollbar, no symptom, the buttons simply absent. A new **960px** breakpoint (measured, not chosen) moves
+    the text links into the hamburger menu where they already live on phones; documented in `DesignSystem.md` §11.
+  - **Checkout pushed "Continue to payment" out of the viewport at 320px** (31px of page overflow): the
+    single-column grid used `1fr`, whose floor is min-content, so the summary's nowrap totals forced a 335px
+    track onto a 320px screen. `minmax(0, 1fr)` fixed it.
+  - **The cart row's five columns did not fit 320px**, putting remove 7px past the edge; the stepper and total
+    now drop to a second line below 480px.
+  - **Four undersized touch targets**: cart remove 16×19 (a *destructive* action), rating stars 22×22 (the
+    review form's primary control), "View all" 56×19, navbar "Log out" 48×16 — all below WCAG 2.5.8's 24px and
+    this repo's own 40px phone rule. Read-only stars are `disabled` and therefore excluded, which is what the
+    standard says rather than a convenience.
+  - **Long content is now part of the matrix**: the spec creates a product with a very long name in both
+    languages and visits it, because short seeded names reveal nothing about overflow.
+  - **Result:** zero page-level horizontal scroll, zero controls outside the viewport, zero targets under 24px,
+    zero axe violations, across 16 routes × 4 widths × 2 languages (× 2 themes for axe).
+  - **Verified on the container stack**, not the dev server — production middleware, nginx and the container
+    health probe. `playwright.config.js` takes `SOUQ_E2E_BASE_URL` (added in M3) and the spec takes admin
+    credentials from the environment, because a Production-mode container requires a 12-character password while
+    the development seed uses a shorter one.
+  - **Not met, and recorded rather than claimed: the focus trap.** This phase's acceptance criteria say "every
+    dialog is a real dialog (focus trap, Escape, scroll lock)". Escape, focus-in, focus-restore and scroll lock
+    are all implemented (`useDialog`, and `ProductZoom` by hand); a **cyclic Tab trap is not**, so Tab still
+    walks into the page behind an open dialog. Filed as **TD-48** with the fix described, plus **TD-49**
+    (`NotificationBell` declares `role="dialog"` for a non-modal popover). `useDialog`'s own comment claimed
+    `FrontendGuide.md` documented this gap and it did not — that page now does.
+  - Frontend gate: lint 0 errors (21 warnings, the known TD-25 baseline), typecheck clean, 615 tests across 78
+    files, build clean. Backend: Domain 524, Application 385, Architecture 89, Integration 361.
+    `./scripts/release-gate.sh --suites`: 5 passed, 0 failed, **3 skipped** (no deployment target).
+  - **The gate failed once, environmentally, and that is recorded rather than smoothed over.** Its first run
+    reported 31 integration failures in 9m08s. The same commit — whose only changes were CSS, JSX and
+    documentation, which cannot touch a .NET integration test — passed **361/361 in 4m20s** standalone, and the
+    gate itself passed clean on re-run. The cause is the Docker memory ceiling this machine has (~2.9 GB total,
+    with an unrelated container stack of the owner's holding ~1 GB): the symptom is dozens of simultaneous
+    failures and roughly double the runtime, which `TestingStrategy.md` §94-107 already describes. Nothing was
+    weakened to make it pass; the run was simply repeated with the memory free. Working tree clean and pushed at
+    close (b0d4b8c).
 - **Next-phase trigger.** M5 may start in parallel conceptually but should follow M4 in execution order per §1's
   sequential default, since M5's checkout screens are exactly the ones M4's dialog/table/overflow sweep should
   have already hardened.
