@@ -15,6 +15,8 @@ import { getStoreCurrency } from '../../app/tenantModel';
 import CouponFormDrawer from './CouponFormDrawer';
 import CouponRedemptionsDrawer from './CouponRedemptionsDrawer';
 import styles from './Admin.module.css';
+import StatusBadge from '../../components/common/StatusBadge';
+import { flagTone } from '../../features/statusTone';
 
 const PAGE_SIZE = 20;
 
@@ -93,7 +95,7 @@ export default function Coupons() {
     },
     {
       key: 'status', header: t('admin.coupons.colStatus'), width: '90px',
-      render: (c) => <span className={`${styles.statusBadge} ${c.isActive ? styles.paid : styles.cancelled}`}>{c.isActive ? t('admin.coupons.active') : t('admin.coupons.inactive')}</span>,
+      render: (c) => <StatusBadge tone={flagTone(c.isActive)}>{c.isActive ? t('admin.coupons.active') : t('admin.coupons.inactive')}</StatusBadge>,
     },
     {
       key: 'actions', header: t('admin.coupons.colActions'), width: '64px', align: 'end', render: (c) => (

@@ -13,6 +13,8 @@ import { formatDate } from '../../i18n';
 import { CUSTOMER_STATUSES, buildCustomerQuery } from '../../features/admin/customers/customerActions';
 import CustomerDetailDrawer from './CustomerDetailDrawer';
 import styles from './Admin.module.css';
+import StatusBadge from '../../components/common/StatusBadge';
+import { statusTone } from '../../features/statusTone';
 
 const PAGE_SIZE = 20;
 
@@ -57,9 +59,9 @@ export default function Customers() {
     {
       key: 'status', header: t('admin.customers.colStatus'), width: '100px', truncate: true, tooltip: statusLabel,
       render: (c) => (
-        <span className={`${styles.statusBadge} ${c.status === 'Blocked' ? styles.customerBlocked : styles.customerActive}`}>
+        <StatusBadge tone={statusTone('customer', c.status)}>
           {statusLabel(c)}
-        </span>
+        </StatusBadge>
       ),
     },
     { key: 'orders', header: t('admin.customers.colOrders'), width: '80px', align: 'end', render: (c) => c.orderCount },

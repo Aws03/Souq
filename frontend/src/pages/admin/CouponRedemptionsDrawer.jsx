@@ -7,11 +7,11 @@ import Spinner from '../../components/common/Spinner';
 import { ErrorBanner } from '../../components/common/StateViews';
 import { formatPrice } from '../../components/product/ProductBadges';
 import { formatDateTime } from '../../i18n';
-import adminStyles from './Admin.module.css';
 import styles from './OrderDetailDrawer.module.css';
+import StatusBadge from '../../components/common/StatusBadge';
+import { statusTone } from '../../features/statusTone';
 
 const PAGE_SIZE = 20;
-const STATUS_CLASS = { Reserved: 'pending', Confirmed: 'paid', Released: 'cancelled' };
 
 // استخدامات كوبون (المرحلة 10): رقم الطلب والعميل والخصم وحالة الاستخدام — محجوز لطلب غير مدفوع، مؤكَّد بالدفع، أو
 // محرَّر بالإلغاء (عاد للكوبون). الأحدث أولاً.
@@ -39,9 +39,9 @@ export default function CouponRedemptionsDrawer({ coupon, onClose }) {
               <li key={r.orderId} className={styles.entry}>
                 <div className={styles.row}>
                   <b className={styles.grow}>#{r.orderNumber} · {r.customerName ?? `#${r.customerId}`}</b>
-                  <span className={`${adminStyles.statusBadge} ${adminStyles[STATUS_CLASS[r.status]]}`}>
+                  <StatusBadge tone={statusTone('couponRedemption', r.status)}>
                     {t(`admin.coupons.redemptionStatus.${r.status}`, { defaultValue: r.status })}
-                  </span>
+                  </StatusBadge>
                 </div>
                 <span className={styles.meta}>-{formatPrice(r.discount, r.currency)} · {formatDateTime(r.createdAt)}</span>
               </li>

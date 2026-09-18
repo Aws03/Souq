@@ -13,6 +13,8 @@ import { formatDate } from '../../i18n';
 import { ORDER_STATUSES, buildOrderQuery } from '../../features/orders/orderView';
 import OrderDetailDrawer from './OrderDetailDrawer';
 import styles from './Admin.module.css';
+import StatusBadge from '../../components/common/StatusBadge';
+import { statusTone } from '../../features/statusTone';
 
 const PAGE_SIZE = 20;
 
@@ -58,7 +60,7 @@ export default function Orders() {
     },
     {
       key: 'status', header: t('admin.orders.colStatus'), width: '130px', truncate: true, tooltip: statusLabel,
-      render: (o) => <span className={`${styles.statusBadge} ${styles[o.status.toLowerCase()]}`}>{statusLabel(o)}</span>,
+      render: (o) => <StatusBadge tone={statusTone('order', o.status)}>{statusLabel(o)}</StatusBadge>,
     },
     { key: 'count', header: t('admin.orders.colItems'), width: '80px', align: 'end', render: (o) => o.itemCount },
     { key: 'total', header: t('admin.orders.colTotal'), width: '120px', align: 'end', render: (o) => formatPrice(o.totalAmount, o.currency) },

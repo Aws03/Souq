@@ -13,6 +13,8 @@ import { formatPrice } from '../components/product/ProductBadges';
 import { formatDateTime } from '../i18n';
 import { trackingUrl } from '../features/orders/orderView';
 import styles from './OrderDetail.module.css';
+import StatusBadge from '../components/common/StatusBadge';
+import { statusTone } from '../features/statusTone';
 
 // صفحة طلب العميل (المرحلة 9، محمية): رقم الطلب، أسطره وإجمالياته كما ثُبّتت، العنوانان، رقم تتبّع الشحنة، الخط الزمني،
 // رابط التتبّع العام لمشاركته (بالرمز العشوائي لا بالمعرّف)، والإلغاء قبل الدفع. الخادم يقرّر الملكية (404 لغير صاحبه).
@@ -74,9 +76,9 @@ export default function OrderDetail() {
               <h1 className={styles.title}>{t('orders.orderNumber', { id: order.orderNumber })}</h1>
               <span className={styles.meta}>{t('orders.placedOn', { date: formatDateTime(order.createdAt) })}</span>
             </div>
-            <span className={`${styles.statusBadge} ${styles[order.status.toLowerCase()]}`}>
+            <StatusBadge tone={statusTone('order', order.status)}>
               {t(`orders.status.${order.status}`, { defaultValue: order.status })}
-            </span>
+            </StatusBadge>
           </div>
 
           <ul className={styles.items}>

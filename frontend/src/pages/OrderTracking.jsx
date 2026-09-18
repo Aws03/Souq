@@ -11,6 +11,8 @@ import { EmptyState, ErrorBanner } from '../components/common/StateViews';
 import { CheckIcon, ChevronIcon, CopyIcon } from '../components/icons/Icons';
 import { formatDateTime } from '../i18n';
 import styles from './OrderTracking.module.css';
+import StatusBadge from '../components/common/StatusBadge';
+import { statusTone } from '../features/statusTone';
 
 // ============================================================================
 // صفحة التتبّع العامّة (/track/:token) — الصفحة الوحيدة بلا حارس عمداً: رابط قابل للمشاركة
@@ -71,9 +73,9 @@ export default function OrderTracking() {
                 <h1 className={styles.title}>{t('orders.orderNumber', { id: tracking.orderNumber })}</h1>
                 <span className={styles.stepDate}>{t('orders.placedOn', { date: formatDateTime(tracking.createdAt) })}</span>
               </div>
-              <span className={`${styles.statusBadge} ${styles[tracking.status.toLowerCase()]}`}>
+              <StatusBadge tone={statusTone('order', tracking.status)}>
                 {t(`orders.status.${tracking.status}`, { defaultValue: tracking.status })}
-              </span>
+              </StatusBadge>
             </div>
 
             {tracking.trackingNumber && (

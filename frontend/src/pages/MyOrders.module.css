@@ -19,12 +19,6 @@
 
 /* شارة الحالة — نفس درجات ألوان لوحة الإدارة، مستقلّة عن ملفها (لا تزاوج
    واجهة العميل بأنماط CSS خاصة بلوحة الإدارة). */
-.statusBadge { display: inline-block; padding: 4px 12px; border-radius: 50px; font-size: 12.5px; font-weight: 700; white-space: nowrap; }
-.pending { background: #fdf3e2; color: #a06a12; }
-.paid { background: var(--color-info-soft); color: var(--color-primary); }
-.shipped { background: #eaf1fb; color: var(--color-info); }
-.delivered { background: var(--color-success-soft); color: var(--color-success); }
-.cancelled { background: #fdf0ec; color: var(--color-danger); }
 
 @media (max-width: 560px) {
   .row { flex-direction: column; align-items: flex-start; gap: 10px; }

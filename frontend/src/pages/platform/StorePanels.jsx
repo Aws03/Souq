@@ -11,6 +11,8 @@ import {
   readiness,
 } from '../../features/platform/provisioning';
 import styles from './Platform.module.css';
+import SharedStatusBadge from '../../components/common/StatusBadge';
+import { statusTone } from '../../features/statusTone';
 
 // ============================================================================
 // أقسام متجر واحد من منظور المنصّة — مشتركة بين معالج التجهيز وصفحة المتجر، فخطوة "النطاقات" في المعالج هي
@@ -18,9 +20,12 @@ import styles from './Platform.module.css';
 // ما يُعرض بعد الإجراء هو ما خزّنه الخادم، لا ما افترضته الواجهة.
 // ============================================================================
 
+// حالة المتجر بالشارة المشتركة (TD-28، M10). كانت تبني الطبقة من نصّ الحالة (`status${status}`)
+// بلا قيمة احتياطية، فحالةٌ جديدة من الخادم تُرسم شارةً بلا لون إطلاقاً. المفردة الآن تُعيد المحايدة
+// لما لا تعرفه — لونٌ مفهوم بدل لا لون.
 export function StatusBadge({ status }) {
   const { t } = useTranslation();
-  return <span className={`${styles.badge} ${styles[`status${status}`] ?? ''}`}>{t(`platform.status.${status}`)}</span>;
+  return <SharedStatusBadge tone={statusTone('store', status)}>{t(`platform.status.${status}`)}</SharedStatusBadge>;
 }
 
 // ── الجاهزية ────────────────────────────────────────────────────────────────
@@ -340,7 +345,7 @@ export function AdminsPanel({ store, accounts, options, onChanged }) {
                 <b>{a.fullName}</b>
                 <span dir="ltr" className={styles.hint}>{a.email}</span>
               </span>
-              <span className={`${styles.badge} ${styles[`account_${state(a)}`]}`}>{t(`admin.staff.state.${state(a)}`)}</span>
+              <SharedStatusBadge tone={statusTone('account', state(a))}>{t(`admin.staff.state.${state(a)}`)}</SharedStatusBadge>
             </li>
           ))}
         </ul>

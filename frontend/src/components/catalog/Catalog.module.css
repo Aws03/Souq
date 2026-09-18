@@ -99,7 +99,7 @@
   padding: 0;
   border: 0;
   background: none;
-  color: var(--color-accent);
+  color: var(--color-accent-on-surface);   /* نصّ لا حدّ: يُقرأ أو لا يُقرأ (M10) */
   font: inherit;
   font-weight: 600;
   text-decoration: underline;

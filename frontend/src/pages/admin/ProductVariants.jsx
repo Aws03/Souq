@@ -22,8 +22,9 @@ import EditVariantDrawer from './EditVariantDrawer';
 import { AdjustStockDrawer, StockMovementDrawer } from './StockDrawers';
 import adminStyles from './Admin.module.css';
 import styles from './ProductVariants.module.css';
+import StatusBadge from '../../components/common/StatusBadge';
+import { flagTone, statusTone } from '../../features/statusTone';
 
-const STATUS_STYLE = { Active: 'delivered', Draft: 'pending', Archived: 'cancelled' };
 
 // ============================================================================
 // خيارات منتج ومتغيّراته (catalog.manage، ADR-0040): صفحة بمسار (/admin/products/:id/variants) لا درج — المصفوفة تحتاج
@@ -135,9 +136,9 @@ export default function ProductVariants() {
     },
     {
       key: 'status', header: t('admin.variants.colStatus'), width: '96px', render: (v) => (
-        <span className={`${adminStyles.statusBadge} ${v.isActive ? adminStyles.delivered : adminStyles.cancelled}`}>
+        <StatusBadge tone={flagTone(v.isActive)}>
           {t(v.isActive ? 'admin.variants.active' : 'admin.variants.inactive')}
-        </span>
+        </StatusBadge>
       ),
     },
     {
@@ -154,9 +155,9 @@ export default function ProductVariants() {
           <h2 className={adminStyles.pageTitle}>{t('admin.variants.title')}</h2>
           <p className={styles.productLine}>
             <span dir="auto">{productName}</span>
-            <span className={`${adminStyles.statusBadge} ${adminStyles[STATUS_STYLE[product.status]] ?? ''}`}>
+            <StatusBadge tone={statusTone('product', product.status)}>
               {t(`admin.products.status.${product.status}`)}
-            </span>
+            </StatusBadge>
           </p>
         </div>
       </div>

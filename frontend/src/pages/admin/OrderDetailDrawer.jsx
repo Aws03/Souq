@@ -12,11 +12,12 @@ import { formatPrice } from '../../components/product/ProductBadges';
 import { formatDateTime } from '../../i18n';
 import { actorLabel } from '../../features/orders/orderView';
 import {
-  PAYMENT_STATUS_CLASS, REFUND_STATUS_CLASS, buildRefundPayload, currencyDecimals, refundProblem,
+  buildRefundPayload, currencyDecimals, refundProblem,
 } from '../../features/admin/payments/paymentView';
 import ShipOrderDrawer from './ShipOrderDrawer';
-import adminStyles from './Admin.module.css';
 import styles from './OrderDetailDrawer.module.css';
+import StatusBadge from '../../components/common/StatusBadge';
+import { statusTone } from '../../features/statusTone';
 
 // درج طلب في الإدارة (المرحلة 9): الأسطر والإجماليات والعنوانان وسجلّ الحالة بمن غيّرها وملاحظاتها، وإجراءات الحالة كما
 // يعيدها الخادم من جدول الانتقالات (allowedActions). الشحن يفتح درج رقم التتبّع، والإلغاء يمرّ بتأكيد (يعيد المخزون، ويردّ
@@ -108,9 +109,9 @@ export default function OrderDetailDrawer({ orderId, onClose, onChanged }) {
           <>
             <div className={styles.head}>
               <span className={styles.meta}>{formatDateTime(order.createdAt)}</span>
-              <span className={`${adminStyles.statusBadge} ${adminStyles[order.status.toLowerCase()]}`}>
+              <StatusBadge tone={statusTone('order', order.status)}>
                 {t(`admin.orders.status.${order.status}`, { defaultValue: order.status })}
-              </span>
+              </StatusBadge>
             </div>
 
             <h4 className={styles.sectionTitle}>{t('admin.orders.itemsTitle')}</h4>
@@ -142,9 +143,9 @@ export default function OrderDetailDrawer({ orderId, onClose, onChanged }) {
               <>
                 <h4 className={styles.sectionTitle}>{t('admin.orders.payment.title')}</h4>
                 <div className={styles.row}>
-                  <span className={`${adminStyles.statusBadge} ${adminStyles[PAYMENT_STATUS_CLASS[payment.status]]}`}>
+                  <StatusBadge tone={statusTone('payment', payment.status)}>
                     {t(`admin.orders.payment.status.${payment.status}`, { defaultValue: payment.status })}
-                  </span>
+                  </StatusBadge>
                   <span className={styles.grow} />
                   {payment.refundedAmount > 0 && (
                     <span className={styles.meta}>
@@ -158,9 +159,9 @@ export default function OrderDetailDrawer({ orderId, onClose, onChanged }) {
                       <li key={r.id} className={styles.entry}>
                         <div className={styles.row}>
                           <b className={styles.grow}>-{formatPrice(r.amount, payment.currency)}</b>
-                          <span className={`${adminStyles.statusBadge} ${adminStyles[REFUND_STATUS_CLASS[r.status]]}`}>
+                          <StatusBadge tone={statusTone('refund', r.status)}>
                             {t(`admin.orders.payment.refundStatus.${r.status}`, { defaultValue: r.status })}
-                          </span>
+                          </StatusBadge>
                         </div>
                         <span className={styles.meta}>{formatDateTime(r.createdAt)}{r.reason ? ` · ${r.reason}` : ''}</span>
                         {r.failureReason && <p className={styles.note}>{r.failureReason}</p>}

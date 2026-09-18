@@ -9,7 +9,7 @@
   font-family: var(--font-display); font-size: 24px; font-weight: 700; color: var(--color-primary);
   letter-spacing: .5px; text-decoration: none; flex-shrink: 0;
 }
-.brand span { color: var(--color-accent); }
+.brand span { color: var(--color-accent-on-surface); }
 
 .searchDesktop { flex: 1; max-width: 480px; margin: 0 auto; }
 

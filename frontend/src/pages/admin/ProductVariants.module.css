@@ -41,7 +41,7 @@ html[data-theme='dark'] .notice { background: var(--color-surface); }
   background: var(--color-surface-alt); border-radius: var(--radius-pill); padding: 1px 10px;
 }
 .unsaved {
-  flex-shrink: 0; font-size: var(--fs-caption); font-weight: 700; color: var(--color-accent);
+  flex-shrink: 0; font-size: var(--fs-caption); font-weight: 700; color: var(--color-accent-on-surface);
   border: 1px solid currentColor; border-radius: var(--radius-pill); padding: 2px 10px;
 }
 

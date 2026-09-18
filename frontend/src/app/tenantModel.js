@@ -81,7 +81,12 @@ export function mutedText(text, background) {
 // والنصّ يُختار بالتباين لا بالذوق — mutedText يضمن 4.5:1 في الوضعين معاً.
 // ============================================================================
 // ألوان الحالة الأساسية — ثابتة عبر المتاجر (لا متجر يُعيد تعريف "خطر")، ومشتقّة للوضع.
-const STATUS = { success: '#2E7D32', info: '#2A5DA8', danger: '#C4674E' };
+//
+// **`warning` أُضيف في M10 (TD-28).** كان العنبر الوحيد بين الخمسة مكتوباً رقمين حرفيين في CSS
+// (`#fdf3e2` خلفيةً و`#8a5a0e` نصّاً)، ولا يمرّ من هنا — فلا يُشتقّ للوضع الداكن كأخواته: شارةُ
+// "بانتظار الدفع" كانت تبقى شبه بيضاء وسط سطحٍ داكن، ونصُّها الغامق عليها. ومرورُه من هنا يُصلح ذلك
+// ويضمن تباينه في الوضعين معاً بالحساب لا بالذوق (readableAgainst أدناه).
+const STATUS = { success: '#2E7D32', info: '#2A5DA8', warning: '#8A5A0E', danger: '#C4674E' };
 
 const DARK_SURFACE = '#12161C';   // أساس السطح الداكن: رمادي بارد لا أسود (الأسود الصريح يُتعب العين ويُسطّح الظلال)
 const DARK_TEXT_ON = '#ECEFF4';
@@ -114,6 +119,15 @@ export function themeVariables(branding, mode = 'light') {
   const primaryReadable = dark ? readableAgainst(primary, textReference) : primary;
   const accentReadable = dark ? readableAgainst(accent, textReference) : accent;
 
+  // ── والأصعب حقّاً هو السطح الثانوي، لا الخلفية (M10) ──────────────────────
+  // النصّ الثانوي يُقرأ أيضاً على `--color-surface-alt` (أقسام، لصائق، أزرار الترتيب)، وهو **أغمق** من
+  // الخلفية في الفاتح. فاشتقاقُه على الخلفية وحدها كان يُنتج 4.42:1 عليه — أسقطه axe على كل مسار في
+  // واجهة المتجر حين فُعِّلت قاعدة التباين في M10. وهذه هي العلّة نفسها التي صُحِّحت لألوان الحالة
+  // أعلاه (كانت تُقاس على الخلفية والسطح الناعم أغمق) — صُحِّحت هناك ولم تُصحَّح هنا.
+  const surfaceAlt = dark ? mix(background, '#FFFFFF', 0.04) : mix(background, text, 0.05);
+  const mutedReference = contrastRatio(text, surfaceAlt) < contrastRatio(text, textReference)
+    ? surfaceAlt : textReference;
+
   // ── اللوحة المقلوبة ───────────────────────────────────────────────────────
   // التذييل، والرأسية، وشريط الإدارة الجانبي، وشريط الإعلان: أسطح داكنة عمداً بنصّ فاتح.
   // كانت تُبنى من `--color-primary` خلفيةً و`--color-bg` نصّاً — وهو صحيح في الفاتح فقط.
@@ -131,6 +145,7 @@ export function themeVariables(branding, mode = 'light') {
   const statusSoft = {
     success: mix(STATUS.success, background, dark ? 0.82 : 0.88),
     info: mix(STATUS.info, background, dark ? 0.82 : 0.88),
+    warning: mix(STATUS.warning, background, dark ? 0.82 : 0.88),
     danger: mix(STATUS.danger, background, dark ? 0.82 : 0.88),
   };
 
@@ -151,12 +166,22 @@ export function themeVariables(branding, mode = 'light') {
     '--color-on-panel': dark ? DARK_TEXT_ON : hex(colors.onPrimary, readableOn(primary)),
     // واللوحة داكنة دائماً، فلون التمييز عليها يُفتَح نحو الأبيض لا نحو الخلفية.
     '--color-accent-on-panel': readableAgainst(accent, panel),
+    // ── ولون الهوية المميّز **نصّاً** على سطح عادي (M10) ───────────────────────
+    // `--color-accent` يبقى لون العلامة كما اختاره التاجر: حدودٌ وحوافُّ تركيز وخطوطُ مخطّطات وخلفيّةُ
+    // زرّ (بنصّها `--color-on-accent`). لكنّه كان يُستعمل **نصّاً** أيضاً — اسمُ المتجر في الرأسية
+    // وصفحات الدخول — بلا أي فحص قراءة في الوضع الفاتح: ذهبُ متجر الاختبار على أبيض = 2.15:1، أي أنّ
+    // **اسم المتجر نفسه** كان غير مقروء على كل صفحة. الفرع الداكن كان محروساً والفاتح لا، وهو تفاوتٌ
+    // يشبه السهو. الحلّ هو شكلُ `--color-accent-on-panel` نفسه: رمزٌ منفصل للنصّ، فلا تتغيّر العلامة.
+    // والمرجع هو الأصعب لا الأبيض: لنصٍّ غامق يكون الأبيض **أسهل** خلفية (أعلى إضاءة ⇒ أعلى نسبة)،
+    // فالمقروء عليه لا يلزم أن يُقرأ على سطحٍ أغمق قليلاً — وهو ما أوقع صفحة 404 (خلفيّتها ليست بيضاء).
+    // `mutedReference` أعلاه هو أصعب سطحٍ يقع عليه نصّ في هذا الوضع، فيُقاس عليه.
+    '--color-accent-on-surface': readableAgainst(accent, mutedReference),
 
     '--color-bg': background,
     '--color-surface': surface,
-    '--color-surface-alt': dark ? mix(background, '#FFFFFF', 0.04) : mix(background, text, 0.05),
+    '--color-surface-alt': surfaceAlt,
     '--color-text': text,
-    '--color-text-muted': mutedText(text, textReference),
+    '--color-text-muted': mutedText(text, mutedReference),
     '--color-border': mix(background, text, dark ? 0.16 : 0.12),
 
     // ألوان الحالة تُشتقّ للوضع كي تبقى مقروءة: الأخضر الداكن على خلفية داكنة يختفي.
@@ -164,6 +189,8 @@ export function themeVariables(branding, mode = 'light') {
     '--color-success-soft': statusSoft.success,
     '--color-info': readableAgainst(STATUS.info, statusSoft.info),
     '--color-info-soft': statusSoft.info,
+    '--color-warning': readableAgainst(STATUS.warning, statusSoft.warning),
+    '--color-warning-soft': statusSoft.warning,
     '--color-danger': readableAgainst(STATUS.danger, statusSoft.danger),
     '--color-danger-soft': statusSoft.danger,
 

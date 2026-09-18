@@ -35,28 +35,13 @@
 /* شارات حالة الطلب. نصّ الشارة صغير (12.5px) فيحتاج 4.5:1 على خلفيتها (WCAG AA). شارات الخطر كانت لون الخطر على وردي
    ثابت (3.5:1، ويسوء في الداكن) — الآن زوج الرموز الذي يحسبه tenantModel مقروءاً في الوضعين (--color-danger على
    --color-danger-soft) كما تفعل شارة النجاح، والكهرماني درجة أغمق (5.4:1). كشفه فحص axe في رحلة المتغيّرات. */
-.statusBadge { display: inline-block; padding: 4px 12px; border-radius: 50px; font-size: 12.5px; font-weight: 700; }
-.pending { background: #fdf3e2; color: #8a5a0e; }
-.paid { background: var(--color-info-soft); color: var(--color-primary); }
-.shipped { background: #eaf1fb; color: var(--color-info); }
-.delivered { background: var(--color-success-soft); color: var(--color-success); }
-.cancelled { background: var(--color-danger-soft, #fdf0ec); color: var(--color-danger); }
 
 /* حالة حساب العميل (المرحلة 7) */
-.customerActive { background: var(--color-success-soft); color: var(--color-success); }
-.customerBlocked { background: var(--color-danger-soft, #fdf0ec); color: var(--color-danger); }
 
 .thumb { width: 44px; height: 44px; border-radius: 8px; overflow: hidden; background: var(--color-surface-alt); }
 
 /* ── جرد المخزون ── */
 /* شارة مستوى المخزون: ثلاث درجات لونية (منخفض/يقترب/وفير). */
-.stockPill {
-  display: inline-block; min-width: 40px; text-align: center; padding: 4px 10px;
-  border-radius: 50px; font-weight: 700; font-size: 13px;
-}
-.stockLow { background: var(--color-danger-soft, #fdf0ec); color: var(--color-danger); }
-.stockWarn { background: #fdf3e2; color: #8a5a0e; }
-.stockOk { background: var(--color-success-soft); color: var(--color-success); }
 
 /* تنبيه المخزون المنخفض أعلى شاشة الجرد. */
 .lowStockAlert {
@@ -83,11 +68,17 @@
   background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 12px; padding: 12px 14px;
 }
 .moveType { font-weight: 700; font-size: 12.5px; padding: 3px 10px; border-radius: 50px; }
+/* أنواع حركة المخزون **مفردة تصنيفية لا نغمات** (TD-28، M10): شراء/بيع/تصحيح/إرجاع/إلغاء أصناف
+   لا درجاتُ خطورة، وحصرُها في الخمس يجعل "بيعاً" يشبه "مدفوعاً" و"إرجاعاً" يشبه "مُرسَلاً". فتبقى
+   لها طبقاتها — لكن بالرموز لا بأرقام حرفية، فتتبع الوضع الداكن كبقيّة الشارات.
+   و`move_sale` كانت تُلوّن نصَّها بلون هوية المتجر (--color-primary) على سطحٍ معلوماتي: تباينٌ يتغيّر
+   بتغيّر علامة التاجر. صار --color-info، فالتباين مضمون بالحساب. (وهي العلّة نفسها التي كانت في
+   شارة "مدفوع".) */
 .move_purchase { background: var(--color-success-soft); color: var(--color-success); }
-.move_sale { background: var(--color-info-soft); color: var(--color-primary); }
-.move_adjustment { background: #fdf3e2; color: #a06a12; }
-.move_return { background: #eaf1fb; color: var(--color-info); }
-.move_cancellation { background: #f6ece8; color: var(--color-danger); }
+.move_sale { background: var(--color-info-soft); color: var(--color-info); }
+.move_adjustment { background: var(--color-warning-soft); color: var(--color-warning); }
+.move_return { background: var(--color-info-soft); color: var(--color-info); }
+.move_cancellation { background: var(--color-danger-soft); color: var(--color-danger); }
 .moveDelta { font-family: var(--font-display); font-weight: 700; font-size: 16px; }
 .moveUp { color: var(--color-success); }
 .moveDown { color: var(--color-danger); }

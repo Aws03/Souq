@@ -86,9 +86,6 @@
 
 /* شارات الحالة: نصّ الحالة على سطحها الناعم — الزوج المضمون (DesignSystem §2.2). */
 .badge { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 12.5px; font-weight: 700; white-space: nowrap; }
-.statusProvisioning, .account_invited { background: var(--color-info-soft); color: var(--color-info); }
-.statusActive, .account_active { background: var(--color-success-soft); color: var(--color-success); }
-.statusSuspended, .statusArchived, .account_disabled { background: var(--color-danger-soft); color: var(--color-danger); }
 
 /* ── الحقول ── */
 .formGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 0 var(--space-4); }

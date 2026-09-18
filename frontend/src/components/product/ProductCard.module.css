@@ -21,7 +21,11 @@
 
 .badge {
   position: absolute; top: 8px; inset-inline-start: 8px; z-index: 1;
-  background: var(--color-accent); color: var(--color-primary-strong); font-size: 11px; font-weight: 700;
+  /* نصُّها من `--color-on-accent` لا من لون الهوية: هي **على** لون التمييز، وهذا الرمز هو ما يختار
+     الأبيض أو الغامق بالتباين معه. كانت تأخذ `--color-primary-strong` — ولون الهوية يُفتَح في الوضع
+     الداكن ليُقرأ على خلفية داكنة، فصار فاتحاً على ذهبٍ فاتح: 1.06:1، أي شارة غير مرئية تماماً.
+     لم يمسكها شيء لأن قاعدة التباين كانت معطّلة في المسح الوحيد الذي يزور الوضع الداكن (M10). */
+  background: var(--color-accent); color: var(--color-on-accent); font-size: 11px; font-weight: 700;
   padding: 3px 10px; border-radius: 50px;
 }
 

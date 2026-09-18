@@ -53,5 +53,3 @@ export const buildRefundPayload = (amount, reason) => ({
 });
 
 // ألوان الشارات من صنفي Admin.module.css الموجودين.
-export const PAYMENT_STATUS_CLASS = { Pending: 'pending', Succeeded: 'paid', Failed: 'cancelled', Cancelled: 'cancelled' };
-export const REFUND_STATUS_CLASS = { Pending: 'pending', Succeeded: 'delivered', Failed: 'cancelled' };

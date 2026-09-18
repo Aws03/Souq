@@ -14,6 +14,8 @@ import { formatDateTime } from '../../i18n';
 import { PAGE_SIZE, PLATFORM_ROLES, accountState, staffActions } from '../../features/admin/staff/staffView';
 import InviteStaffDrawer from '../admin/InviteStaffDrawer';
 import styles from './Platform.module.css';
+import StatusBadge from '../../components/common/StatusBadge';
+import { statusTone } from '../../features/statusTone';
 
 // ============================================================================
 // حسابات المنصّة (platform.users.manage — المالك وحده): من يدخل هذه اللوحة، وبأيّ دور.
@@ -97,7 +99,7 @@ export default function Accounts() {
     {
       key: 'status', header: t('admin.staff.colStatus'), width: '130px', render: (a) => {
         const state = accountState(a);
-        return <span className={`${styles.badge} ${styles[`account_${state}`]}`}>{t(`admin.staff.state.${state}`)}</span>;
+        return <StatusBadge tone={statusTone('account', state)}>{t(`admin.staff.state.${state}`)}</StatusBadge>;
       },
     },
     {

@@ -12,8 +12,9 @@ import { formatDate } from '../../i18n';
 import { formatAddressLine } from '../../features/account/addressForm';
 import { downloadJson } from '../../features/account/download';
 import { customerActions, nextStatus } from '../../features/admin/customers/customerActions';
-import adminStyles from './Admin.module.css';
 import styles from './CustomerDetailDrawer.module.css';
+import StatusBadge from '../../components/common/StatusBadge';
+import { statusTone } from '../../features/statusTone';
 
 const RECENT_ORDERS = 5;
 
@@ -95,9 +96,9 @@ export default function CustomerDetailDrawer({ customerId, onClose, onChanged })
                 {customer.phone && <> · <bdi dir="ltr">{customer.phone}</bdi></>}
               </div>
             </div>
-            <span className={`${adminStyles.statusBadge} ${customer.status === 'Blocked' ? adminStyles.customerBlocked : adminStyles.customerActive}`}>
+            <StatusBadge tone={statusTone('customer', customer.status)}>
               {t(`admin.customers.${statusKey}`)}
-            </span>
+            </StatusBadge>
           </div>
 
           <dl className={styles.facts}>
@@ -140,9 +141,9 @@ export default function CustomerDetailDrawer({ customerId, onClose, onChanged })
                   {orders.map((o) => (
                     <li key={o.id} className={`${styles.item} ${styles.orderRow}`}>
                       <b>#{o.id}</b>
-                      <span className={`${adminStyles.statusBadge} ${adminStyles[o.status.toLowerCase()]}`}>
+                      <StatusBadge tone={statusTone('order', o.status)}>
                         {t(`admin.orders.status.${o.status}`, { defaultValue: o.status })}
-                      </span>
+                      </StatusBadge>
                       <span>{formatPrice(o.totalAmount, o.currency)}</span>
                       <span className={styles.meta}>{formatDate(o.createdAt)}</span>
                     </li>

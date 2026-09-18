@@ -8,7 +8,6 @@ export const REVIEW_STATUSES = ['Pending', 'Approved', 'Rejected'];
 export const NOTE_MAX_LENGTH = 500;
 
 // صنف شارة الحالة في Admin.module.css.
-export const STATUS_BADGE = { Pending: 'pending', Approved: 'delivered', Rejected: 'cancelled' };
 
 /**
  * @param {{status?: string, productId?: number|string, page?: number, pageSize?: number}} [filters]

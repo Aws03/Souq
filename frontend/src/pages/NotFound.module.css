@@ -14,7 +14,7 @@
   font-size: clamp(3rem, 12vw, 5rem);
   font-weight: 800;
   line-height: 1;
-  color: var(--color-accent);
+  color: var(--color-accent-on-surface);
 }
 
 .title { margin: 0; font-size: var(--text-xl); color: var(--color-text); }

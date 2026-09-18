@@ -11,10 +11,12 @@ import RowActionsMenu from '../../components/common/RowActionsMenu';
 import Pagination from '../../components/common/Pagination';
 import StarRating from '../../components/product/StarRating';
 import { formatDate } from '../../i18n';
-import { REVIEW_STATUSES, STATUS_BADGE, buildReviewQuery, moderationActions } from '../../features/admin/reviews/reviewModeration';
+import { REVIEW_STATUSES, buildReviewQuery, moderationActions } from '../../features/admin/reviews/reviewModeration';
 import RejectReviewDrawer from './RejectReviewDrawer';
 import styles from './Admin.module.css';
 import own from './ReviewModeration.module.css';
+import StatusBadge from '../../components/common/StatusBadge';
+import { statusTone } from '../../features/statusTone';
 
 const PAGE_SIZE = 20;
 
@@ -94,7 +96,7 @@ export default function ReviewModeration() {
     },
     {
       key: 'status', header: t('admin.reviews.colStatus'), width: '120px', truncate: true, tooltip: statusLabel,
-      render: (r) => <span className={`${styles.statusBadge} ${styles[STATUS_BADGE[r.status]] ?? ''}`}>{statusLabel(r)}</span>,
+      render: (r) => <StatusBadge tone={statusTone('review', r.status)}>{statusLabel(r)}</StatusBadge>,
     },
     { key: 'date', header: t('admin.reviews.colDate'), width: '110px', render: (r) => formatDate(r.createdAt) },
     {

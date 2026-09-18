@@ -11,6 +11,7 @@ import { formatDateTime } from '../../i18n';
 import { accountFormProblem, accountToForm, buildAccountPayload, publishableMode } from '../../features/admin/payments/paymentView';
 import adminStyles from './Admin.module.css';
 import styles from './Payments.module.css';
+import StatusBadge from '../../components/common/StatusBadge';
 
 // حساب بوّابة الدفع الخاص بالمتجر (المرحلة 11، store.payments.manage): بدونه يقبض المتجر في حساب المنصّة الافتراضي. السرّان
 // حقلا كتابة فقط — لا يعودان من الخادم أبداً، وتركهما فارغين يبقي المحفوظ. الخادم يرفض المفاتيح التجريبية حيث لا تُسمح.
@@ -78,9 +79,12 @@ export default function Payments() {
         <div className={styles.statusRow}>
           <b>{account.usesStoreAccount ? t('admin.payments.storeAccount') : t('admin.payments.platformAccount')}</b>
           {mode && (
-            <span className={`${adminStyles.statusBadge} ${mode === 'live' ? adminStyles.delivered : adminStyles.pending}`}>
+            /* وضع المفاتيح ليس حالةَ مجال بل علَم بيئة (مالٌ حقيقي أو لا)، فهو يستعير النغمة
+               استعارةً — مظهره كما كان بالضبط، لكنه لم يعد يستعير **طبقةَ حالة طلب** (TD-28، M10).
+               دلالته الخاصّة قرارُ تصميم مؤجَّل، مُسجَّل في TD-54. */
+            <StatusBadge tone={mode === 'live' ? 'success' : 'warning'}>
               {t(`admin.payments.mode.${mode}`)}
-            </span>
+            </StatusBadge>
           )}
         </div>
         <p className={styles.hint}>

@@ -17,10 +17,11 @@ import { SearchIcon } from '../../components/icons/Icons';
 import { buildAdminProductQuery } from '../../features/admin/products/productQuery';
 import ProductFormDrawer from './ProductFormDrawer';
 import styles from './Admin.module.css';
+import StatusBadge from '../../components/common/StatusBadge';
+import { statusTone } from '../../features/statusTone';
 
 const PAGE_SIZE = 10;
 const STATUSES = ['Active', 'Draft', 'Archived'];
-const STATUS_STYLE = { Active: 'delivered', Draft: 'pending', Archived: 'cancelled' };
 
 // شاشة إدارة المنتجات (المرحلة 5): كل الحالات من /admin/products (مسودّة ونشط ومؤرشف — Phase 0 C7) ببحث وتصفية
 // بالفئة والحالة، ودرج إضافة/تعديل يحمّل المنتج كاملاً (كل اللغات والصور بمعرّفاتها). لا حذف نهائي: الأرشفة تُخفي
@@ -119,7 +120,7 @@ export default function Products() {
     { key: 'cat', header: t('admin.products.colCategory'), width: '140px', truncate: true, tooltip: (p) => p.categoryName, render: (p) => p.categoryName || '—' },
     {
       key: 'status', header: t('admin.products.colStatus'), width: '110px',
-      render: (p) => <span className={`${styles.statusBadge} ${styles[STATUS_STYLE[p.status]] ?? ''}`}>{t(`admin.products.status.${p.status}`)}</span>,
+      render: (p) => <StatusBadge tone={statusTone('product', p.status)}>{t(`admin.products.status.${p.status}`)}</StatusBadge>,
     },
     {
       key: 'price', header: t('admin.products.colPrice'), width: '120px', align: 'end', render: (p) => (

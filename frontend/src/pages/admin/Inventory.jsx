@@ -10,16 +10,10 @@ import Pagination from '../../components/common/Pagination';
 import ProductImage from '../../components/product/ProductImage';
 import { AdjustStockDrawer, StockMovementDrawer } from './StockDrawers';
 import styles from './Admin.module.css';
+import StatusBadge from '../../components/common/StatusBadge';
+import { flagTone, stockTone } from '../../features/statusTone';
 
 const PAGE_SIZE = 50;
-
-// مستوى المخزون بثلاث درجات لونية على المتاح (الموجود − المحجوز لطلبات لم تُدفع) — مطابق لـ isLowStock في الخادم:
-// أحمر = بلغ حدّ التنبيه أو تحته، أصفر = ضِعف الحدّ أو أقل، أخضر = وفير.
-function stockLevel(item) {
-  if (item.available <= item.lowStockThreshold) return 'stockLow';
-  if (item.available <= item.lowStockThreshold * 2) return 'stockWarn';
-  return 'stockOk';
-}
 
 // شاشة جرد المخزون (المرحلة 6): صفّ لكل متغيّر (ADR-0039/0040) بوصفه وحالته — الموجود والمحجوز والمتاح (الأقلّ متاحاً
 // أولاً) مرقّمة من الخادم، سجلّ الحركة، والتصحيح بفارق وسبب لمن يملك inventory.manage — لا تعيين مطلق يمحو بيعاً حدث أثناء فتح النموذج (Phase 0 C4).
@@ -70,7 +64,7 @@ export default function Inventory() {
           <div>{p.name}</div>
           {p.variantLabel && <div className={styles.variantLabel} dir="auto">{p.variantLabel}</div>}
           {p.sku && <div className={styles.nameSecondary} dir="ltr">{p.sku}</div>}
-          {p.variantIsActive === false && <span className={`${styles.statusBadge} ${styles.cancelled}`}>{t('admin.inventory.variantInactive')}</span>}
+          {p.variantIsActive === false && <StatusBadge tone={flagTone(false)}>{t('admin.inventory.variantInactive')}</StatusBadge>}
         </div>
       ),
     },
@@ -79,7 +73,7 @@ export default function Inventory() {
     { key: 'reserved', header: t('admin.inventory.colReserved'), width: '80px', align: 'end', render: (p) => p.reserved },
     {
       key: 'available', header: t('admin.inventory.colAvailable'), width: '90px', align: 'end',
-      render: (p) => <span className={`${styles.stockPill} ${styles[stockLevel(p)]}`}>{p.available}</span>,
+      render: (p) => <StatusBadge tone={stockTone(p)} shape="pill">{p.available}</StatusBadge>,
     },
     { key: 'threshold', header: t('admin.inventory.colThreshold'), width: '80px', align: 'end', render: (p) => p.lowStockThreshold },
     {

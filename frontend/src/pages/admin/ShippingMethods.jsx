@@ -12,6 +12,8 @@ import { formatPrice } from '../../components/product/ProductBadges';
 import { estimateLabel } from '../../features/checkout/shippingOptions';
 import ShippingMethodFormDrawer from './ShippingMethodFormDrawer';
 import styles from './Admin.module.css';
+import StatusBadge from '../../components/common/StatusBadge';
+import { flagTone } from '../../features/statusTone';
 
 // طرق الشحن (المرحلة 12، store.shipping.manage): جدول + درج إضافة/تعديل. بلا طرق مفعّلة لا يتقاضى المتجر شحناً ولا يُطلب
 // من العميل اختيار؛ بطرق مفعّلة يختار العميل ما يخدم دولة عنوانه. الحذف فعلي — الطلبات تحمل لقطة طريقتها.
@@ -70,9 +72,9 @@ export default function ShippingMethods() {
     {
       key: 'status', header: t('admin.shipping.colStatus'), width: '100px',
       render: (m) => (
-        <span className={`${styles.statusBadge} ${m.isActive ? styles.paid : styles.cancelled}`}>
+        <StatusBadge tone={flagTone(m.isActive)}>
           {m.isActive ? t('admin.coupons.active') : t('admin.coupons.inactive')}
-        </span>
+        </StatusBadge>
       ),
     },
     {

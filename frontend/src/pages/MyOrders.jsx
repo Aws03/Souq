@@ -11,6 +11,8 @@ import { ReceiptIcon } from '../components/icons/Icons';
 import { formatPrice } from '../components/product/ProductBadges';
 import { formatDateTime } from '../i18n';
 import styles from './MyOrders.module.css';
+import StatusBadge from '../components/common/StatusBadge';
+import { statusTone } from '../features/statusTone';
 
 const PAGE_SIZE = 10;
 
@@ -78,9 +80,9 @@ export default function MyOrders() {
                   </span>
                   <span className={styles.rowEnd}>
                     <span className={styles.total}>{formatPrice(order.totalAmount, order.currency)}</span>
-                    <span className={`${styles.statusBadge} ${styles[order.status.toLowerCase()]}`}>
+                    <StatusBadge tone={statusTone('order', order.status)}>
                       {t(`orders.status.${order.status}`, { defaultValue: order.status })}
-                    </span>
+                    </StatusBadge>
                   </span>
                 </Link>
               </li>

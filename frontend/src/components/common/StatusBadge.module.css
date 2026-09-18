@@ -1,0 +1,35 @@
+/* ============================================================================
+   النغمات الخمس، معرّفةً مرّة واحدة (TD-28، M10).
+   كانت القواعد الخمس نفسها منسوخةً حرفاً بحرف في ثلاث وحدات للواجهة (MyOrders، OrderDetail،
+   OrderTracking) ورابعةٍ للإدارة بقيمتين مختلفتين عمداً — تصحيحُ تباينٍ طُبِّق على واحدة فقط. فكان
+   لونُ "بانتظار الدفع" يختلف بين شاشة الحساب وشاشة الإدارة، ولا شيء يُظهر ذلك.
+   كل زوج رمزان يشتقّهما tenantModel لكل وضع، فلا رقم حرفيّ هنا: شارةٌ برقمٍ حرفيّ تبقى فاتحةً في
+   الوضع الداكن، وهو ما كان يحدث لثلاث نغمات من الخمس.
+   ============================================================================ */
+.badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 50px;
+  font-size: 12.5px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* حبّة المخزون: الشكل وحده يختلف (عرضٌ أدنى ومحاذاةٌ وسطى كي لا تهتزّ الأرقام)، والنغمة هي هي. */
+.pill {
+  display: inline-block;
+  min-width: 40px;
+  text-align: center;
+  padding: 4px 10px;
+  border-radius: 50px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.success { background: var(--color-success-soft); color: var(--color-success); }
+.info    { background: var(--color-info-soft);    color: var(--color-info); }
+.warning { background: var(--color-warning-soft); color: var(--color-warning); }
+.danger  { background: var(--color-danger-soft);  color: var(--color-danger); }
+
+/* المحايدة — العضو الذي كان غائباً عن مفردة الشارات كلّها، فكانت كلّ حالةٍ مضطرّةً إلى لونٍ يعني شيئاً. */
+.neutral { background: var(--color-surface-alt); color: var(--color-text-muted); }

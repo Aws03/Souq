@@ -15,12 +15,6 @@
 .meta { color: var(--color-text-muted); font-size: var(--fs-caption); }
 .sectionTitle { font-size: var(--fs-heading); color: var(--color-primary); margin-bottom: 14px; }
 
-.statusBadge { display: inline-block; padding: 5px 14px; border-radius: 50px; font-size: 13px; font-weight: 700; white-space: nowrap; }
-.pending { background: #fdf3e2; color: #a06a12; }
-.paid { background: var(--color-info-soft); color: var(--color-primary); }
-.shipped { background: #eaf1fb; color: var(--color-info); }
-.delivered { background: var(--color-success-soft); color: var(--color-success); }
-.cancelled { background: #fdf0ec; color: var(--color-danger); }
 
 /* ── الأسطر والإجماليات (كما ثُبّتت عند الطلب) ── */
 .items { list-style: none; border-top: 1px solid var(--color-border); }

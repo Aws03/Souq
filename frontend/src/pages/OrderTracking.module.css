@@ -12,12 +12,6 @@
 .header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
 .title { font-size: var(--fs-heading-lg); color: var(--color-primary); }
 
-.statusBadge { display: inline-block; padding: 5px 14px; border-radius: 50px; font-size: 13px; font-weight: 700; white-space: nowrap; }
-.pending { background: #fdf3e2; color: #a06a12; }
-.paid { background: var(--color-info-soft); color: var(--color-primary); }
-.shipped { background: #eaf1fb; color: var(--color-info); }
-.delivered { background: var(--color-success-soft); color: var(--color-success); }
-.cancelled { background: #fdf0ec; color: var(--color-danger); }
 
 /* رقم التتبّع + زر النسخ */
 .trackingRow {

@@ -12,6 +12,8 @@ import { getCategoryName } from '../../components/product/ProductBadges';
 import { activationPayload, orderAsTree } from '../../features/admin/categories/categoryForm';
 import CategoryFormDrawer from './CategoryFormDrawer';
 import styles from './Admin.module.css';
+import StatusBadge from '../../components/common/StatusBadge';
+import { flagTone } from '../../features/statusTone';
 
 // شاشة إدارة الفئات (المرحلة 5): كل الفئات من /admin/categories — بما فيها المخفيّة — مرتّبة شجرياً بإزاحة للفروع.
 // الإخفاء يُبعد الفئة ومنتجاتها عن المتجر دون حذف؛ الحذف لفئة فارغة بلا فروع فقط (يحرسه الخادم).
@@ -76,9 +78,9 @@ export default function Categories() {
     {
       key: 'status', header: t('admin.categories.colStatus'), width: '100px',
       render: (c) => (
-        <span className={`${styles.statusBadge} ${c.isActive ? styles.delivered : styles.cancelled}`}>
+        <StatusBadge tone={flagTone(c.isActive)}>
           {c.isActive ? t('admin.categories.active') : t('admin.categories.inactive')}
-        </span>
+        </StatusBadge>
       ),
     },
     {

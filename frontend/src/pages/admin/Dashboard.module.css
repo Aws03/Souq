@@ -30,7 +30,7 @@
   border: 1px solid transparent; transition: transform var(--ease-hover), box-shadow var(--ease-hover);
 }
 .alert:hover { transform: translateY(-1px); box-shadow: var(--shadow-sm); }
-.warn { background: var(--color-accent-soft); color: var(--color-text); border-color: var(--color-accent); }
+.warn { background: var(--color-accent-soft); color: var(--color-text); border-color: var(--color-accent-on-surface); }
 .danger { background: var(--color-danger-soft); color: var(--color-danger); border-color: var(--color-danger); }
 
 /* ── بطاقات المؤشّرات ── */
@@ -64,7 +64,7 @@
 .factList li { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); font-size: var(--fs-body-sm); }
 .factList span { color: var(--color-text-muted); }
 .factList b { font-family: var(--font-display); font-size: var(--fs-heading); font-variant-numeric: tabular-nums; }
-.warnRow b { color: var(--color-accent); }
+.warnRow b { color: var(--color-accent-on-surface); }
 .dangerRow b { color: var(--color-danger); }
 
 /* ── متجر جديد ── */

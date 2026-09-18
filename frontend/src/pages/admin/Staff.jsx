@@ -14,13 +14,14 @@ import { formatDateTime } from '../../i18n';
 import { PAGE_SIZE, accountState, staffActions } from '../../features/admin/staff/staffView';
 import InviteStaffDrawer from './InviteStaffDrawer';
 import styles from './Admin.module.css';
+import StatusBadge from '../../components/common/StatusBadge';
+import { statusTone } from '../../features/statusTone';
 
 // ============================================================================
 // فريق المتجر (store.staff.manage، أي مدير المتجر): من يستطيع دخول هذه اللوحة، وبأيّ دور.
 // الدعوة تُرسل بريداً برابط على مضيف هذا المتجر؛ الحساب لا كلمة مرور له حتى يقبلها صاحبه.
 // الإيقاف يُسقط جلسة الموظّف فوراً على الخادم — لا عند انتهاء توكنه.
 // ============================================================================
-const STATE_BADGE = { active: styles.delivered, invited: styles.pending, disabled: styles.cancelled };
 
 export default function Staff() {
   const { t } = useTranslation();
@@ -101,7 +102,7 @@ export default function Staff() {
     {
       key: 'status', header: t('admin.staff.colStatus'), width: '130px', render: (a) => {
         const state = accountState(a);
-        return <span className={`${styles.statusBadge} ${STATE_BADGE[state]}`}>{t(`admin.staff.state.${state}`)}</span>;
+        return <StatusBadge tone={statusTone('account', state)}>{t(`admin.staff.state.${state}`)}</StatusBadge>;
       },
     },
     {
