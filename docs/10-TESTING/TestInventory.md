@@ -10,8 +10,8 @@
 | [`Souq.Domain.Tests`](#souqdomaintests) | 29 | 227 | 47 |
 | [`Souq.Application.Tests`](#souqapplicationtests) | 46 | 341 | 17 |
 | [`Souq.ArchitectureTests`](#souqarchitecturetests) | 14 | 59 | 7 |
-| [`Souq.IntegrationTests`](#souqintegrationtests) | 50 | 292 | 22 |
-| [frontend (Vitest)](#frontend-vitest) | 83 | 644 | — |
+| [`Souq.IntegrationTests`](#souqintegrationtests) | 50 | 296 | 22 |
+| [frontend (Vitest)](#frontend-vitest) | 83 | 650 | — |
 | [frontend (Playwright)](#frontend-playwright) | 16 | 107 | — |
 
 ## Souq.Domain.Tests
@@ -153,7 +153,7 @@
 | `tests/Souq.IntegrationTests/PaymentsAndRefundsTests.cs` | `PaymentsAndRefundsTests` | 6 | 0 |
 | `tests/Souq.IntegrationTests/PlatformAdministrationTests.cs` | `PlatformAdministrationTests` | 9 | 0 |
 | `tests/Souq.IntegrationTests/PlatformAuditViewerTests.cs` | `PlatformAuditViewerTests` | 5 | 0 |
-| `tests/Souq.IntegrationTests/ProductOptionAdminTests.cs` | `ProductOptionAdminTests` | 8 | 0 |
+| `tests/Souq.IntegrationTests/ProductOptionAdminTests.cs` | `ProductOptionAdminTests` | 9 | 0 |
 | `tests/Souq.IntegrationTests/ProductVariantTests.cs` | `ProductVariantTests` | 6 | 0 |
 | `tests/Souq.IntegrationTests/ProvisioningBoundaryTests.cs` | `ProvisioningBoundaryTests` | 4 | 0 |
 | `tests/Souq.IntegrationTests/QueryServiceTests.cs` | `QueryServiceTests` | 10 | 1 |
@@ -164,7 +164,7 @@
 | `tests/Souq.IntegrationTests/StartupAndSecurityTests.cs` | `StartupAndSecurityTests`, `LoggerAdapter` | 7 | 1 |
 | `tests/Souq.IntegrationTests/StoreAdministrationTests.cs` | `StoreAdministrationTests` | 7 | 0 |
 | `tests/Souq.IntegrationTests/StoreBrandingPersistenceTests.cs` | `StoreBrandingPersistenceTests` | 4 | 0 |
-| `tests/Souq.IntegrationTests/StoreDashboardTests.cs` | `StoreDashboardTests` | 10 | 0 |
+| `tests/Souq.IntegrationTests/StoreDashboardTests.cs` | `StoreDashboardTests` | 13 | 0 |
 | `tests/Souq.IntegrationTests/StorefrontVariantTests.cs` | `StorefrontVariantTests` | 7 | 0 |
 | `tests/Souq.IntegrationTests/StripeAmountConverterTests.cs` | `StripeAmountConverterTests` | 2 | 2 |
 | `tests/Souq.IntegrationTests/TenantIsolationTests.cs` | `TenantIsolationTests` | 13 | 0 |
@@ -227,16 +227,16 @@
 | `frontend/src/features/orders/orderView.test.js` | 3 |
 | `frontend/src/features/platform/audit.test.js` | 9 |
 | `frontend/src/features/platform/provisioning.test.js` | 22 |
-| `frontend/src/features/reporting/businessHealth.test.js` | 20 |
+| `frontend/src/features/reporting/businessHealth.test.js` | 22 |
 | `frontend/src/features/reporting/chartScales.test.js` | 18 |
-| `frontend/src/features/reporting/dashboardView.test.js` | 14 |
+| `frontend/src/features/reporting/dashboardView.test.js` | 17 |
 | `frontend/src/features/reviews/ratingSummary.test.js` | 3 |
 | `frontend/src/features/statusTone.test.js` | 10 |
 | `frontend/src/features/storefront/openingExperience.test.js` | 11 |
 | `frontend/src/features/wishlist/wishlistModel.test.js` | 5 |
 | `frontend/src/i18n/bidi.test.js` | 4 |
 | `frontend/src/i18n/locales.test.js` | 2 |
-| `frontend/src/i18n/translationKeys.test.js` | 6 |
+| `frontend/src/i18n/translationKeys.test.js` | 7 |
 | `frontend/src/pages/Cart.test.jsx` | 7 |
 | `frontend/src/pages/Confirmation.test.jsx` | 7 |
 | `frontend/src/pages/MyOrders.test.jsx` | 7 |

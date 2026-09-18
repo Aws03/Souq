@@ -266,6 +266,60 @@ Both are reversible presentation defaults: the owner may override either, and ea
 | **V1 — groundwork** (no visible change) | Order lines record variant id, label and SKU snapshots and merge by variant; the migration with exact backfill and its rehearsal; variant ids carried through the basket, quote and checkout contracts with implicit-variant resolution and `VariantRequired`; variant-keyed inventory repository and admin routes beside the product-keyed ones; variant active flag and no-delete rule in the Domain; tests at every level; documents | ✅ Done (§8) |
 | **V2 — catalog model and admin** | Options, values, combinations and limits in the Domain (`AddVariant` public with option values); migrations; admin API and the options and variant page; the product `PUT` refusing price edits on a product with options; variant stock opened on creation; the label snapshot composed from options; the admin inventory screen per variant; the low-stock notification names the variant | ✅ Done (§8, [ADR-0040](../../11-ADR/0040-product-option-model.md)) |
 | **V3 — storefront and checkout** | `ProductDto` options and variants; the selector with an explicit choice and disabled sold-out values; variant-keyed basket calls from the storefront; cart, checkout, order pages and email show labels; "From" pricing in cards, search, sort, filters, on-sale and a price range in structured data; browser journeys in both languages; the V2 storefront gate removed | ✅ Done (§8, [ADR-0041](../../11-ADR/0041-storefront-variant-selection.md)) |
-| **V4 — reporting and hardening** | Per-variant best-seller breakdown; relabelled stock KPI; query-count and concurrency tests with many variants; release rehearsal of the migration on a copy of production data | Not started |
+| **V4 — reporting and hardening** | Per-variant best-seller breakdown; relabelled stock KPI; query-count and concurrency tests with many variants; release rehearsal of the migration on a copy of production data | **Not started — scope written out in §11.1 (M12)** |
+
+## 11.1 V4, written out — PLANNED, not built (scoped in M12)
+
+M12 audited every dashboard metric against its query and wrote this section so V4 can be built without
+re-deriving what it is for. **Nothing here is implemented.** Two of the four items below turned out to be
+*documentation and wording* problems that M12 fixed on the spot, which narrows V4 rather than enlarging it.
+
+**Already fixed in M12, so V4 does not inherit them:**
+
+- The dashboards said "**{{count}} products** are out of stock" while counting variant rows. The Inventory
+  screen had been corrected for this in V2 and the two dashboards were left behind. Both now say "stock items
+  (products or their variants)", matching the Inventory screen.
+- `Dashboards.md` named no counting unit for stock health, and claimed it used "the same definition the
+  Inventory module uses". It now states the unit, and the two places where the definitions genuinely differ
+  (`low` excludes out-of-stock here but includes it there; archived products' rows are counted here and
+  filtered there).
+- The counting unit is now **pinned by a test** —
+  `ProductOptionAdminTests.لقطة_المخزون_في_اللوحة_تَعُدّ_صفوف_المتغيّرات_لا_المنتجات` — so a future change back
+  to product-counting fails the build. Before M12 the entire stock snapshot had no test at all, which is why
+  V3's change of unit passed unnoticed.
+
+**What V4 still has to build.**
+
+1. **Per-variant best sellers.** Today `StoreReportQueries` groups order lines by
+   `(ProductId, ProductName)` — the *snapshot* name — and returns the top eight products. V4 adds a per-variant
+   breakdown. Three decisions, each already constrained by existing code:
+   - **Group by `(ProductId, VariantId)`**, and label from the line's `VariantLabel` snapshot, for the same
+     reason the product name comes from the snapshot: a variant renamed or deleted must still name what was
+     sold. `OrderItem` already carries `VariantId` and `VariantLabel` (V1).
+   - **Keep the product-level list as it is.** A merchant asking "what sells" wants products first; the variant
+     breakdown belongs *under* a product, not instead of it. So this is an addition to the response, not a
+     replacement — which also keeps the change non-breaking.
+   - **Carry the existing revenue basis forward, and say so.** Best-seller revenue is `Σ(unit price × quantity)`
+     over lines, excluding shipping and the order-level coupon discount, so it does not reconcile with the
+     headline revenue. V4 must not silently switch basis to make the numbers add up: the mismatch is inherent
+     (shipping cannot be attributed to a variant) and is now documented in `Dashboards.md`.
+   - **A known trap, already observed:** grouping by the snapshot name means one product renamed mid-period
+     yields two rows for the same `ProductId`, splitting its units and possibly taking two of the eight slots.
+     Grouping by id and taking the *latest* snapshot name per group fixes it; V4 should decide deliberately.
+2. **Relabel the stock KPI.** The remaining work is a **product-level** figure, not a wording change (that part
+   is done): a merchant wants "how many products have a problem" as well as "how many rows". Add a
+   product-counted figure beside the row-counted one — `DISTINCT ProductId` over the same predicate — and label
+   each for what it is. Decide at the same time whether archived products should stay in the snapshot; the
+   Inventory screen already excludes them, so the dashboard including them is the outlier.
+3. **Query-count and concurrency tests with many variants.** A product at the 100-variant limit, asserting the
+   dashboard and the storefront projections stay at their current query counts, and that concurrent stock
+   writes across variants of one product do not serialise on each other (the per-variant row is what makes
+   that possible — V1's reason for being).
+4. **Release rehearsal of the migration on a copy of production data.** Unchanged from the original entry, and
+   the only item that needs something this repository cannot provide by itself.
+
+**Not in V4, deliberately:** the per-variant *sales* figure does not need a new endpoint — it extends the
+existing dashboard response, which is one request today and should stay one. And nothing here requires a
+schema change: `OrderItem.VariantId`/`VariantLabel` and the per-variant `InventoryItem` rows already exist.
 
 Each phase left the repository releasable. After V1 nothing was visible; after V2 a merchant could define variants while the storefront sold only single-variant products (a deliberate temporary gate); **after V3 (now)** the whole path works for shoppers and merchants, and only reporting (V4) remains. V4 is not a prerequisite for selling variants: best sellers stay per product, and the dashboard's stock figures count variant rows until they are relabelled.

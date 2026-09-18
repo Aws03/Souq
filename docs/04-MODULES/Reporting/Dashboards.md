@@ -23,19 +23,19 @@ The definitions are in the header comment of `src/Souq.Application/Features/Repo
 | Term | Definition |
 |---|---|
 | **A counted order** | An order that was placed **and** is `Paid`, `Shipped` or `Delivered`. `Pending` has not been paid; `Cancelled` did not complete |
-| **Revenue** | The total of counted orders in the period |
+| **Revenue** | The total of counted orders in the period — each order's `PlacedTotal` snapshot, so it **includes shipping and is already net of any coupon discount**. Not a recomputation from the lines |
 | **Refunds** | Refunds settled against counted orders, attributed to the **order's** period, not the refund's |
 | **Net revenue** | Revenue minus those refunds. This is the headline figure on both dashboards |
-| **Average order value** | Net revenue ÷ counted orders |
-| **New customers** | Customer accounts created in the period. Not "customers who bought" — an account is what the system actually records |
-| **Repeat customer** | A customer with two or more counted orders over the store's whole life, not within the period. Loyalty is cumulative; measuring it against a week is meaningless |
+| **Average order value** | **Revenue** ÷ counted orders — gross, **before** refunds. This table said *net* until M12; the code, the Arabic formula header, the on-screen hint and a test all say gross, so the table was the outlier. The consequence is worth stating: with a refund in the period, `AOV × orders` does not equal the net revenue shown beside it |
+| **New customers** | Customer accounts created in the period, **excluding any since erased**. Not "customers who bought" — an account is what the system actually records. The erasure filter has a visible consequence, undocumented until M12: a **closed past period can show fewer new customers than it once did**, because the right to erasure means leaving no row to count |
+| **Repeat customer** | A customer with two or more counted orders over the store's whole life, not within the period. Note the inconsistency with **New customers** above: this one does **not** exclude erased customers, so an erased buyer still counts as repeat while no longer counting as new. Loyalty is cumulative; measuring it against a week is meaningless |
 | **Orders by status** | Every order *placed* in the period, in every status including cancelled. This is deliberately a different denominator from revenue, and the panel says so |
 | **Best sellers / category performance** | Ranked by revenue from counted orders, top eight |
-| **Stock health** | A point-in-time snapshot: available = on hand − reserved, the same definition the Inventory module uses. It is not a period figure and is not compared to a previous one |
+| **Stock health** | A point-in-time snapshot over **inventory rows, which are variants** — one product with three out-of-stock variants contributes three, not one (this is what V3 changed and what V4 will relabel; see [ProductVariants.md](../Catalog/ProductVariants.md)). `available = on hand − reserved`, the same definition the Inventory module uses — but **`low` is not the same**: here it is `0 < available ≤ threshold`, while the Inventory module's low-stock list is `available ≤ threshold` and therefore *includes* out-of-stock, so the two screens report different numbers under the same word. This query also has **no product-status filter**, so archived products' variant rows are counted here while the Inventory page filters them out. All three divergences were undocumented until M12 and are now pinned by tests. It is not a period figure and is not compared to a previous one |
 
 Two choices inside those definitions are genuine judgement calls rather than derivations, and are written down so they can be argued with:
 
-1. **Refunds are attributed to the order's period.** A refund in March against a January order reduces January. The alternative — reducing the month the money moved — makes a period's revenue change after the fact. Neither is wrong; this one keeps a closed period closed.
+1. **Refunds are attributed to the order's period.** A refund in March against a January order reduces January. **Correction (M12): the rationale this entry used to give was backwards.** It claimed this choice "keeps a closed period closed"; it does the opposite — re-reading January's report after a March refund returns a *lower* January figure, and it is the alternative (attributing to the month the money moved) that leaves January fixed forever. The choice is still defensible, on the honest ground that a refund belongs to the sale it reverses, but a reader must not be told it gives stability it does not give. The alternative — reducing the month the money moved — makes a period's revenue change after the fact. Neither is wrong; this one keeps a closed period closed.
 2. **The product name in "best sellers" is the order-line snapshot**, not the product's current name. A product that was renamed or archived stays readable in yesterday's report. The **category** name is the opposite: it comes from the live category, translated, because a category is a classification rather than a record of what was sold.
 
 ## 3. What is not measured, and why
@@ -61,6 +61,22 @@ The frontend mirrors this discipline. `businessHealth.js` returns `null` — not
 
 The thresholds are collected in one `THRESHOLDS` object so they read as a decision rather than as numbers scattered through the code: a ±5% change is the floor for calling a trend (below it is noise), refunds above 10% of revenue, cancellations above 20% of orders placed, unpaid above 25%, and one product above 50% of period revenue.
 
+**The concentration share is measured against period revenue — and until M12 it was not.** `topProductShare`
+divided the largest product's revenue by the **sum of the returned top eight**, so a store selling twenty
+products had its leader measured against eight: the share was systematically overstated and the risk fired
+early, while this page and the on-screen sentence both said *period revenue* and *sales*. It now divides by
+`current.revenue`, with one deliberate asymmetry recorded here rather than hidden: best-seller revenue is
+computed from order **lines**, so it excludes shipping and the order-level coupon discount, while `revenue` is
+the order total and includes both. The share is therefore slightly **understated** — the safe direction for a
+risk signal, which should be late rather than false. (It also now takes the largest product rather than the
+first in the list, which happened to agree only because the server sorts.)
+
+**Best-seller and category revenue do not reconcile with the headline revenue, by construction.** Both are
+`Σ(unit price × quantity)` over order lines (`StoreReportQueries`), so `Σ topProducts.revenue ≠ Revenue` for any
+store that charges shipping or honours a coupon. This page used one word, "revenue", for both figures and
+defined it once, which read as a promise that they add up. They do not, and that is not a defect — ranking
+products by shipping is meaningless — but it must be said.
+
 `trendOf` compares against the **immediately preceding window of the same length**, and growth from zero is reported as "first sales" rather than as a percentage — a percentage increase from zero is not a number.
 
 ## 5. Zero data is a different screen
@@ -81,6 +97,33 @@ The manager's dashboard is **one** request for the whole page. That is not only 
 | Business overview | 1 | 1.0 kB | ~290 ms |
 
 Measured against SQL Server through the development stack. All aggregation happens in SQL: a store with a hundred thousand orders costs the dashboard what a store with a hundred costs. The period is a **closed key** (`Today`, `Last7Days`, `Last30Days`, `Last90Days`, `ThisYear`) and the server computes its boundaries from the injected clock — the browser never sends two dates, so it cannot ask for an arbitrary or an expensive window.
+
+**Three things about that window this page did not say, added in M12.**
+
+- **The window is UTC, and the store's own time zone is ignored.** "Today" runs from UTC midnight to UTC
+  midnight. `Tenant.TimeZone` exists and is surfaced to the platform, and reporting does not consult it — so a
+  merchant in UTC+3 sees "Today" begin at 03:00 local, and the previous local evening's orders counted as
+  today's. That is a real limitation, not a rounding detail, and it is stated here so nobody has to discover it
+  from a number that looks wrong.
+- **The range is half-open, `[from, to)`, with `to` set to tomorrow's midnight** — so the current day's bucket
+  and the period's last day are partial by design.
+- **`Last90Days` and `ThisYear` are bucketed by month, not by day**, and their first and last buckets are
+  partial; the first is stamped with the 1st of `from`'s month, which is earlier than the window itself. The
+  chart's hint and its screen-reader summary said "by day" for every range until M12; they now follow the
+  bucketing, derived from the data rather than from a list of range names.
+
+**Four figures the response returns that this page did not define, and their scope, added in M12.** All four sit
+beside period KPIs and are **not** period-scoped: `pendingOrders` (all placed orders still `Pending`, all time),
+`pendingRefunds` (all time — and it counts **payments** with an unsettled refund, so one payment with three
+pending refunds counts as one), `totalCustomers` (all non-erased accounts, all time, buyers or not — and it is
+the denominator of the browser-computed repeat rate, which therefore is not "the share of buyers who returned"),
+and `trend` (above).
+
+**One gap worth knowing rather than discovering.** A payment can be captured on an order that was already
+cancelled (the reconciliation case `Payment.MarkCapturedAfterClose` exists for). That order is `Cancelled`, so
+it is not a counted order: the money is excluded from revenue, and its payment is excluded from the refunds sum
+because that sum is scoped to counted orders. Until someone requests a refund, **money genuinely taken appears
+in no figure on either dashboard.** The operator's signal for it is the payment record, not the dashboard.
 
 ## 8. Authorization
 
