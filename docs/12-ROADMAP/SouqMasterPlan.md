@@ -29,12 +29,12 @@
 
 ```yaml
 plan_version: 1.0.0
-current_phase: M14
+current_phase: M15
 phase_status: done
-next_phase: M15         # M2 remains blocked on TD-42 and is independent of the phases after it; see M2's own STOP entry
+next_phase: M16         # M2 remains blocked on TD-42 and is independent of the phases after it; see M2's own STOP entry
 blocked_decisions: ["TD-42"]    # owner decisions that block a phase currently in flight; see §5 and OwnerDecisions.md
 last_verified_date: 2026-09-18
-last_verified_head: c08e410     # M14 closed: TD-34's three outbox recovery paths, each proven to fail against a broken processor
+last_verified_head: bc0ac6f     # M15 closed: the security review — a proven rate-limit bypass, a session-planting cookie, and RLS decided
 baseline_branch: phase/17-production-hardening
 ```
 
@@ -59,6 +59,18 @@ store's own catalogue vocabulary and **says which word it searched**, with the s
 customers use. SQL Server Full-Text Search was **measured unavailable** in the pinned image and rejected on
 evidence rather than assumption — see M3's "Completion evidence" above and
 [ADR-0042](../11-ADR/0042-local-search-engine.md).
+
+**M15 — done.** The security review found real things. The sharpest was **proven exploitable on a running stack
+before it was fixed**: the rate limit keyed on the host as it arrived while tenant resolution lower-cased it, so
+changing the capitalisation of `Host` gave every request a fresh bucket — ten logins then 429, then fourteen more
+varying only the case, all accepted, straight through nginx. A sibling host under a merchant's own domain could
+also plant a session, because `SameSite` governs sending and not setting; `__Host-` closes it. Two findings were in
+this programme's own recent work, including M13's retention policy, which was not actually enforced under any load.
+Three were claims the control catalogue made that the code did not keep — SEC-LOG-09 is now PARTIAL with TD-55
+filed. The detection half was nearly empty: failed sign-ins produced no log line and no log carried a client
+address; both now do, verified in a real process. RLS was **decided rather than deferred** (ADR-0043: declined,
+with the three conditions that would reverse it). Every finding is fixed with a test or accepted in writing —
+fourteen and eight. See M15's "Completion evidence" above.
 
 **M14 — done.** TD-34 closed. The outbox's purge, lease and dispatcher race were asserted only by reading; each
 now has a test that was **proven to fail against a deliberately broken processor** before being kept. The race is
@@ -1826,7 +1838,62 @@ repository.
   reach — re-confirm it's still off and still recorded as the owner's to flip).
 - **Acceptance criteria.** Every finding is either fixed (with a test) or explicitly accepted with a written
   rationale in `ReleaseReadiness.md` — the roadmap's own Phase 20 exit criterion, verbatim.
-- **Completion evidence.** *(fill in on close)*
+- **Completion evidence.** **Done.** The exit criterion is met: every finding is either fixed with a test that
+  fails against the old behaviour, or accepted with a written rationale in `ReleaseReadiness.md` — which now
+  carries the full ledger, fourteen fixed and eight accepted.
+  - **The review actually found things, and the sharpest was proven exploitable before it was fixed.** The rate
+    limit keyed on `Request.Host.Host` as it arrived while tenant resolution lower-cased it, so one store had a
+    fresh bucket per capitalisation. Demonstrated on the running stack: ten logins then 429, then fourteen more
+    varying only the case of the host, **all accepted**. No proxy to get behind, no header to forge — and it
+    worked straight through nginx, which forwards `$http_host` verbatim. That is unlimited credential stuffing,
+    reset-mail flooding and coupon guessing: everything `SEC-AUTHN-14` exists to stop.
+  - **A sibling host under a merchant's own domain could plant a session.** `HttpOnly`, `Secure` and
+    `SameSite=Strict` each stop something real and none of them stops this, because `SameSite` governs *sending*
+    and says nothing about a same-site host *setting* a cookie. On a white-label platform where merchants bring
+    their domains, that is an account takeover. Closed with `__Host-`, which is the prefix that actually applies
+    — `__Secure-` would not have — at the knowingly-paid price of `Path=/`.
+  - **Two findings were in this programme's own recent work.** M13's search-log retention deleted one batch per
+    six hours against an anonymous, unrate-limited writer, so the ninety days it documented as its achievement
+    were not enforced at all; and M13's review of its own module document had left `catalog.manage`'s new reach
+    over search unmentioned in the role table. Reviewing recent work as adversarially as old work is the point.
+  - **Three findings were things the documentation asserted and the code did not do**, which is the failure mode
+    a control catalogue exists to prevent: SEC-LOG-09 claimed audit rows commit with their change (true except
+    for the three platform→tenant commands that cross a scope — now PARTIAL, TD-55); SEC-LOG-05 read as coverage
+    of security events while authentication failures produced no log line at all; SEC-AUTHZ-05 named one helper
+    as the mechanism for six use cases when it has two call sites.
+  - **The detection half was nearly empty and is no longer.** Failed sign-ins are logged with an outcome that
+    separates stuffing from forgetfulness, and **every** log line now carries the client address — verified on
+    the running stack, which is the only place it could be verified, since the in-process test server has no
+    connection to have an address.
+  - **RLS was decided, not deferred** ([ADR-0043](../11-ADR/0043-row-level-security-evaluation.md)). Declined,
+    because every path around the application filter is already a failing build, because its per-connection
+    session value is a silent footgun under EF pooling, because the platform area would need a mode switch and
+    four exemptions (a second copy of the same rules in another language), and because the application connects
+    as `sa` and could disable the policy anyway. Three conditions that void the decision are listed.
+  - **The validation pipeline's silence is now a build failure.** 59 of 141 requests had no validator and nothing
+    required one — in a repository that build-enforces everything else. The rule is about shape, not presence:
+    45 of those 59 carry only ids and enums, where a validator adds a file and no safety. Writing it found a bug
+    in itself first (checking only the immediate base type treats every paged validator as absent), which
+    surfaced as a single false offender.
+  - **Evidence.** Nine commits, `13dd1e0`…`bc0ac6f`, plus this closure. Tests: 418 integration, 425 Application,
+    524 Domain, 94 architecture — all green; two new architecture rules (`ValidationRuleTests`) and one new
+    integration guard (every outbox type has a registered handler, written because that gap was real and silent).
+    Runtime, on the rebuilt container stack: the host-case bypass now returns 429 as it should; `Cache-Control:
+    no-store` present and the storefront config keeping its deliberate `no-cache` + ETag; the `__Host-` cookies
+    issued and round-tripping; failed logins logged at Warning with outcome, account and **`ClientIp`**.
+    Browser: `csp.spec.js` **zero violations across sixteen routes**, `cross-tenant-adversarial.spec.js` 4/4.
+    Dependency audit re-confirmed: .NET reports no vulnerable packages; npm's shipped set has two *moderate*
+    react-router advisories, below the CI gate and already analysed as F-23.
+  - **Browser suite state, stated plainly.** 86 of the desktop journeys pass, up from 77, through three fixes
+    that were faults in the tests and never in the product: `networkidle` (which the storefront's own
+    boot-time refresh call holds open), a spec that created sold-out products and never cleaned up — breaking a
+    different spec — and a hardcoded dev-server URL. Of the 11 that still fail, **six are
+    `second-tenant.spec.js`, which is hardcoded to the Vite dev server and its seed data and cannot pass against
+    containers by construction** (TD-56); the other five pass when their file runs alone and fail only inside a
+    27-minute serial run (TD-57). The one of those five that touches changed code was checked specifically: it
+    passes in isolation twice, and the cookie's round-trip is proven directly against the running stack.
+- **Technical debt.** Opened TD-55 (audit row across a tenant scope), TD-56 and TD-57 (the two browser-suite
+  classes above). None closed — R-11 and R-20 remain deployment- and GitHub-shaped, as this phase predicted.
 - **Next-phase trigger.** M16 may start independently of M15, but should follow it in execution order since a
   performance change should not undo a just-closed security finding without re-review.
 

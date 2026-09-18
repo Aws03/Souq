@@ -12,7 +12,7 @@
 | [`Souq.ArchitectureTests`](#souqarchitecturetests) | 16 | 63 | 7 |
 | [`Souq.IntegrationTests`](#souqintegrationtests) | 51 | 321 | 25 |
 | [frontend (Vitest)](#frontend-vitest) | 85 | 665 | — |
-| [frontend (Playwright)](#frontend-playwright) | 18 | 120 | — |
+| [frontend (Playwright)](#frontend-playwright) | 19 | 124 | — |
 
 ## Souq.Domain.Tests
 
@@ -279,6 +279,7 @@
 | `frontend/e2e/back-office.spec.js` | 6 |
 | `frontend/e2e/checkout-coupon.spec.js` | 3 |
 | `frontend/e2e/checkout-reliability.spec.js` | 4 |
+| `frontend/e2e/cross-tenant-adversarial.spec.js` | 4 |
 | `frontend/e2e/csp.spec.js` | 6 |
 | `frontend/e2e/experience.spec.js` | 16 |
 | `frontend/e2e/platform-provisioning.spec.js` | 9 |
