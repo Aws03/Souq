@@ -34,7 +34,7 @@ phase_status: done
 next_phase: M20         # M2 remains blocked on TD-42 and is independent of the phases after it; see M2's own STOP entry
 blocked_decisions: ["TD-42", "GitHub Actions billing"]   # see §5 and OwnerDecisions.md; the billing block stops CI running at all
 last_verified_date: 2026-09-18
-last_verified_head: M19HEAD     # M19 closed: 229 rules audited against test bodies; Traceability rewritten; three product defects and four flaky tests fixed
+last_verified_head: 71c9264         # M19 closed: 229 rules audited against test bodies; Traceability rewritten; three product defects and four flaky tests fixed
 baseline_branch: phase/17-production-hardening
 ```
 
