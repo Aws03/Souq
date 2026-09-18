@@ -29,12 +29,12 @@
 
 ```yaml
 plan_version: 1.0.0
-current_phase: M7
+current_phase: M8
 phase_status: done
-next_phase: M8          # M2 remains blocked on TD-42 and is independent of the phases after it; see M2's own STOP entry
+next_phase: M9          # M2 remains blocked on TD-42 and is independent of the phases after it; see M2's own STOP entry
 blocked_decisions: ["TD-42"]    # owner decisions that block a phase currently in flight; see §5 and OwnerDecisions.md
 last_verified_date: 2026-09-18
-last_verified_head: 10132db     # M7 closed: commit-vs-release race pinned, ledger construction ratcheted, inventory screen migrated
+last_verified_head: c579bec     # M8 closed: the second coupon evaluator deleted (TD-06), R-09's residual re-confirmed and dated
 baseline_branch: phase/17-production-hardening
 ```
 
@@ -59,6 +59,18 @@ store's own catalogue vocabulary and **says which word it searched**, with the s
 customers use. SQL Server Full-Text Search was **measured unavailable** in the pinned image and rejected on
 evidence rather than assumption — see M3's "Completion evidence" above and
 [ADR-0042](../11-ADR/0042-local-search-engine.md).
+
+**M8 — done.** The platform now has **one** coupon evaluator. `GET /api/coupons/apply` priced a code against a
+subtotal the caller supplied, so it skipped the per-customer limit, measured the minimum against a number the
+caller chose, and answered a nine-digit subtotal with an eight-digit discount as a `200`; it was deleted rather
+than rewritten, because TD-06's other option — reimplementing it over `IPricing` — **is** the basket quote, which
+is already anonymous, already rate-limited the same way, and already prices the caller's real basket. Four tests
+that used the route were re-pointed rather than dropped, one of them the reviewed public-endpoint list that
+stopped the deletion passing unreviewed. R-09's residual was re-confirmed unreachable by tracing the code, dated,
+and given two honest limits — and **no currency column was added**, because the path cannot be walked. The coupon
+also got its first browser journey ever, asserting that the total the shopper saw is the total the order recorded.
+One documentation claim was corrected that P-06 depends on: introducing tax is not a drop-in, because Ordering
+has no tax slot. See M8's "Completion evidence" above.
 
 **M7 — done.** Inventory's never-negative invariant now holds against the race that actually happens —
 **commit against release on the same reservation**, a payment confirming in the instant the expiry sweep
@@ -1038,10 +1050,79 @@ repository.
 - **Docker/runtime verification.** Live stack, a real coupon redemption.
 - **Documentation/ADR.** Update `docs/04-MODULES/Promotions/README.md`; no ADR expected (this closes a
   documented defect, it does not change the pricing architecture).
-- **Technical debt touched.** TD-06 (close), R-09's residual (close or re-file with evidence).
+- **Technical debt touched.** TD-06 (**closed**), R-09's residual (**re-filed with today's evidence and dated**).
 - **Acceptance criteria.** No coupon-adjacent endpoint can produce a total checkout would refuse; `Coupon.Value`
   either has a currency guard or the unreachability is re-confirmed and dated.
-- **Completion evidence.** *(fill in on close)*
+- **Completion evidence.** **Done.** Both acceptance criteria met. No migration was written and no schema
+  changed — the phase's two candidate changes were each decided on measured evidence, one to delete and one to
+  leave alone.
+  - **TD-06 closed by deleting the endpoint, not rewriting it.** `GET /api/coupons/apply` took the subtotal from
+    the caller, so it skipped the per-customer limit, measured the coupon's minimum against a number the caller
+    chose, and — with no validator and no upper bound beyond the currency's minor units — answered
+    `subtotal=999999999` with a discount of about 150,000,000 as a `200`. Of TD-06's two named fixes,
+    "reimplement it over `IPricing`" **collapses into the endpoint that already exists**: pricing the caller's
+    real basket through `IPricing` is exactly what `GET /api/basket/quote` does, anonymously via the guest
+    basket, under the same `coupon-preview` limit, in the store's currency. So deletion cost no capability, and
+    it completes [ADR-0028](../11-ADR/0028-basket-and-pricing-pipeline.md), whose context opens on money being
+    computed in three places.
+  - **One clause of TD-06 was false and is corrected rather than repeated.** It claimed the endpoint skipped the
+    module check. `RequiresModule` was on the controller all along and `TenantAvailability` runs ahead of
+    authentication — asserted against that very route by an existing test. A debt item that misstates the defect
+    invites the wrong fix.
+  - **Nothing called it, and the four tests that touched it were re-pointed, not dropped.** `client.js` had no
+    entry; the checkout's "Apply" button re-quotes the basket. Three tests used the route only as a convenient
+    anonymous specimen for cross-cutting rules, so each moved to another specimen: the problem+json contract to
+    `POST /api/orders` with an unknown code (the same `422 CouponNotFound` through the surviving evaluator),
+    module gating to `GET /api/coupons` (still anonymous, because the gate precedes authentication), tenant
+    isolation to `GET /api/basket/quote` (where the refusal is an in-band outcome inside a `200`). The fourth
+    was `AuthorizationBoundaryTests`' reviewed public-endpoint list, **which is what stopped this deletion
+    passing unreviewed** — a public route cannot appear or vanish without a deliberate edit there.
+  - **Its two unit tests were deleted rather than moved,** because both rules they covered live in Domain and
+    are tested there (`CouponTests` for percentage rounding, `MoneyTests` for excess minor units). The second
+    test's scenario existed *only* because a client could supply the amount.
+  - **R-09's residual: re-confirmed unreachable and dated, with no column added.** The unreachability was
+    verified by tracing three legs rather than re-reading the register: a basket's currency is always the
+    store's (`PricingService` seeds from `Money.Zero(store.Currency)`, and `Money.Add` throws on a mismatch);
+    `Tenant.Currency` has exactly one post-construction writer, `Tenant.ChangeCurrency`, which throws on
+    commercial activity; its only caller passes `HasCommercialActivityAsync`, which counts `Coupons`. No
+    store-admin currency path, no soft-delete hiding a coupon row from that count, and no delete-then-change
+    escape. Pinned end to end by an existing test. A currency column was **deliberately not added**: the
+    register's own remedy says it waits for a migration with another reason to exist, and guarding a path that
+    cannot be walked is speculative work. **Two honest limits on the word are now written into R-09** rather
+    than left implied: `EnsureUsable`'s currency guard can only speak when a coupon *has* a minimum — which is
+    not this risk's case — and the lock is forward-looking and was never backfilled, so it protects no store
+    that changed currency before Phase 17. Neither has a victim while nothing is in production.
+  - **The pricing pipeline is internally consistent, verified rather than asserted.** `PricingService` is the
+    only place in the repository where a total is assembled, and the quote-versus-order agreement is already
+    pinned across subtotal, discount and shipping by `BasketTests` and `ShippingTests` — so no new test was
+    written for it.
+  - **But the tax stage's documentation understated what closing P-06 costs, and that is corrected.** The
+    Shopping README said the stage "keeps its fixed place in `PriceQuote` and `BasketDto`, so introducing tax
+    changes no contract". True of those two, and misleading overall: **Ordering has no tax slot at all.**
+    `Order.TotalAmount` is `(subtotal − discount) + shipping` with no tax term, and `Place` snapshots it into
+    `PlacedTotal`. The two agree today *only because tax is zero*; a non-zero tax in the pipeline alone would
+    quote one figure and charge another. It would be caught rather than shipped (the tests above), but P-06's
+    answer needs an `Order` column, not just a line in a table. **No tax rule was invented** — P-06 remains the
+    owner's.
+  - **Browser QA: the coupon's first browser journey, ever.** `frontend/e2e/checkout-coupon.spec.js` (new) is
+    the first browser coverage the coupon has had, despite three admin screens and a checkout step. Three
+    journeys on the container stack: a percentage coupon showing its discount in the store's currency where
+    **the total the shopper saw is the total the order recorded** (40 less 25% is 30, compared digit-wise so the
+    assertion is about the amount, not the formatting); an unknown code refused with a readable reason that
+    leaves the total untouched, renders no discount row and does not block checkout; and a coupon below its
+    minimum refused with its own `InvalidCoupon` reason — precisely what the deleted endpoint got wrong.
+  - **Docker/runtime verification, live:** a real redemption end to end on the container stack — the merchant's
+    coupon, the browser showing 10 off a 40 basket, and the redemption recorded against order 1001 as
+    `discount 10.0 JOD, status Confirmed` in the merchant's own redemptions view. The refused coupon left no
+    redemption. Also confirmed live that the deleted route is gone and leaks nothing: it answers `405`, but so
+    do `api/coupons/nonsense` and `api/coupons/9999` — any extra segment under that controller does, because the
+    `{id:int}` templates match for method negotiation. It is now indistinguishable from any path that never
+    existed.
+  - **Not claimed:** no tax model (P-06, owner's); `Coupon.Value` still has no currency column (R-09, waiting
+    for a migration with another reason); refunds still do not release a coupon use (R-05, a product decision).
+  - Tests: Domain 524, Application **383** (−2, the deleted preview's unit tests), Architecture 90, Integration
+    376, frontend Vitest 620, browser journeys **104 in 15 files** (+3). `./scripts/release-gate.sh --suites`:
+    5 passed, 0 failed, **3 skipped** (no deployment target). Working tree clean and pushed at close (c579bec).
 - **Next-phase trigger.** M9 may start independently of M8.
 
 ### M9 — Customer accounts and security lifecycle
