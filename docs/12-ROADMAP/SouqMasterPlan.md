@@ -34,7 +34,7 @@ phase_status: done
 next_phase: M19         # M2 remains blocked on TD-42 and is independent of the phases after it; see M2's own STOP entry
 blocked_decisions: ["TD-42", "GitHub Actions billing"]   # see §5 and OwnerDecisions.md; the billing block stops CI running at all
 last_verified_date: 2026-09-18
-last_verified_head: M18HEAD     # M18 closed: CD built and its rollback verified; five defects that had been keeping CI red, fixed
+last_verified_head: b895adf     # M18 closed: CD built and its rollback verified; six defects that had been keeping CI red, fixed
 baseline_branch: phase/17-production-hardening
 ```
 
