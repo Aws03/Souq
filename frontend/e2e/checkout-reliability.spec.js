@@ -20,11 +20,16 @@ const ADMIN = {
 
 test.describe.configure({ mode: 'serial' });
 
+// دخول واحد للملفّ كلّه: حدّ معدّل الدخول 10 في الدقيقة (DeveloperQualityGates)، وأربعة اختبارات تسجّل
+// دخول المدير في كلّ منها تستهلكه مع تسجيلات المتسوّقين — فيفشل الملفّ لسبب لا علاقة له بما يقيسه.
+let cachedAdminHeaders = null;
 async function adminHeaders(request, base) {
+  if (cachedAdminHeaders) return cachedAdminHeaders;
   const login = await request.post(`${base}/api/auth/login`, { data: ADMIN });
   expect(login.ok(), 'تعذّر دخول المدير — اضبط SOUQ_E2E_ADMIN_EMAIL/PASSWORD').toBeTruthy();
   const body = await login.json();
-  return { Authorization: `Bearer ${body.accessToken ?? body.token}` };
+  cachedAdminHeaders = { Authorization: `Bearer ${body.accessToken ?? body.token}` };
+  return cachedAdminHeaders;
 }
 
 // منتج بمخزون محدود، مُنشأ لهذا الاختبار وحده — لا يلمس الكتالوج المبذور ولا اختبارات أخرى.
@@ -154,4 +159,54 @@ test('the happy path still reaches a paid order on the refactored checkout', asy
   await expect(page.getByText(/#\d+/)).toBeVisible();
 
   await context.close();
+});
+
+test('an admin refunds a paid order through the admin UI, and the order shows it', async ({ browser, request }, testInfo) => {
+  // معيار M6 للمتصفّح: طلب مدفوع **واسترداد كامل** بالشكلين المُفعَّلين اليوم للصلاحية والتوجيه — أي
+  // store.payments.manage (المدير) عبر حساب النشر. الاسترداد مُغطّى بالتكامل، وغير مُغطّى في الواجهة إطلاقاً
+  // قبل هذا الاختبار: لا شيء كان يثبت أنّ التاجر يستطيع فعلاً إرجاع مال زبونه من لوحته.
+  testInfo.setTimeout(180_000);
+  const base = testInfo.project.use.baseURL;
+  const product = await createScarceProduct(request, base, 2);
+
+  // زبون يشتري ويدفع.
+  const shopper = await browser.newContext();
+  const page = await shopper.newPage();
+  await signUp(page, base, 'refundee');
+  await addToCart(page, base, product.slug);
+  await page.goto(`${base}/checkout`, { waitUntil: 'networkidle' });
+  await fillAddress(page);
+  await page.getByRole('button', { name: /continue to payment/i }).click();
+  await page.getByRole('button', { name: /pay now/i }).click();
+  await expect(page).toHaveURL(/\/confirmation\?order=\d+/);
+  // اللوحة تعرض **رقم الطلب** لا معرّفه، وهو ما تعرضه صفحة التأكيد أيضاً.
+  const orderNumber = (await page.getByText(/#\d+/).first().innerText()).match(/#(\d+)/)[1];
+  await shopper.close();
+
+  // ثم المدير يستردّ من لوحته.
+  const back = await browser.newContext();
+  const admin = await back.newPage();
+  await admin.goto(`${base}/login`, { waitUntil: 'networkidle' });
+  await admin.locator('input[type="email"]').first().fill(ADMIN.email);
+  await admin.locator('input[type="password"]').first().fill(ADMIN.password);
+  await admin.getByRole('button', { name: /sign in|دخول/i }).click();
+  await admin.waitForURL((url) => !url.pathname.includes('/login'), { timeout: 45_000 });
+
+  await admin.goto(`${base}/admin/orders`, { waitUntil: 'networkidle' });
+  // الصفّ يُفتح من قائمة إجراءاته لا بالنقر على نصّه.
+  const row = admin.locator('tr', { hasText: `#${orderNumber}` }).first();
+  await row.getByRole('button', { name: /actions|إجراءات|more|المزيد/i }).or(row.getByRole('button')).last().click();
+  await admin.getByRole('menuitem', { name: /view|عرض/i }).click();
+
+  const drawer = admin.getByRole('dialog');
+  await expect(drawer.getByText(/^Payment$/)).toBeVisible();
+
+  await drawer.getByRole('button', { name: /^Refund$/ }).click();
+  // بلا مبلغ = الباقي كلّه، وهو ما يقوله التلميح تحت الحقل.
+  await drawer.getByRole('button', { name: /^Refund$/ }).last().click();
+
+  // البوّابة التجريبية تُنجح الاسترداد فوراً. يُؤكَّد **المبلغ** لا مجرّد كلمة "مُسترَدّ": الثمن كلّه رجع
+  // (19.5 هو سعر المنتج المُنشأ أعلاه)، وهو الفرق بين "تغيّرت حالة" و"خرج مال".
+  await expect(drawer.getByText(/Refunded\s+\S+\s*19[.,]5/i)).toBeVisible({ timeout: 20_000 });
+  await back.close();
 });
