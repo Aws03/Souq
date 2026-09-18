@@ -66,10 +66,15 @@ classDiagram
 | **PlatformOwner** | Platform | Every platform permission: `platform.tenants.manage`, `platform.users.manage`, `platform.settings.manage`, `platform.reports.view`, `platform.audit.view` |
 | **PlatformAdmin** | Platform | `platform.tenants.manage`, `platform.reports.view`, `platform.audit.view` (not users, not settings) |
 | **TenantAdmin** | One store | Every store permission |
-| **TenantStaff** | One store | `catalog.manage`, `inventory.view`, `inventory.manage`, `orders.view`, `orders.manage`, `customers.view`, `reviews.moderate`, `store.reports.view` |
+| **TenantStaff** | One store | `catalog.manage`, `inventory.view`, `inventory.manage`, `orders.view`, `orders.manage`, `customers.view`, `reviews.moderate`, `store.reports.view`. **Two of these reach further than their names suggest — see below** |
 | **Customer** | One store | None. Their own data is reached through ownership checks |
 
 **Store permissions:** `catalog.manage`; `inventory.view`, `inventory.manage`; `orders.view`, `orders.manage`; `customers.view`, `customers.manage`; `promotions.manage`; `reviews.moderate`; `store.settings.manage`, `store.staff.manage`, `store.reports.view`, `store.payments.manage`, `store.shipping.manage`.
+
+**Two store-staff permissions carry more than their name says.** Both are deliberate; neither was written down here before M15, and this is the page a reader consults to learn what a role can do.
+
+- **`orders.manage` can move money.** Cancelling a *paid* order issues a full refund, and that cancellation is behind `orders.manage` alone. The explicit refund route, `POST /api/orders/{id}/refunds`, requires `store.payments.manage` — an admin-only permission. So the daily operator cannot refund through the front door and can through the side one. This is risk **R-03**, it is recorded in the risk register and in `ReleaseReadiness.md`, and `AuthorizationMatrixTests` pins it deliberately: the staff refund is 403 and the staff cancellation succeeds *and* moves money.
+- **`catalog.manage` now governs search.** Since M3 and M13 it also gates the store's search vocabulary and its search analytics (`/api/admin/search-synonyms` and `.../insights`). A staff member can therefore change what shoppers find, and read what they searched for. That was argued at the controller — search vocabulary is catalogue configuration, and whoever may edit products may edit it — but "products, categories, media" is no longer the whole of it.
 
 One permission is defined and granted but not yet required by any endpoint: `platform.settings.manage`. No platform-wide setting exists for it to guard; deciding what belongs there is open decision P-07. The roles will not change shape when it arrives.
 
@@ -224,7 +229,7 @@ Both settings routes bind the same input type, so the platform and the store adm
   - `AuthSessionTests`: cookie flags and token claims; rotation and reuse; logout; a password change ending the other devices' sessions; lockout; the platform owner signing in only on the platform host with a token that has no `tid`; registration refused on the platform host; email verification; email links on the store's host; 429 with `Retry-After`.
   - `AuthorizationMatrixTests`: role × endpoint, and staff cannot shop.
   - `AuthorizationBoundaryTests`: every endpoint declares its decision, the public list is reviewed, permissions exist, anonymous is 401 and customer 403, platform endpoints are absent on store hosts, and a customer cannot read or confirm another customer's order.
-  - `TenantIsolationTests`: store A's token on B's host is 401, and every id-bearing endpoint is covered.
+  - `TenantIsolationTests`: store A's token on B's host is 401, and **every endpoint with a resource id in its route** is covered — the completeness check walks the live endpoint table and fails the build on an unlisted one. Ids that arrive in a **body or query string** are not covered by that check and are listed case by case instead (a foreign `categoryId`, `parentId` on create *and* update, `imageIds`, option and value ids, `productId`/`variantId`, `couponCode`, `customerId`, `productId` as a filter). All of them resolve through tenant-filtered sets, so they are protected; M15 counted them and added the missing `parentId`-on-update case rather than leaving the sentence claiming more than the test holds.
   - `PlatformAdministrationTests`: provisioning end to end, platform-user management restricted to the owner, disabling ending a session immediately, and the append-only audit log.
   - `StartupAndSecurityTests`: no default administrator outside Development, a weak seed password refusing startup, reset tokens stored hashed and used once.
   - `MigrationRehearsalTests`: legacy accounts keep their id, role and password hash through the identity migration.

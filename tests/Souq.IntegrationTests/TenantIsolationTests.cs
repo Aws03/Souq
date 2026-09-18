@@ -278,6 +278,18 @@ public class TenantIsolationTests
                 TestApi.ProductUpdateBody(aCategory, $"b-{Guid.NewGuid():N}"[..20], 5m))))
             .Should().Be((HttpStatusCode.BadRequest, "CategoryNotFound"));
 
+        // ============================================================================
+        // أبٌ من متجرٍ آخر عند **التعديل** لا عند الإنشاء وحده (M15).
+        //
+        // كان `ParentNotFound` مُختبَراً على POST فقط. والحارس في المعالجين معاً يقرأ القائمة المُرشَّحة
+        // بالمستأجر، فالسلوك صحيح اليوم — لكنّ اختبارَ نصفِ السطح يعني أنّ النصف الآخر لو فقد حارسه لما
+        // سقط شيء. وهو بالضبط الفرق الذي تدّعي وثيقة الصلاحيات تغطيتَه.
+        // ============================================================================
+        var bCategory = await s.StoreB.CreateCategoryAsync(s.AdminB);
+        (await ProblemAsync(await s.AdminB.PutAsJsonAsync($"/api/categories/{bCategory}",
+                TestApi.CategoryBody($"upd-{Guid.NewGuid():N}"[..20], "معدّلة", parentId: aCategory))))
+            .Should().Be((HttpStatusCode.BadRequest, "ParentNotFound"));
+
         // صورة منتج A تحت منتج B: غير موجودة حذفاً، ولا تدخل ترتيب صوره — وتبقى في A كما هي.
         var aImage = s.AIds[Resource.ProductImage];
         (await ProblemAsync(await s.AdminB.DeleteAsync($"/api/admin/products/{bProduct}/images/{aImage}")))

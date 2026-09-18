@@ -154,7 +154,7 @@ Module document: [Customers/README.md](Customers/README.md).
 | `EraseMyAccountCommand` | command | `EraseMyAccountHandler` | `EraseMyAccountValidator` | yes | `POST /api/account/erase` |
 | `RemoveMyAddressCommand` | command | `RemoveMyAddressHandler` | — | — | `DELETE /api/account/addresses/{id:int}` |
 | `SetCustomerStatusCommand` | command | `SetCustomerStatusHandler` | `SetCustomerStatusValidator` | yes | `PUT /api/admin/customers/{id:int}/status` |
-| `SetMyDefaultAddressCommand` | command | `SetMyDefaultAddressHandler` | — | — | `PUT /api/account/addresses/{id:int}/default-billing`<br>`PUT /api/account/addresses/{id:int}/default-shipping` |
+| `SetMyDefaultAddressCommand` | command | `SetMyDefaultAddressHandler` | `SetMyDefaultAddressValidator` | — | `PUT /api/account/addresses/{id:int}/default-billing`<br>`PUT /api/account/addresses/{id:int}/default-shipping` |
 | `UpdateMyAddressCommand` | command | `UpdateMyAddressHandler` | `UpdateMyAddressValidator` | — | `PUT /api/account/addresses/{id:int}` |
 | `UpdateMyProfileCommand` | command | `UpdateMyProfileHandler` | `UpdateMyProfileValidator` | — | `PUT /api/account/profile` |
 | `ExportCustomerDataQuery` | query | `ExportCustomerDataHandler` | — | yes | `GET /api/admin/customers/{id:int}/export` |
@@ -286,4 +286,4 @@ Module document: [Reporting/README.md](Reporting/README.md).
 | Use case | Kind | Handler | Validator | Audited | Sent by |
 |---|---|---|---|---|---|
 | `GetPlatformStatsQuery` | query | `GetPlatformStatsHandler` | — | yes | `GET /api/platform/stats` |
-| `GetStoreDashboardQuery` | query | `GetStoreDashboardHandler` | — | yes | `GET /api/admin/reports/dashboard` |
+| `GetStoreDashboardQuery` | query | `GetStoreDashboardHandler` | `GetStoreDashboardQueryValidator` | yes | `GET /api/admin/reports/dashboard` |

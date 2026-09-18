@@ -1,6 +1,8 @@
 using MediatR;
 using Souq.Application.Common.Auditing;
 
+using FluentValidation;
+
 namespace Souq.Application.Features.Reporting;
 
 // ============================================================================
@@ -93,6 +95,16 @@ public interface IStoreReports
 // الاستعلام مُدقَّق (IAuditable) لأنه يعيش تحت Features.Reporting، وModuleAndContractRuleTests
 // يشترط ذلك. وهو مقصود هنا لا مجرّد امتثال: قراءة أرقام أعمال المتجر حدثٌ يستحقّ التسجيل.
 // ============================================================================
+// ============================================================================
+// المدى تعدادٌ يُربط من سلسلة الاستعلام، ولا شيء في الربط يرفض رقماً خارج التعداد (M15): `?range=99`
+// يمرّ ويصل `switch` فيسقط على حالته الافتراضية. لا خطر أمني — الافتراضي آمن — لكنّ التاجر يرى أرقام
+// مدىً لم يطلبه ويظنّها مدَاه. المُحقِّق يجعله 400 يقول ما الخطأ بدل صمتٍ يُضلّل.
+// ============================================================================
+public sealed class GetStoreDashboardQueryValidator : AbstractValidator<GetStoreDashboardQuery>
+{
+    public GetStoreDashboardQueryValidator() => RuleFor(x => x.Range).IsInEnum();
+}
+
 public sealed record GetStoreDashboardQuery(ReportRange Range = ReportRange.Last30Days)
     : IRequest<StoreDashboardDto>, IAuditable
 {

@@ -211,6 +211,16 @@ public enum AddressUse { Shipping, Billing }
 
 public record SetMyDefaultAddressCommand(int AddressId, AddressUse Use) : IRequest<Result>;
 
+// نفس سبب مُحقِّق مدى اللوحة (M15): تعدادٌ من الجسم لا يرفضه الربط، فيصل `switch` بقيمةٍ خارجه.
+public sealed class SetMyDefaultAddressValidator : AbstractValidator<SetMyDefaultAddressCommand>
+{
+    public SetMyDefaultAddressValidator()
+    {
+        RuleFor(x => x.AddressId).GreaterThan(0);
+        RuleFor(x => x.Use).IsInEnum();
+    }
+}
+
 public class SetMyDefaultAddressHandler : IRequestHandler<SetMyDefaultAddressCommand, Result>
 {
     private readonly ICustomerRepository _customers;
