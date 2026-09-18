@@ -28,7 +28,19 @@ public static class SearchIndexBackfill
     public static async Task RunAsync(IServiceProvider services, ILogger logger, CancellationToken ct = default)
     {
         var tenants = await AllTenantsAsync(services, ct);
-        var directory = services.GetRequiredService<ITenantDirectory>();
+
+        // ============================================================================
+        // النطاق صريح: `ITenantDirectory` خدمةٌ بنطاق (scoped)، وطلبها من المزوّد الجذري **يمنع الـ API
+        // من الإقلاع في Development** — فحصُ النطاقات مُفعَّل هناك فيرمي
+        // `Cannot resolve scoped service from root provider`. وفي Production الفحص مُطفأ، فتُحلّ الخدمة
+        // من الجذر بصمت وتعيش عمرَ التطبيق كأنها مفردة: العطل نفسه، بلا رسالة.
+        //
+        // أُدخل هذا في M3 مع تعبئة فهرس البحث، ولم يُكتشف حتى M11 لأن كل تحقّق جرى على حزمة الحاويات
+        // (Production). وهو درسٌ في أنّ "يعمل على المكدّس" لا يعني "يعمل": البيئتان تختلفان في فحصٍ
+        // موجود خصيصاً لإمساك هذا.
+        // ============================================================================
+        using var scope = services.CreateScope();
+        var directory = scope.ServiceProvider.GetRequiredService<ITenantDirectory>();
         var repaired = 0;
 
         foreach (var tenantId in tenants)

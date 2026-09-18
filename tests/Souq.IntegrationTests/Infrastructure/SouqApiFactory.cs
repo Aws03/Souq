@@ -55,6 +55,23 @@ public sealed class SouqApiFactory : WebApplicationFactory<Program>, IAsyncLifet
         // "Testing" لا Development: لا user-secrets للمطوّر، ولا مدير افتراضي — المدير
         // يُبذَر من إعداد صريح تماماً كما في الإنتاج (نختبر مسار الإقلاع الحقيقي).
         builder.UseEnvironment("Testing");
+
+        // ============================================================================
+        // فحص النطاقات مُفعَّل هنا صراحةً (M11) — وهو ما كان غائباً.
+        //
+        // الحقيقة التي كشفها M11: طلبُ خدمةٍ بنطاق من المزوّد الجذري **يمنع الـ API من الإقلاع في
+        // Development** (الفحص مُفعَّل هناك تلقائياً) ويمرّ بصمت في Production وTesting (مُطفأ) — فتصير
+        // الخدمة بعمر التطبيق. عاش هذا في `SearchIndexBackfill` من M3 إلى M11 لأنّ كلّ تحقّق جرى على
+        // حزمة الحاويات وكلّ اختبار تكامل جرى في Testing: بيئتان لا تفحصان، وثالثةٌ تفحص لا يزورها أحد.
+        //
+        // بتفعيله هنا يصير الخطأ نفسه فشلَ اختبارٍ لا مفاجأةَ مطوّرٍ يستنسخ المستودع. و`ValidateOnBuild`
+        // يمسك ما هو أوسع: تبعيةٌ غير مسجَّلة إطلاقاً تُكتشف عند بناء المزوّد لا عند أول طلب يصادفها.
+        // ============================================================================
+        builder.UseDefaultServiceProvider(options =>
+        {
+            options.ValidateScopes = true;
+            options.ValidateOnBuild = true;
+        });
         builder.UseSetting("ConnectionStrings:Default", _sql.GetConnectionString());
         builder.UseSetting("Jwt:Key", "integration-tests-only-signing-key-0123456789abcdef0123456789");
         builder.UseSetting("Seed:AdminEmail", AdminEmail);
