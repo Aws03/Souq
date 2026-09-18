@@ -29,12 +29,12 @@
 
 ```yaml
 plan_version: 1.0.0
-current_phase: M8
+current_phase: M9
 phase_status: done
-next_phase: M9          # M2 remains blocked on TD-42 and is independent of the phases after it; see M2's own STOP entry
+next_phase: M10         # M2 remains blocked on TD-42 and is independent of the phases after it; see M2's own STOP entry
 blocked_decisions: ["TD-42"]    # owner decisions that block a phase currently in flight; see §5 and OwnerDecisions.md
 last_verified_date: 2026-09-18
-last_verified_head: c579bec     # M8 closed: the second coupon evaluator deleted (TD-06), R-09's residual re-confirmed and dated
+last_verified_head: fbe8665     # M9 closed: TD-29 built, the Identity/Customers cycle broken (TD-03/R-15), a real refresh-token hole fixed
 baseline_branch: phase/17-production-hardening
 ```
 
@@ -59,6 +59,16 @@ store's own catalogue vocabulary and **says which word it searched**, with the s
 customers use. SQL Server Full-Text Search was **measured unavailable** in the pinned image and rejected on
 evidence rather than assumption — see M3's "Completion evidence" above and
 [ADR-0042](../11-ADR/0042-local-search-engine.md).
+
+**M9 — done.** A signed-in customer can finally change their password — everything under that screen already
+existed and nothing called it — and the phase's demand for *a test that actually attempts the attack* paid for
+itself: the attack test found that a refresh token another device had just rotated **survived a password change
+for ten seconds** and could mint a fully valid session, which meant an attacker rotating every five seconds
+survived every password change. Fixed with no new column, by requiring the token's family to still be alive. The
+password policy, which guards every credential in the system, also turned out to have no test at all. And the
+register's rank-1 item is closed: the Identity ⇄ Customers cycle is gone, measured by the ratchet at 74 crossings
+across 15 pairs → 62 across 13, with the test suites moved to the right side of the boundary too. See M9's
+"Completion evidence" above.
 
 **M8 — done.** The platform now has **one** coupon evaluator. `GET /api/coupons/apply` priced a code against a
 subtotal the caller supplied, so it skipped the per-customer limit, measured the minimum against a number the
@@ -1152,12 +1162,100 @@ repository.
 - **Docker/runtime verification.** Live stack, the full sign-in → change-password → re-sign-in flow.
 - **Documentation/ADR.** Update `Identity/README.md` and `Customers/README.md`; an ADR only if TD-03's direction
   changes an existing contract shape.
-- **Technical debt touched.** TD-29 (close), TD-03 (close or re-file with today's evidence), TD-16's retention
-  scope for refresh tokens (re-file with a legal-decision dependency noted, not solved here — retention needs
-  the owner per TD-16 itself).
+- **Technical debt touched.** TD-29 (**closed**), TD-03 (**closed — the cycle is gone**), TD-16's retention scope
+  (**re-filed with the split made explicit**), and R-15 closed with it. TD-53 newly filed.
 - **Acceptance criteria.** A signed-in customer can change their password from the UI; reuse detection and
   session invalidation are proven by a test that actually attempts the attack, not just documented as existing.
-- **Completion evidence.** *(fill in on close)*
+- **Completion evidence.** **Done.** Both acceptance criteria met — and the second one earned its wording: the
+  attack test found that the control did not hold.
+  - **TD-29 closed: the screen exists, at `/account/password`.** Everything beneath it already did — the
+    endpoint, its validator, `api.changePassword`, `AuthContext.changePassword` — and nothing called any of it,
+    so a signed-in customer had to sign out and ask for an emailed reset link to change the password they were
+    already authenticated with. A route, not a fourth panel on `/account`, because Phase 16 split that page
+    precisely for carrying three concerns; going the other way would have undone a recent deliberate decision.
+  - **What the screen promises is what the handler does.** Every other session is revoked and a fresh one issued
+    for this device, so "signs you out everywhere else, this device stays signed in" is a description, and it is
+    printed above the button rather than after it. A wrong current password attaches to its own field, because
+    the server returns a `400` with a stable code rather than a `401` — which the client would read as an expired
+    session and sign the person out over a typo.
+  - **The password rules stopped being copied.** `Register` and `ResetPassword` each carried their own
+    length-only check, so a password without a digit passed the browser and was refused by the server: a full
+    round trip for a message that could have been immediate. All three screens now share
+    `features/account/passwordForm.js`, which mirrors `PasswordRules` including letters-and-digits and uses
+    `\p{L}`/`\p{Nd}` so it is exactly as Unicode-aware as `char.IsLetter`/`char.IsDigit`.
+  - **The password policy had no test at all.** It guards every credential in the system — customer, store
+    staff, platform owner — and nothing asserted 8–128, letters-and-digits, or must-differ-from-current.
+    `PasswordRulesTests` now does, and it is also where the frontend's copy is held level: it asserts that an
+    Arabic password with Arabic-Indic digits is accepted, which is the claim the browser-side `\p{Nd}` depends
+    on. Had that been false, the client would have been *wider* than the server — the direction that sends a
+    request certain to be refused.
+  - **A real security hole, found by writing the test the phase asked for.** `RevokeAllAsync` sweeps
+    `ListActiveForUserAsync`, filtered `RevokedAt == null && UsedAt == null`, so a token another device had
+    consumed by rotation seconds earlier was never revoked — and `IsWithinReuseGrace` requires only
+    `RevokedAt is null` and is evaluated *before* reuse detection. So whoever held that device's cookie could,
+    within ten seconds of the password change, mint a completely valid new session carrying the new security
+    stamp. **Ten seconds is not a narrow window to anyone who knows it:** an attacker rotating every five
+    seconds survives every password change the victim makes. The HTTP attack test was written first and observed
+    to return `200`.
+  - **Fixed without a new column, because the data already distinguished the two cases.** An innocent tab race
+    means the first tab's rotation *succeeded*, so the family still holds an active token; a password change, a
+    logout or reuse detection revokes that token and leaves the family with none. The grace path now requires a
+    live family. When the family is dead the answer is a plain "session ended" and deliberately **not** reuse
+    detection — that branch rotates the stamp, which would sign out the person who just changed their password,
+    from the device they changed it on, because some other device they had just signed out happened to poll.
+    Password change is the only exposed path: erasure and disable both set `Disabled`, so `userActive` is false
+    and the branch is unreachable.
+  - **The existing tab-race unit test began failing, and that was correct.** Its fixture returned an empty
+    family, which is not what an innocent race looks like. The successor is now explicit, and the complementary
+    case — a dead family inside the grace — is asserted too, including that no stamp rotates.
+  - **Reuse detection was already attack-tested, and is reported rather than redone.**
+    `التجديد_يدوّر_الرمز_وإعادة_رمز_قديم_تُسقط_الجلسة_كلها` backdates `UsedAt` to escape the grace, replays the
+    old cookie over real HTTP, and asserts the whole family is dead — the legitimate browser's newest cookie no
+    longer refreshes and its access token is rejected. That half of the criterion was met before this phase.
+  - **TD-03 and R-15 closed: the one cycle the target graph forbids no longer exists.** The register's rank-1
+    item. `IAccountProfiles` (declared by Identity, implemented by Customers) and `IAccountLifecycle` (declared
+    and implemented by Identity) were built — **both declared by Identity on purpose**, because a cycle is two
+    arrows and only one may survive, so a contract pointing the other way would have documented the cycle rather
+    than broken it. **Measured, not asserted:** the generated crossing ratchet went from **74 crossings across
+    15 pairs to 62 across 13**, with all twelve Identity↔Customers crossings gone and both pairs off the table.
+    Identity no longer names `Customer` or `ICustomerRepository`; Customers no longer loads `IUserRepository`,
+    mutates `User`, reads `PasswordHash`, or revokes `RefreshToken` rows — session invalidation is back inside
+    the module that owns sessions.
+  - **The test suites carried the same violation as the code, and moved with it.** Customers' tests asserted
+    `_user.Status`, `_user.PasswordHash` and `Forget(7)` *through* customer erasure; Identity's tests asserted
+    the shape of the `Customer` aggregate through registration. Each module pinned the other's behaviour.
+    `AccountLifecycleTests` and `CustomerAccountProfilesTests` now hold those assertions on the right side, so
+    coverage moved rather than shrank — and gained the erase's **save-then-forget ordering**, which nothing had
+    pinned and which matters: forgetting first would let a concurrent request re-cache the old stamp.
+  - **And a note for whoever re-opens that pair:** `AllowedContracts` could not have caught a regression there.
+    All twelve crossings travelled through `Souq.Domain.Interfaces`, which that rule does not police. The guard
+    that counts is `ModuleDomainDependencies.md`.
+  - **Erasure is still atomic.** `CustomerErasure` stages what Customers owns and then calls
+    `IAccountLifecycle.EraseAsync`, which saves — so everything staged is committed with it, exactly as when
+    this module did the account's half itself. That idiom is not new: `AuthSessionIssuer.IssueAsync` already
+    saves what its caller staged.
+  - **TD-16 re-filed with the split made explicit, not solved.** Only part of it is the owner's: refresh tokens
+    and stock reservations carry no legal question and their own expiry already says when a row stops meaning
+    anything, so purging them is technical work and the natural first slice. Audit entries and in-app
+    notifications are what actually waits on a retention decision. M9 did not answer it and does not pretend to.
+  - **TD-53 newly filed, deliberately undecided.** The five-attempt lockout guards sign-in but not
+    change-password, whose only brake is the shared `auth` limit (10/min per host+IP). Reaching it needs a valid
+    access token, so what it buys an attacker is persistence rather than entry. It was filed rather than fixed
+    because extending the lockout there means a customer who mistypes their current password five times loses
+    their whole account for fifteen minutes — a product call as much as a security one.
+  - **Browser QA** on the container stack: `frontend/e2e/account-password.spec.js` (new), including the journey
+    that no single context can prove — two independent browser contexts, both signed in, one changes the
+    password, and the other is checked on **both** paths out: its access token (a protected page is refused) and
+    its refresh cookie (a reload does not restore the session). Also that the old password stops working and the
+    new one starts, and that a weak new password sends no request at all.
+  - **Docker/runtime verification:** that same journey is the phase's live sign-in → change-password →
+    re-sign-in flow, run against the container stack.
+  - **Not claimed:** the 30-second per-instance security-stamp cache still means a multi-instance deployment
+    honours a revoked access token for up to 30 seconds — already documented, and no second instance is
+    deployed; TD-53 above; audit and notification retention (TD-16, the owner's).
+  - Tests: Domain 524, Application **408** (+25), Architecture 90, Integration **377** (+1), frontend Vitest
+    **635** (+15), browser journeys **107 in 16 files** (+3). `./scripts/release-gate.sh --suites`: 5 passed,
+    0 failed, **3 skipped** (no deployment target). Working tree clean and pushed at close (fbe8665).
 - **Next-phase trigger.** M10 may start independently of M9.
 
 ### M10 — Merchant back-office completion
