@@ -29,12 +29,12 @@
 
 ```yaml
 plan_version: 1.0.0
-current_phase: M9
+current_phase: M10
 phase_status: done
-next_phase: M10         # M2 remains blocked on TD-42 and is independent of the phases after it; see M2's own STOP entry
+next_phase: M11         # M2 remains blocked on TD-42 and is independent of the phases after it; see M2's own STOP entry
 blocked_decisions: ["TD-42"]    # owner decisions that block a phase currently in flight; see §5 and OwnerDecisions.md
 last_verified_date: 2026-09-18
-last_verified_head: fbe8665     # M9 closed: TD-29 built, the Identity/Customers cycle broken (TD-03/R-15), a real refresh-token hole fixed
+last_verified_head: d84e2c4     # M10 closed: TD-25 and TD-28 closed, and four real contrast defects found behind a disabled axe rule
 baseline_branch: phase/17-production-hardening
 ```
 
@@ -59,6 +59,15 @@ store's own catalogue vocabulary and **says which word it searched**, with the s
 customers use. SQL Server Full-Text Search was **measured unavailable** in the pinned image and rejected on
 evidence rather than assumption — see M3's "Completion evidence" above and
 [ADR-0042](../11-ADR/0042-local-search-engine.md).
+
+**M10 — done.** The admin area is entirely on the query layer (TD-25 closed, `set-state-in-effect` 20 → 7,
+with the remaining seven all outside it), and the status-colour vocabulary is one module instead of
+twenty-two classes in four CSS files — three of which were byte-identical copies. Both items were bigger than
+their entries said. The one that mattered most was neither: the only axe sweep that visits dark mode had the
+contrast rule **switched off with no recorded reason**, and behind it sat four real defects — the store's own
+wordmark at 2.15:1 on every page, secondary text at 4.42:1, the 404 code, and a product badge at **1.06:1 in
+dark mode, invisible**. All fixed; the full matrix is now clean with the rule on. See M10's "Completion
+evidence" above.
 
 **M9 — done.** A signed-in customer can finally change their password — everything under that screen already
 existed and nothing called it — and the phase's demand for *a test that actually attempts the attack* paid for
@@ -1286,11 +1295,83 @@ repository.
 - **Docker/runtime verification.** Live stack, each migrated screen exercised.
 - **Documentation/ADR.** Update `FrontendArchitecture.md`; no ADR (this executes an already-decided pattern,
   ADR-0038, it does not choose a new one).
-- **Technical debt touched.** TD-25 (close each screen migrated), TD-28 (close), TD-24 (partial, opportunistic —
-  re-file the remainder honestly, do not claim it closed).
+- **Technical debt touched.** TD-25 (**closed**), TD-28 (**closed**), TD-24 (partial and **not** claimed closed),
+  TD-43 (applied to a second spec), TD-54 newly filed.
 - **Acceptance criteria.** The lint rule TD-25 cites (`react-hooks/set-state-in-effect`) reports zero hits in the
   screens this phase migrated; one `tone` vocabulary used by all five screens TD-28 named.
-- **Completion evidence.** *(fill in on close)*
+- **Completion evidence.** **Done.** Both acceptance criteria met — and both items turned out bigger than their
+  entries said, in opposite directions: one was mechanical and one was four hidden accessibility defects.
+  - **TD-25 closed: eight screens migrated, `set-state-in-effect` 20 hits → 7.** Categories, Coupons,
+    Customers, Orders, Products, ReviewModeration, SearchSynonyms, ShippingMethods (Inventory moved in M7).
+    None of the seven remaining hits is an admin screen — they are storefront and checkout components outside
+    the item's scope, and they are now named in the register so whoever takes them has the list.
+  - **The defect was demonstrated before it was fixed, and pagination was the wrong place to look.** Search is
+    where it bites: typing a word fired a request per keystroke, so an earlier reply could paint over a later
+    one — a table of results for something other than what is written in the box, on screens where a merchant
+    then acts on a row. `Orders.test.jsx` (that screen had **no test at all**) was run against the
+    pre-migration screen and observed to fail twice over: the stale row rendered over the newer results, and
+    four requests fired for one word.
+  - **Two deliberate, named behaviour changes** rather than silent ones: search is now debounced, matching
+    `platform/Stores.jsx`, the existing pattern for a searchable table on this layer; and "reset to page 1 when
+    a filter changes" moved from an effect into the handler, which is what takes the lint count to zero. The
+    single observable difference — typing then fully deleting it while past page 1 now returns you to page 1 —
+    is recorded rather than glossed.
+  - **Payments was left on the old pattern on purpose.** It is on TD-25's list but has no lint hit (its
+    `setState` sits inside `.then`, not the effect body) and no reachable race: it fetches on mount and after
+    save, with no criteria to outrun. Migrating it would mean extracting a form component to seed state from
+    query data — a structural change to the payments screen with no defect behind it.
+  - **TD-28 closed, and it was not five maps.** An inventory found **nine named maps, eight inline ternaries
+    and six implicit `status.toLowerCase()` lookups** across four CSS modules — three byte-identical copies of
+    the same five rules, and a fourth with the same five names at two different values because a WCAG contrast
+    fix had been applied to only one. Twenty-two classes collapsing to five real tones.
+  - **The drift was visible, not theoretical.** `Succeeded` was blue for a payment and green for a refund
+    **rendered inches apart in the same drawer**; `invited` was amber on the Staff screen and blue on the
+    platform Accounts screen **from the same helper function**; "enabled" was blue on two tables and green on
+    two others; order `Pending` rendered at two different contrast grades depending on the screen.
+  - **Unifying is not redesigning, and the line was drawn explicitly.** Every case where two screens gave
+    different answers for the *same value* was fixed — those are defects by definition. Every self-consistent
+    status kept its tone. The four that are defensible but unexamined (`Draft`, `Released`, payment
+    `Cancelled`, and the Stripe key-mode badge, which is not a domain status at all) are **TD-54**, with the
+    argument against each written at its line in `statusTone.js` rather than lost.
+  - **`neutral` was the missing member.** No badge tone was neutral before, so every status was forced into a
+    colour that meant something — which is part of why `Draft` is a warning and `Released` a danger.
+  - **A tone that does not derive per theme is not a tone.** The amber had no token: two hex literals, so it
+    never followed dark mode — a near-white pill on a dark surface. `--color-warning`/`--color-warning-soft`
+    now join the other three, derived per tenant *and* per mode with the foreground chosen by measured
+    contrast. Verified live: `#8A5A0E on #EDE4D6` → `#AD8C56 on #28261C` between modes.
+  - **Then the finding that mattered most, and it was a guard rather than a colour.** The only axe sweep that
+    visits every route in **dark mode** had `color-contrast` disabled, with no recorded reason — the single
+    rule that could catch a colour not following the theme. Enabling it found **four real, pre-existing
+    defects**, all fixed:
+    - the **store's own wordmark at 2.15:1, on every page**: the accent was readability-checked in dark mode
+      and used raw in light, an asymmetry that reads like an oversight;
+    - secondary text at 4.42:1 on `--color-surface-alt`, which is *darker* than the background it was measured
+      against — **the same mistake already corrected for status colours in that very file**, never corrected
+      for muted text;
+    - the 404 code, because a colour readable on white is not readable on a slightly darker surface (for dark
+      text, white is the *easiest* background, not the hardest) — the reference is now the hardest surface;
+    - the product "New" badge at **1.06:1 in dark mode — invisible**, because it took its text from the brand
+      colour while sitting on the accent, and the brand colour lightens in dark mode.
+  - **The full storefront matrix is now axe-clean with contrast on:** every route × 4 widths × 2 languages ×
+    2 themes, 6/6 green. And `--color-accent-on-surface` gives accent-as-text its own readable derivation, so
+    `--color-accent` stays exactly the merchant's colour for borders, focus rings and fills.
+  - **Two test-harness defects fixed, both of which had been hiding verification.** Five specs hardcoded
+    `admin@souq.com`, so they could only run against a stack seeded with exactly that and failed elsewhere
+    with a navigation timeout rather than a message — which is why the product-variants journey could not be
+    run against the container stack while verifying this phase (it passes 5/5 now, including its Arabic, RTL
+    and dark-mode axe test). And `admin-inventory.spec.js` needed TD-43's settle-then-click helper: the row
+    menu closes on scroll, so clicking mid-scroll detached the item — "element was detached from the DOM", no
+    product defect, and the retries cost 1.1 minutes where the fixed spec takes 17 seconds.
+  - **Browser/Docker verification:** every migrated screen exercised on the container stack; the tone tokens
+    read out of a live browser in both themes; the storefront matrix and the admin, variants, coupon and
+    password journeys all green against it.
+  - **Not claimed:** TD-24 is *not* closed — the nine screens M10 touched already had their pure logic in
+    `features/`, so there was nothing to move for them, and `api/client.js` (a hundred endpoints in one module)
+    is untouched and remains the substantive half. `back-office.spec.js` still needs TD-43's helper. The seven
+    remaining `set-state-in-effect` hits are storefront/checkout, outside TD-25.
+  - Tests: Domain 524, Application 408, Architecture 90, Integration 377, frontend Vitest **649** (+14),
+    browser journeys 107 in 16 files. `./scripts/release-gate.sh --suites`: 5 passed, 0 failed, **3 skipped**
+    (no deployment target). Working tree clean and pushed at close (d84e2c4).
 - **Next-phase trigger.** M11 may start independently of M10.
 
 ### M11 — Platform owner and tenant operations

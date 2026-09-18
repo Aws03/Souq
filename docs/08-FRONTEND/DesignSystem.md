@@ -64,6 +64,36 @@ No contrast test caught it, because each token was individually fine. The defect
 
 **The rule this leaves behind:** when a surface's background and its text must move together, give them a token pair. A component that picks two unrelated tokens and hopes they stay compatible will be right in one mode.
 
+## 2.1 Status tones — five, defined once (M10)
+
+Every badge in the product — storefront, admin and platform — reads its colour from one place.
+`frontend/src/features/statusTone.js` maps a domain status to a tone; `StatusBadge` turns a tone into
+pixels. There is no third place, and a screen cannot invent a sixth tone.
+
+| Tone | Pair | What wears it |
+|---|---|---|
+| `success` | `--color-success` on `--color-success-soft` | delivered, succeeded, approved, active, in stock, done |
+| `info` | `--color-info` on `--color-info-soft` | paid, shipped, provisioning, needs attention |
+| `warning` | `--color-warning` on `--color-warning-soft` | pending, draft, reserved, invited, low-ish stock |
+| `danger` | `--color-danger` on `--color-danger-soft` | cancelled, failed, rejected, archived, blocked, out of stock |
+| `neutral` | `--color-text-muted` on `--color-surface-alt` | blocked-by-something, unknown — **and it was the member missing entirely before M10**, so every status was forced into a colour that meant something |
+
+- **What TD-28 actually was.** Not five maps: nine named maps, eight inline ternaries and six implicit
+  `status.toLowerCase()` lookups, across four CSS modules — three of them byte-identical copies of the same
+  five rules, and a fourth with the same five names at two different values because a contrast fix had been
+  applied to only one. Twenty-two classes for five tones. The drift was visible: `Succeeded` was blue for a
+  payment and green for a refund **in the same drawer**; `invited` was amber on one screen and blue on another
+  **from the same helper**; "enabled" was blue on two tables and green on two others.
+- **Unifying is not redesigning.** M10 fixed every case where two screens gave different answers for the same
+  value — those are defects by definition — and left every self-consistent status alone. The four that are
+  defensible but unexamined (`Draft`, `Released`, payment `Cancelled`, and the Stripe key-mode badge, which is
+  not a domain status at all) are TD-54, with the argument against each written at its line.
+- **A tone must derive per theme, or it is not a tone.** The amber had no token: two hex literals, so it never
+  followed dark mode — a near-white pill on a dark surface. `--color-warning` and `--color-warning-soft` now
+  join the other three and are derived by `tenantModel` per tenant *and* per mode, with the foreground chosen
+  by measured contrast rather than by eye. Verified live: the pair moves from `#8A5A0E on #EDE4D6` to
+  `#AD8C56 on #28261C` between modes.
+
 ## 3. Light and dark
 
 | Question | Answer |
@@ -169,6 +199,22 @@ The breakpoints are 560px, 767px, 861px and **960px**, and management UI is the 
 - **The 40px rule covers two controls, and M7 added the second.** Until M7 the only target this file measured was the bottom tab bar, while the sentence above read as though it covered every target. The one it did not cover was `RowActionsMenu`'s trigger — a flat `32px` square with no media query — which is the **only** way to act on a table row anywhere in the admin area: view an order, refund a payment, correct stock. It was found on the inventory screen at Pixel 7 width during M7's browser pass and fixed in the shared component, so every admin table gained it at once, with a second assertion in `responsive.spec.js` that walks inventory, products and orders.
 - **The query is `@media (pointer: coarse)`, not a width.** A target's size should follow the *input device*, not the window: a narrow desktop window is driven by a precise mouse and needs no enlargement, while a large tablet is touched by a finger and does. Width only guesses at that; `pointer: coarse` asks directly — which is also why the assertion lives in the `phone` project, the only one that emulates a real device and therefore the only one where the query applies at all. (`ProductZoom` already used the sibling query `(hover: none)` for the same reason.)
 - **A responsive test must not be able to pass vacuously.** The touch-target assertion skips a table that has no rows — a demo store may hold no orders yet — but then asserts that **at least one** table was measured, because "no rows found" is not "all targets are fine". The same pass also found that the platform-area phone test had hard-coded `http://admin.localhost:5173`, so it could never run against the container stack at all; it now derives the platform origin from `baseURL`.
+- **The dark-mode sweep had `color-contrast` switched off, and four real defects were behind it (M10).** It is
+  the only axe pass that visits every route in dark mode, so it was the only thing that could catch a colour
+  not following the theme — and the rule it disabled was exactly that one. Turning it on found: the **store's
+  own wordmark at 2.15:1 on every page** (the accent was readability-checked in dark mode and used raw in
+  light); secondary text at 4.42:1 on `--color-surface-alt`, which is *darker* than the background it was
+  measured against — the same mistake already corrected for status colours in `tenantModel.js`, never
+  corrected for muted text; the 404 code, because a colour readable on white is not readable on a slightly
+  darker surface, so the reference is now the hardest surface rather than the lightest; and the product "New"
+  badge at **1.06:1 in dark mode**, invisible, because it took its text from the brand colour while sitting on
+  the accent. All four are fixed and the full matrix is clean with the rule enabled. **The lesson is about
+  guards, not colours:** a rule disabled in the only sweep that can exercise it converts a red test into a
+  green one and changes nothing else.
+- **Accent as text needs its own token.** `--color-accent` is the merchant's colour and stays exactly as
+  chosen for borders, focus rings, chart strokes and button fills. `--color-accent-on-surface` is the readable
+  derivation for when it is *text* — the same shape as the existing `--color-accent-on-panel`. Borders keep the
+  raw accent: non-text contrast is a different rule.
 - `frontend/e2e/responsive-storefront.spec.js` (M4) covers the other axis — **breadth instead of depth**: every storefront route, at 320/768/1280/2560, in both languages, asserting no page-level horizontal scroll, no interactive control outside the viewport, and no target under 24px (WCAG 2.5.8); plus axe across every route in both languages and both themes. Every defect it was written for — the navbar clipping above, a checkout grid track that could not shrink below its content so "Continue to payment" left the viewport, a five-column cart row that did not fit 320px, and 16×19px remove / 22×22px rating-star targets — appeared at **one** width in **one** language. The matrix is the test; a single viewport would have found none of them.
 
 ## 12. Performance budget

@@ -11,7 +11,7 @@
 | [`Souq.Application.Tests`](#souqapplicationtests) | 46 | 341 | 17 |
 | [`Souq.ArchitectureTests`](#souqarchitecturetests) | 14 | 59 | 7 |
 | [`Souq.IntegrationTests`](#souqintegrationtests) | 50 | 290 | 22 |
-| [frontend (Vitest)](#frontend-vitest) | 81 | 630 | — |
+| [frontend (Vitest)](#frontend-vitest) | 83 | 644 | — |
 | [frontend (Playwright)](#frontend-playwright) | 16 | 107 | — |
 
 ## Souq.Domain.Tests
@@ -231,6 +231,7 @@
 | `frontend/src/features/reporting/chartScales.test.js` | 18 |
 | `frontend/src/features/reporting/dashboardView.test.js` | 14 |
 | `frontend/src/features/reviews/ratingSummary.test.js` | 3 |
+| `frontend/src/features/statusTone.test.js` | 10 |
 | `frontend/src/features/storefront/openingExperience.test.js` | 11 |
 | `frontend/src/features/wishlist/wishlistModel.test.js` | 5 |
 | `frontend/src/i18n/bidi.test.js` | 4 |
@@ -246,6 +247,7 @@
 | `frontend/src/pages/admin/BusinessOverview.test.jsx` | 10 |
 | `frontend/src/pages/admin/Dashboard.test.jsx` | 11 |
 | `frontend/src/pages/admin/Inventory.test.jsx` | 5 |
+| `frontend/src/pages/admin/Orders.test.jsx` | 4 |
 | `frontend/src/pages/admin/ProductVariants.test.jsx` | 7 |
 | `frontend/src/pages/admin/Staff.test.jsx` | 8 |
 | `frontend/src/pages/admin/StoreSettings.test.jsx` | 10 |
