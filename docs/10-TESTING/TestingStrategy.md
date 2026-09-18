@@ -161,3 +161,23 @@ capability areas have no rule ids at all — search, search analytics, reporting
 limit is asserted, and the integration suite disables all four), TD-61 (an archived store's endpoints are
 asserted nowhere), TD-62 (an undecryptable store payment secret failing loudly is untested), TD-63 (numeric
 security policies are asserted through their own constants, so loosening one is a green build).
+
+### The work list TD-58 leaves behind
+
+The audit flagged specific rows in [BusinessRules.md](../01-REQUIREMENTS/BusinessRules.md). They are recorded here
+as a **work list, not as verified corrections** — each needs confirming against the test body before the document is
+edited, which is exactly the check TD-58 asks to be automated. Two directions, and the second is the one that matters:
+
+**Stale in the safe direction** (the document says untested where a test now exists): BR-IAM-05 (the password policy
+has been covered since M9, and is mirrored in the frontend), BR-NTF-02 (the outbox purge is tested; the narrower
+truth is that `OutboxDispatcherService` is not), BR-STO-10 (display-name and announcement limits are covered),
+BR-STO-12, BR-INV-10 (the lower bound is tested; the cap is not), BR-PAY-05 (selection is asserted; "fails loudly"
+is not — the half TD-62 files).
+
+**Stale in the dangerous direction** (the document names a test that does not test the rule): BR-CAT-02, BR-CAT-13,
+BR-CAT-14, BR-ORD-01, BR-ORD-18, BR-ORD-23, BR-PAY-04, BR-PAY-15, BR-CPN-03, BR-CPN-08, BR-CPN-10, BR-BSK-07,
+BR-STO-05, BR-STO-07, BR-MON-04, BR-MON-06, BR-MON-08. Of these, **BR-MON-04 and BR-MON-08 were confirmed and fixed
+in M19** — they are in §6 above. The rest are unconfirmed.
+
+A row in the second list is worse than a row with no test at all, because it reads as coverage. That asymmetry is the
+argument for building TD-58's check rather than re-auditing by hand every year.

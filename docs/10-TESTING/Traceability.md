@@ -70,7 +70,7 @@ Added in M19. M12 was entirely about merchant-facing numbers — and found four 
 
 | Capability | Implementation | Tests | Gaps |
 |---|---|---|---|
-| The merchant dashboard counts only what it says it counts (a pending order is not revenue), in the store's currency and its minor units | `StoreReportQueries`, `ReportWindow` | A: `StoreDashboardTests` · I: `StoreDashboardTests` · F: `Dashboard.test.jsx`, `BusinessOverview.test.jsx` | Profit and margin are deliberately not shown — the system does not know cost |
+| The merchant dashboard counts only what it says it counts (a pending order is not revenue), in the store's currency and its minor units | `StoreReportQueries`, `ReportWindow` | A: `StoreDashboardWindowTests` · I: `StoreDashboardTests` · F: `Dashboard.test.jsx`, `BusinessOverview.test.jsx` | Profit and margin are deliberately not shown — the system does not know cost |
 | A store sees only its own numbers | the query filter, `StoreReportQueries` | I: `StoreDashboardTests`, `TenantIsolationTests` | — |
 | Platform-wide statistics are the owner's, not a store's | `PlatformStats` | I: `PlatformAdministrationTests` · F: `PlatformOverview.test.jsx` | — |
 | Read paths stay inside a query budget as data grows | `ReadPathQueryBudgetTests` | I: `ReadPathQueryBudgetTests`, `BestSellingPerformanceTests` | Measured on an emulated, memory-capped stack: compare within a run, not against absolute numbers |
@@ -130,7 +130,7 @@ Added in M19 — M17 and M18 are absent from this page otherwise.
 | The shipped compose stack sets every setting the API refuses to start without | derived from `Program.cs`'s own guards | Ar: `ConfigurationSourceTests` |
 | Migrations can be stepped back, and a data-reshaping `Down()` is lossy on purpose | a rehearsal over pre-run data | I: `MigrationRehearsalTests`, `MigrationRollbackTests` · Ar: `MigrationSafetyTests` |
 | Every command has a validator of the right shape | reflection over the inheritance chain | Ar: `ValidationRuleTests` |
-| Security headers, CSP, cookies and uploads behave as documented | real requests | I: `SecurityHeadersTests`, `ContentSecurityPolicyTests`, `CookieSecurityTests`, `UploadSecurityTests` · E2E: `csp.spec.js` |
+| Security headers, CSP, cookies and uploads behave as documented | real requests, plus a source rule for the policy itself | I: `SecurityHeadersTests`, `CookieSecurityTests`, `UploadSecurityTests` · Ar: `ContentSecurityPolicyTests` · E2E: `csp.spec.js` |
 
 ## 7. Where traceability stops
 

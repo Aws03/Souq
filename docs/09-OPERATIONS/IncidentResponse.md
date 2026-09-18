@@ -94,6 +94,27 @@ Work outwards: TLS terminator → nginx → API.
 - **Images 404:** uploads are served from a volume; check it is mounted and that the request reaches the API
   rather than the SPA fallback.
 
+## 5a. The deployment itself is the incident
+
+The commonest incident is the one that just happened: a version was deployed and the site got worse.
+
+- **`scripts/deploy.sh` already tried.** Read its last lines before doing anything: it waits for
+  `/health/ready`, and on failure it either **rolled back automatically** (printing `DEPLOY FAIL (rolled back to
+  …)`) or **refused to** and printed the restore path. It refuses when the schema moved or could not be read,
+  and that refusal is deliberate — an old image against a newer schema reads columns that are gone, which is
+  worse than the outage you are escaping ([ADR-0046](../11-ADR/0046-continuous-delivery-and-rollback.md)).
+- **If it rolled back**, the environment is already on the previous tag and ready; the incident is now "why did
+  that version fail", not "restore service". Capture `docker compose -p <project> logs api` for the failed
+  version before redeploying anything.
+- **If it refused**, do not swap the image tag by hand. The order is: stop `api`, restore the pre-deployment
+  backup (`scripts/restore.sh --set …`), then deploy the version that matches that schema
+  ([Deployment.md](Deployment.md) §11 and §13).
+- **Which version is actually running:** `docker inspect --format '{{.Config.Image}}' $(docker compose -p
+  <project> ps -q api)`. The tag is the answer, not a deployment log — a running container does not lie about
+  what it runs.
+- **A deployment that never started** leaves the previous version running and healthy. That is the designed
+  behaviour of stop-then-start with a health gate, not a partial deployment.
+
 ## 6. Money incidents
 
 These have a different priority: **money that moved but is not recorded is worse than an outage**, because the
@@ -140,7 +161,13 @@ Said plainly so nobody discovers it mid-incident:
 
 - **No alerting.** Nothing watches the health endpoints or the error rate; the first report will come from a
   customer (R-20).
-- **No metrics or traces**, only structured logs with correlation ids.
+- **Four counters exist; nothing exports them** (M17). `SouqMetrics` emits `souq.outbox.dead_lettered`,
+  `souq.tenancy.cross_tenant_write_blocked`, `souq.auth.login_failed` (tagged by outcome) and
+  `souq.search.log_dropped` through `System.Diagnostics.Metrics`, so **`dotnet-counters` can read them from a
+  running process today** without deploying anything. What is missing is a destination, not instrumentation.
+  Each also has a log line at the same instant — the counter answers "how often this hour", the log answers
+  "what happened in this request".
+- **No traces are exported**, though the W3C trace id is already in every log line and every error body.
 - **No on-call rotation, escalation path or status page** — those are the owner's to define.
 - **No automated backup.** If nobody scheduled `scripts/backup.sh`, the most recent backup is the last one a
   person took (R-19) — `scripts/backup-verify.sh` will tell you which, and how old it is.

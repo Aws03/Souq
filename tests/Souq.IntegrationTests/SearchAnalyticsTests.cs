@@ -180,9 +180,16 @@ public class SearchAnalyticsTests
         var stem = UniqueTerm("جمع");
         var normalized = Souq.Domain.ValueObjects.SearchText.Normalize(stem);
 
-        // نفس الكلمة بصورتين تُطبَّعان إلى واحدة (`SearchText.Normalize` يُنزل الحالة) — والصورة الثانية
-        // هي **الأخيرة** زمناً، فهي التي يجب أن تُعرض.
-        var lastTyped = stem.ToUpperInvariant();
+        // نفس الكلمة بصورتين تُطبَّعان إلى واحدة — والصورة الثانية هي **الأخيرة** زمناً، فهي التي تُعرض.
+        //
+        // الصورة الثانية **كشيدة مُقحَمة** لا حالةٌ مرفوعة: كانت `stem.ToUpperInvariant()`، ورفع الحالة
+        // **لا يفعل شيئاً بالعربية**. فكان الاختبار معتمداً على أن تحمل الأحرف الستّ العشوائية من الـ GUID
+        // حرفاً لاتينياً — وحين تأتي أرقاماً كلّها (نحو 6% من التشغيلات) تتطابق الصورتان ويسقط الاختبار على
+        // حارسه هو، بلا أي عيب في المنتج. وُجد في مشوار M19 الكامل (M19).
+        //
+        // والكشيدة أصدق تعبيراً عن القاعدة أصلاً: زخرفة خطّية يحذفها `SearchText.Normalize`، فالصورتان
+        // تختلفان كتابةً وتتّحدان تطبيعاً — وهو بالضبط ما يدّعيه اسم الاختبار.
+        var lastTyped = stem.Insert(3, "ـ");
         lastTyped.Should().NotBe(stem, "الاختبار يقوم على اختلاف الصورتين المكتوبتين");
         await SearchAsync(api.Anonymous(), stem, times: 2);
         await SearchAsync(api.Anonymous(), lastTyped);

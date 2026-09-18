@@ -60,6 +60,33 @@ customers use. SQL Server Full-Text Search was **measured unavailable** in the p
 evidence rather than assumption — see M3's "Completion evidence" above and
 [ADR-0042](../11-ADR/0042-local-search-engine.md).
 
+**M19 — done, and the certification found that some of the certification itself was fiction.** The phase's own
+question — does every capability have a named test? — was answered by reading the **bodies** of the tests the rule
+tables name, across all 229 rules. The reassuring half: every Arabic method name cited exists. The other half: about
+two rules in five name a test that asserts only part of what the rule says, and **nothing in the build can tell**,
+because the documentation checker's identifier pattern is ASCII-only and cannot see an Arabic method name at all.
+
+`Traceability.md` was rewritten rather than patched. It was wrong in both directions: three rows named *files* where
+its own legend promises *classes*; **five gaps it recorded as open had been closed** in M5, M9, M14 and M16; two rows
+were contradicted by the rows directly beneath them; and five capability areas that shipped after M8 — catalog
+search, search analytics, reporting, observability, deployment — had no row at all. A page whose stated purpose is
+that a recorded gap beats a claim of coverage was failing hardest in exactly that direction.
+
+Three defects were fixed rather than filed. **Money:** the merchant dashboard rounded average order value to two
+decimals in code, so every three-decimal store — the dinar, this repository's own default — saw an average that
+cannot exist in its currency, and a zero-decimal store saw cents; and the storefront derived currency precision from
+the *browser's* table while ignoring the value the server sends it. **Accessibility:** `StarRating` announced five
+disabled buttons on every product card and never the rating, and its interactive mode was a `radiogroup` whose
+children were not radios — axe in jsdom flags neither.
+
+The full browser suite was run for the first time as a suite, and was **not green**: 97/12, then 103/10 serially.
+Every remaining failure was taken to its cause and none was a flake — a `settle()` helper that waited for animations
+that never end, a locator that matched two live regions, a navigation that cancelled an in-flight add, a journey
+asserting a feature that is off by default while its three siblings passed vacuously, and a journey that pressed a
+button the product correctly disables. Three journey groups need a Development API, and that too is the product
+being correct: in Production a store is reached through a verified domain, and an invitation link must never reach a
+production log. See M19's "Completion evidence" above and `docs/10-TESTING/TestingStrategy.md` §6.
+
 **M18 — done, and it began by discovering that CI had never been green.** The first act of the phase was to look
 at the actual runs rather than the workflow file, and every run on GitHub had failed: the recent ones in three
 seconds on *"recent account payments have failed"*, and the last one that executed on a **test-inventory mismatch
@@ -2373,7 +2400,16 @@ repository.
     nowhere — only suspension is), TD-62 (an undecryptable store payment secret failing loudly is untested;
     `PaymentGatewayUnavailableException` has **zero** test references), TD-63 (numeric security policies are
     asserted through their own constants, so `MaxFailedLogins = 500` is a green build).
-  - **Suites at close:** 524 Domain, 427 Application, 100 architecture, INTEG_COUNT integration, 698 frontend
+  - **Two more flaky tests were found by running the suite rather than a filter, and both had real causes.**
+    A review-page query-count test measured once, so a background service's query inside the window inflated it —
+    fixed the way M16 already fixed its sibling (`ReadPathQueryBudgetTests`): measure twice, take the minimum,
+    which can only remove foreign queries and never masks a real N+1. Verified still live: it reads exactly 3.
+    And a search-analytics test built its "second written form" with `ToUpperInvariant()` — **which does nothing
+    to Arabic**. It depended on the six random hex characters in the term containing a Latin letter, so about
+    one run in sixteen failed on the test's own guard with nothing wrong in the product. The second form is now
+    a **tatweel inserted into the stem**: a written difference that normalization removes, which is what the
+    test's name claims in the first place.
+  - **Suites at close:** 524 Domain, 427 Application, 100 architecture, 424 integration, 698 frontend
     unit across 90 files; lint clean, type-check clean, build clean.
   - **Acceptance criterion, honestly split.** "Test suites are ready for CI" is true of the code — the build is
     warning-free and 1,400+ tests discover and run — and **unproven of the pipeline**, which has not executed
