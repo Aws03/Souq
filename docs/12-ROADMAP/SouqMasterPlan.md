@@ -29,12 +29,12 @@
 
 ```yaml
 plan_version: 1.0.0
-current_phase: M6
+current_phase: M7
 phase_status: done
-next_phase: M7          # M2 remains blocked on TD-42 and is independent of the phases after it; see M2's own STOP entry
+next_phase: M8          # M2 remains blocked on TD-42 and is independent of the phases after it; see M2's own STOP entry
 blocked_decisions: ["TD-42"]    # owner decisions that block a phase currently in flight; see §5 and OwnerDecisions.md
 last_verified_date: 2026-09-18
-last_verified_head: ad0d338     # M6 closed: P-05 prepared, R-03 pinned, three false refund claims corrected
+last_verified_head: 10132db     # M7 closed: commit-vs-release race pinned, ledger construction ratcheted, inventory screen migrated
 baseline_branch: phase/17-production-hardening
 ```
 
@@ -59,6 +59,17 @@ store's own catalogue vocabulary and **says which word it searched**, with the s
 customers use. SQL Server Full-Text Search was **measured unavailable** in the pinned image and rejected on
 evidence rather than assumption — see M3's "Completion evidence" above and
 [ADR-0042](../11-ADR/0042-local-search-engine.md).
+
+**M7 — done.** Inventory's never-negative invariant now holds against the race that actually happens —
+**commit against release on the same reservation**, a payment confirming in the instant the expiry sweep
+releases the hold — which no existing test covered (they all raced two *different* reservations). The ledger
+invariant Σ movements = on hand was audited across every write path, found sound, and then **ratcheted**: a
+rule now fails the build if `StockMovement` is ever constructed inside Infrastructure, which `InternalsVisibleTo`
+makes possible and which would break reconciliation silently. TD-25 was closed for the inventory screen after
+proving the stale-page defect real. A **32px** row-actions button — the only way to act on any admin table row —
+was found at phone width and fixed in the shared component under `@media (pointer: coarse)`. Two of the phase's
+own tests turned out to be the problem: §11 overstated what it measured, and the platform phone test could never
+run against the container stack. See M7's "Completion evidence" above.
 
 **M4 — done.** Every storefront route now holds its layout at 320/768/1280/2560 in both languages, with no
 control outside the viewport, no touch target under 24px, and no axe violation in either language or either
@@ -926,10 +937,79 @@ repository.
 - **Docker/runtime verification.** Live stack, a real stock adjustment and its movement record.
 - **Documentation/ADR.** Update `docs/04-MODULES/Inventory/README.md` if V3's per-variant model changed anything
   this phase touches beyond what ADR-0041 already recorded.
-- **Technical debt touched.** TD-25 (inventory screen, if migrated here).
+- **Technical debt touched.** TD-25 (inventory screen — **migrated here**, the screen was in scope).
 - **Acceptance criteria.** No negative stock reachable under concurrent load; low-stock alerts fire per variant
   correctly; the admin inventory screen has no stale-data gap TD-25 already named.
-- **Completion evidence.** *(fill in on close)*
+- **Completion evidence.** **Done.** All three acceptance criteria met, each with evidence rather than a reading.
+  Most of this phase's scope was found **already covered**, and is reported as such rather than rebuilt:
+  - **Already covered, verified not assumed.** `InventoryItem` is per-variant with a per-variant
+    `LowStockThreshold`; `StockBecameLow(ProductId, VariantId, Available, Threshold)` is raised at
+    `InventoryItem.cs:128`; `StockBecameLowHandler` enriches it with the `variantLabel` read from the product
+    aggregate (so Inventory knows nothing about options); and
+    `tests/Souq.IntegrationTests/ProductOptionAdminTests.cs:295-297` **already** asserted
+    `variantId`/`variantLabel`/`available` on the notification for a multi-variant product. Nothing was
+    rebuilt here.
+  - **The one genuine concurrency gap, now pinned.** Every existing test races two *different* reservations.
+    The race that actually happens in production is **commit against release on the same reservation** — a
+    payment confirming in the instant the expiry sweep releases the hold. Both touch `Reserved` and commit also
+    touches `OnHand`, so if both succeeded the unit would leave twice, as a sale *and* a release, with the
+    ledger unable to say which. `rowversion` on the inventory row rejects the loser: exactly one `Sale`
+    remains, `onHand: 0, reserved: 0`.
+  - **A test deleted rather than kept.** Writing that race surfaced two guards (`Release` on a closed hold and
+    `Restock` on an uncommitted one are both no-ops). An integration test was written for them, then **removed**
+    on finding `tests/Souq.Domain.Tests/InventoryItemTests.cs:134` and `:151` already assert exactly that at the
+    layer the rule belongs to. A slower duplicate of a green test is a cost, not coverage.
+  - **The ledger invariant is now enforced, not merely unviolated.** An audit of every path that writes
+    `InventoryItem.OnHand` found **no path without a matching `StockMovement`**: four assignment sites, all
+    inside the entity, all paired with `Record`, all in the same `SaveChanges` (the concurrency retry detaches
+    movements too, so a failed attempt orphans nothing); the only migration that writes `OnHand` directly
+    (`20260911141732_Phase6Inventory`) inserts a compensating opening-balance row for every mismatch in the same
+    migration; and no `ExecuteUpdate`/raw SQL touches the table. But `Souq.Domain` opens its internals to
+    `Souq.Infrastructure` for EF, so a ledger row **could** be built there without the matching stock change —
+    breaking Σ ledger = on hand with no exception, discoverable only as a stock count that stops reconciling
+    weeks later. `ModuleAndContractRuleTests` now scans Infrastructure's IL for `Newobj` of `StockMovement`, and
+    the rule was **verified to fail against a deliberate violation** before being kept.
+  - **TD-25 closed for this screen, after proving the defect was real.** `Pagination` fires while a request is in
+    flight and `load()` had no generation guard, so a response for a page the merchant had already left could
+    paint its stock numbers under the wrong page label — on the one admin screen whose numbers are read and then
+    *acted on*. The screen is now on the query layer (`Staff.jsx`'s existing pattern), the page is the cache key,
+    and an adjustment invalidates the shared `['inventory']` root so the table and the low-stock banner refresh
+    together. Three of the five new tests in `Inventory.test.jsx` were each **run against the pre-migration
+    screen and observed to fail** (page 2's rows rendered under "page 1"; the table blanked between pages; the
+    low-stock count re-fetched once per page). The lint rule that counts the pattern went 20 → 19 hits. The
+    movement drawer was **not** touched: it already discards superseded responses with an `alive` flag.
+  - **A real defect found only in a real browser, fixed in the shared component.** `RowActionsMenu`'s trigger was
+    a flat `32px` square with no media query — and it is the **only** way to act on a table row anywhere in the
+    admin area. Measured at 32px on the inventory screen at phone width, against the 40px phone rule
+    DesignSystem.md §11 already stated. Fixed under `@media (pointer: coarse)` (the input device, not the window
+    width — a narrow desktop window has a precise mouse; a large tablet has a finger), so every admin table
+    gained it at once; **verified live at 40×40 on an emulated Pixel 7**. `responsive.spec.js` now asserts it
+    across inventory, products and orders, and refuses to pass if no table had rows to measure.
+  - **Two gaps in the tests themselves, fixed.** DesignSystem.md §11 claimed `responsive.spec.js` asserted
+    "touch targets at least 40px" when it measured only the bottom tab bar. And the platform-area phone test had
+    hard-coded `http://admin.localhost:5173`, so it **could never run against the container stack at all** — it
+    now derives the platform origin from `baseURL`, and passes there for the first time.
+  - **Tenant isolation re-verified, and the test already existed.**
+    `TenantIsolationTests.cs:219` covers both movement routes with a **positive control** (store A's admin does
+    see rows for the same ids), `:237` covers stock levels and low-stock, and a meta-test enumerates every
+    endpoint with a route parameter so a new inventory route cannot escape the isolation table. `StockMovement`
+    is `ITenantOwned`, its FKs are composite and tenant-scoped, and no inventory query uses
+    `IgnoreQueryFilters()`.
+  - **Docker/runtime verification, live rather than read** (this phase asks for exactly this): a real stock
+    adjustment on the container stack took variant 2 from 12 → 8 and wrote `Adjustment -4 → 8` carrying its
+    reason; a second adjustment crossed the threshold (available 4, threshold 5) and produced the notification
+    `stock.low` with `variantId: "2", available: "4", threshold: "5"` — the per-variant alert, observed firing,
+    not inferred from a handler.
+  - **Browser QA** on the container stack: `frontend/e2e/admin-inventory.spec.js` (new) covers the row read cell
+    by cell, the movement history drawer opened **from the inventory screen** (it had only ever been opened from
+    the variants page), and an adjustment that refreshes table and banner together and lands in the ledger with
+    its reason. `/admin/inventory` was also missing from the phone-width sweep entirely and was added.
+  - **Not claimed:** TD-25's other eight admin screens remain on `useEffect` (P3, no phase schedules them);
+    `StockMovementType.Return` is still never written; the ledger still records no actor. All three were already
+    documented and none is in this phase's scope.
+  - Tests: Domain 524, Application 385, Architecture **90** (+1, the ledger-construction rule), Integration
+    **376**, frontend Vitest **615** (+5). `./scripts/release-gate.sh --suites`: 5 passed, 0 failed, **3 skipped** (no deployment target).
+    Working tree clean and pushed at close (10132db).
 - **Next-phase trigger.** M8 may start independently of M7.
 
 ### M8 — Promotions and pricing
