@@ -32,6 +32,11 @@ test.describe.configure({ mode: 'serial' });
 
 const settle = (target) => target.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished.catch(() => null))));
 
+// الصفحة تمرّر بسلاسة، وقائمة إجراءات الصفّ تُغلق عند أيّ تمرير (موضعها fixed): فيُكمَل التمرير أوّلاً ثم
+// يُنقَر — كما يفعل المستخدم، لا نقراً في منتصف حركةٍ تُغلق القائمة التي فتحها. هذا TD-43 بعينه وعلاجُه
+// المكتوب فيه (يستعمله product-variants.spec.js)، ويُستعمل هنا للسبب نفسه: على قاعدةٍ فيها صفوفٌ كثيرة
+// يفشل النقر بـ "element was detached from the DOM" بلا أيّ عيب في المنتج (M10).
+
 const axe = async (target) => {
   await settle(target);
   await target.addScriptTag({ content: axeSource });
@@ -50,11 +55,23 @@ test.describe('شاشة الجرد', () => {
   const storeName = `QA مكنسة ${stamp}`;
 
   const authed = () => ({ headers: { Authorization: `Bearer ${token}` } });
+
   const row = () => page.locator('tr', { hasText: storeName });
   // الأعمدة بترتيبها في Inventory.jsx: صورة، اسم، فئة، موجود، محجوز، متاح، حدّ التنبيه، إجراءات.
   // تُقرأ خليّةً خليّة لا كنصّ صفٍّ واحد: النصّ المدموج يجعل "2" و"0" و"20" و"5" تقرأ "2025".
   const cell = (index) => row().locator('td').nth(index);
   const [ON_HAND, RESERVED, AVAILABLE, THRESHOLD] = [3, 4, 5, 6];
+
+  const openRowMenu = async () => {
+    const trigger = row().getByRole('button').last();
+    await trigger.scrollIntoViewIfNeeded();
+    await expect.poll(() => page.evaluate(() => new Promise((resolve) => {
+      const before = window.scrollY;
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve(window.scrollY === before)));
+    }))).toBe(true);
+    await trigger.click();
+    await expect(page.getByRole('menu')).toBeVisible();
+  };
 
   // دخول واحد للملفّ كلّه: حدّ الدخول 10 في الدقيقة (DeveloperQualityGates).
   test.beforeAll(async ({ browser, request }) => {
@@ -107,7 +124,7 @@ test.describe('شاشة الجرد', () => {
   test('2 · سجلّ الحركة يُفتح من شاشة الجرد ويُظهر الرصيد الابتدائي', async () => {
     await page.goto('/admin/inventory');
     await expect(row()).toBeVisible({ timeout: 45_000 });
-    await row().getByRole('button').last().click();
+    await openRowMenu();
     await page.getByRole('menuitem', { name: /stock history|سجلّ الحركة|History/i }).click();
 
     const drawer = page.getByRole('dialog');
@@ -126,7 +143,7 @@ test.describe('شاشة الجرد', () => {
     const banner = page.locator('[class*="lowStockAlert"]');
     const before = (await banner.count()) ? await banner.innerText() : '';
 
-    await row().getByRole('button').last().click();
+    await openRowMenu();
     await page.getByRole('menuitem', { name: /adjust|تصحيح/i }).click();
     const drawer = page.getByRole('dialog');
     // −18 من 20 ⇒ 2، وحدّ التنبيه الافتراضي 5 ⇒ عبورٌ نازل: الصفّ يصير منخفضاً والعدد يزيد.

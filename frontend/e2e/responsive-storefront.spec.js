@@ -155,9 +155,12 @@ async function measure(page) {
 async function axeViolations(page) {
   await page.addScriptTag({ path: AXE });
   return page.evaluate(async () => {
+    // **التباين مُفعَّل هنا منذ M10.** كان معطّلاً بلا سببٍ مكتوب، وهذا المسح هو الموضع الوحيد الذي
+    // يمرّ على **الوضع الداكن** لكل مسار — أي الموضع الوحيد الذي كان يمكن أن يكشف أنّ ثلاثاً من نغمات
+    // الحالة الخمس كانت أرقاماً حرفيّة لا تتبع الوضع، فتبقى شارةً شبه بيضاء وسط سطح داكن (TD-28).
+    // تعطيلُ قاعدةٍ في المسح الوحيد الذي يستطيع إمساك عيبها يجعل المسح يطمئن على ما لا يفحصه.
     const result = await window.axe.run(document, {
       runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'] },
-      rules: { 'color-contrast': { enabled: false } },
     });
     return result.violations.map((v) => `${v.id} (${v.nodes.length} node(s))`);
   });

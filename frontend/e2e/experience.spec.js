@@ -5,7 +5,13 @@ import { expect, test } from '@playwright/test';
 // ما يُفحص هنا لا يُفحص بلا متصفّح: ألوان محسوبة فعلاً، واتجاه صفحة، وحركة تُلغى بتفضيل نظام.
 // ============================================================================
 
-const ADMIN = { email: 'admin@souq.com', password: 'Admin@123' };
+// بيانات المدير من البيئة بقيمها الافتراضية (M10): كانت مكتوبةً حرفيّاً، فلم يكن هذا الملفّ قابلاً
+// للتشغيل إلا على حزمةٍ مبذورةٍ بهذين تحديداً — وعلى غيرها يفشل عند الدخول بمهلةٍ منتهية، لا برسالةٍ
+// تقول السبب. (العلّة نفسها التي كانت في مضيف المنصّة داخل responsive.spec.js، صُحِّحت في M9.)
+const ADMIN = {
+  email: process.env.SOUQ_E2E_ADMIN_EMAIL || 'admin@souq.com',
+  password: process.env.SOUQ_E2E_ADMIN_PASSWORD || 'Admin@123',
+};
 
 const signInAsAdmin = async (page) => {
   await page.goto('/login');
