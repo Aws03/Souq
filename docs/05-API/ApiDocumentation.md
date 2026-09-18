@@ -20,7 +20,7 @@
 | Area | Prefix | Tenant context | Who |
 |---|---|---|---|
 | Auth | `/api/auth` | host's tenant (or platform host) | anonymous + token flows |
-| Storefront | `/api/storefront` (`/config` since Phase 4); still on shared routes: `/api/products` (with `onSale`), `/api/products/{id}`, `/api/products/by-slug/{slug}` (Phase 5), `/api/categories`, `/api/coupons/apply`, `/api/products/{id}/reviews` | required | anonymous/customer |
+| Storefront | `/api/storefront` (`/config` since Phase 4); still on shared routes: `/api/products` (with `onSale`), `/api/products/{id}`, `/api/products/by-slug/{slug}` (Phase 5), `/api/categories`, `/api/products/{id}/reviews` | required | anonymous/customer |
 | Basket | `/api/basket` (Phase 8): `GET`, `GET /quote?couponCode=`, `POST /items`, `PUT` and `DELETE /items/{productId}`, `PUT` and `DELETE /items/variants/{variantId}`, `DELETE` | required | anonymous (guest cookie) or customer — only the caller's own basket |
 | Customer account | `/api/account` (Phase 7): `/profile`, `/addresses` (plus `/{id}/default-shipping` and `/{id}/default-billing`), `/export`, `/erase`; orders are still at `/api/orders/mine` and `/api/orders/{id}` | required | customer (own data) |
 | Tenant back-office | `/api/admin`: `/api/admin/inventory` (on hand, reserved, available; Phase 6 adds `POST /{productId}/adjustments` and `PUT /{productId}/threshold`, `inventory.manage`; ADR-0039 adds the same per variant under `/variants/{variantId}`), `/api/admin/store/*` and `/api/admin/staff` (Phase 4), `/api/admin/products` (every status, full detail, `/{id}/status`, `/{id}/images/order`, `/{id}/images/{imageId}`) and `/api/admin/categories` (Phase 5), `/api/admin/customers` (Phase 7: list and detail with `customers.view`; `/{id}/status`, `/{id}/export` and `/{id}/erase` also need `customers.manage`), plus admin writes still on shared routes (`POST/PUT/DELETE /api/products`, `/api/categories`) | required | tenant admin/staff + permission |
@@ -149,7 +149,9 @@ Every error is RFC 7807 `application/problem+json`:
     - A platform token has no `tid` and is valid only on platform hosts (Phase 3).
     - A mismatch fails authentication, which is a 401 on protected endpoints. So does an outdated security stamp: password changed or reset, or refresh reuse detected.
   - **Uploads:** `/uploads/tenants/{id}/…` is served only on that store's host.
-  - **Money:** amounts are in the store currency. `GET /api/coupons/apply` ignores any `currency` parameter.
+  - **Money:** amounts are in the store currency, and no endpoint accepts a currency from the caller. A coupon is priced only
+    through `GET /api/basket/quote`, on the caller's own basket — the second evaluator that took a client-sent subtotal was
+    removed in M8 (TD-06).
 - **Customer identity comes from the token, never from the body.**
   - Use cases read it from `ICurrentUser` (the `cid` claim); commands have no customer id field at all.
   - A staff account has no customer profile, so customer use cases answer `403 CustomerAccountRequired`.

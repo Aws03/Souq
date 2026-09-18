@@ -54,7 +54,7 @@
 |---|---|---|---|
 | A guest basket survives and merges at sign-in | `BasketResolver` | A: `BasketHandlersTests` · I: `BasketTests` | — |
 | One pricing pipeline serves the basket and checkout | `PricingService` | A: `PricingServiceTests`, `CreateOrderHandlerTests` · I: `BasketTests` | Tax is a fixed zero (P-06) |
-| Coupon limits hold under concurrency | `Coupon`, `CouponRedemptions` | D: `CouponTests`, `CouponRuleMatrixTests` · A: `CouponRedemptionsTests` · I: `CouponRedemptionTests` | A second, weaker coupon path exists at `/api/coupons/apply` (TD-06) |
+| Coupon limits hold under concurrency | `Coupon`, `CouponRedemptions` | D: `CouponTests`, `CouponRuleMatrixTests` · A: `CouponRedemptionsTests` · I: `CouponRedemptionTests` | One evaluator since M8: the second, weaker path at `/api/coupons/apply` was deleted (TD-06 closed), so no coupon-adjacent endpoint can accept a code checkout would refuse |
 | Shipping is chosen, priced and snapshotted | `StoreShippingRates`, `Order.ApplyShipping` | D: `ShippingMethodTests`, `OrderShippingTests` · A: `StoreShippingRatesTests` · I: `ShippingTests` | — |
 | Orders are numbered per store and immutable after placement | `Order`, `OrderNumbers` | D: `OrderTests`, `OrderLifecycleTests` · I: `OrderLifecycleTests` | — |
 | Only allowed status transitions happen, with the actor recorded | `OrderTransitions` | D: `OrderLifecycleTests` · A: `UpdateOrderStatusHandlerTests` · I: `OrderLifecycleTests` | Order-status changes are not audited |

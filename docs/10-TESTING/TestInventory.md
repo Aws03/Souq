@@ -8,11 +8,11 @@
 | Suite | Files | Facts | Theories |
 |---|---|---|---|
 | [`Souq.Domain.Tests`](#souqdomaintests) | 29 | 227 | 47 |
-| [`Souq.Application.Tests`](#souqapplicationtests) | 44 | 329 | 15 |
+| [`Souq.Application.Tests`](#souqapplicationtests) | 43 | 327 | 15 |
 | [`Souq.ArchitectureTests`](#souqarchitecturetests) | 14 | 59 | 7 |
 | [`Souq.IntegrationTests`](#souqintegrationtests) | 50 | 289 | 22 |
 | [frontend (Vitest)](#frontend-vitest) | 79 | 615 | — |
-| [frontend (Playwright)](#frontend-playwright) | 14 | 101 | — |
+| [frontend (Playwright)](#frontend-playwright) | 15 | 104 | — |
 
 ## Souq.Domain.Tests
 
@@ -63,7 +63,6 @@
 | `tests/Souq.Application.Tests/Common/PagingValidatorTests.cs` | `PagingValidatorTests` | 6 | 1 |
 | `tests/Souq.Application.Tests/Common/TenantContextTests.cs` | `TenantContextTests` | 2 | 0 |
 | `tests/Souq.Application.Tests/Common/UseCaseLoggingBehaviorTests.cs` | `UseCaseLoggingBehaviorTests`, `SteppingClock`, `ListLoggerFactory`, `ListLogger` | 3 | 0 |
-| `tests/Souq.Application.Tests/Coupons/ApplyCouponHandlerTests.cs` | `ApplyCouponHandlerTests` | 2 | 0 |
 | `tests/Souq.Application.Tests/Coupons/CouponHandlersTests.cs` | `CouponHandlersTests` | 7 | 0 |
 | `tests/Souq.Application.Tests/Coupons/CouponRedemptionsTests.cs` | `CouponRedemptionsTests` | 5 | 0 |
 | `tests/Souq.Application.Tests/Customers/CustomerHandlersTests.cs` | `CustomerAccountHandlersTests`, `CreateOrderCustomerRulesTests`, `AddressInputTestExtensions` | 9 | 0 |
@@ -263,6 +262,7 @@
 |---|---|
 | `frontend/e2e/admin-inventory.spec.js` | 3 |
 | `frontend/e2e/back-office.spec.js` | 6 |
+| `frontend/e2e/checkout-coupon.spec.js` | 3 |
 | `frontend/e2e/checkout-reliability.spec.js` | 4 |
 | `frontend/e2e/experience.spec.js` | 16 |
 | `frontend/e2e/platform-provisioning.spec.js` | 9 |

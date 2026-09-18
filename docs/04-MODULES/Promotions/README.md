@@ -12,7 +12,6 @@ Promotions owns discount rules: which coupons exist, when they may be used, how 
 - Every coupon rule, inside the `Coupon` entity: type and value, validity window, minimum order, global and per-customer limits, and the discount calculation with its rounding.
 - Redemption records: reserve a use at checkout, confirm it at payment, release it on any cancellation (`ICouponRedemptions`).
 - Admin read models: the coupon list and the redemptions of one coupon.
-- The legacy public preview `GET /api/coupons/apply`.
 
 ## Not this module's job
 
@@ -78,7 +77,7 @@ Notes:
 | Step | Trigger | Path | Effect |
 |---|---|---|---|
 | **Preview** | `GET /api/basket/quote?couponCode=` | Shopping's `PricingService` → `ICouponRepository.GetByCodeAsync`, `ICouponRedemptionRepository.CountActiveAsync` (only when the caller is a known customer), `Coupon.EnsureUsable`, `Coupon.CalculateDiscount` | Nothing is written; the verdict is reported inside the quote's `coupon` |
-| **Preview (legacy)** | `GET /api/coupons/apply?code=&subtotal=` | `ApplyCouponHandler` | Nothing is written; the subtotal comes from the client in the store currency; the per-customer limit is **not** counted; failures are 422 |
+| **Preview** | `GET /api/basket/quote?couponCode=` (Shopping) | `PricingService.QuoteAsync` | Nothing is written; the subtotal is derived from the caller's own basket at live catalog prices, so the preview is the checkout evaluation run early. A rejected coupon is an outcome *inside* a `200` quote, not an HTTP error. Anonymous via the guest basket, under the `coupon-preview` limit |
 | **Reservation** | `POST /api/orders` carrying a coupon | `CreateOrderHandler` → `ICouponRedemptions.ReserveAsync` → `CouponRedemptions` → `Coupon.Redeem` | `UsedCount + 1` and a `CouponRedemption` in state Reserved, inside the order's transaction |
 | **Confirmation** | Payment confirmed by the customer, by the gateway webhook, or by a cancellation that discovers the payment succeeded | `OrderPaymentConfirmation.ConfirmAsync` → `ICouponRedemptions.ConfirmAsync` | The redemption becomes Confirmed, saved with the order; no second use is taken |
 | **Release** | Every cancellation: failed payment, failed payment start, checkout expiry, customer cancellation, admin cancellation of a pending or paid order | `OrderPaymentConfirmation.CancelAsync`, or `UpdateOrderStatusHandler` for a paid order → `ICouponRedemptions.ReleaseAsync` | The redemption becomes Released and `UsedCount − 1`, exactly once |
@@ -122,7 +121,6 @@ This runs inside the caller's transaction — `IUnitOfWork.InTransactionAsync` j
 | Delete an unused coupon | `DeleteCouponCommand` | `DeleteCouponHandler` | `promotions.manage` | `DELETE /api/coupons/{id}` |
 | List coupons (active and inactive) | `GetCouponsQuery` | `GetCouponsHandler` | `promotions.manage` | `GET /api/coupons` |
 | List one coupon's redemptions | `GetCouponRedemptionsQuery` | `GetCouponRedemptionsHandler` | `promotions.manage` | `GET /api/coupons/{id}/redemptions` |
-| Preview a discount (legacy) | `ApplyCouponQuery` | `ApplyCouponHandler` | anonymous, behind the `coupon-preview` rate limit | `GET /api/coupons/apply` |
 | Reserve, confirm or release a use | `ICouponRedemptions` (not a MediatR request) | `CouponRedemptions` | Ordering only | — |
 
 Validators: `CreateCouponValidator`, `UpdateCouponValidator`, `DeleteCouponValidator`, `GetCouponsQueryValidator`, `GetCouponRedemptionsQueryValidator`.
@@ -137,7 +135,7 @@ Validators: `CreateCouponValidator`, `UpdateCouponValidator`, `DeleteCouponValid
 
 - `ReserveAsync` and `ReleaseAsync` save with retry; `ConfirmAsync` deliberately does not save, so the caller's unit of work commits it with the order — the confirmation and the payment succeed or fail together.
 - `ICouponQueries` is the module's own read port, implemented by `CouponQueries` in Infrastructure.
-- There is **no evaluation contract.** The discount is computed by Shopping's pipeline straight from the entity, through Promotions' domain repositories. The intended design is that the pipeline is the only evaluator, and the planned *ICouponEvaluator* was never built; the legacy `ApplyCouponHandler` is in fact a second evaluator. See *Dependencies*.
+- There is **no evaluation contract.** The discount is computed by Shopping's pipeline straight from the entity, through Promotions' domain repositories. The intended design is that the pipeline is the only evaluator, and the planned *ICouponEvaluator* was never built — but since M8 deleted the legacy preview (TD-06) the pipeline **is** in fact the only evaluator, so the missing contract costs nothing today. See *Dependencies*.
 
 ## Dependencies
 
@@ -162,7 +160,6 @@ Validators: `CreateCouponValidator`, `UpdateCouponValidator`, `DeleteCouponValid
 
 | Method | Route | Authorization | Module flag | Use case |
 |---|---|---|---|---|
-| GET | `/api/coupons/apply?code=&subtotal=` | anonymous; `coupon-preview` rate limit | `promotions` | legacy preview |
 | GET | `/api/coupons?page=&pageSize=` | `promotions.manage` | `promotions` | list, newest first |
 | POST | `/api/coupons` | `promotions.manage` | `promotions` | create, 201 with the id |
 | PUT | `/api/coupons/{id}` | `promotions.manage` | `promotions` | update, 204 |
@@ -205,7 +202,6 @@ None.
 | Domain | `DomainExceptionCodeTests` | the `InvalidCoupon` code |
 | Application | `CouponRedemptionsTests` | a reservation takes a use and records it Reserved; an exhausted per-customer limit is rejected without saving; a concurrency conflict retries from a fresh read that sees the winner; release gives the use back once and confirmation takes none; an order without a coupon confirms and releases nothing |
 | Application | `CouponHandlersTests` | duplicate code; create and update; the window and per-customer validators; a used coupon is deactivated, not deleted |
-| Application | `ApplyCouponHandlerTests` | the preview computes in the store currency and rejects an amount with too many decimals |
 | Application | `PricingServiceTests` | the coupon as an outcome, including the per-customer limit for a known customer and `ModuleDisabled` |
 | Application | `CreateOrderHandlerTests`, `ConfirmOrderPaymentHandlerTests` | reserve at checkout, apply before the payment intent, confirm at payment |
 | Integration | `CouponRedemptionTests` | five concurrent checkouts on a single-use coupon: one order, four `422 InvalidCoupon`; the per-customer limit held by an unpaid order, released by customer and by admin cancellation, confirmed by payment; a coupon that has not started; the admin redemptions list; `409 CouponInUse` |
@@ -243,8 +239,7 @@ See [ChangeGuide.md](ChangeGuide.md): add a coupon type; scope coupons to produc
 - **An unpaid order holds its use** until it is paid, cancelled or expired by the checkout sweep, so a limited coupon can read as used up while checkouts are open.
 - **A refund without a cancellation keeps the use.** Only cancellation releases it; ADR-0030 left the refund question open and Phase 11 did not answer it in code.
 - **No product or category scope, no automatic promotions, no stacking:** one code per order.
-- **Two evaluators.** `GET /api/coupons/apply` evaluates outside the pricing pipeline, trusts a client subtotal and ignores the per-customer limit. It contradicts the "one pipeline" rule; the SPA does not use it, but it is still public.
-- **Currency is not re-checked on the rules.** `EnsureUsable` compares the minimum order by amount only, and a fixed value is a bare decimal applied in the basket's currency, so a coupon created as "5 JOD" becomes "5 USD" if the store's currency changes.
+- **A fixed discount carries no currency of its own** (R-09): `Coupon.Value` is a bare `decimal` and `CalculateDiscount` stamps the basket's currency onto it, while `MinOrderAmount` beside it *is* a `Money` with its own column. The way in is closed rather than the asymmetry fixed: a store cannot change its currency once it has a coupon (`PlatformQueries.HasCommercialActivityAsync` counts coupons, pinned by `كوبون_وحده_يقفل_عملة_المتجر_بلا_منتج_ولا_طلب`), and `EnsureUsable` compares the minimum's currency **before** its amount — re-confirmed in M8. Two honest limits on that: the guard can only speak when a coupon *has* a minimum, which is not R-09's case, and the lock was never backfilled, so it protects no store that changed currency before Phase 17. Neither matters yet — nothing is in production — and both are recorded in R-09 rather than fixed with a speculative column.
 - **The entity's percentage message says "between 1 and 100"** while the check accepts any value above 0 (0.5 is valid).
 - **Admin coupon changes leave no audit trail.**
 - **Contention:** checkouts on one popular code serialise on its row.
@@ -255,4 +250,4 @@ See [ChangeGuide.md](ChangeGuide.md): add a coupon type; scope coupons to produc
 - **FUTURE:** automatic promotions and stacking — the roadmap records them as not planned; they need a new aggregate and an evaluation contract.
 - **FUTURE:** an atomic conditional update for a contended coupon, ADR-0030's named fallback.
 - **DEFERRED:** releasing a use when an order is refunded rather than cancelled — a product decision, not a technical gap.
-- **FUTURE:** retiring `GET /api/coupons/apply` in favour of the basket quote, leaving one evaluator.
+- **Delivered (M8):** `GET /api/coupons/apply` retired in favour of the basket quote, leaving one evaluator (TD-06 closed). "Reimplement it over `IPricing`" was the other option TD-06 named, and it collapses into the basket quote — pricing the caller's real basket through `IPricing` is exactly what that endpoint already does, anonymously and under the same rate limit.

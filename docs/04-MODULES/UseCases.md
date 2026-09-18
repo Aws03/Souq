@@ -15,7 +15,7 @@
 | [Shopping](#shopping) | `src/Souq.Application/Features/Baskets`, `src/Souq.Application/Features/Wishlist` | 10 | 2 | 2 |
 | [Ordering](#ordering) | `src/Souq.Application/Features/Orders` | 7 | 4 | 0 |
 | [Payments](#payments) | `src/Souq.Application/Features/Payments` | 4 | 2 | 3 |
-| [Promotions](#promotions) | `src/Souq.Application/Features/Coupons` | 3 | 3 | 1 |
+| [Promotions](#promotions) | `src/Souq.Application/Features/Coupons` | 3 | 2 | 1 |
 | [Shipping](#shipping) | `src/Souq.Application/Features/Shipping` | 3 | 1 | 1 |
 | [Reviews](#reviews) | `src/Souq.Application/Features/Reviews` | 3 | 2 | 0 |
 | [Notifications](#notifications) | `src/Souq.Application/Features/Notifications` | 2 | 2 | 0 |
@@ -225,7 +225,6 @@ Module document: [Promotions/README.md](Promotions/README.md).
 | `CreateCouponCommand` | command | `CreateCouponHandler` | `CreateCouponValidator` | — | `POST /api/coupons` |
 | `DeleteCouponCommand` | command | `DeleteCouponHandler` | `DeleteCouponValidator` | — | `DELETE /api/coupons/{id:int}` |
 | `UpdateCouponCommand` | command | `UpdateCouponHandler` | `UpdateCouponValidator` | — | `PUT /api/coupons/{id:int}` |
-| `ApplyCouponQuery` | query | `ApplyCouponHandler` | — | — | `GET /api/coupons/apply` |
 | `GetCouponRedemptionsQuery` | query | `GetCouponRedemptionsHandler` | `GetCouponRedemptionsQueryValidator` | — | `GET /api/coupons/{id:int}/redemptions` |
 | `GetCouponsQuery` | query | `GetCouponsHandler` | `GetCouponsQueryValidator` | — | `GET /api/coupons` |
 

@@ -5,7 +5,7 @@
 >
 > Conventions (errors, paging, status codes): [ApiDocumentation.md](ApiDocumentation.md). Use cases per module: [UseCases.md](../04-MODULES/UseCases.md).
 
-**144 endpoints** in 26 controllers: 27 anonymous, 27 for any signed-in account, 90 behind a permission.
+**143 endpoints** in 26 controllers: 26 anonymous, 27 for any signed-in account, 90 behind a permission.
 
 ## How to read this table
 
@@ -101,7 +101,6 @@
 | DELETE | `/api/categories/{id:int}` | `catalog.manage` | store | — | — | `DeleteCategoryCommand` | Catalog |
 | GET | `/api/coupons` | `promotions.manage` | store | `promotions` | — | `GetCouponsQuery` | Promotions |
 | POST | `/api/coupons` | `promotions.manage` | store | `promotions` | — | `CreateCouponCommand` | Promotions |
-| GET | `/api/coupons/apply` | anonymous | store | `promotions` | `coupon-preview` | `ApplyCouponQuery` | Promotions |
 | PUT | `/api/coupons/{id:int}` | `promotions.manage` | store | `promotions` | — | `UpdateCouponCommand` | Promotions |
 | DELETE | `/api/coupons/{id:int}` | `promotions.manage` | store | `promotions` | — | `DeleteCouponCommand` | Promotions |
 | GET | `/api/coupons/{id:int}/redemptions` | `promotions.manage` | store | `promotions` | — | `GetCouponRedemptionsQuery` | Promotions |

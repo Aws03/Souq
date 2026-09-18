@@ -173,7 +173,7 @@ The harness exists since Phase 1A. It already proves **user-level** isolation: c
 | Background and seeding work inside one store | `Infrastructure/Tenancy/TenantScopes.RunAsync` | `DbSeeder` (default store) |
 | Tenant-prefixed storage `tenants/{id}/…` | `LocalFileStorage` | `LocalFileStorageTests`, `TenantIsolationTests` (A's file on B's host → 404) |
 | `TenantId` in every request log scope | `RequestLoggingMiddleware` | `TenantResolutionTests` |
-| Explicit store currency (`Money` has no default); `Order.Currency` snapshot | Domain + handlers | `ApplyCouponHandlerTests`, `CreateProductHandlerTests` |
+| Explicit store currency (`Money` has no default); `Order.Currency` snapshot | Domain + handlers | `PricingServiceTests`, `CreateProductHandlerTests` |
 
 **Left for later phases, by design:**
 - ✅ Platform read use cases through a reviewed and audited `PlatformQueries` (done in Phase 4, [ADR-0024](../11-ADR/0024-platform-administration.md)).

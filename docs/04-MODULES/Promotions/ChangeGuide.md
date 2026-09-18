@@ -17,7 +17,7 @@
 
 **Files to read first:** `src/Souq.Domain/Entities/Coupon.cs`, `src/Souq.Domain/Entities/CouponRedemption.cs`, `src/Souq.Application/Features/Coupons/Redemptions/CouponRedemptions.cs`, `src/Souq.Application/Features/Coupons/Contracts/CouponRedemptionContracts.cs`, `src/Souq.Application/Features/Baskets/Pricing/PricingService.cs`, `src/Souq.Application/Features/Orders/Commands/CreateOrderHandler.cs`, `src/Souq.Application/Features/Orders/OrderPaymentConfirmation.cs`.
 
-**Tests that guard the module:** `CouponRuleMatrixTests`, `CouponTests`, `CouponRedemptionsTests`, `CouponHandlersTests`, `ApplyCouponHandlerTests`, `PricingServiceTests`, `CreateOrderHandlerTests`, `ConfirmOrderPaymentHandlerTests`, `CouponRedemptionTests`, `PlatformAdministrationTests`, `MigrationRehearsalTests`, and the frontend `couponForm.test.js`.
+**Tests that guard the module:** `CouponRuleMatrixTests`, `CouponTests`, `CouponRedemptionsTests`, `CouponHandlersTests`, `PricingServiceTests`, `CreateOrderHandlerTests`, `ConfirmOrderPaymentHandlerTests`, `CouponRedemptionTests`, `PlatformAdministrationTests`, `MigrationRehearsalTests`, and the frontend `couponForm.test.js`.
 
 ---
 
@@ -92,13 +92,25 @@
 - **Database:** none.
 - **Docs and ADR:** amend ADR-0030 with the measurement and the choice.
 
-## I need to retire the legacy preview endpoint
+## ~~I need to retire the legacy preview endpoint~~ — done in M8
 
-- **Inspect:** `CouponsController` (the `Apply` action), `ApplyCouponQuery` and `ApplyCouponHandler`, `ApplyCouponHandlerTests`, and the integration tests that use the route as a convenient probe: `ErrorContractTests`, `PlatformAdministrationTests`, `TenantIsolationTests`, plus the public list in `AuthorizationBoundaryTests`.
-- **Rules to respect:** it is a public endpoint, so removal is a breaking change for anything outside this repository. It is also the only coupon evaluator outside the pipeline, which is why removing it is worth doing: it ignores the per-customer limit and trusts a client subtotal.
-- **Steps:** confirm the SPA does not call it (it uses `quoteBasket`); mark it DEPRECATED in the API docs for one release; move the tests that use it onto `/api/basket/quote`; then delete the action, the query, the handler and its test, and remove the route from the public list.
-- **Tests:** update the four integration tests above and delete `ApplyCouponHandlerTests`.
-- **API:** removal of a documented public route; note it in the docs and in the roadmap change log.
-- **Database:** none.
-- **Security:** one fewer anonymous surface for guessing codes; the rate limit then guards only the quote.
-- **Docs and ADR:** [ApiDocumentation.md](../../05-API/ApiDocumentation.md), this README, and [Modules.md](../Modules.md); the intended "the pipeline is the only evaluator" design becomes true again.
+This recipe was followed and the endpoint is gone (TD-06 closed). Kept here for the record, because two of its own
+assumptions turned out to be wrong and a third step was deliberately not taken:
+
+- **What was done:** confirmed the SPA never called it (`client.js` had no entry; the checkout's "Apply" button
+  re-quotes the basket); re-pointed the three integration tests that used the route as a convenient anonymous
+  probe onto other specimens — the problem+json contract onto `POST /api/orders` with an unknown code, module
+  gating onto `GET /api/coupons` (the gate runs before authentication, so an anonymous request still reads
+  `ModuleDisabled`), tenant isolation onto `GET /api/basket/quote`; then deleted the action, the query and the
+  handler, and its two unit tests, whose rules both live in Domain and are tested there.
+- **The DEPRECATED-for-one-release step was skipped, on purpose.** Its reason was that removal breaks consumers
+  outside this repository. There are none: the platform has not launched, there are no releases to deprecate
+  across, and no external client exists to warn. Deprecating would have been ceremony, and the master plan's M8
+  entry authorised deleting outright once nothing was found to depend on it. **Reinstate this step the moment
+  there is a published API consumer** — the reasoning above expires at launch, not the rule.
+- **Two stale assumptions in the old recipe, corrected:** there is no coupon route in
+  `AuthorizationBoundaryTests`' public list, so there was nothing to remove there; and TD-06's claim that the
+  endpoint skipped the module check was wrong — `RequiresModule` was on the controller all along.
+- **Security:** one fewer anonymous surface. The `coupon-preview` limit now guards the basket quote alone, which
+  is the only place a code can be priced — and only against the caller's own basket, so a code can no longer be
+  probed for what it would give on an amount the caller invents.
