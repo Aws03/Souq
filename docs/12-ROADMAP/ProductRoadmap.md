@@ -806,7 +806,7 @@ Status legend: ✅ done · 🟡 in progress · ⏳ planned · ⏸ awaiting appro
   - ~~An audit-log viewer~~ **delivered**: `/platform/audit`, with the server's store, activity-prefix, account and date filters kept in the URL and applied by a button (reading the log writes a line), server paging, and each entry's recorded details. It shows ids and roles because that is what a line records, and says on screen what the log never contains.
 - **Exit criteria.** The platform owner can provision a new client store end-to-end in the UI. **Met**, and proven past the activation click: `frontend/e2e/platform-provisioning.spec.js` creates a store on the platform host, brands it, adds its domain, disables a module, invites the administrator and activates it; the administrator then accepts on the store's own host, signs in and finds an empty catalogue, while the owner's token is refused on every admin surface of that store. `ProvisioningBoundaryTests` proves the same boundaries over HTTP.
 
-### Phase 19: Testing ⏳
+### Phase 19: Testing 🟡 — exit criterion met in substance; the pipeline that would enforce it cannot run
 - **Scope.**
   - Coverage-gap analysis. Critical rules must be fully covered.
   - An E2E suite per area (tool decision).
@@ -814,8 +814,20 @@ Status legend: ✅ done · 🟡 in progress · ⏳ planned · ⏸ awaiting appro
   - A review of the isolation suite.
   - A load smoke test.
 - **Exit criteria.** Test suites are ready for CI, and coverage of critical behavior is documented.
+- **Delivered by M19** ([SouqMasterPlan.md](SouqMasterPlan.md)): a coverage audit that read **all 229 rules in
+  `BusinessRules.md` against the test bodies** rather than the documents' own Tests columns, written up in
+  [TestingStrategy.md](../10-TESTING/TestingStrategy.md) §6, and a rewritten
+  [Traceability.md](../10-TESTING/Traceability.md) — five gaps it recorded as open had been closed in M5, M9,
+  M14 and M16, and five shipped capability areas had no row at all. E2E exists per area (19 Playwright files,
+  124 journeys) and frontend unit tests exist (90 files, 698 tests); the isolation suite was reviewed in M15.
+  A load harness exists (`scripts/load-test.py`) and is run by hand.
+- **Why 🟡 and not ✅:** "ready for CI" is true of the code — the build is warning-free and the suites run — and
+  **unproven of the pipeline**, because GitHub Actions has not executed since before M13 for billing reasons
+  (TD-31, [OwnerDecisions.md](../09-OPERATIONS/OwnerDecisions.md)). The audit also found that roughly two rules
+  in five name a test that asserts only part of what the rule says, and that nothing in the build can detect
+  that (TD-58). Both are named rather than absorbed.
 
-### Phase 20: Security review ⏳
+### Phase 20: Security review ✅ *(M15)* — the review found real defects and they were fixed, not documented
 - **Scope.**
   - A STRIDE threat model per area.
   - The OWASP ASVS Level 2 checklist.
@@ -828,7 +840,7 @@ Status legend: ✅ done · 🟡 in progress · ⏳ planned · ⏸ awaiting appro
   - Optionally, SQL Server Row-Level Security as defense in depth.
 - **Exit criteria.** Every finding is either fixed or explicitly accepted with a written rationale.
 
-### Phase 21: Performance review ⏳
+### Phase 21: Performance review ✅ *(M16)* — measured first; almost nothing was changed, and that is the finding
 - **Scope.**
   - Query plans and indexes that lead with `TenantId`.
   - Removing N+1 queries.
@@ -839,7 +851,7 @@ Status legend: ✅ done · 🟡 in progress · ⏳ planned · ⏸ awaiting appro
   - Load tests against agreed targets.
 - **Exit criteria.** The targets agreed at the start of the phase are met, for example p95 catalog latency under 300 ms at the agreed load.
 
-### Phase 22: Documentation ⏳
+### Phase 22: Documentation ✅ — documentation is produced per phase (plan §3 step 9), not as a late catch-up
 - **Scope.**
   - Finalize every document in §10.
   - API reference generated from OpenAPI.
@@ -847,7 +859,7 @@ Status legend: ✅ done · 🟡 in progress · ⏳ planned · ⏸ awaiting appro
   - Operational runbooks.
 - **Exit criteria.** A new developer can set up, run, and ship a change using only the docs.
 
-### Phase 23: Production readiness review ⏳
+### Phase 23: Production readiness review 🟡 *(M17, M18, M20)* — the mechanisms are built and rehearsed; the target is the owner's
 - **Scope.**
   - CI/CD and environments. **CI delivered early** by the operational readiness engineering mission ([`.github/workflows/ci.yml`](../../.github/workflows/ci.yml)); CD and defined environments remain.
   - Migrations as a deployment step (a migration bundle) instead of running at app startup.
@@ -945,14 +957,18 @@ The earlier `AUDIT.md` (Arabic, 8-phase program) and the engineering-thinking gu
 
 ## 11. First sellable release
 
-**Must have for client #1:**
-- Phases 1A–18 at their stated scope.
-- One live payment gateway plus the mock gateway.
-- Flat-rate and free-over-threshold shipping.
-- Email notifications.
-- The Phase 20 security review.
-- The Phase 23 go-live checklist.
-- **Every P0 in [ReleaseReadiness.md](../09-OPERATIONS/ReleaseReadiness.md) closed, or accepted in writing by the owner.** Five are open today and they are not the same kind of thing: R-12, R-16 and R-19 are engineering and operational work (privileged database credentials, no TLS or HSTS, no backups or restore rehearsal); R-01 needs verification against the real Stripe account (P-05); R-25 needs an owner decision on tax (P-06). The first group can be planned; the last two cannot be closed by engineering at all. This gate is independent of the phases above — a finished Phase 18 does not make a release safe.
+**Must have for client #1** — accounted for item by item on 2026-09-18 (M20). Each line says whether it is
+*built and verified*, *built but unverifiable here*, or *the owner's*:
+
+| Item | State |
+|---|---|
+| Phases 1A–18 at their stated scope | **Built.** Phase 18 is 🟡 on two owner decisions (D-22 storefront preview, P-07), not on engineering |
+| One live payment gateway plus the mock gateway | **Built, unverified.** `StripeGateway` exists and the fake gateway is deliberate and explicit; **nothing has ever run against a real Stripe account** (P-05, R-01), and the adapter itself has no test (TD-33, TD-52). This is the largest money-risk item on the list |
+| Flat-rate and free-over-threshold shipping | **Built and tested.** `ShippingMethod` carries `FreeOverAmount`, a carrier and a tracking template; snapshotted onto the order |
+| Email notifications | **Built, unverified.** Four adapters (Resend, Brevo, Gmail SMTP, and a log adapter that refuses to pretend) behind the outbox; **no message has been delivered by a real provider from here** |
+| The Phase 20 security review | **Done (M15)**, and it found real defects — a rate-limit bypass through host casing among them — which were fixed rather than recorded |
+| The Phase 23 go-live checklist | **Exists and was run** at maximum strictness (M20). It cannot be *signed off*, because several REQUIRED boxes are assertions about a deployment that does not exist |
+- **Every P0 in [ReleaseReadiness.md](../09-OPERATIONS/ReleaseReadiness.md) closed, or accepted in writing by the owner.** **Six are open on 2026-09-18**, and five of them need the owner's infrastructure rather than engineering: least-privilege database logins (R-12), TLS (R-16), backups scheduled and off-host (R-19), rate limits across instances (R-11), and monitoring plus a pipeline that can actually run (R-20). The sixth, R-03, is a product decision: cancelling a paid order refunds it in full on `orders.manage` alone, which `TenantStaff` holds. They are not the same kind of thing: R-12, R-16 and R-19 are engineering and operational work (privileged database credentials, no TLS or HSTS, no backups or restore rehearsal); R-01 needs verification against the real Stripe account (P-05); R-25 needs an owner decision on tax (P-06). The first group can be planned; the last two cannot be closed by engineering at all. This gate is independent of the phases above — a finished Phase 18 does not make a release safe.
 
 **Can follow after launch, without architectural change:**
 - Complex variant option-matrix UI (the data model supports variants from Phase 5).

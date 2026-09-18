@@ -193,6 +193,52 @@ without arguments it reports four skipped sections and says so; `--require-all` 
 failure, which is the mode to use before a real release. A gate that passes because you gave it nothing is
 worse than no gate, because it hands out confidence nobody earned.
 
+## What M20 verified, and what it could not (2026-09-18)
+
+The final phase of [SouqMasterPlan.md](../12-ROADMAP/SouqMasterPlan.md) ran this gate at maximum strictness
+(`--require-all`) against the container stack, because **there is no other deployment to run it against**. That
+sentence is the whole of the launch story, and the three lists below say what follows from it.
+
+**Verified here, by running it — not by reading the file:**
+
+- **Backups are a working chain, not a script that exists.** A real set was taken from the running stack
+  (`database.bak` + uploads + a manifest naming the migration head and row counts), its checksums verified, and
+  then **restored onto clean throwaway infrastructure** by `scripts/rehearse-restore.sh`: row counts and
+  migration head matched the manifest, composite tenant foreign keys were intact, no order row was orphaned, no
+  constraint was left untrusted, and the database came back writable. The drill record it wrote is what
+  `backup-verify.sh` then read back — and that verifier now fails *closed*, which it did not before M18.
+- **The deployed stack answers.** 31 smoke checks against a live deployment of the exact commit.
+- **Dependencies.** No vulnerable NuGet package; nothing high or critical in what reaches the browser.
+- **The repository builds warning-free and every suite is green** on the certified commit.
+- **Deployment and rollback.** `scripts/deploy.sh` was exercised in M18 on a real stack: a successful deploy, a
+  deliberately broken version that failed its health check and was **rolled back automatically**, and the same
+  failure with the schema state withheld, which **refused** and printed the restore path. The migration bundle
+  was built, run against a live database, and stepped back one migration and forward again.
+
+**Production-only, and therefore not verified by anyone yet.** Each needs a thing this repository cannot
+contain, and none is an engineering gap:
+
+| What | Why it cannot be verified here |
+|---|---|
+| TLS, HSTS in practice, forwarded-proto trust | needs a terminator and a certificate for a real domain (R-16) |
+| A live payment gateway | needs real Stripe keys and a real account; the stack runs the fake gateway on purpose (P-05, R-01) |
+| Real email delivery, SPF/DKIM per store | needs a provider account and DNS (R9) |
+| Least-privilege database logins | the recipe is written and measured; applying it needs a real server (R-12) |
+| Backups off-host, on a schedule, with an alert | the mechanism is rehearsed; the schedule and destination are a deployment's (R-19) |
+| A metrics destination and anything watching the health endpoints | four counters emit; nothing exports them (R-20) |
+| Automated TLS for merchant domains | needs an edge that can answer an ACME challenge (R7) |
+
+**Owner actions that block the rest**, in [OwnerDecisions.md](OwnerDecisions.md): the **GitHub Actions billing
+block** (no workflow has run since before M13, so neither CI nor the release pipeline has ever executed),
+**branch protection**, and the commercial and legal items in §18 — tax, refund policy, licensing and the legal
+pages — which this repository deliberately invents no rules for.
+
+**Therefore this checklist is not signed off, and cannot be by engineering.** Several **REQUIRED** boxes are
+assertions about a deployment that does not exist. What can be said precisely is: every box that is an assertion
+about *the repository* is green, and every box that is an assertion about *a deployment* is unmet because there
+is no deployment. [ReleaseReadiness.md](ReleaseReadiness.md) carries six open items and five of them are in that
+second category.
+
 ## Sign-off
 
 A release is ready when every **REQUIRED** box is ticked, every skipped **RECOMMENDED** box has a written reason, and [ReleaseReadiness.md](ReleaseReadiness.md) shows no open P0. Record who signed off and against which commit.

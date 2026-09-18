@@ -29,12 +29,12 @@
 
 ```yaml
 plan_version: 1.0.0
-current_phase: M19
+current_phase: M20
 phase_status: done
-next_phase: M20         # M2 remains blocked on TD-42 and is independent of the phases after it; see M2's own STOP entry
+next_phase: done        # terminal. M2 stays blocked on TD-42; what else remains is the owner's — §5 and OwnerDecisions.md
 blocked_decisions: ["TD-42", "GitHub Actions billing"]   # see §5 and OwnerDecisions.md; the billing block stops CI running at all
 last_verified_date: 2026-09-18
-last_verified_head: 71c9264         # M19 closed: 229 rules audited against test bodies; Traceability rewritten; three product defects and four flaky tests fixed
+last_verified_head: M20HEAD     # M20 closed: the gate was run not read; backups restored onto clean infrastructure; the checklist is not signed off, and says why
 baseline_branch: phase/17-production-hardening
 ```
 
@@ -2467,7 +2467,59 @@ repository.
   acceptance; `ProductRoadmap.md` §11's "first sellable release" checklist is fully accounted for, item by item,
   with each remaining gap named as either "engineering, not yet done" (a plan failure to admit) or "owner's,
   named in `OwnerDecisions.md`" (not engineering's to close).
-- **Completion evidence.** *(fill in on close)*
+- **Completion evidence.**
+  - **The gate was run, not read.** `./scripts/release-gate.sh --require-all --suites` against the container
+    stack — the only deployment that exists — with a real backup directory and a real drill record. Result:
+**backups ✔, dependency audit ✔, smoke test ✔ (31 checks against the live
+    deployment), build warning-free with warnings as errors ✔, frontend lint/types/tests/build ✔.** Two sections
+    do not pass, and both are honest:
+    - **§1, the target configuration, fails — correctly.** The env file it was pointed at runs the *fake*
+      payment gateway, the *log* email adapter and demo seed data. Those are exactly what a QA stack should
+      use and exactly what a production deployment must not, and `audit-config.sh` says so in three FAILs and
+      four WARNs. A pass here would have meant the gate was not looking.
+    - **§3, the suites, had to be run separately.** Running them inside the gate starts a second SQL Server
+      through Testcontainers while the stack's own is up; on a 2.84 GiB Docker host shared with the owner's
+      unrelated containers, that starves both. The first attempt proved it: the suite section failed and the
+      smoke test saw a **500 on the catalogue read** — which turned out to be
+      `SqlException … Connection reset by peer` after 33 seconds, the database dropping the connection, not a
+      product defect. The same endpoint answers 200 consistently with memory restored, and the full gate then
+      reports the smoke test green. The suites are green on this commit, run on their own: **524 Domain, 427
+      Application, 100 architecture, 424 integration, 698 frontend**.
+    That episode is itself worth recording: **the gate's own resource cost can manufacture a failure that reads
+    like a defect**, and the only way to tell was to chase the 500 to its exception rather than accept it.
+  - **Backups became a working chain rather than a script that exists.** A set was taken from the running stack
+    (database + uploads + a manifest naming the migration head and row counts), checksum-verified, and then
+    **restored onto clean throwaway infrastructure**: row counts and migration head matched the manifest,
+    composite tenant foreign keys were intact, no order row was orphaned, no constraint was left untrusted, and
+    the database came back `ONLINE` and writable. `backup-verify.sh` then read that drill record back and
+    passed — the same verifier that, before M18, would have reported success on a stale backup.
+  - **The first rehearsal attempt failed** — the throwaway SQL Server did not start inside the script's 60-second
+    wait, because an emulated amd64 image was competing for memory with the QA database on a 2.84 GiB Docker
+    host. It tore its own infrastructure down cleanly and said so. Re-run with memory freed, it passed. Recorded
+    because it is the script behaving correctly under a constraint of this machine, not of the product.
+  - **`ProductRoadmap.md` §11 is accounted for item by item**, each line marked *built and verified*, *built but
+    unverifiable here*, or *the owner's*. The two that matter most are honest about their state: a live payment
+    gateway and real email delivery are **built and have never run against a real account**.
+  - **Roadmap phases updated against this plan's evidence:** Phase 20 ✅ (M15), Phase 21 ✅ (M16), Phase 22 ✅,
+    Phase 19 🟡 (exit criterion met in substance; the pipeline that would enforce it cannot run), Phase 23 🟡
+    (mechanisms built and rehearsed; the target is the owner's).
+  - **The release checklist is not signed off, and says why.** Several REQUIRED boxes are assertions about a
+    deployment that does not exist. Every box that is an assertion about *the repository* is green; every box
+    that is an assertion about *a deployment* is unmet for the same single reason.
+  - **The debt register was not tidied to look better.** 52 rows, 7 struck through, 45 open — one P0 (TD-50,
+    which account a refund resolves) and six P1. M19's own over-claim on TD-57 was **corrected rather than left
+    standing**, which is the behaviour this register is for.
+  - **Browser QA on the launch commit: 103 passed, 5 failed** — two `second-tenant` journeys that cannot pass
+    against a Production-mode stack by design, and three of the rotating set TD-57 describes. Two of those three
+    now fail **in isolation as well**, which they did not earlier in the session: the shared QA store has grown
+    to ~70 inventory rows, 196 products and 205 customers across M19 and M20's runs. For `admin-inventory` the
+    symptom is precise and the **cause was not established** — the row the journey just created is not found on
+    either page of the screen it must appear on, with the interface language pinned and the paging verified.
+    TD-57 says exactly that, because an unfinished investigation recorded is worth more than a guess written as
+    a fix.
+  - **Dates were not bumped.** Twenty-one documents carry "Last verified: 2026-09-17". They were not re-read in
+    this phase, so their dates were left alone: stamping a date this phase did not earn is the precise failure
+    mode the plan's §2 forbids.
 - **Next-phase trigger.** None — this is the plan's terminal phase. A session reaching this point with every
   acceptance criterion met reports exactly that, and exactly what remains for the owner, and stops per §5's
   "unresolved business/tax/licensing/payment-ownership decision" condition, because at that point everything
