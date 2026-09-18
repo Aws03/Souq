@@ -1,6 +1,8 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../api/client';
+import { queryKeys } from '../../app/queryKeys';
 import { useToast } from '../../context/ToastContext';
 import DataTable from '../../components/common/DataTable';
 import RowActionsMenu from '../../components/common/RowActionsMenu';
@@ -17,20 +19,17 @@ export default function Categories() {
   const { t } = useTranslation();
   const toast = useToast();
   const confirmation = useConfirmAction();
-  const [categories, setCategories] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const queryClient = useQueryClient();
   const [editing, setEditing] = useState(null);
 
-  const load = useCallback(() => {
-    setLoading(true);
-    api.getAdminCategories()
-      .then((res) => { setCategories(res); setError(null); })
-      .catch((e) => setError(e.message))
-      .finally(() => setLoading(false));
-  }, []);
+  // قائمة كاملة بلا ترقيم ولا بحث (TD-25، M10): لا سباق معايير هنا، والمكسب أنّ الشجرة تُقرأ من
+  // الذاكرة المؤقّتة عند العودة إليها بدل هياكل تحميلٍ لبيانات جُلبت قبل ثوانٍ.
+  const { data: categories = [], error, isPending, refetch } = useQuery({
+    queryKey: queryKeys.adminCategories({}),
+    queryFn: api.getAdminCategories,
+  });
 
-  useEffect(() => { load(); }, [load]);
+  const reload = () => queryClient.invalidateQueries({ queryKey: queryKeys.adminCategoriesAll() });
 
   const rows = useMemo(() => orderAsTree(categories), [categories]);
   const parentName = (id) => {
@@ -43,14 +42,14 @@ export default function Categories() {
     else await api.createCategory(payload);
     setEditing(null);
     toast.success(editing?.id ? t('admin.categories.updated') : t('admin.categories.created'));
-    load();
+    reload();
   };
 
   const toggleActive = async (category) => {
     try {
       await api.updateCategory(category.id, activationPayload(category, !category.isActive));
       toast.success(t(category.isActive ? 'admin.categories.deactivated' : 'admin.categories.activated'));
-      load();
+      reload();
     } catch (e) { toast.error(e.message); }
   };
 
@@ -62,7 +61,7 @@ export default function Categories() {
     action: async () => {
       await api.deleteCategory(category.id);
       toast.success(t('admin.categories.deleted'));
-      load();
+      reload();
     },
   });
 
@@ -102,8 +101,8 @@ export default function Categories() {
         <Button variant="primary" onClick={() => setEditing({})}>{t('admin.categories.addCategory')}</Button>
       </div>
 
-      <DataTable columns={columns} rows={rows} rowKey={(c) => c.id} loading={loading} error={error}
-        onRetry={load} emptyTitle={t('admin.categories.emptyTitle')} emptyMessage={t('admin.categories.emptyMessage')}
+      <DataTable columns={columns} rows={rows} rowKey={(c) => c.id} loading={isPending} error={error?.message}
+        onRetry={refetch} emptyTitle={t('admin.categories.emptyTitle')} emptyMessage={t('admin.categories.emptyMessage')}
         minWidth="640px" stickyFirstColumn />
 
       {editing !== null && (

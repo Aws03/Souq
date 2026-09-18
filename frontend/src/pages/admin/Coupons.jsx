@@ -1,6 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../api/client';
+import { queryKeys } from '../../app/queryKeys';
 import { useToast } from '../../context/ToastContext';
 import DataTable from '../../components/common/DataTable';
 import RowActionsMenu from '../../components/common/RowActionsMenu';
@@ -22,11 +24,8 @@ export default function Coupons() {
   const { t } = useTranslation();
   const toast = useToast();
   const confirmation = useConfirmAction();
-  const [items, setItems] = useState([]);
-  const [totalPages, setTotalPages] = useState(1);
+  const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
   const [editing, setEditing] = useState(null);
   const [viewing, setViewing] = useState(null);
 
@@ -37,22 +36,22 @@ export default function Coupons() {
     return t('admin.coupons.windowAlways');
   };
 
-  const load = useCallback(() => {
-    setLoading(true);
-    api.getCoupons({ page, pageSize: PAGE_SIZE })
-      .then((res) => { setItems(res.items); setTotalPages(res.totalPages); setError(null); })
-      .catch((e) => setError(e.message))
-      .finally(() => setLoading(false));
-  }, [page]);
+  // المفتاح يحمل الصفحة (TD-25، M10): ردٌّ لصفحةٍ تجاوزها المستخدم يُكتب في مفتاحه لا على الشاشة.
+  const params = { page, pageSize: PAGE_SIZE };
+  const { data, error, isPending, refetch } = useQuery({
+    queryKey: queryKeys.adminCoupons(params),
+    queryFn: () => api.getCoupons(params),
+    placeholderData: keepPreviousData,
+  });
 
-  useEffect(() => { load(); }, [load]);
+  const reload = () => queryClient.invalidateQueries({ queryKey: queryKeys.adminCouponsAll() });
 
   const save = async (payload) => {
     if (editing?.id) await api.updateCoupon(editing.id, payload);
     else await api.createCoupon(payload);
     setEditing(null);
     toast.success(editing?.id ? t('admin.coupons.updated') : t('admin.coupons.created'));
-    load();
+    reload();
   };
 
   const remove = (coupon) => confirmation.ask({
@@ -63,7 +62,7 @@ export default function Coupons() {
     action: async () => {
       await api.deleteCoupon(coupon.id);
       toast.success(t('admin.coupons.deleted'));
-      load();
+      reload();
     },
   });
 
@@ -116,11 +115,11 @@ export default function Coupons() {
         <Button variant="primary" onClick={() => setEditing({})}>{t('admin.coupons.addCoupon')}</Button>
       </div>
 
-      <DataTable columns={columns} rows={items} rowKey={(c) => c.id} loading={loading} error={error}
-        onRetry={load} emptyTitle={t('admin.coupons.emptyTitle')} emptyMessage={t('admin.coupons.emptyMessage')}
+      <DataTable columns={columns} rows={data?.items ?? []} rowKey={(c) => c.id} loading={isPending} error={error?.message}
+        onRetry={refetch} emptyTitle={t('admin.coupons.emptyTitle')} emptyMessage={t('admin.coupons.emptyMessage')}
         minWidth="780px" stickyFirstColumn />
 
-      <Pagination page={page} totalPages={totalPages} onChange={setPage} />
+      {data && <Pagination page={page} totalPages={data.totalPages} onChange={setPage} />}
 
       {editing !== null && (
         <CouponFormDrawer coupon={editing.id ? editing : null} onSave={save} onClose={() => setEditing(null)} />

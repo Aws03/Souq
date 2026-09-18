@@ -1,6 +1,9 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../api/client';
+import { queryKeys } from '../../app/queryKeys';
+import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import DataTable from '../../components/common/DataTable';
 import RowActionsMenu from '../../components/common/RowActionsMenu';
 import Pagination from '../../components/common/Pagination';
@@ -15,27 +18,34 @@ const PAGE_SIZE = 20;
 
 // شاشة طلبات المتجر (المرحلة 9): رقم الطلب داخل المتجر، اسم العميل، بحث (رقم الطلب أو اسم العميل أو بريده) وتصفية
 // بالحالة. الإجراءات في درج الطلب كما يعيدها الخادم من جدول الانتقالات (allowedActions) — لا نسخة ثانية للقاعدة هنا.
+//
+// **على طبقة الاستعلام (TD-25، M10).** البحث هو ما يجعل العيب القديم ملموساً هنا أكثر من الترقيم: كتابة
+// "أحمد" كانت تُطلق طلباً لكل حرف، فإن وصل ردّ "أح" بعد ردّ "أحمد" كُتب فوقه — جدولُ نتائجِ بحثٍ لم
+// يعد مكتوباً في الصندوق. المفتاح يحمل معايير العرض كلّها، فكلّ ردّ يُكتب في مفتاحه لا على الشاشة.
+// والبحث مُهدَّأ كما في نظيرتها على المنصّة (platform/Stores.jsx): حرفٌ واحد لا يستحقّ رحلة.
 export default function Orders() {
   const { t } = useTranslation();
-  const [items, setItems] = useState([]);
-  const [totalPages, setTotalPages] = useState(1);
+  const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
   const [status, setStatus] = useState('');
   const [search, setSearch] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
   const [openId, setOpenId] = useState(null);
+  const term = useDebouncedValue(search.trim());
 
-  const load = useCallback(() => {
-    setLoading(true);
-    api.getOrders(buildOrderQuery({ status, search, page, pageSize: PAGE_SIZE }))
-      .then((res) => { setItems(res.items); setTotalPages(res.totalPages); setError(null); })
-      .catch((e) => setError(e.message))
-      .finally(() => setLoading(false));
-  }, [status, search, page]);
+  const params = buildOrderQuery({ status, search: term, page, pageSize: PAGE_SIZE });
+  const { data, error, isPending, refetch } = useQuery({
+    queryKey: queryKeys.adminOrders(params),
+    queryFn: () => api.getOrders(params),
+    placeholderData: keepPreviousData,
+  });
 
-  useEffect(() => { load(); }, [load]);
-  useEffect(() => { setPage(1); }, [status, search]);
+  const reload = () => queryClient.invalidateQueries({ queryKey: queryKeys.adminOrdersAll() });
+
+  // العودة إلى الصفحة الأولى تحدث في المعالِج لا في تأثير: تصفيةٌ جديدة **سببها** ضغطةُ المستخدم،
+  // وضبطُ حالةٍ داخل تأثيرٍ يُنتج عرضاً متتالياً ويُخفي السبب (react-hooks/set-state-in-effect).
+  // الفرق المرصود الوحيد عن السلوك السابق: كتابةٌ ثم حذفُها بالكامل وأنت على صفحةٍ بعد الأولى تُعيدك
+  // إلى الأولى الآن — لأن اللمسة نفسها هي المعيار، لا القيمة المُهدَّأة. لا اختبار يرصده، ولا هو عيب.
+  const filterBy = (setter) => (value) => { setter(value); setPage(1); };
 
   const statusLabel = (o) => t(`admin.orders.status.${o.status}`, { defaultValue: o.status });
 
@@ -67,21 +77,21 @@ export default function Orders() {
       <div className={styles.toolbar}>
         <label className={styles.search}>
           <SearchIcon size={16} />
-          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={t('admin.orders.searchPlaceholder')} />
+          <input value={search} onChange={(e) => filterBy(setSearch)(e.target.value)} placeholder={t('admin.orders.searchPlaceholder')} />
         </label>
-        <select value={status} onChange={(e) => setStatus(e.target.value)} aria-label={t('admin.orders.colStatus')}>
+        <select value={status} onChange={(e) => filterBy(setStatus)(e.target.value)} aria-label={t('admin.orders.colStatus')}>
           <option value="">{t('admin.orders.allStatuses')}</option>
           {ORDER_STATUSES.map((s) => <option key={s} value={s}>{t(`admin.orders.status.${s}`)}</option>)}
         </select>
       </div>
 
-      <DataTable columns={columns} rows={items} rowKey={(o) => o.id} loading={loading} error={error}
-        onRetry={load} emptyTitle={t('admin.orders.emptyTitle')} emptyMessage={t('admin.orders.emptyMessage')}
-        minWidth="720px" stickyFirstColumn />
+      <DataTable columns={columns} rows={data?.items ?? []} rowKey={(o) => o.id} loading={isPending}
+        error={error?.message} onRetry={refetch} emptyTitle={t('admin.orders.emptyTitle')}
+        emptyMessage={t('admin.orders.emptyMessage')} minWidth="720px" stickyFirstColumn />
 
-      <Pagination page={page} totalPages={totalPages} onChange={setPage} />
+      {data && <Pagination page={page} totalPages={data.totalPages} onChange={setPage} />}
 
-      {openId && <OrderDetailDrawer orderId={openId} onClose={() => setOpenId(null)} onChanged={load} />}
+      {openId && <OrderDetailDrawer orderId={openId} onClose={() => setOpenId(null)} onChanged={reload} />}
     </div>
   );
 }

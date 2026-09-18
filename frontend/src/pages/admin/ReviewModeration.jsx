@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../api/client';
+import { queryKeys } from '../../app/queryKeys';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import DataTable from '../../components/common/DataTable';
@@ -22,35 +24,36 @@ export default function ReviewModeration() {
   const { t } = useTranslation();
   const { can } = useAuth();
   const toast = useToast();
-  const [items, setItems] = useState([]);
-  const [totalPages, setTotalPages] = useState(1);
+  const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
   const [status, setStatus] = useState('Pending');
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
   const [rejecting, setRejecting] = useState(null);
-  const [autoApprove, setAutoApprove] = useState(null);
   const canEditPolicy = can('store.settings.manage');
 
-  const load = useCallback(() => {
-    setLoading(true);
-    api.getAdminReviews(buildReviewQuery({ status, page, pageSize: PAGE_SIZE }))
-      .then((res) => { setItems(res.items); setTotalPages(res.totalPages); setError(null); })
-      .catch((e) => setError(e.message))
-      .finally(() => setLoading(false));
-  }, [status, page]);
+  // المفتاح يحمل الحالة والصفحة (TD-25، M10): تبديل التصفية بسرعة لا يُظهر نتائج التصفية السابقة.
+  const params = buildReviewQuery({ status, page, pageSize: PAGE_SIZE });
+  const { data, error, isPending, refetch } = useQuery({
+    queryKey: queryKeys.adminReviews(params),
+    queryFn: () => api.getAdminReviews(params),
+    placeholderData: keepPreviousData,
+  });
 
-  useEffect(() => { load(); }, [load]);
-  useEffect(() => { setPage(1); }, [status]);
-  useEffect(() => {
-    api.getReviewSettings().then((s) => setAutoApprove(s.autoApprove)).catch(() => setAutoApprove(null));
-  }, []);
+  // إعداد الموافقة الآلية شريط تنبيه لا محتوى الشاشة، فخطؤه يُقرأ "غير معروف" (null) كما كان.
+  const { data: reviewSettings } = useQuery({
+    queryKey: ['admin-review-settings'],
+    queryFn: api.getReviewSettings,
+  });
+  const autoApprove = reviewSettings?.autoApprove ?? null;
+
+  const reload = () => queryClient.invalidateQueries({ queryKey: queryKeys.adminReviewsAll() });
+  // في المعالِج لا في تأثير: التصفية سببها ضغطة المستخدم.
+  const filterBy = (setter) => (value) => { setter(value); setPage(1); };
 
   const approve = async (review) => {
     try {
       await api.approveReview(review.id);
       toast.success(t('admin.reviews.approvedToast'));
-      load();
+      reload();
     } catch (e) { toast.error(e.message); }
   };
 
@@ -58,14 +61,15 @@ export default function ReviewModeration() {
     await api.rejectReview(rejecting.id, note);
     toast.success(t('admin.reviews.rejectedToast'));
     setRejecting(null);
-    load();
+    reload();
   };
 
   const changePolicy = async (e) => {
     const next = e.target.checked;
     try {
       await api.updateReviewSettings(next);
-      setAutoApprove(next);
+      // الردّ يُكتب في الذاكرة المؤقّتة مباشرةً بدل جلبٍ ثانٍ: ما أُرسل هو ما صار عليه الإعداد.
+      queryClient.setQueryData(['admin-review-settings'], { autoApprove: next });
       toast.success(t('admin.reviews.policySaved'));
     } catch (err) { toast.error(err.message); }
   };
@@ -122,17 +126,17 @@ export default function ReviewModeration() {
       )}
 
       <div className={styles.toolbar}>
-        <select value={status} onChange={(e) => setStatus(e.target.value)} aria-label={t('admin.reviews.colStatus')}>
+        <select value={status} onChange={(e) => filterBy(setStatus)(e.target.value)} aria-label={t('admin.reviews.colStatus')}>
           <option value="">{t('admin.reviews.allStatuses')}</option>
           {REVIEW_STATUSES.map((s) => <option key={s} value={s}>{t(`admin.reviews.status.${s}`)}</option>)}
         </select>
       </div>
 
-      <DataTable columns={columns} rows={items} rowKey={(r) => r.id} loading={loading} error={error}
-        onRetry={load} emptyTitle={t('admin.reviews.emptyTitle')} emptyMessage={t('admin.reviews.emptyMessage')}
+      <DataTable columns={columns} rows={data?.items ?? []} rowKey={(r) => r.id} loading={isPending}
+        error={error?.message} onRetry={refetch} emptyTitle={t('admin.reviews.emptyTitle')} emptyMessage={t('admin.reviews.emptyMessage')}
         minWidth="900px" stickyFirstColumn />
 
-      <Pagination page={page} totalPages={totalPages} onChange={setPage} />
+      {data && <Pagination page={page} totalPages={data.totalPages} onChange={setPage} />}
 
       {rejecting && <RejectReviewDrawer review={rejecting} onReject={reject} onClose={() => setRejecting(null)} />}
     </div>

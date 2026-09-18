@@ -1,6 +1,8 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../api/client';
+import { queryKeys } from '../../app/queryKeys';
 import { useToast } from '../../context/ToastContext';
 import DataTable from '../../components/common/DataTable';
 import RowActionsMenu from '../../components/common/RowActionsMenu';
@@ -17,27 +19,24 @@ export default function ShippingMethods() {
   const { t } = useTranslation();
   const toast = useToast();
   const confirmation = useConfirmAction();
-  const [items, setItems] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const queryClient = useQueryClient();
   const [editing, setEditing] = useState(null);
 
-  const load = useCallback(() => {
-    setLoading(true);
-    api.getShippingMethods()
-      .then((list) => { setItems(list); setError(null); })
-      .catch((e) => setError(e.message))
-      .finally(() => setLoading(false));
-  }, []);
+  // قائمة كاملة بلا ترقيم (TD-25، M10): المكسب أنّها تُقرأ من الذاكرة المؤقّتة عند العودة
+  // إليها، وأنّ الإنعاش بعد تعديلٍ صار إبطالَ مفتاحٍ لا نداءً ثانياً مكتوباً بيد.
+  const { data: items = [], error, isPending, refetch } = useQuery({
+    queryKey: queryKeys.adminShipping({}),
+    queryFn: api.getShippingMethods,
+  });
 
-  useEffect(() => { load(); }, [load]);
+  const reload = () => queryClient.invalidateQueries({ queryKey: queryKeys.adminShippingAll() });
 
   const save = async (payload) => {
     if (editing?.id) await api.updateShippingMethod(editing.id, payload);
     else await api.createShippingMethod(payload);
     toast.success(editing?.id ? t('admin.shipping.updated') : t('admin.shipping.created'));
     setEditing(null);
-    load();
+    reload();
   };
 
   const remove = (method) => confirmation.ask({
@@ -48,7 +47,7 @@ export default function ShippingMethods() {
     action: async () => {
       await api.deleteShippingMethod(method.id);
       toast.success(t('admin.shipping.deleted'));
-      load();
+      reload();
     },
   });
 
@@ -95,8 +94,8 @@ export default function ShippingMethods() {
         <Button variant="primary" onClick={() => setEditing({})}>{t('admin.shipping.add')}</Button>
       </div>
 
-      <DataTable columns={columns} rows={items} rowKey={(m) => m.id} loading={loading} error={error}
-        onRetry={load} emptyTitle={t('admin.shipping.emptyTitle')} emptyMessage={t('admin.shipping.emptyMessage')}
+      <DataTable columns={columns} rows={items} rowKey={(m) => m.id} loading={isPending} error={error?.message}
+        onRetry={refetch} emptyTitle={t('admin.shipping.emptyTitle')} emptyMessage={t('admin.shipping.emptyMessage')}
         minWidth="820px" stickyFirstColumn />
 
       {editing !== null && (

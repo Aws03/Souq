@@ -1,6 +1,8 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../api/client';
+import { queryKeys } from '../../app/queryKeys';
 import { useToast } from '../../context/ToastContext';
 import DataTable from '../../components/common/DataTable';
 import RowActionsMenu from '../../components/common/RowActionsMenu';
@@ -21,27 +23,24 @@ export default function SearchSynonyms() {
   const { t } = useTranslation();
   const toast = useToast();
   const confirmation = useConfirmAction();
-  const [items, setItems] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const queryClient = useQueryClient();
   const [editing, setEditing] = useState(null);
 
-  const load = useCallback(() => {
-    setLoading(true);
-    api.getSearchSynonyms()
-      .then((list) => { setItems(list); setError(null); })
-      .catch((e) => setError(e.message))
-      .finally(() => setLoading(false));
-  }, []);
+  // قائمة كاملة بلا ترقيم (TD-25، M10): المكسب أنّها تُقرأ من الذاكرة المؤقّتة عند العودة
+  // إليها، وأنّ الإنعاش بعد تعديلٍ صار إبطالَ مفتاحٍ لا نداءً ثانياً مكتوباً بيد.
+  const { data: items = [], error, isPending, refetch } = useQuery({
+    queryKey: queryKeys.adminSynonyms({}),
+    queryFn: api.getSearchSynonyms,
+  });
 
-  useEffect(() => { load(); }, [load]);
+  const reload = () => queryClient.invalidateQueries({ queryKey: queryKeys.adminSynonymsAll() });
 
   const save = async (payload) => {
     if (editing?.id) await api.updateSearchSynonym(editing.id, payload);
     else await api.createSearchSynonym(payload);
     toast.success(editing?.id ? t('admin.searchSynonyms.updated') : t('admin.searchSynonyms.created'));
     setEditing(null);
-    load();
+    reload();
   };
 
   const remove = (synonym) => confirmation.ask({
@@ -52,7 +51,7 @@ export default function SearchSynonyms() {
     action: async () => {
       await api.deleteSearchSynonym(synonym.id);
       toast.success(t('admin.searchSynonyms.deleted'));
-      load();
+      reload();
     },
   });
 
@@ -93,8 +92,8 @@ export default function SearchSynonyms() {
         <Button variant="primary" onClick={() => setEditing({})}>{t('admin.searchSynonyms.add')}</Button>
       </div>
 
-      <DataTable columns={columns} rows={items} rowKey={(s) => s.id} loading={loading} error={error}
-        onRetry={load} emptyTitle={t('admin.searchSynonyms.emptyTitle')}
+      <DataTable columns={columns} rows={items} rowKey={(s) => s.id} loading={isPending} error={error?.message}
+        onRetry={refetch} emptyTitle={t('admin.searchSynonyms.emptyTitle')}
         emptyMessage={t('admin.searchSynonyms.emptyMessage')} minWidth="760px" stickyFirstColumn />
 
       {editing !== null && (

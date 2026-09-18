@@ -34,6 +34,35 @@ export const queryKeys = {
 
   adminProduct: (id) => ['admin-product', String(id)],
 
+  // ============================================================================
+  // شاشات لوحة المتجر (TD-25، هُجِّرت في M10). كلّ مفتاح يحمل **كل** ما يحدّد ما يُعرَض — الصفحة
+  // والبحث والتصفية — لأن ذلك هو ما يُغلق العيب الذي سمّاه الدين: ردٌّ لبحثٍ سابق يصل بعد ردّ بحثٍ
+  // أحدث فيُكتب في مفتاحه لا على الشاشة. مفتاحٌ ينقص منه معيارٌ يعيد العيب صامتاً.
+  //
+  // والجذر لكلٍّ منها نصّ واحد، ودالّةُ الجذر مُعلَنة أيضاً: الإبطال بعد تعديلٍ مفتاحٌ كأيّ مفتاح،
+  // ولا يُكتب نصّاً في شاشة (القاعدة أعلى هذا الملفّ).
+  // ============================================================================
+  adminCategoriesAll: () => ['admin-categories'],
+  adminCategories: (params) => ['admin-categories', params],
+  adminCouponsAll: () => ['admin-coupons'],
+  adminCoupons: (params) => ['admin-coupons', params],
+  adminCouponRedemptions: (id, params) => ['admin-coupons', String(id), 'redemptions', params],
+  adminCustomersAll: () => ['admin-customers'],
+  adminCustomers: (params) => ['admin-customers', params],
+  adminOrdersAll: () => ['admin-orders'],
+  adminOrders: (params) => ['admin-orders', params],
+  adminOrder: (id) => ['admin-orders', String(id)],
+  adminProductsAll: () => ['admin-products'],
+  adminProducts: (params) => ['admin-products', params],
+  adminPaymentsAll: () => ['admin-payments'],
+  adminPayments: (params) => ['admin-payments', params],
+  adminReviewsAll: () => ['admin-reviews'],
+  adminReviews: (params) => ['admin-reviews', params],
+  adminSynonymsAll: () => ['admin-synonyms'],
+  adminSynonyms: (params) => ['admin-synonyms', params],
+  adminShippingAll: () => ['admin-shipping'],
+  adminShipping: (params) => ['admin-shipping', params],
+
   // جذر واحد لكل ما تعرضه شاشة الجرد: تصحيحُ مخزون يغيّر صفحة الجرد **وعدد المنخفض** معاً،
   // فإبطال الجذر يُصيبهما بنداء واحد بدل تتبّع مفتاحين منفصلين عند كل تعديل.
   // والجذر نفسه دالّة هنا لا نصّاً في الشاشة: القاعدة أعلى هذا الملفّ تمنع بناء مفتاح في مكانين،

@@ -1,7 +1,10 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../api/client';
+import { queryKeys } from '../../app/queryKeys';
+import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import { useToast } from '../../context/ToastContext';
 import DataTable from '../../components/common/DataTable';
 import RowActionsMenu from '../../components/common/RowActionsMenu';
@@ -27,29 +30,34 @@ export default function Products() {
   const toast = useToast();
   const confirmation = useConfirmAction();
   const navigate = useNavigate();
-  const [items, setItems] = useState([]);
-  const [totalPages, setTotalPages] = useState(1);
+  const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
   const [keyword, setKeyword] = useState('');
   const [categoryId, setCategoryId] = useState('');
   const [status, setStatus] = useState('');
-  const [categories, setCategories] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
   const [editing, setEditing] = useState(null); // null=مغلق، {}=إضافة، منتج كامل=تعديل
 
-  useEffect(() => { api.getAdminCategories().then(setCategories).catch(() => {}); }, []);
+  const term = useDebouncedValue(keyword.trim());
 
-  const load = useCallback(() => {
-    setLoading(true);
-    api.getAdminProducts(buildAdminProductQuery({ keyword, categoryId, status, page, pageSize: PAGE_SIZE }))
-      .then((res) => { setItems(res.items); setTotalPages(res.totalPages); setError(null); })
-      .catch((e) => setError(e.message))
-      .finally(() => setLoading(false));
-  }, [keyword, categoryId, status, page]);
+  // فئات قائمة التصفية بالمفتاح نفسه الذي تستعمله شاشة الفئات، فزيارتهما تكلّف نداءً واحداً. وخطؤها
+  // يُقرأ قائمةً فارغة كما كان (`.catch(() => {})` سابقاً): قائمةُ تصفيةٍ لا تُحمَّل لا تحجب الجدول.
+  const { data: categories = [] } = useQuery({
+    queryKey: queryKeys.adminCategories({}),
+    queryFn: api.getAdminCategories,
+  });
 
-  useEffect(() => { load(); }, [load]);
-  useEffect(() => { setPage(1); }, [keyword, categoryId, status]);
+  // المفتاح يحمل معايير العرض كلّها (TD-25، M10): ثلاثة معايير هنا — بحثٌ وفئةٌ وحالة — وردٌّ لأيّ
+  // تركيبةٍ تجاوزها المستخدم يُكتب في مفتاحه لا على الشاشة.
+  const params = buildAdminProductQuery({ keyword: term, categoryId, status, page, pageSize: PAGE_SIZE });
+  const { data, error, isPending, refetch } = useQuery({
+    queryKey: queryKeys.adminProducts(params),
+    queryFn: () => api.getAdminProducts(params),
+    placeholderData: keepPreviousData,
+  });
+
+  const reload = () => queryClient.invalidateQueries({ queryKey: queryKeys.adminProductsAll() });
+  // في المعالِج لا في تأثير: التصفية سببها ضغطة المستخدم.
+  const filterBy = (setter) => (value) => { setter(value); setPage(1); };
 
   // التعديل يحتاج المنتج كاملاً — سطر الجدول لا يحمل النصوص ولا الصور.
   const openEditor = async (product) => {
@@ -64,13 +72,13 @@ export default function Products() {
     if (videoFile) await api.uploadProductVideo(id, videoFile);
     setEditing(null);
     toast.success(editing?.id ? t('admin.products.updated') : t('admin.products.created'));
-    load();
+    reload();
   };
 
   const applyStatus = async (product, target) => {
     await api.setProductStatus(product.id, target);
     toast.success(t(`admin.products.statusChanged.${target}`));
-    load();
+    reload();
   };
 
   // الأرشفة وحدها تُؤكَّد: تُخفي المنتج من المتجر. النشر والإخفاء المؤقّت والاستعادة تُنفَّذ مباشرة كما كانت.
@@ -141,28 +149,28 @@ export default function Products() {
       <div className={styles.toolbar}>
         <label className={styles.search}>
           <SearchIcon size={16} />
-          <input value={keyword} onChange={(e) => setKeyword(e.target.value)} placeholder={t('admin.products.searchPlaceholder')} />
+          <input value={keyword} onChange={(e) => filterBy(setKeyword)(e.target.value)} placeholder={t('admin.products.searchPlaceholder')} />
         </label>
-        <select value={categoryId} onChange={(e) => setCategoryId(e.target.value)} aria-label={t('admin.products.colCategory')}>
+        <select value={categoryId} onChange={(e) => filterBy(setCategoryId)(e.target.value)} aria-label={t('admin.products.colCategory')}>
           <option value="">{t('admin.products.allCategories')}</option>
           {categories.map((c) => <option key={c.id} value={c.id}>{getCategoryName(c)}</option>)}
         </select>
-        <select value={status} onChange={(e) => setStatus(e.target.value)} aria-label={t('admin.products.colStatus')}>
+        <select value={status} onChange={(e) => filterBy(setStatus)(e.target.value)} aria-label={t('admin.products.colStatus')}>
           <option value="">{t('admin.products.allStatuses')}</option>
           {STATUSES.map((s) => <option key={s} value={s}>{t(`admin.products.status.${s}`)}</option>)}
         </select>
         <Button variant="primary" onClick={() => setEditing({})}>{t('admin.products.addProduct')}</Button>
       </div>
 
-      <DataTable columns={columns} rows={items} rowKey={(p) => p.id} loading={loading} error={error}
-        onRetry={load} emptyTitle={t('admin.products.emptyTitle')} emptyMessage={t('admin.products.emptyMessage')}
+      <DataTable columns={columns} rows={data?.items ?? []} rowKey={(p) => p.id} loading={isPending}
+        error={error?.message} onRetry={refetch} emptyTitle={t('admin.products.emptyTitle')} emptyMessage={t('admin.products.emptyMessage')}
         minWidth="760px" stickyFirstColumn />
 
-      <Pagination page={page} totalPages={totalPages} onChange={setPage} />
+      {data && <Pagination page={page} totalPages={data.totalPages} onChange={setPage} />}
 
       {editing !== null && (
         <ProductFormDrawer product={editing.id ? editing : null} categories={categories}
-          onSave={save} onImagesChanged={load} onClose={() => setEditing(null)}
+          onSave={save} onImagesChanged={reload} onClose={() => setEditing(null)}
           onManageVariants={(id) => navigate(`/admin/products/${id}/variants`)} />
       )}
       {confirmation.dialog}
