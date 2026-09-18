@@ -140,8 +140,8 @@ The decisions stand; these *descriptions* have drifted. Living documents are aut
 | 0026 | Low-stock alert *emails* arrive in Phase 14 | Phase 14 shipped the in-app `stock.low` notification only |
 | 0027 | The order has no billing address yet | It has had one since Phase 9 |
 | 0028 | Shipping and tax stay at zero | Shipping is charged since Phase 12; only tax is still zero (open decision P-06) |
-| 0033 | Phase 14 will notify staff of pending reviews and customers of decisions | Not built; only order status, new order and low stock exist |
-| 0034 | One email provider plus a log fallback | The chain is Resend → Brevo → Gmail SMTP by which key is present; the startup rule is unchanged |
+| 0033 | Phase 14 will notify staff of pending reviews and customers of decisions | Not built; only order status, new order and low stock exist. **Re-confirmed in M14** against the code and against the live stack (all three kinds observed), and the note is now test-backed: `NotificationDocumentationTests` fails if a fourth in-app kind or a seventh outbox message type appears without the module document being updated, so this row cannot go stale unnoticed |
+| 0034 | One email provider plus a log fallback | The chain is Resend → Brevo → Gmail SMTP by which key is present; the startup rule is unchanged. **Re-confirmed in M14** on the running stack: with no provider key the chain ends at `ConsoleEmailService`, which logs the attempt with the recipient redacted (`m***@example.test`) — ADR-0020's rule holding in a real process, not inferred |
 | 0035 | D-19 trigger: "the start of Phase 16" | Taken in Phase 17 by [0037](0037-frontend-server-state-and-types.md): the query library is decided and its adoption point named, and the TypeScript trigger is re-worded to a condition that can actually fire (a CI pipeline exists). Note that the branch `phase/16-engineering-knowledge-and-handoff` is this documentation pass, not the roadmap's Phase 16 (Storefront) |
 
 ## 5. Numbering and lifecycle

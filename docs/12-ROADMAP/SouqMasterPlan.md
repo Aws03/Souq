@@ -29,12 +29,12 @@
 
 ```yaml
 plan_version: 1.0.0
-current_phase: M13
+current_phase: M14
 phase_status: done
-next_phase: M14         # M2 remains blocked on TD-42 and is independent of the phases after it; see M2's own STOP entry
+next_phase: M15         # M2 remains blocked on TD-42 and is independent of the phases after it; see M2's own STOP entry
 blocked_decisions: ["TD-42"]    # owner decisions that block a phase currently in flight; see §5 and OwnerDecisions.md
 last_verified_date: 2026-09-18
-last_verified_head: 7483d23     # M13 closed: the search trace, its merchant screen, and a retention policy from the first commit
+last_verified_head: c08e410     # M14 closed: TD-34's three outbox recovery paths, each proven to fail against a broken processor
 baseline_branch: phase/17-production-hardening
 ```
 
@@ -59,6 +59,17 @@ store's own catalogue vocabulary and **says which word it searched**, with the s
 customers use. SQL Server Full-Text Search was **measured unavailable** in the pinned image and rejected on
 evidence rather than assumption — see M3's "Completion evidence" above and
 [ADR-0042](../11-ADR/0042-local-search-engine.md).
+
+**M14 — done.** TD-34 closed. The outbox's purge, lease and dispatcher race were asserted only by reading; each
+now has a test that was **proven to fail against a deliberately broken processor** before being kept. The race is
+real rather than simulated — the first dispatcher is held inside the email provider while holding the lease — and
+it asserts the product claim, that the customer receives one email. The lease test covers the half that matters:
+an expired lease must *release* a message, or a process that died holding one freezes it forever. The module
+document's six message types and three in-app kinds matched the code exactly, and that fact is now a test, because
+the existing documentation tests only check that written names exist and never that existing names are written.
+ADR-0033's promised review notifications are still not built — re-confirmed, left as the owner's product question,
+and the §4 note now test-backed. Verified on the running stack down to the two-hop cascade and a redacted
+recipient in the log. See M14's "Completion evidence" above.
 
 **M13 — done.** M3 shipped a vocabulary editor with no way to know what to put in it. The loop is now closed and
 was verified end to end in a browser: a shopper searches a word that finds nothing, the merchant sees it, clicks
@@ -1734,7 +1745,44 @@ repository.
 - **Technical debt touched.** TD-34 (close).
 - **Acceptance criteria.** TD-34's three paths are proven by tests that actually exercise the failure, not
   inferred from the happy path; the notification list in the module document matches the code exactly.
-- **Completion evidence.** *(fill in on close)*
+- **Completion evidence.** **Done.** Both acceptance criteria met.
+  - **TD-34 closed, and each test was proven to fail before being kept.** A recovery-path test that cannot fail
+    is decoration, so each was run against a deliberately broken processor first: the purge against a `DELETE`
+    that forgot `ProcessedAt` (it took unsent and dead rows with it), the lease against a due query ignoring
+    `LockedUntil`, and the race against a `ClaimAsync` that sets the lease but never checks who won. All three
+    failed as intended, then passed against the real code.
+  - **The race is real, not simulated.** The first dispatcher is held inside the email provider
+    (`Emails.Block()`) *while holding the lease*, so the second runs against a genuinely claimed row rather than
+    hoping to land in a microsecond window. Its assertion is the product claim rather than the mechanism: the
+    customer receives **one** email — which needed a new `CountTo` helper, since two identical emails read as
+    one through `LastTo`.
+  - **The lease test covers both halves, and the second is the one that matters.** A lease that protects is the
+    easy half; a lease that *releases* on expiry is what makes at-least-once delivery true, and its failure mode
+    is a message that simply never arrives — invisible until a customer complains.
+  - **The purge test asserts what survives, not what is deleted.** Its three "kept" cases are the real risk: an
+    unsent row deleted is an email that never arrives, and a dead row deleted is the loss of the only record of
+    why it failed.
+  - **The notification list matches the code — and now stays matched.** All six outbox message types and all
+    three in-app kinds were checked against `Notifications/README.md` and matched exactly. That is a fact about
+    today, so it was turned into a test: the existing documentation tests verify that every name written down
+    *exists*, and nothing verified that everything that exists is *written down* — omission being the direction
+    that misleads a reader. `NotificationDocumentationTests` now asserts both lists, and was proven to fail
+    against an undocumented seventh type.
+  - **ADR-0033's promised review notifications are still not built**, re-confirmed rather than assumed — and
+    that §4 note is now test-backed, so it cannot go stale unnoticed. Building them was **not** taken on: the
+    phase text itself says that is a product-scope question, and nothing in `BusinessRules.md` or the module
+    document asks for them. Left as the owner's.
+  - **Security criterion verified on a running process, not inferred.** With no provider key configured the
+    chain ends at `ConsoleEmailService`, which logged `PasswordReset to m***@example.test was not sent` — the
+    recipient redacted, no token, no body. The failure logs carry message id, type, attempt count and exception
+    *type* only.
+  - **Evidence.** Commit `c08e410` plus this closure, on `phase/17-production-hardening`. Tests: 398 integration
+    (3 new), 412 Application, 524 Domain, 92 architecture (2 new). Runtime: stack rebuilt and healthy; the
+    background dispatcher observed handling messages on its real 5-second cadence; the **two-hop cascade**
+    verified live (`OrderStatusChanged` → in-app row + `OrderEmailRequested` → `OrderShipped` email); all three
+    in-app kinds observed in the database with correct payload shapes (`order.status`, `order.new`,
+    `stock.low`); outbox steady state `pending=0 processed=42 dead=0 locked=0` — no stuck leases.
+- **Technical debt.** TD-34 closed. None opened.
 - **Next-phase trigger.** M15 may start independently of M14.
 
 ### M15 — Dedicated security review
