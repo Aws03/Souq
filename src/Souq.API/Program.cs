@@ -193,12 +193,29 @@ if (!localEnvironment && !app.Services.GetRequiredService<IOptions<RefreshCookie
 // ── الهجرات + البذر عند الإقلاع. المدير الافتراضي في Development فقط؛ خارجها يُنشأ أول مدير
 // من Seed:AdminEmail/Seed:AdminPassword إن ضُبطا (Phase 0 B1). Seed:DefaultTenantHosts يربط
 // مضيفين بالمتجر الافتراضي صراحةً (حزمة Docker التجريبية: localhost). ──
+// ── الهجرات عند الإقلاع: قرارٌ صريح في الإنتاج (M17، R-18) ───────────────────
+// تشغيلها تلقائياً يعني أنّ النشر هو الترحيل: هجرةٌ سيّئة تُطبَّق بمجرّد الإطلاق، ونسختان تقلعان معاً
+// تتسابقان على المخطّط. مقبولٌ لنسخةٍ واحدة تُوقَف ثمّ تُشغَّل — وغيرُ مقبولٍ في اللحظة التي تُضاف فيها
+// نسخةٌ ثانية، وهي لحظةٌ لا شيء فيها يذكّر أحداً بهذا السطر. فالاختيار يُطلب مقدّماً بدل أن يُورَث.
+// نفس قاعدة Email:Provider، ولنفس السبب: ما يُغيّر سلوك نشرٍ حقيقي يُختار بعلم.
+var migrateOnStartup = app.Configuration.GetValue<bool?>("Database:MigrateOnStartup");
+if (migrateOnStartup is null)
+{
+    if (!PaymentProviderSelector.IsLocal(app.Environment.EnvironmentName))
+        throw new InvalidOperationException(
+            "Database:MigrateOnStartup غير مضبوط. اختر صراحةً: true (النشر يُرحّل — نسخة واحدة تُوقَف ثمّ تُشغَّل) "
+            + "أو false (خطوة ترحيل متعمّدة قبل الإطلاق — انظر Deployment.md §الترحيل). "
+            + "التلقائي يُعيد خطر R-18 بصمت عند أول نسخة ثانية.");
+    migrateOnStartup = true;   // التطوير والاختبار: التلقائي هو الصواب، وقاعدةٌ تُرمى وتُبنى
+}
+
 await DbSeeder.SeedAsync(app.Services,
     new SeedOptions(
         app.Configuration["Seed:AdminEmail"], app.Configuration["Seed:AdminPassword"], app.Environment.IsDevelopment(),
         ReadList(app.Configuration, "Seed:DefaultTenantHosts"),
         app.Configuration["Seed:PlatformOwnerEmail"], app.Configuration["Seed:PlatformOwnerPassword"],
-        DbSeeder.ShouldSeedDemoData(app.Environment.EnvironmentName, app.Configuration.GetValue<bool?>("Seed:DemoData"))),
+        DbSeeder.ShouldSeedDemoData(app.Environment.EnvironmentName, app.Configuration.GetValue<bool?>("Seed:DemoData")),
+        migrateOnStartup.Value),
     app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Souq.Seeding"));
 
 // ── تعبئة الصورة المطبَّعة للبحث لصفوف سابقة للحقل (M3، ADR-0042) ──────────

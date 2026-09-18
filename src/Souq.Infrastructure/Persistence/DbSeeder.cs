@@ -21,7 +21,8 @@ namespace Souq.Infrastructure.Persistence;
 //   SeedDemoData                             — بيانات العرض (كتالوج المتجر الافتراضي ومظهره). انظر DbSeeder.ShouldSeedDemoData.
 public sealed record SeedOptions(
     string? AdminEmail, string? AdminPassword, bool IsDevelopment, IReadOnlyList<string> DefaultTenantHosts,
-    string? PlatformOwnerEmail = null, string? PlatformOwnerPassword = null, bool SeedDemoData = false);
+    string? PlatformOwnerEmail = null, string? PlatformOwnerPassword = null, bool SeedDemoData = false,
+    bool MigrateOnStartup = true);
 
 // يطبّق الهجرات ثم يبذر مالك المنصّة (نطاق المنصّة) والمتجر الافتراضي (نطاقه) — كل صف في نطاقه.
 public static class DbSeeder
@@ -53,14 +54,39 @@ public static class DbSeeder
         // ── الهجرات أولاً، بهويّتها هي (R-12) ──────────────────────────────────
         // سياق منفصل بسلسلة الهجرات: هي وحدها تحتاج صلاحيات تغيير المخطّط، وبعدها يعمل كل شيء
         // بهوية التشغيل. بلا ConnectionStrings:Migrations السلسلتان واحدة ولا يتغيّر شيء.
+        //
+        // ── ولها مفتاح إطفاء (M17، R-18) ──────────────────────────────────────
+        // تشغيلُ الهجرات عند الإقلاع يعني أنّ **النشر هو الترحيل**: هجرةٌ سيّئة تُطبَّق بمجرّد الإطلاق،
+        // ونسختان تقلعان معاً تتسابقان على المخطّط. وهو مقبولٌ لنسخةٍ واحدة تُوقَف ثمّ تُشغَّل، ويصير
+        // غير مقبول في اللحظة التي يُضاف فيها نسخةٌ ثانية — وتلك لحظةٌ لا شيء فيها يذكّر أحداً بهذا.
+        // فالمفتاح موجود كي تكون الخطوة المتعمّدة **ممكنة** قبل أن تصير ضرورية، لا بعدها.
+        //
+        // والقرار مطلوبٌ صراحةً في الإنتاج (Program.cs يرفض الإقلاع بلا `Database:MigrateOnStartup`)،
+        // بنفس قاعدة `Email:Provider`: ما يُغيّر سلوك نشرٍ حقيقي يُختار بعلم لا بالوراثة.
         var migration = services.GetRequiredService<MigrationConnection>();
-        await using (var migrationDb = new AppDbContext(
-            new DbContextOptionsBuilder<AppDbContext>().UseSqlServer(migration.Value).Options, new TenantContext()))
+        if (options.MigrateOnStartup)
         {
+            await using var migrationDb = new AppDbContext(
+                new DbContextOptionsBuilder<AppDbContext>().UseSqlServer(migration.Value).Options, new TenantContext());
             await migrationDb.Database.MigrateAsync();
+            logger.LogInformation("Migrations applied using {MigrationIdentity} identity",
+                migration.IsSeparateIdentity ? "a dedicated migration" : "the runtime");
         }
-        logger.LogInformation("Migrations applied using {MigrationIdentity} identity",
-            migration.IsSeparateIdentity ? "a dedicated migration" : "the runtime");
+        else
+        {
+            // لا تُطبَّق، لكن يُقال إن كان المخطّط متأخّراً: الإقلاع على قاعدةٍ لم تُرحَّل ينتهي بأخطاء
+            // SQL غامضة في أول طلب، والسبب الحقيقي أنّ أحداً نسي خطوةَ النشر. هذا السطر يقوله مرّة.
+            await using var readDb = new AppDbContext(
+                new DbContextOptionsBuilder<AppDbContext>().UseSqlServer(migration.Value).Options, new TenantContext());
+            var pending = (await readDb.Database.GetPendingMigrationsAsync()).ToList();
+            if (pending.Count > 0)
+                logger.LogError(
+                    "Startup migrations are disabled and {Count} migration(s) have not been applied: {Pending}. "
+                    + "Run the deliberate migration step before this version serves traffic — see Deployment.md",
+                    pending.Count, string.Join(", ", pending));
+            else
+                logger.LogInformation("Startup migrations are disabled; the schema is up to date");
+        }
 
         TenantInfo? defaultTenant;
         await using (var scope = services.GetRequiredService<IServiceScopeFactory>().CreateAsyncScope())

@@ -16,7 +16,36 @@
 
 ## 2. When migrations are applied
 
-**At application startup, in every environment.** `src/Souq.API/Program.cs` calls `DbSeeder.SeedAsync` before the request pipeline is built, and the first thing that does is `db.Database.MigrateAsync()`. There is no environment check around it:
+**At application startup — but since M17 that is a choice, not a given.**
+
+`src/Souq.API/Program.cs` calls `DbSeeder.SeedAsync` before the request pipeline is built, and the first thing that does is `db.Database.MigrateAsync()` — *if* `Database:MigrateOnStartup` is true.
+
+| `Database:MigrateOnStartup` | Behaviour |
+|---|---|
+| Unset, in Development or Testing | Defaults to **true**. Local databases are thrown away and rebuilt; making a developer run a second command to see their own migration is friction with no safety bought |
+| Unset, anywhere else | **Startup refuses**, naming both options. Inheriting this silently is the whole of R-18: it is correct for one instance that is stopped and started, and wrong from the moment a second instance exists — and nothing about adding that second instance reminds anyone of this line |
+| `true` | As before: deploying *is* migrating. Correct for a single instance, stop-then-start |
+| `false` | The API does **not** migrate. It checks for pending migrations and logs an **error** naming them if the schema is behind, then starts. A silent skip would mean a deployment whose migration step was forgotten boots successfully and then fails on its first request with an obscure missing-column error, one step removed from the real cause |
+
+The refusal follows the same rule as `Email:Provider`: a setting that changes how a real deployment behaves is chosen knowingly, not inherited.
+
+**The deliberate step, when `MigrateOnStartup` is `false`:**
+
+```bash
+# 1. Produce a self-contained bundle from the built image or a clean checkout.
+#    Needs no secrets and no running application — a design-time factory supplies the context (TD-18).
+dotnet ef migrations bundle --project src/Souq.Infrastructure --self-contained -o ./migrate
+
+# 2. Run it against the target, as the migration identity (R-12), before the new version serves traffic.
+ConnectionStrings__Migrations="<migration login connection string>" ./migrate
+
+# 3. Or, without a bundle — the same thing from a checkout:
+ConnectionStrings__Migrations="<...>"   dotnet ef database update --project src/Souq.Infrastructure
+```
+
+The order that makes this worth doing: **migrate, verify, then roll out.** With `MigrateOnStartup=true` those three are one event and a bad migration is applied by the act of deploying.
+
+The table below is what happens in each environment today:
 
 | Where | What happens |
 |---|---|
@@ -29,7 +58,7 @@ Consequences to know:
 
 - A failing migration **fails startup**: the exception propagates out of `SeedAsync` and the API never listens. That is deliberate — a half-migrated schema serving requests is worse.
 - EF applies each migration in its own transaction, so a migration either lands completely or not at all; earlier migrations stay applied.
-- Startup migration and several replicas do not mix well; that is why moving migrations to a **deployment step (a migration bundle)** is **PLANNED** for Phase 23 ([ADR-0007](../11-ADR/0007-database-strategy.md), roadmap Phase 23). Recent EF versions take a database-wide lock while migrating, which reduces the race, but this has not been verified in this repository.
+- Startup migration and several replicas do not mix well. **M17 built the alternative** (the bundle step above) rather than leaving it planned, deliberately *before* a second instance exists — because the moment it does is the moment nobody is thinking about this. Recent EF versions take a database-wide lock while migrating, which reduces the race, but this has not been verified in this repository and is not the thing to rely on.
 - Long backfills run while the application is starting; the Phase 9 and Phase 11 backfills rewrite every order row of every store in one statement. On today's data volumes that is instant; on a large database it is a startup outage.
 - EF also refuses to migrate when the model has changes that no migration captures (a forgotten `migrations add`), so the integration suite catches that class of mistake — EF behaviour, not verified by a dedicated test here.
 
@@ -50,7 +79,8 @@ dotnet ef migrations script Phase13ReviewsWishlist Phase14Notifications --projec
 # what is applied where
 dotnet ef migrations list --project src/Souq.Infrastructure --startup-project src/Souq.API
 
-# apply or roll back to a target by hand (normally unnecessary: the API migrates at startup)
+# apply or roll back to a target by hand (the deliberate step when Database:MigrateOnStartup=false;
+# works from a clean checkout with no secrets since M17's design-time factory — TD-18)
 dotnet ef database update Phase13ReviewsWishlist --project src/Souq.Infrastructure --startup-project src/Souq.API
 
 # undo the last migration you just generated

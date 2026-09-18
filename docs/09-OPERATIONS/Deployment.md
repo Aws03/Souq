@@ -63,7 +63,7 @@ Order matters: nothing touches the database until the configuration is proven go
 
 Consequences to keep in mind:
 
-- **Migrations run at application startup, not as a deployment step.** Moving them to a migration bundle is **PLANNED** for Phase 23, explicitly so replicas do not race ([DatabaseDesign.md](../06-DATABASE/DatabaseDesign.md) §10).
+- **Migrations run at application startup by default, and since M17 that is an explicit choice.** `Database:MigrateOnStartup` must be set outside Development/Testing or the API refuses to start, naming both options. `true` keeps today's behaviour (correct for one instance, stopped and started). `false` means the API does not migrate and logs an error naming any pending migration instead of booting a version against a schema it does not match — run the bundle step first (`dotnet ef migrations bundle --self-contained`, then execute it as the migration identity). The order that makes it worth doing is **migrate, verify, roll out**; with startup migration those three are one event. See [Migrations.md](../06-DATABASE/Migrations.md) §2.
 - **Seeding runs on every start** and is idempotent. Demo content is environment-gated: the default store's catalog and demo look are applied only when `Seed:DemoData` resolves true, which outside Development and Testing means asking for it explicitly (`DbSeeder.ShouldSeedDemoData`). A production database therefore starts with the default store row but no demo products; decide deliberately whether to adopt, rename or archive that store.
 - Swagger is Development-only, so the compose stack on port 5201 serves the API but **no** Swagger UI, despite the comment on that port mapping in `docker-compose.yml`.
 

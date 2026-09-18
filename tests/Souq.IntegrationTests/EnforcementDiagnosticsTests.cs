@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Souq.Infrastructure.Persistence;
 using Souq.IntegrationTests.Infrastructure;
 
+using Microsoft.Extensions.Logging;
 namespace Souq.IntegrationTests;
 
 // ============================================================================
@@ -57,6 +58,29 @@ public class EnforcementDiagnosticsTests
         if (remaining is not null) context.Request.Headers["X-Forwarded-For"] = remaining;
 
         Souq.API.Observability.ProxyTrustDiagnostics.HasUnconsumedForwardedFor(context).Should().Be(expected);
+    }
+
+    // ========================================================================
+    // خطوة الترحيل المتعمّدة (M17، R-18): الإطفاء لا يُرحّل، **ويقول إن كان المخطّط متأخّراً**.
+    //
+    // هذا النصف الثاني هو كلّ الفائدة. إطفاءٌ صامت يعني أنّ نشراً نُسيت خطوة ترحيله يُقلع بنجاح ثمّ
+    // يفشل في أول طلب بخطأ SQL غامض عن عمودٍ غير موجود — والسبب الحقيقي بعيدٌ عن الرسالة بخطوة كاملة.
+    // ========================================================================
+    [Fact]
+    public async Task إطفاء_ترحيل_الإقلاع_لا_يُرحّل_ويُبلّغ_عن_هجرةٍ_معلّقة()
+    {
+        var logger = new CapturingLoggerProvider();
+        using var factory = LoggerFactory.Create(b => b.AddProvider(logger).SetMinimumLevel(LogLevel.Information));
+
+        // القاعدة مُرحَّلة أصلاً في هذه الحزمة، فالمتوقّع سطرُ "المخطّط محدَّث" لا سطر تحذير.
+        await DbSeeder.SeedAsync(_factory.Services,
+            new SeedOptions(null, null, IsDevelopment: false, [], MigrateOnStartup: false),
+            factory.CreateLogger("Souq.Seeding"));
+
+        logger.Entries.Should().Contain(e => e.Message.Contains("Startup migrations are disabled"),
+            "الإطفاء يُعلن عن نفسه — إطفاءٌ صامت لا يُميَّز عن ترحيلٍ جرى");
+        logger.Entries.Should().NotContain(e => e.Message.Contains("Migrations applied"),
+            "لا ترحيل حين يكون مُطفأً");
     }
 
     [Fact]
