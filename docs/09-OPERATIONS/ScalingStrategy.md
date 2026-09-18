@@ -8,7 +8,36 @@
 
 Before any stage below: know which requests are slow, and why. Today the API logs one line per request with a correlation id, the use-case name and its duration ([ADR-0018](../11-ADR/0018-observability.md)), and `QueryServiceTests` guards against N+1 queries on the main list screens.
 
-**Missing today (do this before scaling):** no metrics backend, no tracing, no alerting, no load test. A capacity decision without a measurement is a guess. Adding application metrics and a load test of checkout is the cheapest first investment.
+**Missing today (do this before scaling):** no metrics backend, no tracing, no alerting. A capacity decision without a measurement is a guess.
+
+**The load test is no longer missing — M16 built it**: `scripts/load-test.py`, Python standard library only, so anyone who clones the repository can run it. A tool that has to be installed first is a tool that is not run, and a performance number nobody can reproduce is not evidence. (k6 is the better instrument for a real capacity exercise and is the right thing to adopt *if and when* Stage 2 below is reached.)
+
+## Measured: where the system actually spends, M16
+
+Run against the compose stack with its own resource limits, not a developer machine with none. The same caveat as the F-17 numbers below applies and matters more here: the pinned SQL Server image is amd64 emulated on arm64 and the database container is memory-capped, so **absolute figures are pessimistic — the comparisons within a run are the evidence.**
+
+**1. No N+1 anywhere in the measured read paths.** `ReadPathQueryBudgetTests` counts SQL commands per request at two data sizes. Every storefront and admin route holds its count constant between one product and ten, and basket pricing costs the same for eight lines as for one. Counting commands rather than milliseconds is deliberate: a timing assertion goes red on a loaded runner and gets deleted as flaky, while a count goes red exactly when someone adds a query per row.
+
+**2. Steady-state latency is well inside the targets.** At concurrency 1, after warm-up, on the container stack:
+
+| Route | p50 | p95 | Target (p95) |
+|---|---|---|---|
+| Storefront catalogue | 56 ms | 221 ms | 300 ms |
+| Storefront search | 59 ms | 144 ms | 500 ms |
+| Search suggestions | 19 ms | 49 ms | 200 ms |
+| Storefront config (cached, 0 SQL) | 4 ms | 12 ms | 150 ms |
+| Admin product list | 22 ms | 52 ms | 500 ms |
+| Merchant dashboard (16 aggregates) | 43 ms | 156 ms | 3000 ms |
+
+These are internal engineering targets set in M16 from the shape of each route, anchored on the roadmap's own example of "p95 catalogue latency under 300 ms" — not a commercial commitment.
+
+**3. Under load, the database saturates first and the API is idle.** At concurrency 16 the API container sat at **0.54% CPU and 218 MB** while SQL Server ran at **47% CPU**, and every route's latency degraded roughly tenfold. That is the clearest result of the whole exercise, and it points at Stage 1's last lever and Stage 3 — **database capacity** — rather than at anything in the application. Adding API instances (Stage 2) would buy nothing against this shape.
+
+**4. One index was wrong, and it was the newest table's.** The plan cache, ranked by logical reads per call, named M13's search-insights query as the most expensive statement in the system at **25,375 reads per call**. Its index led with `(TenantId, Culture, TermNormalized)`, which serves the grouping and gives nothing to the second question the same screen asks — the most recently typed form of each term — so that became a correlated top-one per group over a distinct sort. Extending the key to `SearchedAt DESC, Id DESC` makes the newest row simply first in its group: measured on 50,000 rows, **59,585 reads → 148**; on the running stack, 25,375 → **107**. It replaced the old index rather than joining it, so the write cost of the most-written table is essentially unchanged.
+
+**5. Recorded, not changed: the storefront's default sort is not covered.** `ORDER BY CreatedAt DESC` is absent from `IX_Products_TenantId_Status_CategoryId`, so with one store holding 1.5% of 20,099 products the query scans the table (337 logical reads) instead of seeking. It is a real shape, but a small absolute cost at present volume and on a table that does not grow without bound — so it is written here as **the next index to reach for** if catalogue latency ever becomes the complaint, rather than added speculatively today.
+
+**Frontend:** first load is 156.8 kB gzip (Arabic), now enforced by a CI budget — see [DesignSystem.md](../08-FRONTEND/DesignSystem.md).
 
 ## Measured: the "best selling" ranking (F-17)
 

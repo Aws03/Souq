@@ -89,6 +89,19 @@ jobs:
       - run: npm test
       - run: npm run build
 
+      # ── ميزانية أول تحميل (M16) ──
+      # DesignSystem.md سجّل أرقام أول الرسم ثم قال صراحةً: "لا ميزانية مفروضة في CI؛ مؤجَّلة إلى
+      # المرحلة 21". هذه هي. تُقاس بفتح البناء في متصفّح حقيقي وجمع ما عبر الشبكة مضغوطاً — لا بجمع
+      # ملفّات dist، فالحزمة مقسّمة ولوحة الإدارة تُحمَّل كسولاً ولا تدخل أول رسم أصلاً.
+      # واللغتان معاً: حزمة الترجمة تُستورد بلغة الزائر وحدها، فلغةٌ واحدة تُخفي نموّ الأخرى.
+      - name: First-load bundle budget
+        run: |
+          npx playwright install --with-deps chromium
+          npx vite preview --port 4173 &
+          npx wait-on http://localhost:4173 || sleep 5
+          node scripts/bundle-budget.mjs --url http://localhost:4173
+        working-directory: frontend
+
   # ── مجموعة التكامل: SQL Server حقيقي ─────────────────────────────────────
   integration:
     name: Integration suite (real SQL Server)

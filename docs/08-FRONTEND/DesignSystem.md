@@ -219,7 +219,21 @@ The breakpoints are 560px, 767px, 861px and **960px**, and management UI is the 
 
 ## 12. Performance budget
 
-This section is the canonical place for first-load size; other pages link here rather than repeat the figures. They are the last measurement taken, during the storefront-experience work, and were not re-taken after the later admin and platform screens (which load lazily and do not touch the first load by design). No budget is enforced in CI; bundle-size budgets are **PLANNED** for Phase 21.
+This section is the canonical place for first-load size; other pages link here rather than repeat the figures.
+
+**M16 re-measured and the budget is now enforced in CI** (`frontend/scripts/bundle-budget.mjs`, run after the build). It measures the way the figures below were measured — a real browser loading the built app, summing what crossed the network gzipped — not by adding up `dist`, which counts lazily-loaded admin and platform chunks no visitor fetches. Both languages are measured, because the translation bundle is imported dynamically for the visitor's language alone and measuring one hides growth in the other.
+
+| Measurement | Result | Method |
+|---|---|---|
+| **First load, Arabic (M16)** | **156.8 kB gzip over 19 files** | The built app in a real browser, `encodedBodySize` summed over the document, scripts and styles |
+| **First load, English (M16)** | **152.7 kB gzip** | Same |
+| **Budget** | **170 kB gzip**, CI fails above it | About 8% headroom — tight on purpose, because what it exists to catch is a step change, not a feature |
+
+First load grew about 20 kB from the 136.5 kB below, across the phases that came after that measurement (M3's search bar and suggestions, M10's badges, M13's tabs). There is no single culprit, and that is exactly what a budget is for: growth nobody notices because every individual step is small.
+
+**One thing M16 measured and deliberately did *not* change.** The icon set is a single module and the whole of it — 24 kB gzip, 15% of first load — ships to every visitor, because admin chunks import from the same barrel. That looks like an obvious win until it is measured: only **8 of 45 icons are admin-only, about 21% of the source**, so splitting the barrel would recover roughly 5 kB of 157. That does not justify touching the import in dozens of files, and the measurement is what says so rather than intuition.
+
+The figures below are the previous measurement, kept for comparison.
 
 | Measure | Value | How it was measured |
 |---|---|---|
