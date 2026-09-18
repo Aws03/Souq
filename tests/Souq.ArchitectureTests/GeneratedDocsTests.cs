@@ -505,10 +505,25 @@ public class GeneratedDocsTests
             .Select(f => (Path: RepositoryPaths.Relative(f), Cases: VitestCase.Matches(File.ReadAllText(f)).Count))
             .OrderBy(f => f.Path, StringComparer.Ordinal)
             .ToList();
-        sb.Append($"| [frontend (Vitest)](#frontend-vitest) | {frontend.Count} | {frontend.Sum(f => f.Cases)} | — |\n\n");
+        sb.Append($"| [frontend (Vitest)](#frontend-vitest) | {frontend.Count} | {frontend.Sum(f => f.Cases)} | — |\n");
+
+        // رحلات المتصفّح تُعَدّ هنا أيضاً (M7): الرقم كان مكتوباً بيد في FrontendGuide.md، وأضافت خمس مراحل
+        // متتالية ملفّات دون تحديثه (قال "72 رحلة في ثمانية ملفّات" وكان الواقع 104 في أربعة عشر). رقمٌ يُقال
+        // في نصّ ولا يُشتقّ من المصدر يكذب بهدوء — فصار مشتقّاً، والدليل يشير إلى هنا بدل أن ينسخه.
+        var journeys = RepositoryPaths.Walk("frontend/e2e")
+            .Where(f => f.EndsWith(".spec.js", StringComparison.Ordinal))
+            .Select(f => (Path: RepositoryPaths.Relative(f), Cases: VitestCase.Matches(File.ReadAllText(f)).Count))
+            .OrderBy(f => f.Path, StringComparer.Ordinal)
+            .ToList();
+        sb.Append($"| [frontend (Playwright)](#frontend-playwright) | {journeys.Count} | {journeys.Sum(f => f.Cases)} | — |\n\n");
 
         sections.Append("## Frontend (Vitest)\n\n| File | Tests |\n|---|---|\n");
         foreach (var file in frontend) sections.Append($"| `{file.Path}` | {file.Cases} |\n");
+
+        sections.Append("\n## Frontend (Playwright)\n\n");
+        sections.Append("> Browser journeys, run by hand against a live stack — not in CI. ");
+        sections.Append("How to run them: [FrontendGuide.md](../08-FRONTEND/FrontendGuide.md).\n\n| File | Journeys |\n|---|---|\n");
+        foreach (var file in journeys) sections.Append($"| `{file.Path}` | {file.Cases} |\n");
 
         return sb.Append(sections).ToString();
     }

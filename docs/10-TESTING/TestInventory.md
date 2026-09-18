@@ -9,9 +9,10 @@
 |---|---|---|---|
 | [`Souq.Domain.Tests`](#souqdomaintests) | 29 | 227 | 47 |
 | [`Souq.Application.Tests`](#souqapplicationtests) | 44 | 329 | 15 |
-| [`Souq.ArchitectureTests`](#souqarchitecturetests) | 14 | 58 | 7 |
-| [`Souq.IntegrationTests`](#souqintegrationtests) | 50 | 288 | 22 |
-| [frontend (Vitest)](#frontend-vitest) | 78 | 610 | — |
+| [`Souq.ArchitectureTests`](#souqarchitecturetests) | 14 | 59 | 7 |
+| [`Souq.IntegrationTests`](#souqintegrationtests) | 50 | 289 | 22 |
+| [frontend (Vitest)](#frontend-vitest) | 79 | 615 | — |
+| [frontend (Playwright)](#frontend-playwright) | 14 | 101 | — |
 
 ## Souq.Domain.Tests
 
@@ -109,7 +110,7 @@
 | `tests/Souq.ArchitectureTests/EndpointRuleTests.cs` | `EndpointRuleTests` | 3 | 0 |
 | `tests/Souq.ArchitectureTests/GeneratedDocsTests.cs` | `GeneratedDocsTests` | 5 | 1 |
 | `tests/Souq.ArchitectureTests/MigrationSafetyTests.cs` | `MigrationSafetyTests` | 3 | 0 |
-| `tests/Souq.ArchitectureTests/ModuleAndContractRuleTests.cs` | `ModuleAndContractRuleTests` | 8 | 1 |
+| `tests/Souq.ArchitectureTests/ModuleAndContractRuleTests.cs` | `ModuleAndContractRuleTests` | 9 | 1 |
 | `tests/Souq.ArchitectureTests/OperationalScriptTests.cs` | `OperationalScriptTests`, `TempEnv` | 3 | 2 |
 | `tests/Souq.ArchitectureTests/SearchRuntimeRuleTests.cs` | `SearchRuntimeRuleTests` | 1 | 0 |
 | `tests/Souq.ArchitectureTests/TenancyRuleTests.cs` | `TenancyRuleTests` | 7 | 0 |
@@ -137,7 +138,7 @@
 | `tests/Souq.IntegrationTests/ErrorContractTests.cs` | `ErrorContractTests` | 8 | 1 |
 | `tests/Souq.IntegrationTests/GlobalExceptionHandlerTests.cs` | `GlobalExceptionHandlerTests` | 4 | 1 |
 | `tests/Souq.IntegrationTests/HealthCheckTests.cs` | `HealthCheckTests` | 7 | 0 |
-| `tests/Souq.IntegrationTests/InventoryAndOrderTests.cs` | `InventoryAndOrderTests` | 10 | 0 |
+| `tests/Souq.IntegrationTests/InventoryAndOrderTests.cs` | `InventoryAndOrderTests` | 11 | 0 |
 | `tests/Souq.IntegrationTests/LastAdministratorConcurrencyTests.cs` | `LastAdministratorConcurrencyTests` | 2 | 0 |
 | `tests/Souq.IntegrationTests/LocalFileStorageTests.cs` | `LocalFileStorageTests` | 2 | 2 |
 | `tests/Souq.IntegrationTests/MigrationRehearsalTests.cs` | `MigrationRehearsalTests` | 2 | 0 |
@@ -240,6 +241,7 @@
 | `frontend/src/pages/account/AccountLayout.test.jsx` | 6 |
 | `frontend/src/pages/admin/BusinessOverview.test.jsx` | 10 |
 | `frontend/src/pages/admin/Dashboard.test.jsx` | 11 |
+| `frontend/src/pages/admin/Inventory.test.jsx` | 5 |
 | `frontend/src/pages/admin/ProductVariants.test.jsx` | 7 |
 | `frontend/src/pages/admin/Staff.test.jsx` | 8 |
 | `frontend/src/pages/admin/StoreSettings.test.jsx` | 10 |
@@ -252,3 +254,24 @@
 | `frontend/src/pages/storefrontPages.test.jsx` | 3 |
 | `frontend/src/rtl.test.js` | 2 |
 | `frontend/src/whiteLabel.test.js` | 1 |
+
+## Frontend (Playwright)
+
+> Browser journeys, run by hand against a live stack — not in CI. How to run them: [FrontendGuide.md](../08-FRONTEND/FrontendGuide.md).
+
+| File | Journeys |
+|---|---|
+| `frontend/e2e/admin-inventory.spec.js` | 3 |
+| `frontend/e2e/back-office.spec.js` | 6 |
+| `frontend/e2e/checkout-reliability.spec.js` | 4 |
+| `frontend/e2e/experience.spec.js` | 16 |
+| `frontend/e2e/platform-provisioning.spec.js` | 9 |
+| `frontend/e2e/product-variants.spec.js` | 5 |
+| `frontend/e2e/responsive-storefront.spec.js` | 2 |
+| `frontend/e2e/responsive.spec.js` | 10 |
+| `frontend/e2e/search.spec.js` | 8 |
+| `frontend/e2e/second-tenant.spec.js` | 6 |
+| `frontend/e2e/session-tabs.spec.js` | 1 |
+| `frontend/e2e/store-administration.spec.js` | 8 |
+| `frontend/e2e/storefront-variants.spec.js` | 6 |
+| `frontend/e2e/storefront.spec.js` | 17 |
