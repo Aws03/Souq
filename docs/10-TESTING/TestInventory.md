@@ -11,7 +11,7 @@
 | [`Souq.Application.Tests`](#souqapplicationtests) | 48 | 356 | 18 |
 | [`Souq.ArchitectureTests`](#souqarchitecturetests) | 16 | 67 | 7 |
 | [`Souq.IntegrationTests`](#souqintegrationtests) | 52 | 325 | 25 |
-| [frontend (Vitest)](#frontend-vitest) | 86 | 669 | — |
+| [frontend (Vitest)](#frontend-vitest) | 90 | 693 | — |
 | [frontend (Playwright)](#frontend-playwright) | 19 | 124 | — |
 
 ## Souq.Domain.Tests
@@ -207,6 +207,8 @@
 | `frontend/src/components/common/useConfirmAction.test.jsx` | 4 |
 | `frontend/src/components/layout/SearchBar.test.jsx` | 18 |
 | `frontend/src/components/product/ProductCard.test.jsx` | 11 |
+| `frontend/src/components/product/StarRating.test.jsx` | 7 |
+| `frontend/src/components/reviews/ReviewForm.test.jsx` | 7 |
 | `frontend/src/components/store/OpeningExperience.test.jsx` | 12 |
 | `frontend/src/features/account/addressForm.test.js` | 6 |
 | `frontend/src/features/account/passwordForm.test.js` | 8 |
@@ -252,7 +254,9 @@
 | `frontend/src/pages/OrderTracking.test.jsx` | 6 |
 | `frontend/src/pages/ProductDetail.test.jsx` | 19 |
 | `frontend/src/pages/account/AccountLayout.test.jsx` | 6 |
+| `frontend/src/pages/account/AddressFormDrawer.test.jsx` | 5 |
 | `frontend/src/pages/account/ChangePassword.test.jsx` | 7 |
+| `frontend/src/pages/account/ProfileForm.test.jsx` | 5 |
 | `frontend/src/pages/admin/BusinessOverview.test.jsx` | 10 |
 | `frontend/src/pages/admin/Dashboard.test.jsx` | 11 |
 | `frontend/src/pages/admin/Inventory.test.jsx` | 5 |
