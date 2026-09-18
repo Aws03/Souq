@@ -14,7 +14,7 @@ import StatusDonut from '../../components/charts/StatusDonut';
 import { formatPrice } from '../../components/product/ProductBadges';
 import { formatDate } from '../../i18n';
 import {
-  hasNoActivity, isBrandNewStore, kpiCards, operationalAlerts, statusSlices, totalOrdersInPeriod, trendPoints,
+  hasNoActivity, isBrandNewStore, kpiCards, operationalAlerts, statusSlices, totalOrdersInPeriod, trendBucket, trendPoints,
 } from '../../features/reporting/dashboardView';
 import styles from './Dashboard.module.css';
 
@@ -141,11 +141,11 @@ export default function Dashboard() {
                 <div className={styles.wide}>
                   <ChartFrame
                     title={t('admin.reports.trendTitle')}
-                    hint={t('admin.reports.trendHint')}
+                    hint={t(`admin.reports.trendHint${trendBucket(data) === 'month' ? 'Month' : 'Day'}`)}
                     loading={isFetching && !data}
                     isEmpty={hasNoActivity(data)}
                     emptyMessage={t('admin.reports.quietMessage')}
-                    summary={t('admin.reports.trendHint')}
+                    summary={t(`admin.reports.trendHint${trendBucket(data) === 'month' ? 'Month' : 'Day'}`)}
                     tableRows={trendPoints(data).map((p) => ({ label: formatDate(p.label), value: money(p.value) }))}
                   >
                     <LineChart

@@ -47,7 +47,7 @@ describe('نظرة المنصّة', () => {
     renderPlatform();
 
     // ١+١٢+٢+٣ = ١٨ متجراً؛ البطاقة تحمل التسمية نفسها فتُقرأ من بطاقتها لا من الصفحة كلّها.
-    const storesCard = (await screen.findByText('platform.stores')).closest('article');
+    const storesCard = (await screen.findByText('platform.storesTotal')).closest('article');
     expect(storesCard).toHaveTextContent('18');
   });
 

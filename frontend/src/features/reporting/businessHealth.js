@@ -62,13 +62,33 @@ export function repeatRate(dashboard) {
   return Math.round((dashboard.repeatCustomers / total) * 1000) / 10;
 }
 
-/** حصّة أكبر منتج من إيراد المدّة — مقياس تركّز المخاطر. */
+// ============================================================================
+// حصّة أكبر منتج من **إيراد المدّة** — مقياس تركّز المخاطر.
+//
+// **المقام كان مجموع الثمانية الأوائل، لا إيراد المدّة (صُحِّح في M12).** والفرق ليس تجميلاً: متجر
+// يبيع عشرين منتجاً كان أكبرُ منتجاته يُقاس على ثمانيةٍ فقط، فتُبالَغ الحصّة دائماً ويُطلق تنبيه
+// "التركّز" قبل موعده — والنصّ المعروض يقول "من المبيعات"، والتوثيق يقول "من إيراد المدّة": كلاهما
+// يَعِد بما لم يكن يُحسب.
+//
+// وإيراد المدّة هو المقام الصحيح، مع فارقٍ مقصود: إيراد أسطر المنتج لا يشمل الشحن ولا يخصم الكوبون
+// (الخادم يحسبه من أسطر الطلب)، أمّا `revenue` فيشملهما. فالنسبة تصير **أقلّ** من الحقيقة قليلاً لا
+// أكثر — وهذا هو الاتجاه الآمن لإشارة خطر: تتأخّر ولا تُطلق باطلاً.
+//
+// وبقاء مجموع الثمانية بديلاً عند غياب إيراد المدّة ليس تراجعاً: لا مقام آخر، والنسبة حينها من
+// الثمانية صراحةً — وهي الحالة التي لا يكون فيها للمدّة إيراد أصلاً.
+// ============================================================================
 export function topProductShare(dashboard) {
   const products = dashboard?.topProducts ?? [];
   if (products.length === 0) return null;
-  const totalTop = products.reduce((sum, p) => sum + p.revenue, 0);
-  if (totalTop <= 0) return null;
-  return { name: products[0].name, share: products[0].revenue / totalTop };
+  const periodRevenue = dashboard?.current?.revenue ?? 0;
+  const denominator = periodRevenue > 0
+    ? periodRevenue
+    : products.reduce((sum, p) => sum + p.revenue, 0);
+  if (denominator <= 0) return null;
+  // الأكبر لا الأول: الخادم يرتّب تنازليّاً، لكن الاعتماد على ترتيبه ضِمناً هو ما جعل اختباراً
+  // يوكّد "الأول" على قائمة غير مرتّبة ويبدو صحيحاً.
+  const top = products.reduce((best, p) => (p.revenue > best.revenue ? p : best), products[0]);
+  return { name: top.name, share: top.revenue / denominator };
 }
 
 /**

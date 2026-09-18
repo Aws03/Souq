@@ -70,6 +70,25 @@ export function operationalAlerts(dashboard) {
 export const trendPoints = (dashboard, field = 'revenue') =>
   (dashboard?.trend ?? []).map((point) => ({ label: point.bucket, value: point[field] ?? 0 }));
 
+// ============================================================================
+// حبّة المخطّط: يوم أم شهر — تُستنبَط من البيانات لا من قائمة مدىً مكتوبة (M12).
+//
+// الخادم يجمع `Last90Days` و`ThisYear` **شهريّاً** ولا يُرسل علماً يقول ذلك، وتلميح المخطّط كان
+// مكتوباً ثابتاً: "الإيراد من الطلبات المدفوعة، **يوميّاً**" — لكل المدى، ومنها الشهريّان. والتلميح
+// نفسه هو **ملخّص المخطّط لقارئ الشاشة**، فمن لا يرى المخطّط كان يُقال له الخطأ وحده.
+//
+// والاستنباط من تباعد الحبّات لا من أسماء المدى: مدىً جديد يُجمَع شهريّاً يُوصَف صحيحاً بلا تعديل هنا.
+// ============================================================================
+export function trendBucket(dashboard) {
+  const points = dashboard?.trend ?? [];
+  if (points.length < 2) return 'day';
+  const first = Date.parse(points[0].bucket);
+  const second = Date.parse(points[1].bucket);
+  if (!Number.isFinite(first) || !Number.isFinite(second)) return 'day';
+  // ثمانية وعشرون يوماً: أقصر شهر. أي تباعد يبلغه فالحبّة شهر لا يوم.
+  return (second - first) >= 28 * 24 * 60 * 60 * 1000 ? 'month' : 'day';
+}
+
 /** هل المتجر بلا أي نشاط تجاري في هذه المدّة؟ يقرّر عرض شاشة البداية بدل مخطّطات صفرية. */
 export const hasNoActivity = (dashboard) =>
   !dashboard || (dashboard.current.orders === 0 && totalOrdersInPeriod(dashboard.ordersByStatus) === 0);

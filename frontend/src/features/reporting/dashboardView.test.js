@@ -1,7 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import {
-  hasNoActivity, isBrandNewStore, kpiCards, operationalAlerts, statusSlices, totalOrdersInPeriod, trendPoints,
-} from './dashboardView';
+import { hasNoActivity, isBrandNewStore, kpiCards, operationalAlerts, statusSlices, totalOrdersInPeriod, trendBucket, trendPoints } from './dashboardView';
 
 const t = (key) => key;
 
@@ -110,5 +108,28 @@ describe('trendPoints', () => {
   it('بلا منحنى ⇒ مصفوفة فارغة لا استثناء', () => {
     expect(trendPoints(null)).toEqual([]);
     expect(trendPoints({ trend: undefined })).toEqual([]);
+  });
+});
+
+describe('trendBucket', () => {
+  const at = (iso, revenue = 0) => ({ bucket: iso, revenue, orders: 0 });
+
+  it('حبّات متتابعة بيوم ⇒ يوم', () => {
+    expect(trendBucket({ trend: [at('2026-09-01T00:00:00Z'), at('2026-09-02T00:00:00Z')] })).toBe('day');
+  });
+
+  it('حبّات متتابعة بشهر ⇒ شهر — وهذا ما كان التلميح يكذب فيه', () => {
+    // Last90Days وThisYear يُجمَعان شهريّاً على الخادم، والتلميح كان يقول "يوميّاً" لهما أيضاً،
+    // وهو نفسه ملخّص المخطّط لقارئ الشاشة (M12).
+    expect(trendBucket({ trend: [at('2026-07-01T00:00:00Z'), at('2026-08-01T00:00:00Z')] })).toBe('month');
+    // فبراير 28 يوماً: أقصر شهر، ويجب أن يُقرأ شهراً لا يوماً.
+    expect(trendBucket({ trend: [at('2026-02-01T00:00:00Z'), at('2026-03-01T00:00:00Z')] })).toBe('month');
+  });
+
+  it('بلا حبّتين أو بتاريخ غير مقروء ⇒ يوم (الافتراض الأضيق)', () => {
+    expect(trendBucket({ trend: [] })).toBe('day');
+    expect(trendBucket({ trend: [at('2026-09-01T00:00:00Z')] })).toBe('day');
+    expect(trendBucket({ trend: [at('nonsense'), at('also-nonsense')] })).toBe('day');
+    expect(trendBucket(null)).toBe('day');
   });
 });

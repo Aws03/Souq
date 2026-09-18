@@ -5,7 +5,10 @@ const data = (overrides = {}) => ({
   current: { revenue: 1000, refunds: 0, netRevenue: 1000, orders: 10, averageOrderValue: 100, newCustomers: 5 },
   previous: { revenue: 800, refunds: 0, netRevenue: 800, orders: 8, averageOrderValue: 100, newCustomers: 4 },
   ordersByStatus: { Pending: 1, Paid: 4, Shipped: 2, Delivered: 3, Cancelled: 0 },
-  topProducts: [{ productId: 1, name: 'A', revenue: 300 }, { productId: 2, name: 'B', revenue: 700 }],
+  // متجر غير مُتركّز: أكبر منتج 400 من إيراد 1000 = 40٪، تحت حدّ التركّز (50٪). كان 700 — أي أنّ
+  // التجهيز كان يصف متجراً مُتركّزاً ثم تسمّيه اختباراتٌ "سليماً"، ولم يظهر ذلك لأن الحصّة كانت
+  // تُقسَم على مجموع الثمانية وتُقرأ عن الأول لا عن الأكبر (M12).
+  topProducts: [{ productId: 1, name: 'A', revenue: 300 }, { productId: 2, name: 'B', revenue: 400 }],
   inventory: { healthy: 10, low: 0, outOfStock: 0 },
   totalCustomers: 40, repeatCustomers: 10,
   ...overrides,
@@ -52,8 +55,24 @@ describe('repeatRate', () => {
 });
 
 describe('topProductShare', () => {
-  it('يعطي حصّة الأعلى إيراداً', () => {
-    expect(topProductShare(data()).share).toBeCloseTo(0.3);
+  it('يعطي حصّة الأعلى إيراداً — من إيراد المدّة لا من مجموع الثمانية', () => {
+    // كان هذا يوكّد 0.3، أي حصّة **الأول** في القائمة مقسومةً على مجموع الثمانية — والاسم يقول
+    // "الأعلى". فكان الاختبار يوكّد العيب: 300 ÷ (300+400). الصحيح: الأكبر (400) ÷ إيراد المدّة (1000).
+    const share = topProductShare(data());
+    expect(share.name).toBe('B');
+    expect(share.share).toBeCloseTo(0.4);
+  });
+
+  it('المقام إيراد المدّة، فمتجر بمنتجات كثيرة لا تُبالَغ حصّته', () => {
+    // عشرون منتجاً تبيع 1000، أكبرها 200 = 20٪. بمجموع الثمانية الأوائل وحدها (مثلاً 800) كانت
+    // تُقرأ 25٪، وتقترب من حدّ التنبيه بلا سبب.
+    const many = Array.from({ length: 8 }, (_, i) => ({ productId: i + 1, name: `P${i}`, revenue: 200 - i * 10 }));
+    expect(topProductShare(data({ topProducts: many })).share).toBeCloseTo(0.2);
+  });
+
+  it('بلا إيراد للمدّة يعود المقام إلى مجموع المنتجات المعروضة', () => {
+    const zeroRevenue = data({ current: { ...data().current, revenue: 0, netRevenue: 0 } });
+    expect(topProductShare(zeroRevenue).share).toBeCloseTo(400 / 700);
   });
 
   it('بلا منتجات ⇒ null', () => {

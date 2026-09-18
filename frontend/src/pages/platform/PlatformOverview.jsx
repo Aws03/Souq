@@ -28,7 +28,11 @@ export default function PlatformOverview() {
   const totalStores = TENANT_STATUSES.reduce((sum, status) => sum + (data?.tenantsByStatus?.[status] ?? 0), 0);
 
   const figures = data ? [
-    { key: 'stores', value: totalStores },
+    // `storesTotal` لا `stores`: الثانية **كائن** (نصوص صفحة المتاجر)، وi18next يعيد المفتاح نفسه
+    // عند طلب كائنٍ نصّاً — فكانت أول بطاقة في صفحة مالك المنصّة تعرض "platform.stores" حرفيّاً
+    // بلا عنوان (M12). ولم يمسكها شيء: اختبار الصفحة يُبدِل `t` بدالّة هويّة فيُوكّد المفتاح الخام،
+    // وفاحصُ المفاتيح يقرأ نداءات `t('…')` الحرفية وحدها فلا يرى مفتاحاً مبنيّاً بقالب.
+    { key: 'storesTotal', value: totalStores },
     { key: 'customers', value: data.customers },
     { key: 'products', value: data.products },
     { key: 'orders', value: data.orders },

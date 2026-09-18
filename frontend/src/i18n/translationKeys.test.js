@@ -112,3 +112,57 @@ describe('translation keys', () => {
     expect(missing).toEqual([]);
   });
 });
+
+// ============================================================================
+// مفاتيح تُبنى بقالب (`t(`platform.${key}`)`) لا يراها الفاحص أعلاه — فيُفحص أثرها هنا مباشرة.
+//
+// العيب الذي دفع هذا (M12): بطاقات صفحة مالك المنصّة تُبنى من قائمة مفاتيح، وإحداها كانت `stores` —
+// وهي **كائن** (نصوص صفحة المتاجر) لا نصّ. وi18next يعيد المفتاح نفسه عند طلب كائنٍ نصّاً، فظهرت أول
+// بطاقة في الصفحة بعنوان "platform.stores" حرفيّاً. ولم يمسكها اختبار الصفحة لأنه يُبدِل `t` بدالّة
+// هويّة فيؤكّد المفتاح الخام — أي أنّ الاختبار كان يوكّد العيب نفسه.
+// ============================================================================
+describe('مفاتيح مبنيّة بقالب', () => {
+  // بطاقات صفحة المنصّة (PlatformOverview.jsx) — تُبقى متزامنة يداً بيد مع تلك القائمة.
+  const PLATFORM_FIGURE_KEYS = [
+    'storesTotal', 'customers', 'products', 'orders', 'ordersRecent', 'platformAccounts', 'storeStaff',
+  ];
+
+  it('كل بطاقة في صفحة المنصّة عنوانها **نصّ** في اللغتين لا كائن', () => {
+    for (const [lang, dict] of Object.entries({ en, ar })) {
+      for (const key of PLATFORM_FIGURE_KEYS) {
+        const value = dict.platform?.[key];
+        expect(typeof value, `platform.${key} في ${lang}`).toBe('string');
+        expect(value.trim().length, `platform.${key} في ${lang} فارغ`).toBeGreaterThan(0);
+      }
+    }
+  });
+});
+
+// ============================================================================
+// مفاتيح تعيش في جداول بيانات لا في نداء `t('…')` — وهي الثغرة الثالثة من نوعها (M12).
+//
+// شريط تنقّل اللوحة يُبنى من قائمة `{ to, label: 'admin.nav.x', icon }` ثم تُمرَّر `item.label` إلى
+// `t`. الفاحص أعلاه يقرأ نداءات `t` الحرفيّة، فمفتاحٌ مخزَّن في ثابت لا يراه. النتيجة: أضافت M3
+// عنصر "مفردات البحث" بمفتاحه ولم تُضف ترجمته، فظهر **"admin.nav.searchSynonyms" حرفيّاً في شريط كل
+// صفحة إدارة** من M3 إلى M12 بلا أن يشتكي شيء.
+//
+// فيُفحص هنا كل مفتاح يظهر في `label:` أو `shortLabel:` — وهو الموضع الذي تعيش فيه هذه المفاتيح.
+// ============================================================================
+describe('مفاتيح في جداول البيانات', () => {
+  const LABEL_KEY = /\b(?:short)?[lL]abel:\s*'([a-z][\w]*(?:\.[\w]+)+)'/g;
+
+  it('كل مفتاح مكتوب في label/shortLabel موجود في اللغتين', () => {
+    const missing = [];
+    for (const file of sourceFiles(SOURCE_ROOT)) {
+      const text = readFileSync(file, 'utf8');
+      for (const [, key] of text.matchAll(LABEL_KEY)) {
+        for (const [lang, dict] of Object.entries({ en, ar })) {
+          const value = key.split('.').reduce((node, part) => (node == null ? node : node[part]), dict);
+          if (typeof value !== 'string' || value.trim() === '')
+            missing.push(`${key} (${lang}) — ${file.replace(SOURCE_ROOT, '')}`);
+        }
+      }
+    }
+    expect(missing).toEqual([]);
+  });
+});
