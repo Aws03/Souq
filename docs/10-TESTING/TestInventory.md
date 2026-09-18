@@ -8,7 +8,7 @@
 | Suite | Files | Facts | Theories |
 |---|---|---|---|
 | [`Souq.Domain.Tests`](#souqdomaintests) | 29 | 227 | 47 |
-| [`Souq.Application.Tests`](#souqapplicationtests) | 46 | 346 | 18 |
+| [`Souq.Application.Tests`](#souqapplicationtests) | 47 | 350 | 18 |
 | [`Souq.ArchitectureTests`](#souqarchitecturetests) | 15 | 61 | 7 |
 | [`Souq.IntegrationTests`](#souqintegrationtests) | 51 | 314 | 25 |
 | [frontend (Vitest)](#frontend-vitest) | 85 | 665 | — |
@@ -86,6 +86,7 @@
 | `tests/Souq.Application.Tests/Products/GetRelatedProductsHandlerTests.cs` | `GetRelatedProductsHandlerTests` | 3 | 0 |
 | `tests/Souq.Application.Tests/Products/ProductHandlersTests.cs` | `CreateProductHandlerTests`, `UpdateProductHandlerTests`, `ProductLifecycleHandlerTests`, `GetProductByIdHandlerTests` | 17 | 0 |
 | `tests/Souq.Application.Tests/Products/ProductVariantHandlersTests.cs` | `ProductVariantHandlersTests` | 14 | 0 |
+| `tests/Souq.Application.Tests/Products/PurgeSearchLogHandlerTests.cs` | `PurgeSearchLogHandlerTests` | 4 | 0 |
 | `tests/Souq.Application.Tests/Products/SearchSynonymHandlersTests.cs` | `CreateSearchSynonymHandlerTests`, `UpdateSearchSynonymHandlerTests`, `DeleteSearchSynonymHandlerTests` | 9 | 0 |
 | `tests/Souq.Application.Tests/Products/UploadProductMediaHandlerTests.cs` | `UploadProductMediaHandlerTests` | 7 | 0 |
 | `tests/Souq.Application.Tests/Reporting/StoreDashboardTests.cs` | `StoreDashboardWindowTests` | 6 | 2 |

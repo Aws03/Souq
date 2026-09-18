@@ -144,7 +144,14 @@ public class ProductTests
         product.Images.Select(i => i.SortOrder).Should().Equal(0, 1);
         ((Action)(() => product.ReorderImages([0]))).Should().Throw<InvalidProductDataException>();
 
-        for (var i = product.Images.Count; i < Product.MaxImages; i++) product.AddImage($"/uploads/x{i}.png");
+        for (var i = product.Images.Count; i < Product.MaxImages; i++)
+        {
+            // السؤال يسبق الفعل ويوافقه (M15): رافع الصورة يسأله قبل أن يكتب الملفّ على القرص.
+            product.HasRoomForImage.Should().BeTrue();
+            product.AddImage($"/uploads/x{i}.png");
+        }
+
+        product.HasRoomForImage.Should().BeFalse("المعرض امتلأ — والرافع يعرف ذلك قبل أن يكتب شيئاً");
         ((Action)(() => product.AddImage("/uploads/one-too-many.png"))).Should().Throw<InvalidProductDataException>();
         ((Action)(() => product.AddImage(" "))).Should().Throw<InvalidProductDataException>();
     }

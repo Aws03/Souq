@@ -379,11 +379,23 @@ public class Product : Entity, ITenantOwned
 
     // ── الوسائط ───────────────────────────────────────────────────────────────
 
+
+    // ============================================================================
+    // السؤال قبل الفعل (M15): رفع صورةٍ يكتب الملفّ على القرص **ثمّ** يستدعي `AddImage`. فلمّا كان
+    // السقف يُفحص داخل `AddImage` وحده، كانت كل محاولةٍ على معرضٍ ممتلئ تترك ملفّاً يتيماً لا يشير إليه
+    // شيء — و`IFileStorage` بلا حذف، فلا شيء يستردّه. الآن يسأل المستدعي قبل أن يكتب.
+    //
+    // والقاعدة تبقى هنا لا في المستدعي، و`AddImage` تبقى ترمي: السؤال يمنع الملفّ اليتيم، والرمي يمنع
+    // تجاوز السقف. يبقى سباقٌ ضيّق (رفعان متزامنان على معرضٍ فيه تسع صور) يترك ملفّاً واحداً — وهو
+    // أهون بكثير من يتيمٍ مضمون في كل محاولة.
+    // ============================================================================
+    public bool HasRoomForImage => _images.Count < MaxImages;
+
     public ProductImage AddImage(string url)
     {
         if (string.IsNullOrWhiteSpace(url) || url.Length > ProductImage.UrlMaxLength)
             throw new InvalidProductDataException("رابط الصورة مطلوب");
-        if (_images.Count >= MaxImages)
+        if (!HasRoomForImage)
             throw new InvalidProductDataException($"حتى {MaxImages} صور للمنتج");
 
         var image = new ProductImage(url, _images.Count == 0 ? 0 : _images.Max(i => i.SortOrder) + 1);

@@ -6,6 +6,8 @@ using Souq.Application.Common.Models;
 using Souq.Application.Features.Products.Queries;
 using Souq.Domain.Interfaces;
 
+using Souq.Domain.Entities;
+
 namespace Souq.Application.Features.Products.Commands;
 
 // رفع صورة لمنتج قائم تُضاف لمعرضه (حتى 10، الأولى رئيسية). يستقبل المحتوى كـ Stream وطوله فقط — لا اسم ملف ولا
@@ -40,6 +42,12 @@ public class UploadProductImageHandler : IRequestHandler<UploadProductImageComma
         if (type is null || type.Category != MediaCategory.Image)
             return Result<ProductImageDto>.Failure(Error.Validation(
                 "UnsupportedMediaType", "صيغة الصورة غير مدعومة (JPEG/PNG/WebP/GIF فقط)"));
+
+        // يُسأل السقف قبل الكتابة على القرص (M15): بعدها يكون الملفّ قد كُتب، و`AddImage` ترمي، ولا
+        // حذف في `IFileStorage` — فكانت كل محاولةٍ على معرضٍ ممتلئ تترك ملفّاً يتيماً بلا مرجع.
+        if (!product.HasRoomForImage)
+            return Result<ProductImageDto>.Failure(Error.Validation(
+                "TooManyImages", $"حتى {Product.MaxImages} صور للمنتج"));
 
         var url = await _storage.SaveAsync(cmd.Content, "images", type.Extension, ct);
         var image = product.AddImage(url);
