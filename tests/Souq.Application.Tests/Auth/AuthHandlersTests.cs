@@ -340,7 +340,7 @@ public class ChangePasswordHandlerTests
     private readonly AuthRig _rig = new();
 
     private ChangePasswordHandler Handler(ICurrentUser user) =>
-        new(_rig.Users, _rig.Hasher, _rig.Issuer(), _rig.Sessions, user);
+        new(_rig.Users, _rig.Hasher, _rig.Issuer(), _rig.Sessions, user, _rig.Outbox, _rig.Links);
 
     [Fact]
     public async Task الكلمة_الحالية_الخاطئة_خطأ_إدخال_لا_انتهاء_جلسة()
@@ -378,13 +378,34 @@ public class ChangePasswordHandlerTests
         _rig.Issued.Should().ContainSingle().Which.FamilyId.Should().NotBe(otherSession.FamilyId);
         _rig.Sessions.Received(1).Forget(11);
     }
+    // ========================================================================
+    // صاحب الحساب يُخطَر بتغيّر كلمة مروره (M15، ASVS 2.2.3).
+    //
+    // الرسالة قيمتها كلّها في الحالة التي لا يكون فيها المستلِم هو الفاعل — ولذلك تُودَع في الحفظ نفسه
+    // الذي يُغيّر الكلمة: تغييرٌ بلا إشعار يعني استيلاءً صامتاً، وإشعارٌ بلا تغيير يعني إنذاراً كاذباً.
+    // ========================================================================
+    [Fact]
+    public async Task تغيير_كلمة_المرور_يُخطِر_صاحب_الحساب()
+    {
+        var user = AuthRig.SavedUser(11, email: "owner@example.net");
+        _rig.Users.GetByIdAsync(11, Arg.Any<CancellationToken>()).Returns(user);
+        _rig.Hasher.Verify("Current-Pass-1", Arg.Any<string>()).Returns(true);
+        _rig.Hasher.Hash(Arg.Any<string>()).Returns("hashed-new-password");
+
+        var result = await Handler(TestCurrentUser.Customer(11)).Handle(
+            new ChangePasswordCommand("Current-Pass-1", "Brand-New-Pass-2"), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        _rig.Outbox.Received(1).Enqueue(Arg.Is<PasswordChanged>(m => m.UserId == 11));
+    }
+
 }
 
 public class ForgotPasswordHandlerTests
 {
     private readonly AuthRig _rig = new();
 
-    private ForgotPasswordHandler Handler() => new(_rig.Users, _rig.Outbox, _rig.Links, _rig.Uow);
+    private ForgotPasswordHandler Handler() => new(_rig.Users, _rig.Outbox, _rig.Links, _rig.Uow, _rig.Clock);
 
     [Fact]
     public async Task حساب_فعّال_تُوضع_رسالته_في_الصادر_على_مضيف_المتجر_بلا_رمز_وقت_الطلب()
@@ -415,6 +436,43 @@ public class ForgotPasswordHandlerTests
         _rig.Outbox.DidNotReceiveWithAnyArgs().Enqueue(default!);
         await _rig.Uow.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
     }
+    // ========================================================================
+    // مهلة إعادة الإرسال تحرس **صاحب البريد** لا الخادم (M15).
+    //
+    // حدّ المعدّل في الـ API مقسوم على مضيف المهاجم وعنوانه — يحرس الخادم من مهاجمٍ واحد، ولا يمنعه
+    // من إغراق صندوق ضحيّةٍ بعينها برسائل صحيحة تماماً، يدفن بينها ما تحتاجه فعلاً، ويحرق حصّة المتجر
+    // عند مزوّد البريد وسمعة مُرسِله — فتسوء وصوليّة كل رسائل ذلك المتجر لكل زبائنه.
+    //
+    // والردّ يبقى نجاحاً في الحالتين: التفريق بين "أُرسلت" و"لم تُرسل" يكشف وجود الحساب، وهو ما يمنعه
+    // هذا المعالج أصلاً.
+    // ========================================================================
+    [Fact]
+    public async Task طلبٌ_ثانٍ_خلال_المهلة_لا_يُودع_رسالةً_ثانية_ويبقى_ردّه_نجاحاً()
+    {
+        var user = AuthRig.SavedUser(7, email: "flooded@example.net");
+        // رمزٌ أُصدر للتوّ (كأنّ رسالةً سابقة أُرسلت قبل لحظات).
+        user.GenerateResetToken(_rig.Clock.UtcNow);
+        _rig.Users.GetByEmailAsync("flooded@example.net", Arg.Any<CancellationToken>()).Returns(user);
+
+        var result = await Handler().Handle(new ForgotPasswordCommand("flooded@example.net"), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue("الردّ لا يتغيّر أبداً — وإلا كُشف وجود الحساب");
+        _rig.Outbox.DidNotReceive().Enqueue(Arg.Any<object>());
+    }
+
+    [Fact]
+    public async Task بعد_انقضاء_المهلة_يُودع_طلبٌ_جديد()
+    {
+        var user = AuthRig.SavedUser(8, email: "patient@example.net");
+        user.GenerateResetToken(_rig.Clock.UtcNow.AddMinutes(-(User.ResetResendCooldownMinutes + 1)));
+        _rig.Users.GetByEmailAsync("patient@example.net", Arg.Any<CancellationToken>()).Returns(user);
+
+        (await Handler().Handle(new ForgotPasswordCommand("patient@example.net"), CancellationToken.None))
+            .IsSuccess.Should().BeTrue();
+
+        _rig.Outbox.Received(1).Enqueue(Arg.Any<PasswordResetRequested>());
+    }
+
 }
 
 public class ResetPasswordHandlerTests
@@ -422,7 +480,7 @@ public class ResetPasswordHandlerTests
     private readonly AuthRig _rig = new();
 
     private ResetPasswordHandler Handler() =>
-        new(_rig.Users, _rig.Hasher, _rig.Issuer(), _rig.Sessions, _rig.Uow, _rig.Clock);
+        new(_rig.Users, _rig.Hasher, _rig.Issuer(), _rig.Sessions, _rig.Uow, _rig.Clock, _rig.Outbox, _rig.Links);
 
     [Fact]
     public async Task رمز_مجهول_InvalidResetToken()
@@ -467,6 +525,22 @@ public class ResetPasswordHandlerTests
         _rig.Sessions.Received(1).Forget(6);
         await _rig.Uow.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
+    // إعادة التعيين تُخطِر أيضاً — وهي الأهمّ: طريقُ من استولى على صندوق بريد، وتُنهي كل الجلسات،
+    // فيجد صاحب الحساب نفسه خارجه بلا سببٍ ظاهر ما لم تصله هذه الرسالة.
+    [Fact]
+    public async Task إعادة_تعيين_كلمة_المرور_تُخطِر_صاحب_الحساب()
+    {
+        var user = AuthRig.SavedUser(12, email: "reset.owner@example.net");
+        var token = user.GenerateResetToken(_rig.Clock.UtcNow);
+        _rig.Hasher.Hash(Arg.Any<string>()).Returns("hashed-new-password");
+        _rig.Users.GetByResetTokenAsync(token, Arg.Any<CancellationToken>()).Returns(user);
+
+        (await Handler().Handle(new ResetPasswordCommand(token, "Brand-New-Pass-3"), CancellationToken.None))
+            .IsSuccess.Should().BeTrue();
+
+        _rig.Outbox.Received(1).Enqueue(Arg.Is<PasswordChanged>(m => m.UserId == 12));
+    }
+
 }
 
 public class VerifyEmailHandlerTests

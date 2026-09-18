@@ -26,6 +26,10 @@ public sealed record PasswordResetRequested(int UserId, string Origin);
 public sealed record EmailVerificationRequested(int UserId, string Origin);
 public sealed record AccountInvited(int UserId, string InviterName, string Origin);
 
+// تغيّرت كلمة مرور الحساب (M15، ASVS 2.2.3): يُخطَر صاحبه دائماً، غيّرها بنفسه أو أُعيد تعيينها
+// برابط. لا رمز فيها ولا فعلٌ مطلوب — قيمتها كلّها في أن يصل الخبر لمن **لم** يكن هو من غيّرها.
+public sealed record PasswordChanged(int UserId, string Origin);
+
 // بريد العميل عن حالة طلبه — رسالة مستقلّة عن إنشاء الإشعارات، فيُعاد البريد وحده إن فشل المزوّد.
 public sealed record OrderEmailRequested(int OrderId, OrderStatus Status);
 
@@ -35,6 +39,7 @@ public static class NotificationMessageTypes
     private static readonly IReadOnlyDictionary<string, Type> ByName = new[]
     {
         typeof(PasswordResetRequested), typeof(EmailVerificationRequested), typeof(AccountInvited), typeof(OrderEmailRequested),
+        typeof(PasswordChanged),
         typeof(OrderStatusChanged), typeof(StockBecameLow),
     }.ToDictionary(t => t.Name, StringComparer.Ordinal);
 

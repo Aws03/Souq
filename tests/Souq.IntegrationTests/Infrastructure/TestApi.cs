@@ -57,11 +57,14 @@ public sealed class TestApi
         ? await TokenAsync(SouqApiFactory.AdminEmail, SouqApiFactory.AdminPassword)
         : await TokenAsync(_store.AdminEmail, _store.AdminPassword);
 
+    // معلَنة لا محشوّة: اختبارٌ يحتاج كلمة المرور الحالية (تغييرها مثلاً) كان سينسخ النصّ ويفترق عنها.
+    public const string CustomerPassword = "Customer-Pass-1";
+
     public async Task<(HttpClient Client, string Email)> NewCustomerAsync(string? email = null)
     {
         email ??= $"customer-{Guid.NewGuid():N}@souq.test";
         var response = await Anonymous().PostAsJsonAsync("/api/auth/register",
-            new { fullName = "عميل اختبار", email, password = "Customer-Pass-1" });
+            new { fullName = "عميل اختبار", email, password = CustomerPassword });
         response.EnsureSuccessStatusCode();
         var auth = await response.Content.ReadFromJsonAsync<AuthBody>(Json);
         return (Authorized(auth!.AccessToken), email);

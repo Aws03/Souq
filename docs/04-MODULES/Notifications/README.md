@@ -68,13 +68,14 @@ The rest of the module is **not** MediatR: outbox handlers implement `INotificat
 | `OrderStatusChanged` | `OrderStatusChangedHandler` | in-app row for the customer, `order.new` for staff with `orders.view` on payment, and an `OrderEmailRequested` message when the change deserves an email — all in one save |
 | `StockBecameLow` | `StockBecameLowHandler` | `stock.low` rows for staff with `inventory.view`, with the product name in the store's default culture and, for a product with options, `variantId` and `variantLabel` (`Product.VariantLabel`, BR-NTF-12) |
 | `OrderEmailRequested` | `OrderEmailHandler` | the customer's order email with the store's branding and a tracking link |
+| `PasswordChanged` | `PasswordChangedEmailHandler` | **M15.** Active account only; tells the holder their password changed and every session was signed out. The only message here that carries **no token and asks for no action** — its whole value is reaching someone who was *not* the one who changed it, so its button goes to password recovery |
 
 ## Public contracts
 
 | Contract | Path | Consumers |
 |---|---|---|
-| `INotificationOutbox` | `src/Souq.Application/Common/Notifications/Outbox.cs` | Identity (`ForgotPassword.cs`, `Register.cs`, `VerifyEmail.cs`), `src/Souq.Application/Common/Accounts/Accounts.cs`, and this module's own `OrderStatusChangedHandler` |
-| Message records `PasswordResetRequested`, `EmailVerificationRequested`, `AccountInvited`, `OrderEmailRequested` | same file | the enqueuing use cases |
+| `INotificationOutbox` | `src/Souq.Application/Common/Notifications/Outbox.cs` | Identity (`ForgotPassword.cs`, `Register.cs`, `VerifyEmail.cs`, and since M15 `ChangePassword.cs` and `ResetPassword.cs`), `src/Souq.Application/Common/Accounts/Accounts.cs`, and this module's own `OrderStatusChangedHandler` |
+| Message records `PasswordResetRequested`, `EmailVerificationRequested`, `AccountInvited`, `OrderEmailRequested`, `PasswordChanged` | same file | the enqueuing use cases |
 | `INotificationMessageHandler<TMessage>` | same file | implemented here, resolved by `OutboxProcessor` |
 | `NotificationMessageTypes`, `OutboxRetryPolicy`, `NotificationMessageDispatch` | same file | the processor and the tests |
 | `IEmailSender`, `EmailMessage`, `EmailDeliveryException`, `EmailTemplate`, `EmailBranding`, `EmailContent`, `ComposedEmail`, `IEmailComposer`, `IStoreOrigins` | `src/Souq.Application/Common/Notifications/Email.cs` | **this module only** — an architecture test enforces it |

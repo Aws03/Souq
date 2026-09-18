@@ -5,6 +5,9 @@ using Souq.Application.Common.Models;
 using Souq.Application.Common.Security;
 using Souq.Domain.Interfaces;
 
+using Souq.Application.Common.Notifications;
+using Souq.Application.Common.Interfaces;
+
 namespace Souq.Application.Features.Auth.Commands;
 
 // تغيير كلمة المرور لحساب مسجّل: يتطلّب الحالية، ويُبطل كل الجلسات الأخرى (ختم الأمان + رموز التجديد)،
@@ -28,12 +31,16 @@ public class ChangePasswordHandler : IRequestHandler<ChangePasswordCommand, Resu
     private readonly AuthSessionIssuer _sessions;
     private readonly ISessionValidator _sessionValidator;
     private readonly ICurrentUser _currentUser;
+    private readonly INotificationOutbox _outbox;
+    private readonly IStorefrontLinks _links;
 
     public ChangePasswordHandler(
         IUserRepository users, IPasswordHasher hasher, AuthSessionIssuer sessions,
-        ISessionValidator sessionValidator, ICurrentUser currentUser)
+        ISessionValidator sessionValidator, ICurrentUser currentUser,
+        INotificationOutbox outbox, IStorefrontLinks links)
     {
-        _users = users; _hasher = hasher; _sessions = sessions; _sessionValidator = sessionValidator; _currentUser = currentUser;
+        _users = users; _hasher = hasher; _sessions = sessions; _sessionValidator = sessionValidator;
+        _currentUser = currentUser; _outbox = outbox; _links = links;
     }
 
     public async Task<Result<AuthSession>> Handle(ChangePasswordCommand cmd, CancellationToken ct)
@@ -47,6 +54,8 @@ public class ChangePasswordHandler : IRequestHandler<ChangePasswordCommand, Resu
             return Result<AuthSession>.Failure(Error.Validation("CurrentPasswordIncorrect", "كلمة المرور الحالية غير صحيحة"));
 
         user.ChangePassword(_hasher.Hash(cmd.NewPassword));
+        // يُخطَر صاحب الحساب دائماً (M15، ASVS 2.2.3) — في الحفظ نفسه، فلا تغييرٌ بلا إشعاره ولا العكس.
+        _outbox.Enqueue(new PasswordChanged(user.Id, _links.Origin()));
         await _sessions.RevokeAllAsync(user.Id, "PasswordChanged", ct);
         var session = await _sessions.IssueAsync(user, familyId: null, ct);   // حفظ واحد: التغيير والإبطال والجلسة
         _sessionValidator.Forget(user.Id);

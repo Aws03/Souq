@@ -5,6 +5,9 @@ using Souq.Application.Common.Models;
 using Souq.Application.Common.Security;
 using Souq.Domain.Interfaces;
 
+using Souq.Application.Common.Notifications;
+using Souq.Application.Common.Interfaces;
+
 namespace Souq.Application.Features.Auth.Commands;
 
 public record ResetPasswordCommand(string Token, string NewPassword) : IRequest<Result>;
@@ -29,11 +32,15 @@ public class ResetPasswordHandler : IRequestHandler<ResetPasswordCommand, Result
     private readonly IUnitOfWork _uow;
     private readonly TimeProvider _clock;
 
+    private readonly INotificationOutbox _outbox;
+    private readonly IStorefrontLinks _links;
+
     public ResetPasswordHandler(
         IUserRepository users, IPasswordHasher hasher, AuthSessionIssuer sessions, ISessionValidator sessionValidator,
-        IUnitOfWork uow, TimeProvider clock)
+        IUnitOfWork uow, TimeProvider clock, INotificationOutbox outbox, IStorefrontLinks links)
     {
-        _users = users; _hasher = hasher; _sessions = sessions; _sessionValidator = sessionValidator; _uow = uow; _clock = clock;
+        _users = users; _hasher = hasher; _sessions = sessions; _sessionValidator = sessionValidator;
+        _uow = uow; _clock = clock; _outbox = outbox; _links = links;
     }
 
     public async Task<Result> Handle(ResetPasswordCommand cmd, CancellationToken ct)
@@ -44,6 +51,12 @@ public class ResetPasswordHandler : IRequestHandler<ResetPasswordCommand, Result
 
         // رمز منتهٍ ⇒ الكيان يرمي InvalidPasswordResetException (422 مركزياً) قبل أي حفظ.
         user.ResetPassword(_hasher.Hash(cmd.NewPassword), _clock.GetUtcNow().UtcDateTime);
+        // ============================================================================
+        // وهنا الإشعار أهمّ منه في تغيير كلمة المرور (M15): إعادة التعيين هي الطريق الذي يسلكه من استولى
+        // على صندوق بريد، وهي تُنهي كل الجلسات — فيجد صاحب الحساب نفسه خارجه بلا سببٍ ظاهر. هذه الرسالة
+        // هي ما يحوّل ذلك من لغزٍ إلى حادثةٍ يعرفها ويستطيع التصرّف حيالها.
+        // ============================================================================
+        _outbox.Enqueue(new PasswordChanged(user.Id, _links.Origin()));
         await _sessions.RevokeAllAsync(user.Id, "PasswordReset", ct);
         await _uow.SaveChangesAsync(ct);
         _sessionValidator.Forget(user.Id);

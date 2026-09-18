@@ -20,6 +20,9 @@ public sealed class EmailDeliveryException(string message, Exception? inner = nu
 public enum EmailTemplate
 {
     PasswordReset, EmailVerification, Invitation, OrderConfirmed, OrderShipped, OrderDelivered, OrderCancelled,
+    // M15 (ASVS 2.2.3): إشعارٌ بعد تغيّر كلمة المرور — لا يحمل رمزاً ولا يُطلب منه فعل، وزرّه
+    // يقود إلى استعادة الحساب لمن لم يكن هو من غيّرها.
+    PasswordChanged,
 }
 
 // هوية المتجر في الرسالة: الاسم المعروض بلغة الرسالة، الشعار (رابط مطلق)، لونا الترويسة، وبريد التواصل.

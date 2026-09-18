@@ -27,10 +27,52 @@ public sealed class PasswordResetEmailHandler : INotificationMessageHandler<Pass
         var user = await _users.GetByIdAsync(message.UserId, ct);
         if (user is not { Status: UserStatus.Active }) return;
 
+        // ============================================================================
+        // ولا تُفحص مهلة إعادة الإرسال هنا (M15) — وهذا **مقصود**، وقد جُرِّب خلافه فكسر شيئاً.
+        //
+        // فحصُها هنا يبدو تشديداً: يُغلق النافذة القصيرة بين طلبٍ ودورة إرساله، حيث ترى عدّة طلباتٍ
+        // حالةً بلا رمز فتُودع كلّها. لكنّه **يخلط إعادة المحاولة بالطلب الجديد**: المحاولة الأولى
+        // تُصدر الرمز وتحفظه ثمّ تفشل عند المزوّد، فتجد المحاولة الثانية رمزاً طازجاً — رمزَ نفسها —
+        // فتنصرف. فتصير كل رسالة إعادة تعيين يفشل مزوّدها مرّةً **رسالةً لا تصل أبداً**، ويبقى العميل
+        // بلا رابطٍ ظانّاً أنّه أُرسل. أمسك ذلك اختبارُ جدول إعادة المحاولة القائم فوراً.
+        //
+        // فالمهلة تبقى حيث تُميّز الحالتين: عند الإيداع (`ForgotPasswordHandler`)، حيث "طلبٌ جديد"
+        // معلومٌ بالتعريف. وما يبقى مفتوحاً هو تلك النافذة القصيرة وحدها — وهي محدودة بحدّ المعدّل في
+        // الـ API وبطول دورة الإرسال، أي حفنة رسائل لا ستّمئة في الساعة.
+        // ============================================================================
         var token = user.GenerateResetToken(_clock.GetUtcNow().UtcDateTime);
         await _uow.SaveChangesAsync(ct);
         await _emails.SendAsync(user.Email, EmailTemplate.PasswordReset, message.Origin,
             StorefrontLinks.PasswordReset(message.Origin, token), EmptyValues.Instance, ct);
+    }
+}
+
+// ============================================================================
+// إشعار تغيّر كلمة المرور (M15، ASVS 2.2.3) — الرسالة الوحيدة هنا التي **لا تحمل رمزاً ولا تطلب فعلاً**.
+//
+// قيمتها كلّها في الحالة التي لا يكون فيها المستلِم هو الفاعل: من استولى على جلسةٍ أو على صندوق بريد
+// يستطيع إعادة تعيين كلمة المرور، وإعادة التعيين تُنهي كل الجلسات — فيجد صاحب الحساب نفسه خارج حسابه
+// بلا أي تفسير، ولا إشارة إلى أنّ شيئاً جرى أصلاً. هذه الرسالة هي تلك الإشارة.
+//
+// وتُرسَل لحسابٍ مفعَّل فقط، كأخواتها: حسابٌ عُطِّل بين الطلب والإرسال لا يُراسَل.
+// ============================================================================
+public sealed class PasswordChangedEmailHandler : INotificationMessageHandler<PasswordChanged>
+{
+    private readonly IUserRepository _users;
+    private readonly NotificationEmails _emails;
+
+    public PasswordChangedEmailHandler(IUserRepository users, NotificationEmails emails)
+    {
+        _users = users; _emails = emails;
+    }
+
+    public async Task HandleAsync(PasswordChanged message, CancellationToken ct)
+    {
+        var user = await _users.GetByIdAsync(message.UserId, ct);
+        if (user is not { Status: UserStatus.Active }) return;
+
+        await _emails.SendAsync(user.Email, EmailTemplate.PasswordChanged, message.Origin,
+            StorefrontLinks.ForgotPassword(message.Origin), EmptyValues.Instance, ct);
     }
 }
 

@@ -116,6 +116,28 @@ public class User : Entity, ITenantOrPlatformOwned
     // ترقية تجزئة قديمة (غير BCrypt) بلا إبطال الجلسات — لا تغيّر كلمة المرور نفسها.
     public void UpgradePasswordHash(string newPasswordHash) => SetPasswordHash(newPasswordHash);
 
+    // ============================================================================
+    // مهلة بين رسالتي إعادة تعيين (M15).
+    //
+    // كان `ForgotPassword` يُودع رسالةً لكل طلب، بلا أي حدٍّ متعلّق **بصاحب البريد**. والحدّ الوحيد في
+    // الـ API مقسومٌ على مضيف المهاجم وعنوانه — أي أنّه يحرس الخادم من مهاجمٍ واحد، ولا يحرس ضحيّةً
+    // بعينها من الإغراق. فمهاجمٌ يستهدف حساباً يغرق صندوقه برسائل صحيحة تماماً، يدفن بينها ما يحتاجه
+    // فعلاً، ويحرق حصّة المتجر عند مزوّد البريد و— وهو الأغلى — سمعة المُرسِل، فتسوء وصوليّة كل رسائل
+    // ذلك المتجر لكل زبائنه.
+    //
+    // والمهلة دقيقتان لا ساعتان: "ما دام هناك رمزٌ حيّ" كان سيعني انتظار عمر الرمز كاملاً، ومن لم تصله
+    // الرسالة يطلبها ثانيةً بعد لحظات لا بعد ساعتين. دقيقتان تكسران الإغراق (من ستّمئة رسالة في الساعة
+    // إلى ثلاثين) ولا تُلمسان في الاستعمال الطبيعي.
+    //
+    // ووقت الإصدار يُشتقّ من انتهاء الصلاحية، فلا عمود جديد: الرمز يُولَّد عند الإرسال لا عند الطلب
+    // (المرحلة 14)، وانتهاؤه دائماً بعد `ResetTokenLifetimeHours` من إصداره.
+    // ============================================================================
+    public const int ResetResendCooldownMinutes = 2;
+
+    public bool CanIssueResetToken(DateTime utcNow) =>
+        PasswordResetTokenExpiry is not { } expiry
+        || expiry.AddHours(-ResetTokenLifetimeHours).AddMinutes(ResetResendCooldownMinutes) <= utcNow;
+
     public string GenerateResetToken(DateTime utcNow)
     {
         var token = NewToken();

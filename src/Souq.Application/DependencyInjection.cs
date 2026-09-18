@@ -92,6 +92,9 @@ public static class DependencyInjection
         services.AddScoped<Features.Notifications.NotificationEmails>();
         services.AddScoped<Common.Notifications.INotificationMessageHandler<Common.Notifications.PasswordResetRequested>,
             Features.Notifications.PasswordResetEmailHandler>();
+        // M15 (ASVS 2.2.3): إشعار تغيّر كلمة المرور.
+        services.AddScoped<Common.Notifications.INotificationMessageHandler<Common.Notifications.PasswordChanged>,
+            Features.Notifications.PasswordChangedEmailHandler>();
         services.AddScoped<Common.Notifications.INotificationMessageHandler<Common.Notifications.EmailVerificationRequested>,
             Features.Notifications.EmailVerificationEmailHandler>();
         services.AddScoped<Common.Notifications.INotificationMessageHandler<Common.Notifications.AccountInvited>,

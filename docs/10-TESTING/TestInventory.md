@@ -8,9 +8,9 @@
 | Suite | Files | Facts | Theories |
 |---|---|---|---|
 | [`Souq.Domain.Tests`](#souqdomaintests) | 29 | 227 | 47 |
-| [`Souq.Application.Tests`](#souqapplicationtests) | 47 | 350 | 18 |
+| [`Souq.Application.Tests`](#souqapplicationtests) | 47 | 354 | 18 |
 | [`Souq.ArchitectureTests`](#souqarchitecturetests) | 15 | 61 | 7 |
-| [`Souq.IntegrationTests`](#souqintegrationtests) | 51 | 314 | 25 |
+| [`Souq.IntegrationTests`](#souqintegrationtests) | 51 | 316 | 25 |
 | [frontend (Vitest)](#frontend-vitest) | 85 | 665 | — |
 | [frontend (Playwright)](#frontend-playwright) | 18 | 120 | — |
 
@@ -53,7 +53,7 @@
 | File | Classes | Facts | Theories |
 |---|---|---|---|
 | `tests/Souq.Application.Tests/Auth/AccountLifecycleTests.cs` | `AccountLifecycleTests` | 7 | 0 |
-| `tests/Souq.Application.Tests/Auth/AuthHandlersTests.cs` | `AuthRig`, `RegisterHandlerTests`, `LoginHandlerTests`, `RefreshSessionHandlerTests`, `LogoutHandlerTests`, `ChangePasswordHandlerTests`, `ForgotPasswordHandlerTests`, `ResetPasswordHandlerTests`, `VerifyEmailHandlerTests` | 23 | 0 |
+| `tests/Souq.Application.Tests/Auth/AuthHandlersTests.cs` | `AuthRig`, `RegisterHandlerTests`, `LoginHandlerTests`, `RefreshSessionHandlerTests`, `LogoutHandlerTests`, `ChangePasswordHandlerTests`, `ForgotPasswordHandlerTests`, `ResetPasswordHandlerTests`, `VerifyEmailHandlerTests` | 27 | 0 |
 | `tests/Souq.Application.Tests/Auth/PasswordRulesTests.cs` | `PasswordRulesTests` | 4 | 2 |
 | `tests/Souq.Application.Tests/Baskets/BasketCheckoutTests.cs` | `BasketCheckoutTests` | 3 | 0 |
 | `tests/Souq.Application.Tests/Baskets/BasketHandlersTests.cs` | `BasketHandlersTests` | 13 | 0 |
@@ -147,7 +147,7 @@
 | `tests/Souq.IntegrationTests/LocalFileStorageTests.cs` | `LocalFileStorageTests` | 2 | 2 |
 | `tests/Souq.IntegrationTests/MigrationRehearsalTests.cs` | `MigrationRehearsalTests` | 2 | 0 |
 | `tests/Souq.IntegrationTests/MigrationRollbackTests.cs` | `MigrationRollbackTests` | 1 | 0 |
-| `tests/Souq.IntegrationTests/NotificationTests.cs` | `NotificationTests` | 9 | 0 |
+| `tests/Souq.IntegrationTests/NotificationTests.cs` | `NotificationTests` | 11 | 0 |
 | `tests/Souq.IntegrationTests/ObservabilityTests.cs` | `ObservabilityTests` | 9 | 0 |
 | `tests/Souq.IntegrationTests/OrderLifecycleTests.cs` | `OrderLifecycleTests` | 6 | 0 |
 | `tests/Souq.IntegrationTests/PaymentAdapterTests.cs` | `SecretProtectorTests`, `FakeGatewayTests` | 6 | 1 |

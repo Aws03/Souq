@@ -17,6 +17,9 @@ public static class StorefrontLinks
 {
     public static string PasswordReset(string origin, string token) => WithToken(origin, "/reset-password", token);
 
+    // استعادة الحساب بلا رمز (M15): وجهة زرّ إشعار "تغيّرت كلمة مرورك" — من لم يُغيّرها يبدأ من هنا.
+    public static string ForgotPassword(string origin) => $"{origin.TrimEnd('/')}/forgot-password";
+
     public static string EmailVerification(string origin, string token) => WithToken(origin, "/verify-email", token);
 
     public static string Invitation(string origin, string token) => WithToken(origin, "/accept-invitation", token);

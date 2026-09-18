@@ -90,6 +90,10 @@ public class NotificationTests
         _factory.Emails.LastTo(email, EmailTemplate.PasswordReset).Should().NotBeNull();
 
         // آخر محاولة مسموحة تفشل ⇒ ميتة: لا تُعاد حتى لو "حان وقتها".
+        // ومهلة إعادة الإرسال (M15) تُتجاوَز صراحةً أوّلاً — كأنّ العميل انتظر ثمّ طلب ثانيةً. موضوع هذا
+        // الاختبار جدولُ إعادة المحاولة لا المهلة؛ ولو تُرك بلا انتظار لسُكِت الطلبُ الثاني وفُحصت الرسالة
+        // الأولى مرّتين بلا أن يقول شيءٌ إنّ الاختبار لم يعد يفحص ما يزعم.
+        await ExpireResetCooldownAsync(userId);
         (await _api.Anonymous().PostAsJsonAsync("/api/auth/forgot-password", new { email })).EnsureSuccessStatusCode();
         var last = await LatestResetAsync(userId);
         await _api.WithDbAsync(db => db.OutboxMessages.Where(m => m.Id == last.Id)
@@ -219,6 +223,71 @@ public class NotificationTests
 
         var services = new ServiceCollection().AddInfrastructure(Config(("Email:Provider", "Log")), production);
         services.Single(d => d.ServiceType == typeof(IEmailSender)).ImplementationType.Should().Be<ConsoleEmailService>();
+    }
+
+    // ========================================================================
+    // كل نوعٍ في قائمة السماح له معالجٌ مُسجَّل (M15).
+    //
+    // كُتب لأنّ الغياب وقع فعلاً: أُضيف `PasswordChanged` إلى القائمة وأُودع من مساري تغيير كلمة
+    // المرور، ونُسي تسجيل معالجه. ولم يُخطئ شيء عند الإقلاع ولا عند الإيداع — الرسالة تدخل الصندوق،
+    // ثمّ تفشل عند الإرسال فتُعاد بتباعد ثمّ تموت. أي أنّ العطل يظهر بعد ساعات، في صفٍّ ميت لا يقرؤه
+    // أحد، بينما العَرَض الوحيد الذي يراه أحد هو أنّ الرسالة "لم تصل" بلا سبب ظاهر.
+    //
+    // وهذا الفحص يجعله خطأً في البناء بدل ذلك — وقد أمسكه من أول تشغيل.
+    // ========================================================================
+    [Fact]
+    public void كل_نوع_رسالة_صادر_له_معالج_مُسجَّل()
+    {
+        var registered = typeof(NotificationMessageTypes)
+            .GetField("ByName", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!
+            .GetValue(null) as System.Collections.IDictionary;
+
+        registered.Should().NotBeNull("تغيّر شكل قائمة السماح — حدّث هذا الفحص بدل تعطيله");
+
+        using var scope = _factory.Services.CreateScope();
+        var missing = registered!.Values.Cast<Type>()
+            .Where(type => scope.ServiceProvider.GetService(
+                typeof(INotificationMessageHandler<>).MakeGenericType(type)) is null)
+            .Select(type => type.Name)
+            .ToList();
+
+        missing.Should().BeEmpty(
+            "نوعٌ بلا معالجٍ مُسجَّل يُودَع بلا خطأ ثمّ يموت في الصندوق بعد ساعات — ولا أحد يرى إلا رسالةً لم تصل");
+    }
+
+    // ========================================================================
+    // إشعار تغيّر كلمة المرور من طرفه إلى طرفه (M15، ASVS 2.2.3).
+    //
+    // يُفحص عبر HTTP لا بالوحدة وحدها، لأنّ الدعوى تشمل ما بين الطبقات: أنّ الرسالة تُودَع مع التغيير،
+    // وأنّ الكاتب الخلفي يُرسلها فعلاً، وأنّها تصل **بهوية المتجر** الذي جرى فيه التغيير — وهذا الأخير
+    // لا يُثبته اختبار وحدةٍ إطلاقاً.
+    //
+    // والرسالة بلا رمز: زرّها يقود إلى استعادة الحساب، لأنّ من يقرؤها وهو ليس الفاعل يحتاج طريقاً
+    // للتصرّف لا رابطاً يؤكّد ما لم يفعله.
+    // ========================================================================
+    [Fact]
+    public async Task تغيير_كلمة_المرور_يصل_صاحبَ_الحساب_بريداً_بهوية_متجره()
+    {
+        var created = await _factory.CreateStoreAsync();
+        var store = _api.ForStore(created);
+        var (customer, email) = await store.NewCustomerAsync();
+        await _factory.DispatchNotificationsAsync();
+
+        var response = await customer.PostAsJsonAsync("/api/auth/change-password",
+            new { currentPassword = TestApi.CustomerPassword, newPassword = "Changed-Pass-9x" });
+        response.IsSuccessStatusCode.Should().BeTrue(await response.Content.ReadAsStringAsync());
+
+        // لا بريد قبل دورة الإرسال: الطلب لا ينتظر المزوّد (نفس قاعدة المرحلة 14).
+        _factory.Emails.LastTo(email, EmailTemplate.PasswordChanged).Should().BeNull();
+        await _factory.DispatchNotificationsAsync();
+
+        var message = _factory.Emails.LastTo(email, EmailTemplate.PasswordChanged);
+        message.Should().NotBeNull("صاحب الحساب يُخطَر بتغيّر كلمة مروره");
+        message!.ActionUrl.Should().NotBeNull();
+        new Uri(message.ActionUrl!).Host.Should().Be(created.Host, "الرابط على مضيف متجره لا مضيف آخر");
+        message.ActionUrl.Should().Contain("/forgot-password",
+            "من لم يكن هو الفاعل يحتاج طريق استعادة، لا تأكيداً لما لم يفعله");
+        _factory.Logs.Messages.Should().NotContain(m => m.Contains(email));
     }
 
     // ════════════════════════════════════════════════════════════════════════
@@ -366,6 +435,13 @@ public class NotificationTests
     private Task<int> SetLockAsync(long id, DateTime until) =>
         _api.WithDbAsync(db => db.OutboxMessages.Where(m => m.Id == id)
             .ExecuteUpdateAsync(s => s.SetProperty(m => m.LockedUntil, until)));
+
+    // يُقدِّم انتهاء صلاحية رمز إعادة التعيين إلى الماضي، فتنقضي مهلة إعادة الإرسال المشتقّة منه —
+    // وهو ما يفعله مرور الوقت في الواقع، لا التفافٌ على القاعدة.
+    private Task<int> ExpireResetCooldownAsync(int userId) =>
+        _api.WithDbAsync(db => db.Users.Where(u => u.Id == userId)
+            .ExecuteUpdateAsync(s => s.SetProperty(
+                u => u.PasswordResetTokenExpiry, u => u.PasswordResetTokenExpiry!.Value.AddMinutes(-5))));
 
     private Task<OutboxMessage> LatestResetAsync(int userId) =>
         _api.WithDbAsync(db => db.OutboxMessages.AsNoTracking()

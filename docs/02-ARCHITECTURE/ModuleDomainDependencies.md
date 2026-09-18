@@ -12,12 +12,12 @@ This file makes those crossings countable. It lists every place one module's use
 - **A new crossing changes this file and fails the test.** That is the point: it should be a decision, made in review, not a quiet import. Prefer adding a contract to the owning module; if the crossing is deliberate, regenerate the file so the diff shows what you added.
 - **Removing a crossing also changes this file.** Regenerate, and the count goes down.
 
-**Today: 62 crossings across 13 module pairs.**
+**Today: 65 crossings across 13 module pairs.**
 
 | From | To | Crossings |
 |---|---|---|
+| Notifications | Identity | 14 |
 | Shopping | Catalog | 12 |
-| Notifications | Identity | 11 |
 | Notifications | Ordering | 9 |
 | Notifications | Platform | 6 |
 | Customers | Shopping | 4 |
@@ -72,13 +72,16 @@ This file makes those crossings countable. It lists every place one module's use
 | Notifications | Identity | `IUserRepository` | `EmailVerificationEmailHandler` |
 | Notifications | Identity | `IUserRepository` | `InvitationEmailHandler` |
 | Notifications | Identity | `IUserRepository` | `OrderStatusChangedHandler` |
+| Notifications | Identity | `IUserRepository` | `PasswordChangedEmailHandler` |
 | Notifications | Identity | `IUserRepository` | `PasswordResetEmailHandler` |
 | Notifications | Identity | `IUserRepository` | `StockBecameLowHandler` |
 | Notifications | Identity | `User` | `EmailVerificationEmailHandler` |
 | Notifications | Identity | `User` | `InvitationEmailHandler` |
+| Notifications | Identity | `User` | `PasswordChangedEmailHandler` |
 | Notifications | Identity | `User` | `PasswordResetEmailHandler` |
 | Notifications | Identity | `UserStatus` | `EmailVerificationEmailHandler` |
 | Notifications | Identity | `UserStatus` | `InvitationEmailHandler` |
+| Notifications | Identity | `UserStatus` | `PasswordChangedEmailHandler` |
 | Notifications | Identity | `UserStatus` | `PasswordResetEmailHandler` |
 | Notifications | Inventory | `StockBecameLow` | `StockBecameLowHandler` |
 | Notifications | Ordering | `IOrderRepository` | `OrderEmailHandler` |
