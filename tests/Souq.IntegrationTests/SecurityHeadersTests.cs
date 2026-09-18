@@ -35,6 +35,46 @@ public class SecurityHeadersTests
             .And.Contain("frame-ancestors 'none'");
     }
 
+    // ========================================================================
+    // التخزين المؤقّت: `no-store` افتراضاً، والاستثناء قرارٌ مكتوب في موضعه (M15، ASVS 8.2.1).
+    //
+    // كل ردٍّ لا يقول شيئاً عن نفسه يُعامَل كبيانٍ خاصّ — وهو الصواب، لأنّ معظم هذه الواجهة كذلك.
+    // أمّا `/api/storefront/config` فبيانُ عرضٍ عامّ يضبط `no-cache` مع ETag عن قصد ليتحقّق المتصفّح
+    // ويأخذ 304؛ فرضُ `no-store` عليه كان يُبطل ذلك بلا أن يقول أحد (وقد أسقط اختباره بالفعل).
+    // ========================================================================
+    [Theory]
+    [InlineData("/api/products/99999999")]                 // 404 من المعالج
+    [InlineData("/api/account/profile")]                   // 401 من الإطار
+    public async Task ما_لا_يضبط_تخزينه_يُعامَل_كبيانٍ_خاصّ(string path)
+    {
+        Header(await _api.Anonymous().GetAsync(path), "Cache-Control").Should().Be("no-store");
+    }
+
+    [Fact]
+    public async Task النقطة_التي_تضبط_تخزينها_تبقى_كما_ضبطته()
+    {
+        var response = await _api.Anonymous().GetAsync("/api/storefront/config");
+
+        Header(response, "Cache-Control").Should().Be("no-cache", "بيان عرضٍ عامّ يتحقّق ولا يُمنع تخزينه");
+        response.Headers.ETag.Should().NotBeNull("التحقّق المشروط هو سبب الاستثناء");
+    }
+
+    // ========================================================================
+    // الردّ الذي يجعل هذه الترويسة تستحقّ وجودها (M15، ASVS 8.2.1): تصدير بيانات العميل يُعيد ملفّه
+    // وعناوينه وطلباته ومراجعاته **ملفّاً يُنزَّل**. بلا `no-store` يقرّر المتصفّح بنفسه، فيبقى على
+    // القرص وفي مجلّد التنزيلات بعد الخروج — وتنظيف الواجهة لذاكرتها لا يمسّ ذاكرة HTTP.
+    // ========================================================================
+    [Fact]
+    public async Task تصدير_بيانات_العميل_لا_يُخزَّن_مؤقّتاً()
+    {
+        var (customer, _) = await _api.NewCustomerAsync();
+
+        var response = await customer.GetAsync("/api/account/export");
+
+        response.IsSuccessStatusCode.Should().BeTrue();
+        Header(response, "Cache-Control").Should().Be("no-store");
+    }
+
     [Fact]
     public async Task سياسة_الملفات_المرفوعة_الأشدّ_لا_تُستبدَل()
     {

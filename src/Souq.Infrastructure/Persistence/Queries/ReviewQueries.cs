@@ -20,8 +20,22 @@ internal sealed class ReviewQueries : IReviewQueries
 
     public async Task<ProductReviewsDto> ListForProductAsync(int productId, PageRequest page, CancellationToken ct)
     {
+        // ============================================================================
+        // التقييمات تتبع ظهور المنتج نفسه (M15).
+        //
+        // كان الشرط `ProductId` و`Approved` وحدهما، بلا أي صلة بظهور المنتج. فمنتجٌ سُحب من الواجهة
+        // — مسوّدة، أو مؤرشف، أو فئته معطّلة — يردّ `GET /api/products/{id}` بـ404 بينما يظلّ
+        // `GET /api/products/{id}/reviews` (نقطة عامّة بلا تسجيل دخول) يُعيد أسماء المقيّمين ونصوص
+        // تعليقاتهم وتوزيع التقييمات. فمن يمرّ على المعرّفات يعرف أيُّها سُحب — ويقرأ محتواه وإشارةً
+        // عن حجم مبيعاته — بمجرّد أن يردّ أحد المسارين 404 والآخر بيانات.
+        //
+        // والشرط هو نفسه شرط `CatalogQueries.VisibleProducts` حرفياً: منتجٌ نشط في فئة مفعّلة.
+        // ============================================================================
         var reviews = _db.Reviews.AsNoTracking()
-            .Where(r => r.ProductId == productId && r.Status == ReviewStatus.Approved);
+            .Where(r => r.ProductId == productId && r.Status == ReviewStatus.Approved)
+            .Where(r => _db.Products.Any(p => p.Id == r.ProductId
+                                              && p.Status == ProductStatus.Active
+                                              && p.Category!.IsActive));
 
         var counts = await reviews.GroupBy(r => r.Rating)
             .Select(g => new { Rating = g.Key, Count = g.Count() })

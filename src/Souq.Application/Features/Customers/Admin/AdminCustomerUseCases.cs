@@ -12,8 +12,23 @@ namespace Souq.Application.Features.Customers.Admin;
 // (مُدقَّقة). المستودع والإسقاطات مُرشَّحة بالمتجر: معرّف عميل متجر آخر ⇒ 404.
 // ============================================================================
 
+// ============================================================================
+// قراءة دفتر العملاء مُدقَّقة كما تصديرُه (M15، ASVS 8.3.5).
+//
+// كان التصدير وحده مُدقَّقاً — وهذا أسوأ من ألّا يكون شيءٌ مُدقَّقاً، لأنّ الأثر يقول "لم يُصدَّر شيء"
+// بينما يخرج البيان نفسه من القائمة. و`CustomerListItemDto` يحمل الاسم **والبريد والهاتف** لكل عميل،
+// مئةً في الصفحة: فمن يتصفّح الدفتر إلى آخره يحصد ما يحصده المُصدِّر تماماً.
+//
+// والثمن مقبول: تصفّح دفتر العملاء فعلُ تاجرٍ يجري مرّاتٍ في اليوم، لا مرّاتٍ في الثانية. أمّا نموّ
+// جدول التدقيق بلا سياسة حفظ فثغرةٌ قائمة أصلاً لكل عملية مُدقَّقة (G-21)، لا أثرٌ لهذا السطر.
+// ============================================================================
 public record ListCustomersQuery(string? Keyword = null, CustomerStatus? Status = null, int Page = 1, int PageSize = 20)
-    : IRequest<PaginatedList<CustomerListItemDto>>, IPagedQuery;
+    : IRequest<PaginatedList<CustomerListItemDto>>, IPagedQuery, IAuditable
+{
+    // المعايير في البيانات الوصفية: "من قرأ الدفتر" وحدها لا تكفي تحقيقاً — المهمّ أيُّ شريحةٍ قرأ.
+    public AuditRecord ToAuditRecord() => new("customer.list-viewed", "Customer", null, null,
+        new Dictionary<string, object?> { ["keyword"] = Keyword, ["status"] = Status?.ToString(), ["page"] = Page });
+}
 
 public class ListCustomersQueryValidator : PagedQueryValidator<ListCustomersQuery>
 {
@@ -33,7 +48,11 @@ public class ListCustomersHandler : IRequestHandler<ListCustomersQuery, Paginate
         _queries.ListAsync(new CustomerSearch(q.Keyword?.Trim(), q.Status), PageRequest.From(q), ct);
 }
 
-public record GetCustomerQuery(int Id) : IRequest<Result<CustomerDetailDto>>;
+// فتح ملفّ عميلٍ بعينه: بيانه الكامل وعناوينه. مُدقَّق لنفس سبب التصدير.
+public record GetCustomerQuery(int Id) : IRequest<Result<CustomerDetailDto>>, IAuditable
+{
+    public AuditRecord ToAuditRecord() => new("customer.profile-viewed", "Customer", Id.ToString());
+}
 
 public class GetCustomerHandler : IRequestHandler<GetCustomerQuery, Result<CustomerDetailDto>>
 {

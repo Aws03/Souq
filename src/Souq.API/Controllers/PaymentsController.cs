@@ -19,6 +19,8 @@ namespace Souq.API.Controllers;
 [AllowAnonymous] // مقصود: المفتاح العلني ليس سرّاً، والـ Webhook مُصادَق بتوقيع البوّابة لا بتوكن.
 public class PaymentsController : ControllerBase
 {
+    private const int WebhookMaxBytes = 64 * 1024;
+
     private readonly IMediator _mediator;
     public PaymentsController(IMediator mediator) => _mediator = mediator;
 
@@ -32,7 +34,16 @@ public class PaymentsController : ControllerBase
 
     // POST /api/payments/webhook — دفاع في العمق: يضمن تأكيد الطلب حتى لو أغلق
     // العميل متصفّحه قبل استدعاء /orders/{id}/confirm-payment بنفسه.
+    // ── سقفٌ للجسم (M15) ──
+    // هذه النقطة مجهولة الهوية بالضرورة (الشبكة تستدعيها لا مستخدم)، ولا حدّ معدّل عليها، و**تقرأ
+    // الجسم كاملاً إلى نصّ قبل التحقّق من التوقيع** — ثمّ يقرأ الموجّه حساب المتجر ويفكّ تشفير مفتاحه
+    // بـ AES-GCM ويحسب HMAC على ما وصل. فجسمٌ بحجم ثلاثين ميغابايت (سقف Kestrel الافتراضي، وnginx
+    // يمرّر حتى خمسة وخمسين) يكلّف كل ذلك قبل أن يُرفض. وأحداث Stripe الحقيقية دون 64 كيلوبايت
+    // بمراتب، فالسقف لا يمنع حدثاً صحيحاً واحداً.
+    //
+    // كل نقطة أخرى تقبل جسماً في هذه الواجهة لها `[RequestSizeLimit]` صريح؛ هذه وحدها كانت بلا سقف.
     [HttpPost("webhook")]
+    [RequestSizeLimit(WebhookMaxBytes)]
     public async Task<IActionResult> Webhook()
     {
         using var reader = new StreamReader(Request.Body);

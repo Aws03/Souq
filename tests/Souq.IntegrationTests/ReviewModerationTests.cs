@@ -158,6 +158,46 @@ public class ReviewModerationTests
         (await admin.PutAsJsonAsync($"/api/orders/{orderId}/status", new { action = "Deliver" })).EnsureSuccessStatusCode();
     }
 
+    // ========================================================================
+    // التقييمات تختفي مع المنتج الذي سُحب من الواجهة (M15).
+    //
+    // `GET /api/products/{id}/reviews` نقطة **عامّة بلا تسجيل دخول**، وكان شرطها `ProductId` و
+    // `Approved` وحدهما — بلا أي صلة بظهور المنتج. فمنتجٌ صار مسوّدة أو أُرشف يردّ 404 على مساره
+    // بينما يظلّ مساره الآخر يُعيد أسماء المقيّمين ونصوص تعليقاتهم وتوزيع التقييمات.
+    //
+    // والفرق بين الردّين هو التسريب نفسه: من يمرّ على المعرّفات يميّز "منتج لم يوجد قطّ" من "منتج
+    // سُحب" — ويقرأ محتواه وإشارةً عن حجم مبيعاته — بمجرّد أن يردّ أحد المسارين 404 والآخر بيانات.
+    // ========================================================================
+    [Fact]
+    public async Task تقييمات_منتجٍ_سُحب_من_الواجهة_لا_تُعرض_للعامّة()
+    {
+        var store = _api.ForStore(await _factory.CreateStoreAsync());
+        var admin = await store.AdminAsync();
+        var productId = await store.CreateProductAsync(admin, price: 10m, stock: 10);
+        var (customer, _) = await store.NewCustomerAsync();
+        await DeliverAsync(store, customer, admin, productId);
+
+        (await admin.PutAsJsonAsync($"/api/admin/reviews/settings", new { autoApprove = true }))
+            .EnsureSuccessStatusCode();
+        (await PostReviewAsync(customer, productId, 5, "ممتاز جداً")).Status.Should().Be("Approved");
+
+        // معروضٌ ما دام المنتج معروضاً — وإلّا لكان الاختبار أخضر بلا معنى.
+        var visible = await PublicAsync(store, productId);
+        visible.TotalCount.Should().Be(1, "التقييم معتمد والمنتج معروض");
+        visible.Items.Should().ContainSingle();
+
+        // ثمّ يُسحب المنتج (أرشفة عبر DELETE — لا حذف فعلي).
+        (await admin.DeleteAsync($"/api/products/{productId}")).EnsureSuccessStatusCode();
+        (await store.Anonymous().GetAsync($"/api/products/{productId}"))
+            .StatusCode.Should().Be(HttpStatusCode.NotFound, "المنتج نفسه اختفى من الواجهة");
+
+        var afterwards = await PublicAsync(store, productId);
+        afterwards.TotalCount.Should().Be(0, "تقييمات منتجٍ مسحوب لا تُعرض");
+        afterwards.Items.Should().BeEmpty();
+        afterwards.AverageRating.Should().Be(0d);
+        afterwards.Distribution.Should().OnlyContain(d => d.Count == 0, "ولا التوزيع يبقى إشارةً عنه");
+    }
+
     private static async Task<CreatedReviewBody> PostReviewAsync(HttpClient customer, int productId, int rating, string comment)
     {
         var response = await customer.PostAsJsonAsync($"/api/products/{productId}/reviews", new { rating, comment });

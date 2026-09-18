@@ -159,9 +159,9 @@ Module document: [Customers/README.md](Customers/README.md).
 | `UpdateMyProfileCommand` | command | `UpdateMyProfileHandler` | `UpdateMyProfileValidator` | — | `PUT /api/account/profile` |
 | `ExportCustomerDataQuery` | query | `ExportCustomerDataHandler` | — | yes | `GET /api/admin/customers/{id:int}/export` |
 | `ExportMyDataQuery` | query | `ExportMyDataHandler` | — | yes | `GET /api/account/export` |
-| `GetCustomerQuery` | query | `GetCustomerHandler` | — | — | `GET /api/admin/customers/{id:int}` |
+| `GetCustomerQuery` | query | `GetCustomerHandler` | — | yes | `GET /api/admin/customers/{id:int}` |
 | `GetMyProfileQuery` | query | `GetMyProfileHandler` | — | — | `GET /api/account/profile` |
-| `ListCustomersQuery` | query | `ListCustomersHandler` | `ListCustomersQueryValidator` | — | `GET /api/admin/customers` |
+| `ListCustomersQuery` | query | `ListCustomersHandler` | `ListCustomersQueryValidator` | yes | `GET /api/admin/customers` |
 | `ListMyAddressesQuery` | query | `ListMyAddressesHandler` | — | — | `GET /api/account/addresses` |
 
 ## Shopping

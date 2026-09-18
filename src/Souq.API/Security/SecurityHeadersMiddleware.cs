@@ -38,6 +38,19 @@ public sealed class SecurityHeadersMiddleware
             headers["X-Frame-Options"] = "DENY";                // للمتصفّحات القديمة قبل frame-ancestors
             headers["Permissions-Policy"] = PermissionsPolicy;
 
+            // ── لا تخزين مؤقّت لأي ردّ من الواجهة البرمجية (M15، ASVS 8.2.1) ──
+            // كل ما تُعيده هذه الواجهة إمّا خاصّ بحسابٍ أو بمتجر: `/api/auth/me`، `/api/orders/mine`،
+            // `/api/account/addresses`، و`/api/account/export` الذي يُعيد **كل** بيانات العميل ملفّاً
+            // يُنزَّل. بلا توجيهٍ صريح يقرّر المتصفّح بنفسه، فيبقى الملفّ في ذاكرة القرص وفي مجلّد
+            // التنزيلات بعد الخروج — وتنظيفُ الواجهة لذاكرتها (resetQueries) لا يمسّ ذاكرة HTTP.
+            // وهو **افتراضٌ لا فرض**: نقطةٌ تضبط التوجيه بنفسها تُترك وشأنها — نفس قاعدة سياسة المحتوى
+            // أسفله، ولنفس السبب. و`/api/storefront/config` هي الحالة: بيانُ عرضٍ عامّ لا بيانات
+            // شخصية، وتضبط `no-cache` مع ETag عن قصد كي يتحقّق المتصفّح بـ If-None-Match ويأخذ 304 —
+            // و`no-store` كان سيُبطل ذلك التصميم صامتاً (وهو ما أسقط اختباره فعلاً قبل هذا السطر).
+            // فالافتراضي يحمي كل ما لم يُفكَّر فيه، والاستثناء يبقى قراراً مكتوباً في موضعه.
+            if (!isSwagger && !headers.ContainsKey("Cache-Control"))
+                headers["Cache-Control"] = "no-store";
+
             if (!isSwagger && !headers.ContainsKey("Content-Security-Policy"))
                 headers["Content-Security-Policy"] = ApiContentSecurityPolicy;
 

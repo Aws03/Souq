@@ -350,4 +350,39 @@ public class CreateOrderHandlerTests
         validator.Validate(NewCommand() with { Items = [new(1, 1, VariantId: 12)] }).IsValid.Should().BeTrue();
         validator.Validate(NewCommand()).IsValid.Should().BeTrue();
     }
+
+    // ========================================================================
+    // سقف الكمية على مسار الدفع، لا على السلة وحدها (M15).
+    //
+    // السلة تحرس `MaxQuantityPerLine` بثلاث طبقات — مُحقِّق ومجال وقيد في القاعدة — لكن الدفع يقبل
+    // `items` صريحة و`CheckoutQuote` يُفضّلها على السلة. فحدٌّ أدنى وحده كان يعني أنّ إرسال المصفوفة
+    // مباشرةً يتخطّى القاعدة كلّها: لا شيء بعدها إلا المخزون المتاح.
+    //
+    // وكميّتان ضخمتان لنفس المتغيّر في طلبٍ واحد أسوأ من تخطّي قاعدة: الأسطر لا تُدمَج، ومجموعها
+    // يُحسب بحسابٍ مُدقَّق — ففيضٌ، أي 500 وأثرُ استثناءٍ في السجلّ لكل طلب، على نقطة بلا حدّ معدّل.
+    // ========================================================================
+    [Theory]
+    [InlineData(1, true)]
+    [InlineData(Basket.MaxQuantityPerLine, true)]
+    [InlineData(Basket.MaxQuantityPerLine + 1, false)]
+    [InlineData(int.MaxValue, false)]
+    public void سطر_الطلب_لا_يتجاوز_سقف_كمية_السلة(int quantity, bool valid)
+    {
+        var validator = new CreateOrderValidator();
+
+        validator.Validate(NewCommand() with { Items = [new(1, quantity, VariantId: 12)] })
+            .IsValid.Should().Be(valid);
+    }
+
+    // نفس المتغيّر مرّتين بكميّتين هائلتين: كان مجموعهما يفيض. السقف يمنع السطرين قبل الجمع.
+    [Fact]
+    public void سطران_ضخمان_لنفس_المتغيّر_يُرفضان_قبل_أن_يفيض_مجموعهما()
+    {
+        var validator = new CreateOrderValidator();
+
+        validator.Validate(NewCommand() with
+        {
+            Items = [new(1, 2_000_000_000, VariantId: 12), new(1, 2_000_000_000, VariantId: 12)],
+        }).IsValid.Should().BeFalse();
+    }
 }

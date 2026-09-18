@@ -8,11 +8,11 @@
 | Suite | Files | Facts | Theories |
 |---|---|---|---|
 | [`Souq.Domain.Tests`](#souqdomaintests) | 29 | 227 | 47 |
-| [`Souq.Application.Tests`](#souqapplicationtests) | 46 | 345 | 17 |
+| [`Souq.Application.Tests`](#souqapplicationtests) | 46 | 346 | 18 |
 | [`Souq.ArchitectureTests`](#souqarchitecturetests) | 15 | 61 | 7 |
-| [`Souq.IntegrationTests`](#souqintegrationtests) | 51 | 311 | 22 |
+| [`Souq.IntegrationTests`](#souqintegrationtests) | 51 | 314 | 25 |
 | [frontend (Vitest)](#frontend-vitest) | 85 | 665 | — |
-| [frontend (Playwright)](#frontend-playwright) | 17 | 114 | — |
+| [frontend (Playwright)](#frontend-playwright) | 18 | 120 | — |
 
 ## Souq.Domain.Tests
 
@@ -74,7 +74,7 @@
 | `tests/Souq.Application.Tests/Notifications/NotificationHandlersTests.cs` | `OutboxPolicyTests`, `IdentityEmailHandlersTests`, `OrderNotificationHandlersTests`, `NotificationUseCasesTests` | 16 | 1 |
 | `tests/Souq.Application.Tests/Orders/CancelMyOrderHandlerTests.cs` | `CancelMyOrderHandlerTests` | 5 | 0 |
 | `tests/Souq.Application.Tests/Orders/ConfirmOrderPaymentHandlerTests.cs` | `ConfirmOrderPaymentHandlerTests` | 12 | 0 |
-| `tests/Souq.Application.Tests/Orders/CreateOrderHandlerTests.cs` | `CreateOrderHandlerTests` | 16 | 0 |
+| `tests/Souq.Application.Tests/Orders/CreateOrderHandlerTests.cs` | `CreateOrderHandlerTests` | 17 | 1 |
 | `tests/Souq.Application.Tests/Orders/ExpireStaleCheckoutsHandlerTests.cs` | `ExpireStaleCheckoutsHandlerTests` | 6 | 0 |
 | `tests/Souq.Application.Tests/Orders/GetOrderByIdHandlerTests.cs` | `GetOrderByIdHandlerTests` | 7 | 1 |
 | `tests/Souq.Application.Tests/Orders/ProcessPaymentWebhookHandlerTests.cs` | `ProcessPaymentWebhookHandlerTests`, `ApplyPaymentEventHandlerTests` | 6 | 2 |
@@ -124,7 +124,7 @@
 | File | Classes | Facts | Theories |
 |---|---|---|---|
 | `tests/Souq.IntegrationTests/AuditTimestampsTests.cs` | `AuditTimestampsTests`, `SettableClock` | 1 | 0 |
-| `tests/Souq.IntegrationTests/AuthSessionTests.cs` | `AuthSessionTests` | 11 | 0 |
+| `tests/Souq.IntegrationTests/AuthSessionTests.cs` | `AuthSessionTests` | 11 | 1 |
 | `tests/Souq.IntegrationTests/AuthorizationBoundaryTests.cs` | `AuthorizationBoundaryTests` | 9 | 0 |
 | `tests/Souq.IntegrationTests/AuthorizationMatrixTests.cs` | `AuthorizationMatrixTests` | 3 | 0 |
 | `tests/Souq.IntegrationTests/BackgroundSweepScopeTests.cs` | `BackgroundSweepScopeTests` | 2 | 0 |
@@ -137,7 +137,7 @@
 | `tests/Souq.IntegrationTests/CookieSecurityTests.cs` | `CookieSecurityTests` | 3 | 0 |
 | `tests/Souq.IntegrationTests/CouponRedemptionTests.cs` | `CouponRedemptionTests` | 3 | 0 |
 | `tests/Souq.IntegrationTests/CustomerAccountTests.cs` | `CustomerAccountTests` | 6 | 0 |
-| `tests/Souq.IntegrationTests/EnforcementDiagnosticsTests.cs` | `EnforcementDiagnosticsTests` | 1 | 2 |
+| `tests/Souq.IntegrationTests/EnforcementDiagnosticsTests.cs` | `EnforcementDiagnosticsTests` | 1 | 3 |
 | `tests/Souq.IntegrationTests/ErrorContractTests.cs` | `ErrorContractTests` | 8 | 1 |
 | `tests/Souq.IntegrationTests/GlobalExceptionHandlerTests.cs` | `GlobalExceptionHandlerTests` | 4 | 1 |
 | `tests/Souq.IntegrationTests/HealthCheckTests.cs` | `HealthCheckTests` | 7 | 0 |
@@ -158,9 +158,9 @@
 | `tests/Souq.IntegrationTests/ProductVariantTests.cs` | `ProductVariantTests` | 6 | 0 |
 | `tests/Souq.IntegrationTests/ProvisioningBoundaryTests.cs` | `ProvisioningBoundaryTests` | 4 | 0 |
 | `tests/Souq.IntegrationTests/QueryServiceTests.cs` | `QueryServiceTests` | 10 | 1 |
-| `tests/Souq.IntegrationTests/ReviewModerationTests.cs` | `ReviewModerationTests` | 4 | 0 |
+| `tests/Souq.IntegrationTests/ReviewModerationTests.cs` | `ReviewModerationTests` | 5 | 0 |
 | `tests/Souq.IntegrationTests/SearchAnalyticsTests.cs` | `SearchAnalyticsTests` | 12 | 0 |
-| `tests/Souq.IntegrationTests/SecurityHeadersTests.cs` | `SecurityHeadersTests` | 4 | 1 |
+| `tests/Souq.IntegrationTests/SecurityHeadersTests.cs` | `SecurityHeadersTests` | 6 | 2 |
 | `tests/Souq.IntegrationTests/SeedSafetyTests.cs` | `SeedSafetyTests`, `FreshDatabaseFactory` | 4 | 0 |
 | `tests/Souq.IntegrationTests/ShippingTests.cs` | `ShippingTests` | 3 | 0 |
 | `tests/Souq.IntegrationTests/StartupAndSecurityTests.cs` | `StartupAndSecurityTests`, `LoggerAdapter` | 7 | 1 |
@@ -277,6 +277,7 @@
 | `frontend/e2e/back-office.spec.js` | 6 |
 | `frontend/e2e/checkout-coupon.spec.js` | 3 |
 | `frontend/e2e/checkout-reliability.spec.js` | 4 |
+| `frontend/e2e/csp.spec.js` | 6 |
 | `frontend/e2e/experience.spec.js` | 16 |
 | `frontend/e2e/platform-provisioning.spec.js` | 9 |
 | `frontend/e2e/product-variants.spec.js` | 5 |
