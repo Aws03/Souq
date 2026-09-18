@@ -1,6 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../api/client';
+import { queryKeys } from '../../app/queryKeys';
 import { useAuth } from '../../context/AuthContext';
 import DataTable from '../../components/common/DataTable';
 import RowActionsMenu from '../../components/common/RowActionsMenu';
@@ -22,16 +24,18 @@ function stockLevel(item) {
 // شاشة جرد المخزون (المرحلة 6): صفّ لكل متغيّر (ADR-0039/0040) بوصفه وحالته — الموجود والمحجوز والمتاح (الأقلّ متاحاً
 // أولاً) مرقّمة من الخادم، سجلّ الحركة، والتصحيح بفارق وسبب لمن يملك inventory.manage — لا تعيين مطلق يمحو بيعاً حدث أثناء فتح النموذج (Phase 0 C4).
 // عدد المنخفض من الخادم (totalCount) لا من الصفحة الحالية — كي يبقى صحيحاً مع الترقيم.
+//
+// **على طبقة الاستعلام (ADR-0037/0038، جزء من TD-25 أُغلق في M7).** كانت الشاشة تحمّل بـ `useEffect` + `load()`،
+// فنداءان معلّقان على صفحتين يصلان بأي ترتيب: ردٌّ لصفحة تجاوزها المتجر يكتب فوق المعروض، فتُقرأ أرقام مخزون
+// صفحةٍ أخرى — وهذه شاشة يقرأ منها التاجر قراراً. المفتاح يحمل الصفحة، فالردّ يُكتب في مفتاحه لا على الشاشة،
+// و`keepPreviousData` يُبقي الصفحة السابقة مقروءة أثناء جلب التالية بدل جدول فارغ. اختبار Inventory.test.jsx
+// يثبّت هذا صراحةً. أما درج السجلّ (StockDrawers) فكان يحرس نفسه بعلم `alive` أصلاً، فلم يُمسّ.
 export default function Inventory() {
   const { t } = useTranslation();
   const { can } = useAuth();
+  const queryClient = useQueryClient();
   const canManage = can('inventory.manage');
-  const [items, setItems] = useState([]);
   const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [lowCount, setLowCount] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
   const [historyFor, setHistoryFor] = useState(null); // الصفّ (المتغيّر) المفتوح سجلّه، أو null
   const [adjusting, setAdjusting] = useState(null);   // الصفّ (المتغيّر) المفتوح تصحيحه، أو null
 
@@ -40,16 +44,22 @@ export default function Inventory() {
     ? t('admin.inventory.itemName', { name: item.name, variant: item.variantLabel })
     : item.name);
 
-  const load = useCallback(() => {
-    setLoading(true);
-    api.getInventory({ page, pageSize: PAGE_SIZE })
-      .then((res) => { setItems(res.items); setTotalPages(res.totalPages); setError(null); })
-      .catch((e) => setError(e.message))
-      .finally(() => setLoading(false));
-    api.getLowStock({ pageSize: 1 }).then((res) => setLowCount(res.totalCount)).catch(() => setLowCount(0));
-  }, [page]);
+  const { data, error, isPending, refetch } = useQuery({
+    queryKey: queryKeys.inventory(page, PAGE_SIZE),
+    queryFn: () => api.getInventory({ page, pageSize: PAGE_SIZE }),
+    placeholderData: keepPreviousData,
+  });
 
-  useEffect(() => { load(); }, [load]);
+  // عدد المنخفض لا يتعلّق بالصفحة المعروضة، فله مفتاحه: التصفّح لا يعيد سؤاله. وخطؤه يُقرأ صفراً (كما كان)
+  // لأنه شريط تنبيه لا محتوى الشاشة — فشله لا يجوز أن يحجب الجرد نفسه.
+  const { data: low } = useQuery({
+    queryKey: queryKeys.inventoryLowCount(),
+    queryFn: () => api.getLowStock({ pageSize: 1 }),
+  });
+  const lowCount = low?.totalCount ?? 0;
+
+  const items = data?.items ?? [];
+  const reload = () => queryClient.invalidateQueries({ queryKey: queryKeys.inventoryAll() });
 
   const columns = [
     { key: 'img', header: t('admin.inventory.colImage'), width: '64px', render: (p) => <div className={styles.thumb}><ProductImage product={p} /></div> },
@@ -87,24 +97,24 @@ export default function Inventory() {
       <h2 className={styles.pageTitle}>{t('admin.inventory.title')}</h2>
       <p className={styles.pageSub}>{t('admin.inventory.subtitle')}</p>
 
-      {!loading && !error && lowCount > 0 && (
+      {!isPending && !error && lowCount > 0 && (
         <div className={styles.lowStockAlert}>
           {t('admin.inventory.lowStockAlert', { count: lowCount })}
         </div>
       )}
 
-      <DataTable columns={columns} rows={items} rowKey={(p) => p.variantId} loading={loading} error={error}
-        onRetry={load} emptyTitle={t('admin.inventory.emptyTitle')} emptyMessage={t('admin.inventory.emptyMessage')}
-        minWidth="760px" stickyFirstColumn />
+      <DataTable columns={columns} rows={items} rowKey={(p) => p.variantId} loading={isPending}
+        error={error?.message} onRetry={refetch} emptyTitle={t('admin.inventory.emptyTitle')}
+        emptyMessage={t('admin.inventory.emptyMessage')} minWidth="760px" stickyFirstColumn />
 
-      <Pagination page={page} totalPages={totalPages} onChange={setPage} />
+      {data && <Pagination page={page} totalPages={data.totalPages} onChange={setPage} />}
 
       {historyFor && (
         <StockMovementDrawer variantId={historyFor.variantId} title={itemTitle(historyFor)} onClose={() => setHistoryFor(null)} />
       )}
       {adjusting && (
         <AdjustStockDrawer item={adjusting} title={itemTitle(adjusting)} onClose={() => setAdjusting(null)}
-          onDone={() => { setAdjusting(null); load(); }} />
+          onDone={() => { setAdjusting(null); reload(); }} />
       )}
     </div>
   );

@@ -34,6 +34,14 @@ export const queryKeys = {
 
   adminProduct: (id) => ['admin-product', String(id)],
 
+  // جذر واحد لكل ما تعرضه شاشة الجرد: تصحيحُ مخزون يغيّر صفحة الجرد **وعدد المنخفض** معاً،
+  // فإبطال الجذر يُصيبهما بنداء واحد بدل تتبّع مفتاحين منفصلين عند كل تعديل.
+  // والجذر نفسه دالّة هنا لا نصّاً في الشاشة: القاعدة أعلى هذا الملفّ تمنع بناء مفتاح في مكانين،
+  // والإبطال مفتاحٌ كأيّ مفتاح — `['inventory']` مكتوبةً في شاشةٍ تفترق عن هذه يوماً بلا أن يشتكي شيء.
+  inventoryAll: () => ['inventory'],
+  inventory: (page, pageSize) => ['inventory', page, pageSize],
+  inventoryLowCount: () => ['inventory', 'low-count'],
+
   storeSettings: () => ['store-settings'],
   storeSettingsOptions: () => ['store-settings-options'],
   staff: (page, pageSize) => ['staff', page, pageSize],
