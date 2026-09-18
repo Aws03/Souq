@@ -60,6 +60,8 @@ export const queryKeys = {
   adminReviews: (params) => ['admin-reviews', params],
   adminSynonymsAll: () => ['admin-synonyms'],
   adminSynonyms: (params) => ['admin-synonyms', params],
+  // أثر البحث (M13): المفتاح يحمل المرشّحات والصفحة، فردُّ صفحةٍ تجاوزها التاجر يُكتب في مفتاحه لا على شاشته.
+  searchInsights: (params) => ['search-insights', params],
   adminShippingAll: () => ['admin-shipping'],
   adminShipping: (params) => ['admin-shipping', params],
 

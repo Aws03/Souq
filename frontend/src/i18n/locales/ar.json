@@ -324,7 +324,7 @@
       "products": "المنتجات",
       "inventory": "المخزون",
       "categories": "الفئات",
-      "searchSynonyms": "مفردات البحث",
+      "searchSynonyms": "البحث",
       "coupons": "الكوبونات",
       "orders": "الطلبات",
       "customers": "العملاء",
@@ -1318,7 +1318,45 @@
         "expansionHint": "كلمة واحدة موجودة في كتالوجك. مثال: هاتف",
         "bothRequired": "الكلمتان مطلوبتان",
         "singleWord": "كلمة واحدة لكل طرف — للعبارة أضف مفردة لكل كلمة"
-      }
+      },
+      "tab": "المفردات"
+    },
+    "storeSearch": {
+      "title": "البحث في متجرك",
+      "subtitle": "ما يبحث عنه زبائنك، والمفردات التي تُعلِّم البحث كلماتهم.",
+      "tabsLabel": "أقسام البحث"
+    },
+    "searchInsights": {
+      "tab": "ما بحث عنه زبائنك",
+      "totalSearches": "بحثاً في هذه الفترة",
+      "distinctTerms": "كلمةً مختلفة",
+      "zeroResultShare": "من البحوث لم تجد شيئاً",
+      "percent": "{{value}}٪",
+      "windowLabel": "الفترة",
+      "windowDays_one": "آخر يوم",
+      "windowDays_two": "آخر يومين",
+      "windowDays_few": "آخر {{count}} أيام",
+      "windowDays_many": "آخر {{count}} يوماً",
+      "windowDays_other": "آخر {{count}} يوم",
+      "onlyZeroResults": "الكلمات التي لم تجد شيئاً فقط",
+      "colTerm": "ما كتبه الزبون",
+      "colMatched": "كما بحث عنها المحرّك",
+      "colSearches": "المرّات",
+      "colOutcome": "النتيجة",
+      "colLastSearched": "آخر بحث",
+      "colAction": "الإجراء",
+      "foundNothing": "لم تجد شيئاً",
+      "foundSometimes_one": "فشلت مرّة",
+      "foundSometimes_two": "فشلت مرّتين",
+      "foundSometimes_few": "فشلت {{count}} مرّات",
+      "foundSometimes_many": "فشلت {{count}} مرّة",
+      "foundSometimes_other": "فشلت {{count}} مرّة",
+      "addSynonym": "أضِفها مرادفاً",
+      "emptyFailingTitle": "لا كلمة تفشل في هذه الفترة",
+      "emptyFailingMessage": "كل ما بحث عنه زبائنك وجد نتائج. أطفئ المرشّح لترى كل الكلمات.",
+      "emptyTitle": "لا بحث في هذه الفترة",
+      "emptyMessage": "لم يبحث أحد في متجرك بعد. سيظهر هنا ما يكتبه زبائنك في شريط البحث.",
+      "foundAlways": "تجد نتائج دائماً"
     }
   },
   "wishlist": {

@@ -13,6 +13,13 @@
   border-radius: 50px; padding: 9px 16px; color: var(--color-text-muted); flex: 1; min-width: 200px; max-width: 320px;
 }
 .search input { flex: 1; background: none; color: var(--color-text); font-size: var(--fs-body-sm); }
+/* مرشّح بمربّع اختيار في شريط الأدوات (M13). الصندوق كله هدفُ لمسٍ لا المربّع وحده: 44 بكسلاً ارتفاعاً
+   (WCAG 2.5.8)، والنصّ مرتبطٌ بالمربّع بكونه داخل label فلا يحتاج `for`. */
+.checkFilter {
+  display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 4px;
+  color: var(--color-text); font-size: var(--fs-body-sm); cursor: pointer; user-select: none;
+}
+.checkFilter input { width: 18px; height: 18px; accent-color: var(--color-primary); cursor: pointer; }
 .search:focus-within { border-color: var(--color-primary); }
 
 /* بطاقات الإحصاء */

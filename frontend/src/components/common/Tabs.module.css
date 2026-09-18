@@ -1,0 +1,70 @@
+/* ============================================================================
+   ألسنة التبويب (M13). كل لونٍ رمزٌ يشتقّه tenantModel لكل وضع — لا رقم حرفيّ، وإلّا بقي اللسان
+   فاتحاً في الوضع الداكن (وهو الخطأ الذي أصلحه M10 في ثلاث نغمات من خمس).
+   ============================================================================ */
+.list {
+  display: flex;
+  gap: 4px;
+  /* الخطّ السفلي يمتدّ تحت كل الألسنة، فيُقرأ المختار نتوءاً في خطٍّ لا زرّاً طائراً. */
+  border-bottom: 1px solid var(--color-border);
+  margin-bottom: 20px;
+  /* الألسنة لا تُلفّ على الجوال بل تُزحلق: لسانان في سطرين يكسران الخطّ السفلي ويُربكان القراءة. */
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.list::-webkit-scrollbar { display: none; }
+
+.tab {
+  flex: 0 0 auto;
+  appearance: none;
+  background: none;
+  border: none;
+  /* الحدّ الشفّاف موجودٌ دائماً: ظهوره عند الاختيار لا يُزحزح النصّ بمقدار بكسلين. */
+  border-bottom: 2px solid transparent;
+  padding: 10px 16px;
+  /* هدفُ لمسٍ لا يقلّ عن 44 بكسلاً (WCAG 2.5.8): اللسان يُنقر بالإصبع على الجوال. */
+  min-height: 44px;
+  font: inherit;
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.tab:hover { color: var(--color-text); }
+
+.tab[aria-selected='true'] {
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
+}
+
+/* التركيز يُرى: اللسان غير المختار خارج تسلسل الجدولة، فمن يصله بالأسهم يجب أن يعرف أين هو. */
+.tab:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+  border-radius: 4px;
+}
+
+/* عدّادٌ على اللسان (عدد الكلمات التي تحتاج عملاً) — نغمة تحذير لأنّه عملٌ معلّق لا خطأ. */
+.tab [data-badge] {
+  display: inline-block;
+  min-width: 20px;
+  padding: 1px 6px;
+  border-radius: 50px;
+  background: var(--color-surface-alt);
+  color: var(--color-text-muted);
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.tab[aria-selected='true'] [data-badge] {
+  background: var(--color-warning-soft);
+  color: var(--color-warning);
+}

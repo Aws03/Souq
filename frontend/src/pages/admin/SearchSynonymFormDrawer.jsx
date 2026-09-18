@@ -9,10 +9,14 @@ import styles from './CategoryFormDrawer.module.css';
 
 // درج إضافة/تعديل مفردة بحث (M3، ADR-0042): كلمة يكتبها المتسوّق ⇒ كلمة تُبحث معها. اتجاه الحقل يتبع اللغة
 // المختارة لا لغة الواجهة: تاجر يعمل بواجهة عربية قد يُضيف زوجاً إنجليزياً.
-export default function SearchSynonymFormDrawer({ synonym, onSave, onClose }) {
+//
+// `prefill` (M13): إضافةٌ جديدة بحقولٍ مملوءة، تأتي من زرّ "أضِفها مرادفاً" في شاشة أثر البحث — الكلمة
+// التي فشلت ولغتها، والتوسيع فارغ لأنّه القرار الذي لا يملكه إلا التاجر. يبقى تعديلاً غير محفوظ كأيّ
+// إضافةٍ يدوية: لا `id`، فيُنشئ صفّاً جديداً لا يُعدّل قائماً.
+export default function SearchSynonymFormDrawer({ synonym, prefill = null, onSave, onClose }) {
   const { t } = useTranslation();
   const isEdit = !!synonym;
-  const [form, setForm] = useState(() => synonymToForm(synonym));
+  const [form, setForm] = useState(() => synonymToForm(synonym ?? prefill));
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
 

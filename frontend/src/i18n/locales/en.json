@@ -317,7 +317,7 @@
       "products": "Products",
       "inventory": "Inventory",
       "categories": "Categories",
-      "searchSynonyms": "Search vocabulary",
+      "searchSynonyms": "Search",
       "coupons": "Coupons",
       "orders": "Orders",
       "customers": "Customers",
@@ -1270,7 +1270,39 @@
         "expansionHint": "One word that exists in your catalogue. Example: phone",
         "bothRequired": "Both words are required",
         "singleWord": "One word per side — for a phrase, add an entry per word"
-      }
+      },
+      "tab": "Vocabulary"
+    },
+    "storeSearch": {
+      "title": "Search in your store",
+      "subtitle": "What your customers search for, and the vocabulary that teaches search their words.",
+      "tabsLabel": "Search sections"
+    },
+    "searchInsights": {
+      "tab": "What customers searched",
+      "totalSearches": "searches in this period",
+      "distinctTerms": "distinct words",
+      "zeroResultShare": "of searches found nothing",
+      "percent": "{{value}}%",
+      "windowLabel": "Period",
+      "windowDays_one": "Last day",
+      "windowDays_other": "Last {{count}} days",
+      "onlyZeroResults": "Only words that found nothing",
+      "colTerm": "What the customer typed",
+      "colMatched": "As search matched it",
+      "colSearches": "Times",
+      "colOutcome": "Outcome",
+      "colLastSearched": "Last searched",
+      "colAction": "Action",
+      "foundNothing": "Found nothing",
+      "foundSometimes_one": "Failed once",
+      "foundSometimes_other": "Failed {{count}} times",
+      "addSynonym": "Add as synonym",
+      "emptyFailingTitle": "No word failed in this period",
+      "emptyFailingMessage": "Everything your customers searched for found results. Turn off the filter to see every word.",
+      "emptyTitle": "No searches in this period",
+      "emptyMessage": "Nobody has searched your store yet. What customers type in the search bar will appear here.",
+      "foundAlways": "Always finds results"
     }
   },
   "wishlist": {
