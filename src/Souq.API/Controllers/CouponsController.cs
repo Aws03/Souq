@@ -12,7 +12,12 @@ using Souq.Application.Features.Coupons.Queries;
 
 namespace Souq.API.Controllers;
 
-// وحدة Promotions اختيارية (D-11): معطّلة للمتجر ⇒ كل نقاطها 404 ModuleDisabled (المعاينة والإدارة معاً).
+// وحدة Promotions اختيارية (D-11): معطّلة للمتجر ⇒ كل نقاطها 404 ModuleDisabled — قبل الاستيثاق، فزائرٌ يطلبها
+// يقرأ "الوحدة معطّلة" لا "سجّل دخولك" (TenantAvailability قبل UseAuthentication في Program.cs).
+//
+// **كل ما هنا إدارة (M8).** كانت هنا نقطة عامة سادسة، `GET apply`، تُسعّر كوبوناً على إجمالي فرعي يرسله
+// العميل — تقييمٌ ثانٍ للكوبون خارج خطّ التسعير. حُذفت في M8 (TD-06): `GET /api/basket/quote` يفعل الشيء
+// نفسه على السلة الحقيقية، بلا استيثاق وبحدّ المعدّل نفسه، فلا يستطيع أن يخالف ما يقوله الدفع.
 [ApiController]
 [Route("api/[controller]")]
 [RequiresModule(StoreModules.Promotions)]
@@ -20,17 +25,6 @@ public class CouponsController : ControllerBase
 {
     private readonly IMediator _mediator;
     public CouponsController(IMediator mediator) => _mediator = mediator;
-
-    // GET /api/coupons/apply?code=SAVE10&subtotal=59.9 — عام: معاينة خصم قبل الدفع، بعملة المتجر
-    // دائماً (عملة يرسلها العميل لم تعد تُقبل — Phase 2).
-    [HttpGet("apply")]
-    [AllowAnonymous]
-    [EnableRateLimiting(RateLimitPolicies.CouponPreview)]   // تخمين الرموز بالقوة الغاشمة
-    public async Task<IActionResult> Apply([FromQuery] string code, [FromQuery] decimal subtotal)
-    {
-        var result = await _mediator.Send(new ApplyCouponQuery(code, subtotal));
-        return result.IsSuccess ? Ok(result.Value) : this.Failure(result);
-    }
 
     // GET /api/coupons — كل الكوبونات مرقّمة (نشطة ومعطّلة معاً).
     [HttpGet]

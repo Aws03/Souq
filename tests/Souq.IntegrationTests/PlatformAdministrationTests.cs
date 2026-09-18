@@ -146,7 +146,10 @@ public class PlatformAdministrationTests
         (await owner.PutAsJsonAsync($"/api/platform/tenants/{store.Tenant.Id}/modules", new { modules = new[] { "reviews" } }))
             .StatusCode.Should().Be(HttpStatusCode.NoContent);
 
-        (await ProblemAsync(await storeApi.Anonymous().GetAsync("/api/coupons/apply?code=ANY&subtotal=10")))
+        // على النقطة نفسها: بوّابة الوحدة تعمل **قبل** الاستيثاق (TenantAvailability قبل UseAuthentication)، فطلب
+        // زائرٍ لنقطة إدارية يقرأ "الوحدة معطّلة" لا 401 — وهذا ما يجعلها عيّنةً صالحة بلا توكن. العيّنة كانت
+        // نقطةَ المعاينة العامة `GET /api/coupons/apply` حتى حُذفت في M8 (TD-06).
+        (await ProblemAsync(await storeApi.Anonymous().GetAsync("/api/coupons")))
             .Should().Be((HttpStatusCode.NotFound, "ModuleDisabled"));
         var (customer, _) = await storeApi.NewCustomerAsync();
         var order = await customer.PostAsJsonAsync("/api/orders", new

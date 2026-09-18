@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using AwesomeAssertions;
 using Microsoft.AspNetCore.Routing;
@@ -307,8 +308,14 @@ public class TenantIsolationTests
         (await ProblemAsync(await s.CustomerB.PostAsJsonAsync("/api/basket/items", new { productId = aProduct, quantity = 1 })))
             .Should().Be((HttpStatusCode.NotFound, "NotFound"));
 
-        (await ProblemAsync(await s.StoreB.Anonymous().GetAsync($"/api/coupons/apply?code={s.ACouponCode}&subtotal=100")))
-            .Should().Be((HttpStatusCode.UnprocessableEntity, "CouponNotFound"));
+        // كوبون متجر A لا يُسعَّر على مضيف B. المُقيِّم صار واحداً بعد M8 (TD-06 حذف نقطة المعاينة الثانية)،
+        // والرفض فيه **نتيجة داخل السلة** لا مشكلة HTTP: 200 بسلّة معروضة وكوبون غير مطبَّق برمزه.
+        var foreign = await s.StoreB.Anonymous().GetAsync($"/api/basket/quote?couponCode={s.ACouponCode}");
+        foreign.StatusCode.Should().Be(HttpStatusCode.OK);
+        var foreignQuote = await foreign.Content.ReadFromJsonAsync<JsonDocument>(TestApi.Json);
+        var foreignCoupon = foreignQuote!.RootElement.GetProperty("coupon");
+        (foreignCoupon.GetProperty("applied").GetBoolean(), foreignCoupon.GetProperty("errorCode").GetString())
+            .Should().Be((false, "CouponNotFound"));
 
         (await ProblemAsync(await s.CustomerB.PostAsJsonAsync($"/api/products/{aProduct}/reviews",
                 new { rating = 5, comment = "رائع" })))

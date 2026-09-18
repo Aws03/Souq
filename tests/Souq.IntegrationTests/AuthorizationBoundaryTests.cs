@@ -33,7 +33,9 @@ public class AuthorizationBoundaryTests
         // اقتراحات البحث (M3): واجهة متجر عامّة كبقية القراءة، ولا تعيد إلا ما هو معروض أصلاً.
         "GET api/Products/suggestions",
         "GET api/Categories",
-        "GET api/Coupons/apply",
+        // لا نقطة كوبون عامّة بعد M8: كانت "GET api/Coupons/apply" تُسعّر رمزاً على إجمالي فرعي يرسله
+        // العميل، فحُذفت (TD-06) — والتسعير الوحيد للرمز صار داخل "GET api/basket/quote" أدناه، على سلة
+        // المتصل نفسه. هذا الاختبار هو ما منع الحذف من أن يمرّ بلا مراجعة، وهو الغرض منه.
         "GET api/products/{productId:int}/reviews",
         "GET api/Orders/track/{token}",
         "GET api/payments/config", "POST api/payments/webhook",

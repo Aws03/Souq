@@ -112,7 +112,18 @@ public class ErrorContractTests
     [Fact]
     public async Task قاعدة_عمل_422_برمزها_ورسالة_مقروءة()
     {
-        var response = await _api.Anonymous().GetAsync("/api/coupons/apply?code=NO-SUCH-CODE&subtotal=10&currency=JOD");
+        // المطلوب هنا **شكل** مشكلة 422 لقاعدة عمل، لا الكوبونات. كانت العيّنة نقطةَ معاينة عامة حُذفت في M8
+        // (TD-06)، فصارت العيّنة نفسَ القاعدة عبر المُقيِّم الباقي: إنشاء طلب برمز كوبون غير موجود.
+        var admin = await _api.AdminAsync();
+        var productId = await _api.CreateProductAsync(admin, price: 10m, stock: 3);
+        var (customer, _) = await _api.NewCustomerAsync();
+
+        var response = await customer.PostAsJsonAsync("/api/orders", new
+        {
+            shippingAddress = "عمّان — عنوان اختبار",
+            items = new[] { new { productId, quantity = 1 } },
+            couponCode = "NO-SUCH-CODE",
+        });
 
         var problem = await AssertProblemAsync(response, HttpStatusCode.UnprocessableEntity, "CouponNotFound");
         problem.Detail.Should().NotBeNullOrWhiteSpace();
