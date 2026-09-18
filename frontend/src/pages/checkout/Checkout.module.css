@@ -1,6 +1,11 @@
+/* minmax(0, 1fr) لا 1fr: مسار الشبكة الافتراضي أدناه min-content، فبطاقة الملخّص (أسطر بإجماليات
+   white-space: nowrap) كانت تفرض عرضاً 335px على نافذة 320px فتدفع الصفحة إلى تمرير أفقي ويخرج زرّ
+   "المتابعة إلى الدفع" خارج النافذة — قيس في مسح M4: فيض 31px. */
 .grid {
-  display: grid; grid-template-columns: 380px 1fr; gap: 28px; align-items: start;
+  display: grid; grid-template-columns: 380px minmax(0, 1fr); gap: 28px; align-items: start;
 }
+
+.panel, .summary { min-width: 0; }
 
 .panel { background: var(--color-surface); border-radius: var(--radius); box-shadow: var(--shadow); padding: 26px; }
 /* أي حقل داخل بطاقة الدفع يترك مساحة علوية عند التمرير إليه (تركيز على الجوال)
@@ -68,7 +73,7 @@
 /* ── الجوال (≤860px: عمود واحد) ── */
 @media (max-width: 860px) {
   .grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     /* min-height بـ dvh (الارتفاع الديناميكي المطابق للمنطقة المرئية، لا 100vh
        الذي يشمل خلف شريط المتصفّح) + مساحة سفلية تشمل safe-area — كي يبقى زر
        المتابعة وحقل الكوبون قابلَين للوصول فوق شريط المتصفّح/المؤشّر السفلي.

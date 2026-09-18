@@ -12,7 +12,13 @@
 .name { font-size: var(--fs-heading-lg); margin: 6px 0 10px; }
 .ratingLine { display: flex; align-items: center; gap: 8px; color: var(--color-text-muted); font-size: var(--fs-caption); margin-bottom: 14px; }
 .desc { color: var(--color-text-muted); line-height: 1.7; margin-bottom: 16px; }
-.buyRow { display: flex; align-items: center; justify-content: space-between; margin-top: 20px; }
+/* صفّ الشراء (السعر + العدّاد + زرّ الإضافة). يلتفّ ولا يفيض: على 320px بنصّ إنجليزي كان يحتاج 308px من
+   288px متاحة، فيدفع الصفحة إلى تمرير أفقي (قيس في مسح M4 — عربيّاً لا يظهر لأنّ "أضف للسلة" أقصر).
+   الالتفاف أصحّ من التصغير: زرّ الشراء لا يُقلَّص ولا يُقصّ نصّه. */
+.buyRow {
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap;
+  gap: var(--space-3); margin-top: 20px;
+}
 
 .reviewsSection { padding: 20px 0 40px; border-top: 1px solid var(--color-border); margin-top: 20px; }
 .sectionTitle { font-size: var(--fs-heading-lg); color: var(--color-primary); margin-bottom: 20px; }

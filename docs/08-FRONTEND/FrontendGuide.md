@@ -238,6 +238,11 @@ Every data view handles three states, with shared components from `frontend/src/
 
 **A gap to know about.** `error.traceId` and `error.fieldErrors` are produced by `toApiError` but no screen displays them yet — a support-facing trace id and per-field server errors are both one small change away.
 
+**Dialogs and drawers** all go through `useDialog` (`frontend/src/components/common/useDialog.js`), which gives them the behaviour a `role="dialog"` promises: Escape closes (the topmost one only — open dialogs are a stack, so a confirmation over a drawer closes itself and not both), focus moves into the panel on open and returns to whatever opened it on close, and the page behind stops scrolling. `ProductZoom` implements the same four behaviours by hand because it also binds arrow keys for the gallery.
+
+**What is deliberately not implemented: a cyclic focus trap.** Tab can still walk out of an open dialog into the page behind it. Keeping a dialog usable by keyboard — Escape, focus in, focus back — is done; confining Tab is not, and it needs real focusable-element management rather than a partial guard that would be worse than none. Recorded as **TD-48** in [TechnicalDebt.md](../12-ROADMAP/TechnicalDebt.md); named here rather than left as a silent gap.
+
+
 ## 11. Forms and validation
 
 Client validation exists for fast feedback; the server is the authority and its message is displayed as returned.

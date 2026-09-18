@@ -2,7 +2,13 @@
 
 .productSection__head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; gap: 12px; }
 .productSection__title { font-size: var(--fs-heading-lg); }
-.productSection__viewAll { color: var(--color-primary); font-weight: 600; font-size: var(--fs-body-sm); flex-shrink: 0; }
+/* "عرض الكل" زرّ قائم بذاته في ترويسة القسم، لا رابط داخل جملة — فيسري عليه حدّ هدف اللمس. كان 56×19px
+   (قيس في مسح M4)؛ الحشو الرأسي يرفعه إلى 44px بلا تغيير حجم النصّ، والحشو الأفقي السالب يُبقيه محاذياً
+   لحافة القسم بصرياً. */
+.productSection__viewAll {
+  display: inline-flex; align-items: center; min-block-size: 44px; padding-inline: 8px; margin-inline-end: -8px;
+  color: var(--color-primary); font-weight: 600; font-size: var(--fs-body-sm); flex-shrink: 0;
+}
 .productSection__viewAll:hover { text-decoration: underline; }
 
 /* صفّ تمرير أفقي مستمر على كل المقاسات (نمط المرجع) — لا يتحوّل لشبكة على سطح

@@ -158,12 +158,15 @@ Automated checks find perhaps a third of real accessibility defects. The rest ca
 
 ## 11. Responsive
 
-The breakpoints are 560px, 767px and 861px, and management UI is the harder half:
+The breakpoints are 560px, 767px, 861px and **960px**, and management UI is the harder half:
+
+- **960px was added by M4, from a measurement rather than a preference.** A signed-in storefront navbar needs **941px** in English (brand + search + "My orders" + "Account" + the greeting + "Log out" + five icon buttons), but the only rule that thinned it out was `max-width: 767px`. Between 768px and ~940px the navbar's `overflow-x: hidden` — a safety net against spilling — was silently **clipping the cart, wishlist and notification buttons**: no horizontal scrollbar revealed it, the controls were simply not there. Below 960px the text links now move into the menu the hamburger opens (where they already live on phones) and the search box and icon actions stay. A clipped control is worse than a visible overflow, because nothing points at it.
 
 - The admin sidebar becomes a bottom tab bar under 767px. With thirteen entries in `ADMIN_NAV` (fewer for an account whose permissions or store modules hide some) it no longer divides into a phone's width, so it scrolls horizontally with a minimum tab width instead of truncating labels to three letters.
 - The sidebar is `100vh` and its nav scrolls inside that, so the log-out control cannot be pushed off a short screen.
 - Wide tables scroll inside their own container; the page itself must never scroll horizontally.
 - `frontend/e2e/responsive.spec.js` runs against a real phone viewport and asserts exactly that: no page-level horizontal scroll, full labels, every section reachable, touch targets at least 40px, tables scrolling in their container, charts inside the viewport.
+- `frontend/e2e/responsive-storefront.spec.js` (M4) covers the other axis — **breadth instead of depth**: every storefront route, at 320/768/1280/2560, in both languages, asserting no page-level horizontal scroll, no interactive control outside the viewport, and no target under 24px (WCAG 2.5.8); plus axe across every route in both languages and both themes. Every defect it was written for — the navbar clipping above, a checkout grid track that could not shrink below its content so "Continue to payment" left the viewport, a five-column cart row that did not fit 320px, and 16×19px remove / 22×22px rating-star targets — appeared at **one** width in **one** language. The matrix is the test; a single viewport would have found none of them.
 
 ## 12. Performance budget
 

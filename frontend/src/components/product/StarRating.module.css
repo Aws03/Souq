@@ -1,5 +1,11 @@
 .stars { display: inline-flex; gap: 2px; }
 .star { color: var(--color-border); display: grid; place-items: center; cursor: default; }
 .star.filled { color: var(--color-accent); }
-.stars[role="radiogroup"] .star { cursor: pointer; transition: transform var(--ease-hover); }
+/* النجوم التفاعلية (نموذج التقييم) أهداف لمس: أيقونة 22px وحدها هدف 22×22 — دون حدّ WCAG 2.5.8 (24px)
+   ودون حدّ DesignSystem.md §11 (40px للهاتف). المساحة تتوسّع حول الأيقونة بلا تكبيرها. النجوم المعطَّلة
+   (العرض فقط) لا تُوسَّع: العنصر المعطَّل ليس هدفاً. قيس في مسح M4. */
+.stars[role="radiogroup"] .star {
+  cursor: pointer; min-inline-size: 40px; min-block-size: 40px;
+  transition: transform var(--ease-hover);
+}
 .stars[role="radiogroup"] .star:hover { transform: scale(1.15); }

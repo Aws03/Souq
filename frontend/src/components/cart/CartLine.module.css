@@ -1,5 +1,8 @@
+/* الصورة + الاسم + (العدّاد والإجمالي) + الحذف. قبل M4 كانت خمسة أعمدة لا تتّسع في 320px: قيس أنّ زرّ
+   الحذف يخرج 7px خارج النافذة — زرّ موجود ولا يُضغط. تحت 480px يهبط العدّاد والإجمالي إلى سطر ثانٍ تحت
+   الاسم بدل أن تُضغط الأعمدة على بعضها. */
 .line {
-  display: grid; grid-template-columns: 52px 1fr auto auto auto; gap: 12px; align-items: center;
+  display: grid; grid-template-columns: 52px minmax(0, 1fr) auto auto; gap: 12px; align-items: center;
   padding: 14px 0; border-bottom: 1px solid var(--color-border);
 }
 .thumb { width: 52px; height: 52px; border-radius: 10px; overflow: hidden; flex-shrink: 0; }
@@ -7,7 +10,14 @@
 .name { font-weight: 700; font-size: var(--fs-body-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .unit { color: var(--color-text-muted); font-size: var(--fs-caption); margin-top: 2px; }
 .lineTotal { font-weight: 700; color: var(--color-primary); font-size: var(--fs-body-sm); white-space: nowrap; }
-.remove { color: var(--color-text-muted); transition: color var(--ease-hover); }
+.controls { display: flex; align-items: center; gap: 12px; }
+/* حذف سطر فعلٌ متلِف، وكان هدف لمسه 16×19px — أصغر من حدّ WCAG 2.5.8 (24px) ومن حدّ هذا المستودع نفسه
+   (40px في DesignSystem.md §11)، فيُخطئه الإصبع أو يُصيبه بلا قصد. الأيقونة تبقى بحجمها والمساحة تتوسّع
+   حولها: 44px هو هدف اللمس المريح. قيس في مسح M4. */
+.remove {
+  display: grid; place-items: center; inline-size: 44px; block-size: 44px; margin-inline-end: -10px;
+  color: var(--color-text-muted); transition: color var(--ease-hover);
+}
 .remove:hover { color: var(--color-danger); }
 
 /* سطر لم يعد متاحاً أو يتجاوز المتاح (المرحلة 8): الاسم باهت وسبب المشكلة تحته. */
@@ -16,3 +26,16 @@
 
 /* وصف المتغيّر تحت اسم المنتج (V3): "M / أحمر" — نصّ التاجر، واتجاهه من محتواه. */
 .variant { color: var(--color-text-muted); font-size: var(--fs-caption); font-weight: 600; margin-top: 2px; }
+
+@media (max-width: 480px) {
+  .line {
+    grid-template-columns: 52px minmax(0, 1fr) auto;
+    /* الصورة تمتدّ على السطرين كي يبقى الصفّ مقروءاً ككتلة واحدة. */
+    grid-template-areas: 'thumb info remove' 'thumb controls controls';
+    row-gap: 10px;
+  }
+  .thumb { grid-area: thumb; align-self: start; }
+  .info { grid-area: info; }
+  .remove { grid-area: remove; align-self: start; }
+  .controls { grid-area: controls; justify-content: space-between; }
+}

@@ -17,7 +17,12 @@
 .linkLight { color: var(--color-text); text-decoration: none; font-weight: 500; opacity: .8; transition: opacity var(--ease-hover); }
 .linkLight:hover { opacity: 1; }
 .user { color: var(--color-primary); font-size: var(--fs-caption); white-space: nowrap; font-weight: 500; }
-.linkBtn { color: var(--color-text); opacity: .7; font-weight: 500; }
+/* زرّ نصّي في الشريط (الخروج). كان 48×16px — أصغر من حدّ هدف اللمس؛ الارتفاع وحده يرتفع إلى 44px داخل
+   شريط ارتفاعه 64px، فلا يتغيّر شيء بصرياً ويصير الهدف قابلاً للإصابة. قيس في مسح M4. */
+.linkBtn {
+  display: inline-flex; align-items: center; min-block-size: 44px;
+  color: var(--color-text); opacity: .7; font-weight: 500;
+}
 .linkBtn:hover { opacity: 1; text-decoration: underline; }
 
 .iconBtn {
@@ -41,10 +46,24 @@
 }
 .langToggle:hover { background: var(--color-accent-soft); }
 
-@media (max-width: 767px) {
+/* ============================================================================
+   اللوح (768–959px): روابط النصّ تنتقل إلى القائمة، ويبقى البحث والأيقونات.
+   عيبٌ قيس في مسح M4: الشريط مسجَّلَ الدخول يحتاج **941px** بالإنجليزية (الشعار + البحث + "طلباتي" +
+   "حسابي" + "مرحباً، فلان" + "خروج" + خمس أيقونات)، ونقطة التوقّف التي تُفرّغه كانت 767px وحدها. وبين
+   768px و~940px كانت `overflow-x: hidden` على الشريط — وهي شبكة أمان ضدّ الانسكاب — **تقصّ زرّ السلة
+   والمفضّلة والإشعارات بصمت**: لا تمرير أفقي يكشفها، ولا أثر لها إلا أنّ الزرّ غير موجود. وهو أسوأ من
+   انسكاب مرئي.
+   الروابط المخفيّة كلّها في MobileMenu الذي يفتحه الهامبرغر، فلا قدرة تُفقَد — والأفعال الأساسية (البحث،
+   المفضّلة، السلة، الإشعارات، السمة، اللغة) تبقى ظاهرة، وهي ما يقصده المتسوّق على اللوح.
+   960px هو أول عرض يتّسع للشريط كاملاً بالإنجليزية (941px + هوامش)، لا رقم مختار.
+   ============================================================================ */
+@media (max-width: 959px) {
   .hamburger { display: grid; place-items: center; }
-  .searchDesktop { display: none; }
   .linkLight, .linkBtn, .user { display: none; }
+}
+
+@media (max-width: 767px) {
+  .searchDesktop { display: none; }
   /* الجوال يبقى بالشعار + الهامبرغر + السلة فقط — اللغة والمفضّلة تنتقلان
      إلى القائمة السفلية (MobileMenu) كي لا يزدحم الشريط أو ينسكب أفقياً. */
   .desktopOnly { display: none; }
