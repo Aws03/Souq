@@ -1,6 +1,7 @@
 using Souq.Application.Common.Interfaces;
 using Souq.Domain.Identity;
 using Souq.Domain.Interfaces;
+using Souq.Application.Features.Auth.Contracts;
 
 namespace Souq.Application.Features.Auth;
 
@@ -12,23 +13,23 @@ namespace Souq.Application.Features.Auth;
 public sealed class AuthSessionIssuer
 {
     private readonly IRefreshTokenRepository _tokens;
-    private readonly ICustomerRepository _customers;
+    private readonly IAccountProfiles _profiles;
     private readonly IJwtTokenGenerator _jwt;
     private readonly IUnitOfWork _uow;
     private readonly TimeProvider _clock;
 
     public AuthSessionIssuer(
-        IRefreshTokenRepository tokens, ICustomerRepository customers, IJwtTokenGenerator jwt,
+        IRefreshTokenRepository tokens, IAccountProfiles profiles, IJwtTokenGenerator jwt,
         IUnitOfWork uow, TimeProvider clock)
     {
-        _tokens = tokens; _customers = customers; _jwt = jwt; _uow = uow; _clock = clock;
+        _tokens = tokens; _profiles = profiles; _jwt = jwt; _uow = uow; _clock = clock;
     }
 
     // familyId: null ⇒ جلسة جديدة؛ قيمة ⇒ الحلقة التالية في عائلة قائمة (تدوير رمز التجديد).
     public async Task<AuthSession> IssueAsync(User user, Guid? familyId, CancellationToken ct)
     {
         // ملفات العملاء بيانات متجر: حساب المنصّة لا ملف له (والاستعلام في نطاق المنصّة يرمي أصلاً).
-        var customerId = user.BelongsToPlatform ? null : await _customers.FindIdByUserIdAsync(user.Id, ct);
+        var customerId = user.BelongsToPlatform ? null : await _profiles.FindIdForAccountAsync(user.Id, ct);
 
         var (refresh, rawRefresh) = RefreshToken.Issue(
             user, familyId ?? Guid.NewGuid(), _clock.GetUtcNow().UtcDateTime, _jwt.RefreshTokenLifetime);

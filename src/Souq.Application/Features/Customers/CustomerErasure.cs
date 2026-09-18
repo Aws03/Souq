@@ -1,6 +1,7 @@
 using Souq.Application.Common.Security;
 using Souq.Domain.Entities;
 using Souq.Domain.Interfaces;
+using Souq.Application.Features.Auth.Contracts;
 
 namespace Souq.Application.Features.Customers;
 
@@ -12,39 +13,28 @@ namespace Souq.Application.Features.Customers;
 // ============================================================================
 public sealed class CustomerErasure
 {
-    private readonly IUserRepository _users;
-    private readonly IRefreshTokenRepository _tokens;
+    private readonly IAccountLifecycle _accounts;
     private readonly IBasketRepository _baskets;
     private readonly IWishlistRepository _wishlist;
-    private readonly IUnitOfWork _uow;
-    private readonly ISessionValidator _sessions;
     private readonly TimeProvider _clock;
 
     public CustomerErasure(
-        IUserRepository users, IRefreshTokenRepository tokens, IBasketRepository baskets, IWishlistRepository wishlist,
-        IUnitOfWork uow, ISessionValidator sessions, TimeProvider clock)
+        IAccountLifecycle accounts, IBasketRepository baskets, IWishlistRepository wishlist, TimeProvider clock)
     {
-        _users = users; _tokens = tokens; _baskets = baskets; _wishlist = wishlist; _uow = uow; _sessions = sessions; _clock = clock;
+        _accounts = accounts; _baskets = baskets; _wishlist = wishlist; _clock = clock;
     }
 
     public async Task EraseAsync(Customer customer, CancellationToken ct)
     {
-        var now = _clock.GetUtcNow().UtcDateTime;
-        var user = await _users.GetByIdAsync(customer.UserId, ct);
-
-        customer.Erase(now);
+        customer.Erase(_clock.GetUtcNow().UtcDateTime);
         if (await _baskets.GetForCustomerAsync(customer.Id, ct) is { } basket)
             _baskets.Remove(basket);
         foreach (var item in await _wishlist.ListForCustomerAsync(customer.Id, ct))
             _wishlist.Remove(item);
-        if (user is not null)
-        {
-            user.Erase();
-            foreach (var token in await _tokens.ListActiveForUserAsync(user.Id, ct))
-                token.Revoke("Erased", now);
-        }
 
-        await _uow.SaveChangesAsync(ct);
-        if (user is not null) _sessions.Forget(user.Id);
+        // ثم الحساب — وهو من يحفظ (IAccountLifecycle.EraseAsync)، فما جُهِّز أعلاه يُودَع معه في حفظٍ
+        // واحد: المحو ذرّةٌ واحدة كما كان قبل العقد. إبطال الجلسات ونسيان ختمها صارا داخل Identity،
+        // فلم تبقَ هذه الوحدة تُعدّل تجمّع حسابٍ لا تملكه (TD-03، M9).
+        await _accounts.EraseAsync(customer.UserId, ct);
     }
 }

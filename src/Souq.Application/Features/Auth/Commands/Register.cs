@@ -8,6 +8,7 @@ using Souq.Domain.Common;
 using Souq.Domain.Entities;
 using Souq.Domain.Identity;
 using Souq.Domain.Interfaces;
+using Souq.Application.Features.Auth.Contracts;
 
 namespace Souq.Application.Features.Auth.Commands;
 
@@ -28,7 +29,7 @@ public class RegisterValidator : AbstractValidator<RegisterCommand>
 public class RegisterHandler : IRequestHandler<RegisterCommand, Result<AuthSession>>
 {
     private readonly IUserRepository _users;
-    private readonly ICustomerRepository _customers;
+    private readonly IAccountProfiles _profiles;
     private readonly IPasswordHasher _hasher;
     private readonly AuthSessionIssuer _sessions;
     private readonly INotificationOutbox _outbox;
@@ -37,10 +38,10 @@ public class RegisterHandler : IRequestHandler<RegisterCommand, Result<AuthSessi
     private readonly IUnitOfWork _uow;
 
     public RegisterHandler(
-        IUserRepository users, ICustomerRepository customers, IPasswordHasher hasher, AuthSessionIssuer sessions,
+        IUserRepository users, IAccountProfiles profiles, IPasswordHasher hasher, AuthSessionIssuer sessions,
         INotificationOutbox outbox, IStorefrontLinks links, ITenantContext tenant, IUnitOfWork uow)
     {
-        _users = users; _customers = customers; _hasher = hasher; _sessions = sessions;
+        _users = users; _profiles = profiles; _hasher = hasher; _sessions = sessions;
         _outbox = outbox; _links = links; _tenant = tenant; _uow = uow;
     }
 
@@ -61,7 +62,7 @@ public class RegisterHandler : IRequestHandler<RegisterCommand, Result<AuthSessi
         {
             await _users.AddAsync(user, ct);
             await _uow.SaveChangesAsync(ct);
-            await _customers.AddAsync(new Customer(user.Id, user.FullName, user.Email), ct);
+            await _profiles.CreateForAccountAsync(user.Id, user.FullName, user.Email, ct);
             _outbox.Enqueue(new EmailVerificationRequested(user.Id, _links.Origin()));
             await _uow.SaveChangesAsync(ct);
             return await _sessions.IssueAsync(user, familyId: null, ct);

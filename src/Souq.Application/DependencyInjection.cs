@@ -75,6 +75,12 @@ public static class DependencyInjection
         services.AddScoped<Features.Orders.Checkout.CheckoutQuote>();
         services.AddScoped<Features.Orders.Checkout.OrderPlacement>();
         services.AddScoped<Features.Orders.Checkout.CheckoutPayment>();
+        // عقدا Identity ⇄ Customers (TD-03/R-15، M9): كلاهما مُعلَن في Identity، فكلّ إشارة تنطلق من
+        // Customers إليها ولا شيء يعود — وبذلك تنكسر الدورة الوحيدة التي يمنعها الرسم الهدف.
+        // IAccountProfiles تُنفّذه Customers (انعكاس تبعية، كـ IVariantStockInitializer)، وIAccountLifecycle
+        // تُنفّذه Identity نفسها فتعود إليها كتابةُ الحساب وإبطالُ جلساته.
+        services.AddScoped<Features.Auth.Contracts.IAccountProfiles, Features.Customers.CustomerAccountProfiles>();
+        services.AddScoped<Features.Auth.Contracts.IAccountLifecycle, Features.Auth.AccountLifecycle>();
         // محو العميل (حقّ الحذف) — مسار واحد للعميل نفسه وللإدارة (المرحلة 7).
         services.AddScoped<Features.Customers.CustomerErasure>();
         // إصدار الجلسات (رمز تجديد + توكن وصول) لكل مداخلها: دخول، تسجيل، تجديد، تغيير كلمة مرور.

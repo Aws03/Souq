@@ -7,6 +7,7 @@ using Souq.Application.Common.Security;
 using Souq.Domain.Entities;
 using Souq.Domain.Interfaces;
 using Souq.Domain.ValueObjects;
+using Souq.Application.Features.Auth.Contracts;
 
 namespace Souq.Application.Features.Customers.Account;
 
@@ -75,13 +76,13 @@ public sealed class UpdateMyProfileValidator : AbstractValidator<UpdateMyProfile
 public class UpdateMyProfileHandler : IRequestHandler<UpdateMyProfileCommand, Result<CustomerProfileDto>>
 {
     private readonly ICustomerRepository _customers;
-    private readonly IUserRepository _users;
+    private readonly IAccountLifecycle _accounts;
     private readonly ICurrentUser _currentUser;
     private readonly IUnitOfWork _uow;
 
-    public UpdateMyProfileHandler(ICustomerRepository customers, IUserRepository users, ICurrentUser currentUser, IUnitOfWork uow)
+    public UpdateMyProfileHandler(ICustomerRepository customers, IAccountLifecycle accounts, ICurrentUser currentUser, IUnitOfWork uow)
     {
-        _customers = customers; _users = users; _currentUser = currentUser; _uow = uow;
+        _customers = customers; _accounts = accounts; _currentUser = currentUser; _uow = uow;
     }
 
     public async Task<Result<CustomerProfileDto>> Handle(UpdateMyProfileCommand cmd, CancellationToken ct)
@@ -91,7 +92,7 @@ public class UpdateMyProfileHandler : IRequestHandler<UpdateMyProfileCommand, Re
 
         customer.UpdateProfile(cmd.FullName, cmd.Phone);
         // اسم الحساب يتبع اسم الملف: الاسم نفسه في رأس الصفحة (/auth/me) وفي رسائل الطلبات.
-        (await _users.GetByIdAsync(customer.UserId, ct))?.Rename(cmd.FullName);
+        await _accounts.RenameAsync(customer.UserId, cmd.FullName, ct);
         await _uow.SaveChangesAsync(ct);
         return Result<CustomerProfileDto>.Success(CustomerProfileDto.From(customer));
     }
@@ -275,15 +276,14 @@ public sealed class EraseMyAccountValidator : AbstractValidator<EraseMyAccountCo
 public class EraseMyAccountHandler : IRequestHandler<EraseMyAccountCommand, Result>
 {
     private readonly ICustomerRepository _customers;
-    private readonly IUserRepository _users;
-    private readonly IPasswordHasher _hasher;
+    private readonly IAccountLifecycle _accounts;
     private readonly CustomerErasure _erasure;
     private readonly ICurrentUser _currentUser;
 
     public EraseMyAccountHandler(
-        ICustomerRepository customers, IUserRepository users, IPasswordHasher hasher, CustomerErasure erasure, ICurrentUser currentUser)
+        ICustomerRepository customers, IAccountLifecycle accounts, CustomerErasure erasure, ICurrentUser currentUser)
     {
-        _customers = customers; _users = users; _hasher = hasher; _erasure = erasure; _currentUser = currentUser;
+        _customers = customers; _accounts = accounts; _erasure = erasure; _currentUser = currentUser;
     }
 
     public async Task<Result> Handle(EraseMyAccountCommand cmd, CancellationToken ct)
@@ -291,8 +291,8 @@ public class EraseMyAccountHandler : IRequestHandler<EraseMyAccountCommand, Resu
         var customer = await MyCustomer.LoadAsync(_customers, _currentUser, ct);
         if (customer is null) return Result.Failure(MyCustomer.NotFound);
 
-        var user = await _users.GetByIdAsync(customer.UserId, ct);
-        if (user is null || !_hasher.Verify(cmd.Password, user.PasswordHash))
+        // التحقّق داخل Identity: لا تجزئة كلمة مرور تخرج من وحدتها، ولا هذه الوحدة تعرف كيف تُقارن.
+        if (!await _accounts.VerifyPasswordAsync(customer.UserId, cmd.Password, ct))
             return Result.Failure(Error.Validation("CurrentPasswordIncorrect", "كلمة المرور الحالية غير صحيحة"));
 
         await _erasure.EraseAsync(customer, ct);

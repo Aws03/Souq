@@ -19,6 +19,7 @@ using Souq.Domain.Enums;
 using Souq.Domain.Identity;
 using Souq.Domain.Interfaces;
 using Souq.Domain.ValueObjects;
+using Souq.Application.Features.Auth.Contracts;
 
 namespace Souq.Application.Tests.Customers;
 
@@ -27,10 +28,10 @@ namespace Souq.Application.Tests.Customers;
 public class CustomerAccountHandlersTests
 {
     private readonly ICustomerRepository _customers = Substitute.For<ICustomerRepository>();
-    private readonly IUserRepository _users = Substitute.For<IUserRepository>();
-    private readonly IRefreshTokenRepository _tokens = Substitute.For<IRefreshTokenRepository>();
-    private readonly ISessionValidator _sessions = Substitute.For<ISessionValidator>();
-    private readonly IPasswordHasher _hasher = Substitute.For<IPasswordHasher>();
+    // العقد لا مستودع الحساب (TD-03، M9): ما يفعله المحو بالحساب نفسه — التجريد وإبطال الجلسات ونسيان
+    // ختمها — صار مسؤولية Identity، ويُثبَّت في AccountLifecycleTests. ما يُثبَّت هنا هو مسؤولية هذه
+    // الوحدة: أن تُجرّد ملفّها وتحذف سلّتها ومفضّلتها، **وتنادي العقد بالمعرّف الصحيح**.
+    private readonly IAccountLifecycle _accounts = Substitute.For<IAccountLifecycle>();
     private readonly IUnitOfWork _uow = Substitute.For<IUnitOfWork>();
     private readonly ICurrentUser _me = TestCurrentUser.Customer(1);
     private readonly Customer _customer = TestCatalog.WithId(new Customer(userId: 7, "سارة", "sara@souq.test"), 1);
@@ -39,8 +40,6 @@ public class CustomerAccountHandlersTests
     public CustomerAccountHandlersTests()
     {
         _customers.GetByIdAsync(1, Arg.Any<CancellationToken>()).Returns(_customer);
-        _users.GetByIdAsync(7, Arg.Any<CancellationToken>()).Returns(_user);
-        _tokens.ListActiveForUserAsync(7, Arg.Any<CancellationToken>()).Returns(Array.Empty<RefreshToken>());
     }
 
     private static AddressInput Input(string line1 = "شارع الجامعة 12", string? label = "المنزل") =>
@@ -49,17 +48,19 @@ public class CustomerAccountHandlersTests
     private readonly IWishlistRepository _wishlist = Substitute.For<IWishlistRepository>();
 
     private CustomerErasure Erasure() =>
-        new(_users, _tokens, Substitute.For<IBasketRepository>(), _wishlist, _uow, _sessions, new FixedClock());
+        new(_accounts, Substitute.For<IBasketRepository>(), _wishlist, new FixedClock());
 
     [Fact]
     public async Task تحديث_الملف_يعدّل_الملف_واسم_الحساب_معاً()
     {
-        var result = await new UpdateMyProfileHandler(_customers, _users, _me, _uow)
+        var result = await new UpdateMyProfileHandler(_customers, _accounts, _me, _uow)
             .Handle(new UpdateMyProfileCommand("سارة محمد", "+962790000000"), CancellationToken.None);
 
         result.Value!.FullName.Should().Be("سارة محمد");
         result.Value.Phone.Should().Be("+962790000000");
-        _user.FullName.Should().Be("سارة محمد");
+        // الاسم يُطلب من الحساب بالعقد، والاثنان يُودَعان معاً في حفظٍ واحد — وتعديلُ الحساب نفسه
+        // يُثبَّت في AccountLifecycleTests، لا هنا: هذه الوحدة لا تملك ذلك التجمّع.
+        await _accounts.Received(1).RenameAsync(7, "سارة محمد", Arg.Any<CancellationToken>());
         await _uow.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
@@ -94,30 +95,29 @@ public class CustomerAccountHandlersTests
     [Fact]
     public async Task المحو_بكلمة_مرور_خاطئة_يُرفض_ولا_يمسّ_شيئاً()
     {
-        _hasher.Verify("wrong", _user.PasswordHash).Returns(false);
+        _accounts.VerifyPasswordAsync(7, "wrong", Arg.Any<CancellationToken>()).Returns(false);
 
-        var result = await new EraseMyAccountHandler(_customers, _users, _hasher, Erasure(), _me)
+        var result = await new EraseMyAccountHandler(_customers, _accounts, Erasure(), _me)
             .Handle(new EraseMyAccountCommand("wrong"), CancellationToken.None);
 
         result.ErrorCode.Should().Be("CurrentPasswordIncorrect");
         _customer.IsErased.Should().BeFalse();
-        _user.Status.Should().Be(UserStatus.Active);
-        await _uow.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+        // ولا الحساب يُمَسّ: العقد لم يُنادَ إطلاقاً، فلا محو ولا حفظ.
+        await _accounts.DidNotReceive().EraseAsync(Arg.Any<int>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
     public async Task المحو_بكلمة_المرور_يجرّد_الملف_والحساب_وينسى_الجلسات()
     {
-        _hasher.Verify("right", _user.PasswordHash).Returns(true);
+        _accounts.VerifyPasswordAsync(7, "right", Arg.Any<CancellationToken>()).Returns(true);
 
-        var result = await new EraseMyAccountHandler(_customers, _users, _hasher, Erasure(), _me)
+        var result = await new EraseMyAccountHandler(_customers, _accounts, Erasure(), _me)
             .Handle(new EraseMyAccountCommand("right"), CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
         _customer.IsErased.Should().BeTrue();
-        (_user.Status, _user.PasswordHash).Should().Be((UserStatus.Disabled, ""));
-        await _uow.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
-        _sessions.Received(1).Forget(7);
+        // والحساب يُمحى بمعرّفه — وما يفعله ذلك المحو بالحساب يُثبَّت في AccountLifecycleTests.
+        await _accounts.Received(1).EraseAsync(7, Arg.Any<CancellationToken>());
     }
 
     [Fact]

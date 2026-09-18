@@ -14,6 +14,7 @@ using Souq.Domain.Entities;
 using Souq.Domain.Exceptions;
 using Souq.Domain.Identity;
 using Souq.Domain.Interfaces;
+using Souq.Application.Features.Auth.Contracts;
 
 namespace Souq.Application.Tests.Auth;
 
@@ -21,7 +22,8 @@ namespace Souq.Application.Tests.Auth;
 internal sealed class AuthRig
 {
     public IUserRepository Users { get; } = Substitute.For<IUserRepository>();
-    public ICustomerRepository Customers { get; } = Substitute.For<ICustomerRepository>();
+    // عقد Identity مع Customers لا مستودعها (TD-03، M9): الوحدة لم تعد ترى `ICustomerRepository`.
+    public IAccountProfiles Profiles { get; } = Substitute.For<IAccountProfiles>();
     public IRefreshTokenRepository Tokens { get; } = Substitute.For<IRefreshTokenRepository>();
     public IPasswordHasher Hasher { get; } = Substitute.For<IPasswordHasher>();
     public IJwtTokenGenerator Jwt { get; } = Substitute.For<IJwtTokenGenerator>();
@@ -45,7 +47,7 @@ internal sealed class AuthRig
         Links.Origin(Arg.Any<string?>()).Returns("https://store.test");
     }
 
-    public AuthSessionIssuer Issuer() => new(Tokens, Customers, Jwt, Uow, Clock);
+    public AuthSessionIssuer Issuer() => new(Tokens, Profiles, Jwt, Uow, Clock);
 
     public static User SavedUser(int id, string role = Roles.Customer, string hash = "hashed", string? email = null)
     {
@@ -63,7 +65,7 @@ public class RegisterHandlerTests
     private readonly AuthRig _rig = new();
 
     private RegisterHandler Handler(ITenantContext? tenant = null) => new(
-        _rig.Users, _rig.Customers, _rig.Hasher, _rig.Issuer(), _rig.Outbox, _rig.Links,
+        _rig.Users, _rig.Profiles, _rig.Hasher, _rig.Issuer(), _rig.Outbox, _rig.Links,
         tenant ?? TestTenant.Context(), _rig.Uow);
 
     [Fact]
@@ -94,7 +96,7 @@ public class RegisterHandlerTests
     public async Task تسجيل_صالح_ينشئ_حساب_عميل_وملف_شرائه_وجلسة_ويضع_رسالة_التأكيد_في_الصادر()
     {
         User? added = null;
-        Customer? profile = null;
+        (int UserId, string Name, string Email)? profile = null;
         object? queued = null;
         _rig.Hasher.Hash("Passw0rd!").Returns("hashed-value");
         _rig.Users.When(u => u.AddAsync(Arg.Any<User>(), Arg.Any<CancellationToken>())).Do(call => added = call.Arg<User>());
@@ -102,8 +104,11 @@ public class RegisterHandlerTests
         {
             if (added is { Id: 0 }) typeof(Entity).GetProperty(nameof(Entity.Id))!.SetValue(added, 42);
         });
-        _rig.Customers.When(c => c.AddAsync(Arg.Any<Customer>(), Arg.Any<CancellationToken>())).Do(call => profile = call.Arg<Customer>());
-        _rig.Customers.FindIdByUserIdAsync(42, Arg.Any<CancellationToken>()).Returns(7);
+        // يُطلب ملفّ العميل بمعرّف الحساب بعد حفظه — وبناءُ التجمّع نفسه صار داخل Customers
+        // (CustomerAccountProfilesTests يثبته)، فما يُثبَّت هنا هو العقد: بأيّ معرّفٍ وبأيّ بيانات يُنادى.
+        _rig.Profiles.When(p => p.CreateForAccountAsync(Arg.Any<int>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>()))
+                     .Do(call => profile = (call.ArgAt<int>(0), call.ArgAt<string>(1), call.ArgAt<string>(2)));
+        _rig.Profiles.FindIdForAccountAsync(42, Arg.Any<CancellationToken>()).Returns(7);
         _rig.Outbox.When(o => o.Enqueue(Arg.Any<object>())).Do(call => queued = call.Arg<object>());
 
         var result = await Handler().Handle(new RegisterCommand("مستخدم جديد", "New@Souq.com", "Passw0rd!"), CancellationToken.None);
@@ -112,7 +117,7 @@ public class RegisterHandlerTests
         added!.Role.Should().Be(Roles.Customer);
         added.Email.Should().Be("new@souq.com");
         added.PasswordHash.Should().Be("hashed-value");
-        profile!.UserId.Should().Be(42);
+        profile.Should().Be((42, "مستخدم جديد", "new@souq.com"));
         result.Value!.Response.User.CustomerId.Should().Be(7);
         result.Value.Response.AccessToken.Should().Be("access-token");
         result.Value.RefreshToken.Should().NotBeNullOrWhiteSpace();
