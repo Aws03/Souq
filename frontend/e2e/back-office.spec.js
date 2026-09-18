@@ -23,8 +23,16 @@ const ADMIN = {
   email: process.env.SOUQ_E2E_ADMIN_EMAIL || 'admin@souq.com',
   password: process.env.SOUQ_E2E_ADMIN_PASSWORD || 'Admin@123',
 };
-const OWNER = { email: 'owner@souq.com', password: 'Owner@12345' };
-const PLATFORM = 'http://admin.localhost:5173';
+// من البيئة بقيمهما الافتراضية (M11) — آخر موضعين مكتوبين حرفيّاً في e2e.
+const OWNER = {
+  email: process.env.SOUQ_E2E_OWNER_EMAIL || 'owner@souq.com',
+  password: process.env.SOUQ_E2E_OWNER_PASSWORD || 'Owner@12345',
+};
+const PLATFORM = (() => {
+  const url = new URL(process.env.SOUQ_E2E_BASE_URL || 'http://localhost:5173');
+  if (!url.hostname.startsWith('admin.')) url.hostname = `admin.${url.hostname}`;
+  return url.origin;
+})();
 const API_LOG = process.env.SOUQ_API_LOG;
 const axeSource = readFileSync(createRequire(import.meta.url).resolve('axe-core/axe.min.js'), 'utf8');
 const stamp = Date.now().toString(36);

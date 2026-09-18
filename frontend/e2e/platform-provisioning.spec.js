@@ -16,15 +16,32 @@ import { expect, test } from '@playwright/test';
 // دخول واحد للمالك وصفحة واحدة: الخادم يحدّ الدخول بعشر محاولات في الدقيقة، وتحميلٌ كامل يقطع تجديد جلسة
 // جارياً يترك رمزاً مُدوَّراً (انظر store-administration.spec.js).
 // ============================================================================
-const PLATFORM = 'http://admin.localhost:5173';
-const OWNER = { email: 'owner@souq.com', password: 'Owner@12345' };
+// مضيف المنصّة وبيانات مالكها من البيئة، بقيمها الافتراضية (M11). كانا مكتوبين حرفيّاً — منفذ خادم
+// التطوير وحساب بذرته — فلم يكن هذا الملفّ قابلاً للتشغيل على حزمة الحاويات إطلاقاً، وهو الملفّ الذي
+// تطلبه المرحلة للتحقّق من التجهيز. (العلّة نفسها صُحِّحت في responsive.spec.js في M9 وفي خمسة ملفّات
+// في M10؛ هذا آخرها.)
+const platformOrigin = (base) => {
+  const url = new URL(base);
+  if (!url.hostname.startsWith('admin.')) url.hostname = `admin.${url.hostname}`;
+  return url.origin;
+};
+const BASE = process.env.SOUQ_E2E_BASE_URL || 'http://localhost:5173';
+// المنفذ يُشتقّ من baseURL أيضاً: كان 5173 مكتوباً في أربعة مواضع (مضيف المتجر الجديد، ومطابقة رابط
+// الدعوة مرّتين)، وهو منفذ خادم التطوير — ورابط الدعوة يبنيه الخادم من FRONTEND_URL، فالمطابقة تفشل
+// على أي حزمة أخرى. `PORT` يجعل الملفّ يعمل حيث تعمل الحزمة.
+const PORT = new URL(BASE).port ? `:${new URL(BASE).port}` : '';
+const PLATFORM = platformOrigin(BASE);
+const OWNER = {
+  email: process.env.SOUQ_E2E_OWNER_EMAIL || 'owner@souq.com',
+  password: process.env.SOUQ_E2E_OWNER_PASSWORD || 'Owner@12345',
+};
 const API_LOG = process.env.SOUQ_API_LOG;
 const axeSource = readFileSync(createRequire(import.meta.url).resolve('axe-core/axe.min.js'), 'utf8');
 
 const stamp = Date.now().toString(36);
 const slug = `qa-${stamp}`;
 const host = `${slug}.localhost`;
-const STORE = `http://${host}:5173`;
+const STORE = `http://${host}${PORT}`;
 const storeName = `QA Provision ${stamp}`;
 const adminEmail = `qa-boss-${stamp}@souq.test`;
 const adminPassword = `Qa-Boss-${stamp}-Pass`;
@@ -163,11 +180,11 @@ test('7 · the list shows the store with its domain and pending administrator', 
 test('8 · the administrator accepts on the store host and runs the store; the owner cannot', async ({ browser, request }) => {
   // الدعوة تمرّ بصندوق الصادر (المرحلة 14): تُرسل بعد الالتزام بدورة المُرسِل، لا في الطلب نفسه — فتُنتظر.
   const findLine = () => readFileSync(API_LOG, 'utf8').split('\n').reverse()
-    .find((l) => l.includes(`${host}:5173/accept-invitation`));
+    .find((l) => l.includes(`${host}${PORT}/accept-invitation`));
   await expect.poll(findLine, { message: 'invitation link in the API log', timeout: 45_000, intervals: [1000] }).toBeTruthy();
   const line = findLine();
   const link = line.match(/https?:\/\/\S+accept-invitation\S+/)[0];
-  expect(new URL(link).host).toBe(`${host}:5173`);
+  expect(new URL(link).host).toBe(`${host}${PORT}`);
 
   const context = await browser.newContext({ locale: 'en-US' });
   await context.addInitScript(() => localStorage.setItem('souq_lang', 'en'));
