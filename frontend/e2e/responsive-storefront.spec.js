@@ -50,6 +50,43 @@ const PRIVATE_ROUTES = [
 // هدف اللمس الأدنى في WCAG 2.5.8. DesignSystem.md §11 يطلب 40px للهاتف؛ هذا الحدّ الأدنى المُلزِم.
 const MIN_TARGET = 24;
 
+// مدير المتجر — القيم الافتراضية هي بذرة التطوير (كما في back-office.spec.js). حزمة حاويات بوضع Production
+// تفرض كلمة مرور ≥ 12 محرفاً، فتُمرَّر عندها بمتغيّرات بيئة بدل تعديل الملف.
+const ADMIN = {
+  email: process.env.SOUQ_E2E_ADMIN_EMAIL || 'admin@souq.com',
+  password: process.env.SOUQ_E2E_ADMIN_PASSWORD || 'Admin@123',
+};
+
+// ============================================================================
+// نصّ طويل جدّاً بلغتين. اسم قصير مبذور لا يكشف شيئاً: الفيض الأفقي يأتي من المحتوى الحقيقي — اسم منتج
+// طويل في بطاقة، أو عنوان لا ينكسر في ترويسة. يُنشأ منتج واحد بهذا الاسم ويُزار كأي مسار آخر.
+// ============================================================================
+const LONG_AR = 'مكنسة كهربائية لاسلكية عمودية متعددة الاستخدامات بشفط إعصاري قوي وبطارية ليثيوم طويلة العمر وفلتر هيبا';
+const LONG_EN = 'Cordless Upright Multi Surface Vacuum Cleaner With Cyclonic Suction Long Life Lithium Battery And HEPA Filter';
+
+async function createLongNamedProduct(request, base) {
+  const login = await request.post(`${base}/api/auth/login`, { data: ADMIN });
+  if (!login.ok()) return null;
+  const token = (await login.json()).accessToken ?? (await login.json()).token;
+  if (!token) return null;
+  const headers = { Authorization: `Bearer ${token}` };
+
+  const categories = await request.get(`${base}/api/admin/categories`, { headers });
+  if (!categories.ok()) return null;
+  const categoryId = (await categories.json())[0]?.id;
+  if (!categoryId) return null;
+
+  const slug = `m4-long-name-${Date.now()}`;
+  const created = await request.post(`${base}/api/products`, {
+    headers,
+    data: {
+      categoryId, slug, price: 129.9, stockQuantity: 5,
+      translations: { ar: { name: LONG_AR, description: LONG_AR }, en: { name: LONG_EN, description: LONG_EN } },
+    },
+  });
+  return created.ok() ? slug : null;
+}
+
 // ============================================================================
 // يقيس صفحةً واحدة. العناصر داخل حاويات تمرير أفقي مقصودة (صفوف الاكتشاف، شريط الإعلان، شريط الفئات)
 // تُستثنى: خروجها عن النافذة سلوكها الصحيح لا عطل. والروابط داخل نصّ مستثناة من حدّ هدف اللمس، كما تستثنيها
@@ -157,17 +194,23 @@ async function signUpAndFillCart(page, base) {
 test.describe.configure({ mode: 'serial' });
 
 for (const lang of ['ar', 'en']) {
-  test(`every storefront route holds its layout at every width — ${lang}`, async ({ browser }, testInfo) => {
+  test(`every storefront route holds its layout at every width — ${lang}`, async ({ browser, request }, testInfo) => {
     testInfo.setTimeout(240_000);
     const base = testInfo.project.use.baseURL;
+
+    // منتج باسم طويل جدّاً بلغتين — المادة التي يظهر عليها الفيض، لا الأسماء القصيرة المبذورة.
+    const longSlug = await createLongNamedProduct(request, base);
+    expect(longSlug, 'تعذّر إنشاء منتج الاسم الطويل: تحقّق من SOUQ_E2E_ADMIN_EMAIL/PASSWORD').toBeTruthy();
+
     const context = await contextFor(browser, lang, 'light');
     const page = await context.newPage();
     await signUpAndFillCart(page, base);
 
+    const routes = [...PUBLIC_ROUTES, ...PRIVATE_ROUTES, ['long product name', `/products/${longSlug}`]];
     const failures = [];
     for (const viewport of VIEWPORTS) {
       await page.setViewportSize({ width: viewport.width, height: viewport.height });
-      for (const [name, path] of [...PUBLIC_ROUTES, ...PRIVATE_ROUTES]) {
+      for (const [name, path] of routes) {
         await page.goto(base + path, { waitUntil: 'networkidle' });
         const r = await measure(page);
         const at = `${lang} @${viewport.name} ${name}`;
