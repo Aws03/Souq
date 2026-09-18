@@ -7,7 +7,7 @@ using Souq.Infrastructure.Tenancy;
 namespace Souq.Infrastructure.BackgroundJobs;
 
 // ============================================================================
-// أساس المنسّقات الدورية لكل متجر (D-15: خادم .NET خلفي، بلا Hangfire حتى الحاجة). كل دورة يمرّ على المتاجر النشطة
+// أساس المنسّقات الدورية لكل متجر (D-15: خادم .NET خلفي، بلا Hangfire حتى الحاجة). كل دورة يمرّ على المتاجر النشطة والموقوفة
 // ويشغّل عمل الدورة داخل نطاق كل متجر — المرشّح وحارس الكتابة يعملان كما في أي طلب HTTP. أي فشل يُسجَّل ولا يوقف
 // الخادم ولا بقية المتاجر. يُفترض نسخة واحدة تشغّله؛ نسختان آمنتان (العمليات مضمونة التكرار) لكن بعمل مكرّر — القفل
 // الموزّع في مراجعة الجاهزية للإنتاج (المرحلة 23).
@@ -49,7 +49,7 @@ internal abstract class StoreSweepService : BackgroundService
         try
         {
             await using var scope = _services.CreateAsyncScope();
-            stores = await scope.ServiceProvider.GetRequiredService<ITenantDirectory>().ListActiveAsync(ct);
+            stores = await scope.ServiceProvider.GetRequiredService<ITenantDirectory>().ListForBackgroundSweepsAsync(ct);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

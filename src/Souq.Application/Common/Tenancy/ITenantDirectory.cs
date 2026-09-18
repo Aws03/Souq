@@ -11,8 +11,17 @@ public interface ITenantDirectory
     Task<TenantInfo?> FindBySlugAsync(string slug, CancellationToken ct = default);
     Task<TenantInfo?> FindByIdAsync(int tenantId, CancellationToken ct = default);
 
-    // المتاجر النشطة، بلا ذاكرة مؤقتة — لمهام خلفية تمرّ على كل متجر في نطاقه (المرحلة 6: انتهاء مهلة الدفع).
-    Task<IReadOnlyList<TenantInfo>> ListActiveAsync(CancellationToken ct = default);
+    // ============================================================================
+    // المتاجر التي تمرّ عليها المهام الخلفية، بلا ذاكرة مؤقتة (المرحلة 6: انتهاء مهلة الدفع، وتنظيف السلال).
+    //
+    // **النشط والموقوف معاً، لا النشط وحده** (R-24، قُرِّر في M5). متجر موقوف لا يستطيع متسوّقوه إتمام أي دفع —
+    // البوّابة تُغلق عليهم — فحجوزات مخزونه المنتهية لا يُصفّيها شيء أبداً ما دام خارج المسح: يبقى المخزون
+    // محجوزاً بلا طلب يكمل، ويظهر الخطأ عند إعادة التفعيل لا عند الإيقاف. والتنظيف نفسه ينطبق على سلاله.
+    //
+    // المُهيَّأ (Provisioning) والمؤرشف (Archived) خارج المسح عمداً: الأول لم يخدم متسوّقاً بعد فلا شيء لديه
+    // ينتهي، والثاني نهائي — فتعديل بياناته عملٌ على سجلّ مغلق لا صيانة.
+    // ============================================================================
+    Task<IReadOnlyList<TenantInfo>> ListForBackgroundSweepsAsync(CancellationToken ct = default);
 
     void Invalidate();
 }

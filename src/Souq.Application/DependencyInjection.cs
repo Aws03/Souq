@@ -71,6 +71,10 @@ public static class DependencyInjection
         services.AddScoped<Features.Baskets.Contracts.IBasketCheckout, Features.Baskets.BasketCheckout>();
         // منطق تأكيد الدفع وإلغاء الطلب غير المشحون، لكل مداخله (العميل المالك، توقيع البوّابة، منسّق المهلة).
         services.AddScoped<Features.Orders.OrderPaymentConfirmation>();
+        // مراحل الدفع الثلاث (TD-13، قُسِّم في M5): تحقّق بلا أثر ← معاملة واحدة ← نيّة دفع بتعويضها.
+        services.AddScoped<Features.Orders.Checkout.CheckoutQuote>();
+        services.AddScoped<Features.Orders.Checkout.OrderPlacement>();
+        services.AddScoped<Features.Orders.Checkout.CheckoutPayment>();
         // محو العميل (حقّ الحذف) — مسار واحد للعميل نفسه وللإدارة (المرحلة 7).
         services.AddScoped<Features.Customers.CustomerErasure>();
         // إصدار الجلسات (رمز تجديد + توكن وصول) لكل مداخلها: دخول، تسجيل، تجديد، تغيير كلمة مرور.

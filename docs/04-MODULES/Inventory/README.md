@@ -178,7 +178,7 @@ All routes sit under `api/admin/inventory` with `[HasPermission(Permissions.Inve
 ## Tenant behaviour
 
 - All three tables are `ITenantOwned` with composite foreign keys, so an item, a hold and a ledger line can never cross stores.
-- The expiry sweep runs **per store**: `StoreSweepService` lists stores with `TenantStatus.Active` (`ITenantDirectory.ListActiveAsync`) and runs the work inside each store's scope via `TenantScopes.RunAsync`, so the query filter and the write guard behave exactly as in an HTTP request. Stores that are suspended or archived are not swept, so their live holds stay `Active` until the store is active again.
+- The expiry sweep runs **per store**: `StoreSweepService` lists active **and suspended** stores (`ITenantDirectory.ListForBackgroundSweepsAsync`) and runs the work inside each store's scope via `TenantScopes.RunAsync`, so the query filter and the write guard behave exactly as in an HTTP request. Suspended stores are swept deliberately (M5, closing R-24): their shoppers cannot complete a payment, so nothing else would ever release those holds, and the store would return from suspension with stock reserved against orders that can never complete. Provisioning stores have nothing to expire and archived stores are closed records, so neither is swept — `BackgroundSweepScopeTests` pins all four cases.
 - The reservation window is a platform-wide setting today (`Inventory:ReservationMinutes`), not a per-store one.
 
 ## Events and background work

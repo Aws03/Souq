@@ -24,7 +24,7 @@ these cannot be closed by engineering at all.
 | **Owner decision** | A commercial, legal or policy choice ([OwnerDecisions.md](../09-OPERATIONS/OwnerDecisions.md)) | R-03, R-25, R-26, R-27 |
 | **External verification** | Needs an account or system outside this repository | R-01 |
 | **Accepted** | Understood, bounded, and deliberately not fixed | R-05, R-09, R-14, R-15, R-18 |
-| **Deferred — a named trigger** | Not a problem yet; becomes one under a stated condition | R-13, R-23, R-24 |
+| **Deferred — a named trigger** | Not a problem yet; becomes one under a stated condition | R-13, R-23 |
 | **Product / policy work** | Needs a feature or a written policy, not a patch | R-21 |
 
 ### Does it block a release?
@@ -34,7 +34,7 @@ these cannot be closed by engineering at all.
 | **The first paying customer** | R-01, R-25, R-27 | money collected wrongly and silently; selling where tax is required; selling under a licence that permits resale |
 | **A public deployment** | R-12, R-16, R-19, R-20 | connecting as `sa`; no TLS; no scheduled backup; nothing watching, and a red pipeline that cannot block a merge |
 | **The second paying store** | R-26 | who is merchant of record decides liability, and it is hard to reverse once stores are onboarded |
-| **Nothing today** | R-03, R-05, R-09, R-11, R-13, R-14, R-15, R-18, R-21, R-23, R-24 | each is accepted, deferred with a trigger, or a control question — see its row |
+| **Nothing today** | R-03, R-05, R-09, R-11, R-13, R-14, R-15, R-18, R-21, R-23 | each is accepted, deferred with a trigger, or a control question — see its row |
 
 **What changed in this mission.** R-12, R-16, R-19 and R-20 were all engineering problems and are now all
 *operational* ones: the mechanisms exist, are tested, and in three cases were rehearsed against real
@@ -82,7 +82,6 @@ result. R-15's direction is now decided (see its row) though not yet extracted.
 | R-20 | **CI does not block merges, and nothing watches the health endpoints** | Known | A red run can still be merged; a broken deploy is detected by a customer | The pipeline's checks were verified step by step and one caught a real tracked credential. Still needed, and neither can live in this repository: **branch protection** requiring the four named jobs, and a monitor on `/health/ready` — whose contract is now documented and drilled |
 | R-21 | **Several tables grow without any purge:** refresh tokens, stock reservations, in-app notifications, audit entries, dead outbox rows | Known | Slow, unbounded growth; personal data kept longer than necessary | Define retention per table in [OwnershipMap.md](../06-DATABASE/OwnershipMap.md) and implement the sweeps |
 | R-23 | **In-process caches (tenant directory, storefront config) with no cross-instance invalidation** | Future (on the second instance) | A store sees stale settings or a stale status for up to a minute | Decide the cache strategy before scaling out ([ScalingStrategy.md](../09-OPERATIONS/ScalingStrategy.md)) |
-| R-24 | **Per-store background sweeps only run for Active stores**, so a suspended store's expired checkouts are never settled and its baskets are never purged | Known | Stock stays reserved after suspension; storage grows | Decide the intended behaviour and test it |
 
 ## 5. Product and commercial decisions
 

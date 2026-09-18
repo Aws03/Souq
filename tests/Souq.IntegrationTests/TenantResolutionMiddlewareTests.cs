@@ -126,7 +126,7 @@ public class TenantResolutionMiddlewareTests
         public Task<TenantInfo?> FindByIdAsync(int tenantId, CancellationToken ct = default) =>
             Task.FromResult(Tenants.FirstOrDefault(t => t.Id == tenantId));
 
-        public Task<IReadOnlyList<TenantInfo>> ListActiveAsync(CancellationToken ct = default) =>
+        public Task<IReadOnlyList<TenantInfo>> ListForBackgroundSweepsAsync(CancellationToken ct = default) =>
             Task.FromResult<IReadOnlyList<TenantInfo>>(Tenants);
 
         public void Invalidate() { }

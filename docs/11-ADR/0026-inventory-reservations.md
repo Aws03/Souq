@@ -59,7 +59,7 @@ How do we hold stock for unpaid orders, keep an honest ledger, sell the last uni
   - `IPaymentService.CancelIntentAsync` (Stripe: read, then cancel, re-reading on a race; fake gateway: cancelled).
 - **Infrastructure:**
   - `InventoryRepository`, configurations with composite tenant-scoped foreign keys, and `ReservationExpiryService`.
-  - `ITenantDirectory.ListActiveAsync`.
+  - `ITenantDirectory.ListForBackgroundSweepsAsync` (named `ListActiveAsync` until M5 widened the sweep to suspended stores — R-24).
   - Catalog and inventory projections read availability from `InventoryItems`.
 - **API:** `POST /api/admin/inventory/{productId}/adjustments` and `PUT /api/admin/inventory/{productId}/threshold` (`inventory.manage`, audited). The inventory list returns on-hand, reserved and available.
 

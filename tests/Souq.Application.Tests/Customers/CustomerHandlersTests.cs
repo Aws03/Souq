@@ -10,6 +10,7 @@ using Souq.Application.Features.Customers.Account;
 using Souq.Application.Features.Customers.Admin;
 using Souq.Application.Features.Inventory.Contracts;
 using Souq.Application.Features.Orders;
+using Souq.Application.Features.Orders.Checkout;
 using Souq.Application.Features.Orders.Commands;
 using Souq.Application.Tests.TestDoubles;
 using Souq.Domain.Common;
@@ -159,17 +160,20 @@ public class CreateOrderCustomerRulesTests
             .Returns(new PaymentIntentResult("pi_1", "pi_1_secret"));
     }
 
-    private CreateOrderHandler CreateHandler() => new(
-        _orders, _customers,
-        new PricingService(_products, Substitute.For<ICouponRepository>(), Substitute.For<ICouponRedemptionRepository>(),
-            TestShipping.None(), TestTenant.Context(), new FixedClock()), _baskets, _numbers,
-        Substitute.For<Souq.Application.Features.Coupons.Contracts.ICouponRedemptions>(),
-        Substitute.For<Souq.Application.Features.Payments.Contracts.IOrderPayments>(), _reservations, _availability, _payment,
-        new OrderPaymentConfirmation(_orders, _reservations,
-            Substitute.For<Souq.Application.Features.Coupons.Contracts.ICouponRedemptions>(),
-            Substitute.For<Souq.Application.Features.Payments.Contracts.IOrderPayments>(), _baskets, _payment, _uow,
-            NullLogger<OrderPaymentConfirmation>.Instance),
-        TestCurrentUser.Customer(1), TestTenant.Context(), _uow, new FixedClock(), NullLogger<CreateOrderHandler>.Instance);
+    // المراحل الثلاث بالبدائل نفسها (TD-13، قُسِّم في M5): ما يُختبَر هنا قواعد العميل لا حدود التقسيم.
+    private CreateOrderHandler CreateHandler()
+    {
+        var couponRedemptions = Substitute.For<Souq.Application.Features.Coupons.Contracts.ICouponRedemptions>();
+        var orderPayments = Substitute.For<Souq.Application.Features.Payments.Contracts.IOrderPayments>();
+        var pricing = new PricingService(_products, Substitute.For<ICouponRepository>(),
+            Substitute.For<ICouponRedemptionRepository>(), TestShipping.None(), TestTenant.Context(), new FixedClock());
+        var confirmation = new OrderPaymentConfirmation(_orders, _reservations, couponRedemptions, orderPayments,
+            _baskets, _payment, _uow, NullLogger<OrderPaymentConfirmation>.Instance);
+        return new CreateOrderHandler(
+            new CheckoutQuote(_customers, pricing, _baskets, _availability, TestCurrentUser.Customer(1)),
+            new OrderPlacement(_orders, _numbers, couponRedemptions, _reservations, TestTenant.Context(), _uow, new FixedClock()),
+            new CheckoutPayment(_payment, orderPayments, confirmation, _uow, NullLogger<CheckoutPayment>.Instance));
+    }
 
     private static CreateOrderCommand Command(string? address = "عمّان", int? addressId = null) =>
         new(address, [new OrderLineInput(1, 1)], null, addressId);

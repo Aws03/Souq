@@ -68,10 +68,10 @@ This file makes those crossings countable. It lists every place one module's use
 | Shopping | Promotions | `ICouponRedemptionRepository` | `PricingService` |
 | Shopping | Promotions | `ICouponRepository` | `PricingService` |
 | Shopping | Promotions | `InvalidCouponException` | `PricingService` |
-| Ordering | Customers | `Customer` | `CreateOrderHandler` |
-| Ordering | Customers | `CustomerAddress` | `CreateOrderHandler` |
-| Ordering | Customers | `ICustomerRepository` | `CreateOrderHandler` |
-| Ordering | Customers | `PostalAddress` | `CreateOrderHandler` |
+| Ordering | Customers | `Customer` | `CheckoutQuote` |
+| Ordering | Customers | `CustomerAddress` | `CheckoutQuote` |
+| Ordering | Customers | `ICustomerRepository` | `CheckoutQuote` |
+| Ordering | Customers | `PostalAddress` | `CheckoutQuote` |
 | Reviews | Customers | `Customer` | `CreateReviewHandler` |
 | Reviews | Customers | `ICustomerRepository` | `CreateReviewHandler` |
 | Reviews | Ordering | `IOrderRepository` | `CreateReviewHandler` |

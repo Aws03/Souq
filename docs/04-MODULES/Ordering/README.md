@@ -138,7 +138,7 @@ Ordering has **no *Features/Orders/Contracts* folder**. What other modules actua
 
 **Boundary leaks (real, and caught by nothing):**
 
-1. `CreateOrderHandler` loads the Customers aggregate through `ICustomerRepository` and reads `Customer.IsBlocked`, `Customer.Addresses`, `IsDefaultBilling` and `ToPostalAddress`. The roadmap defers the narrower *ICustomerDirectory* contract until a second consumer needs it.
+1. `CheckoutQuote` (checkout's first stage — see below) loads the Customers aggregate through `ICustomerRepository` and reads `Customer.IsBlocked`, `Customer.Addresses`, `IsDefaultBilling` and `ToPostalAddress`. The roadmap defers the narrower *ICustomerDirectory* contract until a second consumer needs it.
 2. `Order` (Domain) uses Shipping's entity statics `ShippingMethod.NameMaxLength` and `ShippingMethod.TrackingUrl`; `OrderConfiguration` uses `ShippingMethod.TrackingUrlMaxLength`. The architecture tests cover the Application layer only, so Domain-level coupling like this is invisible to them.
 3. `CreateOrderValidator` reads Shopping's `Basket.MaxLines`.
 4. `OrderQueries` (Infrastructure) joins `Customers` for names and search and `Users` for staff names.
@@ -186,6 +186,28 @@ Migrations that shaped these tables: `src/Souq.Infrastructure/Migrations/2026091
 | POST | `/api/payments/webhook` | anonymous, signature-verified | — | `ProcessPaymentWebhookCommand` (hosted on `PaymentsController`) |
 
 No order route carries `RequiresModule`: ordering is not an optional store module. None carries `AvailableWhenStoreClosed` either, so every route answers `503 StoreUnavailable` unless the store is Active — except that routes with `HasPermission` also work while the store is Provisioning. No rate-limit policy is applied to order routes.
+
+## Checkout in three stages
+
+`CreateOrderHandler` was one method of about 120 lines with **sixteen** dependencies, and the piece most easily
+broken — the compensation that cancels the order and releases its hold when the payment gateway fails — was a
+`catch` block in the middle of it. That was TD-13. **M5 split it**, and the handler is now roughly fifteen lines
+over three collaborators:
+
+| Stage | Class | Guarantee it owns |
+|---|---|---|
+| Quote | `CheckoutQuote` | **No effect.** Customer, addresses, lines, pricing, availability, coupon, shipping — all reads. Any rejection here leaves the system exactly as it was, with its stable error code. |
+| Place | `OrderPlacement` | **All or nothing.** One transaction: order number, freeze, save, coupon hold, stock hold. A genuine shortage after the availability read rolls the whole thing back — no order without a hold, no hold without an order, no consumed order number. |
+| Pay | `CheckoutPayment` | **Outside the transaction, with compensation.** The gateway call cannot run inside a transaction ([ADR-0021](../../11-ADR/0021-transaction-boundaries.md)); if it fails, the order is cancelled and its hold released immediately. |
+
+The split is about those three guarantees, not about line count. Mixing them in one place is what let a small
+change quietly break one of them — and the availability read in stage one is *not* the guard against overselling;
+the hold in stage two is. Stage one exists to give the shopper a clear message before anything is written.
+
+The external contract is unchanged: the same command, the same result, the same error codes in the same order.
+`CreateOrderHandlerTests`'s fifteen cases were **not rewritten** — only the line that constructs the handler —
+so they still measure checkout end to end rather than the new seams.
+
 
 ## Checkout idempotency (F-8) — measured, designed, awaiting one decision
 
@@ -279,7 +301,7 @@ Only the payment gateway, and only through `IPaymentService`: `CreateIntentAsync
 |---|---|---|
 | Domain | `OrderLifecycleTests` | the full 5×5 transition matrix, the customer rule, actor recording, placement immutability, numbers, tokens, the billing snapshot |
 | Domain | `OrderTests`, `OrderShippingTests`, `DomainEventTests`, `MoneyTests`, `DomainExceptionCodeTests` | per-method rules, the shipping snapshot and tracking URL, events raised only for saved orders and allowed transitions, money precision, error codes |
-| Application | `CreateOrderHandlerTests` | early rejections without side effects, number and placement inside the reservation transaction, the order of save → reserve → intent, stock lost between read and reservation, gateway failure compensating |
+| Application | `CreateOrderHandlerTests` | early rejections without side effects, number and placement inside the reservation transaction, the order of save → reserve → intent, stock lost between read and reservation, gateway failure compensating. Unchanged by M5's split of the handler: every case still drives checkout end to end through `CreateOrderHandler`, so the tests measure behaviour and not the new seams |
 | Application | `ConfirmOrderPaymentHandlerTests` | ownership, idempotent re-confirmation, failed payment cancelling and releasing, the concurrent-confirmation race in both directions |
 | Application | `CancelMyOrderHandlerTests`, `UpdateOrderStatusHandlerTests`, `ExpireStaleCheckoutsHandlerTests`, `GetOrderByIdHandlerTests`, `ProcessPaymentWebhookHandlerTests`, `ApplyPaymentEventHandlerTests` | each gateway outcome, admin actions and the automatic refund, sweep settlement cases, per-viewer shaping, webhook routing |
 | Integration | `OrderLifecycleTests`, `InventoryAndOrderTests`, `CouponRedemptionTests`, `ShippingTests`, `PaymentsAndRefundsTests`, `NotificationTests` | numbering from 1001 per store, basket consumed only after payment, parallel checkouts on the last unit, expiry releasing an abandoned order, frozen totals, JOD precision end to end |

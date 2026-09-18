@@ -250,7 +250,7 @@ Because administration endpoints are recognised by their permission policy, a st
 - No domain events are raised by this module.
 - `AccountInvited` is enqueued in the outbox inside the target store's scope, so the dispatcher later processes it in that same store's scope. See [Notifications](../Notifications/README.md).
 - `AuditBehavior` (`src/Souq.Application/Common/Behaviors/AuditBehavior.cs`) runs after validation and before the handler. It stages the entry into the current unit of work, so the handler's first `SaveChanges` commits the change and its audit line atomically. A failed `Result` or an exception discards the line; a request that saved nothing (a query) has its line flushed after success.
-- `StoreSweepService` (Infrastructure) uses `ITenantDirectory.ListActiveAsync` to run other modules' periodic work once per active store.
+- `StoreSweepService` (Infrastructure) uses `ITenantDirectory.ListForBackgroundSweepsAsync` to run other modules' periodic work once per store — **active and suspended**, since a suspended store's expired stock holds would otherwise never be released (M5, R-24). Provisioning and archived stores are excluded.
 
 ## External integrations
 

@@ -91,6 +91,33 @@ public class InventoryAndOrderTests
     }
 
     [Fact]
+    public async Task دفعة_متزامنة_بكميّات_مختلفة_لا_تتجاوز_المخزون()
+    {
+        // الاختباران أعلاه يطلبان قطعة واحدة لكل عميل، فعدد الفائزين يساوي المخزون دائماً ولا يُختبَر إلا
+        // "الكلّ أو لا شيء". بكميّات مختلفة يصير السؤال أصعب: أي تركيبة من الفائزين مقبولة ما دام مجموعها لا
+        // يتجاوز المخزون — وهو ما يكشف احتساباً جزئياً خاطئاً لا يظهر عند الكمية 1 (M5).
+        const int initialStock = 6;
+        var productId = await _api.CreateProductAsync(await _api.AdminAsync(), price: 10m, stock: initialStock);
+        int[] quantities = [3, 2, 4, 1, 2, 3, 1, 5, 2, 1];
+        var customers = await Task.WhenAll(quantities.Select(_ => _api.NewCustomerAsync()));
+
+        var responses = await Task.WhenAll(
+            customers.Select((c, i) => _api.PlaceOrderAsync(c.Client, productId, quantities[i])));
+
+        // الثابت الحقيقي: مجموع ما نجح لا يتجاوز المخزون إطلاقاً — لا عدد الفائزين، فهو غير حتمي بحقّ.
+        var reserved = responses.Select((r, i) => r.StatusCode == HttpStatusCode.Created ? quantities[i] : 0).Sum();
+        reserved.Should().BeLessThanOrEqualTo(initialStock, "لا بيع زائد مهما كان ترتيب الوصول");
+        reserved.Should().BeGreaterThan(0, "دفعة كاملة مرفوضة تعني قفلاً لا تزامناً");
+
+        // وكل رفض يقول سببه برمزه: 422 InsufficientStock — لا 409 تعارض تزامن يتسرّب إلى العميل.
+        foreach (var rejected in responses.Where(r => r.StatusCode != HttpStatusCode.Created))
+            (await ProblemAsync(rejected)).Should().Be((HttpStatusCode.UnprocessableEntity, "InsufficientStock"));
+
+        // والدفاتر تطابق ما جرى بالضبط: المحجوز هو مجموع الفائزين، والموجود لم يتغيّر (الحجز ليس بيعاً).
+        await AssertReconciledAsync(productId, onHand: initialStock, reserved: reserved);
+    }
+
+    [Fact]
     public async Task السجلّ_يطابق_الموجود_عبر_دورة_الطلب_كاملة()
     {
         var admin = await _api.AdminAsync();

@@ -7,6 +7,7 @@ using Souq.Application.Features.Baskets.Contracts;
 using Souq.Application.Features.Baskets.Pricing;
 using Souq.Application.Features.Inventory.Contracts;
 using Souq.Application.Features.Orders;
+using Souq.Application.Features.Orders.Checkout;
 using Souq.Application.Features.Orders.Commands;
 using Souq.Application.Tests.TestDoubles;
 using Souq.Domain.Entities;
@@ -58,12 +59,18 @@ public class CreateOrderHandlerTests
     }
 
     // التسعير الحقيقي (المرحلة 8) فوق مستودعات بديلة — الأسعار والخصم كما في السلة تماماً.
-    private CreateOrderHandler CreateHandler() => new(
-        _orders, _customers, new PricingService(_products, _coupons, _couponUses, _shipping, TestTenant.Context(), new FixedClock()), _baskets,
-        _numbers, _couponRedemptions, _orderPayments, _reservations, _availability, _payment,
-        new OrderPaymentConfirmation(_orders, _reservations, _couponRedemptions, _orderPayments, _baskets, _payment, _uow,
-            NullLogger<OrderPaymentConfirmation>.Instance),
-        TestCurrentUser.Customer(1), TestTenant.Context(), _uow, new FixedClock(), NullLogger<CreateOrderHandler>.Instance);
+    // المراحل الثلاث تُركَّب بالبدائل نفسها التي كانت تُمرَّر للمعالج مباشرةً قبل تقسيمه (TD-13، M5): ما يُختبَر
+    // هنا هو سلوك الدفع من طرف إلى طرف كما يراه العميل، لا حدود التقسيم — فبقيت كل حالات الاختبار كما هي.
+    private CreateOrderHandler CreateHandler()
+    {
+        var pricing = new PricingService(_products, _coupons, _couponUses, _shipping, TestTenant.Context(), new FixedClock());
+        var confirmation = new OrderPaymentConfirmation(_orders, _reservations, _couponRedemptions, _orderPayments,
+            _baskets, _payment, _uow, NullLogger<OrderPaymentConfirmation>.Instance);
+        return new CreateOrderHandler(
+            new CheckoutQuote(_customers, pricing, _baskets, _availability, TestCurrentUser.Customer(1)),
+            new OrderPlacement(_orders, _numbers, _couponRedemptions, _reservations, TestTenant.Context(), _uow, new FixedClock()),
+            new CheckoutPayment(_payment, _orderPayments, confirmation, _uow, NullLogger<CheckoutPayment>.Instance));
+    }
 
     private static Customer NewCustomer() => new(userId: 1, "عميل", "customer@souq.com");
 
