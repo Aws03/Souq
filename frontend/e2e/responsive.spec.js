@@ -9,7 +9,10 @@ import { expect, test } from '@playwright/test';
 //
 // والتاجر الذي يدير متجره من جيبه هو الحالة العادية لا الاستثناء.
 // ============================================================================
-const ADMIN = { email: 'admin@souq.com', password: 'Admin@123' };
+const ADMIN = {
+  email: process.env.SOUQ_E2E_ADMIN_EMAIL || 'admin@souq.com',
+  password: process.env.SOUQ_E2E_ADMIN_PASSWORD || 'Admin@123',
+};
 
 const signIn = async (page) => {
   await page.goto('/login');
@@ -42,7 +45,7 @@ test.describe('لوحة الإدارة على هاتف', () => {
   test.beforeEach(async ({ page }) => { await signIn(page); });
 
   test('لا تمرير أفقي في أي من شاشات الإدارة', async ({ page }) => {
-    for (const path of ['/admin', '/admin/business', '/admin/products', '/admin/orders', '/admin/settings', '/admin/staff']) {
+    for (const path of ['/admin', '/admin/business', '/admin/products', '/admin/orders', '/admin/inventory', '/admin/settings', '/admin/staff']) {
       await page.goto(path);
       await page.waitForTimeout(2500);
       expect(await pageOverflows(page), `تمرير أفقي في ${path}`).toBe(false);
@@ -73,6 +76,27 @@ test.describe('لوحة الإدارة على هاتف', () => {
     const box = await tab.boundingBox();
     expect(box.height).toBeGreaterThanOrEqual(40);
     expect(box.width).toBeGreaterThanOrEqual(40);
+  });
+
+  test('زرّ إجراءات الصفّ إصبعٌ يلمسه لا فأرةٌ تدقّ عليه', async ({ page }) => {
+    // هذا الزرّ هو المدخل الوحيد لكل إجراء على صفّ: بلا لمسه لا يُفتح طلب ولا يُصحَّح مخزون. وُجد 32px
+    // في M7 على شاشة الجرد، وهو مشترك في كل جداول اللوحة — فالقياس هنا يحرسها كلّها لا واحدة.
+    // المشروع `phone` يحاكي جهازاً حقيقياً، وهو ما يجعل `pointer: coarse` يسري فعلاً.
+    let measured = 0;
+    for (const path of ['/admin/inventory', '/admin/products', '/admin/orders']) {
+      await page.goto(path);
+      const triggers = page.locator('table tbody tr button');
+      // انتظار محدود ثم تجاوز: متجرٌ تجريبي قد لا يحمل طلبات بعد، وجدولٌ فارغ ليس عيباً يُقاس.
+      await triggers.first().waitFor({ timeout: 20_000 }).catch(() => {});
+      if (await triggers.count() === 0) continue;
+
+      const box = await triggers.first().boundingBox();
+      expect(Math.min(box.width, box.height), `هدف اللمس في ${path}: ${box.width}×${box.height}`)
+        .toBeGreaterThanOrEqual(40);
+      measured += 1;
+    }
+    // وإلّا مرّ الاختبار فراغاً: "لا جدول فيه صفوف" ليس "كل الأهداف سليمة".
+    expect(measured, 'لم يُقَس أي جدول — لا يجوز أن يمرّ هذا الاختبار بلا قياس').toBeGreaterThan(0);
   });
 
   test('جدول عريض يمرّر داخل حاويته لا داخل الصفحة', async ({ page }) => {
@@ -137,12 +161,28 @@ test.describe('لوحة الإدارة على هاتف', () => {
 // يمرّر داخل حاويته. مالك منصّة يتابع تجهيز متجر عميل من هاتفه حالة عادية كالتاجر.
 // ============================================================================
 test.describe('منطقة المنصّة على هاتف', () => {
-  const PLATFORM = 'http://admin.localhost:5173';
+  // ============================================================================
+  // مضيف المنصّة يُشتقّ من baseURL ولا يُكتب حرفياً. كان مكتوباً `http://admin.localhost:5173`، أي
+  // منفذ خادم التطوير وحده — فهذا الاختبار **لم يكن قابلاً للتشغيل على حزمة الحاويات إطلاقاً**، وهو
+  // ما اكتشفه تشغيله في M7 (فشل على الاتصال لا على قياس). المنصّة تُخدَم على `admin.<المضيف>` بمنفذ
+  // الحزمة نفسه (PLATFORM_HOST في docker-compose.yml)، وهذا ما يبنيه السطر التالي.
+  // ============================================================================
+  const OWNER = {
+    email: process.env.SOUQ_E2E_OWNER_EMAIL || 'owner@souq.com',
+    password: process.env.SOUQ_E2E_OWNER_PASSWORD || 'Owner@12345',
+  };
 
-  test('المتاجر، صفحة متجر، إنشاء متجر، الحسابات والسجلّ — بلا تمرير أفقي في الاتجاهين', async ({ page }) => {
+  const platformOrigin = (base) => {
+    const url = new URL(base);
+    if (!url.hostname.startsWith('admin.')) url.hostname = `admin.${url.hostname}`;
+    return url.origin;
+  };
+
+  test('المتاجر، صفحة متجر، إنشاء متجر، الحسابات والسجلّ — بلا تمرير أفقي في الاتجاهين', async ({ page }, testInfo) => {
+    const PLATFORM = platformOrigin(testInfo.project.use.baseURL);
     await page.goto(`${PLATFORM}/login`);
-    await page.locator('input[type="email"]').fill('owner@souq.com');
-    await page.locator('input[type="password"]').fill('Owner@12345');
+    await page.locator('input[type="email"]').fill(OWNER.email);
+    await page.locator('input[type="password"]').fill(OWNER.password);
     await page.getByRole('button', { name: /sign in|دخول/i }).click();
     await page.waitForURL((url) => !url.pathname.includes('/login'));
 
