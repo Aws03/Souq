@@ -73,8 +73,15 @@ Keep this block current in the same commit that closes a phase: `current_phase`,
 [OwnerDecisions.md](../09-OPERATIONS/OwnerDecisions.md), e.g. `P-06`), `last_verified_date` and
 `last_verified_head` (the commit hash the phase closed at). A session picking this plan up cold reads this block
 **first**, then confirms it against `git log -1` and `git status` before trusting it — the repository is still
-the source of truth if this block and the commit history ever disagree (they should never disagree; if they do,
-trust the git history and fix this block in the same change).
+the source of truth if this block and the commit history ever disagree.
+
+**`last_verified_head` is the phase's last *work* commit, not necessarily the branch tip.** Closing a phase
+takes one more commit — the one that writes this block and the phase's completion evidence — and that commit
+cannot contain its own hash. So after a clean close the tip is normally one documentation commit *ahead* of
+`last_verified_head`, and **that is not a mismatch**: §3 step 1's "stop and report" is for a tip that is
+*behind*, *diverged*, or carries work this plan does not account for. Confirm with
+`git log --oneline last_verified_head..HEAD` — if all it shows is that phase's own closing `docs(roadmap):`
+commit, the checkpoint is intact and work continues.
 
 ---
 
