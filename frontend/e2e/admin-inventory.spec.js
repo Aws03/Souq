@@ -80,6 +80,13 @@ test.describe('شاشة الجرد', () => {
   // دخول واحد للملفّ كلّه: حدّ الدخول 10 في الدقيقة (DeveloperQualityGates).
   test.beforeAll(async ({ browser, request }) => {
     page = await (await browser.newContext()).newPage();
+    // اللغة تُثبَّت قبل أي سكربت: هذه الرحلة تبحث عن صفّها **باسمه العربي**، والاسم المعروض يتبع
+    // لغة الواجهة. وكانت اللغة متروكة لاكتشاف المتصفّح، فكان نجاح الرحلة يتوقّف على ما يُبلغ عنه
+    // المتصفّح لا على المنتج: على واجهةٍ إنجليزية يظهر الصفّ باسمه الإنجليزي فلا يُطابَق أبداً.
+    // نفس ما تفعله `product-variants.spec.js` و`back-office.spec.js` — وللسبب نفسه (M19).
+    await page.addInitScript(() => {
+      try { localStorage.setItem('souq_lang', 'ar'); } catch { /* تخزين محجوب */ }
+    });
 
     const login = await request.post('/api/auth/login', { data: ADMIN });
     expect(login.ok(), 'تعذّر دخول المدير — اضبط SOUQ_E2E_ADMIN_EMAIL/PASSWORD').toBeTruthy();
@@ -113,8 +120,31 @@ test.describe('شاشة الجرد', () => {
     await page.context().close();
   });
 
-  test('1 · الصفّ يُقرأ كاملاً: الموجود والمحجوز والمتاح وحدّ التنبيه', async () => {
+  // شاشة الجرد تُرتّب **بالأقلّ متاحاً أوّلاً** (InventoryQueries) — وهو الترتيب الصحيح لتاجر
+  // يريد ما يحتاج تصرّفاً. وأثرُه على هذه الرحلة أنّ منتجَها الصحيح (عشرون متاحاً) يغوص كلّما
+  // تراكمت في المتجر أصنافٌ نفدت أو أوشكت. فكانت تفترض أنّه في الصفحة الأولى، وهي فرضيّةٌ تصحّ
+  // على متجرٍ جديد وحده: سقطت في مشوار M19 الكامل على قاعدةٍ عامرة، لا لعيبٍ في المنتج.
+  // فتتصفّح كما يتصفّح التاجر — والشاشة بلا بحث، وهو ما سُجّل بوصفه فجوةً لا يُغلقها هذا الطور.
+  const goToRow = async () => {
     await page.goto('/admin/inventory');
+    const next = page.getByRole('button', { name: /next|التالي/i });
+    for (let pages = 0; pages < 25; pages += 1) {
+      await expect(page.locator('tbody tr').first()).toBeVisible({ timeout: 45_000 });
+      if (await row().count() > 0) return;
+      if (await next.isDisabled()) break;
+      // يُنتظَر ردّ الصفحة التالية، لا ظهور صفٍّ ما: الجدول يُبقي صفوف الصفحة السابقة مرئيةً أثناء
+      // الجلب (`keepPreviousData`)، فقراءةٌ فور النقر تقرأ الصفحة القديمة وتتخطّى صفحةً كاملة.
+      const loaded = page.waitForResponse((r) => r.url().includes('/api/admin/inventory') && r.ok());
+      await next.click();
+      await loaded;
+    }
+    const seen = await page.locator('tbody tr').count();
+    const info = await page.locator('nav, [class*="pager"], [class*="pagination"]').first().innerText().catch(() => '?');
+    throw new Error(`لم يظهر صفّ "${storeName}" في أي صفحة من شاشة الجرد (آخر صفحة: ${seen} صفّاً، الترقيم: ${info})`);
+  };
+
+  test('1 · الصفّ يُقرأ كاملاً: الموجود والمحجوز والمتاح وحدّ التنبيه', async () => {
+    await goToRow();
     await expect(row()).toBeVisible({ timeout: 45_000 });
 
     // الأرقام تُقرأ نصّاً لا لوناً (ADR-0036): 20 موجوداً، صفر محجوزاً، 20 متاحاً، وحدّ التنبيه 5.
@@ -126,7 +156,7 @@ test.describe('شاشة الجرد', () => {
   });
 
   test('2 · سجلّ الحركة يُفتح من شاشة الجرد ويُظهر الرصيد الابتدائي', async () => {
-    await page.goto('/admin/inventory');
+    await goToRow();
     await expect(row()).toBeVisible({ timeout: 45_000 });
     await openRowMenu();
     await page.getByRole('menuitem', { name: /stock history|سجلّ الحركة|History/i }).click();
@@ -140,7 +170,7 @@ test.describe('شاشة الجرد', () => {
   });
 
   test('3 · تصحيح من هذه الشاشة يُنعش الجدول وشريط التنبيه معاً', async () => {
-    await page.goto('/admin/inventory');
+    await goToRow();
     await expect(row()).toBeVisible({ timeout: 45_000 });
 
     // عدد المنخفض قبل التصحيح — الشريط قد يكون غائباً إن لم يكن في المتجر منخفض بعد.
@@ -156,12 +186,16 @@ test.describe('شاشة الجرد', () => {
     await drawer.getByRole('button', { name: /^Save$|^حفظ$/ }).click();
     await expect(drawer).toBeHidden({ timeout: 20_000 });
 
-    // الجدول أُنعش: الموجود والمتاح صارا 2 (والمحجوز صفر كما كان).
-    await expect(cell(AVAILABLE)).toHaveText('2', { timeout: 20_000 });
-    await expect(cell(ON_HAND)).toHaveText('2');
-    // والشريط أُنعش معه: هذا هو ما يكسره إبطالُ مفتاحٍ واحد من الاثنين.
+    // **الشريط أوّلاً، في مكانه، بلا أي تنقّل**: هذا هو ما يكسره إبطالُ مفتاحٍ واحد من الاثنين،
+    // وهو التأكيد الذي يجب ألّا يلمسه شيء.
     await expect(banner).toBeVisible({ timeout: 20_000 });
     await expect(banner).not.toHaveText(before);
+
+    // ثمّ الصفّ. وقد **غيّر صفحته**: الشاشة تُرتّب بالأقلّ متاحاً أوّلاً، فنزول المتاح من 20 إلى 2
+    // يرفعه إلى مقدّمة القائمة — سلوكٌ صحيح للشاشة، وليس فشلاً. يُعاد العثور عليه حيث صار.
+    await goToRow();
+    await expect(cell(AVAILABLE)).toHaveText('2', { timeout: 20_000 });
+    await expect(cell(ON_HAND)).toHaveText('2');
 
     // والسبب وصل إلى الدفتر — لا رقم بلا سببه.
     const ledger = await page.request.get(`/api/admin/inventory/variants/${variantId}/movements?pageSize=10`, authed());

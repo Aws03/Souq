@@ -29,12 +29,12 @@
 
 ```yaml
 plan_version: 1.0.0
-current_phase: M18
+current_phase: M19
 phase_status: done
-next_phase: M19         # M2 remains blocked on TD-42 and is independent of the phases after it; see M2's own STOP entry
+next_phase: M20         # M2 remains blocked on TD-42 and is independent of the phases after it; see M2's own STOP entry
 blocked_decisions: ["TD-42", "GitHub Actions billing"]   # see §5 and OwnerDecisions.md; the billing block stops CI running at all
 last_verified_date: 2026-09-18
-last_verified_head: b895adf     # M18 closed: CD built and its rollback verified; six defects that had been keeping CI red, fixed
+last_verified_head: M19HEAD     # M19 closed: 229 rules audited against test bodies; Traceability rewritten; three product defects and four flaky tests fixed
 baseline_branch: phase/17-production-hardening
 ```
 
@@ -2389,7 +2389,18 @@ repository.
     domain; and invitation links are logged only in Development, because a production log must not carry a secret
     link. Run separately against a Development stack, **all three groups pass**: platform provisioning 9/9,
     back-office including the platform-accounts section, and second-tenant 6/6.
-  - **TD-56 and TD-57 closed by fixing them.** `second-tenant.spec.js` no longer hardcodes a port, and the
+  - **The certification runs, reported as they came out.** Against the container stack, three full serial runs:
+    **103 → 106 → 111 passed**, each after fixing what the previous one exposed. The final run's four failures
+    are two `second-tenant` journeys — which cannot pass there **by design**, because `second.localhost` resolves
+    only where Development host resolution is allowed — and two that **pass when their own file is run**
+    (`account-password`'s device sign-out and `admin-inventory` test 3). Against a Development stack, the three
+    groups that require one pass **21/21**: platform provisioning 9, second-tenant 6, back-office 6, including
+    the invitation-link journeys that had never run here before.
+  - **TD-56 closed by fixing it; TD-57 corrected rather than closed.** An earlier draft of this phase claimed
+    TD-57's class was closed. It is not, and the row now says so: five of its named journeys had findable causes
+    and were fixed, and the suite is still not reliably green as a single serial run. Claiming otherwise would
+    have been precisely the failure this phase exists to catch.
+  - **TD-56 and TD-57 background.** `second-tenant.spec.js` no longer hardcodes a port, and the
     fixture it needs — which `DeveloperQualityGates.md` described and then said "nothing in the repository
     creates it" — is now `scripts/qa-second-store.py`: idempotent, through the real API, invitation flow
     included. The consequence of that sentence was measurable: all six of those journeys failed on this machine
