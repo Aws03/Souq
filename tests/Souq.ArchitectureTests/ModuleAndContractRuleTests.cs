@@ -1,7 +1,10 @@
 using System.Reflection;
 using AwesomeAssertions;
 using MediatR;
+using Mono.Cecil;
+using Mono.Cecil.Cil;
 using NetArchTest.Rules;
+using Souq.Domain.Entities;
 
 namespace Souq.ArchitectureTests;
 
@@ -207,6 +210,41 @@ public class ModuleAndContractRuleTests
                 foreach (var property in type.GetProperties(BindingFlags.Public | BindingFlags.Instance))
                     pending.Push(property.PropertyType);
         }
+    }
+
+    // ============================================================================
+    // دفتر المخزون يُكتَب من داخل الكيان وحده (M7).
+    //
+    // الثابتة التي تقوم عليها كل مطابقة جرد: Σ حركات السجلّ = الموجود. تُحرَس اليوم بأن `OnHand` له
+    // `private set` وبأن مُنشئ `StockMovement` `internal`، فلا يصنع سطراً إلا `InventoryItem.Record` —
+    // ومعه تغييرُ الموجود في اللحظة نفسها وفي `SaveChanges` نفسه.
+    //
+    // لكن Souq.Domain يفتح داخله لـ Souq.Infrastructure (InternalsVisibleTo، لأجل EF والتهيئة)، فـ
+    // Infrastructure **تستطيع** بناء سطر مباشرةً: سطرٌ بلا تغيير موجود، أو تغييرٌ بلا سطر. كلاهما يكسر
+    // الثابتة بصمت — لا استثناء ولا خطأ، بل جردٌ لا يطابق بعد أسابيع بلا أثر يقول أين انفرط.
+    // وAppplication ليست على تلك القائمة، فمعالجاتها عاجزة عن ذلك أصلاً؛ Infrastructure وحدها تحتاج حرساً.
+    //
+    // لا موضع يفعل ذلك اليوم (فُحص موضعاً بموضع في M7): كل بناء يمرّ بـ Record، وكل مستدعٍ يحفظ ما يعيده.
+    // هذا الاختبار يجعل الموضع **التالي** يُكتشف عند البناء لا في جرد. ويفحص Newobj لا Call — بناء كائن
+    // ليس نداء طريقة — وEF تُنشئ الكيانات بالانعكاس لا بـ Newobj في IL هذه الحزمة، فلا يمسّها.
+    // ============================================================================
+    [Fact]
+    public void سطر_دفتر_المخزون_لا_يُبنى_إلا_داخل_الكيان()
+    {
+        using var module = ModuleDefinition.ReadModule(Infrastructure.Location);
+        var offenders = module.GetTypes()
+            .SelectMany(type => type.Methods.Where(m => m.HasBody).Select(method => (type, method)))
+            .Where(x => x.method.Body.Instructions.Any(i =>
+                i.OpCode == OpCodes.Newobj
+                && i.Operand is MethodReference ctor
+                && ctor.DeclaringType.FullName == typeof(StockMovement).FullName))
+            .Select(x => x.type.FullName)
+            .Distinct()
+            .ToList();
+
+        offenders.Should().BeEmpty(
+            "StockMovement ينشئه InventoryItem وحده، مع تغيير الموجود في اللحظة نفسها. سطرٌ مبنيّ في "
+            + "Infrastructure يفصل الاثنين فتكسر مطابقة Σ السجلّ = الموجود بلا أثر");
     }
 
     private static bool MentionsQueryable(Type type) =>

@@ -76,6 +76,56 @@ public class InventoryAndOrderTests
     }
 
     [Fact]
+    public async Task الالتزام_والتحرير_على_الحجز_نفسه_يتسابقان_فينجح_واحد_ولا_ينزل_المخزون_تحت_الصفر()
+    {
+        // السباق الذي يوجد فعلاً في التشغيل: الدفع يُلتزم الحجز في اللحظة التي يحرّره فيها منسّق انتهاء
+        // المهلة. الاثنان يمسّان Reserved، والالتزام يمسّ OnHand أيضاً — فلو نجحا معاً لخرجت الوحدة مرّتين:
+        // بيعاً وإرجاعاً، والدفاتر لا تقول أيّهما. الاختبار أعلاه يسابق حجزَين؛ هذا يسابق **نهايتَي** حجز
+        // واحد، وهو ما لا يغطّيه أي اختبار آخر (M7).
+        var productId = await _api.CreateProductAsync(await _api.AdminAsync(), price: 10m, stock: 1);
+
+        // حجز واحد قائم، محفوظ فعلاً.
+        int reservationId;
+        await using (var setup = await _factory.TenantScopeAsync())
+        {
+            var db = setup.ServiceProvider.GetRequiredService<AppDbContext>();
+            var item = await db.InventoryItems.SingleAsync(i => i.ProductId == productId);
+            var reservation = item.Reserve("it:race", 1, DateTime.UtcNow.AddMinutes(5), "سباق");
+            db.StockReservations.Add(reservation);
+            await db.SaveChangesAsync();
+            reservationId = reservation.Id;
+        }
+        await AssertReconciledAsync(productId, onHand: 1, reserved: 1);
+
+        // نسختان في الذاكرة، كلٌّ ترى الحجز نشطاً: واحدة تلتزمه (دفع نجح) والأخرى تحرّره (انتهت المهلة).
+        await using var commitScope = await _factory.TenantScopeAsync();
+        await using var releaseScope = await _factory.TenantScopeAsync();
+        var committing = commitScope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var releasing = releaseScope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        var commitItem = await committing.InventoryItems.SingleAsync(i => i.ProductId == productId);
+        var commitReservation = await committing.StockReservations.SingleAsync(r => r.Id == reservationId);
+        var releaseItem = await releasing.InventoryItems.SingleAsync(i => i.ProductId == productId);
+        var releaseReservation = await releasing.StockReservations.SingleAsync(r => r.Id == reservationId);
+
+        var sale = commitItem.Commit(commitReservation, DateTime.UtcNow);
+        if (sale is not null) committing.StockMovements.Add(sale);
+        // Release هو مسار انتهاء المهلة (حجز لم يُلتزم)؛ وهو يرى نسخته الخاصّة من الحجز نشطةً فينقص المحجوز.
+        releaseItem.Release(releaseReservation, DateTime.UtcNow, expired: true).Should().BeTrue(
+            "النسخة القديمة ما زالت ترى الحجز نشطاً — وهذا هو السباق بعينه");
+
+        await committing.SaveChangesAsync();
+        var act = () => releasing.SaveChangesAsync();
+
+        // rowversion على صفّ المخزون يرفض الثانية — والوحدة خرجت بيعاً واحداً لا مرّتين، ولا محجوزاً سالباً.
+        await act.Should().ThrowAsync<ConcurrencyConflictException>();
+        await AssertReconciledAsync(productId, onHand: 0, reserved: 0);
+        (await LedgerOf(productId)).Count(m => m.Type == StockMovementType.Sale)
+            .Should().Be(1, "بيع واحد بالضبط: الالتزام ربح والتحرير خسر بلا أثر");
+    }
+
+
+    [Fact]
     public async Task طلبات_متوازية_لا_تحجز_أكثر_من_المخزون_أبداً()
     {
         const int initialStock = 3;
