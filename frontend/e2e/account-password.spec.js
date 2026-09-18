@@ -1,6 +1,18 @@
 import { expect, test } from '@playwright/test';
 
 // ============================================================================
+// لا `networkidle` في هذا الملفّ (M15).
+//
+// `waitUntil: 'networkidle'` ينتظر سكون الشبكة نصف ثانية، فيعلّقه أي طلبٍ واحد يتأخّر — ومنه نداء
+// `POST /api/auth/refresh` الذي تُطلقه الواجهة عند كل فتح صفحة حتى للزائر. قيس على الحزمة العاملة:
+// الخادم يردّ 401 في نحو 25 مللي ثانية، ومع ذلك يبقى الطلب "معلّقاً" في نظر المتصفّح طويلاً، فلا يسكن
+// شيء ويسقط الانتظار بمهلة. Playwright نفسه يصف هذا الانتظار بأنّه غير مستحبّ لهذا السبب.
+//
+// و`'load'` يكفي تماماً هنا: كل تنقّل بعده انتظارٌ صريح لعنصر، وPlaywright ينتظر العناصر من تلقائه.
+// فالبديل ليس تخفيفاً للاختبار بل استبدال انتظارٍ عامّ متقلّب بانتظارٍ محدَّد.
+// ============================================================================
+
+// ============================================================================
 // تغيير كلمة المرور من حساب العميل، في متصفّحين حقيقيين (M9، TD-29).
 //
 // الشاشة نفسها لم تكن موجودة قبل هذه المرحلة: النقطة والمدقّق ودالّة العميل كلّها كانت جاهزة، ولا
@@ -26,7 +38,7 @@ test.describe.configure({ mode: 'serial' });
 const account = { email: `m9pw${stamp}@souq.test`, name: `M9 Password ${stamp}` };
 
 async function signUp(page) {
-  await page.goto('/register', { waitUntil: 'networkidle' });
+  await page.goto('/register', { waitUntil: 'load' });
   await page.getByRole('textbox').nth(0).fill(account.name);
   await page.getByRole('textbox').nth(1).fill(account.email);
   const passwords = page.locator('input[type="password"]');
@@ -37,7 +49,7 @@ async function signUp(page) {
 }
 
 async function signIn(page, password) {
-  await page.goto('/login', { waitUntil: 'networkidle' });
+  await page.goto('/login', { waitUntil: 'load' });
   await page.locator('input[type="email"]').first().fill(account.email);
   await page.locator('input[type="password"]').first().fill(password);
   await page.getByRole('button', { name: /sign in|دخول/i }).click();
@@ -57,7 +69,7 @@ test('the password screen is reachable from the account navigation and refuses a
   await signUp(page);
 
   // يُوصَل إليها بالتنقّل لا بعنوان مكتوب: قسمٌ لا يُرى في القشرة قسمٌ غير موجود عملياً.
-  await page.goto('/account', { waitUntil: 'networkidle' });
+  await page.goto('/account', { waitUntil: 'load' });
   await page.getByRole('link', { name: /^Password$/i }).click();
   await expect(page).toHaveURL(/\/account\/password$/);
   await expect(page.getByRole('heading', { name: /^Password$/i })).toBeVisible();
@@ -70,7 +82,7 @@ test('the password screen is reachable from the account navigation and refuses a
   await page.getByRole('button', { name: /^Change password$/i }).click();
   await expect(page.getByText(/current password is incorrect/i)).toBeVisible({ timeout: 20_000 });
   await expect(page).toHaveURL(/\/account\/password$/);
-  await page.reload({ waitUntil: 'networkidle' });
+  await page.reload({ waitUntil: 'load' });
   await expect(page.getByRole('heading', { name: /^Password$/i })).toBeVisible();
 
   await context.close();
@@ -81,7 +93,7 @@ test('a weak new password is refused in the browser before any request is sent',
   const context = await browser.newContext();
   const page = await context.newPage();
   await signIn(page, FIRST);
-  await page.goto('/account/password', { waitUntil: 'networkidle' });
+  await page.goto('/account/password', { waitUntil: 'load' });
 
   const attempts = [];
   page.on('request', (r) => {
@@ -109,11 +121,11 @@ test('changing the password signs out another device, on both the access token a
   await signIn(a, FIRST);
   await signIn(b, FIRST);
   // الجهاز الثاني داخلٌ فعلاً: صفحة محميّة تُعرض له.
-  await b.goto('/account', { waitUntil: 'networkidle' });
+  await b.goto('/account', { waitUntil: 'load' });
   await expect(b.getByRole('heading', { name: /^My account$/i })).toBeVisible({ timeout: 30_000 });
 
   // الجهاز الأول يغيّر كلمة المرور.
-  await a.goto('/account/password', { waitUntil: 'networkidle' });
+  await a.goto('/account/password', { waitUntil: 'load' });
   await fillForm(a, { current: FIRST, next: SECOND });
   await a.getByRole('button', { name: /^Change password$/i }).click();
   await expect(a.getByText(/password was changed/i)).toBeVisible({ timeout: 20_000 });
@@ -121,23 +133,23 @@ test('changing the password signs out another device, on both the access token a
   await expect(a.getByLabel(/^Current password$/i)).toHaveValue('');
 
   // الجهاز الأول يبقى داخلاً — من غيّر كلمة مروره لا يُطرد بها.
-  await a.goto('/account', { waitUntil: 'networkidle' });
+  await a.goto('/account', { waitUntil: 'load' });
   await expect(a.getByRole('heading', { name: /^My account$/i })).toBeVisible();
 
   // والثاني خرج: إعادة تحميل صفحة محميّة تنتهي عند تسجيل الدخول، لا عند الحساب. إعادة التحميل تجرّب
   // **رمز التجديد** أيضاً (التجديد الصامت عند الإقلاع)، فهذا يغطّي الطريقين معاً.
-  await b.goto('/account', { waitUntil: 'networkidle' });
+  await b.goto('/account', { waitUntil: 'load' });
   await b.waitForURL(/\/login/, { timeout: 30_000 });
 
   // وكلمة المرور الجديدة هي التي تعمل الآن، والقديمة لا.
-  await b.goto('/login', { waitUntil: 'networkidle' });
+  await b.goto('/login', { waitUntil: 'load' });
   await b.locator('input[type="email"]').first().fill(account.email);
   await b.locator('input[type="password"]').first().fill(FIRST);
   await b.getByRole('button', { name: /sign in|دخول/i }).click();
   await expect(b.getByText(/email or password is incorrect/i)).toBeVisible({ timeout: 20_000 });
 
   await signIn(b, SECOND);
-  await b.goto('/account', { waitUntil: 'networkidle' });
+  await b.goto('/account', { waitUntil: 'load' });
   await expect(b.getByRole('heading', { name: /^My account$/i })).toBeVisible();
 
   await deviceA.close();

@@ -56,8 +56,13 @@ test('3 · a category from the nav filters the catalog through the URL', async (
 
 test('4 · search puts the term in the URL and survives a reload', async () => {
   await page.goto('/');
-  // input[type=search] هو searchbox لا textbox في شجرة الإتاحة.
-  const search = page.getByRole('search').first().getByRole('searchbox');
+  // ============================================================================
+  // دوره `combobox` لا `searchbox` — وهذا صواب المنتج لا خطؤه: منذ M3 للحقل قائمة اقتراحات
+  // (`role="listbox"` مع `aria-expanded`/`aria-autocomplete`)، وحقلٌ كهذا دوره combobox في شجرة
+  // الإتاحة. التعليق الذي كان هنا ("searchbox لا textbox") كُتب قبل ذلك وبقي، فظلّ هذا الاختبار
+  // **يفشل منذ M3** بلا أن يلاحظه أحد — لأنّه لا يُشغَّل إلا على حزمة الحاويات. أمسكه M15.
+  // ============================================================================
+  const search = page.getByRole('search').first().getByRole('combobox');
   await search.fill('a');
   await search.press('Enter');
   await expect(page).toHaveURL(/[?&]q=a/);
@@ -178,7 +183,7 @@ test('13 · the order appears in my orders and opens', async () => {
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
 });
 
-test('14 · the public tracking link works signed out, and a bad token is a translated message', async ({ browser }) => {
+test('14 · the public tracking link works signed out, and a bad token is a translated message', async ({ browser }, testInfo) => {
   await page.goto('/orders');
   await page.locator('a[href^="/orders/"]').first().click();
   // الرمز يُقرأ من زرّ النسخ نفسه بدل الحافظة: صلاحية الحافظة تختلف بين المتصفّحات،
@@ -194,7 +199,12 @@ test('14 · the public tracking link works signed out, and a bad token is a tran
   const token = trackingUrl;
 
   // زائر حقيقي: سياق جديد بلا جلسة ولا ملفات ارتباط.
-  const visitorContext = await browser.newContext({ baseURL: 'http://localhost:5173' });
+  // ============================================================================
+  // الأصل من إعداد المشروع لا مكتوباً حرفياً (M15). كان `http://localhost:5173` — خادم Vite في التطوير —
+  // فكان هذا الاختبار **لا يمرّ على حزمة الحاويات أبداً**: الاتصال يُرفض قبل أي تأكيد، وبمهلة طويلة.
+  // نفس العيب الذي صُحِّح في `product-variants.spec.js` وفي `responsive.spec.js`؛ هذا ما بقي منه.
+  // ============================================================================
+  const visitorContext = await browser.newContext({ baseURL: testInfo.project.use.baseURL });
   const visitor = await visitorContext.newPage();
   if (token) {
     await visitor.goto(token);

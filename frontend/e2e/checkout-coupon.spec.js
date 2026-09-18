@@ -1,6 +1,18 @@
 import { expect, test } from '@playwright/test';
 
 // ============================================================================
+// لا `networkidle` في هذا الملفّ (M15).
+//
+// `waitUntil: 'networkidle'` ينتظر سكون الشبكة نصف ثانية، فيعلّقه أي طلبٍ واحد يتأخّر — ومنه نداء
+// `POST /api/auth/refresh` الذي تُطلقه الواجهة عند كل فتح صفحة حتى للزائر. قيس على الحزمة العاملة:
+// الخادم يردّ 401 في نحو 25 مللي ثانية، ومع ذلك يبقى الطلب "معلّقاً" في نظر المتصفّح طويلاً، فلا يسكن
+// شيء ويسقط الانتظار بمهلة. Playwright نفسه يصف هذا الانتظار بأنّه غير مستحبّ لهذا السبب.
+//
+// و`'load'` يكفي تماماً هنا: كل تنقّل بعده انتظارٌ صريح لعنصر، وPlaywright ينتظر العناصر من تلقائه.
+// فالبديل ليس تخفيفاً للاختبار بل استبدال انتظارٍ عامّ متقلّب بانتظارٍ محدَّد.
+// ============================================================================
+
+// ============================================================================
 // الكوبون في متصفّح حقيقي، من لوحة التاجر إلى إجمالي الطلب (M8).
 //
 // **لم يكن للكوبون أي رحلة متصفّح قبل هذا الملفّ** — لا واحدة، مع أنه ميزة تمسّ المال، لها شاشات إدارة
@@ -64,7 +76,7 @@ async function createCoupon(request, body) {
 }
 
 async function signUp(page, tag) {
-  await page.goto('/register', { waitUntil: 'networkidle' });
+  await page.goto('/register', { waitUntil: 'load' });
   await page.getByRole('textbox').nth(0).fill(`M8 ${tag}`);
   await page.getByRole('textbox').nth(1).fill(`m8${tag}${stamp}@souq.test`);
   const passwords = page.locator('input[type="password"]');
@@ -75,7 +87,7 @@ async function signUp(page, tag) {
 }
 
 async function addToCart(page, slug) {
-  await page.goto(`/products/${slug}`, { waitUntil: 'networkidle' });
+  await page.goto(`/products/${slug}`, { waitUntil: 'load' });
   await page.getByRole('heading', { level: 1 }).waitFor();
   await page.locator('h1').locator('xpath=following::button[normalize-space()="Add to cart"][1]').click();
   await expect(page.getByRole('button', { name: /view cart/i })).toContainText('1');
@@ -105,7 +117,7 @@ test('a percentage coupon shows its discount in the store currency, and the orde
   const page = await context.newPage();
   await signUp(page, 'pct');
   await addToCart(page, product.slug);
-  await page.goto('/checkout', { waitUntil: 'networkidle' });
+  await page.goto('/checkout', { waitUntil: 'load' });
   await fillAddress(page);
 
   await applyCode(page, code);
@@ -141,7 +153,7 @@ test('an unknown code is refused with a readable reason, and leaves the total al
   const page = await context.newPage();
   await signUp(page, 'bad');
   await addToCart(page, product.slug);
-  await page.goto('/checkout', { waitUntil: 'networkidle' });
+  await page.goto('/checkout', { waitUntil: 'load' });
   await fillAddress(page);
 
   await applyCode(page, 'NO-SUCH-CODE');
@@ -168,7 +180,7 @@ test('a coupon below its minimum order is refused with its own reason, not a gen
   const page = await context.newPage();
   await signUp(page, 'min');
   await addToCart(page, product.slug);
-  await page.goto('/checkout', { waitUntil: 'networkidle' });
+  await page.goto('/checkout', { waitUntil: 'load' });
   await fillAddress(page);
 
   await applyCode(page, code);

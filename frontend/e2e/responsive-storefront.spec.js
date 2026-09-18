@@ -2,6 +2,18 @@ import { createRequire } from 'node:module';
 import { expect, test } from '@playwright/test';
 
 // ============================================================================
+// لا `networkidle` في هذا الملفّ (M15).
+//
+// `waitUntil: 'networkidle'` ينتظر سكون الشبكة نصف ثانية، فيعلّقه أي طلبٍ واحد يتأخّر — ومنه نداء
+// `POST /api/auth/refresh` الذي تُطلقه الواجهة عند كل فتح صفحة حتى للزائر. قيس على الحزمة العاملة:
+// الخادم يردّ 401 في نحو 25 مللي ثانية، ومع ذلك يبقى الطلب "معلّقاً" في نظر المتصفّح طويلاً، فلا يسكن
+// شيء ويسقط الانتظار بمهلة. Playwright نفسه يصف هذا الانتظار بأنّه غير مستحبّ لهذا السبب.
+//
+// و`'load'` يكفي تماماً هنا: كل تنقّل بعده انتظارٌ صريح لعنصر، وPlaywright ينتظر العناصر من تلقائه.
+// فالبديل ليس تخفيفاً للاختبار بل استبدال انتظارٍ عامّ متقلّب بانتظارٍ محدَّد.
+// ============================================================================
+
+// ============================================================================
 // المسح المنهجي لواجهة المتجر (M4) — كل مسار × كل عرض × كل لغة × كل سمة.
 //
 // `responsive.spec.js` يفحص رحلة هاتف واحدة بعمق؛ هذا الملف يفحص **الاتّساع**: أنّ أي صفحة، بأي لغة، على أي
@@ -177,7 +189,7 @@ async function contextFor(browser, lang, theme) {
 // زبون جديد وسلّة فيها أسطر — الحالة التي تكشف عيوب الجداول والشبكات.
 async function signUpAndFillCart(page, base) {
   const stamp = `${Date.now()}${Math.floor(Math.random() * 1000)}`;
-  await page.goto(`${base}/register`, { waitUntil: 'networkidle' });
+  await page.goto(`${base}/register`, { waitUntil: 'load' });
   await page.getByRole('textbox').nth(0).fill('M4 Matrix');
   await page.getByRole('textbox').nth(1).fill(`m4matrix+${stamp}@souq.test`);
   const passwords = page.locator('input[type="password"]');
@@ -187,7 +199,7 @@ async function signUpAndFillCart(page, base) {
   await page.waitForURL(/\/$|\/account/, { timeout: 20_000 });
 
   for (const id of [1, 2, 3]) {
-    await page.goto(`${base}/products/${id}`, { waitUntil: 'networkidle' });
+    await page.goto(`${base}/products/${id}`, { waitUntil: 'load' });
     const add = page.getByRole('button', { name: /add to cart|أضف للسلة/i }).first();
     if (await add.isEnabled().catch(() => false)) await add.click();
     await page.waitForTimeout(300);
@@ -214,7 +226,7 @@ for (const lang of ['ar', 'en']) {
     for (const viewport of VIEWPORTS) {
       await page.setViewportSize({ width: viewport.width, height: viewport.height });
       for (const [name, path] of routes) {
-        await page.goto(base + path, { waitUntil: 'networkidle' });
+        await page.goto(base + path, { waitUntil: 'load' });
         const r = await measure(page);
         const at = `${lang} @${viewport.name} ${name}`;
         if (r.overflow > 0) failures.push(`${at}: page scrolls horizontally by ${r.overflow}px — widest: ${r.widest}`);
@@ -242,7 +254,7 @@ for (const lang of ['ar', 'en']) {
       for (const viewport of [VIEWPORTS[0], VIEWPORTS[2]]) {
         await page.setViewportSize({ width: viewport.width, height: viewport.height });
         for (const [name, path] of [...PUBLIC_ROUTES, ...PRIVATE_ROUTES]) {
-          await page.goto(base + path, { waitUntil: 'networkidle' });
+          await page.goto(base + path, { waitUntil: 'load' });
           const violations = await axeViolations(page);
           if (violations.length) failures.push(`${lang}/${theme} @${viewport.name} ${name}: ${violations.join(' | ')}`);
         }

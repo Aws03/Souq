@@ -1,6 +1,18 @@
 import { expect, test } from '@playwright/test';
 
 // ============================================================================
+// لا `networkidle` في هذا الملفّ (M15).
+//
+// `waitUntil: 'networkidle'` ينتظر سكون الشبكة نصف ثانية، فيعلّقه أي طلبٍ واحد يتأخّر — ومنه نداء
+// `POST /api/auth/refresh` الذي تُطلقه الواجهة عند كل فتح صفحة حتى للزائر. قيس على الحزمة العاملة:
+// الخادم يردّ 401 في نحو 25 مللي ثانية، ومع ذلك يبقى الطلب "معلّقاً" في نظر المتصفّح طويلاً، فلا يسكن
+// شيء ويسقط الانتظار بمهلة. Playwright نفسه يصف هذا الانتظار بأنّه غير مستحبّ لهذا السبب.
+//
+// و`'load'` يكفي تماماً هنا: كل تنقّل بعده انتظارٌ صريح لعنصر، وPlaywright ينتظر العناصر من تلقائه.
+// فالبديل ليس تخفيفاً للاختبار بل استبدال انتظارٍ عامّ متقلّب بانتظارٍ محدَّد.
+// ============================================================================
+
+// ============================================================================
 // الدفع تحت ظروف معادية، في متصفّح حقيقي (M5).
 //
 // `storefront.spec.js` يقود الدفع السعيد إلى طلب مدفوع. هذا الملف يقود ما **لا** يسير كما يُخطَّط له، وهو ما
@@ -19,6 +31,27 @@ const ADMIN = {
 };
 
 test.describe.configure({ mode: 'serial' });
+
+// ============================================================================
+// ما يُنشئه هذا الملفّ يُنظَّف بعده (M15).
+//
+// رحلاته تحتاج منتجاتٍ نادرة (مخزون 1 أو 0) لتصنع سباق النفاد، وكانت تُترك في المتجر. والمتجر يعرض
+// الأحدث أولاً، فكل تشغيلٍ يضع منتجاً نافداً على رأس الواجهة — و`storefront.spec.js` يُضيف "أول منتج"
+// بكمّية اثنين، فيفشل. أي أنّ ملفّاً كان يكسر ملفّاً آخر ببقاياه، والعَرَض يظهر في الملفّ البريء.
+//
+// والحذف هنا أرشفة لا محو (`DELETE /api/products/{id}` يؤرشف): المنتج يغادر الواجهة وتبقى الطلبات
+// التي تشير إليه سليمة — وهي بالضبط ما تُنشئه هذه الرحلات.
+// ============================================================================
+const createdProducts = [];
+
+test.afterAll(async ({ request }, testInfo) => {
+  if (createdProducts.length === 0) return;
+  const headers = await adminHeaders(request, testInfo.project.use.baseURL).catch(() => null);
+  if (!headers) return;
+  for (const id of createdProducts) {
+    await request.delete(`${testInfo.project.use.baseURL}/api/products/${id}`, { headers }).catch(() => {});
+  }
+});
 
 // دخول واحد للملفّ كلّه: حدّ معدّل الدخول 10 في الدقيقة (DeveloperQualityGates)، وأربعة اختبارات تسجّل
 // دخول المدير في كلّ منها تستهلكه مع تسجيلات المتسوّقين — فيفشل الملفّ لسبب لا علاقة له بما يقيسه.
@@ -46,12 +79,14 @@ async function createScarceProduct(request, base, stock) {
     },
   });
   expect(created.status(), await created.text()).toBe(201);
-  return { id: (await created.json()).id, slug };
+  const id = (await created.json()).id;
+  createdProducts.push(id);
+  return { id, slug };
 }
 
 async function signUp(page, base, tag) {
   const stamp = `${Date.now()}${Math.floor(Math.random() * 1000)}`;
-  await page.goto(`${base}/register`, { waitUntil: 'networkidle' });
+  await page.goto(`${base}/register`, { waitUntil: 'load' });
   await page.getByRole('textbox').nth(0).fill(`M5 ${tag}`);
   await page.getByRole('textbox').nth(1).fill(`m5${tag}+${stamp}@souq.test`);
   const passwords = page.locator('input[type="password"]');
@@ -62,7 +97,7 @@ async function signUp(page, base, tag) {
 }
 
 async function addToCart(page, base, slug) {
-  await page.goto(`${base}/products/${slug}`, { waitUntil: 'networkidle' });
+  await page.goto(`${base}/products/${slug}`, { waitUntil: 'load' });
   await page.getByRole('heading', { level: 1 }).waitFor();
   await page.locator('h1').locator('xpath=following::button[normalize-space()="Add to cart"][1]').click();
   await expect(page.getByRole('button', { name: /view cart/i })).toContainText('1');
@@ -84,7 +119,7 @@ test('a line that sells out between page load and submit is refused with a reaso
   const slow = await slowContext.newPage();
   await signUp(slow, base, 'slow');
   await addToCart(slow, base, product.slug);
-  await slow.goto(`${base}/checkout`, { waitUntil: 'networkidle' });
+  await slow.goto(`${base}/checkout`, { waitUntil: 'load' });
   await fillAddress(slow);
 
   // والثاني يشتريها فعلاً بينما الأول ما زال واقفاً — المخزون نفد تحت الصفحة المفتوحة.
@@ -92,7 +127,7 @@ test('a line that sells out between page load and submit is refused with a reaso
   const fast = await fastContext.newPage();
   await signUp(fast, base, 'fast');
   await addToCart(fast, base, product.slug);
-  await fast.goto(`${base}/checkout`, { waitUntil: 'networkidle' });
+  await fast.goto(`${base}/checkout`, { waitUntil: 'load' });
   await fillAddress(fast);
   await fast.getByRole('button', { name: /continue to payment/i }).click();
   await expect(fast.getByText(/is being held for you/i)).toBeVisible();
@@ -125,7 +160,7 @@ test('a double click on continue does not fire checkout twice from the browser',
     if (r.method() === 'POST' && new URL(r.url()).pathname === '/api/orders') attempts.push(r.url());
   });
 
-  await page.goto(`${base}/checkout`, { waitUntil: 'networkidle' });
+  await page.goto(`${base}/checkout`, { waitUntil: 'load' });
   await fillAddress(page);
 
   // نقر مزدوج حقيقي: حدثان متتاليان بلا انتظار بينهما، كما يفعل الإصبع المتعجّل.
@@ -149,7 +184,7 @@ test('the happy path still reaches a paid order on the refactored checkout', asy
   const page = await context.newPage();
   await signUp(page, base, 'happy');
   await addToCart(page, base, product.slug);
-  await page.goto(`${base}/checkout`, { waitUntil: 'networkidle' });
+  await page.goto(`${base}/checkout`, { waitUntil: 'load' });
   await fillAddress(page);
   await page.getByRole('button', { name: /continue to payment/i }).click();
   await expect(page.getByText(/is being held for you/i)).toBeVisible();
@@ -174,7 +209,7 @@ test('an admin refunds a paid order through the admin UI, and the order shows it
   const page = await shopper.newPage();
   await signUp(page, base, 'refundee');
   await addToCart(page, base, product.slug);
-  await page.goto(`${base}/checkout`, { waitUntil: 'networkidle' });
+  await page.goto(`${base}/checkout`, { waitUntil: 'load' });
   await fillAddress(page);
   await page.getByRole('button', { name: /continue to payment/i }).click();
   await page.getByRole('button', { name: /pay now/i }).click();
@@ -186,13 +221,13 @@ test('an admin refunds a paid order through the admin UI, and the order shows it
   // ثم المدير يستردّ من لوحته.
   const back = await browser.newContext();
   const admin = await back.newPage();
-  await admin.goto(`${base}/login`, { waitUntil: 'networkidle' });
+  await admin.goto(`${base}/login`, { waitUntil: 'load' });
   await admin.locator('input[type="email"]').first().fill(ADMIN.email);
   await admin.locator('input[type="password"]').first().fill(ADMIN.password);
   await admin.getByRole('button', { name: /sign in|دخول/i }).click();
   await admin.waitForURL((url) => !url.pathname.includes('/login'), { timeout: 45_000 });
 
-  await admin.goto(`${base}/admin/orders`, { waitUntil: 'networkidle' });
+  await admin.goto(`${base}/admin/orders`, { waitUntil: 'load' });
   // الصفّ يُفتح من قائمة إجراءاته لا بالنقر على نصّه.
   const row = admin.locator('tr', { hasText: `#${orderNumber}` }).first();
   await row.getByRole('button', { name: /actions|إجراءات|more|المزيد/i }).or(row.getByRole('button')).last().click();
