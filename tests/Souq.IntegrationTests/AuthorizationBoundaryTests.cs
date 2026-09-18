@@ -10,6 +10,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Souq.API.Security;
 using Souq.API.Tenancy;
 using Souq.Application.Common.Security;
+using Souq.Domain.Common;
 using Souq.IntegrationTests.Infrastructure;
 
 namespace Souq.IntegrationTests;
@@ -200,6 +201,69 @@ public class AuthorizationBoundaryTests
                     e.Metadata.GetMetadata<IAcceptsMetadata>()?.ContentTypes.FirstOrDefault(),
                     e.Metadata.GetMetadata<PlatformEndpointAttribute>() is not null);
             });
+
+    [Fact]
+    public async Task كل_نقطة_منصّة_للمالك_وحده_ترفض_مدير_المنصّة_بـ_403()
+    {
+        // ============================================================================
+        // الاتجاه الذي لم يكن يُعَدّ (M11). المسح أعلاه يستثني نقاط المنصّة صراحةً (`!e.IsPlatform`)،
+        // فتدرّجُ الأدوار **داخل** المنصّة كان محروساً بتوكيدٍ واحد مكتوب بيد: مدير منصّة على
+        // `GET /api/platform/users`. أمّا `POST /api/platform/users` و`POST .../{id}/status` — وهما ما
+        // يُنشئ الحسابات ويوقفها — فلم يكن يمسّهما شيء: نقطةٌ جديدة للمالك وحده تُشحن بلا اختبار تدرّج
+        // ولا يشتكي أحد.
+        //
+        // والمسح يشتقّ التوقّع من `RolePermissions` لا من قائمة مكتوبة: لكل نقطة منصّة صلاحيتُها، فإن
+        // كان مدير المنصّة لا يملكها فالمتوقّع 403. نقلُ صلاحيةٍ بين الدورين يغيّر التوقّع تلقائياً،
+        // ونقطةٌ جديدة تُغطّى لحظةَ توجيهها.
+        // ============================================================================
+        var owner = await _api.PlatformOwnerAsync();
+        var email = $"gradation-{Guid.NewGuid():N}@souq.test";
+        (await owner.PostAsJsonAsync("/api/platform/users", new { fullName = "Gradation", email, role = "PlatformAdmin" }))
+            .StatusCode.Should().Be(HttpStatusCode.OK);
+        await _factory.DispatchNotificationsAsync();
+        await _api.AcceptInvitationAsync(_factory.Emails.LastInvitationLinkFor(email), "Gradation-Pass-1");
+        var platformAdmin = _api.Authorized(
+            await _api.TokenOnAsync(SouqApiFactory.PlatformHost, email, "Gradation-Pass-1"), SouqApiFactory.PlatformHost);
+
+        var ownerOnly = Endpoints()
+            .Where(e => e.IsPlatform)
+            .Select(e => (Endpoint: e, Permissions: e.Policies.Where(IsPermissionPolicy)
+                .Select(p => p[HasPermissionAttribute.PolicyPrefix.Length..]).ToList()))
+            // للمالك وحده = تحتاج صلاحيةً لا يملكها دور مدير المنصّة.
+            .Where(x => x.Permissions.Count > 0
+                        && x.Permissions.Any(permission => !RolePermissions.For(Roles.PlatformAdmin).Contains(permission)))
+            .SelectMany(x => x.Endpoint.Methods.Select(m =>
+                (Method: m, Url: SampleUrl(x.Endpoint.Route), ContentType: x.Endpoint.ContentType)))
+            .ToList();
+
+        ownerOnly.Should().HaveCountGreaterThanOrEqualTo(3,
+            "نقاط حسابات المنصّة الثلاث للمالك وحده — لو صار العدد صفراً فالمسح يمرّ فارغاً");
+
+        foreach (var (method, url, contentType) in ownerOnly)
+            (await Send(platformAdmin, method, url, contentType)).StatusCode
+                .Should().Be(HttpStatusCode.Forbidden, $"{method} {url} لمدير منصّة لا يملك صلاحيتها");
+    }
+
+    [Fact]
+    public async Task كل_نقطة_متجر_محمية_ترفض_توكن_منصّة()
+    {
+        // ============================================================================
+        // والاتجاه المقابل، مُعدّاً لا مُنتقى (M11). كان مُغطّى بسبع نقاط مختارة بيد، كلّها GET، موزّعة
+        // على مجموعتين — والرفض نفسه يقع في موضعٍ واحد لا يتغيّر بالنقطة (ربط التوكن بمضيفه في
+        // `AccessTokenValidation`)، فالعيّنة مقبولة منطقاً. لكنّها عيّنة، والعدّ أرخص من الحجّة.
+        // ============================================================================
+        var owner = await _api.PlatformOwnerAsync();
+        var storeEndpoints = Endpoints()
+            .Where(e => !e.IsPlatform && !e.AllowsAnonymous && e.Policies.Any(IsPermissionPolicy))
+            .SelectMany(e => e.Methods.Select(m => (Method: m, Url: SampleUrl(e.Route), e.ContentType)))
+            .ToList();
+        storeEndpoints.Should().HaveCountGreaterThanOrEqualTo(15, "يجب ألّا ينجح الاختبار فارغاً");
+
+        foreach (var (method, url, contentType) in storeEndpoints)
+            (await Send(owner, method, url, contentType)).StatusCode
+                .Should().Be(HttpStatusCode.NotFound,
+                    $"{method} {url} بتوكن منصّة على مضيف المنصّة: نقطة متجر غير موجودة هناك");
+    }
 
     private static bool IsPermissionPolicy(string policy) =>
         policy.StartsWith(HasPermissionAttribute.PolicyPrefix, StringComparison.Ordinal);
