@@ -63,6 +63,21 @@ Two observations worth carrying:
 
 ## The cycle, exactly
 
+> **RESOLVED in M9.** Both contracts below were built, and the ratchet measured the result: **74 crossings across
+> 15 pairs → 62 across 13**, with all twelve Identity↔Customers crossings gone and both pairs off the table.
+> `ModuleAndContractRuleTests` now authorizes `["Customers"] = ["Identity"]` — one direction, no cycle possible.
+> The paragraphs below are kept as the reasoning that produced the fix, and two notes worth carrying forward:
+>
+> - **The test suites had the same boundary violation as the code, and it had to move too.** Customers' tests
+>   asserted `_user.Status`, `_user.PasswordHash` and `Forget(7)` *through* customer erasure, and Identity's tests
+>   asserted the shape of the `Customer` aggregate through registration. Each module was pinning the other's
+>   behaviour. `AccountLifecycleTests` and `CustomerAccountProfilesTests` now hold those assertions on the right
+>   side, so coverage moved rather than shrank.
+> - **`AllowedContracts` alone would not have caught a regression here.** The twelve crossings travelled through
+>   `Souq.Domain.Interfaces` — repositories and aggregates — which that rule does not police. The guard that
+>   counts is the generated `ModuleDomainDependencies.md`. Anyone re-opening this pair should watch that file,
+>   not the contract map.
+
 Identity ⇄ Customers is the one cycle the target graph forbids, and the only pair where reading the direction matters:
 
 - **Identity → Customers:** `RegisterHandler` creates the `Customer` inside its own transaction (it needs `user.Id`); `AuthSessionIssuer` and `GetCurrentUserHandler` each read `FindIdByUserIdAsync` for the token's customer claim.
@@ -77,7 +92,7 @@ The target graph keeps **Customers → Identity**, so the Identity → Customers
 
 | Rank | Fix | Crossings closed | Blast radius |
 |---|---|---|---|
-| 1 | Break the Identity ⇄ Customers cycle | 12 (8 D) | ~13 files |
+| 1 | ~~Break the Identity ⇄ Customers cycle~~ **DONE (M9)** | 12 (8 D) | ~13 files — the estimate held: 3 new source files, 6 rewired, DI, the contract map, and 4 test files |
 | 2 | *IAccountTokens* — stop Notifications writing `User` | 9 (6 D) | ~7 files |
 | 3 | ~~Move the payment-account use cases out of `Features/Stores`~~ **DONE (M1)** | 5 (2 D) | 6 files — see below, larger than first estimated |
 | 4 | An erasure contract so Customers stops deleting baskets and wishlists | 4 (4 D) | ~7 files |

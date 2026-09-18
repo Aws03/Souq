@@ -23,7 +23,7 @@ these cannot be closed by engineering at all.
 | **Operational action** | Engineering is done; a deployment must apply it | R-11, R-12, R-16, R-19, R-20 |
 | **Owner decision** | A commercial, legal or policy choice ([OwnerDecisions.md](../09-OPERATIONS/OwnerDecisions.md)) | R-03, R-25, R-26, R-27 |
 | **External verification** | Needs an account or system outside this repository | R-01 |
-| **Accepted** | Understood, bounded, and deliberately not fixed | R-05, R-09, R-14, R-15, R-18 |
+| **Accepted** | Understood, bounded, and deliberately not fixed | R-05, R-09, R-14, R-18 |
 | **Deferred — a named trigger** | Not a problem yet; becomes one under a stated condition | R-13, R-23 |
 | **Product / policy work** | Needs a feature or a written policy, not a patch | R-21 |
 
@@ -34,7 +34,7 @@ these cannot be closed by engineering at all.
 | **The first paying customer** | R-01, R-25, R-27 | money collected wrongly and silently; selling where tax is required; selling under a licence that permits resale |
 | **A public deployment** | R-12, R-16, R-19, R-20 | connecting as `sa`; no TLS; no scheduled backup; nothing watching, and a red pipeline that cannot block a merge |
 | **The second paying store** | R-26 | who is merchant of record decides liability, and it is hard to reverse once stores are onboarded |
-| **Nothing today** | R-03, R-05, R-09, R-11, R-13, R-14, R-15, R-18, R-21, R-23 | each is accepted, deferred with a trigger, or a control question — see its row |
+| **Nothing today** | R-03, R-05, R-09, R-11, R-13, R-14, R-18, R-21, R-23 | each is accepted, deferred with a trigger, or a control question — see its row |
 
 **What changed in this mission.** R-12, R-16, R-19 and R-20 were all engineering problems and are now all
 *operational* ones: the mechanisms exist, are tested, and in three cases were rehearsed against real
@@ -46,7 +46,7 @@ because they were closed; their history is in [ReleaseReadiness.md](../09-OPERAT
 and now reach the platform admin path through a published contract, `IStorePaymentAccountEditor`, rather than a
 raw class reference from Platform's folder ([ModuleBoundaryAudit.md](ModuleBoundaryAudit.md) — TD-04 in
 [TechnicalDebt.md](../12-ROADMAP/TechnicalDebt.md)). R-14's crossing count dropped from 79 to 74 as a direct
-result. R-15's direction is now decided (see its row) though not yet extracted.
+result. R-15 is now fixed (see its row): the cycle it named no longer exists.
 
 ## 1. Money and payments
 
@@ -70,7 +70,7 @@ result. R-15's direction is now decided (see its row) though not yet extracted.
 | R-12 | **Deployments still connect to SQL Server as `sa`** — but no longer silently. The startup check reads the identity **from the database** and warns, naming the roles it holds; a nominal split (a migration connection carrying the runtime login) is also caught | Known | No blast-radius limit if the app is compromised | Apply `scripts/sql/least-privilege-logins.sql` and point the deployment at the two identities. Skipping it is now audible at every boot |
 | R-13 | **Uploads are served from local disk**, so the files live on one instance | Known | Several API instances need the same mount, or images 404 depending on which instance answers | Move to blob storage behind `IFileStorage` before scaling out |
 | R-14 | **Cross-module domain access is not prevented, only counted** (74 crossings today) | Known | Boundaries erode silently; extraction gets harder | The ratchet in [ModuleDomainDependencies.md](ModuleDomainDependencies.md) plus the contracts listed in [ModuleBoundaries.md](ModuleBoundaries.md); every crossing is now classified with a reason in [ModuleBoundaryAudit.md](ModuleBoundaryAudit.md) |
-| R-15 | **Identity and Customers depend on each other**, a cycle the target graph forbids. **Direction decided (M1), not yet extracted:** keep Customers → Identity; close Identity → Customers with two Identity-declared contracts, *IAccountProfiles* and *IAccountLifecycle* ([ModuleBoundaryAudit.md](ModuleBoundaryAudit.md) "The cycle, exactly") | Known | Neither module can be reasoned about, tested or extracted alone | Build the two contracts (~13 files) — TD-03 in [TechnicalDebt.md](../12-ROADMAP/TechnicalDebt.md), deferred to the phase that next substantially touches account lifecycle |
+| R-15 | ~~**Identity and Customers depend on each other**~~ **FIXED (M9).** The direction decided in M1 was built: `IAccountProfiles` (declared by Identity, implemented by Customers) and `IAccountLifecycle` (declared and implemented by Identity), both declared in Identity so that every reference runs Customers → Identity and no arrow returns ([ModuleBoundaryAudit.md](ModuleBoundaryAudit.md) "The cycle, exactly") | Verified by the generated ratchet, not by reading: **74 crossings across 15 pairs → 62 across 13**, with all twelve Identity↔Customers crossings gone in both directions | ~~Neither module can be reasoned about, tested or extracted alone~~ — and the test suites moved with the responsibility: `AccountLifecycleTests` and `CustomerAccountProfilesTests` now assert what the other module's tests used to | **FIXED (M9) — the one cycle the target graph forbids no longer exists** |
 | R-16 | **No TLS in the repository's own deployment.** Headers, HSTS and the forwarded-scheme fix exist; the SPA's CSP is report-only but can no longer drift (a new external origin fails the build) | Known | Cookies and tokens over plaintext if deployed as-is | Terminate TLS in front. The commonest way to get this wrong — an untrusted proxy, so the scheme is ignored and HSTS never sent — is now detected at runtime and warned once per process |
 
 ## 4. Data and operations

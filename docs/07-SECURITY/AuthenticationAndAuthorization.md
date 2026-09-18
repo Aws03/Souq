@@ -103,7 +103,8 @@ The issuer writes the claims with the full `ClaimTypes` URIs and the API reads t
 
 **Refresh** (`POST /api/auth/refresh`, cookie only):
 - **Active token:** it is marked used, and a new token in the same family plus a new access token are issued.
-- **Token used within the last 10 seconds:** another token in the family is issued. This covers two tabs refreshing at once.
+- **Token used within the last 10 seconds, and the family still has an active token:** another token in the family is issued. This covers two tabs refreshing at once — and the second condition is what keeps it to that. **Corrected in M9:** the grace applied to any token consumed in the last ten seconds, and `RevokeAllAsync` sweeps only *unused* tokens, so a token another device had just rotated survived a password change and could mint a fully valid new session for ten seconds. An attacker rotating every five seconds would therefore have survived every password change. An innocent race means the first tab's rotation succeeded, so the family still holds an active token; a password change, a logout or reuse detection revokes that token and leaves none — which is the distinction now enforced, with no new column.
+- **Token used within the grace but the family has no active token:** `401 InvalidRefreshToken`. The session was ended deliberately, and this is **not** treated as theft on purpose: reuse detection rotates the security stamp, which would sign out the person who had just changed their password, from the device they changed it on, because another device they signed out happened to poll.
 - **Token used earlier: reuse detected.** The family is revoked, the stamp rotates so every access token dies, a warning is logged, and the answer is `401 RefreshTokenReused`.
 - **Expired, revoked or unknown token, or an account that is not active:** `401 InvalidRefreshToken`. In every failure case the cookie is cleared.
 

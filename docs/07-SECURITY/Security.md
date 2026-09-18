@@ -24,7 +24,7 @@
   - Also bound to the host through `tid`, and to the account's security stamp.
 - **Refresh token:**
   - 256-bit random, stored only as a SHA-256 hash.
-  - Rotated on every use, with family reuse detection and a 10-second grace for parallel tabs.
+  - Rotated on every use, with family reuse detection and a 10-second grace for parallel tabs — and the grace requires the family to still hold an active token, so it cannot outlive a password change, a logout or a detected reuse (corrected in M9; before that a just-rotated token survived a password change for ten seconds).
   - Carried in an `HttpOnly` / `Secure` / `SameSite=Strict` cookie scoped to `/api/auth`.
 - **Account protection:**
   - lockout after 5 failures for 15 minutes;

@@ -8,7 +8,7 @@
 | Module | Feature folders | Commands | Queries | Contracts |
 |---|---|---|---|---|
 | [Platform](#platform) | `src/Souq.Application/Features/Platform`, `src/Souq.Application/Features/Stores` | 15 | 11 | 0 |
-| [Identity](#identity) | `src/Souq.Application/Features/Auth`, `src/Souq.Application/Features/Staff` | 11 | 2 | 0 |
+| [Identity](#identity) | `src/Souq.Application/Features/Auth`, `src/Souq.Application/Features/Staff` | 11 | 2 | 2 |
 | [Catalog](#catalog) | `src/Souq.Application/Features/Products`, `src/Souq.Application/Features/Categories` | 19 | 10 | 1 |
 | [Inventory](#inventory) | `src/Souq.Application/Features/Inventory` | 4 | 4 | 2 |
 | [Customers](#customers) | `src/Souq.Application/Features/Customers` | 8 | 6 | 0 |
@@ -73,6 +73,11 @@ Module document: [Identity/README.md](Identity/README.md).
 | `VerifyEmailCommand` | command | `VerifyEmailHandler` | `VerifyEmailValidator` | — | `POST /api/auth/verify-email` |
 | `GetCurrentUserQuery` | query | `GetCurrentUserHandler` | — | — | `GET /api/auth/me` |
 | `ListStaffQuery` | query | `ListStaffHandler` | `ListStaffQueryValidator` | — | `GET /api/admin/staff` |
+
+| Public contract | Implemented by |
+|---|---|
+| `IAccountLifecycle` | `AccountLifecycle` |
+| `IAccountProfiles` | `CustomerAccountProfiles` |
 
 ## Catalog
 

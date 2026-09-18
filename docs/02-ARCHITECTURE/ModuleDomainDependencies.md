@@ -12,17 +12,15 @@ This file makes those crossings countable. It lists every place one module's use
 - **A new crossing changes this file and fails the test.** That is the point: it should be a decision, made in review, not a quiet import. Prefer adding a contract to the owning module; if the crossing is deliberate, regenerate the file so the diff shows what you added.
 - **Removing a crossing also changes this file.** Regenerate, and the count goes down.
 
-**Today: 74 crossings across 15 module pairs.**
+**Today: 62 crossings across 13 module pairs.**
 
 | From | To | Crossings |
 |---|---|---|
 | Shopping | Catalog | 12 |
 | Notifications | Identity | 11 |
 | Notifications | Ordering | 9 |
-| Customers | Identity | 8 |
 | Notifications | Platform | 6 |
 | Customers | Shopping | 4 |
-| Identity | Customers | 4 |
 | Notifications | Customers | 4 |
 | Ordering | Customers | 4 |
 | Shopping | Promotions | 4 |
@@ -36,18 +34,6 @@ This file makes those crossings countable. It lists every place one module's use
 
 | From | To | Domain type | Used by |
 |---|---|---|---|
-| Identity | Customers | `Customer` | `RegisterHandler` |
-| Identity | Customers | `ICustomerRepository` | `AuthSessionIssuer` |
-| Identity | Customers | `ICustomerRepository` | `GetCurrentUserHandler` |
-| Identity | Customers | `ICustomerRepository` | `RegisterHandler` |
-| Customers | Identity | `IRefreshTokenRepository` | `CustomerErasure` |
-| Customers | Identity | `IUserRepository` | `CustomerErasure` |
-| Customers | Identity | `IUserRepository` | `EraseMyAccountHandler` |
-| Customers | Identity | `IUserRepository` | `UpdateMyProfileHandler` |
-| Customers | Identity | `RefreshToken` | `CustomerErasure` |
-| Customers | Identity | `User` | `CustomerErasure` |
-| Customers | Identity | `User` | `EraseMyAccountHandler` |
-| Customers | Identity | `User` | `UpdateMyProfileHandler` |
 | Customers | Shopping | `Basket` | `CustomerErasure` |
 | Customers | Shopping | `IBasketRepository` | `CustomerErasure` |
 | Customers | Shopping | `IWishlistRepository` | `CustomerErasure` |

@@ -100,7 +100,7 @@ The largest clusters, and what each is waiting for. The contract names are propo
 |---|---|---|
 | Shopping → Catalog | Pricing and the basket load `Product` for price, name and status | *ISellableItems* (deferred in ADR-0028) |
 | Notifications → Identity | Reset, verification and invitation tokens are **issued at dispatch**, so the handler writes `User` ([ADR-0034](../11-ADR/0034-notifications-outbox.md)) | *IAccountTokens*, plus *IStaffRecipients* for the role lookups |
-| Customers ⇄ Identity | Registration creates a customer; erasure and profile updates write the user and revoke sessions | *IAccountProfiles* (declared by Identity, implemented by Customers) and *IAccountLifecycle* — this pair is a **cycle**, which the target graph forbids |
+| Customers → Identity | ~~Registration creates a customer; erasure and profile updates write the user and revoke sessions~~ **Resolved in M9** | `IAccountProfiles` (declared by Identity, implemented by Customers) and `IAccountLifecycle` (declared and implemented by Identity) — both declared in Identity, so the pair is no longer a **cycle**: one arrow, in the direction the target graph keeps |
 | Customers → Shopping | Erasure deletes the basket and wishlist | *IForgetsCustomer*, or an erasure event |
 | Notifications → Ordering, Customers, Catalog | Handlers load the order, the customer and the product name to compose a message | *IOrderNotificationView*, or carry the fields on the event |
 | Ordering → Customers | Checkout checks the block status and reads the address book | *ICustomerDirectory* (named in the docs since Phase 7, still deferred) |

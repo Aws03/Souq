@@ -8,7 +8,7 @@
 | Suite | Files | Facts | Theories |
 |---|---|---|---|
 | [`Souq.Domain.Tests`](#souqdomaintests) | 29 | 227 | 47 |
-| [`Souq.Application.Tests`](#souqapplicationtests) | 44 | 332 | 17 |
+| [`Souq.Application.Tests`](#souqapplicationtests) | 46 | 341 | 17 |
 | [`Souq.ArchitectureTests`](#souqarchitecturetests) | 14 | 59 | 7 |
 | [`Souq.IntegrationTests`](#souqintegrationtests) | 50 | 290 | 22 |
 | [frontend (Vitest)](#frontend-vitest) | 81 | 630 | — |
@@ -52,6 +52,7 @@
 
 | File | Classes | Facts | Theories |
 |---|---|---|---|
+| `tests/Souq.Application.Tests/Auth/AccountLifecycleTests.cs` | `AccountLifecycleTests` | 7 | 0 |
 | `tests/Souq.Application.Tests/Auth/AuthHandlersTests.cs` | `AuthRig`, `RegisterHandlerTests`, `LoginHandlerTests`, `RefreshSessionHandlerTests`, `LogoutHandlerTests`, `ChangePasswordHandlerTests`, `ForgotPasswordHandlerTests`, `ResetPasswordHandlerTests`, `VerifyEmailHandlerTests` | 23 | 0 |
 | `tests/Souq.Application.Tests/Auth/PasswordRulesTests.cs` | `PasswordRulesTests` | 4 | 2 |
 | `tests/Souq.Application.Tests/Baskets/BasketCheckoutTests.cs` | `BasketCheckoutTests` | 3 | 0 |
@@ -66,6 +67,7 @@
 | `tests/Souq.Application.Tests/Common/UseCaseLoggingBehaviorTests.cs` | `UseCaseLoggingBehaviorTests`, `SteppingClock`, `ListLoggerFactory`, `ListLogger` | 3 | 0 |
 | `tests/Souq.Application.Tests/Coupons/CouponHandlersTests.cs` | `CouponHandlersTests` | 7 | 0 |
 | `tests/Souq.Application.Tests/Coupons/CouponRedemptionsTests.cs` | `CouponRedemptionsTests` | 5 | 0 |
+| `tests/Souq.Application.Tests/Customers/CustomerAccountProfilesTests.cs` | `CustomerAccountProfilesTests` | 2 | 0 |
 | `tests/Souq.Application.Tests/Customers/CustomerHandlersTests.cs` | `CustomerAccountHandlersTests`, `CreateOrderCustomerRulesTests`, `AddressInputTestExtensions` | 9 | 0 |
 | `tests/Souq.Application.Tests/Inventory/InventoryCommandsTests.cs` | `InventoryCommandsTests` | 7 | 0 |
 | `tests/Souq.Application.Tests/Inventory/InventoryReservationsTests.cs` | `InventoryReservationsTests` | 9 | 0 |

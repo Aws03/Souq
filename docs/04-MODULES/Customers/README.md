@@ -87,10 +87,11 @@ Erased is terminal: every mutator calls the aggregate's erasure guard first, so 
 
 ## Public contracts
 
-There is **no** `Features/Customers/Contracts` folder. Other modules reach this one through the domain port `ICustomerRepository` (`src/Souq.Domain/Interfaces/ICustomerRepository.cs`), which is a boundary leak rather than a contract — see Dependencies.
+There is **no** `Features/Customers/Contracts` folder. Other modules reach this one through the domain port `ICustomerRepository` (`src/Souq.Domain/Interfaces/ICustomerRepository.cs`), which is a boundary leak rather than a contract — see Dependencies. **Identity is the exception, since M9:** it does not reach in at all. It declares `IAccountProfiles` and this module implements it (`CustomerAccountProfiles`), which is why the Identity → Customers arrow is now zero crossings.
 
 - `ICustomerQueries` (`src/Souq.Application/Features/Customers/ICustomerQueries.cs`) — this module's own read port (`ListAsync`, `FindDetailAsync`, `ExportAsync`), implemented by `CustomerQueries` in Infrastructure. Nothing outside Customers calls it.
-- `CustomerErasure` — an Application service registered in `src/Souq.Application/DependencyInjection.cs`, used by both erase handlers.
+- `CustomerErasure` — an Application service registered in `src/Souq.Application/DependencyInjection.cs`, used by both erase handlers. Since M9 it erases **only what this module owns** (the profile, and the basket and wishlist that are purchase intent rather than record) and then calls `IAccountLifecycle.EraseAsync`, which strips the account, revokes its refresh tokens and forgets its session stamp. That contract saves, so everything staged here is committed with it — the erase is still one atomic act, as it was when this module did the account's half itself.
+- `CustomerAccountProfiles` — this module's implementation of Identity's `IAccountProfiles`: it builds the `Customer` aggregate for a new account (so the aggregate is constructed inside the module that owns it, which `RegisterHandler` used to do) and answers which profile belongs to an account for the `cid` claim and `/auth/me`.
 - *ICustomerDirectory* (profile, status, default addresses) — **DEFERRED** by ADR-0027 until a second consumer or an extraction needs it. It is the intended replacement for the repository leak.
 
 ## Dependencies
