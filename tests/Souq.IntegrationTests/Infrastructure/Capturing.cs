@@ -39,6 +39,10 @@ public sealed class CapturingEmailSender : IEmailSender
     public EmailMessage? LastTo(string email, EmailTemplate template) =>
         _sent.Reverse().FirstOrDefault(m => m.Kind == template.ToString() && m.To == email);
 
+    // العدد لا الأخيرة وحدها (M14): إثبات "مرّة واحدة" يحتاج عدّاً — رسالتان متطابقتان تُقرأان واحدةً بـ LastTo.
+    public int CountTo(string email, EmailTemplate template) =>
+        _sent.Count(m => m.Kind == template.ToString() && m.To == email);
+
     public string LastInvitationLinkFor(string email) => Last(EmailTemplate.Invitation, email);
 
     public string LastInvitationTokenFor(string email) => TokenOf(Last(EmailTemplate.Invitation, email));

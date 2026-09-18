@@ -221,6 +221,152 @@ public class NotificationTests
         services.Single(d => d.ServiceType == typeof(IEmailSender)).ImplementationType.Should().Be<ConsoleEmailService>();
     }
 
+    // ════════════════════════════════════════════════════════════════════════
+    // مسارات التعافي الثلاثة في صندوق الصادر (TD-34، M14).
+    //
+    // كانت مؤكَّدةً **بالقراءة وحدها**: الحذف الدوري وعقد الإيجار وسباق مُرسِلَين كُتبت مع المسار السعيد ولم
+    // يفحص أيُّها اختبار. وهذه بالضبط الأماكن التي لا يكشف خطأها إلا الإنتاج: حذفٌ يأخذ صفّاً لم يُرسَل،
+    // أو عقدٌ لا ينتهي فيبقى صفٌّ عالقاً إلى الأبد، أو مُرسِلان يُرسلان للزبون رسالتين.
+    // ════════════════════════════════════════════════════════════════════════
+
+    // ========================================================================
+    // 1) الحذف الدوري. الخطر فيه ليس ما يحذفه بل ما قد يحذفه بالخطأ: جملة `DELETE` بشرطٍ ناقص تأخذ معها
+    // رسالةً لم تُرسَل بعد (فلا تصل أبداً) أو رسالةً ميتة (فيضيع سبب فشلها وهو كلّ قيمتها).
+    //
+    // فالحالات الأربع تُبنى صراحةً وتُحذف دفعةً واحدة، ويُفحص الباقي لا المحذوف وحده.
+    // ========================================================================
+    [Fact]
+    public async Task الحذف_الدوري_يأخذ_المُنجز_القديم_وحده_ويترك_المنتظر_والميت_والحديث()
+    {
+        var tenant = await _api.TenantAsync();
+        var now = DateTime.UtcNow;
+        var retention = now.AddDays(-14);
+
+        var oldDone = await SeedOutboxAsync(tenant.Id, processedAt: now.AddDays(-30));
+        var freshDone = await SeedOutboxAsync(tenant.Id, processedAt: now.AddHours(-1));
+        var pending = await SeedOutboxAsync(tenant.Id);
+        var dead = await SeedOutboxAsync(tenant.Id, failedAt: now.AddDays(-30));
+
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var deleted = await scope.ServiceProvider.GetRequiredService<IOutboxProcessor>()
+            .PurgeProcessedAsync(retention, CancellationToken.None);
+
+        deleted.Should().BeGreaterThanOrEqualTo(1);
+        (await ExistsAsync(oldDone)).Should().BeFalse("منجزٌ أقدم من مدّة الاحتفاظ");
+        (await ExistsAsync(freshDone)).Should().BeTrue("منجزٌ أحدث من مدّة الاحتفاظ");
+        (await ExistsAsync(pending)).Should().BeTrue("لم يُرسَل بعد — حذفه يعني رسالة لا تصل أبداً");
+        (await ExistsAsync(dead)).Should().BeTrue("الميت يبقى للتشخيص مهما قدُم، وهو ما يقوله NotificationSettings");
+    }
+
+    // ========================================================================
+    // 2) عقد الإيجار، بنصفيه — والثاني هو المهمّ:
+    //   • عقدٌ سارٍ يحمي: نسخةٌ ثانية من الخادم لا تلتقط رسالةً تُعالَج الآن.
+    //   • وعقدٌ منتهٍ **يُفرج**: عمليةٌ ماتت وهي ممسكة برسالة لا يجوز أن تُجمِّدها إلى الأبد. هذا هو ما
+    //     يجعل التسليم "مرّة على الأقل" صحيحاً، وهو النصف الذي لا يظهر خطؤه إلا برسالة لا تصل أبداً.
+    // ========================================================================
+    [Fact]
+    public async Task العقد_السارِي_يحمي_الرسالة_والعقد_المنتهي_يُفرج_عنها()
+    {
+        var (_, email) = await _api.NewCustomerAsync();
+        await _factory.DispatchNotificationsAsync();
+        var userId = await _api.WithDbAsync(db => db.Users.Where(u => u.Email == email).Select(u => u.Id).SingleAsync());
+
+        (await _api.Anonymous().PostAsJsonAsync("/api/auth/forgot-password", new { email })).EnsureSuccessStatusCode();
+        var message = await LatestResetAsync(userId);
+
+        // عقدٌ سارٍ (كأنّ نسخةً أخرى تُعالجها الآن): لا تُلتقط.
+        await SetLockAsync(message.Id, DateTime.UtcNow.AddMinutes(2));
+        await _factory.DispatchNotificationsAsync();
+
+        (await ByIdAsync(message.Id)).ProcessedAt.Should().BeNull("عقدٌ سارٍ يعني أنّ غيرها يعالجها");
+        _factory.Emails.CountTo(email, EmailTemplate.PasswordReset).Should().Be(0);
+
+        // انتهى العقد (ماتت العملية الممسكة بها): تُستعاد وتُرسَل.
+        await SetLockAsync(message.Id, DateTime.UtcNow.AddSeconds(-1));
+        await _factory.DispatchNotificationsAsync();
+
+        var recovered = await ByIdAsync(message.Id);
+        recovered.ProcessedAt.Should().NotBeNull("العقد المنتهي يُفرج عن الرسالة بدل أن تعلق إلى الأبد");
+        recovered.LockedUntil.Should().BeNull("النجاح يمسح العقد");
+        recovered.Attempts.Should().Be(0, "لم تفشل — انتظرت فقط");
+        _factory.Emails.CountTo(email, EmailTemplate.PasswordReset).Should().Be(1);
+    }
+
+    // ========================================================================
+    // 3) سباق مُرسِلَين — والسباق هنا **حقيقي لا محاكى**: مُرسِلٌ أول يدخل المزوّد ويتعطّل فيه (Block)، وهو
+    // ممسكٌ بالعقد فعلاً، ويجري الثاني في تلك الأثناء على القاعدة نفسها. فالنافذة التي يفشل فيها الحجز
+    // مفتوحةٌ على مصراعيها، لا لحظةً يُرجى أن تُصادف.
+    //
+    // والدعوى المُختبَرة دعوى منتج لا آلية: **الزبون يتلقّى رسالةً واحدة**. عدّها لا قراءة آخرها، فرسالتان
+    // متطابقتان تُقرأان واحدةً.
+    // ========================================================================
+    [Fact]
+    public async Task مُرسِلان_معاً_لا_يُرسلان_للزبون_رسالتين()
+    {
+        var (_, email) = await _api.NewCustomerAsync();
+        await _factory.DispatchNotificationsAsync();
+        var userId = await _api.WithDbAsync(db => db.Users.Where(u => u.Email == email).Select(u => u.Id).SingleAsync());
+
+        (await _api.Anonymous().PostAsJsonAsync("/api/auth/forgot-password", new { email })).EnsureSuccessStatusCode();
+        var message = await LatestResetAsync(userId);
+
+        _factory.Emails.Block();
+        Task<int> first;
+        try
+        {
+            first = Task.Run(() => _factory.DispatchNotificationsAsync());
+
+            // لا يبدأ الثاني قبل أن يُمسك الأول العقد فعلاً — وإلا صار الاختبار سباقاً على الصدفة.
+            await Wait.UntilAsync(async () => (await ByIdAsync(message.Id)).LockedUntil is not null,
+                "لم يحجز المُرسِل الأول الرسالة");
+
+            var second = await _factory.DispatchNotificationsAsync();
+            second.Should().Be(0, "الرسالة الوحيدة المستحقّة محجوزة، فلا شيء للثاني");
+            (await ByIdAsync(message.Id)).ProcessedAt.Should().BeNull("الأول ما زال داخل المزوّد");
+        }
+        finally
+        {
+            _factory.Emails.Release();
+        }
+
+        (await first).Should().Be(1);
+        var done = await ByIdAsync(message.Id);
+        done.ProcessedAt.Should().NotBeNull();
+        done.Attempts.Should().Be(0, "لم يفشل شيء — الثاني لم يلمسها أصلاً");
+        _factory.Emails.CountTo(email, EmailTemplate.PasswordReset)
+            .Should().Be(1, "مُرسِلان لا يعنيان رسالتين للزبون");
+    }
+
+    // صفّ صادر بحالةٍ معلومة، بلا مرور بمسار المنتج: هذه اختبارات **الصندوق** لا مُنتِجي الرسائل، وبناء
+    // أربع حالات من أحداث حقيقية كان سيخلط ما يُفحص بما يُهيّأ.
+    private async Task<long> SeedOutboxAsync(int tenantId, DateTime? processedAt = null, DateTime? failedAt = null)
+    {
+        var id = await _api.WithDbAsync(async db =>
+        {
+            var message = OutboxMessage.For(
+                // مستخدمٌ غير موجود عمداً: هذا الصفّ يُحذف أو يبقى، ولا يُعالَج أبداً في هذا الاختبار.
+                new PasswordResetRequested(0, "https://outbox-seed.example.test"),
+                tenantId, DateTime.UtcNow.AddDays(-40));
+            db.OutboxMessages.Add(message);
+            await db.SaveChangesAsync();
+            return message.Id;
+        });
+
+        if (processedAt is not null || failedAt is not null)
+            await _api.WithDbAsync(db => db.OutboxMessages.Where(m => m.Id == id)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(m => m.ProcessedAt, processedAt)
+                    .SetProperty(m => m.FailedAt, failedAt)));
+        return id;
+    }
+
+    private Task<bool> ExistsAsync(long id) =>
+        _api.WithDbAsync(db => db.OutboxMessages.AnyAsync(m => m.Id == id));
+
+    private Task<int> SetLockAsync(long id, DateTime until) =>
+        _api.WithDbAsync(db => db.OutboxMessages.Where(m => m.Id == id)
+            .ExecuteUpdateAsync(s => s.SetProperty(m => m.LockedUntil, until)));
+
     private Task<OutboxMessage> LatestResetAsync(int userId) =>
         _api.WithDbAsync(db => db.OutboxMessages.AsNoTracking()
             .Where(m => m.Type == nameof(PasswordResetRequested) && m.Payload.Contains($"\"userId\":{userId},"))
