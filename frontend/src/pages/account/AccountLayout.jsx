@@ -1,7 +1,7 @@
 import { NavLink, Outlet } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useModule } from '../../app/TenantProvider';
-import { HeartIcon, MapPinIcon, ReceiptIcon, UserIcon } from '../../components/icons/Icons';
+import { HeartIcon, LockIcon, MapPinIcon, ReceiptIcon, UserIcon } from '../../components/icons/Icons';
 import styles from './AccountLayout.module.css';
 
 // ============================================================================
@@ -39,6 +39,9 @@ export default function AccountLayout() {
           </NavLink>
           <NavLink to="/account/addresses" className={linkClass}>
             <MapPinIcon size={16} /> {t('account.addressesTitle')}
+          </NavLink>
+          <NavLink to="/account/password" className={linkClass}>
+            <LockIcon size={16} /> {t('account.passwordTitle')}
           </NavLink>
           <NavLink to="/orders" end className={linkClass}>
             <ReceiptIcon size={16} /> {t('orders.myOrdersTitle')}

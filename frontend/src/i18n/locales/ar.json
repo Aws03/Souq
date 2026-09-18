@@ -230,7 +230,9 @@
     "acceptInvitationSubtitle": "اختر كلمة مرور لتفعيل حسابك",
     "acceptInvitationSubmit": "تفعيل الحساب",
     "acceptInvitationSuccess": "تم تفعيل حسابك. سيتم تحويلك لتسجيل الدخول…",
-    "invalidInvitationLink": "رابط الدعوة ناقص. افتح الرابط كاملاً من رسالة البريد، أو اطلب دعوة جديدة من مدير المتجر."
+    "invalidInvitationLink": "رابط الدعوة ناقص. افتح الرابط كاملاً من رسالة البريد، أو اطلب دعوة جديدة من مدير المتجر.",
+    "passwordMaxLength": "كلمة المرور يجب ألّا تزيد على ١٢٨ حرفاً",
+    "passwordLettersAndDigits": "كلمة المرور يجب أن تحتوي حروفاً وأرقاماً معاً"
   },
   "checkout": {
     "emptyCartTitle": "سلّتك فارغة",
@@ -1502,7 +1504,15 @@
     "passwordRequired": "أدخل كلمة المرور للتأكيد",
     "eraseButton": "حذف حسابي نهائياً",
     "erased": "تم حذف حسابك.",
-    "navAria": "أقسام الحساب"
+    "navAria": "أقسام الحساب",
+    "passwordTitle": "كلمة المرور",
+    "passwordSubtitle": "غيّر كلمة المرور التي تدخل بها.",
+    "currentPasswordLabel": "كلمة المرور الحالية",
+    "currentPasswordRequired": "أدخل كلمة المرور الحالية",
+    "passwordSameAsCurrent": "كلمة المرور الجديدة يجب أن تختلف عن الحالية",
+    "passwordSubmit": "تغيير كلمة المرور",
+    "passwordChanged": "تم تغيير كلمة المرور",
+    "passwordSignsOutOthers": "تغيير كلمة المرور يُخرجك من كل الأجهزة الأخرى. هذا الجهاز يبقى داخلاً."
   },
   "notifications": {
     "title": "الإشعارات",

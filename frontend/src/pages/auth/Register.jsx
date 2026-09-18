@@ -5,6 +5,7 @@ import { useAuth } from '../../context/AuthContext';
 import FormField, { inputClass } from '../../components/common/FormField';
 import PasswordInput from '../../components/common/PasswordInput';
 import Button from '../../components/common/Button';
+import { newPasswordProblem } from '../../features/account/passwordForm';
 import { useStoreName } from '../../app/StoreBrand';
 import AuthLayout from './AuthLayout';
 import styles from './Auth.module.css';
@@ -30,8 +31,8 @@ export default function Register() {
       : form.fullName.trim().length < 3 ? t('auth.fullNameTooShort') : null,
     email: !form.email ? t('auth.emailRequired')
       : !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email) ? t('auth.emailInvalid') : null,
-    password: !form.password ? t('auth.passwordRequired')
-      : form.password.length < 8 ? t('auth.passwordMinLength') : null,
+    // القواعد من الوحدة المشتركة لا مكتوبةً هنا (M9) — نفس ما يفرضه الخادم، بما فيه شرط الحروف والأرقام.
+    password: newPasswordProblem(form.password) ? t(newPasswordProblem(form.password)) : null,
     confirm: form.confirm !== form.password ? t('auth.confirmPasswordMismatch') : null,
   };
   const isValid = !Object.values(errors).some(Boolean);

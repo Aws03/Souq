@@ -70,6 +70,13 @@ export const UserIcon = ({ size = 18 }) => (
   </svg>
 );
 
+// قفل مغلق — كلمة المرور في تنقّل الحساب. بالخطّ نفسه (base) كبقيّة الأيقونات فلا يختلف وزنه عنها.
+export const LockIcon = ({ size = 18 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" {...base}>
+    <rect x="4.5" y="10.5" width="15" height="9.5" rx="2" /><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3" />
+  </svg>
+);
+
 export const MoreIcon = ({ size = 18 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor">
     <circle cx="12" cy="5" r="1.7" /><circle cx="12" cy="12" r="1.7" /><circle cx="12" cy="19" r="1.7" />

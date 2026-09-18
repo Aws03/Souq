@@ -223,7 +223,9 @@
     "acceptInvitationSubtitle": "Choose a password to activate your account",
     "acceptInvitationSubmit": "Activate account",
     "acceptInvitationSuccess": "Your account is active. Redirecting you to sign in…",
-    "invalidInvitationLink": "This invitation link is incomplete. Open the full link from the email, or ask the store administrator for a new invitation."
+    "invalidInvitationLink": "This invitation link is incomplete. Open the full link from the email, or ask the store administrator for a new invitation.",
+    "passwordMaxLength": "Password must be at most 128 characters",
+    "passwordLettersAndDigits": "Password must contain both letters and numbers"
   },
   "checkout": {
     "emptyCartTitle": "Your cart is empty",
@@ -1454,7 +1456,15 @@
     "passwordRequired": "Enter your password to confirm",
     "eraseButton": "Delete my account permanently",
     "erased": "Your account was deleted.",
-    "navAria": "Account sections"
+    "navAria": "Account sections",
+    "passwordTitle": "Password",
+    "passwordSubtitle": "Change the password you sign in with.",
+    "currentPasswordLabel": "Current password",
+    "currentPasswordRequired": "Enter your current password",
+    "passwordSameAsCurrent": "The new password must be different from the current one",
+    "passwordSubmit": "Change password",
+    "passwordChanged": "Your password was changed",
+    "passwordSignsOutOthers": "Changing your password signs you out everywhere else. This device stays signed in."
   },
   "notifications": {
     "title": "Notifications",

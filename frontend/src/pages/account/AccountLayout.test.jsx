@@ -39,7 +39,9 @@ describe('AccountLayout', () => {
 
   it('يجمع أقسام الحساب في تنقّل واحد', () => {
     renderAt('/account');
-    expect(navLinks()).toEqual(['/account', '/account/addresses', '/orders']);
+    // كلمة المرور قسم رابع منذ M9 (TD-29): صفحةٌ لا لوحةٌ في /account، لأن تلك الصفحة قُسِّمت في
+    // المرحلة 16 لأنها كانت تحمل ثلاثة اهتمامات — والترتيب هو ترتيب القراءة في القشرة.
+    expect(navLinks()).toEqual(['/account', '/account/addresses', '/account/password', '/orders']);
   });
 
   it('يخفي المفضّلة حين تكون وحدتها معطّلة', () => {

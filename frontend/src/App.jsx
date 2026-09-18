@@ -37,6 +37,7 @@ const MyOrders = lazy(() => import('./pages/MyOrders'));
 const AccountLayout = lazy(() => import('./pages/account/AccountLayout'));
 const Profile = lazy(() => import('./pages/account/Profile'));
 const Addresses = lazy(() => import('./pages/account/Addresses'));
+const ChangePassword = lazy(() => import('./pages/account/ChangePassword'));
 const OrderTracking = lazy(() => import('./pages/OrderTracking'));
 const OrderDetail = lazy(() => import('./pages/OrderDetail'));
 const Checkout = lazy(() => import('./pages/checkout/Checkout'));
@@ -169,6 +170,7 @@ function StoreRoutes() {
         <Route element={<ProtectedRoute><AccountLayout /></ProtectedRoute>}>
           <Route path="/account" element={<Profile />} />
           <Route path="/account/addresses" element={<Addresses />} />
+          <Route path="/account/password" element={<ChangePassword />} />
           <Route path="/orders" element={<MyOrders />} />
         </Route>
         <Route path="/orders/:id" element={<ProtectedRoute><OrderDetail /></ProtectedRoute>} />

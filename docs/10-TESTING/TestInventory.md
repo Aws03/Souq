@@ -8,11 +8,11 @@
 | Suite | Files | Facts | Theories |
 |---|---|---|---|
 | [`Souq.Domain.Tests`](#souqdomaintests) | 29 | 227 | 47 |
-| [`Souq.Application.Tests`](#souqapplicationtests) | 43 | 327 | 15 |
+| [`Souq.Application.Tests`](#souqapplicationtests) | 44 | 332 | 17 |
 | [`Souq.ArchitectureTests`](#souqarchitecturetests) | 14 | 59 | 7 |
-| [`Souq.IntegrationTests`](#souqintegrationtests) | 50 | 289 | 22 |
-| [frontend (Vitest)](#frontend-vitest) | 79 | 615 | — |
-| [frontend (Playwright)](#frontend-playwright) | 15 | 104 | — |
+| [`Souq.IntegrationTests`](#souqintegrationtests) | 50 | 290 | 22 |
+| [frontend (Vitest)](#frontend-vitest) | 81 | 630 | — |
+| [frontend (Playwright)](#frontend-playwright) | 16 | 107 | — |
 
 ## Souq.Domain.Tests
 
@@ -52,7 +52,8 @@
 
 | File | Classes | Facts | Theories |
 |---|---|---|---|
-| `tests/Souq.Application.Tests/Auth/AuthHandlersTests.cs` | `AuthRig`, `RegisterHandlerTests`, `LoginHandlerTests`, `RefreshSessionHandlerTests`, `LogoutHandlerTests`, `ChangePasswordHandlerTests`, `ForgotPasswordHandlerTests`, `ResetPasswordHandlerTests`, `VerifyEmailHandlerTests` | 22 | 0 |
+| `tests/Souq.Application.Tests/Auth/AuthHandlersTests.cs` | `AuthRig`, `RegisterHandlerTests`, `LoginHandlerTests`, `RefreshSessionHandlerTests`, `LogoutHandlerTests`, `ChangePasswordHandlerTests`, `ForgotPasswordHandlerTests`, `ResetPasswordHandlerTests`, `VerifyEmailHandlerTests` | 23 | 0 |
+| `tests/Souq.Application.Tests/Auth/PasswordRulesTests.cs` | `PasswordRulesTests` | 4 | 2 |
 | `tests/Souq.Application.Tests/Baskets/BasketCheckoutTests.cs` | `BasketCheckoutTests` | 3 | 0 |
 | `tests/Souq.Application.Tests/Baskets/BasketHandlersTests.cs` | `BasketHandlersTests` | 13 | 0 |
 | `tests/Souq.Application.Tests/Baskets/PricingServiceTests.cs` | `PricingServiceTests` | 11 | 0 |
@@ -120,7 +121,7 @@
 | File | Classes | Facts | Theories |
 |---|---|---|---|
 | `tests/Souq.IntegrationTests/AuditTimestampsTests.cs` | `AuditTimestampsTests`, `SettableClock` | 1 | 0 |
-| `tests/Souq.IntegrationTests/AuthSessionTests.cs` | `AuthSessionTests` | 10 | 0 |
+| `tests/Souq.IntegrationTests/AuthSessionTests.cs` | `AuthSessionTests` | 11 | 0 |
 | `tests/Souq.IntegrationTests/AuthorizationBoundaryTests.cs` | `AuthorizationBoundaryTests` | 7 | 0 |
 | `tests/Souq.IntegrationTests/AuthorizationMatrixTests.cs` | `AuthorizationMatrixTests` | 3 | 0 |
 | `tests/Souq.IntegrationTests/BackgroundSweepScopeTests.cs` | `BackgroundSweepScopeTests` | 2 | 0 |
@@ -198,6 +199,7 @@
 | `frontend/src/components/product/ProductCard.test.jsx` | 11 |
 | `frontend/src/components/store/OpeningExperience.test.jsx` | 12 |
 | `frontend/src/features/account/addressForm.test.js` | 6 |
+| `frontend/src/features/account/passwordForm.test.js` | 8 |
 | `frontend/src/features/admin/categories/categoryForm.test.js` | 5 |
 | `frontend/src/features/admin/coupons/couponForm.test.js` | 4 |
 | `frontend/src/features/admin/customers/customerActions.test.js` | 4 |
@@ -238,6 +240,7 @@
 | `frontend/src/pages/OrderTracking.test.jsx` | 6 |
 | `frontend/src/pages/ProductDetail.test.jsx` | 19 |
 | `frontend/src/pages/account/AccountLayout.test.jsx` | 6 |
+| `frontend/src/pages/account/ChangePassword.test.jsx` | 7 |
 | `frontend/src/pages/admin/BusinessOverview.test.jsx` | 10 |
 | `frontend/src/pages/admin/Dashboard.test.jsx` | 11 |
 | `frontend/src/pages/admin/Inventory.test.jsx` | 5 |
@@ -260,6 +263,7 @@
 
 | File | Journeys |
 |---|---|
+| `frontend/e2e/account-password.spec.js` | 3 |
 | `frontend/e2e/admin-inventory.spec.js` | 3 |
 | `frontend/e2e/back-office.spec.js` | 6 |
 | `frontend/e2e/checkout-coupon.spec.js` | 3 |

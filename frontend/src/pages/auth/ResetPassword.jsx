@@ -5,6 +5,7 @@ import { api } from '../../api/client';
 import FormField, { inputClass } from '../../components/common/FormField';
 import PasswordInput from '../../components/common/PasswordInput';
 import Button from '../../components/common/Button';
+import { newPasswordProblem } from '../../features/account/passwordForm';
 import AuthLayout from './AuthLayout';
 import styles from './Auth.module.css';
 
@@ -36,12 +37,17 @@ export default function ResetPassword({ mode = 'reset' }) {
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
 
-  const errors = {
-    password: !password ? t('auth.passwordRequired')
-      : password.length < 8 ? t('auth.passwordMinLength') : null,
-    confirm: confirm !== password ? t('auth.confirmPasswordMismatch') : null,
+  // القواعد من الوحدة المشتركة لا مكتوبةً هنا (M9): كانت تفحص الطول وحده، فكلمة بلا رقم تمرّ منها
+  // ثم يرفضها الخادم — رحلةٌ كاملة لرسالةٍ كان يمكن أن تُقرأ فوراً.
+  const problems = {
+    password: newPasswordProblem(password),
+    confirm: confirm === password ? null : 'auth.confirmPasswordMismatch',
   };
-  const isValid = !errors.password && !errors.confirm;
+  const errors = {
+    password: problems.password ? t(problems.password) : null,
+    confirm: problems.confirm ? t(problems.confirm) : null,
+  };
+  const isValid = !problems.password && !problems.confirm;
 
   const submit = async (e) => {
     e.preventDefault();
