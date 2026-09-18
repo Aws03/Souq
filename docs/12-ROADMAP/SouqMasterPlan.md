@@ -29,12 +29,12 @@
 
 ```yaml
 plan_version: 1.0.0
-current_phase: M4
+current_phase: M5
 phase_status: done
-next_phase: M5          # M2 remains blocked on TD-42 and is independent of the phases after it; see M2's own STOP entry
+next_phase: M6          # M2 remains blocked on TD-42 and is independent of the phases after it; see M2's own STOP entry
 blocked_decisions: ["TD-42"]    # owner decisions that block a phase currently in flight; see §5 and OwnerDecisions.md
 last_verified_date: 2026-09-18
-last_verified_head: b0d4b8c     # M4 closed: the storefront responsive/accessibility matrix and the five defects it found
+last_verified_head: a1295d1     # M5 closed: checkout split into three stages, and suspended stores swept
 baseline_branch: phase/17-production-hardening
 ```
 
@@ -67,6 +67,15 @@ found and fixed, each visible at only one width in one language; the most seriou
 clipped the cart button** between 768px and ~940px because `overflow-x: hidden` hid the overflow instead of
 showing it. The one acceptance criterion **not** met — a cyclic focus trap in dialogs — is recorded as TD-48
 rather than claimed. See M4's "Completion evidence" above.
+
+**M5 — done.** Checkout's most important use case is no longer one ~120-line method with sixteen dependencies:
+`CheckoutQuote` (no effect) → `OrderPlacement` (one transaction) → `CheckoutPayment` (outside it, with
+compensation), closing **TD-13** without rewriting a single test case. **R-24** is decided: background sweeps now
+cover suspended stores, whose expired stock holds were previously released by nothing at all — a change to
+BR-TEN-22, made because that rule was recorded as UNTESTED with this exact consequence as a known defect.
+**F-8 remains the owner's call**, and M5 established that the browser is not a source of duplicate checkouts, so
+the choice stays a server-side one. The no-oversell criterion was **already met** and was verified rather than
+rebuilt; the real gap — concurrency with mixed quantities — is now covered. See M5's "Completion evidence" above.
 
 Keep this block current in the same commit that closes a phase: `current_phase`, `phase_status`
 (`not_started` | `in_progress` | `blocked` | `done`), `next_phase`, `blocked_decisions` (the exact ID from
@@ -758,7 +767,45 @@ repository.
   responsibilities are either genuinely reduced with full test coverage preserved, or TD-13 is re-filed with
   today's evidence explaining why not yet; F-8 remains a clean two-path implementation, not a de facto choice
   made by omission.
-- **Completion evidence.** *(fill in on close)*
+- **Completion evidence.** Commits on `phase/17-production-hardening` from checkpoint `432372d`.
+  - **The headline criterion was already met before this phase, and was verified rather than rebuilt.**
+    "No oversell under concurrent load" is covered by `InventoryAndOrderTests`: five customers on the last unit
+    give exactly one order and four `InsufficientStock`, and eight parallel orders against a stock of three give
+    exactly three. What was **missing** is that every such test orders quantity 1, so the winner count always
+    equals the stock and only "all or nothing" is exercised. Added a burst of ten concurrent orders with mixed
+    quantities (1–5) against a stock of 6, asserting the invariant that actually matters — the **sum** of what
+    succeeded never exceeds stock — which catches a partial-fit miscount that quantity 1 cannot.
+  - **TD-13 — closed, not re-filed.** `CreateOrderHandler` went from one ~120-line method with **sixteen**
+    dependencies to ~15 lines over three collaborators, each owning a different guarantee: `CheckoutQuote` (no
+    effect), `OrderPlacement` (one transaction, all or nothing), `CheckoutPayment` (outside the transaction,
+    with the compensation that was previously a `catch` block buried mid-method — the piece TD-13 named as
+    easiest to break). The external contract is unchanged and `CreateOrderHandlerTests`' fifteen cases were
+    **not rewritten**, only the line that constructs the handler, so they still measure behaviour and not the
+    new seams. The crossing ratchet confirms the boundaries did not move: the same four Ordering→Customers
+    crossings, re-attributed to `CheckoutQuote`.
+  - **R-24 — decided and closed.** Sweeps ran for Active stores only, so a suspended store's expired stock
+    holds were released by *nothing* — its shoppers cannot complete a payment, so the store would return from
+    suspension with stock reserved against orders that can never complete, and the defect would surface at
+    reactivation rather than at suspension. Sweeps now cover **active and suspended**; provisioning has nothing
+    to expire and archived is a closed record, so both stay excluded. `BackgroundSweepScopeTests` pins all four
+    states. **This changes BR-TEN-22 as previously written**, which was marked UNTESTED with exactly this
+    consequence recorded as a known defect; the reasoning is now in the rule and it is reversible in one
+    predicate if the owner wants suspension to freeze everything instead.
+  - **F-8 stays the owner's to decide.** `CheckoutIdempotencyTests` was not touched: two orders, stock reserved
+    twice, separate client secrets so no double charge, both expiring. What M5 *did* establish is that the
+    browser is not a source of duplicates — the submit button disables while busy, and a real double click
+    sends exactly one `POST /api/orders`, asserted on the running stack. So whichever path the owner chooses,
+    it is a server-side choice and not a de facto one made by a clicking finger.
+  - **Browser QA on the container stack** (`frontend/e2e/checkout-reliability.spec.js`, 3/3): a line that sells
+    out between page load and submit is refused **with a reason on screen** rather than a dead button; the
+    double click above; and the happy path still reaching a paid order after the split.
+  - **Docker/runtime.** The stack was rebuilt and restarted on the refactored checkout: `/health/live`,
+    `/health/ready` and the web proxy all 200, **zero** `LogLevel: Error` entries in the API log, and the three
+    journeys above run against it rather than against `WebApplicationFactory`.
+  - **TD-14 left alone deliberately.** The three hand-rolled retry loops were not touched by this phase's
+    changes, and M5's own scope says to unify them only if it did.
+  - Tests: Domain 524, Application 385, Architecture 89, Integration 364. Working tree clean and pushed at
+    close (a1295d1).
 - **Next-phase trigger.** M6 may start once checkout's happy and adversarial paths are both green on the same
   commit.
 
