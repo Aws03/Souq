@@ -1,6 +1,7 @@
 using FluentValidation;
 using MediatR;
 using Microsoft.Extensions.Logging;
+using Souq.Application.Common.Observability;
 using Souq.Application.Common.Interfaces;
 using Souq.Application.Common.Models;
 using Souq.Domain.Identity;
@@ -56,8 +57,13 @@ public class LoginHandler : IRequestHandler<LoginCommand, Result<AuthSession>>
     //
     // والمستوى تحذير لا معلومة: هذه أسطرٌ يُنذَر عنها، ومعلومةٌ وسط ملايين أسطر الطلبات لا تُقرأ.
     // ============================================================================
-    private void Failed(string outcome, int? userId) =>
+    private void Failed(string outcome, int? userId)
+    {
+        // العدّاد إلى جانب السطر (M17): السطر يجيب "ماذا جرى في هذه المحاولة"، والعدّاد يجيب "كم محاولة
+        // كهذه في الساعة الماضية" — والثاني وحده هو ما يُميّز حشو بيانات الاعتماد من مستخدمين نسوا.
+        SouqMetrics.RecordLoginFailed(outcome);
         _logger.LogWarning("Login failed: {Outcome} (account {AccountId})", outcome, userId?.ToString() ?? "unknown");
+    }
 
     public async Task<Result<AuthSession>> Handle(LoginCommand cmd, CancellationToken ct)
     {

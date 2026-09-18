@@ -7,6 +7,7 @@ using Souq.Application.Common.Tenancy;
 using Souq.Domain.Auditing;
 using Souq.Domain.Common;
 
+using Souq.Application.Common.Observability;
 namespace Souq.Infrastructure.Persistence.Interceptors;
 
 // ============================================================================
@@ -120,6 +121,10 @@ public sealed class TenantWriteGuardInterceptor : SaveChangesInterceptor
     private void Reject(EntityEntry entry, int? entityTenantId, int? contextTenantId)
     {
         var entityType = entry.Metadata.ClrType.Name;
+        // يُعَدّ كما يُسجَّل (M17): السطر الحَرِج يقول أي صفّ وأي متجرين — وهو ما يُحقَّق فيه. والعدّاد يقول
+        // إن كان هذا واحداً أم ألفاً، وهو ما يُنذَر عنه. وبلا وسمٍ بالمتجر: وسمٌ عالي التعدّد يُفجّر عدد
+        // السلاسل الزمنية في أي خلفية، والمتجر معروفٌ من السطر المكتوب في اللحظة نفسها.
+        SouqMetrics.RecordCrossTenantWriteBlocked();
         _logger.LogCritical(
             "Blocked cross-tenant write on {EntityType}: row tenant {EntityTenantId}, context tenant {ContextTenantId}",
             entityType, entityTenantId, contextTenantId);

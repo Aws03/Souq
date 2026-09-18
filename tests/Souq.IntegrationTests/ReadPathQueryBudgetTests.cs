@@ -43,6 +43,24 @@ public class ReadPathQueryBudgetTests
     // ============================================================================
     private async Task<int> CountAsync(Func<Task<HttpResponseMessage>> work)
     {
+        // ============================================================================
+        // يُقاس مرّتين ويُؤخذ الأصغر (M16) — لأنّ العدّاد يسمع أكثر ممّا يقصد.
+        //
+        // كاتب سجلّ البحث الخلفي (M13) يُفرغ دفعته كل عشرين مللي ثانية في مضيف الاختبار، فإن صادف
+        // نافذة قياسٍ أضاف إليها `INSERT` ليس من المسار المقيس. وهو **يُستثار بهذا الاختبار نفسه**:
+        // قياس `?keyword=` يُودع سطراً، فيظهر أثره في القياس التالي. فكان الاختبار يمرّ منفرداً ويسقط
+        // ضمن المجموعة — وهو أسوأ شكل للفشل، لأنّه يبدو عشوائياً.
+        //
+        // والإفراغ متقطّع لا دائم، فأصغر قياسين هو القياس النظيف. ولا يُضعف ذلك الدعوى: المطلوب إثبات
+        // أنّ **كلفة المسار** لا تنمو بعدد الصفوف، وكلفة كاتبٍ خلفي ليست منها.
+        // ============================================================================
+        var first = await MeasureOnceAsync(work);
+        var second = await MeasureOnceAsync(work);
+        return Math.Min(first, second);
+    }
+
+    private async Task<int> MeasureOnceAsync(Func<Task<HttpResponseMessage>> work)
+    {
         var before = Commands();
         var response = await work();
         response.IsSuccessStatusCode.Should().BeTrue(

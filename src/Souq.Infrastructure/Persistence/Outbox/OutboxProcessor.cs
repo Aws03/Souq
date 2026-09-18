@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Souq.Application.Common.Notifications;
+using Souq.Application.Common.Observability;
 using Souq.Application.Common.Tenancy;
 using Souq.Infrastructure.Services;
 using Souq.Infrastructure.Tenancy;
@@ -123,8 +124,13 @@ internal sealed class OutboxProcessor : IOutboxProcessor
             .SetProperty(m => m.LastError, error), CancellationToken.None);
 
         if (next is null)
+        {
+            // يُعَدّ ويُسجَّل معاً (M17): السطر يقول أي رسالة، والعدّاد يُنذَر عنه — ورسالةٌ ماتت تعني
+            // بريداً لن يصل أبداً (تأكيد طلب، رابط إعادة تعيين)، وهو ما يستحقّ إيقاظ إنسان.
+            SouqMetrics.RecordOutboxDeadLettered(message.Type);
             _logger.LogError("Outbox message {MessageId} ({MessageType}) failed permanently after {Attempts} attempts: {ErrorType}",
                 message.Id, message.Type, failedAttempts, ex.GetType().Name);
+        }
         else
             _logger.LogWarning("Outbox message {MessageId} ({MessageType}) failed on attempt {Attempts} ({ErrorType}); next attempt at {NextAttemptAt:o}",
                 message.Id, message.Type, failedAttempts, ex.GetType().Name, next);

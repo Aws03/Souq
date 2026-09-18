@@ -8,7 +8,7 @@
 | Suite | Files | Facts | Theories |
 |---|---|---|---|
 | [`Souq.Domain.Tests`](#souqdomaintests) | 29 | 227 | 47 |
-| [`Souq.Application.Tests`](#souqapplicationtests) | 47 | 354 | 18 |
+| [`Souq.Application.Tests`](#souqapplicationtests) | 48 | 356 | 18 |
 | [`Souq.ArchitectureTests`](#souqarchitecturetests) | 16 | 63 | 7 |
 | [`Souq.IntegrationTests`](#souqintegrationtests) | 52 | 325 | 25 |
 | [frontend (Vitest)](#frontend-vitest) | 85 | 665 | — |
@@ -72,6 +72,7 @@
 | `tests/Souq.Application.Tests/Inventory/InventoryCommandsTests.cs` | `InventoryCommandsTests` | 7 | 0 |
 | `tests/Souq.Application.Tests/Inventory/InventoryReservationsTests.cs` | `InventoryReservationsTests` | 9 | 0 |
 | `tests/Souq.Application.Tests/Notifications/NotificationHandlersTests.cs` | `OutboxPolicyTests`, `IdentityEmailHandlersTests`, `OrderNotificationHandlersTests`, `NotificationUseCasesTests` | 16 | 1 |
+| `tests/Souq.Application.Tests/Observability/SouqMetricsTests.cs` | `SouqMetricsTests` | 2 | 0 |
 | `tests/Souq.Application.Tests/Orders/CancelMyOrderHandlerTests.cs` | `CancelMyOrderHandlerTests` | 5 | 0 |
 | `tests/Souq.Application.Tests/Orders/ConfirmOrderPaymentHandlerTests.cs` | `ConfirmOrderPaymentHandlerTests` | 12 | 0 |
 | `tests/Souq.Application.Tests/Orders/CreateOrderHandlerTests.cs` | `CreateOrderHandlerTests` | 17 | 1 |

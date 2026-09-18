@@ -1,6 +1,7 @@
 using System.Threading.Channels;
 using Microsoft.Extensions.Logging;
 using Souq.Application.Common.Tenancy;
+using Souq.Application.Common.Observability;
 using Souq.Application.Features.Products.Contracts;
 using Souq.Domain.Entities;
 
@@ -59,6 +60,9 @@ internal sealed class SearchLogBuffer : ISearchLog
         _channel = channel; _tenant = tenant; _clock = clock; _logger = logger;
     }
 
+    // كل إسقاطٍ يُعَدّ، ولو كان يُسجَّل واحدٌ من كل مئة (M17): السجلّ لا يُغرَق، والقياس لا يُفقد.
+    private static bool Record(Action count) { count(); return true; }
+
     public void Record(string? term, int resultCount, string culture)
     {
         // لا شيء هنا يجوز أن يرمي: هذه الدالّة تُنادى من مسار البحث، وفشل التسجيل ليس فشل بحث.
@@ -69,6 +73,7 @@ internal sealed class SearchLogBuffer : ISearchLog
             if (entry is null) return;
 
             if (!_channel.TryWrite(new BufferedSearch(_tenant.RequireTenant().Id, entry))
+                && Record(SouqMetrics.RecordSearchLogDropped)
                 && Interlocked.Increment(ref _dropped) % 100 == 1)
                 _logger.LogWarning(
                     "Search log buffer full; {Dropped} searches not recorded so far (capacity {Capacity})",
