@@ -21,7 +21,11 @@ namespace Souq.API.Controllers;
 [AllowAnonymous]
 public class BasketController : ControllerBase
 {
-    public const string GuestCookieName = "souq_basket";
+    // نفس حرس ملفّ التجديد (M15، `HostOnlyCookie`): مضيفٌ شقيق تحت نطاق التاجر كان يستطيع زرع رمز
+    // سلّته هنا، فتذهب مشتريات الزائر إلى سلّةٍ يقرؤها هو. أخفّ من الاستيلاء على حساب وأثقل من لا شيء.
+    public const string GuestCookieBareName = "souq_basket";
+
+    private string GuestCookieName => HostOnlyCookie.NameFor(GuestCookieBareName, _cookie.Secure);
     private const string GuestCookiePath = "/api/basket";
 
     private readonly IMediator _mediator;
@@ -111,7 +115,7 @@ public class BasketController : ControllerBase
         HttpOnly = true,
         Secure = _cookie.Secure,
         SameSite = SameSiteMode.Strict,
-        Path = GuestCookiePath,
+        Path = HostOnlyCookie.PathFor(GuestCookiePath, _cookie.Secure),
         Expires = expires,
         IsEssential = true,   // لازم لوظيفة السلة، لا تتبّع
     };

@@ -18,7 +18,10 @@ namespace Souq.IntegrationTests;
 public class AuthSessionTests
 {
     private const string Password = "Customer-Pass-1";
-    private const string RefreshCookie = "souq_refresh";
+    // الاسم الفعلي بالبادئة (M15): الاختبارات تعمل بـ Secure مُفعَّل، فالخادم يكتب `__Host-souq_refresh`.
+    // يُبنى من نفس الثابت الذي يبنيه الخادم منه، فلا ينفصل الاختبار عن الكود إن تغيّرت البادئة.
+    private static readonly string RefreshCookie =
+        Souq.API.Security.HostOnlyCookie.NameFor(Souq.API.Controllers.AuthController.RefreshCookieBareName, secure: true);
 
     private readonly SouqApiFactory _factory;
     private readonly TestApi _api;
@@ -38,8 +41,10 @@ public class AuthSessionTests
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var cookie = SetCookie(response);
+        // `path=/` منذ M15: شرط بادئة `__Host-`، التي تمنع مضيفاً شقيقاً تحت نطاق التاجر من زرع جلسة.
+        // التفصيل وسببه في CookieSecurityTests و`HostOnlyCookie`.
         cookie.ToLowerInvariant().Should().Contain("httponly").And.Contain("secure")
-            .And.Contain("samesite=strict").And.Contain("path=/api/auth");
+            .And.Contain("samesite=strict").And.Contain("path=/");
         var body = await response.Content.ReadAsStringAsync();
         body.Should().Contain("accessToken").And.NotContain(RefreshValue(cookie));
 

@@ -40,7 +40,7 @@ public class BasketTests
         var added = await guest.PostAsJsonAsync("/api/basket/items", new { productId, quantity = 2 });
         added.StatusCode.Should().Be(HttpStatusCode.OK, await added.Content.ReadAsStringAsync());
         var cookie = added.Headers.GetValues("Set-Cookie").Single(h => h.StartsWith($"{TestApi.GuestBasketCookie}=", StringComparison.Ordinal));
-        cookie.ToLowerInvariant().Should().Contain("httponly").And.Contain("secure").And.Contain("samesite=strict").And.Contain("path=/api/basket");
+        cookie.ToLowerInvariant().Should().Contain("httponly").And.Contain("secure").And.Contain("samesite=strict").And.Contain("path=/");   // M15: شرط بادئة __Host-
 
         var basket = await BasketAsync(guest);
         var line = basket.Lines.Should().ContainSingle().Subject;

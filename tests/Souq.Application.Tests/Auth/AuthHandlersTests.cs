@@ -132,7 +132,8 @@ public class LoginHandlerTests
 {
     private readonly AuthRig _rig = new();
 
-    private LoginHandler Handler() => new(_rig.Users, _rig.Hasher, _rig.Issuer(), _rig.Uow, _rig.Clock);
+    private LoginHandler Handler() => new(_rig.Users, _rig.Hasher, _rig.Issuer(), _rig.Uow, _rig.Clock,
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<LoginHandler>.Instance);
 
     [Fact]
     public async Task بريد_غير_مسجّل_رسالة_موحّدة_بزمن_التحقّق_نفسه()

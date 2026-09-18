@@ -174,7 +174,9 @@ public sealed class TestApi
     }
 
     // رمز سلة الزائر من Set-Cookie لاستجابة (المرحلة 8) — لإرساله يدوياً (مضيف آخر، رمز قديم).
-    public const string GuestBasketCookie = "souq_basket";
+    // بالبادئة: الاختبارات تعمل بـ Secure مُفعَّل (M15). يُبنى من نفس الثابت الذي يبنيه الخادم منه.
+    public static readonly string GuestBasketCookie =
+        Souq.API.Security.HostOnlyCookie.NameFor(Souq.API.Controllers.BasketController.GuestCookieBareName, secure: true);
 
     public static string GuestBasketToken(HttpResponseMessage response)
     {

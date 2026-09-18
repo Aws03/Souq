@@ -56,9 +56,20 @@ public sealed class RequestLoggingMiddleware
         }
     }
 
-    private static Dictionary<string, object?> ScopeFor(HttpContext context, ICurrentUser currentUser, ITenantContext tenancy)
+    // عامّة كي تُختبر مباشرةً، كـ `ProxyTrustDiagnostics.WasForwardedProtoIgnored` ولنفس السبب:
+    // `Connection.RemoteIpAddress` في خادم الاختبار داخل العملية **null** — لا اتصال حقيقي هناك —
+    // فلا يمكن إثبات وصول العنوان إلى النطاق عبر طلبٍ في TestServer. الدالّة تُفحص بسياقٍ له عنوان.
+    public static Dictionary<string, object?> ScopeFor(HttpContext context, ICurrentUser currentUser, ITenantContext tenancy)
     {
         var scope = new Dictionary<string, object?> { ["CorrelationId"] = RequestCorrelation.GetId(context) };
+        // ── عنوان العميل في كل سطر (M15، ASVS 7.1.4) ──
+        // كان النطاق يحمل "مَن" (UserId) و"أين" (TenantId) ولا يحمل "من أين" إطلاقاً — والعنوان كان
+        // يُكتب في سطر التدقيق وحده. فحملةُ حشو بيانات اعتماد تظهر في السجلّات تيّاراً من
+        // `POST /api/auth/login responded 401` لا يُميَّز عن مستخدمين نسوا كلماتهم: لا حساب مذكور،
+        // ولا مصدر، فلا تجميع ولا إنذار ولا حجب. والقيمة هي التي صحّحها UseForwardedHeaders، أي عنوان
+        // الزائر خلف وكيلٍ موثوق لا عنوان الوكيل.
+        if (context.Connection.RemoteIpAddress is { } address)
+            scope["ClientIp"] = address.ToString();
         if (tenancy.Tenant is { } tenant)
             scope["TenantId"] = tenant.Id;
         else if (tenancy.Scope == TenantScope.Platform)

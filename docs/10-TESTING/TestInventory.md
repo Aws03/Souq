@@ -10,7 +10,7 @@
 | [`Souq.Domain.Tests`](#souqdomaintests) | 29 | 227 | 47 |
 | [`Souq.Application.Tests`](#souqapplicationtests) | 47 | 354 | 18 |
 | [`Souq.ArchitectureTests`](#souqarchitecturetests) | 15 | 61 | 7 |
-| [`Souq.IntegrationTests`](#souqintegrationtests) | 51 | 316 | 25 |
+| [`Souq.IntegrationTests`](#souqintegrationtests) | 51 | 321 | 25 |
 | [frontend (Vitest)](#frontend-vitest) | 85 | 665 | — |
 | [frontend (Playwright)](#frontend-playwright) | 18 | 120 | — |
 
@@ -135,7 +135,7 @@
 | `tests/Souq.IntegrationTests/CatalogTests.cs` | `CatalogTests`, `ProductCommandCounter` | 9 | 0 |
 | `tests/Souq.IntegrationTests/CheckoutIdempotencyTests.cs` | `CheckoutIdempotencyTests` | 3 | 0 |
 | `tests/Souq.IntegrationTests/ConfigurationTests.cs` | `ConfigurationTests`, `ConfiguredFactory` | 10 | 6 |
-| `tests/Souq.IntegrationTests/CookieSecurityTests.cs` | `CookieSecurityTests` | 3 | 0 |
+| `tests/Souq.IntegrationTests/CookieSecurityTests.cs` | `CookieSecurityTests` | 4 | 0 |
 | `tests/Souq.IntegrationTests/CouponRedemptionTests.cs` | `CouponRedemptionTests` | 3 | 0 |
 | `tests/Souq.IntegrationTests/CustomerAccountTests.cs` | `CustomerAccountTests` | 6 | 0 |
 | `tests/Souq.IntegrationTests/EnforcementDiagnosticsTests.cs` | `EnforcementDiagnosticsTests` | 1 | 3 |
@@ -148,7 +148,7 @@
 | `tests/Souq.IntegrationTests/MigrationRehearsalTests.cs` | `MigrationRehearsalTests` | 2 | 0 |
 | `tests/Souq.IntegrationTests/MigrationRollbackTests.cs` | `MigrationRollbackTests` | 1 | 0 |
 | `tests/Souq.IntegrationTests/NotificationTests.cs` | `NotificationTests` | 11 | 0 |
-| `tests/Souq.IntegrationTests/ObservabilityTests.cs` | `ObservabilityTests` | 9 | 0 |
+| `tests/Souq.IntegrationTests/ObservabilityTests.cs` | `ObservabilityTests`, `AnonymousCaller` | 13 | 0 |
 | `tests/Souq.IntegrationTests/OrderLifecycleTests.cs` | `OrderLifecycleTests` | 6 | 0 |
 | `tests/Souq.IntegrationTests/PaymentAdapterTests.cs` | `SecretProtectorTests`, `FakeGatewayTests` | 6 | 1 |
 | `tests/Souq.IntegrationTests/PaymentDataRulesTests.cs` | `PaymentDataRulesTests` | 2 | 0 |

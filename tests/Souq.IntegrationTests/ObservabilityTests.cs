@@ -4,6 +4,8 @@ using AwesomeAssertions;
 using Microsoft.EntityFrameworkCore;
 using Souq.IntegrationTests.Infrastructure;
 
+using Microsoft.Extensions.Logging;
+
 namespace Souq.IntegrationTests;
 
 // ============================================================================
@@ -51,6 +53,76 @@ public class ObservabilityTests
         line.Properties["Route"].Should().Be("api/Products");
         line.Properties["ElapsedMs"].Should().BeOfType<double>();
         line.Message.Should().NotContain("query-secret-value");
+    }
+
+    // ========================================================================
+    // "من أين" في كل سطر، و"ماذا جرى" في محاولات الدخول (M15، ASVS 7.1.3 / 7.1.4 / 7.2.1).
+    //
+    // كان النطاق يحمل "مَن" و"أين" ولا يحمل المصدر إطلاقاً، وكان معالج الدخول لا يسجّل شيئاً. فحملةُ
+    // حشو بيانات اعتماد تبدو في السجلّات تيّاراً من 401 لا يُميَّز عن مستخدمين نسوا كلماتهم: لا حساب،
+    // ولا مصدر، ولا سبب — فلا تجميع ولا إنذار ولا حجب.
+    //
+    // ومع ذلك **لا بريد في السطر**: قاعدة ADR-0020، ويحرسها هذا الاختبار نفسه.
+    // ========================================================================
+    [Fact]
+    public async Task محاولة_دخول_فاشلة_تُسجَّل_بسببها_ومصدرها_بلا_بريد()
+    {
+        var (_, email) = await _api.NewCustomerAsync();
+
+        var response = await _api.Anonymous().PostAsJsonAsync(
+            "/api/auth/login", new { email, password = "Definitely-Wrong-9" });
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        var correlationId = response.Headers.GetValues(CorrelationHeader).Single();
+
+        var security = _factory.Logs.Entries.Single(e =>
+            e.Message.StartsWith("Login failed", StringComparison.Ordinal)
+            && Equals(e.Scope.GetValueOrDefault("CorrelationId"), correlationId));
+
+        security.Level.Should().Be(LogLevel.Warning, "سطرٌ يُنذَر عنه لا معلومةٌ تضيع بين ملايين الأسطر");
+        security.Properties["Outcome"].Should().Be("WrongPassword", "السبب يُميّز الحشو من النسيان");
+        security.Message.Should().NotContain(email);
+        _factory.Logs.Messages.Should().NotContain(m => m.Contains(email));
+    }
+
+    // ========================================================================
+    // وصول العنوان إلى النطاق يُفحص على الدالّة مباشرةً: `Connection.RemoteIpAddress` في خادم الاختبار
+    // داخل العملية **null** (لا اتصال حقيقي)، فطلبٌ عبر TestServer لا يُثبت هذا ولا ينفيه. نفس ما
+    // يفعله `EnforcementDiagnosticsTests` مع تشخيص الوكيل، ولنفس السبب المكتوب هناك.
+    // ========================================================================
+    [Fact]
+    public void عنوان_العميل_يدخل_نطاق_السجلّ_حين_يكون_للاتصال_عنوان()
+    {
+        var context = new Microsoft.AspNetCore.Http.DefaultHttpContext();
+        context.Connection.RemoteIpAddress = System.Net.IPAddress.Parse("203.0.113.42");
+
+        var scope = Souq.API.Observability.RequestLoggingMiddleware.ScopeFor(
+            context, new AnonymousCaller(), new Souq.Application.Common.Tenancy.TenantContext());
+
+        scope.Should().ContainKey("ClientIp").WhoseValue.Should().Be("203.0.113.42");
+    }
+
+    [Fact]
+    public void بلا_عنوان_للاتصال_لا_مفتاح_فارغ_في_النطاق()
+    {
+        var scope = Souq.API.Observability.RequestLoggingMiddleware.ScopeFor(
+            new Microsoft.AspNetCore.Http.DefaultHttpContext(),
+            new AnonymousCaller(), new Souq.Application.Common.Tenancy.TenantContext());
+
+        scope.Should().NotContainKey("ClientIp", "مفتاحٌ بقيمة فارغة يوحي بأنّ العنوان قُرئ ولم يوجد");
+    }
+
+    // بريدٌ لا حساب له: يُسجَّل أيضاً، وبسببٍ يميّزه — تعدادٌ أعمى لا كلمةُ مرورٍ خاطئة.
+    [Fact]
+    public async Task محاولة_دخول_ببريد_لا_حساب_له_تُسجَّل_بسببٍ_مختلف()
+    {
+        var response = await _api.Anonymous().PostAsJsonAsync(
+            "/api/auth/login", new { email = $"ghost-{Guid.NewGuid():N}@souq.test", password = "Whatever-9x" });
+        var correlationId = response.Headers.GetValues(CorrelationHeader).Single();
+
+        _factory.Logs.Entries
+            .Single(e => e.Message.StartsWith("Login failed", StringComparison.Ordinal)
+                         && Equals(e.Scope.GetValueOrDefault("CorrelationId"), correlationId))
+            .Properties["Outcome"].Should().Be("NoSuchAccount");
     }
 
     [Fact]
@@ -185,4 +257,14 @@ public class ObservabilityTests
 
         Souq.API.Observability.SensitivePath.Redact(context).Should().Be("/api/orders/track/***");
     }
+    // زائرٌ مجهول — أبسط ما يكفي: هذان الاختباران يفحصان مفتاح العنوان وحده، لا الهوية.
+    private sealed class AnonymousCaller : Souq.Application.Common.Security.ICurrentUser
+    {
+        public bool IsAuthenticated => false;
+        public int? UserId => null;
+        public int? CustomerId => null;
+        public IReadOnlyCollection<string> Roles => [];
+        public bool HasPermission(string permission) => false;
+    }
+
 }

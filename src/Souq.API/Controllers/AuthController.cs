@@ -27,8 +27,12 @@ namespace Souq.API.Controllers;
 [AvailableDuringProvisioning] // إدارة متجر قيد التجهيز تسجّل الدخول لتجهيزه قبل الافتتاح.
 public class AuthController : ControllerBase
 {
-    public const string RefreshCookieName = "souq_refresh";
-    private const string RefreshCookiePath = "/api/auth";
+    // الاسم العاري: ما يُبنى منه الاسم الفعلي. البادئة `__Host-` تُضاف حين يكون الملفّ مشفَّراً — وهي
+    // ما يمنع مضيفاً شقيقاً تحت نطاق التاجر من زرع جلسةٍ لنا (انظر `HostOnlyCookie`).
+    public const string RefreshCookieBareName = "souq_refresh";
+    private const string RefreshCookieNarrowPath = "/api/auth";
+
+    private string RefreshCookieName => HostOnlyCookie.NameFor(RefreshCookieBareName, _cookie.Secure);
 
     private readonly IMediator _mediator;
     private readonly RefreshCookieOptions _cookie;
@@ -156,7 +160,7 @@ public class AuthController : ControllerBase
         HttpOnly = true,
         Secure = _cookie.Secure,
         SameSite = SameSiteMode.Strict,
-        Path = RefreshCookiePath,
+        Path = HostOnlyCookie.PathFor(RefreshCookieNarrowPath, _cookie.Secure),
         Expires = expires,
         IsEssential = true,
     };
