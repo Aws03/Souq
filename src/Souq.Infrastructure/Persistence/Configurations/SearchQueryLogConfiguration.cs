@@ -34,7 +34,25 @@ public class SearchQueryLogConfiguration : IEntityTypeConfiguration<SearchQueryL
         builder.Property(l => l.Term).HasMaxLength(SearchQueryLog.TermMaxLength).IsRequired();
         builder.Property(l => l.TermNormalized).HasMaxLength(SearchQueryLog.TermMaxLength).IsRequired();
 
-        builder.HasIndex(l => new { l.TenantId, l.Culture, l.TermNormalized })
+        // ============================================================================
+        // مفتاحٌ رُتِّب على قياس (M16)، لا على شكل الاستعلام الظاهر.
+        //
+        // كان `(المستأجر، اللغة، الصورة المطبَّعة)` وحده، وهو يكفي التجميع. لكنّ الشاشة تسأل سؤالاً
+        // ثانياً على نفس المفاتيح: **أحدث صورةٍ كُتبت** لكل كلمة — استعلامٌ مرتبطٌ يأخذ الأعلى واحداً لكل
+        // مجموعة. وبلا `SearchedAt` في المفتاح لا سبيل إلى "الأحدث" إلا ترتيبٌ لكل مجموعة، فصار هذا
+        // أغلى استعلامٍ في النظام كلّه: قياسٌ على خمسين ألف سطر أعطى **59,585 قراءة منطقية للنداء**.
+        //
+        // بامتداد المفتاح إلى `SearchedAt DESC, Id DESC` يصير الأحدث أوّلَ صفٍّ في المجموعة، فيُقرأ بلا
+        // ترتيب: **148 قراءة** على نفس البيانات — أقلّ بأربعمئة ضعف.
+        //
+        // **و`Term` خارج الأعمدة المُضمَّنة عمداً**: إدراجه ينزل بالقراءات إلى 110 (فرقٌ لا يُذكر) مقابل
+        // تخزين نصّ الكلمة مرّتين — في الصفّ وفي ورقة الفهرس — على **أكثر جدولٍ يُكتب فيه في النظام**.
+        // الثمن أكبر من العائد، فيُترك بحث المفتاح الأساسي يجلبها لعشرين مجموعة في الصفحة.
+        //
+        // ولم يُضَف فهرسٌ ثالث: هذا يحلّ محلّ الأول ويخدم السؤالين معاً، فعدد الفهارس كما كان.
+        // ============================================================================
+        builder.HasIndex(l => new { l.TenantId, l.Culture, l.TermNormalized, l.SearchedAt, l.Id })
+            .IsDescending(false, false, false, true, true)
             .IncludeProperties(l => new { l.ResultCount });
 
         builder.HasIndex(l => new { l.TenantId, l.SearchedAt });
