@@ -29,12 +29,12 @@
 
 ```yaml
 plan_version: 1.0.0
-current_phase: M5
+current_phase: M6
 phase_status: done
-next_phase: M6          # M2 remains blocked on TD-42 and is independent of the phases after it; see M2's own STOP entry
+next_phase: M7          # M2 remains blocked on TD-42 and is independent of the phases after it; see M2's own STOP entry
 blocked_decisions: ["TD-42"]    # owner decisions that block a phase currently in flight; see §5 and OwnerDecisions.md
 last_verified_date: 2026-09-18
-last_verified_head: a1295d1     # M5 closed: checkout split into three stages, and suspended stores swept
+last_verified_head: ad0d338     # M6 closed: P-05 prepared, R-03 pinned, three false refund claims corrected
 baseline_branch: phase/17-production-hardening
 ```
 
@@ -76,6 +76,16 @@ BR-TEN-22, made because that rule was recorded as UNTESTED with this exact conse
 **F-8 remains the owner's call**, and M5 established that the browser is not a source of duplicate checkouts, so
 the choice stays a server-side one. The no-oversell criterion was **already met** and was verified rather than
 rebuilt; the real gap — concurrency with mixed quantities — is now covered. See M5's "Completion evidence" above.
+
+**M6 — done, and nothing about money changed.** The phase's value is that claims became provable and four
+documented ones turned out false. **P-05** is now one switch with *both* hypotheses tested, so the owner's answer
+is a one-value change in front of a green test instead of conversion logic written under pressure. **R-03** is
+pinned: staff can refund by cancelling a paid order, admins by refunding explicitly — and until now implementing
+the "yes" answer would have left every test green. Three places claimed refunds follow the account that took the
+money; they follow its *kind*, and replacing a store's keys strands a refund (**TD-50**, P1). A security claim
+with no test behind it now has one. **TD-51** and **TD-52** were filed rather than fixed, because both would
+change payment behaviour or payments infrastructure inside an audit phase. The fake gateway's Production guard
+was verified by booting a container, not by reading the code.
 
 Keep this block current in the same commit that closes a phase: `current_phase`, `phase_status`
 (`not_started` | `in_progress` | `blocked` | `done`), `next_phase`, `blocked_decisions` (the exact ID from
@@ -846,7 +856,49 @@ repository.
 - **Acceptance criteria.** `StripeAmountConverter` is proven correct under both hypotheses with tests naming
   which is *live* today and why; both D-13 routing paths and both R-03 permission shapes remain fully
   implementable with no half-built path; nothing about actual payment behaviour changed without an ADR.
-- **Completion evidence.** *(fill in on close)*
+- **Completion evidence.** Commits on `phase/17-production-hardening` from checkpoint `a0b9ef6`. **No payment
+  behaviour changed** — that needs an ADR ([AGENTS.md](../../AGENTS.md) §0 rule 3) — but what is *provable* did,
+  and four documented claims turned out to be false.
+  - **P-05 prepared (the phase's named criterion).** `StripeAmountConverter` derives its multiplier through one
+    switch, `HonoursIsoDecimals`, `false` today so nothing shipped moves. Its tests grew 5 → 14 rows and assert
+    **both** hypotheses — the live ×100 and the ×1000 that becomes correct if the owner's real charge says so —
+    plus a test that states out loud which one is live, so it cannot be flipped by accident. The answer, when it
+    comes, is one value in front of an already-green test. The tests also pin the trap the audit found: ISK and
+    UGX are zero-decimal in ISO but ×100 at Stripe, so the obvious `10^decimals` derivation would silently
+    charge a hundredth of the price; `Math.Max(100, …)` is why, with a row per currency saying so. The
+    three-decimal codes are deliberately not listed in `src/` (the white-label rule forbids currency literals
+    there) — the multiplier reads `CurrencyInfo`, the single source for decimals.
+  - **R-03 pinned, not decided.** An explicit refund needs `store.payments.manage` (admin only); cancelling a
+    *paid* order refunds it in full on `orders.manage`, which staff hold. The audit traced that to sequence —
+    the gate was placed when the endpoint only moved statuses, and the refund joined the same handler in Phase
+    11. The real danger was that **nothing pinned it**: implementing the "yes" answer as an in-handler guard
+    would have left the entire suite green, since no attribute changes and every existing caller is an admin
+    holding both permissions. A test now states today's answer and asserts money actually moved.
+  - **Three places claimed a refund goes to the account that took the money.** It goes to the account *kind*:
+    `stripe:store` resolves the store's **current** account, so replacing a store's keys — including the
+    ordinary test→live switch — sends a refund to an account where the intent does not exist, where it fails and
+    cannot be retried. `Payment.cs`, `PaymentGatewayRouter.cs` and `Security.md` now say what the code does.
+    Filed as **TD-50** (P1, needs an ADR) rather than fixed inside an audit phase.
+  - **A security claim with no test now has one.** SEC-CFG-08 said store payment keys are never logged,
+    "enforced by construction", naming tests that cover passwords and tokens but never a Stripe secret. A canary
+    secret is now connected, read back through two paths, and asserted absent from every log message, property
+    and scope.
+  - Also recorded: **TD-51** (the refund idempotency key protects a retry only inside Stripe's 24-hour window,
+    and `RetryRefundAsync` has no age limit — three places stated it unconditionally) and **TD-52** (nothing
+    tests `PaymentGatewayRouter` because it constructs its gateway inline; all four routing rules were verified
+    by reading, so this is a coverage gap, not a half-built path). Both fixes change payment behaviour or
+    payments infrastructure, so both were filed, not made here.
+  - **D-13 audited against both answers.** Live: the deployment account as merchant of record, with per-store
+    accounts a complete opt-in. Stripe Connect is a *seam*, not code — and the docs already said so accurately.
+    Webhook attribution is sound: a store-signed event naming another store is refused, a deployment-signed one
+    is applied inside a fresh scope for the named store, and the event's intent id is never trusted.
+  - **Verified live, not read** (the phase asks for exactly this): an API container in Production mode with no
+    payment provider configured **refuses to start** — `InvalidOperationException` from
+    `PaymentProviderSelector.Select`. The fake gateway can never be implicit outside Development/Testing.
+  - **Browser QA** on the container stack: a paid order **and a full refund through the admin UI**, asserting the
+    refunded amount rather than a status badge. The refund half had no browser coverage at all before this.
+  - Tests: Domain 524, Application 385, Architecture 89, Integration 375. `./scripts/release-gate.sh --suites`:
+    5 passed, 0 failed, **3 skipped** (no deployment target). Working tree clean and pushed at close (ad0d338).
 - **Next-phase trigger.** M7 may start independently; no hard dependency on M6.
 
 ### M7 — Inventory and fulfillment
