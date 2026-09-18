@@ -11,7 +11,7 @@
 | [`Souq.Application.Tests`](#souqapplicationtests) | 46 | 341 | 17 |
 | [`Souq.ArchitectureTests`](#souqarchitecturetests) | 14 | 59 | 7 |
 | [`Souq.IntegrationTests`](#souqintegrationtests) | 50 | 296 | 22 |
-| [frontend (Vitest)](#frontend-vitest) | 83 | 650 | — |
+| [frontend (Vitest)](#frontend-vitest) | 83 | 651 | — |
 | [frontend (Playwright)](#frontend-playwright) | 16 | 107 | — |
 
 ## Souq.Domain.Tests
@@ -236,7 +236,7 @@
 | `frontend/src/features/wishlist/wishlistModel.test.js` | 5 |
 | `frontend/src/i18n/bidi.test.js` | 4 |
 | `frontend/src/i18n/locales.test.js` | 2 |
-| `frontend/src/i18n/translationKeys.test.js` | 7 |
+| `frontend/src/i18n/translationKeys.test.js` | 8 |
 | `frontend/src/pages/Cart.test.jsx` | 7 |
 | `frontend/src/pages/Confirmation.test.jsx` | 7 |
 | `frontend/src/pages/MyOrders.test.jsx` | 7 |

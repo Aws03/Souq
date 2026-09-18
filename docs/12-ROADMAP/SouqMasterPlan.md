@@ -29,12 +29,12 @@
 
 ```yaml
 plan_version: 1.0.0
-current_phase: M11
+current_phase: M12
 phase_status: done
-next_phase: M12         # M2 remains blocked on TD-42 and is independent of the phases after it; see M2's own STOP entry
+next_phase: M13         # M2 remains blocked on TD-42 and is independent of the phases after it; see M2's own STOP entry
 blocked_decisions: ["TD-42"]    # owner decisions that block a phase currently in flight; see §5 and OwnerDecisions.md
 last_verified_date: 2026-09-18
-last_verified_head: 82efa7a     # M11 closed: D-22/P-07 held blocked, the API's Development boot fixed, two boundary sweeps counted
+last_verified_head: 8e230da     # M12 closed: four wrong dashboard numbers/labels fixed, the stock snapshot pinned, V4 written out
 baseline_branch: phase/17-production-hardening
 ```
 
@@ -59,6 +59,17 @@ store's own catalogue vocabulary and **says which word it searched**, with the s
 customers use. SQL Server Full-Text Search was **measured unavailable** in the pinned image and rejected on
 evidence rather than assumption — see M3's "Completion evidence" above and
 [ADR-0042](../11-ADR/0042-local-search-engine.md).
+
+**M12 — done.** Of the ten metrics the dashboards document, four were verified, two were incomplete and four
+had drifted — and four of the findings were the *product* misleading a merchant, not just a stale document: the
+stock KPI counted variants while both dashboards said "products"; the concentration risk divided by the top
+eight rather than period revenue, so it fired early; the trend chart said "by day" on ranges bucketed by month,
+including in its screen-reader summary; and two raw translation keys were rendering to users, one of them in the
+admin sidebar **on every page since M3**. Both key leaks escaped the key-parity test for the same structural
+reason, and both shapes now have guards that were verified to fail against the real bugs. The stock snapshot —
+which had no test at all, which is why V3's change of counting unit passed unnoticed — is now pinned, unit
+included. V4's scope is written out and is smaller than it was, because two of its four items were wording
+problems fixed here. See M12's "Completion evidence" above.
 
 **M11 — done.** D-22 and P-07 are still genuinely the owner's — no preview code and no platform setting exist
 anywhere, and nothing is built around either. The verification pass earned its keep twice over. It found that
@@ -1518,10 +1529,81 @@ repository.
 - **Docker/runtime verification.** Live stack, real orders/stock feeding real dashboard numbers.
 - **Documentation/ADR.** Update `Dashboards.md`; update `ProductVariants.md`'s V4 section with the written
   (not built) scope.
-- **Technical debt touched.** None expected to open.
+- **Technical debt touched.** None opened — everything found was fixed or documented here.
 - **Acceptance criteria.** Every metric `Dashboards.md` documents is verified correct against the current code;
   V4's scope is written clearly enough that a future phase can build it without re-deriving requirements.
-- **Completion evidence.** *(fill in on close)*
+- **Completion evidence.** **Done.** Both acceptance criteria met. Of the ten metrics `Dashboards.md` documents,
+  **four were verified as written, two were incomplete and four had drifted** — and the audit found four places
+  where the *product itself*, not just the documentation, told a merchant something untrue.
+  - **The stock KPI counts variants while both dashboards said "products".** The query counts `InventoryItem`
+    rows, and since V3 a row is a variant — so a product with three sold-out variants contributes three. The
+    Inventory screen was corrected for exactly this in V2 ("stock items (products or their variants)") and the
+    two dashboards were left behind, in both languages. Fixed.
+  - **The concentration risk divided by the top eight, not by period revenue.** `topProductShare` summed the
+    eight returned products as its denominator while both the documentation and the on-screen sentence said
+    "period revenue" and "sales" — so a store selling twenty products had its leader measured against eight,
+    the share was systematically overstated, and the risk fired early. Now divided by `current.revenue`, with
+    the one asymmetry recorded rather than hidden: line revenue excludes shipping and the coupon discount, so
+    the share is now slightly *understated* — the safe direction for a risk signal, late rather than false. It
+    also takes the largest product instead of the first, which had agreed only because the server sorts.
+  - **Two test fixtures were masking that**, which is why nothing caught it: one summed the top products to
+    exactly period revenue so the two denominators were indistinguishable, and the share test asserted the
+    *first* element while its own name said "the highest". The default fixture also described a 70%-concentrated
+    store that other tests called "healthy". All corrected to mean what they say.
+  - **The trend chart said "by day" on ranges bucketed by month.** `Last90Days` and `ThisYear` group monthly on
+    the server; the hint was a constant — and it is also the chart's **screen-reader summary**, so a person who
+    cannot see the chart was told only the wrong thing. The bucket is now derived from the spacing of the data,
+    so a new monthly range describes itself without anyone remembering to update a list.
+  - **Two raw translation keys were rendering to users, and for the same structural reason.** The platform
+    owner's landing page showed the literal `platform.stores` as its first tile's label (that key is an
+    *object* — the stores page's namespace — and i18next returns the key when asked for an object as a string).
+    The admin sidebar showed `admin.nav.searchSynonyms` on **every admin page since M3**, which added the nav
+    entry and its key but never its translation. The key-parity test scans literal `t('…')` calls; one of these
+    keys is built with a template literal and the other lives in a data table, so neither was visible to it.
+    **Two guards now cover both shapes, and each was verified to fail against its own bug.**
+  - **AOV and new customers now say what they compute.** AOV divides *gross* revenue, so `AOV × orders` will
+    not equal the net revenue shown beside it once a refund exists; new customers excludes since-erased
+    accounts, so a closed past period can show fewer than it once did. Both were found by reading the KPI
+    tooltips — which state each formula to the merchant — against the query, and both are now pinned by tests.
+  - **The stock snapshot had no test at all**, the audit's highest-value gap: one line, `Inventory(0,0,0)` on an
+    empty store. So nothing distinguished `low` from `outOfStock`, nothing pinned the threshold boundary, and
+    nothing recorded the counting unit — which is precisely why V3's change went unnoticed. Three tests now
+    cover the buckets, the boundary (available *equal* to the threshold is low, not out), and the unit (one
+    product with three variants adds three rows, not one).
+  - **Also corrected in `Dashboards.md`:** revenue's composition (the `PlacedTotal` snapshot, including shipping,
+    already net of discount); that best-seller revenue is a **different basis** from the headline figure and
+    therefore does not reconcile, where the page had used one word for both; that `low` and archived-product
+    handling diverge from the Inventory module the page claimed to match; that the window is **UTC and ignores
+    `Tenant.TimeZone`**, which exists — a merchant in UTC+3 sees "Today" begin at 03:00 local; that the range is
+    half-open so the current day is partial; the four shipped figures the page never defined and that three of
+    them are **all-time**, not period-scoped, while sitting beside period KPIs; and one gap worth knowing rather
+    than discovering — **a payment captured on an already-cancelled order appears in no dashboard figure** until
+    someone requests a refund.
+  - **And one rationale that was backwards.** The refund-attribution entry claimed the choice "keeps a closed
+    period closed"; it does the opposite — re-reading January after a March refund returns a lower January. The
+    choice stands, on the honest ground that a refund belongs to the sale it reverses, but it may not be sold as
+    stability it does not provide.
+  - **The platform boundary holds, verified live as well as in code.** `GET /api/platform/stats` returns seven
+    cross-store scalars and **no money field at all**, takes no tenant parameter, and the stores list carries no
+    commercial column — checked against the running stack, not only read. The one per-store commercial fact
+    that exists (`HasCommercialActivityAsync`) is a boolean consumed inside a domain guard and never projected.
+  - **V4 written out, and narrowed by what M12 fixed.** `ProductVariants.md` §11.1 records the scope so it can
+    be built without re-deriving it. Two of its four items turned out to be wording and documentation problems,
+    fixed here; what remains is the per-variant best-seller breakdown (with the grouping decision and the
+    renamed-product trap named), a product-counted stock figure beside the row-counted one, load tests at the
+    100-variant limit, and the migration rehearsal — **and none of it needs a schema change**, because
+    `OrderItem.VariantId`/`VariantLabel` and the per-variant inventory rows already exist.
+  - **Browser and runtime verification:** both dashboards read out of a live browser in **en/light and ar/dark** —
+    the corrected stock wording rendered, the trend hint rendered, axe clean in both, and the raw-key sweep is
+    what found `admin.nav.searchSynonyms`. Real orders feed real numbers on the container stack (revenue 60,
+    orders 2, AOV 30 — internally consistent).
+  - **Not claimed:** the UTC-versus-store-time-zone question is documented, not solved — changing it moves every
+    merchant's "Today" and is a product decision, not a defect to patch inside an audit phase. Platform stats
+    still have no server test pinning their figures. Several all-time figures still sit beside period KPIs
+    without saying so on screen (documented now, not relabelled).
+  - Tests: Domain 524, Application 408, Architecture 90, Integration **382** (+3), frontend Vitest **656** (+7).
+    `./scripts/release-gate.sh --suites`: 5 passed, 0 failed, **3 skipped** (no deployment target). Working tree
+    clean and pushed at close (8e230da).
 - **Next-phase trigger.** M13 may start once M3's search engine exists to analyze.
 
 ### M13 — Search analytics and discovery intelligence
