@@ -8,7 +8,7 @@
 - **Status gating is one decision in one place.** `TenantAvailabilityMiddleware` answers `503 StoreUnavailable` for every store-host endpoint of a store that is not `Active`, unless the endpoint is marked `AvailableWhenStoreClosedAttribute`: the storefront configuration (so the closed page can be branded) and sign-in, refresh, sign-out and the current user (so a closed store's staff keep their session). During `Provisioning` only, the rest of the authentication controller (`AvailableDuringProvisioningAttribute`) is open too, so an administrator can accept an invitation and prepare the store. Administrative endpoints (`HasPermissionAttribute`) are open during `Provisioning` only. A preview has to open **visitor** endpoints — catalogue, categories, product pages — which today nothing opens.
 - **Tokens are bound to their host.** `AccessTokenValidation` refuses a token on any host other than the one it was issued for, so the platform owner's session is refused on every store host (proven by `ProvisioningBoundaryTests` and `frontend/e2e/platform-provisioning.spec.js`). A preview therefore cannot reuse the owner's session. It needs its own credential that works on the store's host.
 - **The platform already shows a preview inside its own page.** The settings editor renders the store's derived colours, type and dark mode in a frame (`frontend/src/components/settings/StoreSettingsEditor.jsx`). That is a *look* preview. It is not the real storefront with the real catalogue, and the roadmap is right that it is no substitute.
-- **There is a precedent for a browser credential.** The guest basket cookie is `HttpOnly`, `Secure`, `SameSite=Strict`, scoped to one path, holds 256 random bits and is stored only as its SHA-256 ([ADR-0028](../../11-ADR/0028-basket-and-pricing-pipeline.md)). No credential today is ever put in a URL or in browser storage.
+- **There is a precedent for a browser credential.** The guest basket cookie is `HttpOnly`, `Secure`, `SameSite=Strict`, scoped to one path, holds 256 random bits and is stored only as its SHA-256 ([ADR-0028](../../11-ADR/0028-basket-and-pricing-pipeline.md)). **Two kinds of credential do travel in a URL today, and the earlier claim that none did was wrong (corrected in M11):** the order-tracking token is a 128-bit random value in the *path* of a deliberately shareable, unauthenticated link, and every invitation, password-reset and email-verification link carries `?token=`. Both are single-purpose and one of them is meant to be pasted to a courier, so neither is a precedent for a *preview* grant — but the recommendation below has to stand on its own reasoning (a fragment is not sent to the server, and is not written to logs or `Referer`) rather than on a claim that URLs are never used. Nothing is ever put in browser storage.
 
 ## 2. The decisions
 
@@ -32,6 +32,17 @@ Once the owner decides, the work is contained but touches the security boundary.
   - A store-host exchange endpoint: anonymous, rate-limited, and open while the store is closed.
   - An explicit allowlist attribute (*AvailableInPreview*) on the read-only visitor endpoints.
   - One change to `TenantAvailabilityMiddleware.IsOpen`: a closed store's endpoint is open only if it is on that list **and** the request carries a valid grant **for this store**.
+  - **Three things M11 verified about that change, since "one change" understates it slightly.** `IsOpen` is a
+    pure static (`internal static bool IsOpen(TenantStatus, Endpoint)`) with no access to the request, so
+    reading a grant forces a signature change and an `async` call site — still cheap, because it has exactly
+    one caller and no test caller, and the middleware already takes its dependencies by method injection.
+    **The gate runs before authentication** (`Program.cs`: routing → availability → rate limiter → CORS →
+    authentication), which means the grant must be readable without the auth pipeline — the recommended
+    `HttpOnly` cookie satisfies that, but by luck rather than by analysis until now — and it also means a
+    grant lookup would sit **ahead of the rate limiter** on every request to a closed store, which the
+    rate-limiting requirement below does not cover. And the status gate fires **before** the module gate, so
+    on a closed store a disabled-module endpoint answers `503`, not `404`; a preview allowlist inherits that
+    order.
 - **Frontend.**
   - A "Preview storefront" action on the platform store page, which opens the store host with the code in the fragment.
   - The store host reads the fragment once, removes it from the address bar, exchanges it, and shows the preview bar.

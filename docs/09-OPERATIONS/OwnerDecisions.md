@@ -199,8 +199,16 @@ recommendation for each, and the tests the feature must ship with are in
 |---|---|---|
 | **Yes** — the preview is not built until this is answered | No | No — provisioning, handover and the readiness checklist work without it |
 
-**Evidence that exists.** `ProvisioningBoundaryTests` and `frontend/e2e/platform-provisioning.spec.js` prove a
-closed store answers `503` to visitors and refuses the platform owner's token.
+**Evidence that exists** (citations corrected in M11 — the two halves live in different places, and this line
+credited `ProvisioningBoundaryTests` with a `503` assertion it does not contain):
+- *a closed store answers `503` to visitors* — `TenantResolutionTests`, `PlatformAdministrationTests`, and
+  `frontend/e2e/platform-provisioning.spec.js`;
+- *it refuses the platform owner's token* — `ProvisioningBoundaryTests` (which activates the store first,
+  precisely so the refusal is observable rather than masked by the `503`) and the same e2e spec.
+
+M11 also re-verified that the two dependencies named above are unchanged since this question was written, so
+the implementation sketched in [StorefrontPreview.md](../04-MODULES/Platform/StorefrontPreview.md) is still
+current — with three qualifications about "one change to `IsOpen`" now written into that document.
 **Evidence still required:** none. Only the choice.
 
 **Who decides.** The owner, as a security and product call.

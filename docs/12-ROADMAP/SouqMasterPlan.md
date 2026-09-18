@@ -29,12 +29,12 @@
 
 ```yaml
 plan_version: 1.0.0
-current_phase: M10
+current_phase: M11
 phase_status: done
-next_phase: M11         # M2 remains blocked on TD-42 and is independent of the phases after it; see M2's own STOP entry
+next_phase: M12         # M2 remains blocked on TD-42 and is independent of the phases after it; see M2's own STOP entry
 blocked_decisions: ["TD-42"]    # owner decisions that block a phase currently in flight; see §5 and OwnerDecisions.md
 last_verified_date: 2026-09-18
-last_verified_head: d84e2c4     # M10 closed: TD-25 and TD-28 closed, and four real contrast defects found behind a disabled axe rule
+last_verified_head: 82efa7a     # M11 closed: D-22/P-07 held blocked, the API's Development boot fixed, two boundary sweeps counted
 baseline_branch: phase/17-production-hardening
 ```
 
@@ -59,6 +59,17 @@ store's own catalogue vocabulary and **says which word it searched**, with the s
 customers use. SQL Server Full-Text Search was **measured unavailable** in the pinned image and rejected on
 evidence rather than assumption — see M3's "Completion evidence" above and
 [ADR-0042](../11-ADR/0042-local-search-engine.md).
+
+**M11 — done.** D-22 and P-07 are still genuinely the owner's — no preview code and no platform setting exist
+anywhere, and nothing is built around either. The verification pass earned its keep twice over. It found that
+**the API could not boot in Development at all**: the search backfill resolved a scoped service from the root
+provider, which only Development's scope validation catches, so the documented `dotnet run` had been broken
+since M3 — and the guard now lives in the test factory, so the same mistake fails a test instead of greeting
+the next person who clones the repository. It also found the platform boundary was airtight in one direction
+and merely *sampled* in two, including no coverage at all that a PlatformAdmin is refused the endpoints that
+create and disable platform accounts. Both are now counted, from `RolePermissions` rather than a written list.
+And the module README documenting the availability gate turned out less accurate than the brief that merely
+depends on it. See M11's "Completion evidence" above.
 
 **M10 — done.** The admin area is entirely on the query layer (TD-25 closed, `set-state-in-effect` 20 → 7,
 with the remaining seven all outside it), and the status-colour vocabulary is one module instead of
@@ -1396,10 +1407,91 @@ repository.
 - **Docker/runtime verification.** Live stack, the provisioning flow end to end.
 - **Documentation/ADR.** Update `StorefrontPreview.md` only if the underlying gate code changed shape since it
   was written (re-verify, don't assume); no ADR unless a gap fix is itself architectural.
-- **Technical debt touched.** None expected unless the fresh read finds one.
+- **Technical debt touched.** None filed — the fresh read found documentation drift and two test gaps, all
+  fixed here rather than deferred.
 - **Acceptance criteria.** D-22 and P-07 remain correctly and visibly blocked in `OwnerDecisions.md` (not
   silently built around); everything else in the platform area not blocked on those two is complete.
-- **Completion evidence.** *(fill in on close)*
+- **Completion evidence.** **Done.** Both acceptance criteria met. This was billed as "largely a verification
+  pass" and it earned its keep: the verification found a defect that stopped the application booting at all in
+  one of its three environments.
+  - **D-22 and P-07 are still genuinely blocked, verified rather than assumed.** No preview code exists
+    anywhere — an exhaustive search for `preview` in `src/` returns only the unrelated coupon rate-limit
+    policy, and in `frontend/` only the in-frame look preview the brief already names as the acknowledged
+    non-substitute. No platform-wide setting is stored anywhere and no `/platform/settings` route exists.
+    `platform.settings.manage` is still granted to the owner and required by no endpoint, exactly as P-07
+    says. **Nothing is built around either.**
+  - **`StorefrontPreview.md`'s design is still current**, because neither dependency has changed: the
+    availability gate and access-token validation were both last touched on 2026-09-11, before the document
+    was written. So the moment D-22 is answered, the change is still the small one described.
+  - **But three claims in it were wrong or understated, and are corrected.** It said "no credential today is
+    ever put in a URL" — false: the order-tracking token is a 128-bit value in the *path* of a deliberately
+    shareable link, and every invitation, reset and verification link carries `?token=`. The recommendation
+    survives on its own reasoning (a fragment is not sent to the server and does not reach logs or `Referer`),
+    but it may not rest on a false precedent. And "one change to `IsOpen`" hides that `IsOpen` is a pure static
+    with no request access (so a signature change), that **the gate runs before authentication** — so the
+    grant must be readable without the auth pipeline, which the recommended cookie satisfies by luck rather
+    than analysis — and **before the rate limiter**, so a grant lookup would sit ahead of it on every request
+    to a closed store. All three are now written down.
+  - **D-22's own evidence line credited a test with an assertion it does not contain.** It said
+    `ProvisioningBoundaryTests` proves a closed store answers `503`; that file contains no `503` assertion at
+    all — it activates the store first, precisely so the token refusal is observable rather than masked. The
+    `503` evidence is real but lives in `TenantResolutionTests`, `PlatformAdministrationTests` and the e2e
+    spec. The citation is split correctly now: an owner reading a decision brief should be able to follow its
+    evidence to the line.
+  - **`Platform/README.md`: one materially wrong claim and a self-contradictory cluster, both fixed.** It said
+    a closed store serves **only** `GET /api/storefront/config` and "every other endpoint answers 503" — wrong
+    since Phase 12 (R-08): sign-in, refresh, sign-out and the current user carry the same attribute, which is
+    the point, because a suspended store's administrator has to be able to get in and fix it. The module
+    README documenting the gate was **less accurate than the brief that merely depends on it**. Separately,
+    five statements still placed the store-payment use cases in `Features/Stores` while a sixth in the same
+    file recorded their move to `Features/Payments` in M1.
+  - **Four more corrections of the same kind:** "platform requests all carry an explicit tenant id" (the rule
+    is permissive, not mandatory — four platform queries carry none); the `IgnoreQueryFilters` list was missing
+    `Coupons` and `ShippingMethods`; the currency-lock question was given as `Products` or `Orders` when it is
+    four tables — **the very breadth M8 relied on to close R-09**; and three real omissions were added (the
+    three `/api/platform/users` endpoints and `/api/platform/stats`, the `IPlatformHosts` contract, and the
+    `DomainReserved` failure mode).
+  - **The defect: the API could not boot in Development at all.** `SearchIndexBackfill` resolved the scoped
+    `ITenantDirectory` from the **root** provider. Development turns DI scope validation on, so startup threw
+    and the API never listened — meaning `dotnet run --project src/Souq.API`, the command in CLAUDE.md, had
+    been broken since M3 introduced the backfill. Production and Testing have that validation off, so there the
+    same call silently gives a scoped service the lifetime of the process: the same bug without a message.
+    **Every verification in this programme ran on the container stack and every integration test runs in
+    Testing — two environments that do not check, and a third that does which nothing visited.**
+  - **And the guard, which matters more than the fix.** The test factory now sets `ValidateScopes` and
+    `ValidateOnBuild`, so the same mistake is a failing test rather than a surprise for whoever clones the
+    repository — and `ValidateOnBuild` catches the wider case of a dependency never registered at all. All 379
+    integration tests pass with both enabled.
+  - **The boundary was airtight in one direction and *sampled* in two.** The enumerating meta-test covers every
+    platform endpoint against a store token automatically. But the 403 sweep excludes platform endpoints, so
+    role gradation *inside* the platform rested on one hand-written assertion — `POST /api/platform/users` and
+    `POST /api/platform/users/{id}/status`, which create and disable platform accounts, had none. The new sweep
+    derives its expectation from `RolePermissions`, so moving a permission between the two roles updates the
+    expectation and a new owner-only endpoint is covered the moment it is routed. The reverse direction (store
+    endpoint, platform token) was seven hand-picked GETs; it is now counted. Both sweeps carry floors so
+    neither can pass vacuously. **This is the boundary D-22 would extend, and the phase asked for it to be
+    airtight first.**
+  - **Browser QA, and its honest limit.** The provisioning journey runs **7 of 8** in the environment it was
+    designed for. It could not run against the container stack at all until this phase — it hardcoded the
+    platform host, the owner account and the port in four places (now all environment-driven, completing the
+    sweep begun in M9 and continued in M10: every e2e spec now takes its stack from the environment). Even so
+    it *requires* the development server, and not by preference: it asks a new store's `{slug}.localhost` for
+    its storefront config **before** registering that domain, and subdomain-to-slug resolution is gated on
+    `AllowDevelopmentResolution` because Production deliberately requires registered domains. The 8th test
+    needs a working local email path, which on this machine routes to the owner's real provider from
+    user-secrets — an environment condition, not a product defect, and not one to work around.
+  - **Docker/runtime verification:** the container stack served the platform host (`admin.localhost` → 200),
+    and the platform area was exercised live in M9's phone sweep (stores list, a store page, the new-store
+    wizard, accounts, audit). Provisioning end to end is covered by
+    `PlatformAdministrationTests.تجهيز_متجر_كامل_من_المنصّة_حتى_دخول_مديره_على_نطاقه_ثم_إيقافه`.
+  - **Also clarified while debugging:** `Email:Provider=Log` is an escape hatch for the *absence* of a provider,
+    not an override — a configured key wins over it. That is what the code has always done and what the startup
+    exception implies, but the setting's name invites the opposite reading, and it cost a detour here.
+  - **Not claimed:** D-22 and P-07 are unanswered and remain the owner's; no preview and no platform settings
+    screen exist. The 8th provisioning test is unrun here. `back-office.spec.js` still needs TD-43's helper.
+  - Tests: Domain 524, Application 408, Architecture 90, Integration **379** (+2), frontend Vitest 649.
+    `./scripts/release-gate.sh --suites`: 5 passed, 0 failed, **3 skipped** (no deployment target). Working
+    tree clean and pushed at close (82efa7a).
 - **Next-phase trigger.** M12 may start independently of M11.
 
 ### M12 — Reporting and business intelligence

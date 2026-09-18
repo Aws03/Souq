@@ -26,7 +26,7 @@ The module also hosts the **audit trail**: the append-only record of who did wha
 | Accounts, passwords, sessions, roles and permissions | [Identity](../Identity/README.md) — Platform only *asks* for an invitation or a status change through shared building blocks |
 | Cross-store counts and dashboards | [Reporting](../Reporting/README.md) |
 | Products, orders, customers, coupons, reviews, shipping | The respective modules; Platform never reads their tables except through the reviewed `PlatformQueries` |
-| Payment gateway behaviour and the encrypted store keys | [Payments](../Payments/README.md) — although the store-facing use cases live in this module's `Features/Stores` folder (see Dependencies) |
+| Payment gateway behaviour and the encrypted store keys | [Payments](../Payments/README.md) — including the store-facing use cases, which **moved to `Features/Payments` in M1** (TD-04/R-04; four statements in this file still said `Features/Stores` until M11 corrected them, contradicting the Dependencies section that recorded the move) (see Dependencies) |
 | Emails and templates | [Notifications](../Notifications/README.md) |
 | Reading the review-publishing policy when a review is created | [Reviews](../Reviews/README.md); Platform owns the flag, Reviews owns the decision |
 
@@ -87,7 +87,7 @@ stateDiagram-v2
 
 ## Use cases
 
-Platform-area requests (`Features/Platform`) all carry an explicit tenant id and are all audited. Store-side requests (`Features/Stores`) never carry one — the store is always the host's store.
+Platform-area requests (`Features/Platform`) are all audited, and are the **only** requests that *may* carry an explicit tenant id — the rule is permissive, not mandatory, and this line claimed the opposite until M11: `ListTenantsQuery`, `GetProvisioningOptionsQuery`, `ListPlatformUsersQuery` and `ListAuditEntriesQuery` carry none, because they are not about one store. The auditing half is enforced by `ModuleAndContractRuleTests`; the tenant-id half is enforced only as a prohibition on other modules. Store-side requests (`Features/Stores`) never carry one — the store is always the host's store.
 
 | Use case | Command or query | Handler | Who may call it | Endpoint |
 |---|---|---|---|---|
@@ -110,7 +110,7 @@ Platform-area requests (`Features/Platform`) all carry an explicit tenant id and
 | Read what the settings editor may offer (cultures, presets, social networks and domains, limits, contrast thresholds) | `GetStoreSettingsOptionsQuery` | `GetStoreSettingsOptionsHandler` | `store.settings.manage` | `GET /api/admin/store/settings/options` |
 | Upload a branding file from the store | `UploadStoreBrandingCommand` | `UploadStoreBrandingHandler` | `store.settings.manage` | `POST /api/admin/store/branding/logo`, `/favicon`, `/social-image` |
 | Read / change the review-publishing policy | `GetReviewSettingsQuery`, `UpdateReviewSettingsCommand` | `GetReviewSettingsHandler`, `UpdateReviewSettingsHandler` | `reviews.moderate` to read; **both** `reviews.moderate` and `store.settings.manage` to change | `GET`/`PUT /api/admin/reviews/settings` |
-| Read / set / unlink the store's own payment account | `GetStorePaymentAccountQuery`, `UpdateStorePaymentAccountCommand`, `RemoveStorePaymentAccountCommand` | `GetStorePaymentAccountHandler`, `UpdateStorePaymentAccountHandler`, `RemoveStorePaymentAccountHandler` | `store.payments.manage` | `GET`/`PUT`/`DELETE /api/admin/store/payments` |
+| Read / set / unlink the store's own payment account — **owned by [Payments](../Payments/README.md) since M1**, listed here because the platform area calls it through `IStorePaymentAccountEditor` | `GetStorePaymentAccountQuery`, `UpdateStorePaymentAccountCommand`, `RemoveStorePaymentAccountCommand` | `GetStorePaymentAccountHandler`, `UpdateStorePaymentAccountHandler`, `RemoveStorePaymentAccountHandler` | `store.payments.manage` | `GET`/`PUT`/`DELETE /api/admin/store/payments` |
 | The public storefront configuration | `GetStorefrontConfigQuery` | `GetStorefrontConfigHandler` | anonymous | `GET /api/storefront/config` |
 
 Platform account management (`ListPlatformUsersQuery`, `InvitePlatformUserCommand`, `SetPlatformUserStatusCommand`) also lives in `Features/Platform`, but the rules it applies are Identity's; see [Identity](../Identity/README.md).
@@ -136,6 +136,7 @@ Destructive platform actions confirm in `ConfirmDialog`, and the server's refusa
 
 | Contract | Path | Who calls it |
 |---|---|---|
+| `IPlatformHosts` | `src/Souq.Application/Common/Tenancy/IPlatformHosts.cs` | `ChangeTenantDomainHandler`, to refuse a platform host offered as a store domain (`DomainReserved`). Implemented in the API layer by `ConfiguredPlatformHosts`, because the host list is deployment configuration. **Absent from this table until M11** |
 | `ITenantDirectory` | `src/Souq.Application/Common/Tenancy/ITenantDirectory.cs` | `TenantResolutionMiddleware`; `Features/Platform` handlers; `OutboxProcessor` and `StoreSweepService` (iterate stores); `ProcessPaymentWebhookCommand` (route a webhook to the store that took the payment) |
 | `ITenantContext` (+ `RequireTenant`) | `src/Souq.Application/Common/Tenancy/ITenantContext.cs` | Every module: currency, culture, module flags, and the tenant scope |
 | `ITenantScopeRunner` | `src/Souq.Application/Common/Tenancy/ITenantScopeRunner.cs` | The platform area when it must *write* inside one store; `ProcessPaymentWebhookCommand` |
@@ -153,7 +154,7 @@ Destructive platform actions confirm in `ConfirmDialog`, and the server's refusa
   - `IFileStorage` (branding uploads) and `MediaFileInspector` (content sniffing) from the shared kernel.
   - `Common/Accounts` (`AccountInvitations`, `AccountStatusChanger`, `IAccountQueries`) — Identity's rules, deliberately shared building blocks rather than a cross-module call.
   - **Boundary leak — closed in the M1 architecture audit (TD-04/R-04).** The store-payment-account use cases used to live in `Features/Stores` (this module's folder) while working on **Payments'** domain. They now live in `Features/Payments`, and the one path Platform genuinely needs — the platform admin's own view of a store's payment account, `src/Souq.Application/Features/Platform/TenantPaymentAccounts.cs` — reaches them through a published contract, `IStorePaymentAccountEditor` ([Payments/README.md](../Payments/README.md#who-owns-store-payment-accounts)), authorized explicitly in `ModuleAndContractRuleTests`' `AllowedContracts`.
-  - In Infrastructure, `PlatformQueries` reads `Users`, `Customers`, `Products` and `Orders` with `IgnoreQueryFilters`. That is the deliberate, reviewed exception ([ADR-0024](../../11-ADR/0024-platform-administration.md)).
+  - In Infrastructure, `PlatformQueries` reads `Users`, `Customers`, `Products`, `Orders`, `Coupons` and `ShippingMethods` with `IgnoreQueryFilters` (the last two were added with the currency lock and were missing from this list until M11). That is the deliberate, reviewed exception ([ADR-0024](../../11-ADR/0024-platform-administration.md)).
 - **Used by:**
   - Everything, through `ITenantContext` (currency, culture) and the request-time resolution.
   - Shopping: `PricingService` refuses a coupon when `StoreModules.Promotions` is off.
@@ -162,7 +163,7 @@ Destructive platform actions confirm in `ConfirmDialog`, and the server's refusa
 - **Enforced vs convention.**
   - Enforced by `tests/Souq.ArchitectureTests/TenancyRuleTests.cs`: platform entities must **not** be tenant-owned; every tenant-owned entity has the named filter and an FK to `Tenants`; `IgnoreQueryFilters` only inside `PlatformQueries`; no raw SQL outside migrations; `ExecuteUpdate`/`ExecuteDelete` only in the reviewed call sites, since they bypass `SaveChanges` and so the write guard; no feature takes the writable `TenantContext`.
   - Enforced by `tests/Souq.ArchitectureTests/ModuleAndContractRuleTests.cs`: only requests under `Features.Platform` may carry a `TenantId`; every request under `Features.Platform` and `Features.Reporting` must implement `IAuditable`; no feature folder references another module's namespace outside the allowed contracts.
-  - Convention only: auditing store-side commands (`Features/Stores`, `Features/Staff`) — nothing fails the build if a new store command forgets `IAuditable`; keeping other modules off the `Tenant` aggregate; keeping the payment-account editor in `Features/Stores`.
+  - Convention only: auditing store-side commands (`Features/Stores`, `Features/Staff`) — nothing fails the build if a new store command forgets `IAuditable`; keeping other modules off the `Tenant` aggregate; keeping the store-payment use cases out of this module's folder (**done in M1**, and this line's wording predates it) — and keeping the payment-account editor in `Features/Stores`.
 
 ## Data ownership
 
@@ -171,9 +172,9 @@ Destructive platform actions confirm in `ConfirmDialog`, and the server's refusa
 | `Tenants` | `src/Souq.Infrastructure/Persistence/Configurations/TenantConfiguration.cs` | No — it *defines* the tenant | Unique index on `Slug`; the settings document in the `Settings` JSON column (converted by `StoreSettingsJson`); module keys in the `EnabledModules` column, defaulting to every module so an upgrade never removes a feature; `ReviewsAutoApprove`; `rowversion` |
 | `TenantDomains` | `TenantDomainConfiguration` in the same file | No | **Unique index on `Host` across the whole platform** — the last guard against stealing another store's host; cascade delete from `Tenants` |
 | `AuditEntries` | `src/Souq.Infrastructure/Persistence/Configurations/AuditEntryConfiguration.cs` | No, and deliberately no FK to `Tenants` | Append-only, enforced by `TenantWriteGuardInterceptor`; indexes on `OccurredAt`, `(TenantId, OccurredAt)`, `(ActorUserId, OccurredAt)` |
-| `StorePaymentAccounts` | `StorePaymentAccountConfiguration` | Yes | Owned by Payments (entity and key rules); written from this module's `Features/Stores` and `Features/Platform` use cases (TD-04 records moving them to Payments) |
+| `StorePaymentAccounts` | `StorePaymentAccountConfiguration` | Yes | Owned by Payments (entity and key rules); written from `Features/Payments` (since M1) and this module's `Features/Platform` use cases (TD-04 records moving them to Payments) |
 
-Other modules' data is read only through `PlatformQueries`: a store's administrative accounts (`Users` with an explicit `TenantId` predicate), and "does this store have any commercial activity?" (`Products` or `Orders`), which is what locks a store's currency.
+Other modules' data is read only through `PlatformQueries`: a store's administrative accounts (`Users` with an explicit `TenantId` predicate), and "does this store have any commercial activity?" (`Products`, `Orders`, `Coupons` or `ShippingMethods` — coupons and shipping methods are priced rows too, so a store holding only a coupon is currency-locked as well; this list said `Products` or `Orders` until M11, and M8 re-confirmed the wider one as what closes R-09), which is what locks a store's currency.
 
 Migrations: `Phase2MultiTenancy` creates `Tenants` and `TenantDomains` and the default store (fixed id 1, named "Marka Demo", slug `marka`); `Phase4PlatformAdministration` adds the settings document, the module column and `AuditEntries`; `Phase13ReviewsWishlist` adds `ReviewsAutoApprove`.
 
@@ -198,6 +199,10 @@ Migrations: `Phase2MultiTenancy` creates `Tenants` and `TenantDomains` and the d
 | POST | `/api/platform/tenants/{id}/admins` | `platform.tenants.manage` | — | Invite the store's administrator |
 | GET/PUT/DELETE | `/api/platform/tenants/{id}/payments` | `platform.tenants.manage` | — | The store's payment account |
 | GET | `/api/platform/audit` | `platform.audit.view` | — | Audit log |
+| GET | `/api/platform/stats` | `platform.reports.view` | — | Platform totals ([Reporting](../Reporting/README.md)) |
+| GET | `/api/platform/users` | `platform.users.manage` | — | Platform accounts, paged |
+| POST | `/api/platform/users` | `platform.users.manage` | — | Invite a platform account |
+| POST | `/api/platform/users/{id}/status` | `platform.users.manage` | — | Enable or disable one |
 | GET/PUT | `/api/admin/store/settings` | `store.settings.manage` | — | The store's own settings |
 | GET | `/api/admin/store/settings/options` | `store.settings.manage` | — | The editor's allowlists and limits, read from the Domain. `StoreSettingsOptionsTests` passes every offered option back through the Domain rules |
 | POST | `/api/admin/store/branding/logo`, `/favicon`, `/social-image` | `store.settings.manage` | — | Branding uploads (≤2 MB, sniffed content) |
@@ -255,7 +260,7 @@ Because administration endpoints are recognised by their permission policy, a st
 ## External integrations
 
 - File storage through `IFileStorage` (`LocalFileStorage` today) for branding assets, always under the store's prefix.
-- AES-256-GCM secret protection (`AesGcmSecretProtector`, key material from `Secrets:Keys` / `Secrets:ActiveKeyId`) for the store payment keys edited through this module's `Features/Stores`.
+- AES-256-GCM secret protection (`AesGcmSecretProtector`, key material from `Secrets:Keys` / `Secrets:ActiveKeyId`) for the store payment keys, edited through `Features/Payments` (they left this module's folder in M1 — TD-04).
 - No other external system. DNS and TLS for custom domains are **PLANNED** (roadmap Phase 23).
 
 ## Tests
@@ -297,6 +302,7 @@ Because administration endpoints are recognised by their permission policy, a st
 | Unknown store id in a platform command | `NotFound` | 404 | `PlatformTenants.NotFound` |
 | Slug already used | `TenantSlugTaken` | 409 | `CreateTenantHandler` |
 | Host already mapped to a store | `DomainTaken` | 409 | `ChangeTenantDomainHandler` |
+| Host is a platform host (`admin.…`) offered as a store domain | `DomainReserved` | 409 | `ChangeTenantDomainHandler`, via `IPlatformHosts` — asserted by `ProvisioningBoundaryTests` and the provisioning journey |
 | Race past either check | `DuplicateValue` | 409 | Unique index → `UniqueConstraintViolationException` |
 | Invalid name, slug, culture, time zone, currency, colours, preset, social link, module key, illegal status transition, currency change after activity, branding path outside the store | `InvalidTenantOperation` | 422 | `InvalidTenantOperationException` |
 | Inviting an administrator to a store with no domain | `TenantHasNoDomain` | 422 | `InviteTenantAdminHandler` |
@@ -316,7 +322,7 @@ Details in [ChangeGuide.md](ChangeGuide.md): adding a store setting; adding a mo
 
 ## Known limitations
 
-- **A closed store serves only its configuration.** `AvailableWhenStoreClosedAttribute` is applied to `GET /api/storefront/config`, so a `Provisioning`, `Suspended` or `Archived` store still returns its identity and status (the SPA draws a branded "unavailable" screen) while every other endpoint answers `503 StoreUnavailable` — proven by `PlatformAdministrationTests` and by `frontend/e2e/platform-provisioning.spec.js`, which reads an archived store's config.
+- **A closed store serves its configuration and the authentication endpoints.** `AvailableWhenStoreClosedAttribute` is applied to `GET /api/storefront/config` **and to sign-in, refresh, sign-out and the current user** (`AuthController`), so a `Provisioning`, `Suspended` or `Archived` store still returns its identity and status and still lets its administrator in to fix it — that is the point. This bullet named only the configuration endpoint until M11, which had been wrong since Phase 12 (R-08) and disagreed with [StorefrontPreview.md](StorefrontPreview.md), the document that depends on the gate. `TenantResolutionTests` records the intent (the SPA draws a branded "unavailable" screen) while every other endpoint answers `503 StoreUnavailable` — proven by `PlatformAdministrationTests` and by `frontend/e2e/platform-provisioning.spec.js`, which reads an archived store's config.
 - **A store can be activated with no domain and no administrator**, and the only domain of an active store can be removed. Nothing in the aggregate or the handlers prevents an unreachable-but-active store. The platform screens do not invent that rule either: readiness is reported, and activation warns inside its confirmation.
 - **`VerifiedAt` is decorative.** Resolution never checks it, so a domain serves traffic the moment it is added. DNS/TLS verification is **PLANNED** (Phase 23).
 - **The directory and storefront caches are per-process.** With more than one API instance, a suspension or a branding change takes up to 60 s to reach the others, and each instance computes its own ETag.

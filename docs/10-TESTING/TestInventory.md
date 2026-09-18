@@ -10,7 +10,7 @@
 | [`Souq.Domain.Tests`](#souqdomaintests) | 29 | 227 | 47 |
 | [`Souq.Application.Tests`](#souqapplicationtests) | 46 | 341 | 17 |
 | [`Souq.ArchitectureTests`](#souqarchitecturetests) | 14 | 59 | 7 |
-| [`Souq.IntegrationTests`](#souqintegrationtests) | 50 | 290 | 22 |
+| [`Souq.IntegrationTests`](#souqintegrationtests) | 50 | 292 | 22 |
 | [frontend (Vitest)](#frontend-vitest) | 83 | 644 | — |
 | [frontend (Playwright)](#frontend-playwright) | 16 | 107 | — |
 
@@ -124,7 +124,7 @@
 |---|---|---|---|
 | `tests/Souq.IntegrationTests/AuditTimestampsTests.cs` | `AuditTimestampsTests`, `SettableClock` | 1 | 0 |
 | `tests/Souq.IntegrationTests/AuthSessionTests.cs` | `AuthSessionTests` | 11 | 0 |
-| `tests/Souq.IntegrationTests/AuthorizationBoundaryTests.cs` | `AuthorizationBoundaryTests` | 7 | 0 |
+| `tests/Souq.IntegrationTests/AuthorizationBoundaryTests.cs` | `AuthorizationBoundaryTests` | 9 | 0 |
 | `tests/Souq.IntegrationTests/AuthorizationMatrixTests.cs` | `AuthorizationMatrixTests` | 3 | 0 |
 | `tests/Souq.IntegrationTests/BackgroundSweepScopeTests.cs` | `BackgroundSweepScopeTests` | 2 | 0 |
 | `tests/Souq.IntegrationTests/BasketTests.cs` | `BasketTests` | 5 | 0 |
