@@ -29,12 +29,12 @@
 
 ```yaml
 plan_version: 1.0.0
-current_phase: M15
+current_phase: M16
 phase_status: done
-next_phase: M16         # M2 remains blocked on TD-42 and is independent of the phases after it; see M2's own STOP entry
+next_phase: M17         # M2 remains blocked on TD-42 and is independent of the phases after it; see M2's own STOP entry
 blocked_decisions: ["TD-42"]    # owner decisions that block a phase currently in flight; see §5 and OwnerDecisions.md
 last_verified_date: 2026-09-18
-last_verified_head: bc0ac6f     # M15 closed: the security review — a proven rate-limit bypass, a session-planting cookie, and RLS decided
+last_verified_head: 4a62d49     # M16 closed: measured — no N+1, one index 237× wrong, caching declined on evidence
 baseline_branch: phase/17-production-hardening
 ```
 
@@ -59,6 +59,16 @@ store's own catalogue vocabulary and **says which word it searched**, with the s
 customers use. SQL Server Full-Text Search was **measured unavailable** in the pinned image and rejected on
 evidence rather than assumption — see M3's "Completion evidence" above and
 [ADR-0042](../11-ADR/0042-local-search-engine.md).
+
+**M16 — done.** Measured first, then changed almost nothing — which is the result the phase's own rule asks for.
+There is **no N+1** in any read path (now guarded by a command-count test rather than a timing one), and every
+route meets its latency target. The measurement changed the conclusion twice: the plan cache named M13's search
+insights as the most expensive statement in the system at 25,375 logical reads a call, and reordering one index
+took it to **107** on the running stack; while the icon barrel that looked like an obvious 24 kB win turned out
+to hold only ~5 kB of admin-only icons, so it was left alone. Under load the API sits at 0.54% CPU while SQL
+Server runs at 47%, so **caching was declined on evidence** (ADR-0044) and the next lever is database capacity.
+The load test the strategy named as missing now exists, and the first-load budget the design system promised is
+enforced at 170 kB against a measured 156.8. See M16's "Completion evidence" above.
 
 **M15 — done.** The security review found real things. The sharpest was **proven exploitable on a running stack
 before it was fixed**: the rate limit keyed on the host as it arrived while tenant resolution lower-cased it, so
@@ -1935,7 +1945,51 @@ repository.
 - **Technical debt touched.** None expected to open unless a fix is deliberately partial and re-filed.
 - **Acceptance criteria.** The load-test targets agreed at the start of this phase are met, with the evidence
   — not the claim — recorded (`ProductRoadmap.md` Phase 21's own exit criterion).
-- **Completion evidence.** *(fill in on close)*
+- **Completion evidence.** **Done.** The acceptance criterion is met: targets were set at the start of the
+  phase, and the evidence — not the claim — is recorded in `ScalingStrategy.md`, `DesignSystem.md` and
+  [ADR-0044](../11-ADR/0044-caching-evaluated-not-adopted.md).
+  - **The load test the strategy named as missing now exists.** `scripts/load-test.py`, Python standard library
+    only, so anyone who clones the repository can run it — a tool that must be installed first is a tool that is
+    not run, and a performance number nobody can reproduce is not evidence. Run against the compose stack with
+    its own resource limits, not a machine with none.
+  - **No N+1 anywhere**, and it is now guarded. `ReadPathQueryBudgetTests` counts SQL commands per request at
+    two data sizes; every storefront and admin route holds constant between one product and ten, and basket
+    pricing costs the same for eight lines as for one. Counting commands rather than milliseconds is the point:
+    a timing assertion goes red on a loaded runner and gets deleted as flaky.
+  - **Steady-state latency is inside every target** (catalogue p50 56 ms against a 300 ms p95 target; the
+    sixteen-aggregate dashboard 43 ms). In a browser, the slowest measured flow shows its first real figure in
+    850 ms cold and 61 ms warm.
+  - **The measurement changed the conclusion twice, which is the whole reason for measuring.**
+    - The plan cache named the most expensive statement in the system, and it was **M13's own**: 25,375 logical
+      reads a call, because the index served the grouping and gave nothing to the "most recently typed form"
+      question the same screen asks. Extending the key to `SearchedAt DESC, Id DESC` took it to **107** on the
+      running stack — and it *replaced* the old index rather than joining it, so the hottest table's write cost
+      is essentially unchanged. `Term` was deliberately left out of the included columns: it buys 148 → 110
+      reads and costs storing the term twice on the most-written table.
+    - The icon barrel ships 24 kB gzip to every visitor — 15% of first load — which looks like an obvious win
+      until it is counted: only 8 of 45 icons are admin-only, so splitting it recovers about 5 kB of 157.
+      **Not done**, and the measurement is what says so rather than intuition.
+  - **Caching was decided on evidence and not built** (ADR-0044). Under load the API sits at **0.54% CPU while
+    SQL Server runs at 47%** — the constraint is database capacity, which is Stage 1's last lever and Stage 3,
+    not read latency. And the candidates cache badly: the most-written table is the search log, the dashboard's
+    aggregates change with every order, and every cache key here is a tenancy question before it is a
+    performance one.
+  - **The frontend budget the design system promised is enforced.** That page said "no budget is enforced in CI;
+    bundle-size budgets are PLANNED for Phase 21" — this is it, measured the way its own figures were measured
+    (a real browser, gzipped transfer, both languages) rather than by summing `dist`. First load is **156.8 kB**
+    against 136.5 when last taken: about 20 kB across the phases since, no single culprit, which is exactly the
+    growth a budget exists to catch.
+  - **Two vacuous measurements were caught before they became findings**, and both are recorded because they are
+    how a performance test lies: a 404 route costs zero queries and reads as the most efficient endpoint in the
+    system, and a query-string parameter spelled wrong takes a short-circuit that returns an empty list. Every
+    measured call must now succeed first.
+  - **Evidence.** Commits `4b0d913`, `c52ba59`, `4a62d49` plus this closure. Tests: 421 integration (3 new
+    budget tests), 94 architecture, all green. Runtime: all measurements on the rebuilt container stack with its
+    memory limits; migration `SearchLogInsightIndex` applied and verified in place with the index count
+    unchanged.
+- **Technical debt.** None opened. The uncovered `ORDER BY CreatedAt DESC` on `Products` is recorded in
+  `ScalingStrategy.md` as the next index to reach for, deliberately not taken now: a real shape, a small
+  absolute cost at present volume, on a table that does not grow without bound.
 - **Next-phase trigger.** M17 may start independently, though a scaling decision made here likely shapes M17's
   infrastructure choices, so running them in this order is deliberate.
 
