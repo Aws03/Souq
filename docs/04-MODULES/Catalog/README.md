@@ -152,12 +152,16 @@ Because `OrderItems`, `Reviews`, `WishlistItems`, `Baskets` lines, `InventoryIte
 | `ProductTranslations` | `ProductTranslationConfiguration` via `CatalogTranslationMapping` | yes | none | unique `(ProductId, Culture)` |
 | `Categories` | `CategoryConfiguration` | yes | none | unique `(TenantId, Slug)`; `(TenantId, ParentId, SortOrder)`; self FK on `ParentId`, `Restrict` |
 | `CategoryTranslations` | `CategoryTranslationConfiguration` via `CatalogTranslationMapping` | yes | none | unique `(CategoryId, Culture)` |
+| `SearchSynonyms` (M3) | `SearchSynonymConfiguration` | yes | none | `(TenantId, Culture, TermNormalized)` including `ExpansionNormalized` — read on **every** keyword search, so the expansion comes from the index without touching the row; the per-store ceiling is `SearchSynonym.MaxPerStore`, enforced in the handler |
+| `SearchQueryLogs` (M13) | `SearchQueryLogConfiguration` | yes | none | `(TenantId, Culture, TermNormalized)` including `ResultCount` — the "most searched" grouping, with the zero-result count answered from the index; `(TenantId, SearchedAt)` — the retention purge, which makes it a range scan inside one store instead of a table scan. No index on the raw `Term`: it is displayed, never matched |
 
 Uniqueness is per store, not per platform: two stores may use the same slug and the same SKU (`TenantIsolationTests`). The product → category FK is composite, so the database itself refuses a product pointing at another store's category. The category → parent FK is **single-column**, so a cross-store parent is prevented only by `CreateCategoryHandler`/`UpdateCategoryHandler` reading the tenant-filtered `ICategoryRepository.ListLinksAsync` and answering `ParentNotFound`.
 
+`SearchQueryLogs` is the most-written table in the system — one row per keyword search — and among the least-read: twice on one screen. Its indexes therefore serve the two reads only, and the write stays an `INSERT` with no read behind it. Like every other `ITenantOwned` table its tenant FK is `Restrict`, so a store's log blocks deleting the store row; that is intended, since the platform suspends stores and has no delete path at all.
+
 Data this module reads but does not own: `InventoryItems` (Inventory) and `Orders`/`OrderItems` (Ordering), both directly in `CatalogQueries`.
 
-Migrations: `20260911130701_Phase5Catalog` (hand-ordered so that the data copy runs before the old columns are dropped) and `20260911141732_Phase6Inventory` (which removed the stock columns from `Products`). See [DatabaseDesign.md](../../06-DATABASE/DatabaseDesign.md).
+Migrations: `20260911130701_Phase5Catalog` (hand-ordered so that the data copy runs before the old columns are dropped), `20260911141732_Phase6Inventory` (which removed the stock columns from `Products`) and `20260918072543_SearchQueryLog` (M13, additive — a new table and its two indexes, nothing existing touched). See [DatabaseDesign.md](../../06-DATABASE/DatabaseDesign.md).
 
 ## API
 
@@ -219,6 +223,16 @@ The closest word is picked by distance, then by frequency in the catalogue, then
 
 Expansion is **one level and never transitive**: `أ→ب` plus `ب→ج` does not make `أ` find `ج`. That keeps each row's effect visible to whoever added it and makes a cycle in the data harmless. The table stores both what the merchant typed and its normalized form, and the admin screen shows both — so a merchant can see why "مكنسة" and "مكنسه" are one pair, not two. It is capped at `SearchSynonym.MaxPerStore` because it is read on every keyword search.
 
+**What shoppers actually searched** (`SearchQueryLogs`, **M13**) is what tells a merchant which pairs to add. M3 shipped the vocabulary editor with no way to know what to put in it; a merchant cannot guess which words their customers type and fail to find. Every keyword search now writes one row — the raw term, its normalized form, the culture, the number of results and the time — and the same admin screen shows them aggregated by word, defaulting to the words that **never** found anything, each with a one-click "add as synonym" that opens the vocabulary drawer prefilled.
+
+Three design points, each of which is the reason something is shaped the way it is:
+
+- **Logging must never slow search.** `ISearchLog.Record` returns `void`, never throws, and only deposits into a bounded in-process channel (`SearchLogChannel`, 1000 entries, `DropWrite`); `SearchLogWriterService` drains it on a batch window (`Search:Log:WriteBatchMilliseconds`, 2 s) and saves each store's rows **inside that store's tenant scope**, which is what makes `TenantWriteGuardInterceptor` stamp the right `TenantId`. A full channel drops rather than blocks or grows — a lost measurement is acceptable, a suspended search is not — and drops are counted and logged. `GetProductsHandler` wraps the call in a `try`/`catch` anyway: "a shopper's search never fails because of analytics" is a property of the product, not of one implementation.
+- **A row per search, not a counter.** The question that serves a merchant is not "how many searches" but "which search found *nothing*, and when". A rolled-up counter answers the first and destroys the second: a word that stopped finding results after a product sold out looks like a permanent failure forever. Aggregating on read is cheap (`GROUP BY` on the index prefix); recovering time after aggregating it away is impossible.
+- **Retention from day one.** TD-16 records that no table in this system has a retention policy, and that the ones holding personal data need a legal answer before they can get one. `SearchQueryLog` holds no personal data *by construction* — no customer id, no IP, no session or visitor token, and no column for one — so its retention was an engineering decision this phase could simply make: `Search:Log:RetentionDays` (90), applied by `SearchLogPurgeService` sending `PurgeSearchLogCommand` per store. `SearchAnalyticsTests` asserts the table's exact column set, so a later column that would invalidate that reasoning cannot be added quietly.
+
+The read (`ICatalogQueries.ListSearchInsightsAsync`) groups on `(TenantId, Culture, TermNormalized)` — the index prefix, with `ResultCount` as an included column — filters "never found anything" in `HAVING`, and computes its summary from one aggregate **over the grouped set**, so the totals describe the window rather than the page. Grouping by the normalized form and displaying the most recent raw form is the same rule `SearchSynonym` follows, for the same reason: "مكنسه" and "مكنسة" are one word to a merchant.
+
 
 **Suggestions while typing** (`GET /api/products/suggestions`) return visible **products** first, then active **categories**, ranked by the same expression the results page uses — so the dropdown and the results page never disagree for the same word. They suggest *destinations*, not words: a suggested product is where the shopper was going, and it confirms the thing exists before they finish typing. They deliberately do **not** correct typos, because the shopper is still typing and "correcting" a half-written word jumps under their hands; recovery belongs to the executed search, where the word is final. Below two normalized characters nothing is queried at all.
 
@@ -241,7 +255,16 @@ Expansion is **one level and never transitive**: `أ→ب` plus `ب→ج` does n
 
 ## Events and background work
 
-Catalog raises no domain events, enqueues no outbox messages and runs no hosted service. Opening stock at creation is a direct in-process call through `IVariantStockInitializer` rather than an event, because there is exactly one consumer ([ADR-0026](../../11-ADR/0026-inventory-reservations.md)). Cleaning up orphaned media files is a DEFERRED background job.
+Catalog raises no domain events and enqueues no outbox messages. Opening stock at creation is a direct in-process call through `IVariantStockInitializer` rather than an event, because there is exactly one consumer ([ADR-0026](../../11-ADR/0026-inventory-reservations.md)). Cleaning up orphaned media files is a DEFERRED background job.
+
+It does run two hosted services, both added by **M13** for the search log and both registered in `AddSearchLog`:
+
+| Service | Kind | Cadence | Disabled by |
+|---|---|---|---|
+| `SearchLogWriterService` | `BackgroundService` draining an in-memory channel | waits for work, then batches for `Search:Log:WriteBatchMilliseconds` (2 s) | nothing — it *is* the write path |
+| `SearchLogPurgeService` | `StoreSweepService` | `Search:Log:PurgeIntervalMinutes` (360) | setting that to `0` (what the integration tests do, sending `PurgeSearchLogCommand` directly) |
+
+The writer is deliberately **not** a `StoreSweepService`: a sweep visits every store every cycle and asks it for work, while the writer waits for work to arrive and touches only stores that were actually searched. A dormant store costs nothing. The purge *is* a sweep, because retention is owed to every store including the dormant ones — a store left with an old log would keep it forever otherwise.
 
 ## External integrations
 
@@ -262,7 +285,11 @@ Only file storage, through `IFileStorage` → `LocalFileStorage` (local disk; `S
 | Integration | `ProductOptionAdminTests`, `ProductVariantTests` | The merchant workflow over HTTP with stock and audit, rule violations without side effects, the label snapshot, the storefront gate, database constraints, concurrent and stale structural edits, the low-stock label; V1's multi-variant basket, checkout and stock paths |
 | Integration | `QueryServiceTests`, `UploadSecurityTests`, `LocalFileStorageTests`, `TenantIsolationTests`, `AuthorizationMatrixTests`, `MigrationRehearsalTests` | Paging and deterministic ordering, page-size limits, a deactivated product missing from list, detail and related; disguised uploads rejected and served media headers; tenant-prefixed storage keys; per-store slug and SKU uniqueness, cross-store image ids, uploads not served on another store's host; role matrix; the Phase 5 data copy |
 | Architecture | `ModuleAndContractRuleTests`, `DependencyRuleTests` | Contract references and layering |
+| Application (M13) | `GetProductsHandlerTests` | The search log is written with the **total** result count rather than the page's, browsing without a keyword writes nothing, and a throwing log implementation does not fail the shopper's search |
+| Integration (M13) | `SearchAnalyticsTests` | A shopper's search reaches the database **in that store's row** through the background writer; aggregation by normalized form with the most recent raw form displayed; the `HAVING` filter that separates "never found anything" from "sometimes fails"; the time window; the summary describing the window rather than the page; permissions; retention deleting what is older and **keeping what is not**; one store's purge leaving its neighbour's rows alone; and the table's exact column set, so no personal-data column can be added quietly |
 | Frontend | `catalogText.test.js`, `productPayload.test.js`, `productQuery.test.js`, `categoryForm.test.js`, `variantModel.test.js`, `ProductVariants.test.jsx` | Language fallback and form mapping, the create/edit payload (including "never send stock on edit"), admin query keys, the category tree helpers |
+| Frontend (M13) | `insights.test.js`, `Tabs.test.jsx` | The zero-result share returning `null` rather than `0` when nothing was measured, and the three outcome states (a word that always finds results is not "failed 0 times"); the tab ARIA contract, roving tabindex, and arrow keys following reading direction |
+| Browser (M13) | `e2e/admin-search-insights.spec.js`, `e2e/responsive.spec.js` | The whole loop on the container stack — shopper searches, merchant sees it, adds the synonym in one click, the search then finds it, and the word leaves the work list; plus keyboard tabs, dark mode, English/LTR, axe, and phone touch targets with no horizontal scroll |
 
 **Not covered today:** the `BestSelling` sort (no test references it), concurrent gallery uploads past ten images, concurrent price edits, the exact behaviour when a product sits in an active child of a hidden category, and `VideoUrl` content.
 

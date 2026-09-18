@@ -11,8 +11,8 @@
 | [`Souq.Application.Tests`](#souqapplicationtests) | 46 | 345 | 17 |
 | [`Souq.ArchitectureTests`](#souqarchitecturetests) | 14 | 59 | 7 |
 | [`Souq.IntegrationTests`](#souqintegrationtests) | 51 | 308 | 22 |
-| [frontend (Vitest)](#frontend-vitest) | 83 | 651 | — |
-| [frontend (Playwright)](#frontend-playwright) | 16 | 107 | — |
+| [frontend (Vitest)](#frontend-vitest) | 85 | 665 | — |
+| [frontend (Playwright)](#frontend-playwright) | 17 | 114 | — |
 
 ## Souq.Domain.Tests
 
@@ -197,6 +197,7 @@
 | `frontend/src/components/common/Drawer.test.jsx` | 6 |
 | `frontend/src/components/common/ErrorBoundary.test.jsx` | 5 |
 | `frontend/src/components/common/FormField.test.jsx` | 3 |
+| `frontend/src/components/common/Tabs.test.jsx` | 7 |
 | `frontend/src/components/common/useConfirmAction.test.jsx` | 4 |
 | `frontend/src/components/layout/SearchBar.test.jsx` | 18 |
 | `frontend/src/components/product/ProductCard.test.jsx` | 11 |
@@ -211,6 +212,7 @@
 | `frontend/src/features/admin/products/productQuery.test.js` | 4 |
 | `frontend/src/features/admin/products/variantModel.test.js` | 15 |
 | `frontend/src/features/admin/reviews/reviewModeration.test.js` | 2 |
+| `frontend/src/features/admin/search/insights.test.js` | 7 |
 | `frontend/src/features/admin/search/synonymForm.test.js` | 7 |
 | `frontend/src/features/admin/settings/settingsForm.test.js` | 19 |
 | `frontend/src/features/admin/shipping/shippingForm.test.js` | 4 |
@@ -270,6 +272,7 @@
 |---|---|
 | `frontend/e2e/account-password.spec.js` | 3 |
 | `frontend/e2e/admin-inventory.spec.js` | 3 |
+| `frontend/e2e/admin-search-insights.spec.js` | 6 |
 | `frontend/e2e/back-office.spec.js` | 6 |
 | `frontend/e2e/checkout-coupon.spec.js` | 3 |
 | `frontend/e2e/checkout-reliability.spec.js` | 4 |
@@ -277,7 +280,7 @@
 | `frontend/e2e/platform-provisioning.spec.js` | 9 |
 | `frontend/e2e/product-variants.spec.js` | 5 |
 | `frontend/e2e/responsive-storefront.spec.js` | 2 |
-| `frontend/e2e/responsive.spec.js` | 10 |
+| `frontend/e2e/responsive.spec.js` | 11 |
 | `frontend/e2e/search.spec.js` | 8 |
 | `frontend/e2e/second-tenant.spec.js` | 6 |
 | `frontend/e2e/session-tabs.spec.js` | 1 |

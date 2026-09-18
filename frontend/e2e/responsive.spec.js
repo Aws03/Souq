@@ -45,7 +45,7 @@ test.describe('لوحة الإدارة على هاتف', () => {
   test.beforeEach(async ({ page }) => { await signIn(page); });
 
   test('لا تمرير أفقي في أي من شاشات الإدارة', async ({ page }) => {
-    for (const path of ['/admin', '/admin/business', '/admin/products', '/admin/orders', '/admin/inventory', '/admin/settings', '/admin/staff']) {
+    for (const path of ['/admin', '/admin/business', '/admin/products', '/admin/orders', '/admin/inventory', '/admin/search-synonyms', '/admin/settings', '/admin/staff']) {
       await page.goto(path);
       await page.waitForTimeout(2500);
       expect(await pageOverflows(page), `تمرير أفقي في ${path}`).toBe(false);
@@ -68,6 +68,32 @@ test.describe('لوحة الإدارة على هاتف', () => {
     for (const section of [/Dashboard|Home/i, /Business/i, /Products/i, /Orders/i, /Payments/i]) {
       await expect(page.getByRole('link', { name: section }).first()).toBeAttached();
     }
+  });
+
+  // ============================================================================
+  // ألسنة شاشة البحث على هاتف (M13): لسانان قصيران، لكن المكوّن عامّ وسيحمل ألسنةً أكثر غداً — فالقاعدة
+  // تُثبَّت الآن: الألسنة **تُزحلق ولا تُلفّ** (سطران يكسران الخطّ السفلي)، والصفحة نفسها لا تمرّر أفقياً،
+  // وهدف اللمس لا يقلّ عن 44 بكسلاً (WCAG 2.5.8) — وهو ما لا يسري إلا في محاكاة جهازٍ حقيقيّ، أي هنا.
+  // ============================================================================
+  test('ألسنة شاشة البحث: هدف لمسٍ كافٍ، وزحلقةٌ لا لفّ، وبلا تمرير أفقي للصفحة', async ({ page }) => {
+    await page.goto('/admin/search-synonyms');
+    const tabs = page.getByRole('tab');
+    await tabs.first().waitFor({ timeout: 45_000 });
+
+    const boxes = await tabs.evaluateAll((nodes) => nodes.map((n) => n.getBoundingClientRect().toJSON()));
+    expect(boxes.length).toBeGreaterThan(1);
+    for (const box of boxes) expect(box.height, 'هدف لمس اللسان').toBeGreaterThanOrEqual(44);
+
+    // كلّها على سطرٍ واحد: تساوي أعلى الصناديق يعني أنّها لم تُلفّ.
+    const tops = new Set(boxes.map((b) => Math.round(b.top)));
+    expect(tops.size, 'الألسنة لُفّت إلى أكثر من سطر بدل أن تُزحلق').toBe(1);
+
+    expect(await pageOverflows(page), 'شاشة البحث تمرّر أفقياً').toBe(false);
+
+    // والجدول يمرّر داخل حاويته لا بالصفحة — نفس قاعدة بقيّة جداول الإدارة.
+    await page.getByRole('tab').last().click();
+    await page.waitForTimeout(1500);
+    expect(await pageOverflows(page), 'لسان المفردات يمرّر أفقياً').toBe(false);
   });
 
   test('هدف اللمس في الشريط السفلي لا يقلّ عن 40 بكسل', async ({ page }) => {

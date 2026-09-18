@@ -29,12 +29,12 @@
 
 ```yaml
 plan_version: 1.0.0
-current_phase: M12
+current_phase: M13
 phase_status: done
-next_phase: M13         # M2 remains blocked on TD-42 and is independent of the phases after it; see M2's own STOP entry
+next_phase: M14         # M2 remains blocked on TD-42 and is independent of the phases after it; see M2's own STOP entry
 blocked_decisions: ["TD-42"]    # owner decisions that block a phase currently in flight; see §5 and OwnerDecisions.md
 last_verified_date: 2026-09-18
-last_verified_head: 8e230da     # M12 closed: four wrong dashboard numbers/labels fixed, the stock snapshot pinned, V4 written out
+last_verified_head: 7483d23     # M13 closed: the search trace, its merchant screen, and a retention policy from the first commit
 baseline_branch: phase/17-production-hardening
 ```
 
@@ -59,6 +59,17 @@ store's own catalogue vocabulary and **says which word it searched**, with the s
 customers use. SQL Server Full-Text Search was **measured unavailable** in the pinned image and rejected on
 evidence rather than assumption — see M3's "Completion evidence" above and
 [ADR-0042](../11-ADR/0042-local-search-engine.md).
+
+**M13 — done.** M3 shipped a vocabulary editor with no way to know what to put in it. The loop is now closed and
+was verified end to end in a browser: a shopper searches a word that finds nothing, the merchant sees it, clicks
+once, and the search then works — after which the word **leaves the work list on its own**, because it stopped
+failing. Logging cannot slow search (a `void` non-throwing port over a bounded drop-on-full channel, drained by a
+background writer inside each store's tenant scope) and `GetProductsHandler` holds that guarantee itself rather
+than trusting the implementation, because a test with a throwing log proved it was not. Retention exists from the
+first commit — 90 days, decidable without the owner because the table has no personal data by construction, with
+a test asserting its exact column set so that reasoning cannot be quietly invalidated. Three defects in this
+phase's own work were found before it shipped, including the identical scoped-service-from-root mistake M11 found
+in the search backfill. See M13's "Completion evidence" above.
 
 **M12 — done.** Of the ten metrics the dashboards document, four were verified, two were incomplete and four
 had drifted — and four of the findings were the *product* misleading a merchant, not just a stale document: the
@@ -1641,7 +1652,57 @@ repository.
   phase's whole point).
 - **Acceptance criteria.** A merchant can see what shoppers search for and what fails, and can close that gap
   from the same screen, without ever leaving the admin area or involving engineering.
-- **Completion evidence.** *(fill in on close)*
+- **Completion evidence.** **Done.** Both acceptance criteria met, verified as a closed loop in a browser on the
+  container stack: a shopper searches a word that finds nothing, the merchant sees it on the next screen refresh,
+  clicks "add as synonym" once, and the same search then returns the product — after which **the word leaves the
+  work list on its own**, because it no longer fails. Nothing left the admin area.
+  - **Owned by Catalog**, checked rather than assumed: `ModuleMap.cs:56` already maps `SearchSynonym` to Catalog,
+    and the trace exists to improve that vocabulary, so it is the same module and the same `catalog.manage`
+    permission. It is also the same *screen*: the read is a second tab on `/admin/search-synonyms`, not a
+    fourteenth sidebar entry, because a question and its answer should not be two navigations apart.
+  - **Logging never slows search, and that is enforced not assumed.** `ISearchLog.Record` returns `void`, never
+    throws, and only deposits into a bounded channel (`DropWrite`, 1000); `SearchLogWriterService` batches and
+    saves each store's rows **inside that store's tenant scope**, which is what makes the write guard stamp the
+    right `TenantId`. `GetProductsHandler` wraps the call in try/catch anyway — a test with a throwing log proved
+    the handler was relying on the contract instead of holding the guarantee, and that is a product property, not
+    an implementation detail.
+  - **Retention from the first commit, with the reasoning made checkable.** TD-16 says no table here has a
+    retention policy and that personal data needs a legal answer first. This table has no personal data *by
+    construction*, so 90 days was an engineering decision this phase could just make — and
+    `جدول_السجلّ_لا_يحمل_عموداً_شخصياً` asserts the table's exact column set so a later column cannot quietly
+    invalidate that reasoning. The purge is a bulk `ExecuteDelete`, so it was added to `ReviewedBulkWrites`
+    deliberately and a test proves one store's purge leaves its neighbour's rows alone.
+  - **Three defects found in this phase's own work before it shipped**, each by a test written to prove the
+    behaviour rather than to pass: `ITenantDirectory` resolved from the root provider in the background writer
+    (the identical M11 defect, which would have broken `dotnet run` in Development again — caught pre-emptively);
+    a word that *always* finds results rendering as "failed 0 times" in a warning tone, in an Arabic plural form
+    for zero; and a zero-result share of "0%" on a store with no searches at all, which is a reassuring claim
+    about a measurement that never happened. The latter two now live in a tested pure module, not in JSX.
+  - **`COUNT(DISTINCT col1, col2)` is not SQL** — the first read implementation returned 500 on SQL Server and
+    the integration tests caught it. The summary now comes from one aggregate *over the grouped set*, which also
+    removed a round trip and makes the totals describe the window rather than the page (the M12 mistake).
+  - **`Tabs` is a real component** with the full ARIA contract, because half a tab implementation does not work:
+    roving tabindex, `aria-controls`/`aria-labelledby`, arrow keys that follow reading direction (left goes
+    forward in RTL — an Arabic-layout defect no screenshot shows), the keydown handler on the tab rather than the
+    tablist (`jsx-a11y` was right to reject the container), and a panel that is deliberately not focusable
+    because it contains buttons.
+  - **Evidence.** Commits `3b25efa` (backend) and `7483d23` (merchant screen) on
+    `phase/17-production-hardening`, plus this closure. Tests: 395 integration (12 new in
+    `SearchAnalyticsTests`), 412 Application (4 new), 524 Domain, 90 architecture, 670 frontend unit (14 new);
+    `npm run lint` back to its 8-warning baseline with 0 errors; `tsc --noEmit` clean. Browser: 6/6 in
+    `e2e/admin-search-insights.spec.js` on the container stack (loop, keyboard tabs, dark mode, English/LTR,
+    axe clean at wcag2a/wcag2aa), and 10/10 phone in `responsive.spec.js` including new tab touch-target and
+    no-horizontal-scroll checks. Runtime: stack rebuilt, migration `20260918072543_SearchQueryLog` applied,
+    all three containers healthy, no errors in the API log; the full loop also exercised directly over HTTP.
+  - **One environmental finding, not a product defect.** The QA SQL container died with SQL error 596
+    ("insufficient system memory in resource pool 'internal'") while sharing a 2.8 GiB Docker host with the
+    owner's unrelated `searchsys` stack. Diagnosed and fixed by capping **this** stack's SQL memory
+    (`MSSQL_MEMORY_LIMIT_MB=900`) so the two coexist — the owner's workload was not stopped. Whether the repo's
+    own `docker-compose.yml` should carry a default cap is left as a question for M16 (performance), not decided
+    here.
+- **Technical debt.** None opened. TD-16's retention gap is *narrowed*, not closed: this is the first table in
+  the system with a retention policy, and it got one only because it has no personal data. The tables TD-16
+  actually names still wait on the owner's legal answer.
 - **Next-phase trigger.** M14 may start independently of M13.
 
 ### M14 — Notifications and communications
