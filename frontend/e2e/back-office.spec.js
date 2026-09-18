@@ -40,7 +40,11 @@ const stamp = Date.now().toString(36);
 test.describe.configure({ mode: 'serial' });
 
 // الأدراج والحوارات تنزلق وتظهر تدريجياً: فحص التباين في منتصف الحركة يقيس لوناً ممزوجاً بالشفافية لا يراه أحد.
-const settle = (target) => target.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished.catch(() => null))));
+// حركةٌ لا تنتهي لا يُنتظَر انتهاؤها — وإلّا عُلِّق الانتظار إلى أن تنفد المهلة. شريط الإعلان
+// يمرّ إلى الأبد على كل صفحة متجر، والهيكل يلمع، والدوّار يدور: ثلاثتها `iterations: Infinity`.
+const settle = (target) => target.evaluate(() => Promise.all(document.getAnimations()
+    .filter((a) => a.effect?.getTiming?.().iterations !== Infinity)
+    .map((a) => a.finished.catch(() => null))));
 
 const axe = async (target, include = null) => {
   await settle(target);

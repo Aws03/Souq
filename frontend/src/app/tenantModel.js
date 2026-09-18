@@ -254,11 +254,24 @@ export const isModuleEnabled = (config, module) => (config?.modules ?? []).inclu
 
 // عملة المتجر لأسعار بلا عملة صريحة (حدود فلتر السعر، مثلاً) — يضبطها TenantProvider عند الإقلاع.
 let storeCurrency = '';
-export const setStoreCurrency = (code) => { storeCurrency = typeof code === 'string' ? code.toUpperCase() : ''; };
+let storeCurrencyDecimals = null;
+export const setStoreCurrency = (code, decimals = null) => {
+  storeCurrency = typeof code === 'string' ? code.toUpperCase() : '';
+  storeCurrencyDecimals = Number.isInteger(decimals) ? decimals : null;
+};
 export const getStoreCurrency = () => storeCurrency;
 
-// خانات العملة الصغرى من Intl (ISO 4217) — لا جدول عملات مكتوب هنا.
+// خانات العملة الصغرى.
+//
+// **قيمة الخادم أوّلاً، وIntl احتياطاً.** الخادم يُرسل `locale.currencyDecimals` (من
+// `CurrencyInfo.MinorUnits`، وهي المرجع الذي يُقرَّب به كل مبلغ في النظام) — وكان هذا الحقل
+// يُرسَل ويُختبَر **ولا يقرأه أحد**: الواجهة تشتقّ الخانات من جدول ISO في متصفّح الزائر.
+// الجدولان يتّفقان اليوم، وهذا بالضبط ما يجعل الاختلاف خطيراً حين يقع: متصفّح قديم أو عملة
+// تغيّرت خاناتها تجعل الزبون يقرأ مبلغاً بدقّة تخالف ما حسبه الخادم، بلا خطأ في أي مكان.
+// حقلٌ مشحون لا يقرأه أحد ليس توثيقاً زائداً، بل انحرافٌ ينتظر (M19).
 export function currencyDecimals(currency) {
+  const code = typeof currency === 'string' ? currency.toUpperCase() : '';
+  if (storeCurrencyDecimals !== null && code === storeCurrency) return storeCurrencyDecimals;
   try {
     return new Intl.NumberFormat('en', { style: 'currency', currency }).resolvedOptions().maximumFractionDigits;
   } catch {

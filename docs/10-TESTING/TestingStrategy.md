@@ -126,6 +126,38 @@ Honest list; each is a candidate for [TechnicalDebt.md](../12-ROADMAP/TechnicalD
 | Partial frontend component tests | Guards, the error boundary, the account shell, the order screens and checkout's money barriers are covered; form-level interaction and most admin screens are not |
 | Stripe and the email providers have no adapter tests | Their behaviour is proven only through the fake gateway and the capturing sender |
 | `MigrationRehearsalTests` is one large test | A failure cannot be bisected to a phase |
-| No load or performance test | Scaling decisions have no baseline ([ScalingStrategy.md](../09-OPERATIONS/ScalingStrategy.md)) |
-| No outbox purge / lease-expiry / concurrent-dispatcher test | The recovery paths of the outbox are unproven |
+| No load test **in any pipeline** | `scripts/load-test.py` exists and is run by hand, and M16 added read-path and best-selling query budgets plus a first-load bundle budget enforced in CI. Absolute figures still come from an emulated, memory-capped stack ([ScalingStrategy.md](../09-OPERATIONS/ScalingStrategy.md)) |
+| ~~No outbox purge / lease-expiry / concurrent-dispatcher test~~ | **Closed in M14** (TD-34): all three exist in `NotificationTests`, and each was proven to fail against deliberately broken code. `OutboxDispatcherService` itself is still untested |
 | Some commands have no validator, and some rules exist in only one layer | See the gaps section of [BusinessRules.md](../01-REQUIREMENTS/BusinessRules.md) |
+
+
+## 6. What the coverage audit found (M19)
+
+M19 read **all 229 rules** in [BusinessRules.md](../01-REQUIREMENTS/BusinessRules.md) against the *bodies* of the
+tests they name, rather than trusting the Tests column — the exercise `ProductRoadmap.md` Phase 19 asks for with
+"coverage of critical behavior is documented".
+
+**The headline is not the ratio.** Every Arabic test method name cited in the rule tables exists: the documents
+are not inventing tests. But a rule row commonly states three to six claims while the test it names asserts one
+or two, so roughly **two rules in five name a test that does not assert everything the rule says**, and about two
+dozen name no test at all — they cite a class, or nothing. Three rules had no test of any kind.
+
+**Nothing catches this.** `DocumentationTests`'s identifier check uses an ASCII-only pattern, so it cannot see an
+Arabic method name; it verifies that PascalCase symbols exist somewhere, never that a named test is in the named
+suite, still less that it asserts the rule. That is TD-58, and it is the reason five gaps closed in M9–M16 were
+still written as open in `Traceability.md` until M19 rewrote it.
+
+**What was fixed rather than filed**, because the audit produced evidence and not just a list:
+
+- the merchant dashboard rounded average order value to **two decimals in code**, so every three-decimal store
+  (the Jordanian dinar, among others) was shown an average that does not exist in its own currency, and a
+  zero-decimal store was shown cents. It now rounds by `CurrencyInfo.MinorUnits`, the same rule `Money` applies
+  to every other amount, with a theory over JOD and JPY that fails against the old behaviour;
+- the storefront derived currency decimals from the **browser's** ISO table while the server was sending
+  `locale.currencyDecimals` and nobody read it. The server's value now wins for the store's own currency.
+
+**What was filed, with today's evidence:** TD-58 (nothing validates a rule's named test), TD-59 (four shipped
+capability areas have no rule ids at all — search, search analytics, reporting, observability), TD-60 (no rate
+limit is asserted, and the integration suite disables all four), TD-61 (an archived store's endpoints are
+asserted nowhere), TD-62 (an undecryptable store payment secret failing loudly is untested), TD-63 (numeric
+security policies are asserted through their own constants, so loosening one is a green build).

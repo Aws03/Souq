@@ -24,20 +24,28 @@
 
 ### Running the Playwright journeys
 
-`frontend/e2e/` holds 83 journeys in 10 files. They drive a real browser against a real stack, so they need one running:
+`frontend/e2e/` holds **124 journeys in 19 files** (the live count is generated into [TestInventory.md](../10-TESTING/TestInventory.md); this line said 83 in 10 until M19 checked it). They drive a real browser against a real stack, so they need one running:
 
 1. **SQL Server reachable from the host on `localhost,1433`.** The `docker compose` stack does **not** serve this: its `db` service publishes no port, so a locally run API cannot reach it. Use a SQL Server of your own with a published port, as in [DevelopmentGuide.md](DevelopmentGuide.md) §1.
 2. **The API in Development**, with its output written to a file: `dotnet run --project src/Souq.API --urls http://localhost:5200 > /tmp/souq-api.log 2>&1`. Port 5200 is what `launchSettings.json` and the Vite proxy expect. Development seeds the demo default store and the development accounts — admin@souq.com / Admin@123 (store admin) and owner@souq.com / Owner@12345 (platform owner) — which the journeys sign in with.
 3. **Vite**: `cd frontend && npm run dev` on port 5173. It proxies `/api` and `/uploads` with the Host header unchanged, which is what makes `http://localhost:5173` the default store, `http://{slug}.localhost:5173` another store and `http://admin.localhost:5173` the platform.
-4. **Run one file at a time, about a minute apart:** `npx playwright test e2e/storefront.spec.js`. Sign-in is rate-limited to 10 requests a minute per host and client address (`RateLimiting:Auth:PermitLimit`), and a full run in one go trips it.
+4. **Run one file at a time, about a minute apart:** `npx playwright test e2e/storefront.spec.js`. Sign-in is rate-limited to 10 requests a minute per host and client address (`RateLimiting:Auth:PermitLimit`), and a full run in one go trips it — unless the stack raises the limit for QA, which is what M19's full-suite runs did.
+5. **Run serially (`--workers=1`) for a full-suite pass.** M19 measured it: with two workers, five journeys fail that pass alone, because parallel specs mutate the same catalogue and compete for a memory-capped database. Those are not product defects and chasing them as such wastes a day.
 
 What else the files need:
 
 | Need | Files |
 |---|---|
-| `SOUQ_API_LOG` pointing at the API's log file, so the journey can follow the invitation link the development email adapter writes there. Without it those journeys are skipped, not passed | `frontend/e2e/platform-provisioning.spec.js`, `frontend/e2e/back-office.spec.js` |
-| A second store on `second.localhost`, named "Second Store", pricing in USD, with exactly three products whose slugs begin `second-widget`. Nothing in the repository creates it — provision it once through the platform console | `frontend/e2e/second-tenant.spec.js` |
+| `SOUQ_API_LOG` pointing at the API's log file, so the journey can follow the invitation link the development email adapter writes there. Without it those journeys are skipped, not passed. **Two conditions are easy to miss, and M19 hit both.** The link is written *only* in Development (`ConsoleEmailService.IncludeLinksInLog`): outside it the log says an email "was not sent" with a masked recipient, on purpose, so a secret link never reaches a production log. And **only one API instance may be running against the database** — the outbox is leased, so a container API and a local one will share the messages and the invitation can be dispatched into the *other* instance's log. It is not lost; it is elsewhere | `frontend/e2e/platform-provisioning.spec.js`, `frontend/e2e/back-office.spec.js` |
+| A second store on `second.localhost`, named "Second Store", pricing in USD, with three products whose slugs begin `second-widget`. **`scripts/qa-second-store.py` creates it** — idempotently, through the real API including the invitation flow. It used to say "nothing in the repository creates it", and the consequence was exactly what that implies: M19's first full-suite run failed all six of these journeys on a machine where nobody had done the manual step | `frontend/e2e/second-tenant.spec.js` |
 | The `phone` project (Pixel 7). Every other file runs in the `desktop` project; `playwright.config.js` routes them automatically | `frontend/e2e/responsive.spec.js` |
+
+**Three journeys need a Development API, and that is the product being correct, not a gap.** `platform-provisioning.spec.js`,
+`second-tenant.spec.js` and `back-office.spec.js`'s platform-accounts section depend on two Development-only behaviours:
+`{slug}.localhost` host resolution (in Production a store is reached through a registered, verified domain — see
+`TenantResolutionMiddleware.AllowDevelopmentResolution`) and the logged invitation link above. Run them against
+`http://localhost:5173` with the API in Development; run everything else against whichever stack you are certifying.
+M19 did exactly that, and the split is why its full-suite pass is reported as two runs rather than one.
 
 **What a run leaves behind.** The journeys create data with unique names and do not reset the database: `qa-…` stores (archived by the provisioning journey itself, and archiving cannot be undone), `QA …` categories and products (a category the journey deletes, a product it archives), customers on `@souq.test` addresses, and invited QA platform administrators that end up **disabled — platform accounts cannot be deleted**, so they accumulate. Run against a development database, never a shared or production one.
 

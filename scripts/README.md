@@ -15,6 +15,7 @@ runbook and the recorded drill: **[docs/09-OPERATIONS/BackupAndRestore.md](../do
 | `verify-least-privilege.sh` | Measures what the application actually needs from SQL Server, and proves the runtime identity is restricted | **Yes** — throwaway infrastructure only |
 | `deploy.sh` | Puts a **named version** on an environment, waits for `/health/ready`, and rolls back — automatically when the schema did not move, and deliberately **not** when it did | **No** — it deploys, migrates and restarts a real stack |
 | `ci-local.sh` | Runs CI's fast job on **Linux** in a container, against exactly what CI would check out | **Yes** — a throwaway export and a container |
+| `qa-second-store.py` | Provisions the "second store" fixture the cross-store browser journeys need — idempotently, through the real API including the invitation flow | **No** — it creates a store, an administrator and products |
 | `sql/least-privilege-logins.sql` | Creates the runtime and migration identities (run once, by an admin) | Run deliberately, against the target server |
 | `load-test.py` | Measures p50/p95/p99 and error rate per route against a running stack, and fails on a missed target. Python standard library only, so it needs no install — a tool that must be installed first is a tool that is not run (M16) | **No** — it generates load; run it against staging |
 | `lib.sh` | Shared helpers; not run directly | — |

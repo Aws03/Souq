@@ -55,7 +55,11 @@ let storeId;
 
 // التنبيهات والأدراج تظهر بحركة: فحص التباين في منتصفها يقيس لوناً ممزوجاً بالشفافية لا يراه أحد.
 const axe = async (target) => {
-  await target.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished.catch(() => null))));
+// حركةٌ لا تنتهي لا يُنتظَر انتهاؤها — وإلّا عُلِّق الانتظار إلى أن تنفد المهلة. شريط الإعلان
+// يمرّ إلى الأبد على كل صفحة متجر، والهيكل يلمع، والدوّار يدور: ثلاثتها `iterations: Infinity`.
+  await target.evaluate(() => Promise.all(document.getAnimations()
+    .filter((a) => a.effect?.getTiming?.().iterations !== Infinity)
+    .map((a) => a.finished.catch(() => null))));
   await target.addScriptTag({ content: axeSource });
   return target.evaluate(async () =>
     // @ts-ignore — axe يُحقن في الصفحة

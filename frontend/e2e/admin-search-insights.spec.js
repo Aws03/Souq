@@ -30,7 +30,11 @@ const PRODUCT = `مكنسةفحص${stamp}`;
 
 test.describe.configure({ mode: 'serial' });
 
-const settle = (target) => target.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished.catch(() => null))));
+// حركةٌ لا تنتهي لا يُنتظَر انتهاؤها — وإلّا عُلِّق الانتظار إلى أن تنفد المهلة. شريط الإعلان
+// يمرّ إلى الأبد على كل صفحة متجر، والهيكل يلمع، والدوّار يدور: ثلاثتها `iterations: Infinity`.
+const settle = (target) => target.evaluate(() => Promise.all(document.getAnimations()
+    .filter((a) => a.effect?.getTiming?.().iterations !== Infinity)
+    .map((a) => a.finished.catch(() => null))));
 
 const axe = async (target) => {
   await settle(target);

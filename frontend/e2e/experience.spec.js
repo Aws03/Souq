@@ -116,7 +116,35 @@ test.describe('الاتجاه', () => {
   });
 });
 
+// ============================================================================
+// كشف الافتتاح **اختياريّ للمتجر، وافتراضه "لا"** (openingExperience.js، الشرط الأوّل).
+//
+// وهذه المجموعة كانت تفترض أنّه مُفعَّل ولا تُفعّله: فكان اختبارٌ واحد يفشل على متجرٍ لم يطلبه،
+// و**ثلاثة تمرّ لسببٍ خاطئ** — كلّها تتأكّد من *غيابه* (تقليل الحركة يمنعه، الرابط العميق لا
+// تسبقه ستارة، لا يتكرّر في الجلسة)، والغياب مضمون مجّاناً ما دام مُطفأً. اختبارٌ يمرّ لأنّ
+// الميزة مُعطّلة لا يحرس شيئاً. يُفعَّل هنا للمجموعة ثمّ يُعاد كما كان (M19).
+// ============================================================================
 test.describe('كشف الافتتاح', () => {
+  let restore = null;
+
+  const settings = async (request, token, body) => request.fetch('/api/admin/store/settings', {
+    method: body ? 'PUT' : 'GET',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    ...(body ? { data: body } : {}),
+  });
+
+  test.beforeAll(async ({ request }) => {
+    const token = (await (await request.post('/api/auth/login', { data: ADMIN })).json()).accessToken;
+    const current = await (await settings(request, token)).json();
+    restore = { token, settings: current };
+    const enabled = { ...current, branding: { ...current.branding, opening: { ...current.branding.opening, enabled: true } } };
+    expect((await settings(request, token, enabled)).status()).toBe(204);
+  });
+
+  test.afterAll(async ({ request }) => {
+    if (restore) await settings(request, restore.token, restore.settings);
+  });
+
   test('يظهر لزائر أوّل مرّة ويُزال بعد انتهائه', async ({ browser }) => {
     const context = await browser.newContext();
     const page = await context.newPage();

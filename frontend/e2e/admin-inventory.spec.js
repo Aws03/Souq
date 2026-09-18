@@ -30,7 +30,11 @@ const stamp = Date.now().toString(36);
 
 test.describe.configure({ mode: 'serial' });
 
-const settle = (target) => target.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished.catch(() => null))));
+// حركةٌ لا تنتهي لا يُنتظَر انتهاؤها — وإلّا عُلِّق الانتظار إلى أن تنفد المهلة. شريط الإعلان
+// يمرّ إلى الأبد على كل صفحة متجر، والهيكل يلمع، والدوّار يدور: ثلاثتها `iterations: Infinity`.
+const settle = (target) => target.evaluate(() => Promise.all(document.getAnimations()
+    .filter((a) => a.effect?.getTiming?.().iterations !== Infinity)
+    .map((a) => a.finished.catch(() => null))));
 
 // الصفحة تمرّر بسلاسة، وقائمة إجراءات الصفّ تُغلق عند أيّ تمرير (موضعها fixed): فيُكمَل التمرير أوّلاً ثم
 // يُنقَر — كما يفعل المستخدم، لا نقراً في منتصف حركةٍ تُغلق القائمة التي فتحها. هذا TD-43 بعينه وعلاجُه

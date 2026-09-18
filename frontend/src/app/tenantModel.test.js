@@ -27,6 +27,20 @@ const storeB = {
 };
 
 describe('tenant runtime', () => {
+  // الخادم هو المرجع لخانات عملة المتجر، لا جدول ISO في متصفّح الزائر: الحقل يُشحن ويُقرأ
+  // الآن بعد أن كان يُشحن ويُهمَل. والاحتياط يبقى لعملة ليست عملة المتجر (M19).
+  it('خانات عملة المتجر تُؤخذ من الخادم، وIntl يبقى احتياطاً', async () => {
+    const { setStoreCurrency, currencyDecimals: decimals } = await import('./tenantModel');
+
+    setStoreCurrency('JOD', 4);                 // قيمة مخالفة عمداً لجدول ISO (3)
+    expect(decimals('JOD')).toBe(4);
+    expect(decimals('USD')).toBe(2);            // ليست عملة المتجر ⇒ من Intl
+
+    setStoreCurrency('JOD');                    // بلا قيمة من الخادم ⇒ الاحتياط
+    expect(decimals('JOD')).toBe(3);
+    setStoreCurrency('');
+  });
+
   it('derives different semantic tokens and fonts from each store', () => {
     const a = themeVariables(storeA.settings.branding);
     const b = themeVariables(storeB.settings.branding);

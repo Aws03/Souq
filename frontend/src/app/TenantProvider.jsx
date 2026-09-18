@@ -32,7 +32,7 @@ export function TenantProvider({ children }) {
       .then((config) => {
         if (!active) return;
         // قبل أول رسم: عملة الأسعار بلا عملة صريحة، وموضع التاريخ ومنطقته، ولغة يفعّلها المتجر.
-        setStoreCurrency(config.settings?.locale?.currency);
+        setStoreCurrency(config.settings?.locale?.currency, config.settings?.locale?.currencyDecimals);
         setStoreDateSettings({
           culture: config.settings?.locale?.defaultCulture,
           timeZone: config.settings?.locale?.timeZone,

@@ -238,7 +238,7 @@ export default function ProductDetail() {
             </Button>
           </div>
           {/* سبب تعطيل الزرّ مكتوب لا مُستنتَج: أيّ خيار بقي، أو أن التركيبة المختارة لا تُباع. */}
-          {blockedMessage && <p className={styles.variantHint} role="status">{blockedMessage}</p>}
+          {blockedMessage && <p className={styles.variantHint} role="status" data-testid="variant-hint">{blockedMessage}</p>}
         </div>
       </div>
 

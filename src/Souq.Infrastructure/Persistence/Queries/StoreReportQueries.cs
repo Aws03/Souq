@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Souq.Application.Common.Tenancy;
 using Souq.Application.Features.Reporting;
 using Souq.Domain.Enums;
+using Souq.Domain.ValueObjects;
 
 namespace Souq.Infrastructure.Persistence.Queries;
 
@@ -41,8 +42,8 @@ internal sealed class StoreReportQueries : IStoreReports
     {
         var currency = _tenant.RequireTenant().Currency;
 
-        var current = await TotalsAsync(window.From, window.To, ct);
-        var previous = await TotalsAsync(window.PreviousFrom, window.From, ct);
+        var current = await TotalsAsync(window.From, window.To, currency, ct);
+        var previous = await TotalsAsync(window.PreviousFrom, window.From, currency, ct);
 
         return new StoreDashboardDto(
             Range: range.ToString(),
@@ -68,7 +69,7 @@ internal sealed class StoreReportQueries : IStoreReports
             .Where(o => o.PlacedAt != null && o.PlacedAt >= from && o.PlacedAt < to
                         && CountedStatuses.Contains(o.Status));
 
-    private async Task<PeriodTotalsDto> TotalsAsync(DateTime from, DateTime to, CancellationToken ct)
+    private async Task<PeriodTotalsDto> TotalsAsync(DateTime from, DateTime to, string currency, CancellationToken ct)
     {
         var counted = CountedOrders(from, to);
 
@@ -94,7 +95,12 @@ internal sealed class StoreReportQueries : IStoreReports
             Refunds: refunds,
             NetRevenue: revenue - refunds,
             Orders: orders,
-            AverageOrderValue: orders == 0 ? 0m : decimal.Round(revenue / orders, 2),
+            // بخانات عملة المتجر لا بخانتين ثابتتين: متجرٌ بالدينار (ثلاث خانات) كان متوسّطه يُقصّ
+            // إلى قرشين فيعرض مبلغاً لا يوجد بعملته، ومتجرٌ بالين (بلا خانات) يعرض كسوراً لا معنى لها.
+            // القاعدة نفسها التي يطبّقها `Money` على كل مبلغ آخر في النظام (CurrencyInfo.MinorUnits).
+            AverageOrderValue: orders == 0
+                ? 0m
+                : decimal.Round(revenue / orders, CurrencyInfo.MinorUnits(currency), MidpointRounding.AwayFromZero),
             NewCustomers: newCustomers);
     }
 

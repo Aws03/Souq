@@ -2295,7 +2295,90 @@ repository.
 - **Technical debt touched.** TD-32, TD-43, TD-44 (or explicit today-dated re-filing for any not closed).
 - **Acceptance criteria.** `ProductRoadmap.md` Phase 19's exit criterion verbatim: "Test suites are ready for CI,
   and coverage of critical behavior is documented" — with the documentation actually produced, not asserted.
-- **Completion evidence.** *(fill in on close)*
+- **Completion evidence.**
+  - **The coverage audit was done by reading test bodies, not Tests columns.** All **229 rules** in
+    `BusinessRules.md` were audited against the suites. Every Arabic test method name the rule tables cite
+    **exists** — the documents are not inventing tests. But roughly **two rules in five name a test that asserts
+    only part of what the rule states**, about two dozen name no test at all (a class, or nothing), and three
+    have no test of any kind. That is the honest headline, and it is invisible to every existing check:
+    `DocumentationTests`'s identifier pattern is ASCII-only, so it **cannot see an Arabic method name** — it has
+    never verified that a cited test exists in the cited suite, let alone that it asserts the rule (TD-58).
+  - **`Traceability.md` was rewritten, not patched, because it was wrong in both directions.** Verified one by
+    one: three rows named **files** where the legend promises **classes** (`ProductHandlersTests.cs` holds four
+    classes, none of them so named); **five recorded gaps had already been closed** — TD-03 in M9, TD-34 in M14,
+    the non-active-store sweeps in M5, the password policy in M9, the query budget in M16 — so the page
+    over-reported open risk while under-reporting the tests that closed it; two rows contradicted the rows
+    directly beneath them (V2 and V3 shipped); "two permissions unused" was one. It now carries a dated
+    **last-verified** line, and new sections for the five capability areas that had shipped since M8 with **no
+    row at all**: catalog search, search analytics, reporting, operability/observability, and deployment.
+  - **Two real defects were found by the audit and fixed, not filed:**
+    - **The merchant dashboard rounded money to the wrong precision.** `AverageOrderValue` was
+      `decimal.Round(…, 2)` in code, so every three-decimal store — the Jordanian dinar, which is this
+      repository's own default — was shown an average that cannot exist in its currency, and a zero-decimal
+      store was shown cents. It now rounds by `CurrencyInfo.MinorUnits`, the same rule `Money` applies to every
+      other amount. A theory over JOD and JPY proves it: against the old code both returned `33.33`; they now
+      return `33.333` and `33`.
+    - **The storefront ignored the currency precision the server sends it.** `locale.currencyDecimals` is
+      produced from `CurrencyInfo.MinorUnits`, asserted in tests, and was read by nobody: the SPA derived
+      decimals from the *browser's* ISO table. They agree today, which is exactly what makes a divergence
+      dangerous — an old browser or a changed currency would show a shopper a precision the server did not
+      compute, with nothing failing anywhere.
+  - **TD-32 closed.** The three forms it named — address, profile, review — now have screen tests asserting what
+    only a screen can: what reaches the server versus what is in form state, which field an error attaches to,
+    and whether a rejection loses what the customer typed.
+  - **Writing those tests surfaced a third defect, in a component both forms share.** `StarRating`'s display mode
+    rendered five *disabled buttons* inside a `span` carrying an `aria-label` — a label on a roleless element is
+    ignored, so a screen reader announced five disabled buttons on every product card and every review row and
+    never said the rating. Its interactive mode declared `role="radiogroup"` over plain buttons with no
+    `role="radio"` and no `aria-checked`: a group where nothing announces which option is chosen, and which does
+    not answer the arrow keys its own role promises. Both fixed; **axe in jsdom flags neither**, which is worth
+    recording about rule-based sweeps.
+  - **TD-43 closed, and its diagnosis corrected.** It read "without a product defect" and prescribed a test-side
+    fix; M18 measured a real keyboard-accessibility defect instead. **TD-44 re-filed** with today's evidence
+    rather than closed: `GuardConcurrentEdit` only marks the root `Modified`, no product DTO exposes a version
+    at all, so the remedy is a contract addition across read model, form and handler — and this phase does not
+    touch the merchant options form, which is the plan's own condition.
+  - **The full browser suite was run, and it was not green the first time.** First pass: **97 passed, 12 failed**.
+    Serial re-run: **103 passed, 10 failed**. The difference is the answer to five of them — with two workers,
+    parallel specs mutate the same catalogue and compete for a memory-capped database. That is now written into
+    `DeveloperQualityGates.md` rather than rediscovered.
+  - **Each remaining failure was taken to its cause. None was a flake:**
+    - `settle()` — shared by six specs — awaited **every** animation including `iterations: Infinity`. The
+      announcement bar scrolls forever on every storefront page, so it could never resolve there: a 60-second
+      timeout presented as a test failure. Fixed in all six; the Arabic/RTL/dark journey it blocked now runs in
+      7 seconds.
+    - `getByRole('status')` matched **two** elements — the variant hint and the search announcer that has been
+      in the DOM since M3. The hint got a stable hook; the assertion now targets what it means.
+    - A journey navigated away while an add-to-basket was still in flight, cancelling it, so one of two basket
+      lines silently never arrived. It now waits for the server to confirm each add.
+    - The opening-reveal journey asserted a feature that is **store-opt-in and off by default**, so it could
+      never pass — and its three siblings, which assert *absence*, were passing vacuously. The spec now enables
+      the setting and restores it afterwards. **Four tests became meaningful; one stopped being a false failure.**
+    - `storefront.spec.js` took the *first* product and pressed "Increase quantity", which is **correctly
+      disabled** when that product's stock is 1. It now picks a product that can hold two, and says so when none
+      can.
+  - **Three journey groups need a Development API, and that is the product being correct.** `{slug}.localhost`
+    resolution is Development-only because in Production a store is reached through a registered, verified
+    domain; and invitation links are logged only in Development, because a production log must not carry a secret
+    link. Run separately against a Development stack, **all three groups pass**: platform provisioning 9/9,
+    back-office including the platform-accounts section, and second-tenant 6/6.
+  - **TD-56 and TD-57 closed by fixing them.** `second-tenant.spec.js` no longer hardcodes a port, and the
+    fixture it needs — which `DeveloperQualityGates.md` described and then said "nothing in the repository
+    creates it" — is now `scripts/qa-second-store.py`: idempotent, through the real API, invitation flow
+    included. The consequence of that sentence was measurable: all six of those journeys failed on this machine
+    because nobody had done the manual step.
+  - **Six findings filed with today's evidence** rather than hand-waved: TD-58 (nothing validates a rule's named
+    test), TD-59 (four shipped capability areas have no rule ids), TD-60 (no rate limit is asserted anywhere, and
+    `SouqApiFactory` disables all four for the whole suite), TD-61 (an archived store's endpoints are asserted
+    nowhere — only suspension is), TD-62 (an undecryptable store payment secret failing loudly is untested;
+    `PaymentGatewayUnavailableException` has **zero** test references), TD-63 (numeric security policies are
+    asserted through their own constants, so `MaxFailedLogins = 500` is a green build).
+  - **Suites at close:** 524 Domain, 427 Application, 100 architecture, INTEG_COUNT integration, 698 frontend
+    unit across 90 files; lint clean, type-check clean, build clean.
+  - **Acceptance criterion, honestly split.** "Test suites are ready for CI" is true of the code — the build is
+    warning-free and 1,400+ tests discover and run — and **unproven of the pipeline**, which has not executed
+    since before M13 for billing reasons (TD-31). "Coverage of critical behavior is documented" is now actually
+    produced: the audit above, `TestingStrategy.md` §6, and a rewritten `Traceability.md`.
 - **Next-phase trigger.** M20 may start once this phase's full journey run is green on one commit with a clean
   tree.
 

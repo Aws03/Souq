@@ -65,6 +65,44 @@ public class StoreDashboardTests
         pending.OrdersByStatus["Pending"].Should().Be(before.OrdersByStatus["Pending"] + 1);
     }
 
+    // ============================================================================
+    // متوسّط قيمة الطلب بخانات **عملة المتجر** (M19).
+    //
+    // كان مقرَّباً إلى خانتين ثابتتين في الشيفرة. فمتجرٌ بالدينار (ثلاث خانات) يرى متوسّطاً مقصوصاً
+    // إلى قرشين — رقمُ مالٍ لا يوجد بعملته — ومتجرٌ بالين (بلا خانات) يرى كسوراً لا معنى لها.
+    // والقاعدة موجودة في المجال أصلاً ويطبّقها `Money` على كل مبلغ آخر: `CurrencyInfo.MinorUnits`.
+    //
+    // ثلاثة طلبات بإجمالي 100 تُنتج متوسّطاً دورياً (33.333…)، وهو ما يكشف الفرق: الخانتان
+    // الثابتتان تعطيان 33.33 في الحالتين، والصواب 33.333 بالدينار و33 بالين.
+    // ============================================================================
+    [Theory]
+    [InlineData("JOD", 33.333)]    // ثلاث خانات
+    [InlineData("JPY", 33)]        // بلا خانات
+    public async Task متوسّط_قيمة_الطلب_يُقرَّب_بخانات_عملة_المتجر(string currency, decimal expected)
+    {
+        var store = await _factory.CreateStoreAsync(currency: currency);
+        var api = _api.ForStore(store);
+        var admin = await api.AdminAsync();
+        var productId = await api.CreateProductAsync(admin, price: 25m, stock: 100);
+
+        foreach (var quantity in new[] { 1, 1, 2 })        // 25 + 25 + 50 = 100 على ثلاثة طلبات
+        {
+            var (customer, _) = await api.NewCustomerAsync();
+            var created = await api.PlaceOrderAsync(customer, productId, quantity);
+            created.StatusCode.Should().Be(HttpStatusCode.Created);
+            var orderId = (await created.Content.ReadFromJsonAsync<Dictionary<string, object>>(TestApi.Json))!["orderId"].ToString();
+            (await customer.PostAsync($"/api/orders/{orderId}/confirm-payment", null))
+                .StatusCode.Should().Be(HttpStatusCode.OK);
+        }
+
+        var dashboard = await ReadAsync(admin);
+
+        dashboard.Current.Orders.Should().Be(3);
+        dashboard.Current.Revenue.Should().Be(100m);
+        dashboard.Current.AverageOrderValue.Should().Be(expected,
+            "المتوسّط يُعرض بعملة المتجر، فيُقرَّب بخاناتها لا بخانتين مفترضتين");
+    }
+
     [Fact]
     public async Task الإيراد_ومتوسّط_قيمة_الطلب_من_الطلبات_المدفوعة_وحدها()
     {

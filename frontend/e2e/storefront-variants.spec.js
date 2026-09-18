@@ -28,7 +28,11 @@ const shots = process.env.QA_SHOTS ?? 'test-results';
 
 test.describe.configure({ mode: 'serial' });
 
-const settle = (target) => target.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished.catch(() => null))));
+// حركةٌ لا تنتهي لا يُنتظَر انتهاؤها — وإلّا عُلِّق الانتظار إلى أن تنفد المهلة. شريط الإعلان
+// يمرّ إلى الأبد على كل صفحة متجر، والهيكل يلمع، والدوّار يدور: ثلاثتها `iterations: Infinity`.
+const settle = (target) => target.evaluate(() => Promise.all(document.getAnimations()
+    .filter((a) => a.effect?.getTiming?.().iterations !== Infinity)
+    .map((a) => a.finished.catch(() => null))));
 
 const axe = async (target) => {
   await settle(target);
@@ -141,7 +145,7 @@ test.describe('اختيار المتغيّر في المتجر', () => {
     await expect(chip('L')).toBeVisible();
     await expect(page.getByRole('radio', { name: /^M/ })).toHaveCount(0);
     await expect(buyButton()).toBeDisabled();
-    await expect(page.getByRole('status')).toContainText('Choose');
+    await expect(page.getByTestId('variant-hint')).toContainText('Choose');
 
     await chip('S').click();
     await expect(chip('Blue')).toBeDisabled();            // S / أزرق نفد
@@ -173,10 +177,15 @@ test.describe('اختيار المتغيّر في المتجر', () => {
     await page.getByRole('button', { name: /sign in|دخول/i }).click();
     await page.waitForURL((url) => !url.pathname.includes('/login'), { timeout: 45_000 });
 
+    // الانتظار حتى **يؤكّد الخادم** كل إضافة قبل المغادرة: `goto` بعد النقر مباشرةً يُلغي الطلب
+    // الجاري، فيصل سطرٌ واحد ويبدو الثاني كأنّه لم يُضَف قط. شارة السلّة هي تأكيد الخادم لا تفاؤل الواجهة.
+    const cartBadge = page.getByRole('button', { name: /view cart/i });
     await page.goto(`/products/${productId}?variant=${variants.largeRed}`);
     await buyButton().click();
+    await expect(cartBadge).toContainText('1');
     await page.goto(`/products/${productId}?variant=${variants.smallRed}`);
     await buyButton().click();
+    await expect(cartBadge).toContainText('2');
 
     await page.goto('/cart');
     // سطران لمنتج واحد بوصفيهما بلغة الواجهة (الخادم يرسل الوصف بكل لغات المنتج)، وكلٌّ بسعر متغيّره.
@@ -250,7 +259,7 @@ test.describe('اختيار المتغيّر في المتجر', () => {
     await page.goto(`/products/${productId}`);
     await expect(buyButton()).toBeDisabled();
     await expect(chip('S')).toBeDisabled();
-    await expect(page.getByRole('status')).toHaveCount(0);
+    await expect(page.getByTestId('variant-hint')).toHaveCount(0);
 
     await page.goto(`/?cats=${await categoryOf(page, productId)}`);
     await expect(page.locator('article', { hasText: productName })).toContainText('Out of stock');

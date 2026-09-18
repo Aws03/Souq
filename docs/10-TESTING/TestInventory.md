@@ -10,8 +10,8 @@
 | [`Souq.Domain.Tests`](#souqdomaintests) | 29 | 227 | 47 |
 | [`Souq.Application.Tests`](#souqapplicationtests) | 48 | 356 | 18 |
 | [`Souq.ArchitectureTests`](#souqarchitecturetests) | 16 | 67 | 7 |
-| [`Souq.IntegrationTests`](#souqintegrationtests) | 52 | 325 | 25 |
-| [frontend (Vitest)](#frontend-vitest) | 90 | 693 | — |
+| [`Souq.IntegrationTests`](#souqintegrationtests) | 52 | 325 | 26 |
+| [frontend (Vitest)](#frontend-vitest) | 90 | 694 | — |
 | [frontend (Playwright)](#frontend-playwright) | 19 | 124 | — |
 
 ## Souq.Domain.Tests
@@ -170,7 +170,7 @@
 | `tests/Souq.IntegrationTests/StartupAndSecurityTests.cs` | `StartupAndSecurityTests`, `LoggerAdapter` | 7 | 1 |
 | `tests/Souq.IntegrationTests/StoreAdministrationTests.cs` | `StoreAdministrationTests` | 7 | 0 |
 | `tests/Souq.IntegrationTests/StoreBrandingPersistenceTests.cs` | `StoreBrandingPersistenceTests` | 4 | 0 |
-| `tests/Souq.IntegrationTests/StoreDashboardTests.cs` | `StoreDashboardTests` | 13 | 0 |
+| `tests/Souq.IntegrationTests/StoreDashboardTests.cs` | `StoreDashboardTests` | 13 | 1 |
 | `tests/Souq.IntegrationTests/StorefrontVariantTests.cs` | `StorefrontVariantTests` | 7 | 0 |
 | `tests/Souq.IntegrationTests/StripeAmountConverterTests.cs` | `StripeAmountConverterTests` | 2 | 2 |
 | `tests/Souq.IntegrationTests/TenantIsolationTests.cs` | `TenantIsolationTests` | 13 | 0 |
@@ -193,7 +193,7 @@
 | `frontend/src/app/pageMetadata.test.js` | 11 |
 | `frontend/src/app/robots.test.js` | 5 |
 | `frontend/src/app/structuredData.test.js` | 8 |
-| `frontend/src/app/tenantModel.test.js` | 7 |
+| `frontend/src/app/tenantModel.test.js` | 8 |
 | `frontend/src/app/tenantModel.themes.test.js` | 20 |
 | `frontend/src/app/themeMode.test.js` | 9 |
 | `frontend/src/components/ProtectedRoute.test.jsx` | 11 |

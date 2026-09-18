@@ -182,9 +182,13 @@ public class QueryServiceTests
                 .StatusCode.Should().Be(HttpStatusCode.Created);
         }
 
-        var before = ExecutedCommands();
-        var reviews = await _api.Anonymous().GetFromJsonAsync<ReviewsBody>($"/api/products/{productId}/reviews?pageSize=10", TestApi.Json);
-        var commands = ExecutedCommands() - before;
+        // يُقاس مرّتان ويُؤخذ الأصغر — نفس ما فعلته `ReadPathQueryBudgetTests` في M16، ولنفس السبب:
+        // العدّاد يسمع كل أمر SQL في المضيف، ومنها ما تُصدره الخدمات الخلفية (كاتب سجلّ البحث،
+        // مُرسِل الصادر). قياسٌ واحد يمرّ منفرداً ويسقط داخل مجموعةٍ طويلة — وهو أسوأ شكل للفشل،
+        // لأنّه يبدو عشوائياً فيُعاد تشغيله بدل أن يُفهم. سقط هنا فعلاً في مشوار M19 الكامل.
+        var (reviews, first) = await MeasureReviewsAsync(productId);
+        var (_, second) = await MeasureReviewsAsync(productId);
+        var commands = Math.Min(first, second);
 
         reviews!.TotalCount.Should().Be(3);
         reviews.AverageRating.Should().Be(4);
@@ -228,6 +232,15 @@ public class QueryServiceTests
     }
 
     private int ExecutedCommands() => _factory.Logs.Messages.Count(m => m.StartsWith("Executed DbCommand", StringComparison.Ordinal));
+
+    // قياسٌ واحد لصفحة التقييمات: الجسم وعدد الأوامر التي كلّفها.
+    private async Task<(ReviewsBody? Body, int Commands)> MeasureReviewsAsync(int productId)
+    {
+        var before = ExecutedCommands();
+        var body = await _api.Anonymous()
+            .GetFromJsonAsync<ReviewsBody>($"/api/products/{productId}/reviews?pageSize=10", TestApi.Json);
+        return (body, ExecutedCommands() - before);
+    }
 
     private sealed record OrderSummaryBody(int Id, decimal TotalAmount, string Currency, int ItemCount);
     private sealed record MovementBody(string Type, int QuantityChange);
