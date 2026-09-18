@@ -301,6 +301,50 @@ public class ProductOptionAdminTests
     // ── أدوات ──
 
     // منتج بسعر 10 وخيار "المقاس"، ومتغيّره القائم على القيمة الأولى.
+    [Fact]
+    public async Task لقطة_المخزون_في_اللوحة_تَعُدّ_صفوف_المتغيّرات_لا_المنتجات()
+    {
+        // ============================================================================
+        // ما غيّره V3 بلا أن يلاحظه اختبار (يُثبَّت في M12). `StoreReportQueries` تَعُدّ صفوف
+        // `InventoryItems`، وصار الصفّ **متغيّراً** لا منتجاً — فمنتجٌ واحد بثلاثة متغيّرات نافدة
+        // يُسهم بثلاثة في "النافد" لا بواحد. ولا شيء كان يوكّد الوحدة، فبقيت الشاشتان تقولان
+        // "منتجات" حتى صُحّحت نصوصهما في M12 (شاشة الجرد كانت قد صُحّحت في V2 ونُسيت اللوحتان).
+        //
+        // ويُختبَر هنا لا في StoreDashboardTests لأنّ تجهيز الخيارات والمتغيّرات يعيش هنا: نسخُ خمس
+        // دوالّ مساعدة إلى ملفّ آخر ثمنٌ أعلى من وضع التوكيد حيث تُبنى بياناته.
+        // ============================================================================
+        var admin = await _api.AdminAsync();
+        var before = await DashboardInventoryAsync(admin);
+
+        // منتج واحد، ثلاثة مقاسات: واحد نافد، واحد عند حدّه، وواحد وفير.
+        var (productId, product) = await SizedProductAsync(admin, ["S", "M", "L"], stock: 0);
+        // المتغيّر القائم صار "S" بمخزونه صفراً (نافد). ويُضاف مقاسان بمخزونهما.
+        await CreateVariantsOkAsync(admin, productId,
+            new { optionValueIds = new[] { ValueId(product, "المقاس", "M") }, price = 10m, initialStock = 5, lowStockThreshold = 5 },
+            new { optionValueIds = new[] { ValueId(product, "المقاس", "L") }, price = 10m, initialStock = 100 });
+
+        var after = await DashboardInventoryAsync(admin);
+
+        (after.OutOfStock - before.OutOfStock).Should().Be(1, "المتغيّر النافد صفٌّ واحد في اللقطة");
+        (after.Low - before.Low).Should().Be(1, "والمتغيّر عند حدّه صفٌّ آخر");
+        (after.Healthy - before.Healthy).Should().Be(1, "والوفير ثالث");
+
+        // وهذا هو بيت القصيد: **منتج واحد** أضاف **ثلاثة** صفوف. لو كانت الوحدة منتجاً لأضاف واحداً.
+        ((after.OutOfStock + after.Low + after.Healthy) - (before.OutOfStock + before.Low + before.Healthy))
+            .Should().Be(3, "منتج واحد بثلاثة متغيّرات ⇒ ثلاثة صفوف مخزون، لا منتج واحد");
+    }
+
+    private static async Task<(int Healthy, int Low, int OutOfStock)> DashboardInventoryAsync(HttpClient admin)
+    {
+        using var response = await admin.GetAsync("/api/admin/reports/dashboard?range=Last30Days");
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        using var json = System.Text.Json.JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        var inventory = json.RootElement.GetProperty("inventory");
+        return (inventory.GetProperty("healthy").GetInt32(),
+                inventory.GetProperty("low").GetInt32(),
+                inventory.GetProperty("outOfStock").GetInt32());
+    }
+
     private async Task<(int ProductId, AdminProductBody Product)> SizedProductAsync(HttpClient admin, string[] sizes, int stock = 5)
     {
         var productId = await _api.CreateProductAsync(admin, price: 10m, stock: stock);

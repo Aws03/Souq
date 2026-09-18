@@ -96,6 +96,99 @@ public class StoreDashboardTests
     }
 
     [Fact]
+    public async Task متوسّط_قيمة_الطلب_من_الإيراد_قبل_الاسترداد_لا_من_صافيه()
+    {
+        // ============================================================================
+        // الفرق يظهر **فقط** مع وجود استرداد، والاختبار الذي يقيس المتوسّط أعلاه استردادُه صفر — فلم
+        // يكن شيء يفرّق الإجمالي من الصافي (M12). والتمييز مهمّ للتاجر لا للكود: اللوحة تعرض "صافي
+        // الإيراد" وحده، فإن كان المتوسّط من الإجمالي فإنّ `المتوسّط × الطلبات` لا يساوي أيّ رقم على
+        // الشاشة. هذا ما يقوله تلميح المتوسّط الآن بعد أن كان يقول "الإيراد" مجرَّداً.
+        // ============================================================================
+        var store = await _factory.CreateStoreAsync();
+        var api = _api.ForStore(store);
+        var admin = await api.AdminAsync();
+        var productId = await api.CreateProductAsync(admin, price: 50m, stock: 100);
+
+        var (customer, _) = await api.NewCustomerAsync();
+        var created = await api.PlaceOrderAsync(customer, productId, 2);   // 100
+        created.StatusCode.Should().Be(HttpStatusCode.Created);
+        var orderId = (await created.Content.ReadFromJsonAsync<Dictionary<string, object>>(TestApi.Json))!["orderId"].ToString();
+        (await customer.PostAsync($"/api/orders/{orderId}/confirm-payment", null))
+            .StatusCode.Should().Be(HttpStatusCode.OK);
+
+        (await admin.PostAsJsonAsync($"/api/orders/{orderId}/refunds", new { amount = 30m }))
+            .StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var dashboard = await ReadAsync(admin);
+
+        dashboard.Current.Orders.Should().Be(1);
+        dashboard.Current.Revenue.Should().Be(100m, "الإجمالي لا ينقص بالاسترداد");
+        dashboard.Current.Refunds.Should().Be(30m, "الاسترداد يُنسب إلى مدّة الطلب لا مدّة الاسترداد");
+        dashboard.Current.NetRevenue.Should().Be(70m);
+        dashboard.Current.AverageOrderValue.Should().Be(100m, "المتوسّط من الإجمالي: 100 ÷ 1");
+
+        // وهذا هو الفرق الذي يجب أن يبقى مقصوداً: حاصل الضرب لا يساوي الصافي المعروض.
+        (dashboard.Current.AverageOrderValue * dashboard.Current.Orders)
+            .Should().NotBe(dashboard.Current.NetRevenue,
+                "مع استرداد، المتوسّط × الطلبات ≠ صافي الإيراد — والتلميح يقول ذلك صراحةً الآن");
+    }
+
+    [Fact]
+    public async Task العملاء_الجدد_لا_يشملون_من_مُحي_حسابه_فقد_ينقص_رقم_مدّة_ماضية()
+    {
+        // ============================================================================
+        // `newCustomers` يستثني `ErasedAt != null`، فحسابٌ أُنشئ في المدّة ثم مُحي يخرج من العدّ —
+        // أي أنّ رقم **مدّة ماضية** ينقص بعد أن قُرئ. هذا سلوك مقصود (حقّ الحذف يعني ألّا يبقى أثر
+        // يُعَدّ)، ولم يكن مذكوراً في تلميح اللوحة ولا مُثبَّتاً باختبار (M12).
+        // ============================================================================
+        var store = await _factory.CreateStoreAsync();
+        var api = _api.ForStore(store);
+        var admin = await api.AdminAsync();
+
+        var before = (await ReadAsync(admin)).Current.NewCustomers;
+        var (customer, _) = await api.NewCustomerAsync();
+        (await ReadAsync(admin)).Current.NewCustomers.Should().Be(before + 1, "حساب جديد يُعَدّ");
+
+        (await customer.PostAsJsonAsync("/api/account/erase", new { password = "Customer-Pass-1" }))
+            .StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        (await ReadAsync(admin)).Current.NewCustomers.Should().Be(before,
+            "ومن مُحي حسابه يخرج من العدّ — فرقم المدّة نفسها صار أقلّ");
+    }
+
+    [Fact]
+    public async Task صحّة_المخزون_ثلاث_سلال_وحدّها_الأدنى_داخل_المنخفض_لا_النافد()
+    {
+        // ============================================================================
+        // لقطة المخزون لم يكن يمسّها **أيّ** اختبار قبل M12: التوكيد الوحيد كان `(0,0,0)` على متجر
+        // فارغ، فلا شيء يفرّق "منخفض" من "نافد" ولا يثبّت الحدّ. وهي بالضبط السلّة التي غيّرها V3
+        // (صار الصفّ متغيّراً لا منتجاً)، فمرّ التغيير بلا أن يلاحظه اختبار.
+        //
+        // والحدّ مقصود: المتاح المساوي لحدّ التنبيه **منخفض** لا نافد (نافد = متاح ≤ صفر). وهذا يختلف
+        // عمّا تعرضه شاشة الجرد، التي تَعُدّ النافد داخل المنخفض — فرقٌ حقيقيّ بين شاشتين، مُسجَّل الآن
+        // في Dashboards.md بعد أن كانت تقول "نفس تعريف وحدة المخزون".
+        // ============================================================================
+        var store = await _factory.CreateStoreAsync();
+        var api = _api.ForStore(store);
+        var admin = await api.AdminAsync();
+
+        var out0 = await api.CreateProductAsync(admin, price: 10m, stock: 0);     // نافد
+        var atThreshold = await api.CreateProductAsync(admin, price: 10m, stock: 5);   // الحدّ الافتراضي 5 ⇒ منخفض
+        var healthy = await api.CreateProductAsync(admin, price: 10m, stock: 100);     // وفير
+
+        var dashboard = await ReadAsync(admin);
+
+        dashboard.Inventory.OutOfStock.Should().Be(1, "المتاح صفر وحده نافد");
+        dashboard.Inventory.Low.Should().Be(1, "المتاح المساوي للحدّ منخفض، ولا يُحتسب نافداً");
+        dashboard.Inventory.Healthy.Should().Be(1, "الوفير = الكلّ − المنخفض − النافد");
+        (out0, atThreshold, healthy).Should().NotBe((0, 0, 0), "المنتجات أُنشئت فعلاً");
+
+        // والتنبيهان يحملان رقمَيهما: تنبيه بلا عدد لا يُعرض (dashboardView).
+        dashboard.Inventory.Low.Should().BePositive();
+        dashboard.Inventory.OutOfStock.Should().BePositive();
+    }
+
+    [Fact]
     public async Task أداء_الفئات_يعرض_اسمها_المترجم_لا_معرّفها_في_الرابط()
     {
         // كانت اللوحة تعرض Slug الفئة ("home") — معرّف داخلي لا اسم، ويُقرأ كخللٍ في تقرير
