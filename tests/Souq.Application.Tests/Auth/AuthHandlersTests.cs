@@ -239,13 +239,39 @@ public class RefreshSessionHandlerTests
     [Fact]
     public async Task الرمز_نفسه_خلال_ثوانٍ_سباق_تبويبات_لا_سرقة()
     {
-        var (_, token, raw) = Arrange();
+        var (user, token, raw) = Arrange();
         token.MarkUsed(_rig.Clock.UtcNow);
+        // سباقٌ بريء يعني أنّ تدوير التبويب الأول **نجح**، فالعائلة تحمل خليفةً فعّالاً. كان هذا الشرط
+        // مضمَراً في التجهيز (قائمة فارغة) وصار صريحاً في M9: هو بعينه ما يفرّق السباق عن جلسةٍ أُبطلت.
+        var successor = RefreshToken.Issue(user, token.FamilyId, _rig.Clock.UtcNow, TimeSpan.FromDays(30)).Token;
+        _rig.Tokens.ListActiveInFamilyAsync(token.FamilyId, Arg.Any<CancellationToken>())
+            .Returns(new List<RefreshToken> { successor });
         _rig.Clock.Advance(TimeSpan.FromSeconds(5));
 
         var result = await Handler().Handle(new RefreshSessionCommand(raw), CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
+        token.RevokedAt.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task رمز_مستهلَك_داخل_المهلة_وعائلته_أُبطلت_لا_يُحيي_الجلسة_ولا_يُعَدّ_سرقة()
+    {
+        // الثقب الذي أُغلق في M9: تغيير كلمة المرور يُبطل الرموز **غير المستهلكة** وحدها، فرمزٌ دوّره
+        // جهازٌ آخر قبل ثوانٍ كان يمرّ من هذا الفرع ويصنع جلسة صالحة تماماً. الشرط الآن أن تكون العائلة
+        // حيّة — ولا هي حيّة بعد إبطالٍ صريح.
+        var (user, token, raw) = Arrange();
+        token.MarkUsed(_rig.Clock.UtcNow);
+        _rig.Clock.Advance(TimeSpan.FromSeconds(5));
+        // لا خليفة فعّال: هكذا تبدو العائلة بعد RevokeAllAsync (التجهيز يعيد قائمة فارغة أصلاً).
+        var stamp = user.SecurityStamp;
+
+        var result = await Handler().Handle(new RefreshSessionCommand(raw), CancellationToken.None);
+
+        result.ErrorCode.Should().Be("InvalidRefreshToken", "الجلسة أُنهيت — لا إحياء");
+        _rig.Issued.Should().BeEmpty("ولا جلسة جديدة تُصدر");
+        // وليست سرقةً: لو دُوِّر الختم لطُرد صاحبُ تغيير كلمة المرور من جلسته الجديدة بتبويبٍ على جهاز أخرجه.
+        user.SecurityStamp.Should().Be(stamp);
         token.RevokedAt.Should().BeNull();
     }
 

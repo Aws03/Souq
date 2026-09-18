@@ -109,6 +109,54 @@ public class AuthSessionTests
     }
 
     [Fact]
+    public async Task تغيير_كلمة_المرور_يقتل_رمز_تجديد_جهاز_آخر_ولو_كان_مستهلَكاً_داخل_مهلة_السباق()
+    {
+        // ============================================================================
+        // الهجوم الذي يجعل تغيير كلمة المرور بلا معنى، وهو ما لم يكن يغطّيه اختبار (M9):
+        // الاختبار أعلاه يتحقّق من **توكنات الوصول** وحدها (/auth/me)، ولا يقدّم رمز تجديد جهازٍ آخر
+        // إلى /auth/refresh إطلاقاً. والفرق ليس شكلياً:
+        //
+        //   `RevokeAllAsync` يمرّ على `ListActiveForUserAsync`، ومرشّحها `RevokedAt == null &&
+        //   UsedAt == null` — فالرمز الذي **استُهلك للتوّ** بالتدوير لا يُبطَل. و`IsWithinReuseGrace`
+        //   لا يشترط إلا `RevokedAt is null`، ويُفحص **قبل** فرع كشف إعادة الاستخدام. فمن يحمل ملفّ
+        //   تعريف ارتباط جهازٍ دوّره قبل ثوانٍ يستطيع، خلال عشر ثوان من تغيير كلمة المرور، أن يصنع
+        //   جلسة جديدة صالحة تماماً — بالختم الجديد.
+        //
+        // وعشر ثوان ليست نافذة ضيّقة لمن يعرفها: مهاجم يدوّر رمزه كل خمس ثوان يبقى داخلاً بعد أيّ
+        // تغيير لكلمة المرور. والمهلة نفسها وُضعت لسباق تبويبات بريء، ولا يصحّ أن تُعمّر إبطالاً صريحاً.
+        // ============================================================================
+        var (deviceA, email) = await _api.NewCustomerAsync();
+
+        var deviceB = _api.SecureClient();
+        var loginB = await deviceB.PostAsJsonAsync("/api/auth/login", new { email, password = Password });
+        var usedByB = RefreshValue(SetCookie(loginB));
+        var rotatedB = await deviceB.PostAsync("/api/auth/refresh", null);
+        rotatedB.StatusCode.Should().Be(HttpStatusCode.OK);
+        var activeForB = RefreshValue(SetCookie(rotatedB));
+        activeForB.Should().NotBe(usedByB, "التدوير يستبدل الرمز — وإلا لم يكن هذا هو السباق المقصود");
+
+        // المالك يغيّر كلمة مروره من جهازه. بلا انتظار: الرمز المستهلك ما زال داخل مهلة السباق.
+        var change = await deviceA.PostAsJsonAsync("/api/auth/change-password",
+            new { currentPassword = Password, newPassword = "Changed-Pass-3" });
+        change.StatusCode.Should().Be(HttpStatusCode.OK, await change.Content.ReadAsStringAsync());
+
+        // الرمز غير المستهلك يسقط (كان يسقط أصلاً) — والمستهلك يجب أن يسقط معه.
+        (await RefreshWith(activeForB)).StatusCode.Should().Be(HttpStatusCode.Unauthorized,
+            "الرمز الفعّال للجهاز الآخر أُبطل بتغيير كلمة المرور");
+
+        var graceReplay = await RefreshWith(usedByB);
+        graceReplay.StatusCode.Should().Be(HttpStatusCode.Unauthorized,
+            "رمز مستهلَك داخل مهلة السباق لا يُحيي جلسةً أُبطلت صراحةً");
+
+        // ولا تُعَدّ سرقةً فتُدوّر الختم: المالك غيّر كلمة مروره قبل ثانية، وجلسته الجديدة يجب أن تبقى.
+        (await ProblemCode(graceReplay)).Should().NotBe("RefreshTokenReused",
+            "تبويب بريء على جهاز خرج لا يجوز أن يُطرد به صاحبُ التغيير نفسه من جلسته الجديدة");
+        var fresh = (await change.Content.ReadFromJsonAsync<TestApi.AuthBody>(TestApi.Json))!.AccessToken;
+        (await _api.Authorized(fresh).GetAsync("/api/auth/me")).StatusCode.Should().Be(HttpStatusCode.OK,
+            "جلسة الجهاز الذي غيّر كلمة المرور تبقى");
+    }
+
+    [Fact]
     public async Task خمس_محاولات_فاشلة_تقفل_الحساب_حتى_بالكلمة_الصحيحة()
     {
         var (_, email) = await _api.NewCustomerAsync();
