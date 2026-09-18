@@ -34,7 +34,7 @@ phase_status: done
 next_phase: done        # terminal. M2 stays blocked on TD-42; what else remains is the owner's — §5 and OwnerDecisions.md
 blocked_decisions: ["TD-42", "GitHub Actions billing"]   # see §5 and OwnerDecisions.md; the billing block stops CI running at all
 last_verified_date: 2026-09-18
-last_verified_head: M20HEAD     # M20 closed: the gate was run not read; backups restored onto clean infrastructure; the checklist is not signed off, and says why
+last_verified_head: f3548ee         # M20 closed: the gate was run not read; backups restored onto clean infrastructure; the checklist is not signed off, and says why
 baseline_branch: phase/17-production-hardening
 ```
 
