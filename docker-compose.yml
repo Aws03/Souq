@@ -19,9 +19,18 @@ services:
     healthcheck:
       test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -C -Q 'SELECT 1' || exit 1"]
       interval: 10s
-      timeout: 5s
+      # المهلة 10s لا 5s: `sqlcmd` نفسه قِيس عند 8.9s على مضيف يُحاكي x86 (صورة SQL Server
+      # لا تصدر إلا linux/amd64، فتعمل تحت Rosetta على أجهزة Apple Silicon) — فكان الفحص
+      # يفشل بانتهاء مهلته لا بكون القاعدة ساقطة.
+      timeout: 10s
       retries: 10
-      start_period: 25s
+      # 180s لا 25s: أوّل إقلاع تحت المحاكاة قِيس عند ~5 دقائق حتى يقبل المحرّك اتصالاً
+      # (استرجاع master ثمّ تهيئة TLS وQuery Store). بـ 25s كانت نافذة الإقلاع تنتهي قبل أن
+      # يبدأ المحرّك أصلاً، فتُستهلك المحاولات العشر ويُعلَن غير سليم — و`depends_on:
+      # service_healthy` يُسقط الحزمة كلها: `docker compose up` الموثّق لا ينجح إطلاقاً على
+      # جهاز كهذا. الإخفاق داخل نافذة الإقلاع لا يُحتسب ولا يُعلن اعتلالاً، وأوّل نجاح ينهيها
+      # فوراً — فالرقم الكبير لا يُبطئ مضيفاً سريعاً، إنّما يمنع حكماً مبكّراً على مضيف بطيء.
+      start_period: 180s
 
   api:
     # الصورة موسومة بنسخة (M18): `docker compose build` يسِمها بهذا الاسم، و`scripts/deploy.sh`

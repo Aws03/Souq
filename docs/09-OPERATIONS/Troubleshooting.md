@@ -424,3 +424,53 @@ docker compose logs api | tail -50
 that restores the old behaviour where nginx starts first and answers the first visitor with `502`, and it hides
 a real failure rather than fixing it. Do not "fix" a stale schema by pointing the API at a different database.
 
+
+## 21. `docker compose up` aborts with `dependency failed to start: container … db-1 is unhealthy`
+
+**Symptom.** The documented bring-up never reaches the API at all:
+
+```text
+ Container souq-db-1  Waiting
+ Container souq-db-1  Error dependency db failed to start
+dependency failed to start: container souq-db-1 is unhealthy
+```
+
+`docker compose ps` shows only `db`, as `Up (unhealthy)`. Nothing else was created, so there is no API log to read.
+
+**Confirm it before changing anything.** The container is *running*; ask whether the engine is listening yet:
+
+```bash
+docker inspect --format '{{json .State.Health}}' souq-db-1 | python3 -m json.tool | head -20
+docker exec souq-db-1 tail -20 /var/opt/mssql/log/errorlog
+```
+
+Two answers distinguish the two causes. `Health.Log` entries reading `Health check exceeded timeout` mean the
+probe was cut off, not that the engine refused — and an `errorlog` that is still emitting startup lines
+(`Installing Client TLS certificates`, `Query Store settings initialized`) means it had simply not finished.
+
+**Likely cause: the engine is slower than the probe's patience.** Microsoft publishes the SQL Server image for
+`linux/amd64` only, so on an Apple Silicon host it runs emulated. Measured on this repository's stack: a cold
+start took about **five minutes** to accept the first connection, and `sqlcmd` itself needed **8.9 s** merely to
+fail — longer than the probe's own timeout, so every attempt was recorded as a failure regardless of the engine.
+A memory cap tight enough to slow recovery has the same effect. Because `api` and `web` both wait on
+`condition: service_healthy`, one impatient probe takes down the whole bring-up.
+
+**Safe fix.** Give the probe a start window that matches the slowest host you support, not the fastest. This is
+what `docker-compose.yml` now carries — `start_period: 180s` and `timeout: 10s`. Neither costs a fast host
+anything: failures inside the start period are not counted and do not mark the container unhealthy, and the
+first success ends the window immediately. If your host is slower still, raise `start_period` further —
+**not** `retries`, which only lengthens the failing tail after the window closes.
+
+**Recovering the run you already have.** The database keeps starting after compose gives up, so you do not need
+to rebuild. Wait for it and bring the rest up:
+
+```bash
+until docker exec souq-db-1 /opt/mssql-tools18/bin/sqlcmd \
+        -S localhost -U sa -P "$DB_SA_PASSWORD" -C -Q 'SELECT 1' >/dev/null 2>&1; do sleep 10; done
+docker compose up -d
+```
+
+**Not this.** Do not delete the `healthcheck` or drop `depends_on: condition: service_healthy` — that is §20's
+warning in another costume: the API would start against a database that is not accepting connections and fail
+its own migrations. Do not raise the memory cap past what the host can spare either; on a machine already
+running someone else's containers that trades this failure for a container killed for memory instead (§1).
