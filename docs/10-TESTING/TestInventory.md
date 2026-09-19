@@ -10,9 +10,9 @@
 | [`Souq.Domain.Tests`](#souqdomaintests) | 29 | 227 | 47 |
 | [`Souq.Application.Tests`](#souqapplicationtests) | 48 | 356 | 18 |
 | [`Souq.ArchitectureTests`](#souqarchitecturetests) | 16 | 67 | 7 |
-| [`Souq.IntegrationTests`](#souqintegrationtests) | 52 | 325 | 26 |
-| [frontend (Vitest)](#frontend-vitest) | 90 | 695 | — |
-| [frontend (Playwright)](#frontend-playwright) | 19 | 124 | — |
+| [`Souq.IntegrationTests`](#souqintegrationtests) | 52 | 326 | 26 |
+| [frontend (Vitest)](#frontend-vitest) | 91 | 698 | — |
+| [frontend (Playwright)](#frontend-playwright) | 19 | 126 | — |
 
 ## Souq.Domain.Tests
 
@@ -150,7 +150,7 @@
 | `tests/Souq.IntegrationTests/MigrationRehearsalTests.cs` | `MigrationRehearsalTests` | 2 | 0 |
 | `tests/Souq.IntegrationTests/MigrationRollbackTests.cs` | `MigrationRollbackTests` | 1 | 0 |
 | `tests/Souq.IntegrationTests/NotificationTests.cs` | `NotificationTests` | 11 | 0 |
-| `tests/Souq.IntegrationTests/ObservabilityTests.cs` | `ObservabilityTests`, `AnonymousCaller` | 13 | 0 |
+| `tests/Souq.IntegrationTests/ObservabilityTests.cs` | `ObservabilityTests`, `AnonymousCaller` | 14 | 0 |
 | `tests/Souq.IntegrationTests/OrderLifecycleTests.cs` | `OrderLifecycleTests` | 6 | 0 |
 | `tests/Souq.IntegrationTests/PaymentAdapterTests.cs` | `SecretProtectorTests`, `FakeGatewayTests` | 6 | 1 |
 | `tests/Souq.IntegrationTests/PaymentDataRulesTests.cs` | `PaymentDataRulesTests` | 2 | 0 |
@@ -199,6 +199,7 @@
 | `frontend/src/components/ProtectedRoute.test.jsx` | 11 |
 | `frontend/src/components/catalog/Catalog.test.jsx` | 7 |
 | `frontend/src/components/common/ConfirmDialog.test.jsx` | 5 |
+| `frontend/src/components/common/DataTable.test.jsx` | 3 |
 | `frontend/src/components/common/Drawer.test.jsx` | 6 |
 | `frontend/src/components/common/ErrorBoundary.test.jsx` | 5 |
 | `frontend/src/components/common/FormField.test.jsx` | 3 |
@@ -292,7 +293,7 @@
 | `frontend/e2e/platform-provisioning.spec.js` | 9 |
 | `frontend/e2e/product-variants.spec.js` | 5 |
 | `frontend/e2e/responsive-storefront.spec.js` | 2 |
-| `frontend/e2e/responsive.spec.js` | 11 |
+| `frontend/e2e/responsive.spec.js` | 13 |
 | `frontend/e2e/search.spec.js` | 8 |
 | `frontend/e2e/second-tenant.spec.js` | 6 |
 | `frontend/e2e/session-tabs.spec.js` | 1 |

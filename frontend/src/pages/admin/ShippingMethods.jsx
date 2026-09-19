@@ -96,7 +96,7 @@ export default function ShippingMethods() {
         <Button variant="primary" onClick={() => setEditing({})}>{t('admin.shipping.add')}</Button>
       </div>
 
-      <DataTable columns={columns} rows={items} rowKey={(m) => m.id} loading={isPending} error={error?.message}
+      <DataTable label={t('admin.shipping.title')} columns={columns} rows={items} rowKey={(m) => m.id} loading={isPending} error={error?.message}
         onRetry={refetch} emptyTitle={t('admin.shipping.emptyTitle')} emptyMessage={t('admin.shipping.emptyMessage')}
         minWidth="820px" stickyFirstColumn />
 

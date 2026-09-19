@@ -93,7 +93,7 @@ export default function Stores() {
         </label>
       </div>
 
-      <DataTable columns={columns} rows={data?.items ?? []} rowKey={(r) => r.id} loading={isPending}
+      <DataTable label={t('platform.stores.title')} columns={columns} rows={data?.items ?? []} rowKey={(r) => r.id} loading={isPending}
         error={error?.message} onRetry={refetch}
         emptyTitle={term || status ? t('platform.stores.noMatchTitle') : t('platform.stores.emptyTitle')}
         emptyMessage={term || status ? t('platform.stores.noMatchMessage') : t('platform.stores.emptyMessage')}

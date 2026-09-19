@@ -134,7 +134,7 @@ export default function ReviewModeration() {
         </select>
       </div>
 
-      <DataTable columns={columns} rows={data?.items ?? []} rowKey={(r) => r.id} loading={isPending}
+      <DataTable label={t('admin.reviews.title')} columns={columns} rows={data?.items ?? []} rowKey={(r) => r.id} loading={isPending}
         error={error?.message} onRetry={refetch} emptyTitle={t('admin.reviews.emptyTitle')} emptyMessage={t('admin.reviews.emptyMessage')}
         minWidth="900px" stickyFirstColumn />
 

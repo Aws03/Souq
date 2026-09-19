@@ -103,7 +103,7 @@ export default function Categories() {
         <Button variant="primary" onClick={() => setEditing({})}>{t('admin.categories.addCategory')}</Button>
       </div>
 
-      <DataTable columns={columns} rows={rows} rowKey={(c) => c.id} loading={isPending} error={error?.message}
+      <DataTable label={t('admin.categories.title')} columns={columns} rows={rows} rowKey={(c) => c.id} loading={isPending} error={error?.message}
         onRetry={refetch} emptyTitle={t('admin.categories.emptyTitle')} emptyMessage={t('admin.categories.emptyMessage')}
         minWidth="640px" stickyFirstColumn />
 

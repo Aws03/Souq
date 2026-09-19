@@ -72,6 +72,15 @@ export default [
       // التسمية الملتفّة حول حقلها (label > input + span) تسمية صحيحة ومستعملة هنا،
       // والقاعدة افتراضياً لا تنظر إلا مباشرةً تحت <label>.
       'jsx-a11y/label-has-associated-control': ['error', { depth: 3 }],
+
+      // منطقة تُمرَّر أفقياً (جدول لوحة الإدارة على الهاتف) **يجب** أن تكون قابلة للتبئير، وإلا
+      // تعذّر تمريرها بلوحة المفاتيح في كروم وسفاري — WCAG 2.1.1، وهو ما تسمّيه axe
+      // scrollable-region-focusable وقِيس فعلاً على /admin/reviews بعرض Pixel 7. القاعدة
+      // افتراضياً تمنع tabIndex على غير التفاعلي، ولها لهذا خيار أدوار: `region` وحده يُستثنى،
+      // باسمٍ إلزامي (aria-label) — لا تعطيلٌ موضعي يُنسخ إلى كل غلافٍ لاحق.
+      'jsx-a11y/no-noninteractive-tabindex': ['error', {
+        tags: [], roles: ['region'], allowExpressionValues: true,
+      }],
       eqeqeq: ['error', 'always', { null: 'ignore' }],  // == null تعني "غائب" عمداً في هذه الشيفرة
       'no-console': ['error', { allow: ['warn', 'error'] }],
     },

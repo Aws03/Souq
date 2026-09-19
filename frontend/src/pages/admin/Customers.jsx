@@ -89,7 +89,7 @@ export default function Customers() {
         </select>
       </div>
 
-      <DataTable columns={columns} rows={data?.items ?? []} rowKey={(c) => c.id} loading={isPending} error={error?.message}
+      <DataTable label={t('admin.customers.title')} columns={columns} rows={data?.items ?? []} rowKey={(c) => c.id} loading={isPending} error={error?.message}
         onRetry={refetch} emptyTitle={t('admin.customers.emptyTitle')} emptyMessage={t('admin.customers.emptyMessage')}
         minWidth="760px" stickyFirstColumn />
 

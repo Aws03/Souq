@@ -13,9 +13,21 @@ import styles from './DataTable.module.css';
  * يعكس نفسه تلقائياً بين RTL/LTR)، truncate (قصّ بنقاط + title عند التمرير —
  * للأعمدة النصّية التي قد تطول، لا لأعمدة تحوي صوراً/شارات/أزرار)، وtooltip(row)
  * لنص title المصاحب. stickyFirstColumn يثبّت أول عمود عند التمرير الأفقي بالجوال.
+ *
+ * `label` إلزامي عملياً: هو اسم المنطقة المُمرَّرة، ويُقرأ على قارئ الشاشة قبل الجدول.
+ *
+ * ── لماذا المنطقة قابلة للتبئير (tabIndex=0) ──
+ * الغلاف يمرّر أفقياً (overflow-x: auto) لأنّ جدول لوحة الإدارة أعرض من شاشة الهاتف.
+ * ومنطقةٌ تمرّر بلا تبئير لا يصلها من لا يملك فأرة: كروم وسفاري **لا** يمنحان عنصراً
+ * غير قابل للتبئير تمريراً بلوحة المفاتيح (فَيَرفُكس وحده يفعل). فكانت أعمدةُ جداول
+ * كالتقييمات غير قابلة للوصول أصلاً بلوحة المفاتيح على الهاتف — WCAG 2.1.1، وهو ما
+ * تسمّيه axe بـ scrollable-region-focusable.
+ *
+ * ولم يكشفه أحد لأنّ axe كان يُشغَّل بعرض سطح المكتب وحده، حيث لا يفيض الجدول فلا
+ * تمرّر المنطقة أصلاً — فالقاعدة تمرّ بصدق ولا شيء يُقاس. القياس صار بعرض الهاتف.
  */
 export default function DataTable({
-  columns, rows, rowKey, loading, error, onRetry,
+  columns, rows, rowKey, loading, error, onRetry, label,
   emptyTitle, emptyMessage, skeletonRows = 5, minWidth, stickyFirstColumn = false,
 }) {
   const { t } = useTranslation();
@@ -29,7 +41,7 @@ export default function DataTable({
     ].filter(Boolean).join(' ');
 
   return (
-    <div className={styles.wrap}>
+    <div className={styles.wrap} role="region" aria-label={label} tabIndex={0}>
       {/* minWidth قيمة ديناميكية لكل استدعاء (تختلف بعدد أعمدة كل جدول) — لا يوجد
           صنف CSS ثابت ممكن لها، فتبقى style هنا بدل تكرار Module لكل تركيبة. */}
       <table className={styles.table} style={minWidth ? { minWidth } : undefined}>

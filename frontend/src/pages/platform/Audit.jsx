@@ -114,7 +114,7 @@ export default function Audit() {
         </p>
       )}
 
-      <DataTable columns={columns} rows={data?.items ?? []} rowKey={(e) => e.id} loading={isPending}
+      <DataTable label={t('platform.audit.title')} columns={columns} rows={data?.items ?? []} rowKey={(e) => e.id} loading={isPending}
         error={error?.message} onRetry={refetch}
         emptyTitle={filtered ? t('platform.audit.noMatchTitle') : t('platform.audit.emptyTitle')}
         emptyMessage={filtered ? t('platform.audit.noMatchMessage') : t('platform.audit.emptyMessage')}

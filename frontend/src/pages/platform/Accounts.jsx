@@ -132,7 +132,7 @@ export default function Accounts() {
         <Button variant="primary" onClick={() => setInviting(true)}>{t('platform.accounts.invite')}</Button>
       </div>
 
-      <DataTable columns={columns} rows={data?.items ?? []} rowKey={(a) => a.id} loading={isPending}
+      <DataTable label={t('platform.accounts.title')} columns={columns} rows={data?.items ?? []} rowKey={(a) => a.id} loading={isPending}
         error={error?.message} onRetry={refetch} emptyTitle={t('platform.accounts.emptyTitle')}
         emptyMessage={t('platform.accounts.emptyMessage')} minWidth="880px" stickyFirstColumn />
 

@@ -87,7 +87,7 @@ export default function Orders() {
         </select>
       </div>
 
-      <DataTable columns={columns} rows={data?.items ?? []} rowKey={(o) => o.id} loading={isPending}
+      <DataTable label={t('admin.orders.title')} columns={columns} rows={data?.items ?? []} rowKey={(o) => o.id} loading={isPending}
         error={error?.message} onRetry={refetch} emptyTitle={t('admin.orders.emptyTitle')}
         emptyMessage={t('admin.orders.emptyMessage')} minWidth="720px" stickyFirstColumn />
 

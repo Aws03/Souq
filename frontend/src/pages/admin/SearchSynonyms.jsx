@@ -130,7 +130,7 @@ export default function SearchSynonyms() {
             <Button variant="primary" onClick={() => setEditing({})}>{t('admin.searchSynonyms.add')}</Button>
           </div>
 
-          <DataTable columns={columns} rows={items} rowKey={(s) => s.id} loading={isPending} error={error?.message}
+          <DataTable label={t('admin.searchSynonyms.title')} columns={columns} rows={items} rowKey={(s) => s.id} loading={isPending} error={error?.message}
             onRetry={refetch} emptyTitle={t('admin.searchSynonyms.emptyTitle')}
             emptyMessage={t('admin.searchSynonyms.emptyMessage')} minWidth="760px" stickyFirstColumn />
         </TabPanel>

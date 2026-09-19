@@ -1,4 +1,8 @@
+import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { expect, test } from '@playwright/test';
+
+const axeSource = readFileSync(createRequire(import.meta.url).resolve('axe-core/axe.min.js'), 'utf8');
 
 // ============================================================================
 // واجهة الإدارة على هاتف (مشروع `phone`، Pixel 7 ≈ 393px).
@@ -143,6 +147,55 @@ test.describe('لوحة الإدارة على هاتف', () => {
         return found.scrollWidth <= found.clientWidth + 1;
       });
       expect(scrolls, 'جدول أعرض من الشاشة بلا حاوية تمرّره').toBe(true);
+    }
+  });
+
+  // ==========================================================================
+  // حاويةٌ تمرّر لا تكفي: من لا يملك فأرة لا يصلها.
+  //
+  // الاختبار فوق يثبت أنّ الجدول العريض يمرّر داخل حاويته لا داخل الصفحة — وهو الصحيح،
+  // ولكنّه كان يكتفي به. وكروم وسفاري **لا** يمنحان عنصراً غير قابل للتبئير تمريراً
+  // بلوحة المفاتيح (فَيَرفُكس وحده يفعل)، فكانت أعمدةُ جدولٍ عريض غير قابلة للوصول
+  // أصلاً لمن يتنقّل بلوحة المفاتيح. WCAG 2.1.1.
+  //
+  // ولم يُمسك في CI ولا في أي فحص: axe كان يُشغَّل بعرض سطح المكتب وحده، حيث لا يفيض
+  // الجدول فلا تمرّر الحاوية — فتمرّ القاعدة بصدق ولا شيء يُقاس. هذا هو الفحص بعرض الهاتف.
+  // ==========================================================================
+  test('كل حاوية تمرّر جدولاً يصلها من يتنقّل بلوحة المفاتيح', async ({ page }) => {
+    for (const path of ['/admin/orders', '/admin/products', '/admin/staff', '/admin/reviews']) {
+      await page.goto(path);
+      await page.waitForTimeout(2500);
+
+      const unreachable = await page.evaluate(() => {
+        const bad = [];
+        for (const table of document.querySelectorAll('table')) {
+          for (let node = table.parentElement; node && node !== document.body; node = node.parentElement) {
+            const overflowX = getComputedStyle(node).overflowX;
+            if (overflowX !== 'auto' && overflowX !== 'scroll') continue;
+            if (node.scrollWidth <= node.clientWidth + 1) break;   // لا تمرير ⇒ لا مطلب
+            if (node.tabIndex < 0) bad.push(node.className || node.tagName);
+            break;
+          }
+        }
+        return bad;
+      });
+
+      expect(unreachable, `حاوية تمرّر بلا تبئير في ${path}`).toEqual([]);
+    }
+  });
+
+  // axe بعرض الهاتف: القاعدة نفسها التي تمرّ على سطح المكتب قد تسقط هنا، لأنّ ما يقرّرها
+  // هو التخطيط لا الترميز — وهذا بالضبط ما أخفى scrollable-region-focusable حتى M21.
+  test('axe على شاشات الإدارة بعرض الهاتف', async ({ page }) => {
+    for (const path of ['/admin/orders', '/admin/products', '/admin/staff', '/admin/reviews', '/admin/inventory']) {
+      await page.goto(path);
+      await page.waitForTimeout(2500);
+      await page.addScriptTag({ content: axeSource });
+      const violations = await page.evaluate(async () =>
+        // @ts-ignore — axe يُحقن في الصفحة
+        (await window.axe.run(document, { runOnly: ['wcag2a', 'wcag2aa'] })).violations
+          .map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(' ')).slice(0, 3).join(' | ')}`));
+      expect(violations, path).toEqual([]);
     }
   });
 

@@ -117,7 +117,7 @@ export default function Coupons() {
         <Button variant="primary" onClick={() => setEditing({})}>{t('admin.coupons.addCoupon')}</Button>
       </div>
 
-      <DataTable columns={columns} rows={data?.items ?? []} rowKey={(c) => c.id} loading={isPending} error={error?.message}
+      <DataTable label={t('admin.coupons.title')} columns={columns} rows={data?.items ?? []} rowKey={(c) => c.id} loading={isPending} error={error?.message}
         onRetry={refetch} emptyTitle={t('admin.coupons.emptyTitle')} emptyMessage={t('admin.coupons.emptyMessage')}
         minWidth="780px" stickyFirstColumn />
 

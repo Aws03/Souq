@@ -97,7 +97,7 @@ export default function Inventory() {
         </div>
       )}
 
-      <DataTable columns={columns} rows={items} rowKey={(p) => p.variantId} loading={isPending}
+      <DataTable label={t('admin.inventory.title')} columns={columns} rows={items} rowKey={(p) => p.variantId} loading={isPending}
         error={error?.message} onRetry={refetch} emptyTitle={t('admin.inventory.emptyTitle')}
         emptyMessage={t('admin.inventory.emptyMessage')} minWidth="760px" stickyFirstColumn />
 

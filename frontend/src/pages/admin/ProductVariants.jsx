@@ -174,7 +174,7 @@ export default function ProductVariants() {
             <p className={styles.cardHint}>{t('admin.variants.variantsHint')}</p>
           </div>
         </header>
-        <DataTable columns={columns} rows={product.variants} rowKey={(v) => v.id} minWidth="720px" stickyFirstColumn />
+        <DataTable label={t('admin.variants.title')} columns={columns} rows={product.variants} rowKey={(v) => v.id} minWidth="720px" stickyFirstColumn />
       </section>
 
       <CreateVariantsPanel key={`${product.variants.length}-${JSON.stringify(product.options)}`} product={product} lang={lang} onCreated={reload} />

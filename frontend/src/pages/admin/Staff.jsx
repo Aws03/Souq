@@ -134,7 +134,7 @@ export default function Staff() {
         <Button variant="primary" onClick={() => setInviting(true)}>{t('admin.staff.invite')}</Button>
       </div>
 
-      <DataTable columns={columns} rows={data?.items ?? []} rowKey={(a) => a.id} loading={isPending}
+      <DataTable label={t('admin.staff.title')} columns={columns} rows={data?.items ?? []} rowKey={(a) => a.id} loading={isPending}
         error={error?.message} onRetry={refetch} emptyTitle={t('admin.staff.emptyTitle')}
         emptyMessage={t('admin.staff.emptyMessage')} minWidth="860px" stickyFirstColumn />
 

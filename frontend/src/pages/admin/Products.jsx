@@ -163,7 +163,7 @@ export default function Products() {
         <Button variant="primary" onClick={() => setEditing({})}>{t('admin.products.addProduct')}</Button>
       </div>
 
-      <DataTable columns={columns} rows={data?.items ?? []} rowKey={(p) => p.id} loading={isPending}
+      <DataTable label={t('admin.products.title')} columns={columns} rows={data?.items ?? []} rowKey={(p) => p.id} loading={isPending}
         error={error?.message} onRetry={refetch} emptyTitle={t('admin.products.emptyTitle')} emptyMessage={t('admin.products.emptyMessage')}
         minWidth="760px" stickyFirstColumn />
 

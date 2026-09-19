@@ -127,7 +127,7 @@ export default function SearchInsightsPanel({ onAddSynonym }) {
         </label>
       </div>
 
-      <DataTable columns={columns} rows={data?.items ?? []} rowKey={(row) => `${row.culture}:${row.termNormalized}`}
+      <DataTable label={t('admin.searchInsights.tab')} columns={columns} rows={data?.items ?? []} rowKey={(row) => `${row.culture}:${row.termNormalized}`}
         loading={isPending} error={error?.message} onRetry={refetch}
         emptyTitle={t(onlyZeroResults ? 'admin.searchInsights.emptyFailingTitle' : 'admin.searchInsights.emptyTitle')}
         emptyMessage={t(onlyZeroResults ? 'admin.searchInsights.emptyFailingMessage' : 'admin.searchInsights.emptyMessage')}
