@@ -508,18 +508,26 @@ internal sealed class CatalogQueries : ICatalogQueries
     // مفردات المتجر: كلمات أسماء المنتجات المعروضة والفئات المفعَّلة، مع تكرار كل كلمة.
     // التكرار يُستعمل لكسر التعادل: كلمتان على المسافة نفسها ⇒ الأشيع أولى، لأنّها الأرجح أن تكون المقصودة.
     // استعلامان منفصلان لا Union: كلاهما إسقاط عمود واحد، وUnion على تنقّلات متداخلة لا يُترجَم موثوقاً.
+    //
+    // والترتيب قبل السقف ليس زينة: `Take` بلا `ORDER BY` يترك لـ SQL Server أن يعيد **أيّ** خمسة آلاف
+    // اسم، وقد يعيد غيرها في التنفيذ التالي (خطّة مختلفة، توازٍ، ترتيب صفحات). في متجرٍ أسماؤه المختلفة
+    // أكثر من السقف يعني ذلك مفرداتٍ تتبدّل بين طلبٍ وطلب: الخطأ المطبعي نفسه يُسترجَع مرّةً ولا يُسترجَع
+    // أخرى، بلا أن يتغيّر الكتالوج. وهي القاعدة التي يفرضها `QueryableExtensions.ToPageAsync` بالتوقيع
+    // (IOrderedQueryable) — وهذا الموضع الوحيد الذي لا يمرّ به فلا يفرضها عليه نوعٌ، فتُكتب صراحةً.
+    // المطلوب ثباتُ الاختيار لا تفضيلُ حرفٍ على حرف؛ ترتيب الاسم أبسط ثابتٍ متاح. (نبّه عليه EF نفسه:
+    // "row limiting operator without an OrderBy … may lead to unpredictable results".)
     // ============================================================================
     private async Task<Dictionary<string, int>> VocabularyAsync(CancellationToken ct)
     {
         var productNames = await VisibleProducts()
             .SelectMany(p => p.Translations.Select(t => t.NameNormalized))
             .Where(name => name != "")
-            .Distinct().Take(VocabularyNameLimit).ToListAsync(ct);
+            .Distinct().OrderBy(name => name).Take(VocabularyNameLimit).ToListAsync(ct);
 
         var categoryNames = await _db.Categories.AsNoTracking().Where(c => c.IsActive)
             .SelectMany(c => c.Translations.Select(t => t.NameNormalized))
             .Where(name => name != "")
-            .Distinct().Take(VocabularyNameLimit).ToListAsync(ct);
+            .Distinct().OrderBy(name => name).Take(VocabularyNameLimit).ToListAsync(ct);
 
         var vocabulary = new Dictionary<string, int>(StringComparer.Ordinal);
         foreach (var name in productNames.Concat(categoryNames))
