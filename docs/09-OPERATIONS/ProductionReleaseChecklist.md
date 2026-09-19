@@ -239,6 +239,33 @@ about *the repository* is green, and every box that is an assertion about *a dep
 is no deployment. [ReleaseReadiness.md](ReleaseReadiness.md) carries six open items and five of them are in that
 second category.
 
+## What running the application added (2026-09-19)
+
+M20 certified the repository. A later pass did the one thing that certification cannot do — **start the stack and
+use it** — and that changed the picture in two ways worth recording here, without changing the split above.
+
+**It found that the documented bring-up did not work.** `docker compose up` never reached the API on an Apple
+Silicon host: the database healthcheck gave SQL Server 25 seconds to accept a connection and, emulated, it needs
+about five minutes. Every section of this checklist that begins "on the deployed stack" was therefore
+unreachable by anyone following the documentation, and no amount of reading the file would have shown it. This
+is the argument for the section you are reading: a gate that is only read is not a gate.
+
+**What is now verified by use, not only by suites**, at `phase/17-production-hardening`:
+
+- The documented stack starts and serves — storefront on `:8081`, API on `:5201`, platform area on its own host.
+- 31 smoke checks against it, including a real customer registration, basket and order through the proxy.
+- **109 browser journeys pass with none failing** — 96 desktop across 15 files and 13 on a Pixel 7. That is the
+  first clean full pass this repository has had; M19 and M20 both ended with two or three rotating failures.
+  Three further journeys need a Development API by design (`{slug}.localhost` resolution and logged invitation
+  links) and are run separately.
+- Five defects that only a running application shows: the bring-up above; legitimate rejections logged as 500 at
+  Error; client aborts logged as server errors; admin tables unreachable by keyboard on a phone; and a loading
+  table announcing five empty rows as its answer.
+
+**None of this moves the sign-off.** Every item above is still an assertion about *the repository and a local
+stack*. The production-only table and the owner actions are unchanged, and the last paragraph of the previous
+section still stands word for word.
+
 ## Sign-off
 
 A release is ready when every **REQUIRED** box is ticked, every skipped **RECOMMENDED** box has a written reason, and [ReleaseReadiness.md](ReleaseReadiness.md) shows no open P0. Record who signed off and against which commit.

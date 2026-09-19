@@ -40,7 +40,13 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
         // بلا هذا الفحص يسقط الإلغاء على الحالة العامة: سطر ERROR بمكدّسه في السجلّ ومحاولة كتابة 500 على اتصال مغلق —
         // فيغرق معدّل الأخطاء بضجيج يخفي الأعطال الحقيقية. بقية الشيفرة تميّز الإلغاء أصلاً (OutboxProcessor،
         // StoreSweepService، CreateOrderHandler)؛ هذه الطبقة الأبعد وحدها كانت لا تميّزه.
-        if (exception is OperationCanceledException && httpContext.RequestAborted.IsCancellationRequested)
+        // الشرط حالةُ الطلب لا نوعُ الاستثناء: الإلغاء لا يصل دائماً `OperationCanceledException`.
+        // من طبقة القاعدة يصل `InvalidOperationException` يلفّ `SqlException` ("the batch is
+        // aborted … Operation cancelled by user") — قِيس على الحزمة: 45 سطر ERROR بهذا الشكل في
+        // أربع عشرة دقيقة، كلّها زوّارٌ غادروا صفحاتهم. فالسؤال: هل بقي من ينتظر جواباً؟
+        // وثمنُه مقصود: عطلٌ حقيقي يصادف انصراف العميل يُسجَّل انصرافاً — أهونُ من معدّل أخطاءٍ
+        // مصطنع يُخفي الأعطال الحقيقية، ولا مستخدمَ تضرّر ليُحقَّق في أمره.
+        if (httpContext.RequestAborted.IsCancellationRequested)
         {
             _logger.LogInformation("Request aborted by the client: {Method} {Path}",
                 httpContext.Request.Method, SensitivePath.Redact(httpContext));

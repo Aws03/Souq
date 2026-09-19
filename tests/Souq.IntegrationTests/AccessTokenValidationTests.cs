@@ -49,16 +49,34 @@ public class AccessTokenValidationTests
         context.Result?.Succeeded.Should().NotBe(true, "جلسةٌ لم يُتحقَّق ختمها لا تُقبل");
     }
 
-    // الإلغاء الذي **ليس** هجراً من العميل يبقى كما هو: خطأٌ يُرى، لا يُبتلع.
+    // ما لم يصاحبه هجرٌ من العميل يبقى كما هو: خطأٌ يُرى، لا يُبتلع — فالعميل ما يزال ينتظر جواباً.
     [Fact]
-    public async Task إلغاءٌ_لا_يصاحبه_هجر_العميل_يبقى_استثناءً_يُرى()
+    public async Task عطلٌ_والعميل_ما_يزال_منتظراً_يبقى_استثناءً_يُرى()
     {
-        var context = ContextFor(new CancellingSessionValidator(), clientAborted: false);
+        var context = ContextFor(new FailingSessionValidator(), clientAborted: false);
 
         var act = () => AccessTokenValidation.ValidateAsync(context);
 
-        await act.Should().ThrowAsync<OperationCanceledException>(
-            "ابتلاعُ كل إلغاء يُخفي عطلاً حقيقياً في القاعدة خلف صمتٍ تامّ");
+        await act.Should().ThrowAsync<InvalidOperationException>(
+            "ابتلاعُ كل عطل يُخفي عطلاً حقيقياً في القاعدة خلف صمتٍ تامّ");
+    }
+
+    // ========================================================================
+    // الإلغاء لا يصل `OperationCanceledException` من طبقة القاعدة.
+    //
+    // أوّل إصلاح لهذا اصطاد ذلك النوع وحده ولم يُغيّر شيئاً: EF تلفّ الإلغاء في
+    // `InvalidOperationException` فوق `SqlException` ("the batch is aborted … Operation
+    // cancelled by user"). هذا الاختبار يحرس الشرط الصحيح — **حالة الطلب لا نوع الاستثناء**.
+    // ========================================================================
+    [Fact]
+    public async Task الإلغاء_الملفوف_كما_تُخرجه_القاعدة_يُعامَل_هجراً_لا_عطلاً()
+    {
+        var context = ContextFor(new FailingSessionValidator());
+
+        var act = () => AccessTokenValidation.ValidateAsync(context);
+
+        await act.Should().NotThrowAsync();
+        context.Result?.Succeeded.Should().NotBe(true);
     }
 
     private static TokenValidatedContext ContextFor(ISessionValidator validator, bool clientAborted = true)
@@ -97,6 +115,18 @@ public class AccessTokenValidationTests
     {
         public Task<bool> IsCurrentAsync(int userId, string securityStamp, CancellationToken ct) =>
             Task.FromException<bool>(new TaskCanceledException());
+
+        public void Forget(int userId) { }
+    }
+
+    // وكما تُخرجه فعلاً: `InvalidOperationException` تلفّ عطل القاعدة، لا استثناء إلغاء.
+    // النصّ منقول عمّا سُجّل على الحزمة.
+    private sealed class FailingSessionValidator : ISessionValidator
+    {
+        public Task<bool> IsCurrentAsync(int userId, string securityStamp, CancellationToken ct) =>
+            Task.FromException<bool>(new InvalidOperationException(
+                "An exception has been raised that is likely due to a transient failure.",
+                new Exception("The request failed to run because the batch is aborted. Operation cancelled by user.")));
 
         public void Forget(int userId) { }
     }

@@ -35,9 +35,12 @@ public sealed class RequestLoggingMiddleware
         {
             await _next(context);
         }
-        catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested)
+        // الشرط حالةُ الطلب لا نوعُ الاستثناء، كما في `GlobalExceptionHandler` وللسبب نفسه:
+        // الإلغاء يصل من طبقة القاعدة ملفوفاً في `InvalidOperationException`، لا
+        // `OperationCanceledException`. العميل أغلق الاتصال ⇒ 499، وليس خطأ خادم.
+        catch (Exception) when (context.RequestAborted.IsCancellationRequested)
         {
-            statusOverride = ClientClosedRequest;   // العميل أغلق الاتصال — ليس خطأ خادم
+            statusOverride = ClientClosedRequest;
             throw;
         }
         catch (Exception exception)
