@@ -33,10 +33,45 @@ current_phase: M20
 phase_status: done
 next_phase: done        # terminal. M2 stays blocked on TD-42; what else remains is the owner's — §5 and OwnerDecisions.md
 blocked_decisions: ["TD-42", "GitHub Actions billing"]   # see §5 and OwnerDecisions.md; the billing block stops CI running at all
-last_verified_date: 2026-09-18
-last_verified_head: f3548ee         # M20 closed: the gate was run not read; backups restored onto clean infrastructure; the checklist is not signed off, and says why
+last_verified_date: 2026-09-19
+last_verified_head: e276f54         # see "After the plan" below. M20's own closing head was f3548ee
 baseline_branch: phase/17-production-hardening
 ```
+
+### After the plan (2026-09-19)
+
+The twenty phases are closed and **this section is not a twenty-first**. It exists because work continued after
+the contract ended, on the owner's direct instruction — *make the application actually runnable and usable now* —
+and a later session reading only §0 would otherwise not know that the head moved or why.
+
+Nothing here changed the plan's scope or reopened a phase. What it did was **run the thing**, in a browser, on
+the stack this repository documents, and fix what that turned up. Six defects, each measured before it was
+touched:
+
+1. **`docker compose up` did not work at all** on an Apple Silicon host. The database healthcheck's 25 s start
+   window expired while SQL Server — emulated, because Microsoft publishes the image for `linux/amd64` only —
+   was still initialising; `sqlcmd` alone took 8.9 s to fail against a 5 s timeout. Both `api` and `web` wait on
+   `service_healthy`, so nothing started. Troubleshooting §21.
+2. **Every legitimate rejection was logged as a 500 at Error** — 403, 409, 422 alike — because the request log
+   sits inside `UseExceptionHandler` and assumed the outer handler would write 500.
+3. **A visitor leaving a page logged a server error**, from the authentication layer, for the same underlying
+   reason in a different place.
+4. **Admin tables could not be scrolled without a mouse** on a phone (WCAG 2.1.1). axe had only ever run at
+   desktop width, where the table does not overflow and the rule passes honestly while measuring nothing.
+5. **A loading table announced five empty rows as its answer** — no `aria-busy` anywhere on `DataTable`.
+6. **Which words fed typo recovery was left to the database**: `Take` without `ORDER BY` over the store
+   vocabulary, so the same typo could recover once and not the next time.
+
+And **TD-57's open question was answered.** M20 recorded three journeys failing in isolation with the cause "not
+established"; all three causes are now established, reproduced deterministically and fixed — see the row itself.
+The class stays open only for its real remainder: the journeys share one seeded store.
+
+**Verified at `e276f54`:** the documented stack starts and serves (web `:8081`, API `:5201`); smoke test 31/31
+against it; **109 browser journeys pass with none failing** (96 desktop across 15 files, 13 on a Pixel 7), which
+is the first clean full pass this repository has had. Three journeys still need a Development API by design and
+were not part of that run. The launch position in `ProductionReleaseChecklist.md` is unchanged: everything that
+asserts something about *the repository* is green, everything that asserts something about *a deployment* is
+still unmet, because there is still no deployment.
 
 **M1 — done.** Closed TD-04 (payment-account use cases moved from Platform's folder to Payments, reaching the
 platform admin path through a published contract, `IStorePaymentAccountEditor`, rather than a raw class

@@ -185,7 +185,7 @@ test.describe('لوحة الإدارة على هاتف', () => {
   });
 
   // axe بعرض الهاتف: القاعدة نفسها التي تمرّ على سطح المكتب قد تسقط هنا، لأنّ ما يقرّرها
-  // هو التخطيط لا الترميز — وهذا بالضبط ما أخفى scrollable-region-focusable حتى M21.
+  // هو التخطيط لا الترميز — وهذا بالضبط ما أخفى scrollable-region-focusable حتى 2026-09-19.
   test('axe على شاشات الإدارة بعرض الهاتف', async ({ page }) => {
     for (const path of ['/admin/orders', '/admin/products', '/admin/staff', '/admin/reviews', '/admin/inventory']) {
       await page.goto(path);
