@@ -90,6 +90,31 @@ test.describe('خيارات المنتج ومتغيّراته', () => {
     await page?.close();
   });
 
+  // ==========================================================================
+  // الحفظ يُنتظَر **بردّ الخادم**، لا برسالة "تم الحفظ".
+  //
+  // الرسالة إشعارٌ يبقى ثوانيَ ثم يزول، فهي عند الحفظ الثاني قد تكون ما تزال رسالة الحفظ
+  // الأوّل: التأكيد يمرّ فوراً بلا أن يكون الطلب الثاني قد بدأ أصلاً. ثمّ يأتي `page.reload()`
+  // فيُلغي المتصفّح الطلب الطائر، ويعود المنتج بخيارٍ واحد — فتُقرأ الرحلة عطلاً في المنتج
+  // وليس فيه عطل. وهي بطبيعتها متقطّعة: تنجح إن سبق الردُّ الرسالةَ الزائلة، وتسقط إن تأخّر.
+  // (قِيس الاثنان على الحزمة نفسها: مرّةً ظهر "M / Red" بعد الحفظ، ومرّةً عاد "M" بعد إعادة
+  // التحميل، بالشيفرة ذاتها.)
+  //
+  // ويُفحص الردّ لا وصولُه فقط: حفظٌ رفضه الخادم لا يُعدّ حفظاً.
+  // ==========================================================================
+  const saveOptions = async () => {
+    const saved = page.waitForResponse(
+      (r) => /\/api\/admin\/products\/\d+\/options$/.test(r.url()) && r.request().method() === 'PUT');
+    await page.getByRole('button', { name: 'Save options' }).click();
+    const response = await saved;
+    // الرمز لا الجسم: الحفظ الناجح يردّ 204 بلا محتوى، وقراءة جسمه تُخرج خطأ بروتوكول.
+    expect(response.status(), 'رفض الخادم حفظ الخيارات').toBeLessThan(400);
+    // `.first()` لا مطابقةٌ وحيدة: الإشعار يبقى ثوانيَ، فالحفظ الثاني يُظهر إشعارين معاً —
+    // وهو ما أظهره القياس بعد أن صار الانتظار على الردّ، ودليلٌ مباشر على أنّ الإشعار وحده
+    // لم يكن يصلح مزامنةً. المقصود هنا أنّ نجاحاً يُرى، لا عدد ما يُرى منه.
+    await expect(page.getByText('Options saved').first()).toBeVisible();
+  };
+
   const variantRow = (label) => page.locator('table tbody tr').filter({ has: page.getByText(label, { exact: true }) });
   // الصفحة تمرّر بسلاسة (scroll-behavior: smooth)، وقائمة الصفّ تُغلق عند أي تمرير (موضعها fixed): يُكمل التمرير أولاً ثم
   // النقر — كما يفعل المستخدم، لا نقراً في منتصف حركة تُغلق القائمة التي فتحها.
@@ -130,8 +155,7 @@ test.describe('خيارات المنتج ومتغيّراته', () => {
     await page.getByLabel('Value (Arabic) 3').fill('L');
     await page.getByLabel('Existing variants take').selectOption({ label: 'M' });
     await expect(page.getByText('Unsaved changes to the options')).toBeVisible();
-    await page.getByRole('button', { name: 'Save options' }).click();
-    await expect(page.getByText('Options saved')).toBeVisible();
+    await saveOptions();
     await expect(variantRow('M')).toContainText('Default');
 
     // اللون: أحمر/Red وأزرق/Blue — المتغيّر يأخذ Red.
@@ -145,8 +169,7 @@ test.describe('خيارات المنتج ومتغيّراته', () => {
     await colour.getByLabel('Value (Arabic) 2').fill('أزرق');
     await colour.getByLabel('Value (English) 2').fill('Blue');
     await colour.getByLabel('Existing variants take').selectOption({ index: 0 });
-    await page.getByRole('button', { name: 'Save options' }).click();
-    await expect(page.getByText('Options saved')).toBeVisible();
+    await saveOptions();
 
     await page.reload();
     await expect(variantRow('M / Red')).toContainText('Default');

@@ -10,8 +10,8 @@
 | [`Souq.Domain.Tests`](#souqdomaintests) | 29 | 227 | 47 |
 | [`Souq.Application.Tests`](#souqapplicationtests) | 48 | 356 | 18 |
 | [`Souq.ArchitectureTests`](#souqarchitecturetests) | 16 | 67 | 7 |
-| [`Souq.IntegrationTests`](#souqintegrationtests) | 52 | 326 | 26 |
-| [frontend (Vitest)](#frontend-vitest) | 91 | 698 | — |
+| [`Souq.IntegrationTests`](#souqintegrationtests) | 53 | 329 | 26 |
+| [frontend (Vitest)](#frontend-vitest) | 91 | 699 | — |
 | [frontend (Playwright)](#frontend-playwright) | 19 | 126 | — |
 
 ## Souq.Domain.Tests
@@ -126,6 +126,7 @@
 
 | File | Classes | Facts | Theories |
 |---|---|---|---|
+| `tests/Souq.IntegrationTests/AccessTokenValidationTests.cs` | `AccessTokenValidationTests`, `CancellingSessionValidator` | 3 | 0 |
 | `tests/Souq.IntegrationTests/AuditTimestampsTests.cs` | `AuditTimestampsTests`, `SettableClock` | 1 | 0 |
 | `tests/Souq.IntegrationTests/AuthSessionTests.cs` | `AuthSessionTests` | 11 | 1 |
 | `tests/Souq.IntegrationTests/AuthorizationBoundaryTests.cs` | `AuthorizationBoundaryTests` | 9 | 0 |
@@ -199,7 +200,7 @@
 | `frontend/src/components/ProtectedRoute.test.jsx` | 11 |
 | `frontend/src/components/catalog/Catalog.test.jsx` | 7 |
 | `frontend/src/components/common/ConfirmDialog.test.jsx` | 5 |
-| `frontend/src/components/common/DataTable.test.jsx` | 3 |
+| `frontend/src/components/common/DataTable.test.jsx` | 4 |
 | `frontend/src/components/common/Drawer.test.jsx` | 6 |
 | `frontend/src/components/common/ErrorBoundary.test.jsx` | 5 |
 | `frontend/src/components/common/FormField.test.jsx` | 3 |

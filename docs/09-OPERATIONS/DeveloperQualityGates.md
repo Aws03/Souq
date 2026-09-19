@@ -30,7 +30,15 @@
 2. **The API in Development**, with its output written to a file: `dotnet run --project src/Souq.API --urls http://localhost:5200 > /tmp/souq-api.log 2>&1`. Port 5200 is what `launchSettings.json` and the Vite proxy expect. Development seeds the demo default store and the development accounts — admin@souq.com / Admin@123 (store admin) and owner@souq.com / Owner@12345 (platform owner) — which the journeys sign in with.
 3. **Vite**: `cd frontend && npm run dev` on port 5173. It proxies `/api` and `/uploads` with the Host header unchanged, which is what makes `http://localhost:5173` the default store, `http://{slug}.localhost:5173` another store and `http://admin.localhost:5173` the platform.
 4. **Run one file at a time, about a minute apart:** `npx playwright test e2e/storefront.spec.js`. Sign-in is rate-limited to 10 requests a minute per host and client address (`RateLimiting:Auth:PermitLimit`), and a full run in one go trips it — unless the stack raises the limit for QA, which is what M19's full-suite runs did.
-5. **Run serially (`--workers=1`) for a full-suite pass.** M19 measured it: with two workers, five journeys fail that pass alone, because parallel specs mutate the same catalogue and compete for a memory-capped database. Those are not product defects and chasing them as such wastes a day.
+5. **Wait for the right signal, not for something that looks like it.** Three of the "rotating" failures TD-57
+   recorded turned out to be three different versions of this mistake, each deterministic once the store was full
+   enough. A table's loading skeleton **is** five real `<tr>` elements, so waiting for the first row waits for
+   nothing — wait for `[role="region"][aria-busy="false"]`, which `DataTable` now sets. A list that answers a
+   *different* question is not busy, so after changing a filter or a period wait for that request's response, not
+   for the table to go quiet (`keepPreviousData` keeps the old rows on screen, honestly marked not-busy). And a
+   success toast lingers for seconds, so it is still on screen from the *previous* save — never use it to wait for
+   the next one; wait for the write's own response, then assert the toast if you want the message checked.
+6. **Run serially (`--workers=1`) for a full-suite pass.** M19 measured it: with two workers, five journeys fail that pass alone, because parallel specs mutate the same catalogue and compete for a memory-capped database. Those are not product defects and chasing them as such wastes a day.
 
 What else the files need:
 

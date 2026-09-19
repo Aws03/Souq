@@ -70,11 +70,50 @@ test.describe('أثر البحث', () => {
 
   // بعد أن يُضيف التاجر المرادف تخرج الكلمة من قائمة العمل (صارت تجد نتائج)، فما يحتاجه فحصُ العرض
   // بعدها هو شاشةٌ فيها صفوف لا هذه الكلمة بعينها: يُطفأ المرشّح ويُنتظر أيّ صفّ.
+  // الانتظار على **انتهاء** الجدول لا على أوّل صفّ: هيكل التحميل صفوفُ <tr> حقيقية، فانتظارُ
+  // أوّل صفّ يرضى بالهيكل فيُقرأ جدولٌ لم يصل بعد.
+  const settled = () => page.locator('[role="region"][aria-busy="false"]').first()
+    .waitFor({ state: 'attached', timeout: 45_000 });
+
+  // تغييرُ معايير القائمة (المرشّح، الفترة) يُنتظَر **ردّه**، لا هدوء الجدول: طبقة الاستعلام
+  // تُبقي صفوف المعايير السابقة معروضة أثناء الجلب (`keepPreviousData`)، و`aria-busy` يكون
+  // حينها "false" بحقّ — الجدول ليس مشغولاً، إنّما يعرض إجابة سؤالٍ آخر. فقراءةٌ فور النقر
+  // تقرأ القائمة القديمة. (قِيس: الرحلة سقطت هكذا في المحاولة الثانية بعد إصلاح الهيكل وحده.)
+  const listReloaded = (act) => Promise.all([
+    page.waitForResponse((r) => r.url().includes('/admin/search-synonyms/insights') && r.ok()),
+    act(),
+  ]);
+
   const showAllAndWaitForRows = async () => {
     await expect(page.getByRole('tablist')).toBeVisible({ timeout: 30_000 });
     const filter = page.getByRole('checkbox');
-    if (await filter.isChecked()) await filter.uncheck();
+    if (await filter.isChecked()) await listReloaded(() => filter.uncheck());
+    await settled();
     await expect(page.locator('tbody tr').first()).toBeVisible({ timeout: 30_000 });
+  };
+
+  // ==========================================================================
+  // البحث عن كلمةٍ بعينها يتصفّح، لا يفترض الصفحة الأولى.
+  //
+  // القائمة تُرتَّب **بالأكثر بحثاً أوّلاً** (CatalogQueries) — وهو الترتيب الصحيح لتاجرٍ يريد ما
+  // يهمّ زبائنه. وأثرُه هنا أنّ كلمة هذه الرحلة، وقد بُحثت مرّةً أو مرّتين، تغوص كلّما تراكم في
+  // المتجر سجلّ بحثٍ حقيقي. فكانت الرحلة تفترضها في الصفحة الأولى، وهي فرضيّةٌ تصحّ على سجلٍّ
+  // جديد وحده — وعلى سجلٍّ عامر تسقط بلا أيّ عيبٍ في المنتج. والشاشة بلا بحثٍ عن كلمة، وهي
+  // الفجوة نفسها المسجّلة على شاشة الجرد، ولا يُغلقها هذا الطور.
+  // ==========================================================================
+  const findTermRow = async (term) => {
+    const next = page.getByRole('button', { name: /next|التالي/i });
+    for (let pages = 0; pages < 25; pages += 1) {
+      await settled();
+      const found = page.locator('tr', { hasText: term }).first();
+      if (await found.count() > 0) return found;
+      if (await next.count() === 0 || await next.isDisabled()) break;
+      const loaded = page.waitForResponse((r) => r.url().includes('/admin/search-synonyms/insights') && r.ok());
+      await next.click();
+      await loaded;
+      await settled();
+    }
+    throw new Error(`لم تظهر الكلمة "${term}" في أي صفحة من شاشة أثر البحث`);
   };
 
   test.beforeAll(async ({ browser, request }) => {
@@ -187,15 +226,15 @@ test.describe('أثر البحث', () => {
     // كلمةٌ تجد نتائج ليست في القائمة الافتراضية (المرشّح مفعّل) — ومنها MISSED بعد أن أُصلحت.
     await expect(page.locator('tr', { hasText: PRODUCT })).toHaveCount(0);
 
-    await page.getByRole('checkbox').uncheck();
-    const row = page.locator('tr', { hasText: PRODUCT }).first();
+    await listReloaded(() => page.getByRole('checkbox').uncheck());
+    const row = await findTermRow(PRODUCT);
     await expect(row).toBeVisible({ timeout: 20_000 });
     // والحالة الثالثة تُعرض بنغمتها: كلمةٌ لم تفشل ولا مرّة ليست "فشلت صفر مرّة".
     await expect(row).toContainText(/تجد نتائج دائماً|Always finds results/);
 
     // والفترة تعمل: كل بحوث هذه الرحلة جرت الآن، فهي داخل أضيق نافذة.
-    await page.locator('select').first().selectOption('7');
-    await expect(page.locator('tr', { hasText: PRODUCT }).first()).toBeVisible({ timeout: 20_000 });
+    await listReloaded(() => page.locator('select').first().selectOption('7'));
+    await expect(await findTermRow(PRODUCT)).toBeVisible({ timeout: 20_000 });
   });
 
   // ============================================================================

@@ -125,10 +125,18 @@ test.describe('شاشة الجرد', () => {
   // تراكمت في المتجر أصنافٌ نفدت أو أوشكت. فكانت تفترض أنّه في الصفحة الأولى، وهي فرضيّةٌ تصحّ
   // على متجرٍ جديد وحده: سقطت في مشوار M19 الكامل على قاعدةٍ عامرة، لا لعيبٍ في المنتج.
   // فتتصفّح كما يتصفّح التاجر — والشاشة بلا بحث، وهو ما سُجّل بوصفه فجوةً لا يُغلقها هذا الطور.
+  // الانتظار على **انتهاء** الجدول لا على أوّل صفّ: هيكل التحميل صفوفُ <tr> حقيقية، فانتظارُ
+  // أوّل صفّ يرضى بالهيكل. وكان أثرُه بالضبط ما يبدو عطلاً متنقّلاً (TD-57): تُقرأ الصفحةُ وهي
+  // هيكل، فلا يوجد الصفّ، فيُضغط "التالي" وتُتخطّى الصفحة التي كان فيها — ثمّ يُبلَّغ أنّ الصفّ
+  // مفقود من الشاشة كلّها. يظهر على قاعدة عامرة (الصفحة تتأخّر) ويختفي على قاعدة جديدة.
+  const settled = () => page.locator('[role="region"][aria-busy="false"]').first()
+    .waitFor({ state: 'attached', timeout: 45_000 });
+
   const goToRow = async () => {
     await page.goto('/admin/inventory');
     const next = page.getByRole('button', { name: /next|التالي/i });
     for (let pages = 0; pages < 25; pages += 1) {
+      await settled();
       await expect(page.locator('tbody tr').first()).toBeVisible({ timeout: 45_000 });
       if (await row().count() > 0) return;
       if (await next.isDisabled()) break;
@@ -137,6 +145,7 @@ test.describe('شاشة الجرد', () => {
       const loaded = page.waitForResponse((r) => r.url().includes('/api/admin/inventory') && r.ok());
       await next.click();
       await loaded;
+      await settled();
     }
     const seen = await page.locator('tbody tr').count();
     const info = await page.locator('nav, [class*="pager"], [class*="pagination"]').first().innerText().catch(() => '?');
