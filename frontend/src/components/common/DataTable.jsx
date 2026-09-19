@@ -41,7 +41,12 @@ export default function DataTable({
     ].filter(Boolean).join(' ');
 
   return (
-    <div className={styles.wrap} role="region" aria-label={label} tabIndex={0}>
+    // aria-busy أثناء التحميل: هيكلُ التحميل صفوفُ <tr> حقيقية في DOM، لا يميّزها عن صفوف
+    // البيانات شيء. فقارئ الشاشة يعلن خمسة صفوف فارغة كأنّها نتيجة، ومن ينتظر الجدول يظنّه
+    // وصل. وهو ما وقع فعلاً: رحلةُ الجرد كانت تنتظر أوّل <tr> ثمّ تقرأ — فتقرأ الهيكل، ولا
+    // تجد صفّها، فتضغط "التالي" وتتخطّى الصفحة التي كان فيها. والاصطلاح قائم في هذا المستودع
+    // أصلاً (Button، BootScreens، StoreSettingsEditor)؛ هذا الجدول وحده كان يغفله.
+    <div className={styles.wrap} role="region" aria-label={label} aria-busy={Boolean(loading)} tabIndex={0}>
       {/* minWidth قيمة ديناميكية لكل استدعاء (تختلف بعدد أعمدة كل جدول) — لا يوجد
           صنف CSS ثابت ممكن لها، فتبقى style هنا بدل تكرار Module لكل تركيبة. */}
       <table className={styles.table} style={minWidth ? { minWidth } : undefined}>
