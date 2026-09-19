@@ -56,6 +56,41 @@ public class ObservabilityTests
     }
 
     // ========================================================================
+    // الرفض المشروع يُسجَّل برمزه هو، لا 500.
+    //
+    // `UseExceptionHandler` مسجَّل **قبل** طبقة السجلّ (Program.cs)، فالاستثناء يمرّ بها صاعداً
+    // قبل أن يُترجَم. وكانت الطبقة تفترض «الخارجي سيكتب 500» فتسجّل 500 بمستوى Error لكل رفضٍ
+    // مشروع: موظّف متجر يفتح صفحة عميل (403)، ومشترٍ يطلب أكثر من المخزون (422). النتيجة عطلان
+    // في آنٍ: سجلٌّ يناقض ما استلمه العميل، ومعدّل أخطاء مُصطنع يُنذَر عنه فيُخفي الأعطال الحقيقية.
+    // قِيس على حزمة الحاويات قبل الإصلاح: 403 وصل العميل و«500» في السطر بمعرّف الربط نفسه.
+    //
+    // الثابت المحروس هنا: **الرمز المُسجَّل هو الرمز المُرسَل**، ومستوى السطر يتبعه.
+    // ========================================================================
+    [Fact]
+    public async Task رفضٌ_مشروع_يُسجَّل_برمزه_لا_بـ500_ولا_بمستوى_خطأ()
+    {
+        var admin = await _api.AdminAsync();
+
+        // 403: حساب موظّف على نقطة حسابات العملاء (CustomerAccountRequiredException).
+        var forbidden = await admin.GetAsync("/api/account/profile");
+        forbidden.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        var forbiddenLine = RequestLines(forbidden.Headers.GetValues(CorrelationHeader).Single())
+            .Should().ContainSingle().Subject;
+        forbiddenLine.Properties["StatusCode"].Should().Be(403, "السجلّ يذكر ما استلمه العميل");
+        forbiddenLine.Level.Should().Be(LogLevel.Information, "رفضٌ مشروع ليس عطل خادم");
+
+        // 422: قاعدة يحرسها الكيان (DomainException) — الفرع الأكثر مروراً في متجر حقيقي.
+        var productId = await _api.CreateProductAsync(admin, stock: 1);
+        var (customer, _) = await _api.NewCustomerAsync();
+        var rejected = await _api.PlaceOrderAsync(customer, productId, quantity: 99);
+        rejected.StatusCode.Should().Be(HttpStatusCode.UnprocessableEntity);
+        var rejectedLine = RequestLines(rejected.Headers.GetValues(CorrelationHeader).Single())
+            .Should().ContainSingle().Subject;
+        rejectedLine.Properties["StatusCode"].Should().Be(422);
+        rejectedLine.Level.Should().Be(LogLevel.Information);
+    }
+
+    // ========================================================================
     // "من أين" في كل سطر، و"ماذا جرى" في محاولات الدخول (M15، ASVS 7.1.3 / 7.1.4 / 7.2.1).
     //
     // كان النطاق يحمل "مَن" و"أين" ولا يحمل المصدر إطلاقاً، وكان معالج الدخول لا يسجّل شيئاً. فحملةُ

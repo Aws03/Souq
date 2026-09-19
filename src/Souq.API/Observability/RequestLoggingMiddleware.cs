@@ -40,9 +40,23 @@ public sealed class RequestLoggingMiddleware
             statusOverride = ClientClosedRequest;   // العميل أغلق الاتصال — ليس خطأ خادم
             throw;
         }
-        catch
+        catch (Exception exception)
         {
-            statusOverride = StatusCodes.Status500InternalServerError; // المعالج الخارجي سيكتب 500
+            // ====================================================================
+            // الرمز الذي **سيكتبه** المعالج، لا 500 افتراضاً.
+            //
+            // هذا السطر يُنفَّذ قبل أن يُقرَّر الرمز: `UseExceptionHandler` مسجَّل قبل هذه الطبقة
+            // (Program.cs)، فالاستثناء يمرّ من هنا صاعداً ثمّ يترجمه GlobalExceptionHandler إلى
+            // 401/403/409/422/503. وكان الافتراض «الخارجي سيكتب 500» يعني أن كل رفضٍ مشروع —
+            // مشترٍ يطلب كمّية أكبر من المخزون (422)، موظّف متجر يفتح صفحة عميل (403)، تعارض
+            // rowversion (409) — يُسجَّل «500» بمستوى Error. فكان السجلّ يناقض ما استلمه العميل،
+            // ويُغرق معدّل الأخطاء بضجيج يُنذَر عنه ويُخفي الأعطال الحقيقية.
+            // قِيس على الحزمة: طلب ردّ 403 على العميل وسُجّل 500 بمعرّف الربط نفسه.
+            //
+            // المصدر واحد عمداً — دالّة الترجمة ذاتها — كي لا ينفصل ما يُسجَّل عمّا يُرسَل.
+            // ====================================================================
+            statusOverride = Middleware.GlobalExceptionHandler.ToProblem(exception).Status
+                             ?? StatusCodes.Status500InternalServerError;
             throw;
         }
         finally
