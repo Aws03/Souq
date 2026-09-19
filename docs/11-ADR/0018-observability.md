@@ -31,7 +31,7 @@ What logging and correlation foundation should every later module inherit, witho
    - `traceId` in every ProblemDetails body ([ADR-0017](0017-error-contract.md));
    - the `CorrelationId` log scope (and the built-in `TraceId` scope field).
    Client-chosen correlation ids are not accepted.
-2. **One log line per HTTP request** (`RequestLoggingMiddleware`): method, path **without the query string**, route template (for grouping), status, duration. 5xx at Error, everything else at Information, client aborts as 499.
+2. **One log line per HTTP request** (`RequestLoggingMiddleware`): method, path **without the query string**, route template (for grouping), status, duration. 5xx at Error, everything else at Information, client aborts as 499. The status recorded is the one the client received: the middleware sits inside `UseExceptionHandler`, so for a request that threw it asks the same translation `GlobalExceptionHandler` will apply rather than assuming 500.
 3. **Scopes carry context to every log inside the request:** `CorrelationId`, `UserId` (when authenticated), and `UseCase` (the MediatR request name, from `UseCaseLoggingBehavior`). Handler logs, provider logs and EF command logs all inherit them. **Phase 2 adds `TenantId` to the same request scope.**
 4. **Slow use cases** (> 500 ms) log a warning with name and duration.
 5. **Never logged:** request or response bodies, query strings, headers (including `Authorization`), passwords, tokens, reset links, card data. Payloads are never attached to use-case logs. EF Core SQL text is at Warning by default (parameters are never logged).
