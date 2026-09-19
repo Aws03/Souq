@@ -14,3 +14,6 @@ src/Souq.API/wwwroot/uploads/
 # نتائج تشغيل Playwright (لقطات وآثار) — لا تُلتزم.
 frontend/test-results/
 frontend/playwright-report/
+
+# أسرار حزمة العرض المولَّدة محلياً (scripts/demo-up.sh) — لا تُرفع.
+.env.demo

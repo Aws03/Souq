@@ -38,6 +38,35 @@ Seed__PlatformOwnerEmail=you@yourcompany.example
 Seed__PlatformOwnerPassword=<at least 12 characters>
 ```
 
+### 2a. The local demo stack, and why it needs a script
+
+That rule has an awkward consequence, and it is worth stating plainly because it cost real time before it was
+written down. The `docker compose` stack runs as **`Production`**, so the fallback above does not apply to it:
+with `.env.example`'s `SEED_ADMIN_*` left empty — which is correct, because a published password in a repository
+is a published password — `docker compose up` produces a stack that boots, serves, and **that nobody can sign in
+to**. The seeder says so in the log and carries on. Every person who wanted a demo therefore invented an env file
+of their own, outside the repository, which means the working stack was never reproducible from a clean clone.
+
+[`scripts/demo-up.sh`](../../scripts/demo-up.sh) resolves both halves without trading one for the other:
+
+- **The secrets are generated on the machine and never committed** — a fresh SQL password and JWT key are written
+  to `.env.demo`, which is in `.gitignore`. They are regenerated only if that file is deleted, because rotating
+  the SQL password against an existing data volume gives you a database that will not open.
+- **The demo accounts are documented in the repository on purpose**, exactly as the Development pair above is:
+
+  | | |
+  |---|---|
+  | Store admin (`localhost`) | `admin@souq.com` / `Admin@123456` |
+  | Platform owner (`admin.localhost`) | `owner@souq.com` / `Owner@123456` |
+
+  These are not secrets. They open a stack whose payment gateway is the fake one (every payment "succeeds" and no
+  money moves), whose email provider is `Log` (nothing is ever delivered), and whose catalogue is seeded demo
+  data. Both are twelve characters and differ from the Development password, which is what `DbSeeder`'s
+  out-of-Development guard requires — the script does not weaken that guard, it satisfies it.
+
+**Never reuse either pair anywhere a real customer can reach.** A deployment gets its `Seed:*` values from its own
+environment, as §2 says, and nothing in this repository should ever be the source of them.
+
 A password shorter than 12 characters **fails the boot** rather than creating a weak account. Remove both pairs
 from the environment after the first successful start — they are only read when the account does not yet exist.
 
