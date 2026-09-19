@@ -110,8 +110,10 @@ else
 fi
 
 section "4 · اعتماديات ذات ثغرات"
-if (cd "$ROOT" && dotnet list package --vulnerable --include-transitive 2>&1 \
-      | grep -q "has the following vulnerable packages"); then
+VULN_REPORT="$(cd "$ROOT" && dotnet list package --vulnerable --include-transitive 2>&1 || true)"
+# سلسلة واردة لا أنبوب: تحت pipefail يخرج `grep -q` عند أوّل تطابق فيموت الكاتب بـ SIGPIPE
+# وتصير حالة الأنبوب حالته — أي أنّ **وجود** حزمة ذات ثغرة قد يُقرأ غياباً على تقريرٍ طويل.
+if grep -q "has the following vulnerable packages" <<< "$VULN_REPORT"; then
     failed "حزم NuGet ذات ثغرات معروفة"
 else
     passed "لا حزمة NuGet ذات ثغرة معروفة"

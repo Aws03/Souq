@@ -36,6 +36,38 @@ public class OperationalScriptTests
         exitCode.Should().Be(0, $"{name} --help يجب أن يعمل: {output}");
     }
 
+    // ========================================================================
+    // فحصٌ لا يستطيع أن يفشل ليس فحصاً.
+    //
+    // كل نصوص هذا المجلّد تعمل تحت `set -o pipefail` (lib.sh). وفي ظلّه يكون
+    // `… | grep -q PATTERN` كاذباً بصمت: `grep -q` يخرج عند أوّل تطابق فيُغلق الأنبوب،
+    // فيموت الكاتب قبله بـ SIGPIPE، فتصير حالة الأنبوب حالةَ الكاتب الفاشل — أي أنّ
+    // **وجود** المطلوب يُقرأ غياباً، كلّما كان مبكّراً في المجرى.
+    //
+    // وهذا ما كان في `smoke-test.sh`: ثلاثة فحوص سرّية بصيغة «إن وُجد السرّ ⇒ فشل»
+    // تقرأ سجلّ الحزمة. وأسطر الـ api تقع عند 12% منه، فكان تسرّب كلمة مرور أو توكن
+    // إلى السجلّ **يُعلَن نظيفاً**. قِيس على سجلّ بحجم 2.5 MB وسرٍّ مزروع مبكّراً:
+    // النمط القديم يقول "لا كلمة مرور في السجلّ" وهي فيه.
+    //
+    // البديل سلسلةٌ واردة (`grep -q PATTERN <<< "$VAR"`): لا أنبوب، فلا SIGPIPE.
+    // ========================================================================
+    [Theory]
+    [MemberData(nameof(AllScripts))]
+    public void لا_يُبحَث_عن_سرٍّ_بأنبوبٍ_إلى_grep_q_تحت_pipefail(string name)
+    {
+        var lines = File.ReadAllLines(Script(name));
+
+        var offenders = lines
+            .Select((text, index) => (Text: text.Trim(), Line: index + 1))
+            .Where(l => !l.Text.StartsWith('#'))
+            .Where(l => l.Text.Contains("| grep -q", StringComparison.Ordinal))
+            .Select(l => $"{name}:{l.Line}  {l.Text}")
+            .ToList();
+
+        offenders.Should().BeEmpty(
+            "أنبوبٌ إلى `grep -q` تحت pipefail يقرأ الوجود غياباً — استعمل `grep -q … <<< \"$VAR\"`");
+    }
+
     [Fact]
     public void مثال_الإعداد_المرفوع_يُرفض_للإنتاج()
     {

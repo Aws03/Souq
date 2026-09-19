@@ -47,7 +47,9 @@ is_local() { [[ "$ENVIRONMENT" == "Development" || "$ENVIRONMENT" == "Testing" ]
 # تصغير الحروف بـ tr لا بـ ${VAR,,}: الأخيرة من bash 4، وmacOS يشحن 3.2 — و bash -n لا يكشفها
 # لأنها خطأ وقت تنفيذ لا وقت تحليل. هذه النصوص تعمل على جهاز المطوّر وعلى الخط معاً.
 lower() { printf '%s' "$1" | tr '[:upper:]' '[:lower:]'; }
-placeholder() { printf '%s' "$1" | grep -qiE 'replace|change_?me|placeholder|your_|example|todo'; }
+# سلسلة واردة لا أنبوب: أنبوبٌ إلى `grep -q` تحت pipefail يقرأ الوجود غياباً على مدخلٍ كبير
+# (OperationalScriptTests). القيم هنا قصيرة فلا يقع اليوم، والنمط يُمنع أينما كان.
+placeholder() { grep -qiE 'replace|change_?me|placeholder|your_|example|todo' <<< "$1"; }
 
 printf 'INFO  audit of %s for environment %s\n' "$ENV_FILE" "$ENVIRONMENT"
 
