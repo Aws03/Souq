@@ -11,7 +11,7 @@
 | [`Souq.Application.Tests`](#souqapplicationtests) | 48 | 356 | 18 |
 | [`Souq.ArchitectureTests`](#souqarchitecturetests) | 16 | 67 | 7 |
 | [`Souq.IntegrationTests`](#souqintegrationtests) | 53 | 330 | 26 |
-| [frontend (Vitest)](#frontend-vitest) | 91 | 699 | — |
+| [frontend (Vitest)](#frontend-vitest) | 92 | 702 | — |
 | [frontend (Playwright)](#frontend-playwright) | 19 | 126 | — |
 
 ## Souq.Domain.Tests
@@ -274,6 +274,7 @@
 | `frontend/src/pages/platform/Provisioning.test.jsx` | 13 |
 | `frontend/src/pages/storefrontPages.test.jsx` | 3 |
 | `frontend/src/rtl.test.js` | 2 |
+| `frontend/src/styles.darkTokens.test.js` | 3 |
 | `frontend/src/whiteLabel.test.js` | 2 |
 
 ## Frontend (Playwright)
