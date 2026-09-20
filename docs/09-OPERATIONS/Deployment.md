@@ -259,6 +259,20 @@ Implications:
 - **Files are local to the instance.** Several API instances need the same volume (shared mount) or the files will 404 depending on which instance answers. Cloud blob storage behind the same `IFileStorage` port is **PLANNED** for Phase 23 (decision D-18).
 - In compose the data lives in the `souq_uploads` volume. **It is not in the database**, so a database backup alone loses every product image and branding asset.
 - Removing an image from a product gallery does not delete the file yet ([Security.md](../07-SECURITY/Security.md) §5), so the volume grows monotonically.
+- **The container writes these files as `app` (UID 1654), not root.** Docker copies the image's
+  `/app/wwwroot/uploads` — ownership included — into a *new* named volume on first mount, so a fresh
+  deployment needs nothing. A volume created **before** the image dropped root is still owned by `root` and the
+  non-root process cannot write to it; uploads then fail after an otherwise clean upgrade. It is a one-time fix
+  on the host, with the stack stopped:
+
+  ```bash
+  docker compose -p <project> stop api
+  docker run --rm -v <project>_souq_uploads:/u alpine chown -R 1654:1654 /u
+  docker compose -p <project> start api
+  ```
+
+  Check with `docker compose -p <project> exec api sh -c 'id; ls -ld /app/wwwroot/uploads'` — the user must be
+  `app` and the directory owned by `app`.
 
 ## 8. Production checklist
 

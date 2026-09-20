@@ -38,7 +38,14 @@
    for the table to go quiet (`keepPreviousData` keeps the old rows on screen, honestly marked not-busy). And a
    success toast lingers for seconds, so it is still on screen from the *previous* save — never use it to wait for
    the next one; wait for the write's own response, then assert the toast if you want the message checked.
-6. **Run serially (`--workers=1`) for a full-suite pass.** M19 measured it: with two workers, five journeys fail that pass alone, because parallel specs mutate the same catalogue and compete for a memory-capped database. Those are not product defects and chasing them as such wastes a day.
+6. **Start a full-suite pass from a known baseline.** The journeys share one store and deliberately do not
+   clean up, so it grows every run — and journeys that find their fixture by scanning a list start failing as
+   thresholds are crossed (TD-57). `scripts/qa-reset.sh` returns the store to its seed, and
+   `scripts/qa-second-store.py --skip-admin` adds the second store `cross-tenant-adversarial.spec.js` needs
+   (that flag works on a Production stack; the full fixture, with its administrator and products, still needs a
+   Development API for the invitation link). Two consecutive passes from that baseline were clean — 16 files,
+   109 tests — where the same suite had never managed one before.
+7. **Run serially (`--workers=1`) for a full-suite pass.** M19 measured it: with two workers, five journeys fail that pass alone, because parallel specs mutate the same catalogue and compete for a memory-capped database. Those are not product defects and chasing them as such wastes a day.
 
 What else the files need:
 

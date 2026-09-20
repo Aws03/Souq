@@ -474,3 +474,39 @@ docker compose up -d
 warning in another costume: the API would start against a database that is not accepting connections and fail
 its own migrations. Do not raise the memory cap past what the host can spare either; on a machine already
 running someone else's containers that trades this failure for a container killed for memory instead (§1).
+
+## 22. What a healthy stack logs, and which lines actually matter
+
+**Symptom.** `docker compose logs` on a stack that is working prints warnings, and it is not obvious which
+deserve action. Below is every recurring line the Souq stack emits on a healthy boot, audited on 2026-09-20,
+with a verdict for each. The point of writing them down is that an unexplained warning gets either ignored by
+habit or chased in an incident — both expensive.
+
+**Real, and already acted on.** Nothing in this class remains at the time of writing; the two that were here
+(the API running as `root`, and the developer's uploads baked into the image) are fixed — see
+[Deployment.md](Deployment.md) §7.
+
+**Deliberate — each is a true statement about a demo stack and would be a genuine problem in production:**
+
+| Line | Meaning |
+|---|---|
+| `بوّابة الدفع التجريبية مفعّلة صراحةً (Payments:Provider=Fake)` | Every payment "succeeds" and no money moves. Correct for a demo, never for customers. |
+| `Email:Provider=Log — لا تُرسَل أي رسالة` | Nothing is delivered. Registration, reset and order mails are written to the log only. |
+| `Secrets:ActiveKeyId غير مضبوط` | No store can connect its own payment account; everything would settle into the deployment's. |
+| `التطبيق متصل بالهوية 'sa'` | The runtime identity can change the schema. R-12 has the least-privilege recipe. |
+| `No email provider configured — … was not sent` | The same fact, once per message. |
+
+**Harmless, and here is why — do not "fix" these:**
+
+| Line | Why it is not a defect |
+|---|---|
+| `Storing keys in a directory '/home/app/.aspnet/DataProtection-Keys' that may not be persisted` and `No XML encryptor configured` | Framework boilerplate. **Nothing in Souq uses Data Protection**: refresh tokens are rows in `RefreshTokens`, not protected payloads, and there is no antiforgery cookie. Losing these keys on a container recreate costs nothing today. It would stop being harmless the moment anything encrypts a payload with *IDataProtector* — at which point the keys need a persisted, shared volume. |
+| `The query uses the 'First'/'FirstOrDefault' operator without 'OrderBy'` on the dashboard and search-insights | All three sites are `GroupBy(_ => 1)` — a constant key, so the query can return **at most one row** and ordering is meaningless. EF's heuristic cannot see that the key is constant. Adding an `OrderBy` here would be noise. (Contrast `Take` without `OrderBy` over a *set*, which was a real defect and was fixed.) |
+| `The same entity is being tracked as different entity types 'OrderItem.UnitPrice#Money' and 'ProductVariant.Price#Money'` | The warning's stated risk is "if a property value changes, two store changes". `Money` is an immutable `record` with getter-only properties, so no property can change. |
+| *Compiling a query which loads related collections … no QuerySplittingBehavior* | A performance hint about cartesian explosion, not a correctness problem, on queries whose collections are small. |
+| `Slow use case … took N ms` | A real measurement, but on this host SQL Server runs **emulated** (§21) inside a memory-capped container. Compare against a production host before treating it as a regression. |
+| `SQL Server 2022 will run as non-root by default` / `Your master database file is owned by mssql` | Vendor startup notices from the SQL Server image. |
+| Kestrel `heartbeat has been running for …` | Thread-pool starvation notice, seen during startup on a constrained host while migrations and seeding run. |
+
+**Not ours.** `searchsys-*` containers, including a `db-init` that exits `0` after seeding, belong to a separate
+project sharing this Docker daemon. Do not restart, stop or prune them while diagnosing Souq.
