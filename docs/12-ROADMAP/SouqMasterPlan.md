@@ -328,6 +328,62 @@ commit, the checkpoint is intact and work continues.
 
 ---
 
+### The commercial SaaS question, audited (2026-09-20)
+
+Asked directly: **can this be sold to a customer as their own store, without a fork per customer?** Audited
+against the running stack and the code, not the documents. The short answer is yes for the storefront, and the
+gaps are commercial rather than architectural.
+
+**Proven on the Production-mode container stack**, by creating a real second tenant through the platform API:
+three calls — create tenant, register its host, activate — produce a second store that resolves on **its own
+domain**, with its own name, slug, currency (USD beside the first store's JOD) and default language (`en`
+beside `ar`), while the first store is untouched. `cross-tenant-adversarial.spec.js` then passes against the
+pair. Nothing needed a code change, a branch or a rebuild, which is the actual test of the white-label claim.
+
+**Isolation is structural, not per-query.** Every commercial row implements `ITenantOwned`; EF Core applies a
+global filter that **throws when no tenant is in context rather than returning every row**; the unit of work
+stamps and validates `TenantId` on write; a cross-tenant read answers 404, never 403, so the other store's
+existence does not leak. `TenancyRuleTests` fails the build if a new entity misses the filter or the foreign
+key, and `IgnoreQueryFilters` is confined to an audited platform path.
+
+**What a customer can already have without touching code:** their own domain (unique platform-wide, one
+primary), name per language, logo/favicon/social image, a colour palette the Domain refuses unless it clears
+WCAG AA, one of five typography presets, light/dark default, the opening animation, contact details, social
+links, SEO text per language, announcement, enabled languages, time zone, currency (locked once the store has
+commercial activity), their own administrators and staff with permissions, and three toggleable modules
+(promotions, reviews, wishlist) that the **server** enforces rather than merely hiding.
+
+**What is missing before a store can actually be sold, measured in the code:**
+
+| Gap | Evidence | Size |
+|---|---|---|
+| **No plan, quota or billing** on the tenant model — `Tenant` carries Name, Slug, Status, DefaultCulture, Currency, TimeZone, ReviewsAutoApprove and nothing commercial | `src/Souq.Domain/Platform/Tenant.cs` | The real blocker |
+| **Custom-domain TLS is manual.** `VerifyDomain` is a platform action that stamps `VerifiedAt`; there is no DNS challenge and no certificate issuance | `TenantAdministration.cs`, R7 | Deployment + code |
+| **Theme presets change nothing.** `classic/minimal/bold` validate and reach `<html data-preset>`, but no stylesheet reads the attribute — the only mention in `styles.css` is a comment | verified by search | Frontend only |
+| **E-mail wording is shared.** A store personalises sender name, logo, primary colour and reply address (`EmailBranding`) — not the text | `Common/Notifications/Email.cs` | Product feature |
+| **No store-authored pages** (terms, privacy, about) | TD-42, blocked on the owner | Owner decision |
+| **No per-store product attributes**; the data model is fixed by design | WhiteLabel §5 | Deliberate |
+
+**The extension model this points at — and deliberately does not build yet.** The temptation with a paying
+customer is a fork, a per-tenant branch, or an `if (tenant == …)`. All three are refused by
+[ADR-0011](../11-ADR/0011-white-label-architecture.md), and nothing found in this audit argues for changing
+that. The smallest production-quality extension model, in the order that pays:
+
+1. **A plan on the tenant** — a named tier plus a small set of numeric limits, enforced centrally the way
+   modules already are (server-side, not UI-hidden). Modules become a property of the plan rather than a
+   free-floating flag list. This is the one piece nothing else can substitute for, and it is small: a value
+   object on `Tenant`, a check beside the existing module check, and the platform screen to set it.
+2. **Make the preset attribute real** — give `classic/minimal/bold` actual layout switches. The hook, the
+   validation and the plumbing already exist; only the stylesheets are missing. This converts "every customer
+   looks the same" into three genuinely different storefronts for the cost of CSS.
+3. **Store-authored content pages** (TD-42) — the most-requested customisation that is *content*, not code.
+4. **Editable e-mail text per store**, bounded to the existing templates' slots.
+
+Anything a customer asks for beyond those becomes a product feature for every tenant or is declined —
+unchanged. **None of this is scheduled here**, and no speculative architecture was added: this section records
+what an audit found so the next decision is made with the measurements in hand rather than under pressure from
+a signed contract.
+
 ## 1. How a session continues this plan
 
 A fresh Claude session — no prior conversation, no memory — reads, in order: `AGENTS.md` §0, this file's §0

@@ -105,8 +105,21 @@ test.describe('شاشة الجرد', () => {
     expect(created.status(), await created.text()).toBe(201);
     productId = (await created.json()).id;
 
-    const inventory = await request.get('/api/admin/inventory?pageSize=100', authed());
-    variantId = (await inventory.json()).items.find((i) => i.id === productId).variantId;
+    // ── لا يُفترض أنّ المنتج في أوّل مئة صفّ ────────────────────────────────────
+    // شاشة الجرد تُرتَّب بالأقلّ متاحاً أوّلاً، ومنتج هذه الرحلة متاحه عشرون — فيغوص كلّما
+    // تراكمت أصناف نفدت أو أوشكت. كان هذا السطر يقرأ صفحةً واحدة بمئة صفّ ويفترض وجوده
+    // فيها؛ فلمّا بلغ المتجر 400 صفّ خرج المنتج منها، وأعاد `find` عدماً فانفجر `.variantId`
+    // في التهيئة — أي أنّ الملفّ كلّه يسقط قبل أن يُشغَّل أيّ اختبار. وهو صنف TD-57 بعينه:
+    // رحلةٌ تبحث عن سلعتها داخل قائمة مشتركة تكبر بلا حدّ.
+    // يُتصفَّح كما يتصفّح التاجر، وبرسالة تقول ما لم يوجد بدل TypeError.
+    let row = null;
+    for (let page = 1; page <= 40 && !row; page += 1) {
+      const body = await (await request.get(`/api/admin/inventory?page=${page}&pageSize=50`, authed())).json();
+      row = body.items.find((i) => i.id === productId) ?? null;
+      if (body.items.length < 50) break;
+    }
+    expect(row, `لم يظهر المنتج #${productId} في أي صفحة من الجرد`).toBeTruthy();
+    variantId = row.variantId;
 
     await page.goto('/login');
     await page.locator('input[type="email"]').first().fill(ADMIN.email);

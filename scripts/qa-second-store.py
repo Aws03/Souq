@@ -111,6 +111,13 @@ def main():
     parser.add_argument("--platform-host", default="admin.localhost")
     parser.add_argument("--store-host", default="second.localhost")
     parser.add_argument("--time-zone", default="Asia/Amman")
+    # ── متجرٌ بلا مديره ─────────────────────────────────────────────────────────
+    # دعوة المدير وحدها تحتاج API في وضع Development (الرابط يُقرأ من السجلّ). أمّا
+    # `cross-tenant-adversarial.spec.js` فلا يحتاج مدير المتجر الثاني أصلاً — يحتاج
+    # **متجراً ثانياً نشطاً بمضيفه**، وذلك يُنشأ بتوكن مالك المنصّة في أيّ بيئة.
+    # فبلا هذا الخيار كانت رحلةُ عزلٍ كاملة تسقط على حزمة Production لسببٍ لا يخصّها.
+    parser.add_argument("--skip-admin", action="store_true",
+                        help="أنشئ المتجر ونطاقه وفعّله فقط — بلا دعوة مدير ولا منتجات (يعمل في Production)")
     args = parser.parse_args()
 
     platform, store = args.platform_host, args.store_host
@@ -138,6 +145,15 @@ def main():
     print("→ ensuring its domain")
     call(args.api, f"/api/platform/tenants/{tenant_id}/domains", platform, "POST", token=owner,
          body={"host": store}, expect=(200, 201, 204, 409, 422))
+
+    if args.skip_admin:
+        print("→ activating the store")
+        call(args.api, f"/api/platform/tenants/{tenant_id}/status", platform,
+             "POST", token=owner, body={"action": "Activate"}, expect=(200, 204, 409, 422))
+        print(f"\nDone (--skip-admin). A second active store is served on http://{store}")
+        print("`cross-tenant-adversarial.spec.js` can run. `second-tenant.spec.js` also needs "
+              "its administrator and products — rerun without --skip-admin against a Development API.")
+        return 0
 
     if not can_sign_in(args.api, store, ADMIN["email"], ADMIN["password"]):
         with open(args.api_log, encoding="utf-8", errors="replace") as handle:

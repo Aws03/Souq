@@ -45,7 +45,6 @@ export default function OpeningExperience() {
     const onKey = (event) => { if (event.key === 'Escape') dismiss(); };
     document.addEventListener('keydown', onKey);
     return () => { clearTimeout(timer); document.removeEventListener('keydown', onKey); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [playing]);
 
   if (!playing) return null;
