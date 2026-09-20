@@ -50,6 +50,7 @@
     "title": "Your Cart",
     "emptyTitle": "Your cart is empty",
     "emptyMessage": "Add products you like and start shopping.",
+    "loadFailed": "We couldn't load your cart. Your items are safe — please try again.",
     "perUnit": "/ each",
     "removeAria": "Remove {{name, bidi}}",
     "subtotal": "Subtotal",

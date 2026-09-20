@@ -19,10 +19,39 @@ export function CartProvider({ children }) {
   const toast = useToast();
   const [basket, setBasket] = useState(EMPTY_BASKET);
   const [loaded, setLoaded] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
 
-  const reload = useCallback(
-    () => api.getBasket().then(setBasket).catch(() => {}).finally(() => setLoaded(true)),
-    []);
+  // ==========================================================================
+  // قراءةٌ فاشلة ليست سلّةً فارغة.
+  //
+  // كان الجسم `.catch(() => {}).finally(() => setLoaded(true))`: أي إخفاق في قراءة
+  // السلّة يُبتلع، فتبقى `EMPTY_BASKET` وتُعلَن **محمَّلة**. والشاشات تقرأ ذلك كما هو
+  // مكتوب: صفحة الدفع تعرض «أضف منتجات أولاً» لمشترٍ سلّته على الخادم فيها أصنافه.
+  // قِيس: بإفشال قراءة واحدة لـ GET /api/basket بعد أن تُظهر شارة السلّة 1، تُعلن صفحة
+  // الدفع السلّة فارغة ويختفي حقل العنوان — وهو بعينه إخفاق `checkout-reliability`
+  // المتقطّع تحت الحِمل (TD-57): لا عيب في الرحلة، بل في ما تراه.
+  //
+  // وهو قبل ذلك عطلٌ في المنتج: زبونٌ تُخبره أن سلّته فارغة يُعيد الشراء أو ينصرف،
+  // وأصنافه سليمة طوال الوقت.
+  //
+  // قراءةٌ واحدة تُعاد ثمّ يُصارَح: القراءة عديمة الأثر (idempotent) فإعادتها آمنة،
+  // وأغلب الإخفاقات هنا عابرة. وإن أصرّ الإخفاق فالحالة تُعلَن ومعها إعادة محاولة —
+  // لا صمتٌ يُقرأ فراغاً.
+  // ==========================================================================
+  const reload = useCallback(async () => {
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      try {
+        setBasket(await api.getBasket());
+        setLoadFailed(false);
+        return;
+      } catch {
+        if (attempt === 0) await new Promise((resolve) => { setTimeout(resolve, 400); });
+      } finally {
+        setLoaded(true);
+      }
+    }
+    setLoadFailed(true);
+  }, []);
 
   // بعد استعادة الجلسة لا قبلها، وعند كل تبدّل للمستخدم: أول قراءة بعد الدخول يدمج فيها الخادم سلة الزائر.
   useEffect(() => {
@@ -50,7 +79,7 @@ export function CartProvider({ children }) {
       return item ? run(() => api.setBasketVariantQuantity(variantId, nextQuantity(item, delta))) : Promise.resolve(false);
     };
     return {
-      basket, items, loaded,
+      basket, items, loaded, loadFailed,
       total: basket.subtotal,
       count: basket.itemCount,
       add: (product, quantity = 1, variantId = null) => run(() => api.addToBasket(product.id, quantity, variantId)),
@@ -59,7 +88,7 @@ export function CartProvider({ children }) {
       remove: (variantId) => run(() => api.removeBasketVariant(variantId)),
       reload,
     };
-  }, [basket, items, loaded, run, reload]);
+  }, [basket, items, loaded, loadFailed, run, reload]);
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 }

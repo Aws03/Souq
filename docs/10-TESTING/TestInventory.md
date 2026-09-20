@@ -11,7 +11,7 @@
 | [`Souq.Application.Tests`](#souqapplicationtests) | 48 | 356 | 18 |
 | [`Souq.ArchitectureTests`](#souqarchitecturetests) | 16 | 67 | 8 |
 | [`Souq.IntegrationTests`](#souqintegrationtests) | 53 | 330 | 26 |
-| [frontend (Vitest)](#frontend-vitest) | 92 | 702 | — |
+| [frontend (Vitest)](#frontend-vitest) | 93 | 705 | — |
 | [frontend (Playwright)](#frontend-playwright) | 19 | 126 | — |
 
 ## Souq.Domain.Tests
@@ -212,6 +212,7 @@
 | `frontend/src/components/product/StarRating.test.jsx` | 7 |
 | `frontend/src/components/reviews/ReviewForm.test.jsx` | 7 |
 | `frontend/src/components/store/OpeningExperience.test.jsx` | 12 |
+| `frontend/src/context/CartContext.loadFailure.test.jsx` | 3 |
 | `frontend/src/features/account/addressForm.test.js` | 6 |
 | `frontend/src/features/account/passwordForm.test.js` | 8 |
 | `frontend/src/features/admin/categories/categoryForm.test.js` | 5 |

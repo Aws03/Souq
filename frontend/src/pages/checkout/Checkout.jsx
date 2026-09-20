@@ -22,7 +22,7 @@ import styles from './Checkout.module.css';
 //  2) بطاقة حقيقية عبر Stripe Elements (لا تصل تفاصيلها خادمنا إطلاقاً) → تأكيد لدى الخادم يتحقّق من النتيجة.
 export default function Checkout() {
   const { t, i18n } = useTranslation();
-  const { basket, items, total, loaded, reload } = useCart();
+  const { basket, items, total, loaded, loadFailed, reload } = useCart();
   const { refreshProducts } = useOutletContext();
   const navigate = useNavigate();
 
@@ -138,6 +138,16 @@ export default function Checkout() {
 
   if (!loaded && !order) {
     return <div className="souq-layout"><Skeleton height={320} radius={14} /></div>;
+  }
+
+  // قراءةٌ فاشلة ليست سلّةً فارغة: «أضف منتجات أولاً» لمشترٍ أصنافه على الخادم تدفعه
+  // لإعادة الشراء أو للانصراف. تُفحص الحالة قبل الفراغ، ومعها إعادة محاولة. (CartContext)
+  if (loadFailed && items.length === 0 && !order) {
+    return (
+      <div className="souq-layout">
+        <ErrorBanner message={t('cart.loadFailed')} onRetry={reload} />
+      </div>
+    );
   }
 
   if (items.length === 0 && !order) {

@@ -6,7 +6,7 @@ import { hasProblems } from '../features/basket/basketModel';
 import CartLine from '../components/cart/CartLine';
 import CartSummary from '../components/cart/CartSummary';
 import Skeleton from '../components/common/Skeleton';
-import { EmptyState } from '../components/common/StateViews';
+import { EmptyState, ErrorBanner } from '../components/common/StateViews';
 import { ChevronIcon, PackageIcon } from '../components/icons/Icons';
 import styles from './Cart.module.css';
 
@@ -24,7 +24,7 @@ import styles from './Cart.module.css';
 export default function Cart() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { basket, items, loaded, inc, dec, remove } = useCart();
+  const { basket, items, loaded, loadFailed, reload, inc, dec, remove } = useCart();
   usePageMetadata({ title: t('cart.title') });
 
 
@@ -35,7 +35,12 @@ export default function Cart() {
 
       {!loaded && <Skeleton height={280} radius={14} />}
 
-      {loaded && items.length === 0 && (
+      {/* قراءةٌ فاشلة ليست سلّةً فارغة — نفس السبب المكتوب في CartContext. */}
+      {loaded && loadFailed && items.length === 0 && (
+        <ErrorBanner message={t('cart.loadFailed')} onRetry={reload} />
+      )}
+
+      {loaded && !loadFailed && items.length === 0 && (
         <EmptyState
           icon={PackageIcon}
           title={t('cart.emptyTitle')}
