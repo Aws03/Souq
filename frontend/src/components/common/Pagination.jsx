@@ -5,7 +5,10 @@ import styles from './Pagination.module.css';
 // ترقيم صفحات بسيط يُعاد استخدامه في كل جداول لوحة الإدارة (منتجات/فئات/طلبات).
 export default function Pagination({ page, totalPages, onChange }) {
   const { t } = useTranslation();
-  if (totalPages <= 1) return null;
+  // `!(x > 1)` لا `x <= 1`: الثانية تمرّ على `undefined` (كل مقارنة معه خطأ)، فتُبنى ترقيمةٌ
+  // بلا نهاية — "التالي" لا يتعطّل أبداً لأن `page >= undefined` خطأ أبداً، والعدّاد بلا رقم.
+  // هكذا يصير استدعاءٌ ناقص العدد **غياباً ظاهراً** لا سلوكاً صامتاً خاطئاً.
+  if (!(totalPages > 1)) return null;
 
   // "السابق" نحو بداية القراءة و"التالي" نحو نهايتها — والسهم نفسه يتبع الاتجاه (ChevronIcon).
 

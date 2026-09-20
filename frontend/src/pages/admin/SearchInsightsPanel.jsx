@@ -133,7 +133,10 @@ export default function SearchInsightsPanel({ onAddSynonym }) {
         emptyMessage={t(onlyZeroResults ? 'admin.searchInsights.emptyFailingMessage' : 'admin.searchInsights.emptyMessage')}
         minWidth="920px" stickyFirstColumn />
 
-      {data && <Pagination page={data.pageNumber} pageSize={PAGE_SIZE} total={data.totalCount} onChange={setPage} />}
+      {/* `Pagination` يأخذ `totalPages` — وكانت هذه الشاشة وحدها تمرّر `pageSize`/`total`، فيصل
+          `totalPages` غير معرّف: `page >= undefined` خطأ دائماً، فزرّ "التالي" **لا يتعطّل أبداً**
+          وعدّاد الصفحات يُطبع "صفحة ٢٦ من" بلا رقم. أي أنّ التاجر يمضي بلا نهاية في صفحاتٍ فارغة. */}
+      {data && <Pagination page={data.pageNumber} totalPages={data.totalPages} onChange={setPage} />}
     </div>
   );
 }

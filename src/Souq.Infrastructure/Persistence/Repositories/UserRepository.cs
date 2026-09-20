@@ -35,6 +35,27 @@ public class UserRepository : RepositoryBase<User>, IUserRepository
     public async Task<IReadOnlyList<int>> ListActiveIdsByRolesAsync(IReadOnlyCollection<string> roles, CancellationToken ct = default) =>
         await Db.Users.Where(u => roles.Contains(u.Role) && u.Status == UserStatus.Active && u.PasswordHash != "")
             .OrderBy(u => u.Id).Select(u => u.Id).ToListAsync(ct);
+
+    // ========================================================================
+    // ما تُنساه محاولةٌ فشلت بتعارض، ولماذا هذه الأنواع بالذات.
+    //
+    //   User          — الصفّ المتنازع عليه نفسه: بلا نسيانه تُعاد الكتابة بنسخة قديمة فيتكرّر التعارض أبداً.
+    //   RefreshToken  — رمز الجلسة الذي أصدرته المحاولة الفاشلة: لو بقي لحُفظ رمزان لمحاولة واحدة.
+    //   OutboxMessage — إشعار المحاولة الفاشلة (تغيير كلمة المرور مثلاً). عقد الصندوق أن يُحفظ
+    //                   **مع التغيير الذي سبّبه أو لا يُحفظ أبداً**، فمحاولةٌ أُلغيت يُلغى إشعارها،
+    //                   وإلا وصل المستخدم بريدان عن تغيير واحد.
+    //
+    // ولا يُمسّ `AuditEntry`: `AuditBehavior` يُدرجه **قبل** المعالج كي يُحفظ ذرّياً مع أول حفظ له،
+    // فنسيانه هنا يعني عمليةً تنجح بلا أثر في سجلّ التدقيق. النطاق ضيّق عمداً لهذا السبب — ولهذا
+    // أيضاً ليس هذا مسحاً شاملاً لمتعقّب التغييرات.
+    // ========================================================================
+    public void Reset()
+    {
+        foreach (var entry in Db.ChangeTracker.Entries()
+                     .Where(e => e.Entity is User or RefreshToken or Outbox.OutboxMessage)
+                     .ToList())
+            entry.State = EntityState.Detached;
+    }
 }
 
 // المتجر بنطاقاته (جدول منصّة: لا مرشّح). لا حذف: المتاجر تُؤرشف (سجلّها المالي والتدقيقي يبقى).

@@ -135,22 +135,43 @@ test('10 · the account shell links profile, addresses and orders', async () => 
 });
 
 test('11 · a product can be added with a chosen quantity and reviewed in the cart page', async () => {
-  // **منتجٌ يتّسع لاثنين، لا أوّل منتج على الرفّ.** أوّل منتج قد يكون مخزونه واحداً — إمّا لأنّ رحلةً
-  // أخرى أنقصته، وإمّا لأنّه أُنشئ شحيحاً عمداً (checkout-reliability) — فيكون زرّ الزيادة **معطّلاً
-  // بحقّ**، وهو سلوك صحيح للمتجر تقرؤه هذه الرحلة كعطل. الرحلة تريد "منتجاً يمكن شراء اثنين منه"،
-  // فلتطلب ذلك صراحةً بدل أن تفترضه في أوّل بطاقة.
+  // ==========================================================================
+  // **منتجٌ يتّسع لاثنين، لا أوّل منتج على الرفّ.** مخزون أوّل منتج قد يكون واحداً — أنقصته رحلةٌ
+  // أخرى، أو أُنشئ شحيحاً عمداً (checkout-reliability) — فيكون زرّ الزيادة معطّلاً **بحقّ**، وهو
+  // سلوك صحيح تقرؤه الرحلة كعطل. فتُطلب الحاجة صراحةً: منتجٌ يمكن شراء اثنين منه.
+  //
+  // وثلاثة مزالق قِيست على المتجر الحيّ، لا استُنتجت:
+  //   • **بطاقاتٌ ليست منتجات.** صفحة البداية تعرض المنتج في أكثر من صفّ (وصل حديثاً، عروض،
+  //     الكتالوج): ٤٤ بطاقة لتسعة منتجات، وأوّل ثمانٍ منها **أربعة** فقط. فيُجمع المتمايز بالرابط.
+  //   • **قائمةٌ تُقرأ وهي تُبنى.** `first().waitFor()` ينجح ثم `count()` يعود صفراً لأنّ الشبكة
+  //     استبدلت الشبكة أثناء ذلك — فكان الجمع يخرج فارغاً ويُتَّهم المخزون. فيُعاد حتى يستقرّ.
+  //   • **`isEnabled` لقطةٌ بلا إعادة محاولة.** الزرّ يصل معطّلاً حتى تصل الكمّية المتاحة، فتُقرأ
+  //     "معطّل" عن منتجٍ وافر. (قِيس: أربع سقطات من سبع، والكتالوج كلّه بمخزون ≥ ٢.) فيُنتظَر.
+  // ==========================================================================
   await page.goto('/');
   const cards = page.locator('article a[href^="/products/"]');
-  await cards.first().waitFor();
+  await expect(cards.first()).toBeVisible({ timeout: 30_000 });
+
+  const hrefs = [];
+  await expect.poll(async () => {
+    hrefs.length = 0;
+    for (const card of await cards.all()) {
+      const href = await card.getAttribute('href');
+      if (href && !hrefs.includes(href)) hrefs.push(href);
+      if (hrefs.length >= 8) break;
+    }
+    return hrefs.length;
+  }, { timeout: 15_000 }).toBeGreaterThan(0);
 
   let opened = false;
-  for (let i = 0; i < Math.min(await cards.count(), 8); i += 1) {
-    await page.goto('/');
-    await cards.nth(i).click();
+  for (const href of hrefs) {
+    await page.goto(href);
     await page.getByRole('heading', { level: 1 }).waitFor();
-    if (await page.getByRole('button', { name: 'Increase quantity' }).isEnabled()) { opened = true; break; }
+    // ونفادُ المخزون يُسقط الزرّ من الصفحة أصلاً، فغيابه مرشَّحٌ غير صالح لا عطل.
+    const increase = page.getByRole('button', { name: 'Increase quantity' });
+    if (await expect(increase).toBeEnabled({ timeout: 5_000 }).then(() => true, () => false)) { opened = true; break; }
   }
-  expect(opened, 'لا منتج على الصفحة الأولى يتّسع لكمّية اثنين — بذرة المتجر أو رحلةٌ سابقة استنزفت المخزون').toBe(true);
+  expect(opened, `لا منتج من ${hrefs.length} منتجاً متمايزاً يتّسع لكمّية اثنين — مخزونٌ استنزفته رحلةٌ سابقة أو حجزٌ معلّق`).toBe(true);
 
   // زرّ الإضافة في نصف الشراء، لا الذي داخل بطاقة منتج مشابه أسفل الصفحة.
   const buyRow = page.locator('h1').locator('xpath=following::button[normalize-space()="Add to cart"][1]');

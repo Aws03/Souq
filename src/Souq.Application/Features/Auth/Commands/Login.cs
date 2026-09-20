@@ -31,15 +31,17 @@ public class LoginHandler : IRequestHandler<LoginCommand, Result<AuthSession>>
     private readonly IUserRepository _users;
     private readonly IPasswordHasher _hasher;
     private readonly AuthSessionIssuer _sessions;
+    private readonly AccountWriter _writer;
     private readonly IUnitOfWork _uow;
     private readonly TimeProvider _clock;
     private readonly ILogger<LoginHandler> _logger;
 
     public LoginHandler(
-        IUserRepository users, IPasswordHasher hasher, AuthSessionIssuer sessions, IUnitOfWork uow,
-        TimeProvider clock, ILogger<LoginHandler> logger)
+        IUserRepository users, IPasswordHasher hasher, AuthSessionIssuer sessions, AccountWriter writer,
+        IUnitOfWork uow, TimeProvider clock, ILogger<LoginHandler> logger)
     {
-        _users = users; _hasher = hasher; _sessions = sessions; _uow = uow; _clock = clock; _logger = logger;
+        _users = users; _hasher = hasher; _sessions = sessions; _writer = writer;
+        _uow = uow; _clock = clock; _logger = logger;
     }
 
     // ============================================================================
@@ -65,7 +67,28 @@ public class LoginHandler : IRequestHandler<LoginCommand, Result<AuthSession>>
         _logger.LogWarning("Login failed: {Outcome} (account {AccountId})", outcome, userId?.ToString() ?? "unknown");
     }
 
-    public async Task<Result<AuthSession>> Handle(LoginCommand cmd, CancellationToken ct)
+    // ========================================================================
+    // القرار كلّه داخل إعادة المحاولة، لا الحفظ وحده (F-25).
+    //
+    // الدخول يكتب دفتراً في صفّ `User` الذي يحمل rowversion، فدخولان متزامنان لحسابٍ واحد
+    // يتسابقان ويخسر أحدهما بـ 409 — وهو ما يراه من ينقر "دخول" نقرتين. العلاج إعادة المحاولة
+    // على الحالة الملتزمة (AccountWriter)، لا إسقاط الحارس.
+    //
+    // وتُعاد **القراءة والتحقّق** لا الحفظ فقط: إعادة الحفظ وحدها كانت ستُصدر جلسة بناءً على
+    // تجزئة كلمة مرور ربّما غيّرها للتوّ الطلبُ المتزامن الذي فاز. هنا تُقرأ الحالة من جديد
+    // ويُعاد التحقّق من القفل وكلمة المرور والحالة في كل محاولة.
+    //
+    // وتظلّ المحاولة رخيصة رغم ذلك: `PasswordCheck` يحسب BCrypt مرّة لكل تجزئة لا مرّة لكل
+    // محاولة، فلا يتحوّل الازدحامُ على صفٍّ واحد إلى حرقٍ للمعالج. ولولاه لكان توسيعُ عدد
+    // المحاولات — وهو ما يلزم لتصريف دفعةٍ متزامنة — توسيعاً لمضخّة إنهاك.
+    // ========================================================================
+    public Task<Result<AuthSession>> Handle(LoginCommand cmd, CancellationToken ct)
+    {
+        var password = new PasswordCheck(_hasher, cmd.Password);
+        return _writer.SaveAsync(() => AttemptAsync(cmd, password, ct), ct);
+    }
+
+    private async Task<Result<AuthSession>> AttemptAsync(LoginCommand cmd, PasswordCheck password, CancellationToken ct)
     {
         var user = await _users.GetByEmailAsync(cmd.Email, ct);
         if (user is null)
@@ -83,7 +106,7 @@ public class LoginHandler : IRequestHandler<LoginCommand, Result<AuthSession>>
                 "تجاوزت عدد المحاولات المسموح. حاول بعد قليل أو أعد تعيين كلمة المرور."));
         }
 
-        if (!_hasher.Verify(cmd.Password, user.PasswordHash))
+        if (!password.Matches(user.PasswordHash))
         {
             user.RecordFailedLogin(now);
             await _uow.SaveChangesAsync(ct);

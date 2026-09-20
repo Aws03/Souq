@@ -85,6 +85,7 @@ public static class DependencyInjection
         services.AddScoped<Features.Customers.CustomerErasure>();
         // إصدار الجلسات (رمز تجديد + توكن وصول) لكل مداخلها: دخول، تسجيل، تجديد، تغيير كلمة مرور.
         services.AddScoped<Features.Auth.AuthSessionIssuer>();
+        services.AddScoped<Features.Auth.AccountWriter>();
         // حسابات الإدارة (دعوة، تفعيل/إيقاف) مشتركة بين منطقة المنصّة وإدارة موظّفي المتجر.
         services.AddScoped<Common.Accounts.AccountInvitations>();
         services.AddScoped<Common.Accounts.AccountStatusChanger>();

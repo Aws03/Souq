@@ -18,6 +18,11 @@ public interface IUserRepository : IRepository<User>
 
     // معرّفات الحسابات القادرة على الدخول بأحد هذه الأدوار في النطاق — مستلمو إشعارات الإدارة (المرحلة 14).
     Task<IReadOnlyList<int>> ListActiveIdsByRolesAsync(IReadOnlyCollection<string> roles, CancellationToken ct = default);
+
+    // بعد تعارض تزامن على الحساب: تُنسى قراءات المحاولة الفاشلة وكتاباتها كي تقرأ التالية القيم
+    // الملتزمة. نفس ما يفعله `IInventoryRepository.Reset` و`ICouponRedemptionRepository.Reset`
+    // ولنفس السبب — والمُعيد الوحيد هنا هو `AccountWriter`.
+    void Reset();
 }
 
 // منفذ رموز التجديد: بحث بالتجزئة، وإبطال عائلة أو كل جلسات مستخدم (تغيير كلمة المرور، سرقة).

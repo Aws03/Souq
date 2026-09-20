@@ -8,10 +8,10 @@
 | Suite | Files | Facts | Theories |
 |---|---|---|---|
 | [`Souq.Domain.Tests`](#souqdomaintests) | 29 | 227 | 47 |
-| [`Souq.Application.Tests`](#souqapplicationtests) | 48 | 356 | 18 |
+| [`Souq.Application.Tests`](#souqapplicationtests) | 50 | 365 | 18 |
 | [`Souq.ArchitectureTests`](#souqarchitecturetests) | 16 | 67 | 8 |
-| [`Souq.IntegrationTests`](#souqintegrationtests) | 53 | 330 | 26 |
-| [frontend (Vitest)](#frontend-vitest) | 93 | 705 | — |
+| [`Souq.IntegrationTests`](#souqintegrationtests) | 54 | 333 | 26 |
+| [frontend (Vitest)](#frontend-vitest) | 94 | 709 | — |
 | [frontend (Playwright)](#frontend-playwright) | 19 | 126 | — |
 
 ## Souq.Domain.Tests
@@ -53,7 +53,9 @@
 | File | Classes | Facts | Theories |
 |---|---|---|---|
 | `tests/Souq.Application.Tests/Auth/AccountLifecycleTests.cs` | `AccountLifecycleTests` | 7 | 0 |
+| `tests/Souq.Application.Tests/Auth/AccountWriterTests.cs` | `AccountWriterTests` | 6 | 0 |
 | `tests/Souq.Application.Tests/Auth/AuthHandlersTests.cs` | `AuthRig`, `RegisterHandlerTests`, `LoginHandlerTests`, `RefreshSessionHandlerTests`, `LogoutHandlerTests`, `ChangePasswordHandlerTests`, `ForgotPasswordHandlerTests`, `ResetPasswordHandlerTests`, `VerifyEmailHandlerTests` | 27 | 0 |
+| `tests/Souq.Application.Tests/Auth/PasswordCheckTests.cs` | `PasswordCheckTests` | 3 | 0 |
 | `tests/Souq.Application.Tests/Auth/PasswordRulesTests.cs` | `PasswordRulesTests` | 4 | 2 |
 | `tests/Souq.Application.Tests/Baskets/BasketCheckoutTests.cs` | `BasketCheckoutTests` | 3 | 0 |
 | `tests/Souq.Application.Tests/Baskets/BasketHandlersTests.cs` | `BasketHandlersTests` | 13 | 0 |
@@ -128,6 +130,7 @@
 |---|---|---|---|
 | `tests/Souq.IntegrationTests/AccessTokenValidationTests.cs` | `AccessTokenValidationTests`, `CancellingSessionValidator`, `FailingSessionValidator` | 4 | 0 |
 | `tests/Souq.IntegrationTests/AuditTimestampsTests.cs` | `AuditTimestampsTests`, `SettableClock` | 1 | 0 |
+| `tests/Souq.IntegrationTests/AuthConcurrencyTests.cs` | `AuthConcurrencyTests` | 3 | 0 |
 | `tests/Souq.IntegrationTests/AuthSessionTests.cs` | `AuthSessionTests` | 11 | 1 |
 | `tests/Souq.IntegrationTests/AuthorizationBoundaryTests.cs` | `AuthorizationBoundaryTests` | 9 | 0 |
 | `tests/Souq.IntegrationTests/AuthorizationMatrixTests.cs` | `AuthorizationMatrixTests` | 3 | 0 |
@@ -204,6 +207,7 @@
 | `frontend/src/components/common/Drawer.test.jsx` | 6 |
 | `frontend/src/components/common/ErrorBoundary.test.jsx` | 5 |
 | `frontend/src/components/common/FormField.test.jsx` | 3 |
+| `frontend/src/components/common/Pagination.test.jsx` | 4 |
 | `frontend/src/components/common/RowActionsMenu.test.jsx` | 3 |
 | `frontend/src/components/common/Tabs.test.jsx` | 7 |
 | `frontend/src/components/common/useConfirmAction.test.jsx` | 4 |

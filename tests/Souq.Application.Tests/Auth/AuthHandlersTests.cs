@@ -49,6 +49,11 @@ internal sealed class AuthRig
 
     public AuthSessionIssuer Issuer() => new(Tokens, Profiles, Jwt, Uow, Clock);
 
+    // `Users` بديلٌ لا يرمي تعارضاً، فالكاتب هنا يمرّر المحاولة كما هي: تبقى هذه الاختبارات
+    // عن منطق المعالج نفسه. إعادة المحاولة مُختبَرة حيث تقع فعلاً — `AccountWriterTests`
+    // للآلية، واختبارات التكامل للطلبات المتزامنة الحقيقية.
+    public AccountWriter Writer() => new(Users);
+
     public static User SavedUser(int id, string role = Roles.Customer, string hash = "hashed", string? email = null)
     {
         var user = new User("مستخدم", email ?? $"user{id}@souq.com", hash, role);
@@ -132,7 +137,7 @@ public class LoginHandlerTests
 {
     private readonly AuthRig _rig = new();
 
-    private LoginHandler Handler() => new(_rig.Users, _rig.Hasher, _rig.Issuer(), _rig.Uow, _rig.Clock,
+    private LoginHandler Handler() => new(_rig.Users, _rig.Hasher, _rig.Issuer(), _rig.Writer(), _rig.Uow, _rig.Clock,
             Microsoft.Extensions.Logging.Abstractions.NullLogger<LoginHandler>.Instance);
 
     [Fact]
@@ -341,7 +346,7 @@ public class ChangePasswordHandlerTests
     private readonly AuthRig _rig = new();
 
     private ChangePasswordHandler Handler(ICurrentUser user) =>
-        new(_rig.Users, _rig.Hasher, _rig.Issuer(), _rig.Sessions, user, _rig.Outbox, _rig.Links);
+        new(_rig.Users, _rig.Hasher, _rig.Issuer(), _rig.Writer(), _rig.Sessions, user, _rig.Outbox, _rig.Links);
 
     [Fact]
     public async Task الكلمة_الحالية_الخاطئة_خطأ_إدخال_لا_انتهاء_جلسة()

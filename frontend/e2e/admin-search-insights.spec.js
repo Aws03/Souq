@@ -101,17 +101,44 @@ test.describe('أثر البحث', () => {
   // جديد وحده — وعلى سجلٍّ عامر تسقط بلا أيّ عيبٍ في المنتج. والشاشة بلا بحثٍ عن كلمة، وهي
   // الفجوة نفسها المسجّلة على شاشة الجرد، ولا يُغلقها هذا الطور.
   // ==========================================================================
+  // ولا يُبنى قرارٌ على عرضٍ لم يستقرّ. وصولُ الردّ ليس عرضاً، و`aria-busy="false"` ليس عرضاً:
+  // `keepPreviousData` يُبقي صفوف المعايير السابقة ظاهرةً، والجدول غير مشغول بحقّ — وهو الفخّ
+  // نفسه الموصوف في `listReloaded` أعلاه، ولم يكن هذا المتصفّح يحترسه في موضعين:
+  //
+  //   • **"لا صفحة تالية" قد يكون خبراً قديماً.** المستدعي يُطفئ مرشّح "لم تجد شيئاً" ثم يمسح
+  //     فوراً؛ والمعروض لحظتَها قائمةُ المرشَّح — صفحةٌ واحدة، فزرّ "التالي" معطّل. فيُختتم
+  //     المسح قبل أن يبدأ ويُرمى "لم تظهر الكلمة"، والكلمة في الصفحة الثانية من أربع. (قِيس
+  //     على القائمة الحيّة: ٧٠ كلمة، والمطلوبة في الصفحة الثانية.) فيُمهَل الزرّ ليصير صالحاً.
+  //   • **ووصولُ الصفحة التالية يُنتظَر بتغيّر المحتوى**، لا بوصول الردّ: قراءةٌ فور الردّ تقرأ
+  //     الصفحة السابقة، فلا تجد الكلمة، فتنقر "التالي" ثانيةً — وتتخطّى صفحتها بلا رجعة.
+  //
+  // والمقارنة بالقارئ نفسه (`innerText` على الطرفين): `toHaveText` يُسوّي الفراغات تسويةً أخرى،
+  // فلا يتحقّق النفي أبداً ويصير الانتظار مهلةً كاملة على كل صفحة.
   const findTermRow = async (term) => {
     const next = page.getByRole('button', { name: /next|التالي/i });
+    const firstRow = page.locator('tbody tr').first();
+    const rowFor = () => page.locator('tr', { hasText: term }).first();
+    const firstRowText = async () => (await firstRow.count()) > 0 ? await firstRow.innerText() : null;
+
     for (let pages = 0; pages < 25; pages += 1) {
       await settled();
-      const found = page.locator('tr', { hasText: term }).first();
-      if (await found.count() > 0) return found;
-      if (await next.count() === 0 || await next.isDisabled()) break;
-      const loaded = page.waitForResponse((r) => r.url().includes('/admin/search-synonyms/insights') && r.ok());
+      if (await rowFor().count() > 0) return rowFor();
+
+      // "لا صفحة تالية" يكون بغياب الزرّ (قائمةٌ صفحةً واحدة ⇒ لا ترقيم أصلاً) أو بتعطّله.
+      // وكلاهما قد يصف المعروض **القديم** لا القائمة المطلوبة، فلا يُحكَم عليه فوراً: تُمهَل
+      // الكلمة لتظهر. والشرط لم يُخفَّف — إن لم تظهر خلال المهلة فهي غائبة حقاً ويُرمى الخطأ.
+      const more = (await next.count()) > 0
+        && await expect(next).toBeEnabled({ timeout: 10_000 }).then(() => true, () => false);
+      if (await rowFor().count() > 0) return rowFor();
+      if (!more) {
+        if (await expect(rowFor()).toBeVisible({ timeout: 15_000 }).then(() => true, () => false)) return rowFor();
+        break;
+      }
+
+      const before = await firstRowText();
       await next.click();
-      await loaded;
-      await settled();
+      if (before === null) await settled();
+      else await expect.poll(firstRowText, { timeout: 30_000 }).not.toBe(before);
     }
     throw new Error(`لم تظهر الكلمة "${term}" في أي صفحة من شاشة أثر البحث`);
   };
@@ -222,6 +249,12 @@ test.describe('أثر البحث', () => {
   test('3 · مرشّح "لم تجد شيئاً" يُخفي ويُظهر، والفترة تُضيّق', async () => {
     await page.goto('/admin/search-synonyms');
     await expect(page.getByRole('tablist')).toBeVisible({ timeout: 30_000 });
+
+    // القائمة المرشَّحة تصل أوّلاً. وبدون هذا الانتظار كان "لا وجود للكلمة" يمرّ على جدولٍ
+    // **فارغ لأنّه ما زال يُحمّل** — أي أنّ الشرط لا يفحص شيئاً؛ ثمّ يسابق إطفاءُ المرشّح
+    // جلبةَ الصفحة الأولى، فينتظر `listReloaded` ردّ تلك الجلبة ويظنّه ردّ الإطفاء.
+    await settled();
+    await expect(page.locator('tbody tr').first()).toBeVisible({ timeout: 30_000 });
 
     // كلمةٌ تجد نتائج ليست في القائمة الافتراضية (المرشّح مفعّل) — ومنها MISSED بعد أن أُصلحت.
     await expect(page.locator('tr', { hasText: PRODUCT })).toHaveCount(0);
