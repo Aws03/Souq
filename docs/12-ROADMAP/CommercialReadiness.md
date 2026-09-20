@@ -204,19 +204,54 @@ no new technology, consistent with [ExplicitNonGoals.md](../02-ARCHITECTURE/Expl
 | A *subscription* | One per store: which plan, status, current period, trial end. The only thing that may change a store's entitlements | Domain |
 | *Entitlements* | The derived answer "which modules and which limits does this store have", resolved once per request alongside the existing store snapshot | Application, read through the existing tenant context |
 | A *quota guard* | Consulted by the commands that create countable things (products, staff, storage). **Server-side only** | Application |
-| A *platform billing port* | An interface the core owns, implemented in Infrastructure — exactly as `IPaymentGateway` is today | Application port, Infrastructure adapter |
+| A *platform billing port* | An interface the core owns, implemented in Infrastructure — the same shape as `IPaymentService`, which is the Application-owned port today (`IPaymentGateway` is **not** core-owned: it is the Infrastructure-internal single-account adapter contract that `PaymentGatewayRouter` selects between; an earlier revision of this row named the wrong one) | Application port, Infrastructure adapter |
 | *Dunning* | A background job that moves an unpaid subscription through a grace period and then suspends the store, reusing `TenantStatus.Suspended`, whose own definition already names payment | Application + a job beside the existing seven |
 
 ### 5.3 Three things this design must get right
 
-1. **Platform-to-merchant billing is a different money path from store-to-shopper.** The existing per-store
-   payment account and gateway router serve a store charging *its* customers. The platform charging *its*
-   merchants needs its own credentials at the platform level, behind its own port. Reusing the store's account
-   for it would take money from the wrong party.
-2. **A quota check is a count-then-write race**, and this repository has already solved exactly that shape once:
-   the last-administrator guard counts and writes in **one transaction** and rolls back if the count is wrong,
-   and it was proven with concurrent requests. A quota guard that counts outside the write is a quota that can
-   be exceeded by clicking twice.
+1. **Platform-to-merchant billing is a different money path from store-to-shopper — verified against the code
+   on 2026-09-20, not asserted.** It is not a matter of taste: the existing path *cannot* express a platform
+   charge, and would fail in four separate places rather than merely fit badly.
+   - `PaymentGatewayRouter` — the only implementation of `IPaymentService` — reaches
+     `ITenantContext.RequireTenant()`, which **throws** in platform scope. So does every read or write of a
+     `Payment` row: `Payment` is `ITenantOwned`, and `AppDbContext`'s filter says so in its own comment —
+     *no store ⇒ throws, even in platform scope*. The interface that would have worked,
+     `ITenantOrPlatformOwned`, exists and is deliberately not used here.
+   - **A `Payment` cannot exist without an order:** a required composite foreign key to `Orders`, a constructor
+     that rejects a missing order id, and a unique index of one payment per order. A subscription charge has no
+     order, so there is no row shape for it.
+   - **Both idempotency key formats hard-code a store tenant id** (`souq-intent-{tenantId}-…`,
+     `souq-refund-{tenantId}-…`).
+   - **It would charge the wrong party:** account selection prefers the *store's* connected account, so billing
+     a merchant through this port would deposit the platform's own fee into that merchant's Stripe account.
+
+   Reusable unchanged, and worth reusing: the `Money` value object, the AES-GCM secret protection with its
+   purpose binding, the reserve → call → record discipline with an idempotency key, and `TenantStatus.Suspended`
+   as the state dunning drives. `ITenantScopeRunner` would technically satisfy the filters — and is the wrong
+   answer, for the reason in the last bullet.
+2. **A quota check is a count-then-write race, and the repository's safe pattern is not the one it looks like.**
+   Verified on 2026-09-20, and the earlier wording here was imprecise in a way that would have produced a racy
+   guard if followed literally.
+   - **The order is load-bearing and it is the reverse of "count then write".** The last-administrator guard
+     *writes first*, saves, and only then re-counts inside the same transaction, throwing a private exception to
+     roll the whole thing back. That works because the write takes the exclusive lock first, so the other
+     racer's count must wait for it and therefore sees the final answer. A guard that counts before it writes —
+     the natural reading of "count-then-write" — has no lock and no protection.
+   - **It rests on an invariant nothing checks:** SQL Server's default READ COMMITTED being *locking*, not
+     snapshot. RCSI is off everywhere in this repository, but it is asserted by no test, no migration and no
+     startup check — recorded as TD-68, because a managed database that enables it silently disables this guard.
+   - **Do not copy the caps that already exist**: `SearchSynonym.MaxPerStore` and
+     `WishlistItem.MaxItemsPerCustomer` both count and then insert with **no transaction and no re-count**, so
+     two concurrent creates at the limit both pass. They are soft caps where that does not matter; a commercial
+     quota is not. The in-aggregate limits (`Basket.MaxLines`, `Product.MaxVariants`) are not analogues either —
+     they are protected by the aggregate root's `rowversion`, and a per-tenant quota has no such root.
+   - **There is a second existing mechanism that may fit better:** `OrderNumbers` increments a single per-tenant
+     counter row inside the caller's transaction. Every contender queues on one exclusive lock, so there is no
+     range-scan deadlock class at all — unlike the re-count, which deadlocks by design and relies on translating
+     that deadlock into a clean refusal. Its cost is that the counter must be kept truthful when rows are
+     deleted. Which of the two fits is a per-quota decision, not a blanket one.
+   - **A quota guard adds an eighth explicit-transaction site**, which matters to F-14: enabling
+     `EnableRetryOnFailure` later requires every such site to be wrapped in the execution strategy.
 3. **Suspension must actually stop the store.** Today it is a status column plus a per-process cache with a
    60-second lifetime and local-only invalidation. For manual suspension that is fine; for automated
    suspension across replicas it is not, so this design depends on R-23 being closed before the platform runs

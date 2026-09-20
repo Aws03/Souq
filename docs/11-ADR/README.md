@@ -152,6 +152,6 @@ The decisions stand; these *descriptions* have drifted. Living documents are aut
 
 ## 5. Numbering and lifecycle
 
-- ADRs are numbered sequentially and never renumbered. The next one is **0043**.
+- ADRs are numbered sequentially and never renumbered. The next one is **0047** (0043–0046 were written after this line was last updated, and it still said 0043 until 2026-09-20 — a record written from it would have collided with four existing ones).
 - A superseded ADR keeps its text; its `Status` line says what replaced it, and the replacement links back through `Related ADRs`.
 - Rejected proposals are worth an ADR too: "we considered X and chose not to" saves the next person the same investigation ([ExplicitNonGoals.md](../02-ARCHITECTURE/ExplicitNonGoals.md) collects the big ones).

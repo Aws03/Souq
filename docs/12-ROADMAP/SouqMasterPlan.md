@@ -32,9 +32,9 @@ plan_version: 1.0.0
 current_phase: M20
 phase_status: done
 next_phase: done        # terminal. M2 stays blocked on TD-42; what else remains is the owner's — §5 and OwnerDecisions.md
-blocked_decisions: ["TD-42", "GitHub Actions billing"]   # see §5 and OwnerDecisions.md; the billing block stops CI running at all
-last_verified_date: 2026-09-19
-last_verified_head: e276f54         # see "After the plan" below. M20's own closing head was f3548ee
+blocked_decisions: ["TD-42", "GitHub Actions billing", "D-13"]   # see §5 and OwnerDecisions.md; the billing block stops CI running at all. D-13 blocks nothing in M1-M20 (all closed) but gates the whole commercial track — see "After the plan"
+last_verified_date: 2026-09-20
+last_verified_head: f5cfece         # see "After the plan" below. M20's own closing head was f3548ee; e276f54 closed 2026-09-19
 baseline_branch: phase/17-production-hardening
 ```
 
@@ -72,6 +72,45 @@ is the first clean full pass this repository has had. Three journeys still need 
 were not part of that run. The launch position in `ProductionReleaseChecklist.md` is unchanged: everything that
 asserts something about *the repository* is green, everything that asserts something about *a deployment* is
 still unmet, because there is still no deployment.
+
+### And after that (2026-09-20, `f5cfece`)
+
+Two further sessions on the owner's instruction, still not a phase and still changing no phase's scope. They
+are recorded here for the same reason the section above exists: the head moved twice more.
+
+**Four defects, each measured before it was touched, none of them a flake.**
+
+1. **F-25 — a second sign-in at the same instant lost to the first.** Every successful login writes bookkeeping
+   to the rowversioned `User` row, so eight concurrent logins for one account returned 2×200 and 6×409.
+   `AccountWriter` retries the *whole decision* on committed state — not just the save, because replaying only
+   the save would issue a session against a password hash a concurrent change had just replaced. `PasswordCheck`
+   makes a retry cheap (BCrypt once per hash, not once per attempt), which is the only reason a sixteen-attempt
+   budget is safe rather than a CPU-exhaustion amplifier.
+2. **F-26 — the search-insights pager never disabled *Next***, because one call site of sixteen passed
+   `pageSize`/`total` where `Pagination` takes `totalPages`. Found by chasing an intermittent journey failure.
+3. **F-27 — five of a store's eight social networks rendered as raw lowercase text** in the footer. A new
+   architecture test now compares the footer's icon map with `SocialLink.Networks`, so the gap cannot reopen.
+4. **F-28 — a shopper who filled a basket before signing in could get `409` on a `GET`.** The first basket read
+   after sign-in merges the guest basket and deletes it, and it creates the customer's basket if there is none;
+   two concurrent requests raced on both. Fixing only the first exposed the second, which the two-request
+   measurement had hidden.
+
+**The commercial SaaS readiness audit** (§0's own question, answered): [CommercialReadiness.md](CommercialReadiness.md)
+records what is confirmed working, the exact provisioning process today, what a merchant can customize, the gaps
+ranked, and the smallest architecture for plans and billing — **deliberately not built**.
+
+**D-13 is the gate for all of it, and it is still the owner's.** It was re-examined on 2026-09-20 rather than
+restated: the decision record framed it as a binary and omitted the position the product is actually in — a
+store *may* connect its own account, and one that has not is paid into the deployment account, so the merchant
+of record currently varies per store. Neither store on the QA stack has an account, so the platform is merchant
+of record for both. That third state is now written into `OwnerDecisions.md` with the repository constraints
+attached to each answer. **No decision was made on the owner's behalf, and no commercial code was written.**
+
+Two of the audit's architectural claims were verified against the code rather than left asserted: the
+platform→merchant billing path genuinely cannot reuse the store→shopper one (it throws at platform scope, and
+`Payment` cannot exist without an order), and the quota-concurrency claim was **corrected** — the safe pattern
+writes first and re-counts, the repository's existing caps are racy, and the invariant the whole thing rests on
+is asserted nowhere (TD-68).
 
 **M1 — done.** Closed TD-04 (payment-account use cases moved from Platform's folder to Payments, reaching the
 platform admin path through a published contract, `IStorePaymentAccountEditor`, rather than a raw class

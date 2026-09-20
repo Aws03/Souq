@@ -105,6 +105,50 @@ requirements. **Engineering must not invent any of these.**
 **The question.** Does every store connect its own Stripe account, or does the platform adopt Stripe Connect
 and settle on their behalf?
 
+**The question as written omits the state the product is actually in, and that was corrected on 2026-09-20.**
+There are **three** positions, not two, because the live default is neither of the named options:
+
+- **(a) Every store connects its own account.** The merchant is the merchant of record and holds the Stripe
+  relationship, the chargebacks and the fees. The platform then has no transaction to take a share of, so it
+  must charge the merchant directly — which makes a subscription the only revenue mechanism.
+- **(b) Stripe Connect.** The platform onboards merchants as connected accounts and can take
+  `application_fee_amount` per transaction. Who is merchant of record then depends on the Connect flavour and
+  the charge type, so choosing (b) does not end the question — it replaces it with a narrower one.
+- **(c) What is running today, which nobody chose.** A store *may* connect its own account; a store that has
+  not is paid into the **deployment account**, making the platform the merchant of record for that store. So
+  the merchant of record currently **varies per store**. Verified live on 2026-09-20: neither store on the QA
+  stack has a payment account, so the platform is merchant of record for both. `.env.example` states the
+  consequence plainly — without `SECRETS_KEY` no store can link an account at all and every store is paid into
+  the deployment account.
+
+**(c) is not a neutral "do nothing".** It is an unchosen commercial and legal position that differs per
+customer, and the evidence this record already says is missing — *Stripe's own requirements for the chosen
+model* — has never been checked against it either.
+
+**D-13 also conflates two questions that are correlated but not the same**, and both need an answer:
+1. **Who is legally the seller** (merchant of record, chargeback liability, fees)?
+2. **How does the platform collect its own revenue** — a subscription billed to the merchant, or a share of each
+   transaction? Option (a) forecloses the second; option (b) permits either.
+
+**What the repository already constrains, verified 2026-09-20.** These do not decide anything; they are the
+costs attached to each answer.
+
+- **Option (a) needs TD-50 fixed first.** BR-PAY-04 states that confirming, cancelling or refunding always uses
+  the account that took the money. The code does not keep that rule: `Payment.Gateway` records the account's
+  *kind* (`stripe:store`), never its identity, so a store that replaces its Stripe account can never refund the
+  payments the old one took. Mandatory store accounts make account replacement an ordinary event, which turns a
+  latent defect into a routine one.
+- **Store readiness has no payment item.** Provisioning reports four: domain, domain verified, administrator,
+  status. Nothing checks for a payment account, so a store can be activated and sell with none — taking money
+  into the deployment account. Option (a) therefore needs a fifth readiness item, a checkout failure path, and
+  a decision about whether activation is blocked or merely warned.
+- **BR-PAY-05 is untested** (TD-52): no test names `PaymentGatewayRouter`, because it builds its gateway inline.
+  Whichever answer is chosen changes routing, and the routing has no regression net today.
+- **`StorePaymentAccounts` has no concurrency token:** two administrators editing keys at once silently
+  last-write-wins.
+- **Stripe Connect is not a named non-goal.** [ExplicitNonGoals.md](../02-ARCHITECTURE/ExplicitNonGoals.md)
+  lists D-13 as undecided rather than rejected, so (b) needs no ADR superseded — only a new one.
+
 **Why it matters.** It decides who holds the customer relationship with Stripe, who carries chargeback
 liability, who pays the fees, and who is legally the seller. It is very hard to reverse once stores have been
 onboarded under one model.
