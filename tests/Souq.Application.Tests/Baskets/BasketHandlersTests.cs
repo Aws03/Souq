@@ -35,10 +35,12 @@ public class BasketHandlersTests
     }
 
     private BasketResolver Resolver(ICurrentUser user) => new(_baskets, user, _settings, _clock);
+    // كاتبٌ حقيقي على نفس المستودع المزيّف: الإعادة سلوكٌ يُختبَر لا يُتخطّى (BasketWriterTests تُثبّت آليّته).
+    private BasketWriter Writer() => new(_baskets);
     private BasketViews Views(ICurrentUser user) => new(_pricing, _availability, user);
-    private AddBasketItemHandler AddHandler(ICurrentUser user) => new(_products, _availability, Resolver(user), Views(user), _uow);
-    private GetBasketHandler GetHandler(ICurrentUser user) => new(Resolver(user), Views(user), _uow);
-    private BasketLines Lines(ICurrentUser user) => new(_availability, Resolver(user), Views(user), _uow);
+    private AddBasketItemHandler AddHandler(ICurrentUser user) => new(_products, _availability, Resolver(user), Views(user), _uow, Writer());
+    private GetBasketHandler GetHandler(ICurrentUser user) => new(Resolver(user), Views(user), _uow, Writer());
+    private BasketLines Lines(ICurrentUser user) => new(_availability, Resolver(user), Views(user), _uow, Writer());
     private SetBasketItemQuantityHandler SetHandler(ICurrentUser user) => new(Lines(user));
     private SetBasketLineQuantityHandler SetLineHandler(ICurrentUser user) => new(Lines(user));
     private RemoveBasketItemHandler RemoveHandler(ICurrentUser user) => new(Lines(user));

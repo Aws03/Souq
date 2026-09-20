@@ -8,9 +8,9 @@
 | Suite | Files | Facts | Theories |
 |---|---|---|---|
 | [`Souq.Domain.Tests`](#souqdomaintests) | 29 | 227 | 47 |
-| [`Souq.Application.Tests`](#souqapplicationtests) | 50 | 365 | 18 |
-| [`Souq.ArchitectureTests`](#souqarchitecturetests) | 16 | 67 | 8 |
-| [`Souq.IntegrationTests`](#souqintegrationtests) | 54 | 333 | 26 |
+| [`Souq.Application.Tests`](#souqapplicationtests) | 51 | 371 | 18 |
+| [`Souq.ArchitectureTests`](#souqarchitecturetests) | 16 | 68 | 8 |
+| [`Souq.IntegrationTests`](#souqintegrationtests) | 55 | 336 | 26 |
 | [frontend (Vitest)](#frontend-vitest) | 94 | 709 | — |
 | [frontend (Playwright)](#frontend-playwright) | 19 | 126 | — |
 
@@ -59,6 +59,7 @@
 | `tests/Souq.Application.Tests/Auth/PasswordRulesTests.cs` | `PasswordRulesTests` | 4 | 2 |
 | `tests/Souq.Application.Tests/Baskets/BasketCheckoutTests.cs` | `BasketCheckoutTests` | 3 | 0 |
 | `tests/Souq.Application.Tests/Baskets/BasketHandlersTests.cs` | `BasketHandlersTests` | 13 | 0 |
+| `tests/Souq.Application.Tests/Baskets/BasketWriterTests.cs` | `BasketWriterTests` | 6 | 0 |
 | `tests/Souq.Application.Tests/Baskets/PricingServiceTests.cs` | `PricingServiceTests` | 11 | 0 |
 | `tests/Souq.Application.Tests/Categories/CategoryHandlersTests.cs` | `CreateCategoryHandlerTests`, `UpdateCategoryHandlerTests`, `DeleteCategoryHandlerTests` | 13 | 0 |
 | `tests/Souq.Application.Tests/Common/AccountsTests.cs` | `AccountsTests` | 7 | 0 |
@@ -122,7 +123,7 @@
 | `tests/Souq.ArchitectureTests/SearchRuntimeRuleTests.cs` | `SearchRuntimeRuleTests` | 1 | 0 |
 | `tests/Souq.ArchitectureTests/TenancyRuleTests.cs` | `TenancyRuleTests` | 7 | 0 |
 | `tests/Souq.ArchitectureTests/ValidationRuleTests.cs` | `ValidationRuleTests` | 2 | 0 |
-| `tests/Souq.ArchitectureTests/WhiteLabelSourceTests.cs` | `WhiteLabelSourceTests` | 1 | 0 |
+| `tests/Souq.ArchitectureTests/WhiteLabelSourceTests.cs` | `WhiteLabelSourceTests` | 2 | 0 |
 
 ## Souq.IntegrationTests
 
@@ -135,6 +136,7 @@
 | `tests/Souq.IntegrationTests/AuthorizationBoundaryTests.cs` | `AuthorizationBoundaryTests` | 9 | 0 |
 | `tests/Souq.IntegrationTests/AuthorizationMatrixTests.cs` | `AuthorizationMatrixTests` | 3 | 0 |
 | `tests/Souq.IntegrationTests/BackgroundSweepScopeTests.cs` | `BackgroundSweepScopeTests` | 2 | 0 |
+| `tests/Souq.IntegrationTests/BasketConcurrencyTests.cs` | `BasketConcurrencyTests` | 3 | 0 |
 | `tests/Souq.IntegrationTests/BasketTests.cs` | `BasketTests` | 5 | 0 |
 | `tests/Souq.IntegrationTests/BestSellingPerformanceTests.cs` | `BestSellingPerformanceTests`, `ScratchApp`, `SqlCapture`, `Sink` | 0 | 1 |
 | `tests/Souq.IntegrationTests/CatalogSearchTests.cs` | `CatalogSearchTests` | 31 | 0 |

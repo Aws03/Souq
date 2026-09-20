@@ -11,4 +11,7 @@ public interface IBasketRepository : IRepository<Basket>
 
     // المنتهية الأقدم أولاً، بلا أسطر (الحذف المتتالي في القاعدة يحذفها).
     Task<IReadOnlyList<Basket>> ListExpiredAsync(DateTime now, int max, CancellationToken ct = default);
+
+    // ينسى السلال المتعقَّبة كي تُعاد القراءة على الحالة الملتزمة. المستدعي الوحيد `BasketWriter`.
+    void Reset();
 }

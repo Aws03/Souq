@@ -3,10 +3,25 @@ import { useTranslation } from 'react-i18next';
 import { useModule, useStoreConfig } from '../../app/TenantProvider';
 import StoreBrand, { useStoreName } from '../../app/StoreBrand';
 import { pickText } from '../../app/tenantModel';
-import { FacebookIcon, InstagramIcon, XIcon, PhoneIcon, MailIcon, MapPinIcon } from '../icons/Icons';
+import {
+  FacebookIcon, InstagramIcon, XIcon, TiktokIcon, YoutubeIcon, SnapchatIcon, LinkedinIcon, WhatsappIcon,
+  PhoneIcon, MailIcon, MapPinIcon,
+} from '../icons/Icons';
 import styles from './Footer.module.css';
 
-const SOCIAL_ICONS = { facebook: FacebookIcon, instagram: InstagramIcon, x: XIcon };
+// كل شبكة يعرضها الخادم في `SocialLink.Networks` لها أيقونة هنا. الثلاث الأولى وحدها كانت موجودة،
+// فمتجرٌ يضيف تيك‑توك كان يرى كلمة "tiktok" بحروف صغيرة بين الأيقونات. يحرس التطابقَ اختبارُ معمارية
+// يقرأ هذا الملفّ ويقارنه بقائمة النطاق — إضافة شبكة تاسعة بلا أيقونة تُسقط البناء.
+export const SOCIAL_ICONS = {
+  facebook: FacebookIcon,
+  instagram: InstagramIcon,
+  x: XIcon,
+  tiktok: TiktokIcon,
+  youtube: YoutubeIcon,
+  snapchat: SnapchatIcon,
+  linkedin: LinkedinIcon,
+  whatsapp: WhatsappIcon,
+};
 
 // تذييل المتجر (المرحلة 15، A4): الهوية ووصفها وروابط الشبكات وبيانات التواصل كلها من إعداد المتجر — لا اسم ولا هاتف ولا بريد
 // مكتوب هنا. ما لا يضبطه المتجر لا يُرسم. يظهر أسفل صفحات المتجر (لا لوحة الإدارة).

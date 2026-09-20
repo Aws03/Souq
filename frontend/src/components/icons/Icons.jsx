@@ -212,6 +212,39 @@ export const XIcon = ({ size = 18 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" {...base}><path d="M4 4l16 16M20 4 4 20" /></svg>
 );
 
+// الشبكات الخمس الباقية من `SocialLink.Networks`: المتجر كان يختارها من قائمة الخادم فتُرسَم اسماً
+// خامّاً بحروف لاتينية صغيرة ("tiktok") بين الأيقونات — يحرسه الآن اختبار يقارن التذييل بقائمة النطاق.
+export const TiktokIcon = ({ size = 18 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" {...base}>
+    <path d="M14 4v10.5a3.5 3.5 0 1 1-3.5-3.5" /><path d="M14 4c.5 2.5 2 4 4.5 4.2" />
+  </svg>
+);
+
+export const YoutubeIcon = ({ size = 18 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" {...base}>
+    <rect x="2.5" y="6" width="19" height="12" rx="3.5" /><path d="m10.5 9.5 4.5 2.5-4.5 2.5Z" />
+  </svg>
+);
+
+export const SnapchatIcon = ({ size = 18 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" {...base}>
+    <path d="M12 3.5c2.5 0 4 1.8 4 4.2 0 1.5-.2 2.4.3 2.8.4.3 1.1 0 1.4.4.4.6-.6 1.3-1.6 1.8.5 1.6 2 2.6 3.4 2.9.4.1.4.6 0 .8-.9.4-1.8.5-2.2.8-.2.2-.1.7-.5.9-.6.3-1.6-.3-2.8-.3s-2.2.6-2.8.3c-.4-.2-.3-.7-.5-.9-.4-.3-1.3-.4-2.2-.8-.4-.2-.4-.7 0-.8 1.4-.3 2.9-1.3 3.4-2.9-1-.5-2-1.2-1.6-1.8.3-.4 1-.1 1.4-.4.5-.4.3-1.3.3-2.8 0-2.4 1.5-4.2 4-4.2Z" />
+  </svg>
+);
+
+export const LinkedinIcon = ({ size = 18 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" {...base}>
+    <rect x="3.5" y="3.5" width="17" height="17" rx="3" /><path d="M8 10.5V16M8 7.6v.1M12 16v-3.2a1.8 1.8 0 0 1 3.6 0V16" />
+  </svg>
+);
+
+export const WhatsappIcon = ({ size = 18 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" {...base}>
+    <path d="M20 12a8 8 0 0 1-11.9 7L4 20l1.1-4A8 8 0 1 1 20 12Z" />
+    <path d="M9.2 9c.5 2.2 2.6 4.3 4.8 4.8l1-1.2 1.6.8c-.2 1-1 1.5-2 1.4-2.9-.3-5.6-3-5.9-5.9-.1-1 .4-1.8 1.4-2l.8 1.6Z" />
+  </svg>
+);
+
 export const PhoneIcon = ({ size = 16 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" {...base}>
     <path d="M6.5 3.5h3L11 8l-2 1.5a13 13 0 0 0 5.5 5.5L16 13l4.5 1.5v3a2 2 0 0 1-2.2 2A17 17 0 0 1 4.5 5.7a2 2 0 0 1 2-2.2Z" />

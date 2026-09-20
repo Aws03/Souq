@@ -41,6 +41,24 @@ public partial class WhiteLabelSourceTests
     [GeneratedRegex(@"\bMarka\b|ماركة|""JOD""|د\.أ", RegexOptions.IgnoreCase)]
     private static partial Regex Forbidden();
 
+    // الخادم ينشر قائمة الشبكات (`GET /api/admin/store/settings/options`) كي لا تحتفظ الواجهة بنسخة من
+    // القاعدة — لكن التذييل يحتاج **أيقونة** لكل شبكة، والأيقونة شيفرة لا بيانات. كان فيه ثلاث من ثمانٍ،
+    // فمتجرٌ يضيف تيك‑توك أو واتساب يرى الكلمة بحروف لاتينية صغيرة بين الأيقونات. الفجوة صامتة لأنّ
+    // الطرفين صحيحان كلٌّ وحده؛ هذا الاختبار وحده يرى الطرفين معاً.
+    [Fact]
+    public void كل_شبكة_يقبلها_النطاق_لها_أيقونة_في_التذييل()
+    {
+        var footer = File.ReadAllText(Path.Combine(RepositoryRoot(), "frontend", "src", "components", "layout", "Footer.jsx"));
+        var map = Regex.Match(footer, @"SOCIAL_ICONS\s*=\s*\{(?<body>[^}]*)\}", RegexOptions.Singleline);
+        map.Success.Should().BeTrue("التذييل يربط كل شبكة بأيقونتها في SOCIAL_ICONS");
+
+        var mapped = Regex.Matches(map.Groups["body"].Value, @"(?<key>[A-Za-z]+)\s*:")
+            .Select(m => m.Groups["key"].Value).ToHashSet(StringComparer.Ordinal);
+
+        var missing = Souq.Domain.Platform.SocialLink.Networks.Keys.Where(n => !mapped.Contains(n)).ToList();
+        missing.Should().BeEmpty("شبكة بلا أيقونة تُرسَم اسماً خامّاً في تذييل المتجر");
+    }
+
     private static string RepositoryRoot()
     {
         for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir is not null; dir = dir.Parent)

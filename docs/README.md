@@ -67,7 +67,7 @@ One folder per module, each with a `README.md` and most with a `ChangeGuide.md`:
 [ADR index](11-ADR/README.md) — every record, grouped by area, with what later decisions changed and which statements have since drifted.
 
 ### 12 · Roadmap
-[ProductRoadmap](12-ROADMAP/ProductRoadmap.md) (phases, status, the decision log) · [TechnicalDebt](12-ROADMAP/TechnicalDebt.md) · [SouqMasterPlan](12-ROADMAP/SouqMasterPlan.md) (the durable execution contract for the twenty engineering-mission phases — `M1`–`M20` — that carry the product from here to launch readiness; a fresh Claude session recovers exactly where things stand from its §0 status block alone)
+[ProductRoadmap](12-ROADMAP/ProductRoadmap.md) (phases, status, the decision log) · [TechnicalDebt](12-ROADMAP/TechnicalDebt.md) · [CommercialReadiness](12-ROADMAP/CommercialReadiness.md) (what it takes to *sell* this: confirmed multi-tenant capabilities, how a store is provisioned today, what a merchant can customize, the commercial gaps and the order to close them) · [SouqMasterPlan](12-ROADMAP/SouqMasterPlan.md) (the durable execution contract for the twenty engineering-mission phases — `M1`–`M20` — that carry the product from here to launch readiness; a fresh Claude session recovers exactly where things stand from its §0 status block alone)
 
 ### archive
 Historical snapshots, kept for context and not maintained: the Phase 0 architecture assessment, the audit of the earlier single-store program, the original Arabic README, and an Arabic engineering-thinking essay.

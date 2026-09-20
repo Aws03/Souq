@@ -35,13 +35,19 @@ public class GetBasketHandler : IRequestHandler<GetBasketQuery, Result<BasketRes
     private readonly BasketResolver _resolver;
     private readonly BasketViews _views;
     private readonly IUnitOfWork _uow;
+    private readonly BasketWriter _writer;
 
-    public GetBasketHandler(BasketResolver resolver, BasketViews views, IUnitOfWork uow)
+    public GetBasketHandler(BasketResolver resolver, BasketViews views, IUnitOfWork uow, BasketWriter writer)
     {
-        _resolver = resolver; _views = views; _uow = uow;
+        _resolver = resolver; _views = views; _uow = uow; _writer = writer;
     }
 
-    public async Task<Result<BasketResult>> Handle(GetBasketQuery query, CancellationToken ct)
+    // قراءةٌ تكتب: `ResolveAsync` يدمج سلّة الزائر ويحذفها. فتُعاد كاملةً عند التعارض (F-28) —
+    // وليس الحفظ وحده، لأن القرار نفسه (أي سلّة، وهل يُدمج) يتغيّر بالحالة الملتزمة الجديدة.
+    public Task<Result<BasketResult>> Handle(GetBasketQuery query, CancellationToken ct) =>
+        _writer.SaveAsync(() => AttemptAsync(query, ct), ct);
+
+    private async Task<Result<BasketResult>> AttemptAsync(GetBasketQuery query, CancellationToken ct)
     {
         var resolved = await _resolver.ResolveAsync(query.GuestToken, ct);
         await _uow.SaveChangesAsync(ct);
@@ -74,13 +80,19 @@ public class AddBasketItemHandler : IRequestHandler<AddBasketItemCommand, Result
     private readonly BasketViews _views;
     private readonly IUnitOfWork _uow;
 
+    private readonly BasketWriter _writer;
+
     public AddBasketItemHandler(
-        IProductRepository products, IStockAvailability availability, BasketResolver resolver, BasketViews views, IUnitOfWork uow)
+        IProductRepository products, IStockAvailability availability, BasketResolver resolver, BasketViews views,
+        IUnitOfWork uow, BasketWriter writer)
     {
-        _products = products; _availability = availability; _resolver = resolver; _views = views; _uow = uow;
+        _products = products; _availability = availability; _resolver = resolver; _views = views; _uow = uow; _writer = writer;
     }
 
-    public async Task<Result<BasketResult>> Handle(AddBasketItemCommand cmd, CancellationToken ct)
+    public Task<Result<BasketResult>> Handle(AddBasketItemCommand cmd, CancellationToken ct) =>
+        _writer.SaveAsync(() => AttemptAsync(cmd, ct), ct);
+
+    private async Task<Result<BasketResult>> AttemptAsync(AddBasketItemCommand cmd, CancellationToken ct)
     {
         var product = await _products.GetByIdAsync(cmd.ProductId, ct);
         if (product is not { IsSellable: true })
@@ -184,9 +196,11 @@ public sealed class BasketLines
     private readonly BasketViews _views;
     private readonly IUnitOfWork _uow;
 
-    public BasketLines(IStockAvailability availability, BasketResolver resolver, BasketViews views, IUnitOfWork uow)
+    private readonly BasketWriter _writer;
+
+    public BasketLines(IStockAvailability availability, BasketResolver resolver, BasketViews views, IUnitOfWork uow, BasketWriter writer)
     {
-        _availability = availability; _resolver = resolver; _views = views; _uow = uow;
+        _availability = availability; _resolver = resolver; _views = views; _uow = uow; _writer = writer;
     }
 
     public static Error VariantRequired() =>
@@ -206,7 +220,11 @@ public sealed class BasketLines
             ? Result<BasketLine>.Success(line)
             : Result<BasketLine>.Failure(Error.NotFound("الصنف ليس في السلة"));
 
-    public async Task<Result<BasketResult>> SetQuantityAsync(
+    public Task<Result<BasketResult>> SetQuantityAsync(
+        string? guestToken, Func<Basket?, Result<BasketLine>> find, int quantity, CancellationToken ct) =>
+        _writer.SaveAsync(() => SetQuantityAttemptAsync(guestToken, find, quantity, ct), ct);
+
+    private async Task<Result<BasketResult>> SetQuantityAttemptAsync(
         string? guestToken, Func<Basket?, Result<BasketLine>> find, int quantity, CancellationToken ct)
     {
         var resolved = await _resolver.ResolveAsync(guestToken, ct);
@@ -224,7 +242,10 @@ public sealed class BasketLines
         return Result<BasketResult>.Success(resolved.Written(await _views.BuildAsync(basket, null, ct)));
     }
 
-    public async Task<Result<BasketResult>> RemoveAsync(string? guestToken, Func<Basket?, Result<BasketLine>> find, CancellationToken ct)
+    public Task<Result<BasketResult>> RemoveAsync(string? guestToken, Func<Basket?, Result<BasketLine>> find, CancellationToken ct) =>
+        _writer.SaveAsync(() => RemoveAttemptAsync(guestToken, find, ct), ct);
+
+    private async Task<Result<BasketResult>> RemoveAttemptAsync(string? guestToken, Func<Basket?, Result<BasketLine>> find, CancellationToken ct)
     {
         var resolved = await _resolver.ResolveAsync(guestToken, ct);
         var basket = resolved.Basket;
@@ -245,12 +266,17 @@ public class ClearBasketHandler : IRequestHandler<ClearBasketCommand, Result<Bas
     private readonly BasketViews _views;
     private readonly IUnitOfWork _uow;
 
-    public ClearBasketHandler(BasketResolver resolver, BasketViews views, IUnitOfWork uow)
+    private readonly BasketWriter _writer;
+
+    public ClearBasketHandler(BasketResolver resolver, BasketViews views, IUnitOfWork uow, BasketWriter writer)
     {
-        _resolver = resolver; _views = views; _uow = uow;
+        _resolver = resolver; _views = views; _uow = uow; _writer = writer;
     }
 
-    public async Task<Result<BasketResult>> Handle(ClearBasketCommand cmd, CancellationToken ct)
+    public Task<Result<BasketResult>> Handle(ClearBasketCommand cmd, CancellationToken ct) =>
+        _writer.SaveAsync(() => AttemptAsync(cmd, ct), ct);
+
+    private async Task<Result<BasketResult>> AttemptAsync(ClearBasketCommand cmd, CancellationToken ct)
     {
         var resolved = await _resolver.ResolveAsync(cmd.GuestToken, ct);
         resolved.Basket?.Clear(_resolver.ExpiryFor(resolved.Basket));

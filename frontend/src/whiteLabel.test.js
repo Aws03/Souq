@@ -16,7 +16,8 @@ const indexHtml = read('../index.html');
 
 const FORBIDDEN = [
   { name: 'store brand', pattern: /\bmarka\b|ماركة/i },
-  { name: 'hard-coded currency', pattern: /\bJOD\b|د\.أ|دينار/ },
+  // `i` كما في قاعدة العلامة فوقها: غيابها كان يمرّر `jod` بحروف صغيرة، فالحارس أضيق من القاعدة التي يحرسها.
+  { name: 'hard-coded currency', pattern: /\bJOD\b|د\.أ|دينار/i },
   { name: 'store contact detail', pattern: /\+962|marka\.example/i },
 
   // أُضيفت في المرحلة 16 بعد إصلاح ما كانت تمسكه (TD-27): موضع تاريخ مكتوب حرفياً
