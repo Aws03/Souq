@@ -62,11 +62,24 @@ Today the code sends JOD in hundredths. If the real account treats JOD as three-
 |---|---|---|
 | **Only if the answer is three-decimal:** a small, deliberate change to the multiplier, its rounding and its test | No | **Yes, if that customer's store prices in a three-decimal currency** |
 
-**Evidence that exists.** The code and its test show exactly what is sent today (×100). They say nothing about
-what the real account expects, and the code isn't prepared for the other answer: moving to ×1000 is a code
-change, not a setting. **Evidence still required:** one test charge on the **real** account in the target
-currency, and the amount read back from the Stripe dashboard. Nothing in this repository can produce that
-evidence — it needs the account.
+**Evidence that exists.** The code and its test show exactly what is sent today (×100). **Corrected
+2026-09-20:** the sentence that used to follow — that the code "isn't prepared for the other answer" and that
+moving to ×1000 "is a code change, not a setting" — is no longer true, and two rows in
+[ReleaseReadiness.md](ReleaseReadiness.md) still say it. `StripeAmountConverter` carries an explicit
+`HonoursIsoDecimals` switch and a second overload, and `StripeAmountConverterTests` pins **both** hypotheses:
+today's ×100, the fact that the flag is false so it cannot be flipped by accident, the ×1000 answer with the
+zero-decimal currencies held at ×100, and a test proving the two differ only on three-decimal currencies.
+Answering P-05 is a one-value change in front of a green test.
+
+Two further facts for whoever runs the charge. ISO 4217 lists exactly **seven** three-decimal currencies — BHD,
+IQD, JOD, KWD, LYD, OMR and TND — which is what `CurrencyInfo` already carries. And the answer may not be
+Stripe's to give: Stripe's current public currency documentation no longer contains a three-decimal section at
+all, while other providers document the rule explicitly and at least one additionally requires such amounts to
+end in a zero — a constraint that reaches back into pricing, tracked as **C-07**.
+
+**Evidence still required:** one test charge on the **real** account in the target currency, and the amount
+read back from the provider's dashboard. Nothing in this repository can produce that evidence — it needs the
+account.
 
 **Who decides.** Nobody *decides* this one; it is discovered. The owner (or whoever holds the Stripe account)
 runs the test charge and reports what Stripe actually did.
@@ -160,9 +173,32 @@ onboarded under one model.
 |---|---|---|
 | No | No | No — **but yes for the second paying store** |
 
+**Both named options are narrower than they look — established 2026-09-20 by research into current provider
+documentation, and it does not answer the question, only sharpens it.**
+
+- **Option (b) is not available in the home market.** Stripe does not operate in Jordan — the UAE is its only
+  MENA country — and a Jordan-registered connected account is restricted to a *recipient* service agreement with
+  the `transfers` capability alone: it **cannot process payments** and cannot request the card capability at
+  all. "Adopt Stripe Connect" is therefore an expansion option for other markets, not a Jordanian one.
+- **Handing the problem to a merchant-of-record vendor is not available either.** Every mainstream one checked
+  — Paddle, Polar, Stripe Managed Payments, FastSpring — excludes **physical goods**, and each independently
+  forbids a platform reselling on behalf of third-party sellers. Souq is physical-goods e-commerce for many
+  stores, so it fails both tests.
+- **A third question hides inside option (a).** If Souq never touches shopper funds it cannot net its
+  commission from a sale, so platform revenue must be invoiced to the merchant — which makes a complete billing
+  and dunning subsystem mandatory rather than optional. If Souq *is* in the funds flow, netting becomes nearly
+  free and Souq acquires chargeback liability, KYC obligations and a probable licensing conversation with the
+  Central Bank of Jordan. That fork is tracked as **C-02**.
+- **Of the providers that do serve Jordan and JOD, only one was verified to support a transaction-time split
+  with a native fixed-plus-percentage commission.** Most are redirect-first and several cannot split at all. The
+  choice of launch provider is tracked separately as **C-01**, because the first adapter sets the payment port's
+  vocabulary.
+
 **Evidence that exists.** `PaymentsAndRefundsTests` exercises both routing paths, so either answer is
-implementable. **Evidence still required:** the commercial model and Stripe's own requirements for the chosen
-one.
+implementable, and the provider research above is written up in
+[CommercialPlatformArchitecture.md](../12-ROADMAP/CommercialPlatformArchitecture.md) §3 and §6. **Evidence still
+required:** the commercial model, the chosen provider's own requirements, and a legal answer on whether
+receiving and remitting shopper funds is a licensable activity in Jordan.
 
 **Who decides.** The owner. This is a business-model decision with legal consequences.
 
@@ -340,6 +376,39 @@ authored pages (a small CMS) rather than just reachable policies.
 is exactly the kind of business decision `AGENTS.md` §0 rule 4 reserves for the owner.
 
 ---
+
+## Commercial platform decisions — `C-01` … `C-18`
+
+Designing the commercial SaaS layer surfaced eighteen further questions that are the owner's. They are written
+out in full — each with its concrete options and what each one costs — in
+[CommercialPlatformPlan.md](../12-ROADMAP/CommercialPlatformPlan.md) §5, which is their canonical home; this
+table exists so the register above is not silently incomplete. **None of them blocks `C1`, the first phase,**
+which is why the commercial track can start before any of them is answered.
+
+| id | The question | Blocks |
+|---|---|---|
+| **C-01** | Which payment provider for the launch market? The first adapter sets the port's vocabulary, and Stripe is not available in Jordan | the payment port and every adapter |
+| **C-02** | Does Souq ever hold shopper funds? The money-transmission fork, and the thing that decides whether commission can be netted at all | the ledger and payouts |
+| **C-03** | What is the commission basis — goods only, goods plus shipping, after discounts, or gross including tax? | the ledger |
+| **C-04** | Does the platform refund its commission when a store refunds a shopper? Both provider defaults are traps | the ledger |
+| **C-05** | Who absorbs the rounding remainder on a percentage in a three-decimal currency? | the ledger |
+| **C-06** | Who bears a chargeback, and how is it recovered here, where bank auto-debit is not available? | the ledger |
+| **C-07** | Pricing granularity in JOD — accept a 10-fils minimum increment platform-wide, or make the rule conditional per provider and card scheme? | the payment port |
+| **C-08** | Is a visitor identifier stored for signed-out shoppers, on what basis, for how long, and may events leave the country? | the behavioural event foundation |
+| **C-09** | May behavioural data ever be pooled across tenants? | recommendations |
+| **C-11** | Custom domains: a managed edge or a self-run certificate client; apex support; the activation SLA; the policy for a domain that stops pointing at us | domain automation |
+| **C-12** | What are the plan tiers, and per limit: hard, soft, or overage? | plans and quotas |
+| **C-13** | Trials: none, time-limited, or freemium? | plans |
+| **C-14** | May support grant a capability outside a plan, and how is it recorded? | entitlements |
+| **C-15** | What currency does Souq invoice merchants in, and must it serve merchants with no card on file? | invoicing |
+| **C-16** | Data residency | scale-out and analytics |
+| **C-17** | What does a suspended storefront actually do, and what happens to orders already placed? | suspension and dunning |
+| **C-18** | Customer code: never, webhooks only, or eventually a sandbox? | the extension model |
+
+**What engineering decided without asking**, so it is not mistaken for an open question: where commercial tables
+live, the module boundary, the quota mechanism, the payment port's shape, the event envelope, the domain
+lifecycle, the ledger's invariants, and which caches need cross-instance invalidation. Those are recorded in
+ADRs [0047](../11-ADR/0047-commercial-control-plane.md)–[0052](../11-ADR/0052-bounded-extension-model.md).
 
 ## Smaller choices that are also not engineering's
 

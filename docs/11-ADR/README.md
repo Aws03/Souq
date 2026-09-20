@@ -76,6 +76,23 @@
 | [0031](0031-payments-and-refunds.md) | One payment per order; refunds as reserve → call → record with an idempotency key; per-store gateway accounts with encrypted secrets; webhooks routed by intent metadata | Superseded in part by [0036](0036-payment-intent-state-machine.md); **P-05** (JOD minor units) and **D-13** (account model) remain open |
 | [0036](0036-payment-intent-state-machine.md) | A confirmation reads the intent's state instead of a boolean: a retryable decline leaves the order open, only a dead intent cancels it, and money captured after an order closes is recorded so it can be refunded | Accurate; the state mapping is **unverified against a real Stripe account** |
 
+### Commercial platform (designed, not built)
+
+These six records decide *where* and *how* the commercial layer will be built, before any of it exists. Each is
+**Accepted as the design and not implemented**; the architecture they belong to is
+[CommercialPlatformArchitecture.md](../12-ROADMAP/CommercialPlatformArchitecture.md) and the sequence is
+[CommercialPlatformPlan.md](../12-ROADMAP/CommercialPlatformPlan.md). None of them decides a commercial question
+that is the owner's — those stay in [OwnerDecisions.md](../09-OPERATIONS/OwnerDecisions.md).
+
+| ADR | Decision | Validity |
+|---|---|---|
+| [0047](0047-commercial-control-plane.md) | The commercial layer is a control plane in the platform scope of the same deployable; every commercial table takes one of three shapes the tenancy tests already enforce; a fourteenth module; entitlements feed the existing module seam rather than adding a second check, and its fail-open default is closed on the way in | Accepted as the design; not implemented |
+| [0048](0048-payment-provider-abstraction.md) | The payment port becomes flow-agnostic: one start verb returning a discriminated result (redirect, client script, browser post, synchronous, deferred out-of-band), a persisted payment attempt with an opaque provider bag, totals derived from an append-only event log, a webhook inbox verified over raw bytes and routed by a tenant in the path, and adapter capabilities declared as data | Accepted as the design; not implemented, and gated on **D-13** and the launch-provider choice |
+| [0049](0049-tenant-quota-enforcement.md) | A per-tenant quota is a counter row taken under an explicit lock inside the caller's transaction — **not** the write-first-then-recount pattern used elsewhere here, which depends on an isolation-level invariant nothing asserts (TD-68) and whose own test cannot reach the guarded branch | Accepted as the design; not implemented. Decides how TD-68 closes |
+| [0050](0050-behavioural-event-foundation.md) | Behavioural events are captured now with the fields that cannot be reconstructed later (rank, list identity, a search-execution id echoed back, write-time denormalisation); the same non-blocking bounded-channel pattern as the search log; the identity link kept in a separate table; roll up before purging | Accepted as the design; not implemented, and gated on the visitor-identifier decision |
+| [0051](0051-custom-domain-lifecycle.md) | A custom domain carries two separate state machines — ownership and certificate — behind an attachment port that fits both a managed edge and a self-run ACME client, plus a DNS probe; the serving gate reads ownership and is a security control | Accepted as the design; not implemented. Makes [0045](0045-production-edge-and-observability-stack.md)'s "needs a real edge" concrete |
+| [0052](0052-bounded-extension-model.md) | Customer-specific extension is integration, not execution: bounded configuration first, then outbound webhooks over the existing outbox, then a scoped API — and anything else is product-ized or declined. Deliberately does **not** meet ExplicitNonGoals §14's condition for revisiting per-tenant custom code | Accepted as the design; not implemented |
+
 ### Frontend and white-label
 
 | ADR | Decision | Validity |
@@ -152,6 +169,6 @@ The decisions stand; these *descriptions* have drifted. Living documents are aut
 
 ## 5. Numbering and lifecycle
 
-- ADRs are numbered sequentially and never renumbered. The next one is **0047** (0043–0046 were written after this line was last updated, and it still said 0043 until 2026-09-20 — a record written from it would have collided with four existing ones).
+- ADRs are numbered sequentially and never renumbered. The next one is **0053** (0047–0052 are the commercial-platform set, written 2026-09-20; before them this line said 0047, and before 2026-09-20 it still said 0043 while 0043–0046 already existed — a record written from a stale line collides silently, so update it in the same commit that adds a record).
 - A superseded ADR keeps its text; its `Status` line says what replaced it, and the replacement links back through `Related ADRs`.
 - Rejected proposals are worth an ADR too: "we considered X and chose not to" saves the next person the same investigation ([ExplicitNonGoals.md](../02-ARCHITECTURE/ExplicitNonGoals.md) collects the big ones).

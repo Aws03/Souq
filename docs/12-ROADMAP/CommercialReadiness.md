@@ -15,6 +15,15 @@
 > **Nothing here was built.** §5 records a design so it is not re-derived from scratch later; it is deliberately
 > unimplemented, and §5.0 explains why building it now would be guessing.
 >
+> **§5 has since been elaborated into a full architecture.**
+> [CommercialPlatformArchitecture.md](CommercialPlatformArchitecture.md) takes the sketch below and works it out
+> subsystem by subsystem — including the pieces this page does not cover at all (custom-domain automation, the
+> behavioural event foundation, recommendations, the extension model, scale-out) — and
+> [CommercialPlatformPlan.md](CommercialPlatformPlan.md) sequences it. **This page remains the audit**: what is
+> true today, measured. Where the two disagree about today's code, this page wins; where they disagree about the
+> shape of what should be built, the architecture wins, and two of this page's own claims were corrected on
+> 2026-09-20 by that work (§5.2 and §5.4, each marked in place).
+>
 > **Last verified against the code:** 2026-09-20, branch `phase/17-production-hardening`.
 
 ---
@@ -205,7 +214,7 @@ no new technology, consistent with [ExplicitNonGoals.md](../02-ARCHITECTURE/Expl
 | *Entitlements* | The derived answer "which modules and which limits does this store have", resolved once per request alongside the existing store snapshot | Application, read through the existing tenant context |
 | A *quota guard* | Consulted by the commands that create countable things (products, staff, storage). **Server-side only** | Application |
 | A *platform billing port* | An interface the core owns, implemented in Infrastructure — the same shape as `IPaymentService`, which is the Application-owned port today (`IPaymentGateway` is **not** core-owned: it is the Infrastructure-internal single-account adapter contract that `PaymentGatewayRouter` selects between; an earlier revision of this row named the wrong one) | Application port, Infrastructure adapter |
-| *Dunning* | A background job that moves an unpaid subscription through a grace period and then suspends the store, reusing `TenantStatus.Suspended`, whose own definition already names payment | Application + a job beside the existing seven |
+| *Dunning* | A background job that moves an unpaid subscription through a grace period and then suspends the store, reusing `TenantStatus.Suspended`, whose own definition already names payment | Application + a job beside the existing five. **Corrected 2026-09-20:** this row said "the existing seven". `AddHostedService` is called exactly five times, and only three of those derive from `StoreSweepService` — which is per-store and single-instance by its own declaration, so a dunning run belongs on the outbox's lease pattern rather than that base class |
 
 ### 5.3 Three things this design must get right
 
@@ -259,9 +268,12 @@ no new technology, consistent with [ExplicitNonGoals.md](../02-ARCHITECTURE/Expl
 
 ### 5.4 What is explicitly *not* in this design
 
-No new database, no per-tenant database, no message broker, no separate billing service. All four are named
-non-goals with recorded reasons, and nothing in a subscription model constitutes the measured evidence that
-would reverse one.
+No new database, no per-tenant database, no message broker, no separate billing service, and no per-tenant
+fork. **Corrected 2026-09-20:** this paragraph said all four were named non-goals.
+[ExplicitNonGoals.md](../02-ARCHITECTURE/ExplicitNonGoals.md) names fifteen, and *a separate billing service* is
+not among them — it falls under §1 (microservices) by argument, and would need its own ADR rather than a
+superseding one. The other three are named. Nothing in a subscription model constitutes the measured evidence
+that would reverse any of them.
 
 ---
 

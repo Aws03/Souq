@@ -34,7 +34,7 @@ phase_status: done
 next_phase: done        # terminal. M2 stays blocked on TD-42; what else remains is the owner's — §5 and OwnerDecisions.md
 blocked_decisions: ["TD-42", "GitHub Actions billing", "D-13"]   # see §5 and OwnerDecisions.md; the billing block stops CI running at all. D-13 blocks nothing in M1-M20 (all closed) but gates the whole commercial track — see "After the plan"
 last_verified_date: 2026-09-20
-last_verified_head: f5cfece         # see "After the plan" below. M20's own closing head was f3548ee; e276f54 closed 2026-09-19
+last_verified_head: 50a8f01         # see "And after that" below. Was f5cfece and had gone stale by two commits, which §5 makes a STOP condition; corrected 2026-09-20. M20's own closing head was f3548ee; e276f54 closed 2026-09-19
 baseline_branch: phase/17-production-hardening
 ```
 
@@ -349,6 +349,37 @@ money; they follow its *kind*, and replacing a store's keys strands a refund (**
 with no test behind it now has one. **TD-51** and **TD-52** were filed rather than fixed, because both would
 change payment behaviour or payments infrastructure inside an audit phase. The fake gateway's Production guard
 was verified by booting a container, not by reading the code.
+
+### And after that (2026-09-20, the commercial architecture)
+
+Still not a phase, and it changed no phase's scope: **no code was written and no commercial feature was built.**
+What it produced is the durable design for the commercial track, so that the first line of commercial code is
+written against a decided architecture rather than under pressure from a signed contract:
+[CommercialPlatformArchitecture.md](CommercialPlatformArchitecture.md) (the subsystem catalogue, the two money
+paths, the provider-agnostic payment port, quotas, the event foundation, customization, privacy, scale-out),
+[CommercialPlatformPlan.md](CommercialPlatformPlan.md) (phases `C1`–`C14`, their dependencies, the deferral list
+and the owner decisions), and six ADRs, `0047`–`0052`, each **Accepted as the design and not implemented**.
+
+Three things it corrected rather than asserted, each verified against the code:
+
+1. **§0's `last_verified_head` was stale by two commits** (`f5cfece` against a `50a8f01` tip), which §5's first
+   STOP condition names explicitly. Corrected above.
+2. **A quota must not copy the last-administrator guard.** That guard is safe only because the default isolation
+   level is *locking* read-committed — `READ_COMMITTED_SNAPSHOT` appears exactly once in this repository, in its
+   own comment, and is asserted nowhere — and **its test cannot reach the guarded branch**: three administrators
+   are seeded and two are disabled, so the in-transaction re-count for zero never fires and the assertion passes
+   by arithmetic. [ADR-0049](../11-ADR/0049-tenant-quota-enforcement.md) chooses a counter row instead and closes
+   TD-68 with it.
+3. **P-05 is smaller than its own record says, and P-06 is larger.** `StripeAmountConverter` already carries an
+   explicit `HonoursIsoDecimals` switch with **both** hypotheses pinned by tests, so answering P-05 is a
+   one-value change in front of a green test. Meanwhile Jordan's e-invoicing is a *clearance* model, which makes
+   tax a separate outbound integration rather than a pricing-pipeline field.
+
+The commercial track is gated on **D-13**, and research for this work sharpened that question rather than
+answering it: Stripe does not operate in Jordan (a Jordan-registered connected account is recipient-only and
+cannot process payments), and every mainstream merchant-of-record vendor checked excludes physical goods *and*
+forbids a platform reselling for third-party sellers. Both named options in the original D-13 framing are
+therefore narrower than they look. No decision was made on the owner's behalf.
 
 Keep this block current in the same commit that closes a phase: `current_phase`, `phase_status`
 (`not_started` | `in_progress` | `blocked` | `done`), `next_phase`, `blocked_decisions` (the exact ID from
