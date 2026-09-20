@@ -16,7 +16,7 @@
 | **Guest** | A shopper with no account. Has a basket, identified by a hashed token in an `HttpOnly` cookie, which merges into the customer's basket at sign-in. |
 | **Storefront** | The public, customer-facing part of a store: catalog, basket, checkout, account. |
 | **Platform area** | The admin surface served only on the platform host (`[PlatformEndpoint]`). |
-| **Module (business)** | A business capability that owns rules and data: Catalog, Ordering, Payments… 13 in total ([Modules.md](../04-MODULES/Modules.md)). |
+| **Module (business)** | A business capability that owns rules and data: Catalog, Ordering, Payments… 14 in total ([Modules.md](../04-MODULES/Modules.md)). |
 | **Module flag** | A per-store switch for an optional capability (reviews, wishlist, promotions). Disabled means the endpoint answers 404 `ModuleDisabled`, enforced by `RequiresModuleAttribute`. |
 | **White-label** | One build, no brand of its own: every name, colour, font, currency and language comes from the store's configuration at runtime ([WhiteLabel.md](../08-FRONTEND/WhiteLabel.md)). |
 

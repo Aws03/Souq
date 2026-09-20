@@ -62,12 +62,16 @@ export default function StoreDetail() {
         <div><dt>{t('platform.identity.defaultCulture')}</dt><dd>{t(`admin.settings.culture.${detail.defaultCulture}`)}</dd></div>
         <div><dt>{t('admin.settings.timeZone')}</dt><dd dir="ltr">{detail.timeZone}</dd></div>
         <div><dt>{t('platform.stores.colCreated')}</dt><dd>{formatDate(detail.createdAt)}</dd></div>
+        <div>
+          <dt>{t('platform.store.plan')}</dt>
+          <dd>{detail.planName ?? t('platform.store.noPlan')}</dd>
+        </div>
       </dl>
 
       <ReadinessPanel store={detail} accounts={accountList} />
       <ProfilePanel key={`${detail.name}|${detail.currency}`} store={detail} options={options.data} onChanged={refresh} />
       <DomainsPanel store={detail} options={options.data} onChanged={refresh} />
-      <ModulesPanel key={detail.modules.join()} store={detail} options={options.data} onChanged={refresh} />
+      <ModulesPanel key={`${detail.modules.join()}|${(detail.effectiveModules ?? []).join()}`} store={detail} options={options.data} onChanged={refresh} />
       <AdminsPanel store={detail} accounts={accountList} options={options.data} onChanged={refresh} />
       <LifecyclePanel store={detail} accounts={accountList} onChanged={refresh} />
     </div>

@@ -11,7 +11,7 @@
 One team, one product, one database transaction for checkout. A modular monolith has:
 - one deployable;
 - one database;
-- 13 business modules that own their data and talk through explicit contracts.
+- 14 business modules that own their data and talk through explicit contracts.
 
 That gives the separation that makes a later extraction possible, without paying today for network calls, distributed transactions, per-service deployments and eventual consistency where money and stock must agree. The module rules are executable tests, so the separation doesn't decay into a "big ball of mud".
 → [ADR-0001](../11-ADR/0001-target-architecture.md), [ADR-0002](../11-ADR/0002-modular-monolith-structure.md), [ModuleBoundaries.md](../02-ARCHITECTURE/ModuleBoundaries.md)
@@ -45,7 +45,7 @@ Business rules must outlive technology choices. The Domain references nothing, s
 
 ### Why are modules folders and namespaces, not projects?
 
-Thirteen projects would add build and dependency ceremony without making a boundary more real than an architecture test does. Changing this is an ADR, not a refactor.
+Fourteen projects would add build and dependency ceremony without making a boundary more real than an architecture test does. Changing this is an ADR, not a refactor.
 → [ADR-0002](../11-ADR/0002-modular-monolith-structure.md)
 
 ## Data and tenancy

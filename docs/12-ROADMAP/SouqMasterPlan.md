@@ -381,6 +381,31 @@ cannot process payments), and every mainstream merchant-of-record vendor checked
 forbids a platform reselling for third-party sellers. Both named options in the original D-13 framing are
 therefore narrower than they look. No decision was made on the owner's behalf.
 
+### And after that (2026-09-20, `C1`)
+
+**The commercial track started, and it is its own plan.** `docs/12-ROADMAP/CommercialPlatformPlan.md` owns the
+phases `C1`–`C14`; this section is not their home and will not grow a phase per `C` item. It records only that
+the head moved again and why, so a later session reading §0 is not surprised.
+
+**`C1` — the commercial control plane — is done.** A fourteenth module, *Billing*, now owns plans, subscriptions
+and entitlements; it owns no money and touches no payment code. The one thing worth carrying forward from it is
+the defect it closed rather than the feature it added: `TenantInfo.HasModule` **failed open**. Its default was
+`null`, and `null` meant *every module is enabled*. So did the database default on the column behind it. For
+three free optional features that was a defensible convenience; for a paid entitlement it gives the product away
+silently, with a green suite. Closing it properly meant removing the parameter's default value entirely so the
+compiler named all eight construction sites — a behaviour change that is only safe when it cannot be inherited
+by accident.
+
+Nothing any store can do changed: a *foundation plan* carrying exactly today's three free modules was created by
+the migration and assigned to every existing store, and to every new one at provisioning. The design and its
+consequences are [ADR-0053](../11-ADR/0053-entitlement-resolution.md).
+
+Two guards were added that outlive the phase. Platform tables that carry a `TenantId` but have **no** tenant
+filter — the shape the new commercial tables use — had no architecture rule at all, because there is no filter
+to bypass and so the existing bypass rule can never fire for them; the new rule found a pre-existing reader that
+no inventory had listed. And the platform area's privilege of carrying a `TenantId` in a request is now **earned
+rather than declared**: a test proves every such request is reachable only through a platform-host endpoint.
+
 Keep this block current in the same commit that closes a phase: `current_phase`, `phase_status`
 (`not_started` | `in_progress` | `blocked` | `done`), `next_phase`, `blocked_decisions` (the exact ID from
 [OwnerDecisions.md](../09-OPERATIONS/OwnerDecisions.md), e.g. `P-06`), `last_verified_date` and

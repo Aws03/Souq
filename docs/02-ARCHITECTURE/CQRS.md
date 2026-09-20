@@ -63,6 +63,7 @@ flowchart LR
 | Reporting (a store's dashboard) | `IStoreReports` | `StoreReportQueries` |
 | Reporting (platform statistics) | `IPlatformReports` | `PlatformQueries` — the same reviewed cross-store type, so the filter bypass stays in one place |
 | Identity / accounts | `IAccountQueries` | `AccountQueries` |
+| Billing | `IBillingQueries` | `BillingQueries` |
 
 ## 4. Listing conventions (every paged read)
 

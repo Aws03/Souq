@@ -29,6 +29,42 @@ public class TenancyRuleTests
         "Souq.Infrastructure.Persistence.Queries.PlatformQueries",
     };
 
+    // ============================================================================
+    // جداول المنصّة **بمفتاح متجر** (الشكل B في ADR-0047 §1): تعيش في Souq.Domain.Platform وتحمل
+    // TenantId، فلا مرشّح مستأجر عليها ولا حارس كتابة يختمها. ولهذا لا يستطيع
+    // `تجاوز_مرشّح_المستأجر_فقط_في_مسار_المنصّة_المراجَع` أن يحرسها أبداً: **لا مرشّح لتتجاوزه**.
+    // الشكل الوحيد الذي لا شبكة أمان له إطلاقاً هو أقلّ الأشكال حراسةً اليوم.
+    //
+    // فالحارس هنا من نوع آخر: مَن **يلمس** هذه الجداول أصلاً محصورٌ في قائمة مراجَعة، وكل صنف فيها
+    // يحمل في رأسه القاعدة نفسها التي يحملها PlatformQueries — شرط TenantId صريح في كل قراءة تخصّ
+    // متجراً. إضافة صنف هنا قرار يُراجَع، لا سطر يمرّ.
+    //
+    // حدّان مكتوبان لا مُغطّيان: الفحص يقرأ Souq.Infrastructure وحدها (Souq.API ثغرة قائمة، كما
+    // لسائر فحوص IL هنا)، و**الخاصّية الملاحية تهرب منه** — لو صار Subscription ملاحةً على Tenant
+    // لقُرئ عبرها بلا لمس DbSet، كما يقرأ TenantDirectory نطاقاتِ المتجر عبر t.Domains اليوم.
+    // ولذلك لا ملاحة من Tenant إلى أيٍّ من هذه الجداول، عمداً.
+    // ============================================================================
+    private static readonly HashSet<string> ReviewedPlatformKeyedReads = new(StringComparer.Ordinal)
+    {
+        // موضع **الإعلان** لا القراءة: AppDbContext هو من يصرّح بـ DbSet<T> أصلاً.
+        "Souq.Infrastructure.Persistence.AppDbContext",
+        // القارئ المُراجَع الأصلي: نطاقات المتجر، بشرط المتجر الصريح.
+        "Souq.Infrastructure.Persistence.Queries.PlatformQueries",
+        "Souq.Infrastructure.Persistence.Repositories.TenantRepository",
+        // C1: الدليل يحلّ الاستحقاق الفعّال (اشتراك + استثناءات) بشرط `== t.Id` في كل استعلام فرعي.
+        "Souq.Infrastructure.Tenancy.TenantDirectory",
+        // C1: منافذ الكتابة والقراءة لوحدة Billing — رأس كل منهما يحمل القاعدة مكتوبة.
+        "Souq.Infrastructure.Persistence.Repositories.PlanRepository",
+        "Souq.Infrastructure.Persistence.Repositories.SubscriptionRepository",
+        "Souq.Infrastructure.Persistence.Repositories.EntitlementOverrideRepository",
+        "Souq.Infrastructure.Persistence.Queries.BillingQueries",
+        // أصل واجهة المتجر لرسائل بلا طلب HTTP (المرحلة 14): نطاقه الأساسي بشرط `t.Id == tenantId`.
+        // قارئٌ قائم كشفه هذا الاختبار عند إدخاله — وهو بالضبط ما يُفترض أن يفعله: الجرد كان ناقصاً.
+        "Souq.Infrastructure.Notifications.StoreOrigins",
+        // البذر ينشئ المتجر الافتراضي ونطاقه وخطته التأسيسية قبل أن يوجد مستأجر أصلاً.
+        "Souq.Infrastructure.Persistence.DbSeeder",
+    };
+
     private static readonly HashSet<string> RawSqlMethods = new(StringComparer.Ordinal)
     {
         "FromSql", "FromSqlRaw", "FromSqlInterpolated", "SqlQuery", "SqlQueryRaw",
@@ -134,6 +170,48 @@ public class TenancyRuleTests
             .ToList();
 
         offenders.Should().BeEmpty("IgnoreQueryFilters يعيد صفوف كل المتاجر — مسموح فقط في مسار المنصّة المُدقَّق");
+    }
+
+    [Fact]
+    public void قراءة_جداول_المنصّة_بمفتاح_متجر_محصورة_في_مسارها_المراجَع()
+    {
+        // الشكل B يُكتشف بالانعكاس لا بقائمة أسماء: كيان في نطاق Souq.Domain.Platform يحمل TenantId.
+        // جدول جديد بهذا الشكل يدخل الحراسة من تلقاء نفسه — وهو الفرق بين قاعدة وقائمة تتقادم.
+        var tenantKeyed = Domain.GetTypes()
+            .Where(t => t is { IsClass: true, IsAbstract: false } && t.IsSubclassOf(typeof(Entity)))
+            .Where(t => t.Namespace == typeof(Tenant).Namespace)
+            .Where(t => t.GetProperty(nameof(ITenantOwned.TenantId)) is not null)
+            .Select(t => t.FullName!)
+            .ToHashSet(StringComparer.Ordinal);
+
+        tenantKeyed.Should().NotBeEmpty("TenantDomain وحده يكفي؛ مجموعة فارغة تعني أن الفحص لا يفحص شيئاً");
+
+        // "يلمسه" = يمرّ النوع وسيطاً نوعياً في نداء (DbSet<T>، IQueryable<T>، Set<T>()): أي أن هذا
+        // الصنف يتعامل مع **صفوف** الجدول، لا أنه يستدعي دالّة ساكنة عليه.
+        // استثناءان بنيويان لا قائمة أسماء: الهجرات تصف المخطّط لا الصفوف، وصنف الإعداد
+        // (IEntityTypeConfiguration) لا يملك DbContext أصلاً فلا يستطيع قراءة صفّ ولو أراد.
+        var offenders = CallersOf(m => MentionsAsGenericArgument(m, tenantKeyed))
+            .Where(type => !type.StartsWith("Souq.Infrastructure.Migrations", StringComparison.Ordinal))
+            .Where(type => !type.StartsWith("Souq.Infrastructure.Persistence.Configurations.", StringComparison.Ordinal))
+            .Where(type => !ReviewedPlatformKeyedReads.Contains(type))
+            .ToList();
+
+        offenders.Should().BeEmpty(
+            "جداول المنصّة بمفتاح متجر بلا مرشّح وبلا حارس كتابة: عزلها شرطُ TenantId الذي يكتبه "
+            + "المستدعي بيده. صنف جديد يقرؤها يُضاف إلى ReviewedPlatformKeyedReads عمداً وبسببه");
+    }
+
+    // النوع مذكور وسيطاً نوعياً في توقيع النداء (مباشرةً أو داخل وسيط مركّب مثل List<T>).
+    private static bool MentionsAsGenericArgument(MethodReference method, HashSet<string> types)
+    {
+        if (method is GenericInstanceMethod generic && generic.GenericArguments.Any(a => Mentions(a, types)))
+            return true;
+        return method.DeclaringType is GenericInstanceType declaring
+               && declaring.GenericArguments.Any(a => Mentions(a, types));
+
+        static bool Mentions(TypeReference type, HashSet<string> types) =>
+            types.Contains(type.FullName)
+            || (type is GenericInstanceType nested && nested.GenericArguments.Any(a => Mentions(a, types)));
     }
 
     [Fact]

@@ -92,6 +92,7 @@ that is the owner's — those stay in [OwnerDecisions.md](../09-OPERATIONS/Owner
 | [0050](0050-behavioural-event-foundation.md) | Behavioural events are captured now with the fields that cannot be reconstructed later (rank, list identity, a search-execution id echoed back, write-time denormalisation); the same non-blocking bounded-channel pattern as the search log; the identity link kept in a separate table; roll up before purging | Accepted as the design; not implemented, and gated on the visitor-identifier decision |
 | [0051](0051-custom-domain-lifecycle.md) | A custom domain carries two separate state machines — ownership and certificate — behind an attachment port that fits both a managed edge and a self-run ACME client, plus a DNS probe; the serving gate reads ownership and is a security control | Accepted as the design; not implemented. Makes [0045](0045-production-edge-and-observability-stack.md)'s "needs a real edge" concrete |
 | [0052](0052-bounded-extension-model.md) | Customer-specific extension is integration, not execution: bounded configuration first, then outbound webhooks over the existing outbox, then a scoped API — and anything else is product-ized or declined. Deliberately does **not** meet ExplicitNonGoals §14's condition for revisiting per-tenant custom code | Accepted as the design; not implemented |
+| [0053](0053-entitlement-resolution.md) | An entitlement is the **intersection** of what the plan grants (plus live overrides) and what the platform has switched on, composed once in the tenant snapshot; every missing input resolves to nothing, and `TenantInfo.Modules` lost its default so the compiler names every construction site. Closes three fail-open links and makes the platform area's `TenantId` exemption earned rather than declared | Accepted and implemented (C1) |
 
 ### Frontend and white-label
 
@@ -169,6 +170,6 @@ The decisions stand; these *descriptions* have drifted. Living documents are aut
 
 ## 5. Numbering and lifecycle
 
-- ADRs are numbered sequentially and never renumbered. The next one is **0053** (0047–0052 are the commercial-platform set, written 2026-09-20; before them this line said 0047, and before 2026-09-20 it still said 0043 while 0043–0046 already existed — a record written from a stale line collides silently, so update it in the same commit that adds a record).
+- ADRs are numbered sequentially and never renumbered. The next one is **0054** (0047–0052 are the commercial-platform set, written 2026-09-20, and 0053 was added by C1 when it implemented them; before them this line said 0047, and before 2026-09-20 it still said 0043 while 0043–0046 already existed — a record written from a stale line collides silently, so update it in the same commit that adds a record).
 - A superseded ADR keeps its text; its `Status` line says what replaced it, and the replacement links back through `Related ADRs`.
 - Rejected proposals are worth an ADR too: "we considered X and chose not to" saves the next person the same investigation ([ExplicitNonGoals.md](../02-ARCHITECTURE/ExplicitNonGoals.md) collects the big ones).

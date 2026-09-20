@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Logging;
 using Souq.Application.Common.Tenancy;
 using Souq.Application.Features.Stores;
 using Souq.Domain.Platform;
@@ -11,15 +12,24 @@ namespace Souq.Infrastructure.Tenancy;
 // TenantDirectory — تنفيذ ITenantDirectory: استعلام إسقاط صغير على Tenants/TenantDomains (جداول
 // منصّة بلا مرشّح مستأجر — هي ما يُعرِّف المستأجر) خلف ذاكرة مؤقتة في العملية. اللقطة تحمل الوحدات
 // المفعّلة فيُفرض إغلاق وحدة معطّلة بلا استعلام لكل طلب.
+//
+// **الجواب الواحد يُحسب هنا** (C1، ADR-0047 §4): الوحدات الفعّالة = ما يسمح به عقد المتجر (استحقاقات
+// إصدار خطته + استثناءات الدعم السارية) ∩ ما فعّلته المنصّة له. لا فحص ثانٍ في مكان آخر: كل من
+// يسأل يسأل TenantInfo.HasModule كما كان. ثلاثة جداول إضافية تُقرأ في **نفس** الرحلة عبر استعلامات
+// فرعية، وتُخزَّن مع اللقطة 60 ثانية كسائرها.
+//
+// الاشتراكات والاستثناءات جداول منصّة **بمفتاح متجر** بلا مرشّح: الشرط `== t.Id` أدناه هو عزلها.
 // ============================================================================
 internal sealed class TenantDirectory : ITenantDirectory
 {
     private readonly AppDbContext _db;
     private readonly TenantDirectoryCache _cache;
+    private readonly TimeProvider _clock;
+    private readonly ILogger<TenantDirectory> _log;
 
-    public TenantDirectory(AppDbContext db, TenantDirectoryCache cache)
+    public TenantDirectory(AppDbContext db, TenantDirectoryCache cache, TimeProvider clock, ILogger<TenantDirectory> log)
     {
-        _db = db; _cache = cache;
+        _db = db; _cache = cache; _clock = clock; _log = log;
     }
 
     public Task<TenantInfo?> FindByHostAsync(string host, CancellationToken ct = default)
@@ -28,7 +38,7 @@ internal sealed class TenantDirectory : ITenantDirectory
         return normalized is null
             ? Task.FromResult<TenantInfo?>(null)
             : _cache.GetOrLoadAsync($"host:{normalized}",
-                () => Project(_db.Tenants.Where(t => t.Domains.Any(d => d.Host == normalized))).FirstOrDefaultAsync(ct));
+                () => FirstAsync(_db.Tenants.Where(t => t.Domains.Any(d => d.Host == normalized)), ct));
     }
 
     public Task<TenantInfo?> FindBySlugAsync(string slug, CancellationToken ct = default)
@@ -37,26 +47,76 @@ internal sealed class TenantDirectory : ITenantDirectory
         return normalized.Length is 0 or > Tenant.SlugMaxLength
             ? Task.FromResult<TenantInfo?>(null)
             : _cache.GetOrLoadAsync($"slug:{normalized}",
-                () => Project(_db.Tenants.Where(t => t.Slug == normalized)).FirstOrDefaultAsync(ct));
+                () => FirstAsync(_db.Tenants.Where(t => t.Slug == normalized), ct));
     }
 
     public Task<TenantInfo?> FindByIdAsync(int tenantId, CancellationToken ct = default) =>
-        _cache.GetOrLoadAsync($"id:{tenantId}",
-            () => Project(_db.Tenants.Where(t => t.Id == tenantId)).FirstOrDefaultAsync(ct));
+        _cache.GetOrLoadAsync($"id:{tenantId}", () => FirstAsync(_db.Tenants.Where(t => t.Id == tenantId), ct));
 
     // النشط والموقوف: حجوزات المتجر الموقوف لا يُصفّيها شيء آخر (R-24) — انظر ITenantDirectory للسبب كاملاً.
-    public async Task<IReadOnlyList<TenantInfo>> ListForBackgroundSweepsAsync(CancellationToken ct = default) =>
-        await Project(_db.Tenants
+    public async Task<IReadOnlyList<TenantInfo>> ListForBackgroundSweepsAsync(CancellationToken ct = default)
+    {
+        var now = _clock.GetUtcNow().UtcDateTime;
+        var rows = await Project(_db.Tenants
                 .Where(t => t.Status == TenantStatus.Active || t.Status == TenantStatus.Suspended)
-                .OrderBy(t => t.Id))
+                .OrderBy(t => t.Id), now)
             .ToListAsync(ct);
+        return rows.Select(ToTenantInfo).ToList();
+    }
 
     public void Invalidate() => _cache.Invalidate();
 
-    private static IQueryable<TenantInfo> Project(IQueryable<Tenant> tenants) =>
-        tenants.AsNoTracking().Select(t => new TenantInfo(
+    private async Task<TenantInfo?> FirstAsync(IQueryable<Tenant> tenants, CancellationToken ct)
+    {
+        var now = _clock.GetUtcNow().UtcDateTime;
+        var row = await Project(tenants, now).FirstOrDefaultAsync(ct);
+        return row is null ? null : ToTenantInfo(row);
+    }
+
+    // ما تحتاجه اللقطة من القاعدة، بمداخله الثلاثة غير مُدمَجة بعد: الدمج قاعدةُ مجال (Entitlements)
+    // لا تعبير SQL، وإبقاؤه في المجال هو ما يجعله مُختبَراً في Souq.Domain.Tests.
+    private IQueryable<TenantSnapshotRow> Project(IQueryable<Tenant> tenants, DateTime utcNow) =>
+        tenants.AsNoTracking().Select(t => new TenantSnapshotRow(
             t.Id, t.Slug, t.Name, t.Status, t.Currency, t.DefaultCulture, t.TimeZone,
-            StoreModules.Parse(EF.Property<string>(t, "_modules"))));
+            EF.Property<string>(t, "_modules"),
+            // الاشتراك السارٍ وحده يمنح؛ الملغى لا يمنح شيئاً. الخطة المتقاعدة **تظلّ تمنح** لمشتركها:
+            // التقاعد يمنع اشتراكاً جديداً ولا يسحب ما اشتُرك عليه.
+            _db.Subscriptions
+                .Where(s => s.TenantId == t.Id && s.Status == SubscriptionStatus.Active)
+                .SelectMany(s => _db.PlanEntitlements.Where(e => EF.Property<int>(e, "PlanId") == s.PlanId)
+                    .Select(e => e.Entitlement))
+                .ToList(),
+            _db.EntitlementOverrides
+                .Where(o => o.TenantId == t.Id && o.RevokedAtUtc == null && o.ExpiresAtUtc > utcNow)
+                .Select(o => o.Entitlement)
+                .ToList()));
+
+    private TenantInfo ToTenantInfo(TenantSnapshotRow row)
+    {
+        var enabled = StoreModules.Parse(row.EnabledModules);
+
+        // القراءة المتسامحة تبقى متسامحة (مفتاح أُزيل من المنتج لا يُسقط متجراً) لكنها لم تعد **صامتة**:
+        // مفتاح مجهول في عمود المتجر أو في خطته يعني انحرافاً بين المنتج والبيانات، وهو ما لا يُكتشف أبداً
+        // ما لم يُقَل. التجاهل نفسه يفشل مغلقاً — المفتاح المجهول لا يُمنح.
+        WarnAboutUnknown(row.Id, "وحدات المتجر", StoreModules.Unknown(row.EnabledModules));
+        WarnAboutUnknown(row.Id, "استحقاقات الخطة", row.PlanEntitlements.Where(k => !Entitlements.IsKnown(k)).ToList());
+
+        var granted = Entitlements.Granted(row.PlanEntitlements, row.ActiveOverrides);
+        return new TenantInfo(row.Id, row.Slug, row.Name, row.Status, row.Currency, row.DefaultCulture, row.TimeZone,
+            Entitlements.Effective(granted, enabled));
+    }
+
+    private void WarnAboutUnknown(int tenantId, string source, IReadOnlyList<string> unknown)
+    {
+        if (unknown.Count == 0) return;
+        _log.LogWarning("متجر {TenantId}: {Source} تحمل مفاتيح مجهولة تُتجاهَل: {Keys}",
+            tenantId, source, string.Join(',', unknown));
+    }
+
+    // صفّ وسيط بين SQL والمجال — لا يعبر حدود Infrastructure.
+    private sealed record TenantSnapshotRow(
+        int Id, string Slug, string Name, TenantStatus Status, string Currency, string DefaultCulture, string TimeZone,
+        string EnabledModules, List<string> PlanEntitlements, List<string> ActiveOverrides);
 }
 
 // إعداد الواجهة لمتجر (IStoreConfiguration) في الذاكرة نفسها: يُبطَل مع الدليل عند كل تعديل على متجر.
@@ -84,6 +144,10 @@ internal sealed class StoreConfiguration : IStoreConfiguration
 //     العشوائيين تملأ الذاكرة (والنتائج السلبية تُخزَّن لمدّة أقصر كي لا يُضرَب SQL بكل طلب).
 //   • صلاحية قصيرة (60 ث) + Invalidate بزيادة "الجيل" (يُبطل كل المفاتيح دفعة واحدة): تغييرات
 //     المتاجر نادرة، وإيقاف متجر يسري على هذه النسخة فوراً وعلى غيرها خلال دقيقة.
+//   • **الاستحقاق يرث المدّة نفسها** (C1): تغيير خطة أو سحب استثناء يستدعي Invalidate فيسري فوراً
+//     هنا وخلال دقيقة على غيرها؛ أمّا **انتهاء** استثناء بنفسه فلا يستدعيه أحد، فيبقى ممنوحاً حتى
+//     60 ثانية بعد وقته. مقبول لاستثناءٍ أقصاه تسعون يوماً، ومذكور كي لا يُكتشف مفاجأةً — والإبطال
+//     عبر النسخ هو ما يعالجه C4.
 // ============================================================================
 public sealed class TenantDirectoryCache : IDisposable
 {

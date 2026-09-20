@@ -68,7 +68,9 @@ internal sealed class PlatformQueries : IPlatformQueries, IPlatformReports
             tenant.Domains.OrderByDescending(d => d.IsPrimary).ThenBy(d => d.Host, StringComparer.Ordinal)
                 .Select(d => new TenantDomainDto(d.Host, d.IsPrimary, d.VerifiedAt)).ToList(),
             tenant.Modules.Order(StringComparer.Ordinal).ToList(),
-            StoreSettingsMapper.ToDto(tenant));
+            StoreSettingsMapper.ToDto(tenant),
+            // الجواب الواحد وخطّته يملؤهما GetTenantHandler — قاعدة الدمج في مكان واحد (C1).
+            [], null, null);
     }
 
     // حسابات إدارة المتجر (لا عملاؤه) — تجاوز بشرط المتجر الصريح.

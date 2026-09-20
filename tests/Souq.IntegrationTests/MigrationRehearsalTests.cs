@@ -259,7 +259,7 @@ public class MigrationRehearsalTests
     }
 
     private static TenantContext Context(int tenantId) => SouqApiFactory.ContextFor(
-        new TenantInfo(tenantId, "marka", "Marka Demo", TenantStatus.Active, "JOD", "ar", "Asia/Amman"));
+        new TenantInfo(tenantId, "marka", "Marka Demo", TenantStatus.Active, "JOD", "ar", "Asia/Amman", new HashSet<string>(StringComparer.Ordinal)));
 
     // صفوف بمخطّط المرحلة 1 كما كانت (قبل TenantId وعملة الطلب).
     private const string LegacyRows = """

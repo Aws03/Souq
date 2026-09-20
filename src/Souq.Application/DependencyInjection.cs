@@ -65,6 +65,9 @@ public static class DependencyInjection
         services.AddScoped<Features.Payments.StorePaymentAccountEditor>();
         services.AddScoped<Features.Payments.Contracts.IStorePaymentAccountEditor>(
             sp => sp.GetRequiredService<Features.Payments.StorePaymentAccountEditor>());
+        // وحدة Billing (C1، ADR-0047): العقد الوحيد تجاه منطقة المنصّة — تجهيز متجر يمنحه عقداً،
+        // وإلّا وُلد بلا وحدة اختيارية واحدة (الاستحقاق يفشل مغلقاً).
+        services.AddScoped<Features.Billing.Contracts.IStoreEntitlements, Features.Billing.StoreEntitlements>();
         // وحدة Shipping (المرحلة 12): استراتيجية أسعار الشحن — اليوم جدول طرق المتجر؛ مزوّد ناقل يستبدل هذا التسجيل.
         services.AddScoped<Features.Shipping.Contracts.IShippingRateProvider, Features.Shipping.StoreShippingRates>();
         // الدفع من السلة (المرحلة 9): Ordering يقرأ أسطرها ويستهلك المشترى منها عند تأكيد الدفع.

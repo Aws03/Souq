@@ -19,9 +19,13 @@ public sealed record TenantSummaryDto(
 
 public sealed record TenantDomainDto(string Host, bool IsPrimary, DateTime? VerifiedAt);
 
+// Modules = مفتاح المنصّة التشغيلي (ما أُبقي مفعّلاً لهذا المتجر). EffectiveModules = الجواب الواحد
+// الذي يفرضه الخادم فعلاً (C1): مفتاح المنصّة ∩ ما يسمح به عقد المتجر. عرضُ الأول وحده يجعل المشغّل
+// يرى مربّعاً مؤشَّراً لوحدةٍ لا تعمل، بلا ما يفسّر السبب — فالحقلان معاً أو لا شيء.
 public sealed record TenantDetailDto(
     int Id, string Name, string Slug, string Status, string Currency, string DefaultCulture, string TimeZone,
-    DateTime CreatedAt, IReadOnlyList<TenantDomainDto> Domains, IReadOnlyList<string> Modules, StoreSettingsDto Settings);
+    DateTime CreatedAt, IReadOnlyList<TenantDomainDto> Domains, IReadOnlyList<string> Modules, StoreSettingsDto Settings,
+    IReadOnlyList<string> EffectiveModules, string? PlanCode, string? PlanName);
 
 public sealed record AuditEntryDto(
     long Id, DateTime OccurredAt, string Area, string Action, int? TenantId, int? ActorUserId, string? ActorRole,

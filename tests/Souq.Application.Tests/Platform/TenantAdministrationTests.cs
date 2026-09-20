@@ -3,6 +3,7 @@ using NSubstitute;
 using Souq.Application.Common.Accounts;
 using Souq.Application.Common.Models;
 using Souq.Application.Common.Tenancy;
+using Souq.Application.Features.Billing.Contracts;
 using Souq.Application.Features.Platform;
 using Souq.Domain.Exceptions;
 using Souq.Domain.Interfaces;
@@ -19,15 +20,18 @@ public class TenantAdministrationTests
     private readonly IPlatformQueries _queries = Substitute.For<IPlatformQueries>();
     private readonly ITenantScopeRunner _scopes = Substitute.For<ITenantScopeRunner>();
     private readonly IUnitOfWork _uow = Substitute.For<IUnitOfWork>();
+    private readonly IStoreEntitlements _entitlements = Substitute.For<IStoreEntitlements>();
 
     private static Tenant Acme() => new("Acme", "acme", "JOD", "ar", "Asia/Amman");
+
+    private CreateTenantHandler Creating() => new(_tenants, _entitlements, _directory, _uow);
 
     [Fact]
     public async Task معرّف_مستخدم_لمتجر_آخر_يُرفض_بلا_حفظ()
     {
         _tenants.SlugExistsAsync("acme", Arg.Any<CancellationToken>()).Returns(true);
 
-        var result = await new CreateTenantHandler(_tenants, _directory, _uow).Handle(
+        var result = await Creating().Handle(
             new CreateTenantCommand("Acme", "ACME", "JOD", "ar", "Asia/Amman"), CancellationToken.None);
 
         result.ErrorCode.Should().Be("TenantSlugTaken");
@@ -37,7 +41,7 @@ public class TenantAdministrationTests
     [Fact]
     public async Task متجر_جديد_يُحفظ_ويُبطل_الدليل()
     {
-        var result = await new CreateTenantHandler(_tenants, _directory, _uow).Handle(
+        var result = await Creating().Handle(
             new CreateTenantCommand("Acme", "acme", "JOD", "ar", "Asia/Amman"), CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
@@ -91,5 +95,5 @@ public class TenantAdministrationTests
             Arg.Is<TenantInfo>(t => t.Slug == "acme"), Arg.Any<Func<AccountInvitations, Task<Result<InvitationResult>>>>());
     }
 
-    private static TenantInfo Info() => new(0, "acme", "Acme", TenantStatus.Provisioning, "JOD", "ar", "Asia/Amman");
+    private static TenantInfo Info() => new(0, "acme", "Acme", TenantStatus.Provisioning, "JOD", "ar", "Asia/Amman", new HashSet<string>(StringComparer.Ordinal));
 }

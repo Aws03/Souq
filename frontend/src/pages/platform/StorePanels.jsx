@@ -238,6 +238,8 @@ export function DomainsPanel({ store, options, onChanged }) {
 }
 
 // ── الوحدات ──────────────────────────────────────────────────────────────────
+// المفتاح هنا تشغيليّ، وخطة المتجر هي السقف: الوحدة سارية فعلاً إذا سمح الاثنان (C1، ADR-0053).
+// فلا يُعرض المربّع وحده — وإلّا أشّر المشغّل وحدةً لا تعمل، وقيل له "حُفظت"، ولا شيء يفسّر السبب.
 export function ModulesPanel({ store, options, onChanged }) {
   const { t } = useTranslation();
   const toast = useToast();
@@ -245,6 +247,11 @@ export function ModulesPanel({ store, options, onChanged }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const dirty = selected.size !== store.modules.length || store.modules.some((m) => !selected.has(m));
+  const effective = new Set(store.effectiveModules ?? []);
+  // ما نستطيع إثباته من هذين الحقلين فقط: وحدةٌ **مفعّلة بالمفتاح ولا تسري** ⇒ الخطة لا تمنحها.
+  // أمّا المطفأة بالمفتاح فلا يُعرف عنها شيء (السارية تقاطعٌ، فالطرفان يُخفيان بعضهما) — ولا نخمّن.
+  // ولا يُعطَّل المربّع: المشغّل يجب أن يبقى قادراً على إزالة تأشيرٍ لوحدة لا تعمل.
+  const notInForce = (module) => store.modules.includes(module) && !effective.has(module);
 
   const toggle = (module) => setSelected((current) => {
     const next = new Set(current);
@@ -280,6 +287,7 @@ export function ModulesPanel({ store, options, onChanged }) {
               <span>
                 <b>{t(`platform.modules.name.${module}`)}</b>
                 <span className={styles.hint}>{t(`platform.modules.description.${module}`)}</span>
+                {notInForce(module) && <span className={styles.hint}>{t('platform.modules.planLocked')}</span>}
               </span>
             </label>
           ))}

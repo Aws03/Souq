@@ -7,11 +7,11 @@
 
 | Suite | Files | Facts | Theories |
 |---|---|---|---|
-| [`Souq.Domain.Tests`](#souqdomaintests) | 29 | 227 | 47 |
-| [`Souq.Application.Tests`](#souqapplicationtests) | 51 | 371 | 18 |
-| [`Souq.ArchitectureTests`](#souqarchitecturetests) | 16 | 68 | 8 |
-| [`Souq.IntegrationTests`](#souqintegrationtests) | 55 | 336 | 26 |
-| [frontend (Vitest)](#frontend-vitest) | 94 | 709 | — |
+| [`Souq.Domain.Tests`](#souqdomaintests) | 30 | 245 | 50 |
+| [`Souq.Application.Tests`](#souqapplicationtests) | 52 | 380 | 18 |
+| [`Souq.ArchitectureTests`](#souqarchitecturetests) | 16 | 71 | 8 |
+| [`Souq.IntegrationTests`](#souqintegrationtests) | 56 | 343 | 26 |
+| [frontend (Vitest)](#frontend-vitest) | 94 | 711 | — |
 | [frontend (Playwright)](#frontend-playwright) | 19 | 126 | — |
 
 ## Souq.Domain.Tests
@@ -32,6 +32,7 @@
 | `tests/Souq.Domain.Tests/OrderShippingTests.cs` | `OrderShippingTests` | 5 | 0 |
 | `tests/Souq.Domain.Tests/OrderTests.cs` | `OrderTests` | 28 | 2 |
 | `tests/Souq.Domain.Tests/PaymentTests.cs` | `PaymentTests` | 5 | 3 |
+| `tests/Souq.Domain.Tests/PlanAndEntitlementTests.cs` | `PlanAndEntitlementTests` | 18 | 3 |
 | `tests/Souq.Domain.Tests/ProductOptionTests.cs` | `ProductOptionTests` | 19 | 0 |
 | `tests/Souq.Domain.Tests/ProductTests.cs` | `ProductTests`, `CategoryTests` | 11 | 1 |
 | `tests/Souq.Domain.Tests/ProductVariantTests.cs` | `ProductVariantTests` | 10 | 0 |
@@ -61,6 +62,7 @@
 | `tests/Souq.Application.Tests/Baskets/BasketHandlersTests.cs` | `BasketHandlersTests` | 13 | 0 |
 | `tests/Souq.Application.Tests/Baskets/BasketWriterTests.cs` | `BasketWriterTests` | 6 | 0 |
 | `tests/Souq.Application.Tests/Baskets/PricingServiceTests.cs` | `PricingServiceTests` | 11 | 0 |
+| `tests/Souq.Application.Tests/Billing/BillingHandlerTests.cs` | `BillingHandlerTests`, `FixedClock` | 9 | 0 |
 | `tests/Souq.Application.Tests/Categories/CategoryHandlersTests.cs` | `CreateCategoryHandlerTests`, `UpdateCategoryHandlerTests`, `DeleteCategoryHandlerTests` | 13 | 0 |
 | `tests/Souq.Application.Tests/Common/AccountsTests.cs` | `AccountsTests` | 7 | 0 |
 | `tests/Souq.Application.Tests/Common/AuditBehaviorTests.cs` | `AuditBehaviorTests` | 5 | 0 |
@@ -117,11 +119,11 @@
 | `tests/Souq.ArchitectureTests/EndpointRuleTests.cs` | `EndpointRuleTests` | 3 | 0 |
 | `tests/Souq.ArchitectureTests/GeneratedDocsTests.cs` | `GeneratedDocsTests` | 5 | 1 |
 | `tests/Souq.ArchitectureTests/MigrationSafetyTests.cs` | `MigrationSafetyTests` | 3 | 0 |
-| `tests/Souq.ArchitectureTests/ModuleAndContractRuleTests.cs` | `ModuleAndContractRuleTests` | 9 | 1 |
+| `tests/Souq.ArchitectureTests/ModuleAndContractRuleTests.cs` | `ModuleAndContractRuleTests` | 11 | 1 |
 | `tests/Souq.ArchitectureTests/NotificationDocumentationTests.cs` | `NotificationDocumentationTests` | 2 | 0 |
 | `tests/Souq.ArchitectureTests/OperationalScriptTests.cs` | `OperationalScriptTests`, `TempEnv` | 3 | 3 |
 | `tests/Souq.ArchitectureTests/SearchRuntimeRuleTests.cs` | `SearchRuntimeRuleTests` | 1 | 0 |
-| `tests/Souq.ArchitectureTests/TenancyRuleTests.cs` | `TenancyRuleTests` | 7 | 0 |
+| `tests/Souq.ArchitectureTests/TenancyRuleTests.cs` | `TenancyRuleTests` | 8 | 0 |
 | `tests/Souq.ArchitectureTests/ValidationRuleTests.cs` | `ValidationRuleTests` | 2 | 0 |
 | `tests/Souq.ArchitectureTests/WhiteLabelSourceTests.cs` | `WhiteLabelSourceTests` | 2 | 0 |
 
@@ -142,6 +144,7 @@
 | `tests/Souq.IntegrationTests/CatalogSearchTests.cs` | `CatalogSearchTests` | 31 | 0 |
 | `tests/Souq.IntegrationTests/CatalogTests.cs` | `CatalogTests`, `ProductCommandCounter` | 9 | 0 |
 | `tests/Souq.IntegrationTests/CheckoutIdempotencyTests.cs` | `CheckoutIdempotencyTests` | 3 | 0 |
+| `tests/Souq.IntegrationTests/CommercialControlPlaneTests.cs` | `CommercialControlPlaneTests` | 7 | 0 |
 | `tests/Souq.IntegrationTests/ConfigurationTests.cs` | `ConfigurationTests`, `ConfiguredFactory` | 10 | 6 |
 | `tests/Souq.IntegrationTests/CookieSecurityTests.cs` | `CookieSecurityTests` | 4 | 0 |
 | `tests/Souq.IntegrationTests/CouponRedemptionTests.cs` | `CouponRedemptionTests` | 3 | 0 |
@@ -278,7 +281,7 @@
 | `frontend/src/pages/platform/Accounts.test.jsx` | 6 |
 | `frontend/src/pages/platform/Audit.test.jsx` | 7 |
 | `frontend/src/pages/platform/PlatformOverview.test.jsx` | 5 |
-| `frontend/src/pages/platform/Provisioning.test.jsx` | 13 |
+| `frontend/src/pages/platform/Provisioning.test.jsx` | 15 |
 | `frontend/src/pages/storefrontPages.test.jsx` | 3 |
 | `frontend/src/rtl.test.js` | 2 |
 | `frontend/src/styles.darkTokens.test.js` | 3 |

@@ -1,6 +1,6 @@
 # ADR-0047: The commercial layer is a control plane inside the monolith, and every commercial table takes one of three enforced shapes
 
-- **Status:** Accepted as the design, 2026-09-20. **Not implemented** — no commercial code exists. It decides where commercial concepts live, before any of them is built. Supersedes nothing.
+- **Status:** Accepted as the design, 2026-09-20, and **implemented in part by `C1`** on the same day: the *Billing* module, the three table shapes, `Plan`/`Subscription`/`EntitlementOverride`, and the entitlement seam of §4 all exist. What remains design-only is everything with money in it — invoices, ledger, commissions, payouts — and the quota counter of [ADR-0049](0049-tenant-quota-enforcement.md). How §4 was resolved in practice (the intersection rule, and closing the fail-open default) is [ADR-0053](0053-entitlement-resolution.md). Supersedes nothing.
 - **Date:** 2026-09-20
 - **Related modules:** Platform, Identity, Reporting, and a proposed fourteenth module (*Billing*)
 - **Related ADRs:** [ADR-0005](0005-multi-tenancy-model.md) and [ADR-0022](0022-tenancy-enforcement.md) for the isolation this must not weaken; [ADR-0024](0024-platform-administration.md) for the platform area's existing conventions; [ADR-0002](0002-modular-monolith-structure.md) and [ADR-0004](0004-module-boundaries.md) for how a module is added; [ADR-0012](0012-service-extraction-strategy.md) for why this is not a service
@@ -73,7 +73,15 @@ one store, aggregates only when it spans stores, called only from audited platfo
 permissions on the platform host — and an IL-scanning test permits it alone to bypass the filter.
 
 **That test is extended to cover shape-B repositories.** This is the single change that makes the design safe,
-and it is small. Two known limits are recorded rather than glossed: the scan reads only the `Souq.Infrastructure`
+and it is small.
+
+**Done in `C1`, and not by extending that test.** The filter-bypass rule can never fire for shape B, because
+shape B has no filter to bypass — so a separate rule was added
+(`TenancyRuleTests.قراءة_جداول_المنصّة_بمفتاح_متجر_محصورة_في_مسارها_المراجَع`): it discovers tenant-keyed platform
+entities by reflection, so a future table of this shape is guarded the day it is added, and it permits only
+reviewed Infrastructure types to handle their rows. It found a pre-existing reader (`StoreOrigins`) that no
+inventory had listed. The navigation hole this record's own design implies is real and is avoided deliberately:
+no navigation runs from `Tenant` to any of these tables. Two known limits are recorded rather than glossed: the scan reads only the `Souq.Infrastructure`
 assembly (so `Souq.API` is a gap, while `Souq.Application` is safe by construction because it has no EF
 reference), and a nested type inherits its enclosing type's allowance.
 
@@ -94,10 +102,14 @@ that list grows, and nothing will fail to remind you.
 `TenantAvailabilityMiddleware` and re-asked inside the pricing pipeline. A plan **derives** the set resolved in
 `TenantDirectory.Project`; it does not add a parallel check.
 
-**The seam currently fails open and that must be fixed as part of adopting it.** The implementation is
+**The seam fails open and that must be fixed as part of adopting it.** The implementation is
 `Modules is null || Modules.Contains(module)`, the database default is every module, and the reader silently
 drops unknown keys. For three optional features that is a defensible convenience; for a paid entitlement it
 grants the product away. A test must prove that an unresolvable plan grants nothing.
+
+**Done in `C1`.** All three links are closed and the test exists; what this record did not decide — how the plan
+and the existing per-store switch combine — is settled in [ADR-0053](0053-entitlement-resolution.md) as an
+intersection in which every missing input resolves to the empty set.
 
 ### 5. A platform row and a tenant row cannot be written in one transaction
 

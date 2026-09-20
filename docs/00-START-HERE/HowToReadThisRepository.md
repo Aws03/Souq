@@ -29,7 +29,7 @@ docs/archive         historical snapshots — context, not instructions
 ## Path A — 30 minutes: what is this system?
 
 1. [SystemOverview.md](SystemOverview.md) — the whole system, including the life of a request.
-2. [Modules.md](../04-MODULES/Modules.md) §1 — the thirteen modules and what each owns.
+2. [Modules.md](../04-MODULES/Modules.md) §1 — the fourteen modules and what each owns.
 3. [ADR-0001](../11-ADR/0001-target-architecture.md) — why a modular monolith and not microservices.
 4. [ExplicitNonGoals.md](../02-ARCHITECTURE/ExplicitNonGoals.md) — skim the headings only, to know what not to propose.
 5. `docs/05-API/Endpoints.md` — skim: the whole product surface is about 130 endpoints, with their permissions.

@@ -12,11 +12,17 @@
 > decision on the owner's behalf: the plan's **NEXT OWNER DECISIONS** section lists every question that is
 > the owner's, with options and consequences.
 >
-> **Nothing here is built.** No code changed in the work that produced this document. Where a name is written in
-> `backticks` it exists in the repository today; where it is written in *italics* it is proposed and does not
-> exist.
+> **`C1` is now built; everything else here is still design.** Plans, subscriptions, entitlements and the
+> *Billing* module exist — §4.3 and §5.2 are implemented, and [ADR-0053](../11-ADR/0053-entitlement-resolution.md)
+> records how, including the two decisions this page left open (the effective set is an **intersection**, and
+> every missing input resolves to nothing). Quotas (§4.4, §5.3), metering, invoicing, dunning, the payment port,
+> domains and the event foundation are unbuilt.
 >
-> **Last verified against the code:** 2026-09-20, branch `phase/17-production-hardening`, at `50a8f01`.
+> Where a name is written in `backticks` it exists in the repository today; where it is written in *italics* it
+> is proposed and does not exist. That distinction has shifted under `C1`: several names italicised below are
+> now real.
+>
+> **Last verified against the code:** 2026-09-20, branch `phase/17-production-hardening`, after `C1`.
 
 ---
 
@@ -625,10 +631,17 @@ answered, and `TenantStatus.Suspended` as the state dunning drives.
 ### 5.2 Entitlements must feed one seam, and that seam currently fails open
 
 `TenantInfo.HasModule` is the single enforced answer, read at two enforcement points. A plan must derive the set
-resolved in `TenantDirectory.Project`. But the default is `Modules is null ⇒ everything`, mirrored by a database
+resolved in `TenantDirectory.Project`. But the default was `Modules is null ⇒ everything`, mirrored by a database
 default of all modules and a tolerant reader that drops unknown keys. For three optional features that is
 defensible; for a paid entitlement it is not. **Closing the fail-open default is part of the entitlement work,
 and a test must prove that an unresolvable plan grants nothing.**
+
+**Done in `C1`, and one detail is worth carrying forward.** All three links are closed and the test exists. The
+load-bearing part was not the `HasModule` body but the parameter: leaving `Modules` with *any* default — even an
+empty one — would have let all eight existing construction sites keep compiling while silently changing meaning.
+Removing the default made the compiler name each one. The tolerant reader stays tolerant on purpose (a key
+removed from the product must not take a store down) but is no longer silent: what it drops is logged with the
+store id.
 
 ### 5.3 A quota is not a count-then-write race — and the repository's safe pattern is not safe enough
 

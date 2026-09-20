@@ -34,7 +34,7 @@ This file is the working contract for **AI agents and engineers** in the Souq re
 
 ## 2. Architecture in one screen
 
-- **Modular monolith.** One deployable API + one database, split into 13 business **modules** that own their data and talk through explicit contracts ([ModuleBoundaries.md](docs/02-ARCHITECTURE/ModuleBoundaries.md)).
+- **Modular monolith.** One deployable API + one database, split into 14 business **modules** that own their data and talk through explicit contracts ([ModuleBoundaries.md](docs/02-ARCHITECTURE/ModuleBoundaries.md)).
 - **Clean Architecture dependency rule:** `Souq.API` → `Souq.Infrastructure` → `Souq.Application` → `Souq.Domain`. The Domain references nothing ([DependencyRules.md](docs/02-ARCHITECTURE/DependencyRules.md)).
 - **Ports and adapters:** every external system (payments, email, storage, tokens, hashing, time) sits behind an interface owned by the core and implemented in `src/Souq.Infrastructure`.
 - **Vertical slices:** one use case per folder under `src/Souq.Application/Features/<Folder>`, with its command/query, handler and validator.

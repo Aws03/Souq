@@ -97,7 +97,11 @@ dotnet ef migrations remove --project src/Souq.Infrastructure --startup-project 
 
 ## 4. The migrations, in order
 
-Twenty-two migrations; `ProductOptionsAndVariants` is the newest — no migration has been added since, so there is nothing later to look for. "Data" says what happens to existing rows.
+Twenty-seven migrations; `CommercialControlPlane` is the newest. "Data" says what happens to existing rows.
+
+**This table is complete through #22 and then lists the rest more briefly** — the five that followed are
+additive and none of them rewrites existing data, so none needs the hand-written treatment that §4.1–§4.9
+document. They are named here so that "is there anything after `ProductOptionsAndVariants`?" has an answer.
 
 | # | Migration | Purpose | Data |
 |---|---|---|---|
@@ -110,7 +114,7 @@ Twenty-two migrations; `ProductOptionsAndVariants` is the newest — no migratio
 | 7 | `Phase1AIntegrityPrecisionConcurrency` | Money → `decimal(19,4)`; `RowVersion` on Products, Orders, Coupons; `Categories.ParentId` self-FK; aggregate-child `OrderId` made `NOT NULL`; reset token stored hashed | **Hand-written clean-up first:** plaintext reset tokens are nulled (they can never match a hash again), orphaned `OrderItems`/`OrderStatusHistories` with `OrderId IS NULL` are deleted (unreachable rows that would block the `NOT NULL` change), and categories pointing at a missing parent become roots before the FK is added |
 | 8 | `Phase2MultiTenancy` | `Tenants` and `TenantDomains`; `TenantId` on nine tables; per-store uniqueness; tenant-scoped composite foreign keys | **Hand-written backfill.** See §4.1 |
 | 9 | `Phase3Identity` | `Users` and `RefreshTokens`; credentials move off `Customers` | **Hand-written, order rewritten.** See §4.2 |
-| 10 | `Phase4PlatformAdministration` | `Tenants.EnabledModules` and `Tenants.Settings`; `AuditEntries` | Additive. `EnabledModules` defaults to `promotions,reviews,wishlist`, so an existing store keeps every module |
+| 10 | `Phase4PlatformAdministration` | `Tenants.EnabledModules` and `Tenants.Settings`; `AuditEntries` | Additive. `EnabledModules` defaulted to `promotions,reviews,wishlist`, so an existing store kept every module — **#27 changed that default to empty**, for the reason recorded there |
 | 11 | `Phase5Catalog` | Translations, variants and image gallery; product status and slug | **Hand-written, order rewritten.** See §4.3 |
 | 12 | `Phase6Inventory` | `InventoryItems`, `StockReservations`, `StockMovements.InventoryItemId` | **Hand-written, order rewritten.** See §4.4 |
 | 13 | `Phase7Customers` | Customer phone, status, `BlockedAt`/`ErasedAt`, and `CustomerAddresses` | Additive. `Status` defaults to `0` (Active), so every existing customer stays active. Existing orders keep their typed address |
@@ -123,6 +127,11 @@ Twenty-two migrations; `ProductOptionsAndVariants` is the newest — no migratio
 | 20 | `Phase14Notifications` | `Notifications` and `OutboxMessages` with their filtered indexes | Additive, no existing data touched |
 | 21 | `OrderLinesRecordVariant` | `ProductVariants.IsActive` with `CK_ProductVariants_DefaultIsActive`; `OrderItems.VariantId` (same-store FK, restrict), `VariantLabel`, `Sku`; unique `(OrderId, VariantId)` replacing `IX_OrderItems_OrderId`; `IX_OrderItems_TenantId_VariantId` ([ADR-0039](../11-ADR/0039-product-variants-order-identity.md)) | **Hand-written backfill with abort guards.** See §4.8 |
 | 22 | `ProductOptionsAndVariants` | `ProductOptions`, `ProductOptionTranslations`, `ProductOptionValues` (alternate key `(TenantId, Id)`), `ProductOptionValueTranslations`, `ProductVariantOptionValues` (same-store FK to the value, restrict; unique per variant and value); `ProductVariants.CombinationKey varchar(110)` with a unique index on `(ProductId, CombinationKey)` where not null ([ADR-0040](../11-ADR/0040-product-option-model.md)) | **Additive, no existing data touched:** every existing product has no options and one default variant, which is already a simple product; `CombinationKey` stays null (§4.9) |
+| 23 | `SearchNormalizedCatalogText` | Normalized catalogue text columns and their indexes for the local search engine ([ADR-0042](../11-ADR/0042-local-search-engine.md)) | Additive, backfilled from existing text |
+| 24 | `SearchSynonyms` | `SearchSynonyms` — merchant-editable search vocabulary per store | Additive, new table |
+| 25 | `SearchQueryLog` | `SearchQueryLogs` — what shoppers searched for, written by a background batch writer | Additive, new table |
+| 26 | `SearchLogInsightIndex` | A second index on `SearchQueryLogs` for the merchant insight screen | Additive, index only |
+| 27 | `CommercialControlPlane` | `Plans`, `PlanEntitlements`, `PlanLimits`, `Subscriptions`, `EntitlementOverrides` — the commercial control plane ([ADR-0047](../11-ADR/0047-commercial-control-plane.md), [ADR-0053](../11-ADR/0053-entitlement-resolution.md)) | **Additive plus a hand-written backfill, and one default changed.** `Tenants.EnabledModules` stops defaulting to every module and defaults to empty, because that default granted paid capability to any row inserted without naming it — **no existing row is touched**, since a default governs inserts. The backfill then creates the *foundation* plan (not a commercial tier: today's three free modules, no price, no limits) and subscribes **every store that already existed**, so closing the fail-open changed no store's behaviour. Both inserts are `WHERE NOT EXISTS`, so a partially-migrated database re-runs cleanly |
 
 ### 4.1 `Phase2MultiTenancy` — the tenant backfill
 

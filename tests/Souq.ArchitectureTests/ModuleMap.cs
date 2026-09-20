@@ -24,7 +24,23 @@ internal static class ModuleMap
         ["Reviews"] = ["Reviews"],
         ["Notifications"] = ["Notifications"],
         ["Reporting"] = ["Reporting"],
+        // C1 (ADR-0047): مستوى التحكّم التجاري — الخطط والاشتراكات والاستحقاقات. مُلحقة في آخر
+        // الترتيب عمداً: الترتيب هو ترتيب العرض في الجرود، وإدراجها في الوسط يعيد ترتيب ملفّين كاملين.
+        ["Billing"] = ["Billing"],
     };
+
+    // ============================================================================
+    // منطقة المنصّة: المجلّدات التي تُخدَم على مضيف المنصّة وحده، خلف صلاحية منصّة. لها امتيازان
+    // لا يملكهما غيرها، وكلاهما كان مكتوباً حرفياً في اختبارين منفصلين قبل C1:
+    //   • طلباتها **تحمل TenantId** (تستهدف متجراً بعينه ولا تُشتقّه من المضيف)،
+    //   • وكلّها **مُدقَّقة** (IAuditable).
+    // جمعُهما هنا يعني أن مجلّداً جديداً يُنسى في مكان واحد لا في مكانين — وهو بالضبط ما تشكوه
+    // ADR-0047 §3: "ولا شيء سيذكّرك".
+    // ============================================================================
+    public static readonly IReadOnlyList<string> PlatformAreaFolders = ["Platform", "Billing"];
+
+    // تُدقَّق أيضاً وإن لم تكن منطقة منصّة: قراءات Reporting المجمَّعة تعبر المتاجر.
+    public static readonly IReadOnlyList<string> AuditedAreaFolders = [.. PlatformAreaFolders, "Reporting"];
 
     public static IEnumerable<string> Modules => FeatureFolders.Keys;
 
@@ -101,6 +117,18 @@ internal static class ModuleMap
         // Notifications
         ["Notification"] = "Notifications", ["NotificationKinds"] = "Notifications",
         ["INotificationRepository"] = "Notifications", ["InvalidNotificationException"] = "Notifications",
+
+        // Billing (C1، ADR-0047): تعيش في نطاق Souq.Domain.Platform — النطاق يُقارَن بالمساواة في
+        // TenancyRuleTests فنطاقٌ فرعي يكسر البناء — لكن **ملكيّتها** لوحدة Billing، وهذه الخريطة
+        // هي الموضع الوحيد الذي يقول ذلك.
+        ["Plan"] = "Billing", ["PlanStatus"] = "Billing", ["PlanEntitlement"] = "Billing",
+        ["PlanLimit"] = "Billing", ["Limit"] = "Billing", ["Entitlements"] = "Billing",
+        ["Subscription"] = "Billing", ["SubscriptionStatus"] = "Billing",
+        ["EntitlementOverride"] = "Billing",
+        ["IPlanRepository"] = "Billing", ["ISubscriptionRepository"] = "Billing",
+        ["IEntitlementOverrideRepository"] = "Billing",
+        ["InvalidPlanException"] = "Billing", ["InvalidSubscriptionException"] = "Billing",
+        ["InvalidEntitlementOverrideException"] = "Billing",
     };
 
     public static string? DomainOwnerOf(string typeName) => DomainOwners.GetValueOrDefault(typeName);

@@ -40,7 +40,7 @@ flowchart LR
     A --> F
 ```
 
-One process, one database, four layers, thirteen business modules. It is a **modular monolith**: modules own their data and talk through explicit contracts, so the system stays separable without paying for distribution ([ADR-0001](../11-ADR/0001-target-architecture.md), [ExplicitNonGoals.md](../02-ARCHITECTURE/ExplicitNonGoals.md)).
+One process, one database, four layers, fourteen business modules. It is a **modular monolith**: modules own their data and talk through explicit contracts, so the system stays separable without paying for distribution ([ADR-0001](../11-ADR/0001-target-architecture.md), [ExplicitNonGoals.md](../02-ARCHITECTURE/ExplicitNonGoals.md)).
 
 ```
 src/Souq.API             HTTP: controllers, middleware, auth policies, composition root
@@ -113,6 +113,7 @@ On top: another owner's id answers **404**, never 403, so ids leak nothing. Back
 | Reviews | Reviews and moderation |
 | Notifications | The outbox, in-app notifications, email |
 | Reporting | Read-only statistics |
+| Billing | The commercial control plane: plans, subscriptions and entitlements |
 
 Who may call whom, and what is actually enforced: [ModuleBoundaries.md](../02-ARCHITECTURE/ModuleBoundaries.md). Per-module detail: [docs/04-MODULES/](../04-MODULES/Modules.md).
 

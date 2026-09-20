@@ -12,8 +12,14 @@
 > [OwnerDecisions.md](../09-OPERATIONS/OwnerDecisions.md), and what *we chose to postpone* is
 > [TechnicalDebt.md](TechnicalDebt.md). This page links to them rather than restating them.
 >
-> **Nothing here was built.** §5 records a design so it is not re-derived from scratch later; it is deliberately
-> unimplemented, and §5.0 explains why building it now would be guessing.
+> **Nothing here was built *when this page was written*.** §5 recorded a design so it would not be re-derived
+> from scratch later, and §5.0 explains why building it then would have been guessing.
+>
+> **Its first slice has since been built.** `C1` implemented the plan-and-entitlement half of §5 — the *Billing*
+> module, `Plan`, `Subscription` and the entitlement seam — and closed the fail-open default that §5 assumed
+> would be fixed on the way in. Nothing with money in it was built: no price, no invoice, no commission, no
+> quota enforcement. The audit findings below still stand; treat §5 as the sketch that
+> [ADR-0053](../11-ADR/0053-entitlement-resolution.md) finished.
 >
 > **§5 has since been elaborated into a full architecture.**
 > [CommercialPlatformArchitecture.md](CommercialPlatformArchitecture.md) takes the sketch below and works it out

@@ -21,7 +21,8 @@ Promotions owns discount rules: which coupons exist, when they may be used, how 
 | Freezing the code and the discount on the order | Ordering — `Order.ApplyCoupon` |
 | Deciding that an order was placed, paid or cancelled | Ordering — it calls this module at each of those moments |
 | Refunding money | Payments |
-| Storing and serving module flags | Platform |
+| Storing and serving the per-store module switch, and enforcing the effective set | Platform |
+| Deciding what a store's plan grants it | Billing |
 
 ## Business concepts
 
@@ -109,6 +110,8 @@ This runs inside the caller's transaction — `IUnitOfWork.InTransactionAsync` j
 
 - **At the endpoint:** `CouponsController` carries `[RequiresModule(StoreModules.Promotions)]`, so every `/api/coupons` route — the public preview *and* the admin routes — answers `404 ModuleDisabled` from `TenantAvailabilityMiddleware`, before authentication.
 - **In the use case:** `PricingService` checks `TenantInfo.HasModule(StoreModules.Promotions)`, so the basket quote reports the outcome `ModuleDisabled` and checkout answers `422 ModuleDisabled` (`PlatformAdministrationTests` asserts exactly this pair).
+
+Both places ask the same question of the same snapshot, and since C1 that snapshot holds the **effective** set: what the store's plan grants, plus its live entitlement overrides, intersected with the platform's per-store switch ([Platform](../Platform/README.md#tenant-behaviour), [Billing](../Billing/README.md)). So "the module is off" now has two possible reasons — the store's contract does not include coupons, or the platform switched them off — and a store with neither input resolved has no optional module at all, because a missing input grants nothing rather than everything. Nothing changed here: the key, both check sites and the two status codes are exactly as they were.
 
 `ICouponRedemptions` does **not** check the flag: orders placed while the module was on are still confirmed and released after it is switched off, which is what keeps counters honest. The SPA hides the coupon field (`useModule('promotions')` in `AddressStep`) and filters the admin navigation and route by module and permission.
 

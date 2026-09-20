@@ -95,6 +95,19 @@ public class AppDbContext : DbContext, IUnitOfWork
     public DbSet<Tenant> Tenants => Set<Tenant>();
     public DbSet<TenantDomain> TenantDomains => Set<TenantDomain>();
 
+    // ============================================================================
+    // مستوى التحكّم التجاري (C1، وحدة Billing، ADR-0047). ثلاثة جداول بشكلين:
+    //   • Plans/PlanEntitlements/PlanLimits — الشكل C: عالمية بلا متجر، تُقرأ كأي استعلام.
+    //   • Subscriptions/EntitlementOverrides — الشكل **B**: تحمل TenantId ولا مرشّح عليها.
+    //     عزلها كلّه شرطٌ صريح يكتبه المستدعي، ويحرسه
+    //     `قراءة_جداول_المنصّة_بمفتاح_متجر_محصورة_في_مسارها_المراجَع` في TenancyRuleTests.
+    // ============================================================================
+    public DbSet<Plan> Plans => Set<Plan>();
+    public DbSet<PlanEntitlement> PlanEntitlements => Set<PlanEntitlement>();
+    public DbSet<PlanLimit> PlanLimits => Set<PlanLimit>();
+    public DbSet<Subscription> Subscriptions => Set<Subscription>();
+    public DbSet<EntitlementOverride> EntitlementOverrides => Set<EntitlementOverride>();
+
     // سجلّ التدقيق (D-17): للإضافة فقط، بلا مرشّح (يُقرأ من المنصّة بشرط صريح).
     public DbSet<AuditEntry> AuditEntries => Set<AuditEntry>();
 

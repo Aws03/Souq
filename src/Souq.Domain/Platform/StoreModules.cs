@@ -26,8 +26,16 @@ public static class StoreModules
         return string.Join(',', normalized);
     }
 
-    // قراءة متسامحة: مفتاح أُزيل من المنتج يُتجاهل بدل أن يُسقط المتجر.
+    // قراءة متسامحة: مفتاح أُزيل من المنتج يُتجاهل بدل أن يُسقط المتجر. التسامح **يفشل مغلقاً** —
+    // المجهول لا يُمنح — لكنه كان أيضاً صامتاً، فانحرافُ البيانات عن المنتج لا يُكتشف أبداً. الغياب عن
+    // الجواب يبقى كما كان، و`Unknown` أدناه هو ما يجعله مسموعاً (C1، ADR-0047 §4).
     public static IReadOnlySet<string> Parse(string? stored) => new HashSet<string>(
-        (stored ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Where(All.Contains),
-        StringComparer.Ordinal);
+        Split(stored).Where(All.Contains), StringComparer.Ordinal);
+
+    // ما أسقطته القراءة المتسامحة — ليُسجَّل، لا ليُرفض.
+    public static IReadOnlyList<string> Unknown(string? stored) =>
+        Split(stored).Where(m => !All.Contains(m)).Distinct(StringComparer.Ordinal).ToList();
+
+    private static IEnumerable<string> Split(string? stored) =>
+        (stored ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 }

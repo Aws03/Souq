@@ -55,7 +55,7 @@ src/Souq.Application     use cases: commands, queries, handlers, validators, por
 src/Souq.Domain          the business model: aggregates, value objects, domain events
 ```
 
-Dependencies point inwards only; the Domain depends on nothing. Inside those layers, thirteen **business modules** own their data and talk through explicit contracts. Every request is bound to one store, resolved from its host on the server, and four independent mechanisms keep stores apart.
+Dependencies point inwards only; the Domain depends on nothing. Inside those layers, fourteen **business modules** own their data and talk through explicit contracts. Every request is bound to one store, resolved from its host on the server, and four independent mechanisms keep stores apart.
 
 - Layers and what enforces them: [docs/02-ARCHITECTURE/DependencyRules.md](docs/02-ARCHITECTURE/DependencyRules.md)
 - Modules and ownership: [docs/04-MODULES/Modules.md](docs/04-MODULES/Modules.md) · [docs/02-ARCHITECTURE/ModuleBoundaries.md](docs/02-ARCHITECTURE/ModuleBoundaries.md)

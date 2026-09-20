@@ -92,6 +92,7 @@ public static class DbSeeder
         await using (var scope = services.GetRequiredService<IServiceScopeFactory>().CreateAsyncScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            await EnsureFoundationPlanAsync(db, scope.ServiceProvider.GetRequiredService<TimeProvider>(), logger);
             await BindDefaultTenantHostsAsync(db, options.DefaultTenantHosts, logger);
             if (options.SeedDemoData) await ApplyDefaultStoreLookAsync(db, logger);
             defaultTenant = await scope.ServiceProvider.GetRequiredService<ITenantDirectory>()
@@ -153,6 +154,43 @@ public static class DbSeeder
             logger, options.PlatformOwnerEmail, options.PlatformOwnerPassword, options.IsDevelopment,
             DevelopmentPlatformOwnerEmail, DevelopmentPlatformOwnerPassword, "مالك المنصّة", Roles.PlatformOwner,
             "Seed:PlatformOwnerEmail/Seed:PlatformOwnerPassword");
+    }
+
+    // ============================================================================
+    // الخطة التأسيسية للمتجر الافتراضي (C1، ADR-0047). منذ C1 صار المتجر بلا اشتراك متجراً بلا وحدة
+    // اختيارية واحدة — الاستحقاق يفشل مغلقاً — فهذه الشبكة هي ما يمنع حزمة التطوير و QA من الإقلاع
+    // بمتجر عرضٍ لا كوبون فيه ولا تقييم ولا مفضّلة، وهو عطبٌ يبدو عيباً في المنتج لا نقصاً في البذر.
+    //
+    // **شبكة أمان لا مصدر حقيقة**: هجرة C1 هي من يُنشئ الخطة ويُسنِدها لكل متجر قائم مرّةً واحدة،
+    // وهذه تتحقّق فقط ولا تُسنِد إلا للمتجر الافتراضي. لا تُعمَّم على كل متجر بلا اشتراك: إسنادُ خطةٍ
+    // لمتجرٍ تُرك بلا خطة عمداً قرارٌ تجاري لا يتّخذه بذرٌ عند الإقلاع.
+    // ============================================================================
+    private static async Task EnsureFoundationPlanAsync(AppDbContext db, TimeProvider clock, ILogger logger)
+    {
+        var plan = await db.Plans
+            .Where(p => p.Code == Plan.FoundationCode && p.Status == PlanStatus.Published)
+            .OrderByDescending(p => p.Version)
+            .FirstOrDefaultAsync();
+
+        if (plan is null)
+        {
+            plan = new Plan(Plan.FoundationCode, 1, "الخطة التأسيسية");
+            plan.SetEntitlements(StoreModules.All);
+            plan.Publish();
+            db.Plans.Add(plan);
+            await db.SaveChangesAsync();
+            logger.LogInformation("Seeded the foundation plan granting {Count} optional modules", StoreModules.All.Count);
+        }
+
+        var tenant = await db.Tenants.FirstOrDefaultAsync(t => t.Slug == DefaultTenantSlug);
+        if (tenant is null) return;
+
+        // شرط TenantId صريح: جدول منصّة بمفتاح متجر بلا مرشّح (ADR-0047 §1، الشكل B).
+        if (await db.Subscriptions.AnyAsync(sub => sub.TenantId == tenant.Id)) return;
+
+        db.Subscriptions.Add(new Subscription(tenant.Id, plan, clock.GetUtcNow().UtcDateTime));
+        await db.SaveChangesAsync();
+        logger.LogInformation("Subscribed the default store to the foundation plan");
     }
 
     private static async Task BindDefaultTenantHostsAsync(AppDbContext db, IReadOnlyList<string> hosts, ILogger logger)

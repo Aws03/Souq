@@ -4,7 +4,7 @@
 
 ## Purpose
 
-Souq sells stores. The Platform module owns the store itself: who exists on the platform, on which hosts each store is served, what it looks and reads like, which optional features it has bought, and whether it is open for business. It is its own module because every other module needs an answer to "which store is this request for, and is it allowed to be here?" before it can do anything, and because those answers are commercial decisions (contract, billing, abuse) that belong to the platform owner, not to the store's own staff.
+Souq sells stores. The Platform module owns the store itself: who exists on the platform, on which hosts each store is served, what it looks and reads like, which optional features are switched on for it, and whether it is open for business. It is its own module because every other module needs an answer to "which store is this request for, and is it allowed to be here?" before it can do anything, and because those answers are commercial decisions (contract, billing, abuse) that belong to the platform owner, not to the store's own staff.
 
 The module also hosts the **audit trail**: the append-only record of who did what in which store. It is a building block rather than a business capability, but its only reader today is the platform area, so it is documented here.
 
@@ -14,7 +14,7 @@ The module also hosts the **audit trail**: the append-only record of who did wha
 - Hosts: adding, removing and choosing the primary domain; the platform-wide uniqueness of a host.
 - Resolving a request's store from its `Host` header, and deciding whether the requested endpoint is available on that host in that store's state.
 - The store settings document: per-language display name and announcement, branding (colours, typography and theme presets, uploaded logo/favicon/social image), contact details, social links, SEO, enabled languages.
-- Optional module flags per store, and their server-side enforcement.
+- The platform's per-store switch for the optional modules, and the server-side enforcement of the **effective** set — what the store's plan grants, intersected with that switch.
 - The public storefront configuration one store's frontend boots from, with its cache and ETag.
 - The platform administration area: the store list and detail, a store's administrative accounts, inviting a store's first administrator, platform accounts, and the audit log.
 - Writing the audit trail for every auditable request, and keeping it append-only.
@@ -29,6 +29,7 @@ The module also hosts the **audit trail**: the append-only record of who did wha
 | Payment gateway behaviour and the encrypted store keys | [Payments](../Payments/README.md) — including the store-facing use cases, which **moved to `Features/Payments` in M1** (TD-04/R-04; four statements in this file still said `Features/Stores` until M11 corrected them, contradicting the Dependencies section that recorded the move) (see Dependencies) |
 | Emails and templates | [Notifications](../Notifications/README.md) |
 | Reading the review-publishing policy when a review is created | [Reviews](../Reviews/README.md); Platform owns the flag, Reviews owns the decision |
+| Plans, subscriptions and entitlements — *what may this store use, and on what terms* | [Billing](../Billing/README.md) since C1. Platform keeps the per-store switch and the one enforcement point; Billing owns the other input |
 
 ## Business concepts
 
@@ -39,7 +40,7 @@ The module also hosts the **audit trail**: the append-only record of who did wha
 - **Store status** — Provisioning, Active, Suspended, Archived.
 - **Settings document** — everything about how the store presents itself, validated as a whole and stored as one JSON document.
 - **Branding preset** — a curated typography key and theme key; a new look is a product feature for every store, never a per-client fork.
-- **Module flag** — an optional capability a store has (promotions, reviews, wishlist).
+- **Module flag** — the platform's per-store switch for an optional capability (promotions, reviews, wishlist). It is one of **two** inputs, not the answer: see *Effective modules* under [Tenant behaviour](#tenant-behaviour).
 - **Platform area** — the platform owner's entry point, served only on platform hosts.
 - **Audit entry** — one immutable line: when, which area, which action, which store, which actor, the target and safe metadata.
 - **Tenant directory** — the cached host → store map every request consults.
@@ -61,9 +62,9 @@ The module also hosts the **audit trail**: the append-only record of who did wha
 | `LocalizedText` | static helper | `src/Souq.Domain/Platform/StoreSettings.cs` | Only supported culture keys; trims; drops empty values; enforces the caller's maximum length |
 | `BrandPresets` | static catalogue | `src/Souq.Domain/Platform/StoreSettings.cs` | The approved typography and theme keys |
 | `BrandingAsset` | enum | `src/Souq.Domain/Platform/StoreSettings.cs` | — |
-| `StoreModules` | static catalogue | `src/Souq.Domain/Platform/StoreModules.cs` | Known keys only on write (`Format`); tolerant on read (`Parse` drops unknown keys rather than failing a store) |
+| `StoreModules` | static catalogue | `src/Souq.Domain/Platform/StoreModules.cs` | Known keys only on write (`Format`); tolerant on read (`Parse` drops unknown keys rather than failing a store) — tolerant but no longer silent, since C1: `Unknown` reports what was dropped so `TenantDirectory` can log it. Dropping fails closed either way, because an unknown key is never granted |
 | `AuditEntry` | append-only record (not an `Entity`) | `src/Souq.Domain/Auditing/AuditEntry.cs` | Area must be one of `AuditAreas`; action must look like `tenant.created`; over-long values are clipped, never rejected — a truncated line beats a missing one |
-| `TenantInfo` | Application snapshot record | `src/Souq.Application/Common/Tenancy/TenantInfo.cs` | `HasModule` treats a null module set (test or seed snapshots) as "everything enabled" |
+| `TenantInfo` | Application snapshot record | `src/Souq.Application/Common/Tenancy/TenantInfo.cs` | `HasModule` asks the snapshot's module set and nothing else. The set is non-nullable **with no default**, so a snapshot cannot be built without one — until C1 a null set meant "everything enabled" and the parameter defaulted to null, so a snapshot built without modules granted every one of them |
 
 **Aggregate boundaries.** `Tenant` owns its domains and its settings document. Nothing else in the system holds a reference to `TenantDomain`; business rows reference a store only by the `TenantId` foreign key from the shared kernel. `AuditEntry` is deliberately outside every aggregate and has **no** foreign key to `Tenants`: it is a historical witness, not a live relationship.
 
@@ -146,13 +147,14 @@ Destructive platform actions confirm in `ConfirmDialog`, and the server's refusa
 
 `Souq.Domain.Platform` types themselves (`StoreModules` keys, `TenantStatus`) are part of the shared kernel in practice: other modules reference the constants, not this module's use cases.
 
-**No module-flag contract:** earlier module documentation named a planned *ITenantModules* contract. It does not exist and is not needed — the enabled modules travel inside the cached `TenantInfo` and are asked through `TenantInfo.HasModule`.
+**No module-flag contract:** earlier module documentation named a planned *ITenantModules* contract. It does not exist and is not needed — the effective modules travel inside the cached `TenantInfo` and are asked through `TenantInfo.HasModule`. C1 did not change that: it changed what goes into the snapshot, not who asks it.
 
 ## Dependencies
 
 - **Uses:**
   - `IFileStorage` (branding uploads) and `MediaFileInspector` (content sniffing) from the shared kernel.
   - `Common/Accounts` (`AccountInvitations`, `AccountStatusChanger`, `IAccountQueries`) — Identity's rules, deliberately shared building blocks rather than a cross-module call.
+  - Billing's published contract `IStoreEntitlements` (`src/Souq.Application/Features/Billing/Contracts/IStoreEntitlements.cs`, authorized in `AllowedContracts`): `CreateTenantHandler` subscribes a new store to the foundation plan — without it the store would be provisioned with no optional module at all — and `GetTenantHandler` reads its plan for the store page. A contract rather than Billing's domain types, because a direct reference would make Platform ⇄ Billing a cycle in both directions (Billing already reads `Tenant`).
   - **Boundary leak — closed in the M1 architecture audit (TD-04/R-04).** The store-payment-account use cases used to live in `Features/Stores` (this module's folder) while working on **Payments'** domain. They now live in `Features/Payments`, and the one path Platform genuinely needs — the platform admin's own view of a store's payment account, `src/Souq.Application/Features/Platform/TenantPaymentAccounts.cs` — reaches them through a published contract, `IStorePaymentAccountEditor` ([Payments/README.md](../Payments/README.md#who-owns-store-payment-accounts)), authorized explicitly in `ModuleAndContractRuleTests`' `AllowedContracts`.
   - In Infrastructure, `PlatformQueries` reads `Users`, `Customers`, `Products`, `Orders`, `Coupons` and `ShippingMethods` with `IgnoreQueryFilters` (the last two were added with the currency lock and were missing from this list until M11). That is the deliberate, reviewed exception ([ADR-0024](../../11-ADR/0024-platform-administration.md)).
 - **Used by:**
@@ -169,14 +171,14 @@ Destructive platform actions confirm in `ConfirmDialog`, and the server's refusa
 
 | Table | Configuration | Tenant-owned? | Notes |
 |---|---|---|---|
-| `Tenants` | `src/Souq.Infrastructure/Persistence/Configurations/TenantConfiguration.cs` | No — it *defines* the tenant | Unique index on `Slug`; the settings document in the `Settings` JSON column (converted by `StoreSettingsJson`); module keys in the `EnabledModules` column, defaulting to every module so an upgrade never removes a feature; `ReviewsAutoApprove`; `rowversion` |
+| `Tenants` | `src/Souq.Infrastructure/Persistence/Configurations/TenantConfiguration.cs` | No — it *defines* the tenant | Unique index on `Slug`; the settings document in the `Settings` JSON column (converted by `StoreSettingsJson`); the platform's per-store module switch in the `EnabledModules` column, whose database default is **empty** since C1 — a row inserted without naming it grants nothing, where it used to grant every module; `Tenant`'s constructor still names all three for a new store; `ReviewsAutoApprove`; `rowversion` |
 | `TenantDomains` | `TenantDomainConfiguration` in the same file | No | **Unique index on `Host` across the whole platform** — the last guard against stealing another store's host; cascade delete from `Tenants` |
 | `AuditEntries` | `src/Souq.Infrastructure/Persistence/Configurations/AuditEntryConfiguration.cs` | No, and deliberately no FK to `Tenants` | Append-only, enforced by `TenantWriteGuardInterceptor`; indexes on `OccurredAt`, `(TenantId, OccurredAt)`, `(ActorUserId, OccurredAt)` |
 | `StorePaymentAccounts` | `StorePaymentAccountConfiguration` | Yes | Owned by Payments (entity and key rules); written from `Features/Payments` (since M1) and this module's `Features/Platform` use cases (TD-04 records moving them to Payments) |
 
 Other modules' data is read only through `PlatformQueries`: a store's administrative accounts (`Users` with an explicit `TenantId` predicate), and "does this store have any commercial activity?" (`Products`, `Orders`, `Coupons` or `ShippingMethods` — coupons and shipping methods are priced rows too, so a store holding only a coupon is currency-locked as well; this list said `Products` or `Orders` until M11, and M8 re-confirmed the wider one as what closes R-09), which is what locks a store's currency.
 
-Migrations: `Phase2MultiTenancy` creates `Tenants` and `TenantDomains` and the default store (fixed id 1, named "Marka Demo", slug `marka`); `Phase4PlatformAdministration` adds the settings document, the module column and `AuditEntries`; `Phase13ReviewsWishlist` adds `ReviewsAutoApprove`.
+Migrations: `Phase2MultiTenancy` creates `Tenants` and `TenantDomains` and the default store (fixed id 1, named "Marka Demo", slug `marka`); `Phase4PlatformAdministration` adds the settings document, the module column and `AuditEntries`; `Phase13ReviewsWishlist` adds `ReviewsAutoApprove`; `CommercialControlPlane` changes the module column's default to empty (and creates [Billing](../Billing/README.md)'s own tables).
 
 ## API
 
@@ -242,9 +244,11 @@ A request for `/uploads/tenants/{id}/…` on another store's host gets a bare 40
 | Platform endpoint on a store host, or a store endpoint on a platform host (and not `[AvailableOnAllHosts]`) | `404 NotFound` — the existence of the other area is not revealed |
 | Store `Provisioning` and the endpoint is not `[AvailableDuringProvisioning]`, not `AvailableWhenStoreClosedAttribute`, and not behind a `[HasPermission]` policy | `503 StoreUnavailable` |
 | Store `Suspended` or `Archived` and the endpoint is not `AvailableWhenStoreClosedAttribute` | `503 StoreUnavailable` |
-| The endpoint declares `[RequiresModule(...)]` and the store does not have it | `404 ModuleDisabled` |
+| The endpoint declares `[RequiresModule(...)]` and the store's effective set does not contain it | `404 ModuleDisabled` |
 
 Because administration endpoints are recognised by their permission policy, a store's staff can work while it is still being provisioned — which is exactly how a store is prepared before it opens.
+
+**Effective modules** (C1). The set a store actually has is the **intersection** of two inputs: what its plan grants, plus its live unexpired entitlement overrides ([Billing](../Billing/README.md)), and the platform's per-store `EnabledModules` switch. The plan is the commercial ceiling; the switch is the operational off-button, so a store whose plan allows reviews can still turn them off. It is composed once per snapshot, in `TenantDirectory`: `TenantDirectory.Project` reads the three inputs in the same round trip that builds the rest of the snapshot, and they are intersected in memory afterwards by `Entitlements.Effective`, the rule itself, which lives in the Domain. **A missing or unresolvable input grants nothing** — no subscription, a plan that cannot be resolved, or an unknown key yields the empty set, never "everything". The enforcement point did not move: everyone still asks `TenantInfo.HasModule`, read by `TenantAvailabilityMiddleware` and by `PricingService`. `GET /api/storefront/config` reports this effective set rather than the raw column, so the SPA never offers a feature the server would 404.
 
 **Caches.** `TenantDirectoryCache` (a dedicated `MemoryCache`, 10,000 entries, 60 s for hits, 15 s for misses) holds host, slug, id and storefront-config entries. `ITenantDirectory.Invalidate` bumps a generation counter, dropping every entry at once **on the calling instance only**; other instances follow within 60 s. Every platform command that changes a store calls it.
 
@@ -277,6 +281,7 @@ Because administration endpoints are recognised by their permission policy, a st
 | Application | `tests/Souq.Application.Tests/Common/AuditBehaviorTests.cs` | Actor, store and area on the staged line; discard on failure and on exception; untouched non-auditable requests |
 | Application | `tests/Souq.Application.Tests/Common/TenantContextTests.cs` | Set once, and `RequireTenant` throwing in platform scope |
 | Integration | `tests/Souq.IntegrationTests/PlatformAdministrationTests.cs` | The full provisioning scenario, the Marka look and ETag/304, module enforcement in the endpoint and in checkout, domain theft, currency lock, platform accounts, append-only audit |
+| Integration | `tests/Souq.IntegrationTests/CommercialControlPlaneTests.cs` | The two module inputs through the real middleware: a store left without a plan loses every optional module although its column is unchanged, and the storefront config reports the effective set rather than the column (owned by [Billing](../Billing/README.md), listed here because both behaviours are this module's endpoints) |
 | Integration | `tests/Souq.IntegrationTests/ProvisioningBoundaryTests.cs` | The wizard's boundaries: platform options equal the store editor's, a platform host refused as a store domain, administrator readiness in the list, the provisioning owner's token refused on the new store, the new store isolated from its first moment |
 | Integration | `tests/Souq.IntegrationTests/PlatformAuditViewerTests.cs` | Account, date-range and store filters together; server paging newest first; UTC range bounds as the browser sends them; an inverted range refused; reading the log writes a line; platform host and platform account only; response instants carry `Z` |
 | Integration | `tests/Souq.IntegrationTests/StoreAdministrationTests.cs` | Store-side settings edit and its audit line, unreadable palette rejected, branding formats and host-scoped serving, staff vs settings permissions |
@@ -333,7 +338,7 @@ Details in [ChangeGuide.md](ChangeGuide.md): adding a store setting; adding a mo
 - **An audit line names ids, not people or stores.** `AuditEntryDto` carries the actor's id and role and the store's id; the viewer shows them as such rather than fetching names, because every platform read is itself an audit line and a store's accounts are outside the platform's scope.
 - **Store queries are not audited** — only platform-area requests and store-side commands are. Sign-ins, sign-outs and other Identity events are not audited at all.
 - **`Archive` is terminal but empty.** No data export, anonymization or deletion happens; the store simply stops serving.
-- **No plans, quotas or subscriptions.** Module flags are the only commercial lever, and they are a fixed set of three keys.
+- **No quotas.** Plans and subscriptions arrived with C1 and live in [Billing](../Billing/README.md), but this module's own commercial lever is still one switch over a fixed set of three keys, and nothing anywhere counts or caps a store's usage.
 - **Readiness reads one page of accounts.** A store's page decides "has an administrator" from the first 100 administrative accounts, newest first; the list uses the server's exact counts.
 
 ## Future evolution
@@ -343,6 +348,6 @@ Details in [ChangeGuide.md](ChangeGuide.md): adding a store setting; adding a mo
 - **DECISION REQUIRED:** platform-wide settings (`platform.settings.manage`) — no setting is defined (P-07).
 - The store list, provisioning wizard, store page, platform accounts (`/platform/accounts`) and the activity log (`/platform/audit`) are delivered — see [FrontendArchitecture.md](../../08-FRONTEND/FrontendArchitecture.md) §5.
 - **PLANNED (Phase 23):** automated TLS and DNS verification for custom domains; per-store email-domain authentication.
-- **DEFERRED:** plans and subscriptions ("after launch" in the roadmap's Phase 4 notes).
+- **Delivered in C1:** plans, subscriptions and entitlements, in [Billing](../Billing/README.md). What stays undone is the money — prices, invoices, commissions and payouts — and quota enforcement over the limits a plan already carries.
 - **FUTURE:** an audited "support mode" that lets the platform act inside a store — described in [MultiTenancy.md](../../02-ARCHITECTURE/MultiTenancy.md) and [AuthenticationAndAuthorization.md](../../07-SECURITY/AuthenticationAndAuthorization.md) as Phase 18, but absent from the roadmap's Phase 18 scope.
 - **FUTURE:** distributed cache invalidation (or shorter lifetimes) when the API runs as several replicas; promoting individual settings fields to columns if they ever need to be queried; a dedicated database per store through the resolver seam described in [MultiTenancy.md](../../02-ARCHITECTURE/MultiTenancy.md).

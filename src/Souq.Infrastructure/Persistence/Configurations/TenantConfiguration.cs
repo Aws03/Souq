@@ -26,12 +26,15 @@ public class TenantConfiguration : IEntityTypeConfiguration<Tenant>
                .HasColumnName("Settings")
                .HasConversion(StoreSettingsJson.Converter, StoreSettingsJson.Comparer);
 
-        // الوحدات المفعّلة (D-11). الافتراضي للصفوف القائمة: كل الوحدات — الترقية لا تُفقد متجراً كوبوناته.
+        // الوحدات المفعّلة (D-11). **الافتراضي فارغ** (C1، ADR-0047 §4): كان كل الوحدات، أي أن صفّاً
+        // يُكتب بلا ذكر العمود يمنح كل شيء. راحةٌ مقبولة لثلاث ميزات اختيارية، وإهداءٌ للمنتج يوم تصير
+        // الوحدة استحقاقاً مدفوعاً — والافتراضي هو بالضبط ما لا يراه أحد ولا يراجعه أحد.
+        // (الصفوف القائمة لا تتأثّر: الافتراضي يخصّ الإدراج، وهجرة C1 تُسند لكلٍّ منها خطتها التأسيسية.)
         builder.Property<string>("_modules")
                .HasColumnName("EnabledModules")
                .HasMaxLength(200)
                .IsRequired()
-               .HasDefaultValue(StoreModules.Format(StoreModules.All));
+               .HasDefaultValue("");
 
         // سياسة نشر التقييمات (المرحلة 13): العمود يُضاف false، ثم تعيده هجرة Phase13 true للمتاجر القائمة (كانت تنشر فوراً).
         builder.Property(t => t.ReviewsAutoApprove);

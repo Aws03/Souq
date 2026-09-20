@@ -20,9 +20,29 @@
 | One store can never read or write another's data | `AppDbContext` query filter + `TenantWriteGuardInterceptor`, composite keys | I: `TenantIsolationTests` · Ar: `TenancyRuleTests` | Cross-module *domain* access is counted, not prevented ([ModuleDomainDependencies.md](../02-ARCHITECTURE/ModuleDomainDependencies.md)) |
 | Another owner's id answers 404, not 403 | Ownership checks in the use cases (`ICurrentUser.CanAccessOwnedBy`) | I: `AuthorizationMatrixTests`, `AuthorizationBoundaryTests`, `TenantIsolationTests` | — |
 | A store's status gates its endpoints | `TenantAvailabilityMiddleware` | I: `TenantResolutionTests`, `PlatformAdministrationTests` | A closed store still serves its storefront configuration and the four session endpoints, so it can render its own "unavailable" screen and its admins can sign in; everything else is 503. How much administration a *suspended* store should retain is an open product decision |
-| Optional modules can be turned off per store | `RequiresModuleAttribute`, plus checks inside the coupon use cases | I: `PlatformAdministrationTests`, `ReviewModerationTests`, `WishlistTests` | Reviews and wishlist are gated only at the endpoint, not inside their use cases |
+| Optional modules can be turned off per store | `RequiresModuleAttribute`, plus checks inside the coupon use cases | I: `PlatformAdministrationTests`, `ReviewModerationTests`, `WishlistTests` | Reviews and wishlist are gated only at the endpoint, not inside their use cases. Since C1 this switch is only **one of two** inputs to the answer — §1a |
 | Platform actions are audited | `AuditBehavior` over `IAuditable` | Ar: every platform request must be auditable · I: `PlatformAdministrationTests` | Store-side actions (order status, coupons, shipping) are **not** audited |
 | Store settings drive the storefront | `UpdateStoreSettingsCommand`, `GetStorefrontConfigQuery`, the directory cache | I: `StoreAdministrationTests`, `PlatformAdministrationTests` · F: `tenantModel.test.js` | Cache invalidation is per process (R-23) |
+
+## 1a. Plans and entitlements: what may this store use?
+
+Added in C1 with the fourteenth module, [Billing](../04-MODULES/Billing/README.md). The section exists because of what
+the architecture work found before the code was written: `TenantInfo.HasModule` answered **yes to every optional
+module** for a snapshot built without one, and the constructor argument defaulted to exactly that — a fail-open no test
+on this page was watching. The argument is now required, the column's database default is empty, and the answer is a
+composition of two inputs rather than one switch.
+
+| Capability | Implementation | Tests | Gaps |
+|---|---|---|---|
+| The effective module set is what the plan grants, widened by live overrides, **intersected with** what the platform has switched on — either input missing grants nothing | `Entitlements.Granted` and `Entitlements.Effective`, composed once per cached snapshot in `TenantDirectory`; enforced where it always was, at `TenantInfo.HasModule` | D: `PlanAndEntitlementTests` · I: `CommercialControlPlaneTests` | An unknown key in the column is now reported by `StoreModules.Unknown` and logged by `TenantDirectory` instead of being dropped in silence — and **that reporting has no test of its own** |
+| Plans are versioned, and a published plan is frozen: a change of terms is a new version, never an edit | `Plan`, `PlanEntitlement`, `PlanLimit`, `CreatePlanVersionCommand`, `UpdatePlanDraftCommand` | D: `PlanAndEntitlementTests` · A: `BillingHandlerTests` · I: `CommercialControlPlaneTests` | A `PlanLimit` is carried, not counted — nothing enforces a limit yet, by decision ([ADR-0049](../11-ADR/0049-tenant-quota-enforcement.md)) |
+| A store holds one subscription to one published plan; a draft is refused, and a retired plan takes no new subscriber while its existing ones keep it | `Subscription`, `AssignTenantPlanCommand`, `CancelTenantPlanCommand` | D: `PlanAndEntitlementTests` · A: `BillingHandlerTests` · I: `CommercialControlPlaneTests` | — |
+| A support exception expires by itself, names the account that granted it and a written reason, and is refused when it would do nothing | `EntitlementOverride`, `GrantEntitlementOverrideCommand`, `RevokeEntitlementOverrideCommand` | D: `PlanAndEntitlementTests` · A: `BillingHandlerTests` · I: `CommercialControlPlaneTests` | — |
+| Every commercial write invalidates the store directory, so a new contract is in force on the next request and not at the next cache expiry | the Billing handlers, `ITenantDirectory` | A: `BillingHandlerTests` · I: `CommercialControlPlaneTests` | Invalidation is per process (R-23), as for every other store-cache write |
+| Introducing plans changed no store's behaviour: the migration subscribed every existing store to the foundation plan, provisioning subscribes each new one, and the seeder ensures it | `Plan.FoundationCode`, `IStoreEntitlements`, `CreateTenantHandler`, `DbSeeder` | I: `CommercialControlPlaneTests` — the foundation plan is published and grants the three optional modules end to end | **The three routes onto it are each unproven.** The migration's backfill is rehearsed nowhere (`MigrationRehearsalTests` does not assert that a store which existed before C1 came out of it subscribed); `SouqApiFactory` writes the subscription itself, so no integration test walks the real provisioning path; and `TenantAdministrationTests` injects `IStoreEntitlements` without asserting that `CreateTenantHandler` asks it for a contract |
+| The commercial endpoints are served on the platform host alone and behind the owner's permission, not the platform admin's | `PlatformBillingController`, `Permissions.Platform.Billing` | I: `CommercialControlPlaneTests`, `AuthorizationBoundaryTests` · Ar: `ModuleAndContractRuleTests`, `EndpointRuleTests` | — |
+| The storefront is told the **effective** set, not the raw column, so a screen can no longer offer a module the server answers 404 for | `GetStorefrontConfigQuery` | I: `CommercialControlPlaneTests` | — |
+| The platform console names a store's plan, and says why a module that is switched on is not in force, instead of showing an inert checkbox | `IStoreEntitlements`, `StoreDetail.jsx`, `StorePanels.jsx` | F: `Provisioning.test.jsx` | The one answer **with its inputs** is served over HTTP (`GetTenantEntitlementsQuery`, proven by `CommercialControlPlaneTests`), but no screen reads it yet |
 
 ## 2. Identity and access
 
@@ -109,6 +129,8 @@ Added in M19. M12 was entirely about merchant-facing numbers — and found four 
 | The dependency rule and thin controllers | project references + IL analysis | Ar: `DependencyRuleTests` |
 | Module contracts and no cycles | namespace analysis | Ar: `ModuleAndContractRuleTests` |
 | No client-chosen tenant, no entity in a contract, no `IQueryable` leak | reflection over requests | Ar: `ModuleAndContractRuleTests` |
+| The platform area's right to carry a `TenantId` is earned, not declared: every request in it is reachable on the platform host alone | the generated endpoint inventory | Ar: `ModuleAndContractRuleTests` |
+| A platform table that is tenant-keyed yet carries **no** query filter and no write guard is handled only where that was reviewed | reflection finds the shape in the Domain, then an IL scan finds its readers | Ar: `TenancyRuleTests` |
 | Time is injected everywhere | IL scan | Ar: `ClockRuleTests` |
 | Every endpoint declares its access | reflection over controllers | Ar: `EndpointRuleTests` |
 | No brand or currency literal in product code | source scan | Ar: `WhiteLabelSourceTests` · F: `whiteLabel.test.js` |

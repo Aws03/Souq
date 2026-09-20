@@ -60,6 +60,9 @@ public static class Permissions
         public const string Settings = "platform.settings.manage"; // إعدادات المنصّة (المالك وحده)
         public const string Reports = "platform.reports.view";    // إحصاءات المنصّة
         public const string Audit = "platform.audit.view";        // سجلّ التدقيق
+        // مستوى التحكّم التجاري (C1): كتالوج الخطط، إسنادها للمتاجر، واستثناءات الاستحقاق.
+        // للمالك وحده كـ Users وSettings: هذه علاقةٌ تجارية مع العميل، لا تشغيلُ متجره اليومي.
+        public const string Billing = "platform.billing.manage";
     }
 
     public static IReadOnlySet<string> StoreAll { get; } = new HashSet<string>(StringComparer.Ordinal)
@@ -71,7 +74,7 @@ public static class Permissions
 
     public static IReadOnlySet<string> PlatformAll { get; } = new HashSet<string>(StringComparer.Ordinal)
     {
-        Platform.Tenants, Platform.Users, Platform.Settings, Platform.Reports, Platform.Audit,
+        Platform.Tenants, Platform.Users, Platform.Settings, Platform.Reports, Platform.Audit, Platform.Billing,
     };
 
     public static IReadOnlySet<string> All { get; } =

@@ -59,7 +59,9 @@ const settings = {
 };
 const store = (patch = {}) => ({
   id: 7, name: 'Acme', slug: 'acme', status: 'Provisioning', currency: 'USD', defaultCulture: 'en', timeZone: 'UTC',
-  createdAt: '2026-09-17T08:00:00Z', domains: [], modules: ['promotions', 'reviews', 'wishlist'], settings, ...patch,
+  createdAt: '2026-09-17T08:00:00Z', domains: [], modules: ['promotions', 'reviews', 'wishlist'], settings,
+  // C1: ما يسري فعلاً، وخطّته. الافتراضي هنا "الخطة التأسيسية تمنح الثلاث" كما في متجر حقيقي جديد.
+  effectiveModules: ['promotions', 'reviews', 'wishlist'], planCode: 'foundation', planName: 'الخطة التأسيسية', ...patch,
 });
 const page = (items) => ({ items, page: 1, pageSize: 20, totalCount: items.length, totalPages: 1 });
 
@@ -285,5 +287,34 @@ describe('محرّر الإعدادات من المنصّة', () => {
     const file = new File(['png'], 'logo.png', { type: 'image/png' });
     await user.upload(screen.getByLabelText('admin.settings.assets.logo.label'), file);
     await waitFor(() => expect(client.uploadPlatformStoreBranding).toHaveBeenCalledWith(7, 'logo', file));
+  });
+});
+
+// ── الخطة والوحدات السارية (C1، ADR-0053) ────────────────────────────────────
+describe('خطة المتجر وما تمنحه', () => {
+  it('الوحدة المفعّلة التي لا تسري يُقال سببها، ويبقى نزع تأشيرها ممكناً', async () => {
+    // مربّعٌ مؤشَّر لوحدةٍ لا تعمل، بلا سبب معروض، كان يبدو عطباً في الوحدة نفسها.
+    client.getPlatformStore.mockResolvedValue(store({
+      modules: ['promotions', 'reviews'], effectiveModules: ['promotions'], planName: 'خطة محدودة',
+    }));
+    client.getPlatformStoreAccounts.mockResolvedValue(page([]));
+    client.getProvisioningOptions.mockResolvedValue(options);
+    renderAt('/platform/stores/7', <StoreDetail />, '/platform/stores/:id');
+
+    await screen.findByText('خطة محدودة');
+    expect(await screen.findAllByText('platform.modules.planLocked')).toHaveLength(1);   // reviews وحدها
+    // لا مربّع معطّل: المطفأة بالمفتاح (wishlist) لا يُعرف عنها شيء، والمفعّلة يجب أن تبقى قابلة للنزع.
+    expect(screen.getAllByRole('checkbox').filter((b) => b.disabled)).toHaveLength(0);
+  });
+
+  it('متجر بلا خطة يُقال عنه ذلك صراحةً بدل أن تبدو وحداته معطوبة', async () => {
+    client.getPlatformStore.mockResolvedValue(store({ effectiveModules: [], planCode: null, planName: null }));
+    client.getPlatformStoreAccounts.mockResolvedValue(page([]));
+    client.getProvisioningOptions.mockResolvedValue(options);
+    renderAt('/platform/stores/7', <StoreDetail />, '/platform/stores/:id');
+
+    expect(await screen.findByText('platform.store.noPlan')).toBeInTheDocument();
+    // الثلاث مفعّلة بالمفتاح ولا تسري واحدة: السبب معروض على كلٍّ منها.
+    expect(await screen.findAllByText('platform.modules.planLocked')).toHaveLength(3);
   });
 });

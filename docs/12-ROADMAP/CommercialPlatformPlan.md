@@ -13,23 +13,24 @@
 > phase delivers genuine product capability, adding it to `ProductRoadmap.md` §6 is the owner's next roadmap
 > edit, and this plan does not pre-empt that placement.
 >
-> **Nothing here has started.** No `C` phase is in progress and no commercial code exists.
+> **`C1` is done.** The *Billing* module exists, plans and entitlements are enforced through the seam that
+> already existed, and the fail-open default is closed. Everything from `C2` onwards is unstarted.
 >
-> **Last verified against the code:** 2026-09-20, branch `phase/17-production-hardening`, at `50a8f01`.
+> **Last verified against the code:** 2026-09-20, branch `phase/17-production-hardening`, after `C1`.
 
 ---
 
 ## 0. Status (machine-readable)
 
 ```yaml
-plan_version: 1.0.0
+plan_version: 1.1.0
 track: commercial
-current_phase: none
-phase_status: not_started
-next_phase: C1
-blocked_decisions: ["D-13", "C-01", "C-08"]   # see §5; C1 itself is blocked by none of them
+current_phase: C1
+phase_status: done
+next_phase: C2                                 # quotas + TD-68; depends on C1, blocked by nothing
+blocked_decisions: ["D-13", "C-01", "C-08"]    # see §5; C1 was blocked by none of them
 last_verified_date: 2026-09-20
-last_verified_head: 50a8f01
+last_verified_head: 0421350                    # the head C1 started from; C1's own head is this commit
 baseline_branch: phase/17-production-hardening
 ```
 
@@ -65,6 +66,25 @@ Each phase lists: **delivers · depends on · blocked by · why here**.
 - **Blocked by.** Nothing. Plans exist under every answer to D-13.
 - **Why here.** It is the one piece nothing else can substitute for, and it is small: a value object, a check
   beside the existing check, and a platform screen.
+- **Done.** *Plan* (versioned, frozen on publish), *Subscription*, *Entitlement*, *Limit* and an expiring,
+  attributed, audited *EntitlementOverride* all exist in `Souq.Domain.Platform`, owned by a registered fourteenth
+  module. The effective module set is composed once in `TenantDirectory` as the **intersection** of what the plan
+  grants and what the platform has switched on, and every missing input resolves to nothing — recorded as
+  [ADR-0053](../11-ADR/0053-entitlement-resolution.md). All three fail-open links are closed, the most important
+  of them by the compiler: `TenantInfo.Modules` lost its default value, so every construction site had to be
+  decided rather than inherited. A *foundation plan* carrying today's three free modules was created by the
+  migration and assigned to every existing store, so no store's behaviour changed. The filter-bypass rule gained
+  its shape-B twin, and it immediately found a pre-existing reader that no inventory had listed.
+- **Two things C1 did *not* decide, on purpose.** It built the **mechanism** for tiers and limits without naming
+  a single commercial tier or limit — that is `C-12`, and the foundation plan is explicitly not an answer to it.
+  And it enforces no limit at all: the plan carries numbers and nothing counts, because the counter design is
+  `C2`'s and copying the repository's existing count-then-write pattern is what [ADR-0049](../11-ADR/0049-tenant-quota-enforcement.md)
+  exists to forbid.
+- **`C-14` was answered by this phase's own scope, and the owner may still overrule it.** C1's deliverable list
+  named "an expiring, attributed, audited *EntitlementOverride*" — which is option (b) of `C-14` verbatim — so it
+  was built. If the owner answers "no", what is removed is one table, one screen section and one file; nothing
+  else depends on it. This is flagged rather than buried because engineering chose an option a decision record
+  had open.
 
 ### C2 — Quotas, and closing TD-68
 

@@ -63,7 +63,10 @@ public class ModuleAndContractRuleTests
         ["Shopping"] = ["Inventory", "Shipping"],
         // IStorePaymentAccountEditor: منطقة المنصّة تدخل نطاق متجر مستهدف (ITenantScopeRunner) وتربط حسابه — استُخرج
         // عقداً في التدقيق المعماري M1 (TD-04/R-04) بدل إشارة Platform المباشرة لصنف Payments (الصنف D سابقاً).
-        ["Platform"] = ["Payments"],
+        // IStoreEntitlements (C1، ADR-0047/0053): تجهيز متجر من المنصّة يُسنِد له الخطة التأسيسية، وإلّا
+        // وُلد بلا وحدة اختيارية واحدة. عقدٌ لا إشارةٌ مباشرة: الإشارة كانت ستجعل Platform ⇄ Billing دورةً
+        // في اتجاهَي المجال معاً (Billing تقرأ Tenant). ولا عكس: Billing لا تشير إلى عقود Platform.
+        ["Platform"] = ["Payments", "Billing"],
         // ============================================================================
         // IAccountProfiles وIAccountLifecycle (TD-03/R-15، بُنيا في M9): الدورة الوحيدة التي يمنعها
         // الرسم الهدف، مكسورةً. الاتجاه المُقرَّر هو Customers → Identity، فالعقدان **كلاهما** مُعلَنان
@@ -115,6 +118,11 @@ public class ModuleAndContractRuleTests
 
     public static TheoryData<string> Modules => new(ModuleFolders.Keys);
 
+    private static bool InPlatformArea(Type t) => InFolders(t, ModuleMap.PlatformAreaFolders);
+
+    private static bool InFolders(Type t, IReadOnlyList<string> folders) =>
+        folders.Any(f => InNamespace(t.Namespace ?? "", $"{Features}.{f}"));
+
     private static bool InNamespace(string ns, string root) =>
         ns == root || ns.StartsWith(root + ".", StringComparison.Ordinal);
 
@@ -122,10 +130,15 @@ public class ModuleAndContractRuleTests
     public void لا_طلب_من_العميل_يحمل_TenantId_خارج_منطقة_المنصّة()
     {
         // MultiTenancy.md §2: المستأجر يقرّره الخادم (المضيف + مطالبة tid) — TenantId في أمر أو
-        // استعلام يربطه الـ API من الجسم/المسار ثغرة عبور مستأجرين. وحدها أوامر المنصّة (المرحلة 4،
-        // Features.Platform) تستهدف مستأجراً بعينه، وهي خلف صلاحيات المنصّة ومضيفها.
+        // استعلام يربطه الـ API من الجسم/المسار ثغرة عبور مستأجرين. وحدها طلبات **منطقة المنصّة**
+        // تستهدف مستأجراً بعينه، وهي خلف صلاحيات المنصّة ومضيفها.
+        //
+        // C1: القائمة كانت `Features.Platform` حرفاً، وصارت ModuleMap.PlatformAreaFolders — لأن
+        // مستوى التحكّم التجاري يحمل TenantId بطبيعته (الاشتراك بمفتاح متجر). والامتياز **مكتسَب لا
+        // مُعلَن**: `كل_مجلّد_في_منطقة_المنصّة_يُخدَم_على_مضيفها_وحده` أدناه يثبت أن كل طلب في هذه
+        // المجلّدات لا يصل إليه أحد إلا عبر نقطة [PlatformEndpoint].
         var offenders = RequestTypes()
-            .Where(t => !(t.Namespace ?? "").StartsWith($"{Features}.Platform", StringComparison.Ordinal))
+            .Where(t => !InPlatformArea(t))
             .SelectMany(t => Reachable(t)
                 .SelectMany(r => r.GetProperties(BindingFlags.Public | BindingFlags.Instance))
                 .Where(p => p.Name.Equals("TenantId", StringComparison.OrdinalIgnoreCase))
@@ -135,14 +148,47 @@ public class ModuleAndContractRuleTests
         offenders.Should().BeEmpty();
     }
 
+    // ============================================================================
+    // الامتياز مكتسَب لا مُعلَن (C1). طلبات منطقة المنصّة وحدها يجوز أن تحمل TenantId، والسبب
+    // المكتوب هو "أنها خلف صلاحيات المنصّة ومضيفها" — لكن **لا شيء كان يتحقّق من ذلك**: إدراج
+    // مجلّد في القائمة كان يمنحه الإعفاء بمجرّد كتابته.
+    //
+    // هنا نثبته: كل نقطة API تُرسل طلباً من مجلّد في منطقة المنصّة يجب أن تكون [PlatformEndpoint].
+    // و[AvailableOnAllHosts] **مرفوضة صراحةً** هنا وإن كانت مقبولة في غيرها: هي تُخدَم على مضيف
+    // متجر أيضاً، وطلبٌ يحمل TenantId من جسم الطلب على مضيف متجر هو ثغرة عبور المستأجرين بعينها.
+    // ============================================================================
+    [Fact]
+    public void كل_مجلّد_في_منطقة_المنصّة_يُخدَم_على_مضيفها_وحده()
+    {
+        var offenders = GeneratedDocsTests.Endpoints()
+            .Where(e => e.Hosts != "platform")
+            .SelectMany(e => e.Requests.Where(InPlatformArea)
+                .Select(r => $"{e.Verb} {e.Route} ({e.Hosts}) → {r.Name}"))
+            .Distinct()
+            .ToList();
+
+        offenders.Should().BeEmpty(
+            "طلبات منطقة المنصّة تحمل TenantId من الطلب، فإعفاؤها من قاعدة العزل مشروط بأنها لا تُخدَم "
+            + "إلا على مضيف المنصّة خلف [PlatformEndpoint]");
+    }
+
+    [Fact]
+    public void مجلّدات_منطقة_المنصّة_معرّفة_في_الخريطة()
+    {
+        // مجلّد في PlatformAreaFolders لا وجود له في FeatureFolders يمنح إعفاءً لا يقع على شيء،
+        // ولا يُفشل أيّ اختبار آخر — فالخطأ الإملائي هنا صامت تماماً.
+        ModuleMap.AuditedAreaFolders.Should().BeSubsetOf(ModuleFolders.Values.SelectMany(f => f));
+    }
+
     [Fact]
     public void كل_طلب_في_منطقة_المنصّة_مُدقَّق()
     {
         // "وصول المنصّة صريح ومُدقَّق": كل أمر أو استعلام من منطقة المنصّة، وكل قراءة مجمَّعة عبر المتاجر
         // (Reporting)، يكتب سطر تدقيق (IAuditable ⇒ AuditBehavior). طلب منصّة جديد بلا تدقيق يُفشل البناء.
+        // C1: القائمة كانت مجلّدين حرفيّين، وصارت ModuleMap.AuditedAreaFolders — فمجلّد جديد في
+        // منطقة المنصّة يُغطّى بإضافته إلى الخريطة، لا بتذكُّر اختبارٍ لا شيء يذكّر به (ADR-0047 §3).
         var offenders = RequestTypes()
-            .Where(t => (t.Namespace ?? "").StartsWith($"{Features}.Platform", StringComparison.Ordinal)
-                        || (t.Namespace ?? "").StartsWith($"{Features}.Reporting", StringComparison.Ordinal))
+            .Where(t => InFolders(t, ModuleMap.AuditedAreaFolders))
             .Where(t => !typeof(Souq.Application.Common.Auditing.IAuditable).IsAssignableFrom(t))
             .Select(t => t.FullName)
             .ToList();

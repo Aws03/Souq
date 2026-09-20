@@ -25,7 +25,7 @@
 
 **Read:** [SystemOverview.md](SystemOverview.md), then [ProjectMap.md](ProjectMap.md).
 **Open:** `README.md` (the front page) and `AGENTS.md` §0 (the rules that override everything).
-**You can now answer:** What does Souq sell, and to whom? What are a store, a platform owner and a customer? Why is there one API, one database and one frontend build for many stores? Which of the thirteen modules would own "orders"?
+**You can now answer:** What does Souq sell, and to whom? What are a store, a platform owner and a customer? Why is there one API, one database and one frontend build for many stores? Which of the fourteen modules would own "orders"?
 **Next:** step 01.
 
 ## 01 — Run it · L0
@@ -114,7 +114,7 @@
 
 ## 11 — Modules and business capabilities · L2
 
-**Read:** [Modules.md](../04-MODULES/Modules.md) (the thirteen capabilities), [FeatureMaps.md](../04-MODULES/FeatureMaps.md) (capabilities end to end), then the `README.md` of whichever module you are about to touch. [ModuleBoundaries.md](../02-ARCHITECTURE/ModuleBoundaries.md) says what is enforced; [ModuleBoundaryAudit.md](../02-ARCHITECTURE/ModuleBoundaryAudit.md) (L3) classifies every existing crossing honestly.
+**Read:** [Modules.md](../04-MODULES/Modules.md) (the fourteen capabilities), [FeatureMaps.md](../04-MODULES/FeatureMaps.md) (capabilities end to end), then the `README.md` of whichever module you are about to touch. [ModuleBoundaries.md](../02-ARCHITECTURE/ModuleBoundaries.md) says what is enforced; [ModuleBoundaryAudit.md](../02-ARCHITECTURE/ModuleBoundaryAudit.md) (L3) classifies every existing crossing honestly.
 **Open:** `tests/Souq.ArchitectureTests/ModuleMap.cs` (which folder belongs to which module) and the generated [ModuleDomainDependencies.md](../02-ARCHITECTURE/ModuleDomainDependencies.md).
 **Why:** [ADR-0004](../11-ADR/0004-module-boundaries.md), and each module's ADR in the [index](../11-ADR/README.md).
 **You can now answer:** Which module owns a store's payment account, and where do its use cases live? Why is checkout the place where seven modules meet? Which crossings exist today that the target architecture does not want?

@@ -22,6 +22,7 @@ A concept has exactly one owning module. Everyone else references it by id and k
 | Opinions about products | **Reviews** | reads aggregates only |
 | Telling people what happened | **Notifications** | enqueues a message; never calls a provider itself |
 | Cross-store statistics | **Reporting** | reads across stores only through the platform read path (Platform and Reporting): the single reviewed filter bypass is `PlatformQueries`, which implements both `IPlatformQueries` and `IPlatformReports`, and every platform request is audited. A store's own dashboard (`IStoreReports`) reads inside its store like any other query |
+| What a store is entitled to use, and on what terms: plans, subscriptions, entitlement overrides | **Billing** | never asks: what a plan grants reaches everyone else already intersected into the request's store snapshot, and provisioning subscribes a new store through the `IStoreEntitlements` contract |
 
 Table-level ownership, including the infrastructure tables: [OwnershipMap.md](../06-DATABASE/OwnershipMap.md).
 
@@ -47,6 +48,7 @@ Arrows mean "may call the contracts of". Cycles are never allowed.
 ```mermaid
 flowchart LR
     Platform
+    Platform --> Billing
     Identity --> Platform
     Customers --> Identity
     Catalog --> Platform
@@ -72,6 +74,8 @@ flowchart LR
 
 This is the **target**. Payments → Ordering is forbidden in both the target and the code: Ordering owns the order, and a payment result reaches it either by Ordering asking, or by a webhook that an Ordering use case handles through the payments port.
 
+**Billing has no outgoing arrow, and that is the whole reason the contract exists.** At the Domain level Billing reads Platform's `Tenant` and `ITenantRepository`; if provisioning had reached back by naming `Plan` and `Subscription` directly, the pair would have been a cycle in both directions at once. Instead the single Application-layer edge runs Platform → Billing, through `IStoreEntitlements` ([ADR-0047](../11-ADR/0047-commercial-control-plane.md)). Everything else Billing produces reaches the rest of the system not as a call but as data: the effective module set composed into the request's tenant snapshot.
+
 ## 4. What is actually enforced today
 
 `ModuleAndContractRuleTests` enforces, **within `Souq.Application.Features` only**, that a module references another module's namespace solely through an allowed `Contracts` namespace:
@@ -81,7 +85,7 @@ This is the **target**. Payments → Ordering is forbidden in both the target an
 | Ordering | Inventory, Shopping, Promotions, Payments, Shipping |
 | Inventory | Catalog (it implements Catalog's `IVariantStockInitializer`, so the arrow points this way and no cycle exists) |
 | Shopping | Inventory, Shipping |
-| Platform | Payments (`IStorePaymentAccountEditor` — the platform admin path reaches the store's payment-account editor this way; closed in the M1 architecture audit, TD-04/R-04) |
+| Platform | Payments (`IStorePaymentAccountEditor` — the platform admin path reaches the store's payment-account editor this way; closed in the M1 architecture audit, TD-04/R-04) · Billing (`IStoreEntitlements` — provisioning subscribes a new store to the foundation plan, and the store detail screen reads which plan it is on; C1) |
 
 Everything else between feature folders fails the build, and a separate test rejects cycles in that map.
 
@@ -89,7 +93,7 @@ Everything else between feature folders fails the build, and a separate test rej
 
 Repository ports live in `Souq.Domain.Interfaces` and most entities in `Souq.Domain.Entities`. Those namespaces are outside the test's scope, so **a handler in one module can load another module's aggregate directly and no test objects.** That is how the system actually works today in several places, for reasons that were often deliberate.
 
-Rather than pretend otherwise, every such crossing is generated into [ModuleDomainDependencies.md](ModuleDomainDependencies.md) from the compiled code: **74 crossings across 15 module pairs** at the time of writing, every one of them classified in [ModuleBoundaryAudit.md](ModuleBoundaryAudit.md). That file is committed, so:
+Rather than pretend otherwise, every such crossing is generated into [ModuleDomainDependencies.md](ModuleDomainDependencies.md) from the compiled code: **69 crossings across 14 module pairs** at the time of writing, all but the four newest classified in [ModuleBoundaryAudit.md](ModuleBoundaryAudit.md) — the Billing → Platform rows arrived with C1 and are described in the table below. That file is committed, so:
 
 - a **new** crossing changes it and fails `GeneratedDocsTests` — it becomes a decision made in review, not a quiet import;
 - **removing** one also changes it, and the count goes down.
@@ -106,6 +110,7 @@ The largest clusters, and what each is waiting for. The contract names are propo
 | Ordering → Customers | Checkout checks the block status and reads the address book | *ICustomerDirectory* (named in the docs since Phase 7, still deferred) |
 | Shopping → Promotions | Pricing loads the coupon and counts its uses | *IDiscountQuote* |
 | Reviews → Ordering, Customers | Eligibility ("did this customer receive this product?") and block status | *IOrderHistory* and *ICustomerDirectory* (deferred); Reviews → Platform (the auto-approve policy) is deliberate and needs none |
+| Billing → Platform | Assigning a plan checks that the store exists; granting an override also reads its module switch, to refuse an exception that would grant nothing | None — deliberate, and the direction the target graph keeps. The contract runs the other way (`IStoreEntitlements`), which is what stops the pair being a cycle |
 
 Read-side joins are a second, narrower exception: the query services in `src/Souq.Infrastructure/Persistence/Queries` join across module tables to build screens (a customer list with order counts, a catalog list with stock). They are read-only, they live behind their module's port, and they are how the UI stays fast. Treat them as a documented exception, not a licence to write.
 

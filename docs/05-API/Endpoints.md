@@ -5,7 +5,7 @@
 >
 > Conventions (errors, paging, status codes): [ApiDocumentation.md](ApiDocumentation.md). Use cases per module: [UseCases.md](../04-MODULES/UseCases.md).
 
-**144 endpoints** in 26 controllers: 26 anonymous, 27 for any signed-in account, 91 behind a permission.
+**156 endpoints** in 28 controllers: 26 anonymous, 27 for any signed-in account, 103 behind a permission.
 
 ## How to read this table
 
@@ -122,6 +122,12 @@
 | GET | `/api/payments/config` | anonymous | store | — | — | `GetPaymentConfigQuery` | Payments |
 | POST | `/api/payments/webhook` | anonymous | store | — | — | `ProcessPaymentWebhookCommand` | Ordering |
 | GET | `/api/platform/audit` | `platform.audit.view` | platform | — | — | `ListAuditEntriesQuery` | Platform |
+| GET | `/api/platform/plans` | `platform.billing.manage` | platform | — | — | `ListPlansQuery` | Billing |
+| POST | `/api/platform/plans` | `platform.billing.manage` | platform | — | — | `CreatePlanVersionCommand` | Billing |
+| GET | `/api/platform/plans/{id:int}` | `platform.billing.manage` | platform | — | — | `GetPlanQuery` | Billing |
+| PUT | `/api/platform/plans/{id:int}` | `platform.billing.manage` | platform | — | — | `UpdatePlanDraftCommand` | Billing |
+| POST | `/api/platform/plans/{id:int}/publish` | `platform.billing.manage` | platform | — | — | `PublishPlanCommand` | Billing |
+| POST | `/api/platform/plans/{id:int}/retire` | `platform.billing.manage` | platform | — | — | `RetirePlanCommand` | Billing |
 | GET | `/api/platform/stats` | `platform.reports.view` | platform | — | — | `GetPlatformStatsQuery` | Reporting |
 | GET | `/api/platform/tenants` | `platform.tenants.manage` | platform | — | — | `ListTenantsQuery` | Platform |
 | POST | `/api/platform/tenants` | `platform.tenants.manage` | platform | — | — | `CreateTenantCommand` | Platform |
@@ -141,6 +147,12 @@
 | DELETE | `/api/platform/tenants/{id:int}/payments` | `platform.tenants.manage` | platform | — | — | `RemoveTenantPaymentAccountCommand` | Platform |
 | PUT | `/api/platform/tenants/{id:int}/settings` | `platform.tenants.manage` | platform | — | — | `UpdateTenantSettingsCommand` | Platform |
 | POST | `/api/platform/tenants/{id:int}/status` | `platform.tenants.manage` | platform | — | — | `ChangeTenantStatusCommand` | Platform |
+| GET | `/api/platform/tenants/{tenantId:int}/entitlement-overrides` | `platform.billing.manage` | platform | — | — | `ListEntitlementOverridesQuery` | Billing |
+| POST | `/api/platform/tenants/{tenantId:int}/entitlement-overrides` | `platform.billing.manage` | platform | — | — | `GrantEntitlementOverrideCommand` | Billing |
+| DELETE | `/api/platform/tenants/{tenantId:int}/entitlement-overrides/{overrideId:int}` | `platform.billing.manage` | platform | — | — | `RevokeEntitlementOverrideCommand` | Billing |
+| GET | `/api/platform/tenants/{tenantId:int}/entitlements` | `platform.billing.manage` | platform | — | — | `GetTenantEntitlementsQuery` | Billing |
+| PUT | `/api/platform/tenants/{tenantId:int}/plan` | `platform.billing.manage` | platform | — | — | `AssignTenantPlanCommand` | Billing |
+| DELETE | `/api/platform/tenants/{tenantId:int}/plan` | `platform.billing.manage` | platform | — | — | `CancelTenantPlanCommand` | Billing |
 | GET | `/api/platform/users` | `platform.users.manage` | platform | — | — | `ListPlatformUsersQuery` | Platform |
 | POST | `/api/platform/users` | `platform.users.manage` | platform | — | — | `InvitePlatformUserCommand` | Platform |
 | POST | `/api/platform/users/{id:int}/status` | `platform.users.manage` | platform | — | — | `SetPlatformUserStatusCommand` | Platform |

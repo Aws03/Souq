@@ -1,6 +1,6 @@
 # Module catalog
 
-> **A module is a business capability that owns its rules and its data.** It is not a folder created for appearance. Souq has thirteen.
+> **A module is a business capability that owns its rules and its data.** It is not a folder created for appearance. Souq has fourteen.
 > **This page is the index:** what each module owns, where its code lives, and where its documentation is. The rules about who may call whom are in [ModuleBoundaries.md](../02-ARCHITECTURE/ModuleBoundaries.md); the physical structure is in [Architecture.md](../02-ARCHITECTURE/Architecture.md) and [ADR-0002](../11-ADR/0002-modular-monolith-structure.md); the decision to split this way is [ADR-0004](../11-ADR/0004-module-boundaries.md).
 
 ## 1. The catalog
@@ -20,6 +20,7 @@
 | **Reviews** | Reviews and their moderation | `src/Souq.Application/Features/Reviews` | [Reviews/README.md](Reviews/README.md) · [change guide](Reviews/ChangeGuide.md) |
 | **Notifications** | The outbox, in-app notifications, email delivery | `src/Souq.Application/Features/Notifications` | [Notifications/README.md](Notifications/README.md) · [change guide](Notifications/ChangeGuide.md) |
 | **Reporting** | Read-only statistics across modules | `src/Souq.Application/Features/Reporting` | [Reporting/README.md](Reporting/README.md) |
+| **Billing** | The commercial control plane: plans, subscriptions and entitlements — what a store may use and on what terms. No money yet | `src/Souq.Application/Features/Billing` | [Billing/README.md](Billing/README.md) |
 
 Generated companions: [UseCases.md](UseCases.md) (every command, query, handler, validator and endpoint per module) · [Endpoints.md](../05-API/Endpoints.md) · [ModuleDomainDependencies.md](../02-ARCHITECTURE/ModuleDomainDependencies.md).
 
@@ -40,6 +41,7 @@ Generated companions: [UseCases.md](UseCases.md) (every command, query, handler,
 | Reviews | ratings and the review form on `/products/:handle` | — | `/admin/reviews` | — |
 | Notifications | the bell in the store header | — | the bell in the admin header | — |
 | Reporting | — | — | `/admin`, `/admin/business` | `/platform` |
+| Billing | — | — | — | the plan panel on `/platform/stores/:id` |
 
 ## 2. Module names versus folder names
 
@@ -56,7 +58,7 @@ A module is a capability; the folder is where its use cases happened to be creat
 
 **`Stores` still holds the store-side review-settings use cases**, and correctly so: `src/Souq.Application/Features/Stores/StoreReviewSettings.cs` reads and writes `Tenant.ReviewsAutoApprove`, a Platform-owned setting, and touches no Reviews domain type at all — a fresh read in the M1 architecture audit found TD-04's original claim that this half should move to Reviews did not hold up; moving it would have made Reviews write a Platform aggregate, a new violation strictly worse than today's. **The payment-account use cases have moved.** They used to live here for the same reason as the review settings (a store-side "administer my own account" concept), but their domain — `StorePaymentAccount`, `PaymentKeyRules`, `IStorePaymentAccountRepository` — is Payments', and they now live in `src/Souq.Application/Features/Payments/StorePaymentAccounts.cs`. The platform side, `src/Souq.Application/Features/Platform/TenantPaymentAccounts.cs`, stays in Platform (it carries a `TenantId`, which only `Features.Platform` requests may) and reaches Payments through a published contract, `IStorePaymentAccountEditor` ([ModuleBoundaryAudit.md](../02-ARCHITECTURE/ModuleBoundaryAudit.md)). TD-04 in [TechnicalDebt.md](../12-ROADMAP/TechnicalDebt.md) is closed.
 
-## 3. How these thirteen were chosen
+## 3. How these fourteen were chosen
 
 Sixteen candidate areas were evaluated; the ones that were not independent capabilities were merged or reclassified ([ADR-0004](../11-ADR/0004-module-boundaries.md)):
 

@@ -152,7 +152,17 @@ public class GetStorefrontConfigHandler : IRequestHandler<GetStorefrontConfigQue
         _configuration = configuration; _context = context;
     }
 
-    public async Task<StorefrontConfigDto> Handle(GetStorefrontConfigQuery query, CancellationToken ct) =>
-        await _configuration.GetStorefrontAsync(_context.RequireTenant().Id, ct)
-        ?? throw new InvalidOperationException("متجر السياق غير موجود في القاعدة");
+    public async Task<StorefrontConfigDto> Handle(GetStorefrontConfigQuery query, CancellationToken ct)
+    {
+        var store = _context.RequireTenant();
+        var config = await _configuration.GetStorefrontAsync(store.Id, ct)
+            ?? throw new InvalidOperationException("متجر السياق غير موجود في القاعدة");
+
+        // ============================================================================
+        // الوحدات تُؤخذ من **لقطة الطلب** لا من عمود المتجر (C1، ADR-0047 §4). الفرق ليس تجميلاً:
+        // اللقطة هي الجواب الذي تفرضه TenantAvailability، والعمود هو أحد مدخليه. لو أعلنت هذه
+        // النقطة العمود لأعلنت للواجهة وحدةً يردّ عليها الخادم 404 — واجهةٌ تعرض ما لا يعمل.
+        // ============================================================================
+        return config with { Modules = store.Modules.Order(StringComparer.Ordinal).ToList() };
+    }
 }

@@ -14,7 +14,7 @@ Souq is a **modular monolith**: one deployable ASP.NET Core application plus one
 | **Monolith vs microservices** | *Deployment/runtime*: how many processes and databases run in production | One process, one database (modular monolith) |
 | **Clean Architecture** | *Source dependency direction*: who may reference whom | API → Infrastructure → Application → Domain, enforced by project references + architecture tests |
 | **Hexagonal (ports and adapters)** | *Boundary to the outside world*: how the core talks to technology | Ports (interfaces) in Application; adapters in Infrastructure (driven) and API (driving) |
-| **Modular architecture** | *Business decomposition*: which capability owns which rules and data | 13 modules, all implemented; `ModuleMap` (`tests/Souq.ArchitectureTests/ModuleMap.cs`) maps their feature folders ([Modules.md](../04-MODULES/Modules.md)) |
+| **Modular architecture** | *Business decomposition*: which capability owns which rules and data | 14 modules, all implemented; `ModuleMap` (`tests/Souq.ArchitectureTests/ModuleMap.cs`) maps their feature folders ([Modules.md](../04-MODULES/Modules.md)) |
 | **Vertical slices** | *Code organization*: where one use case's code lives | `Features/<Module>/<UseCase>` (command/query + handler + validator + DTO) |
 | **DDD** | *Modeling discipline*: how business rules are expressed | Aggregates and value objects where invariants justify them; no domain services today ([DDD.md](../03-DOMAIN/DDD.md)) |
 | **CQRS** | *Read/write separation*: are the read and write models the same? | Separate handlers; writes through aggregates, reads through projections |
@@ -60,14 +60,14 @@ Souq.API/Controllers/…                          one flat folder
   - Zero churn for working code.
   - The compiler keeps enforcing the *layer* rule, which is the rule a learning team breaks most often.
   - Architecture tests enforce the *module* rule.
-  - With 13 modules, project-per-module would mean 50 or more projects for one developer.
+  - With 14 modules, project-per-module would mean 50 or more projects for one developer.
 - **Revisit when:**
   - more than 3–4 developers work in parallel;
   - a module becomes a concrete extraction candidate;
   - or the architecture tests keep catching the same boundary violations.
 
   Moving to *Souq.Modules.X* projects would then start with giving the Domain per-module namespaces, which it mostly does not have yet.
-- **Today:** only the Application layer is organized per module. Its 17 feature folders map to the 13 modules in `ModuleMap` (`tests/Souq.ArchitectureTests/ModuleMap.cs`), the single source shared by the boundary tests and the generated inventories; [Modules.md](../04-MODULES/Modules.md) names each module's folders.
+- **Today:** only the Application layer is organized per module. Its 18 feature folders map to the 14 modules in `ModuleMap` (`tests/Souq.ArchitectureTests/ModuleMap.cs`), the single source shared by the boundary tests and the generated inventories; [Modules.md](../04-MODULES/Modules.md) names each module's folders.
 
   The planned per-module namespaces in the other layers were never introduced. Most entities still live in `Souq.Domain.Entities` (only `Souq.Domain.Identity` and `Souq.Domain.Platform` are per module), repository ports share `Souq.Domain.Interfaces`, Infrastructure is organized by technical concern, and the controllers sit flat in `src/Souq.API/Controllers/`. What that leaves unenforced, and how it is counted instead, is in [DependencyRules.md §5](DependencyRules.md#5-what-is-not-enforced-and-why-it-matters).
 

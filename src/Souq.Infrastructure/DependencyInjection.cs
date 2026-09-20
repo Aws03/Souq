@@ -122,6 +122,11 @@ public static class DependencyInjection
         services.AddScoped<Application.Features.Orders.IOrderNumbers, OrderNumbers>();
         services.AddScoped<ITenantRepository, TenantRepository>();
 
+        // وحدة Billing (C1، ADR-0047): مستوى التحكّم التجاري — الخطط والاشتراكات واستثناءات الاستحقاق.
+        services.AddScoped<IPlanRepository, PlanRepository>();
+        services.AddScoped<ISubscriptionRepository, SubscriptionRepository>();
+        services.AddScoped<IEntitlementOverrideRepository, EntitlementOverrideRepository>();
+
         // خدمات القراءة (ADR-0008): إسقاطات بلا تتبّع خلف منافذ Application، لكل وحدة منفذها.
         services.AddScoped<ICatalogQueries, CatalogQueries>();
         services.AddScoped<IOrderQueries, OrderQueries>();
@@ -138,6 +143,7 @@ public static class DependencyInjection
         services.AddScoped<IPlatformReports>(sp => sp.GetRequiredService<PlatformQueries>());
         // تقارير متجر واحد: بلا تجاوز للمرشّح — المرشّح العادي يضيّق كل جدول داخل نطاق المتجر.
         services.AddScoped<IStoreReports, StoreReportQueries>();
+        services.AddScoped<Application.Features.Billing.IBillingQueries, BillingQueries>();
         services.AddScoped<IStoreConfiguration, StoreConfiguration>();
 
         // سجلّ التدقيق في وحدة العمل الحالية، والعمل داخل متجر بعينه من منطقة المنصّة.

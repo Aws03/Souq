@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
@@ -168,6 +169,21 @@ public sealed class SouqApiFactory : WebApplicationFactory<Program>, IAsyncLifet
             if (status == TenantStatus.Archived) tenant.Archive();
             db.Tenants.Add(tenant);
             await db.SaveChangesAsync();
+
+            // الخطة التأسيسية (C1، ADR-0047): منذ إغلاق الافتراض المفتوح صار المتجر بلا اشتراك
+            // متجراً بلا وحدة اختيارية واحدة. المنصّة تُسنِدها في CreateTenantHandler، وهذا المصنع
+            // يكتب في القاعدة مباشرةً فيُسنِدها بنفسه — وإلا لأجاب كل اختبار يمسّ الكوبونات أو
+            // التقييمات أو المفضّلة بـ 404 ModuleDisabled، وهو فشلٌ يبدو عيباً في تلك الميزات.
+            var foundation = await db.Plans
+                .Where(p => p.Code == Plan.FoundationCode && p.Status == PlanStatus.Published)
+                .OrderByDescending(p => p.Version)
+                .FirstOrDefaultAsync();
+            if (foundation is not null)
+            {
+                db.Subscriptions.Add(new Subscription(tenant.Id, foundation, DateTime.UtcNow));
+                await db.SaveChangesAsync();
+            }
+
             scope.ServiceProvider.GetRequiredService<ITenantDirectory>().Invalidate();
         }
 

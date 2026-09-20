@@ -5,6 +5,7 @@ using Souq.Application.Common.Auditing;
 using Souq.Application.Common.Interfaces;
 using Souq.Application.Common.Models;
 using Souq.Application.Common.Tenancy;
+using Souq.Application.Features.Billing.Contracts;
 using Souq.Application.Features.Stores;
 using Souq.Domain.Common;
 using Souq.Domain.Identity;
@@ -58,12 +59,30 @@ public record GetTenantQuery(int TenantId) : IRequest<Result<TenantDetailDto>>, 
 public class GetTenantHandler : IRequestHandler<GetTenantQuery, Result<TenantDetailDto>>
 {
     private readonly IPlatformQueries _queries;
-    public GetTenantHandler(IPlatformQueries queries) => _queries = queries;
+    private readonly ITenantDirectory _directory;
+    private readonly IStoreEntitlements _entitlements;
 
-    public async Task<Result<TenantDetailDto>> Handle(GetTenantQuery q, CancellationToken ct) =>
-        await _queries.GetTenantAsync(q.TenantId, ct) is { } tenant
-            ? Result<TenantDetailDto>.Success(tenant)
-            : Result<TenantDetailDto>.Failure(PlatformTenants.NotFound);
+    public GetTenantHandler(IPlatformQueries queries, ITenantDirectory directory, IStoreEntitlements entitlements)
+    {
+        _queries = queries; _directory = directory; _entitlements = entitlements;
+    }
+
+    public async Task<Result<TenantDetailDto>> Handle(GetTenantQuery q, CancellationToken ct)
+    {
+        if (await _queries.GetTenantAsync(q.TenantId, ct) is not { } tenant)
+            return Result<TenantDetailDto>.Failure(PlatformTenants.NotFound);
+
+        // الوحدات الفعّالة من **الدليل** لا من حساب ثانٍ هنا: قاعدة الدمج تعيش في مكان واحد
+        // (TenantDirectory)، ونسخُها إلى شاشة المنصّة كان سيصنع جواباً ثانياً يتباعد عن الأول بصمت.
+        var snapshot = await _directory.FindByIdAsync(q.TenantId, ct);
+        var plan = await _entitlements.GetPlanSummaryAsync(q.TenantId, ct);
+        return Result<TenantDetailDto>.Success(tenant with
+        {
+            EffectiveModules = snapshot is null ? [] : snapshot.Modules.Order(StringComparer.Ordinal).ToList(),
+            PlanCode = plan?.Code,
+            PlanName = plan?.Name,
+        });
+    }
 }
 
 // حسابات إدارة المتجر (مديرون وموظّفون) كما تراها المنصّة للدعم — لا حسابات عملائه.
@@ -119,12 +138,14 @@ public sealed class CreateTenantValidator : AbstractValidator<CreateTenantComman
 public class CreateTenantHandler : IRequestHandler<CreateTenantCommand, Result<int>>
 {
     private readonly ITenantRepository _tenants;
+    private readonly IStoreEntitlements _entitlements;
     private readonly ITenantDirectory _directory;
     private readonly IUnitOfWork _uow;
 
-    public CreateTenantHandler(ITenantRepository tenants, ITenantDirectory directory, IUnitOfWork uow)
+    public CreateTenantHandler(
+        ITenantRepository tenants, IStoreEntitlements entitlements, ITenantDirectory directory, IUnitOfWork uow)
     {
-        _tenants = tenants; _directory = directory; _uow = uow;
+        _tenants = tenants; _entitlements = entitlements; _directory = directory; _uow = uow;
     }
 
     public async Task<Result<int>> Handle(CreateTenantCommand cmd, CancellationToken ct)
@@ -135,6 +156,12 @@ public class CreateTenantHandler : IRequestHandler<CreateTenantCommand, Result<i
 
         await _tenants.AddAsync(tenant, ct);
         await _uow.SaveChangesAsync(ct);
+
+        // الخطة التأسيسية (C1): متجر بلا اشتراك لا يملك وحدة اختيارية واحدة — الاستحقاق يفشل مغلقاً.
+        // فإسنادها هنا هو ما يُبقي التجهيز كما كان قبل وجود الخطط. عبر عقد Billing لا بأنواعها: وإلّا
+        // صارت Platform ⇄ Billing دورةً في اتجاهَي المجال معاً.
+        await _entitlements.AssignFoundationPlanAsync(tenant.Id, ct);
+
         _directory.Invalidate();
         return Result<int>.Success(tenant.Id);
     }

@@ -22,7 +22,7 @@ A **white-label, multi-tenant e-commerce platform**: one ASP.NET Core API, one S
 1. [SystemOverview.md](SystemOverview.md) and [ProjectMap.md](ProjectMap.md) — what the system is, and how its parts relate.
 2. [LearningPath.md](LearningPath.md) — the numbered reading order; a new owner reads steps 00, 01, 15, 18, then 13 and 09.
 3. [AGENTS.md](../../AGENTS.md) — the rules, and what enforces each one.
-4. [Modules.md](../04-MODULES/Modules.md) — the thirteen capabilities and who owns what.
+4. [Modules.md](../04-MODULES/Modules.md) — the fourteen capabilities and who owns what.
 5. [docs/11-ADR/README.md](../11-ADR/README.md) — the decisions, grouped, with what later ADRs changed.
 6. [TechnicalDebt.md](../12-ROADMAP/TechnicalDebt.md) and [RiskRegister.md](../02-ARCHITECTURE/RiskRegister.md) — what is unfinished and what can hurt you.
 
@@ -47,7 +47,7 @@ Full instructions: [DevelopmentGuide.md](../09-OPERATIONS/DevelopmentGuide.md). 
 
 ## 5. How the architecture works, in five sentences
 
-One deployable application, split into thirteen business modules that own their data and talk through explicit contracts. Source dependencies point inwards: API → Infrastructure → Application → Domain, and the Domain depends on nothing. Every external system sits behind a port implemented by an adapter, so Stripe or the email provider can be replaced without touching business rules. Each request is bound to exactly one store, resolved from its host name on the server, and four independent mechanisms keep stores apart. Anything that must happen after a commit — email, notifications — leaves through a transactional outbox, so nothing is lost and no request waits on a provider.
+One deployable application, split into fourteen business modules that own their data and talk through explicit contracts. Source dependencies point inwards: API → Infrastructure → Application → Domain, and the Domain depends on nothing. Every external system sits behind a port implemented by an adapter, so Stripe or the email provider can be replaced without touching business rules. Each request is bound to exactly one store, resolved from its host name on the server, and four independent mechanisms keep stores apart. Anything that must happen after a commit — email, notifications — leaves through a transactional outbox, so nothing is lost and no request waits on a provider.
 
 ## 6. How to change it safely
 

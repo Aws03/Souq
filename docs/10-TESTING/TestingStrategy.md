@@ -39,8 +39,8 @@ These are executable architecture. They fail the build when a boundary moves wit
 | File | Guards |
 |---|---|
 | `tests/Souq.ArchitectureTests/DependencyRuleTests.cs` | The layer rule, thin controllers, no entity setters, handlers only in Application |
-| `tests/Souq.ArchitectureTests/ModuleAndContractRuleTests.cs` | Module contracts and cycles, no entities in contracts, no `IQueryable` leaks, platform requests audited, no client-bound `TenantId` |
-| `tests/Souq.ArchitectureTests/TenancyRuleTests.cs` | Tenant ownership, query filters, composite keys, the single reviewed filter bypass, no raw SQL, and bulk writes only in reviewed places |
+| `tests/Souq.ArchitectureTests/ModuleAndContractRuleTests.cs` | Module contracts and cycles, no entities in contracts, no `IQueryable` leaks, every request in the platform area audited, no client-bound `TenantId` outside that area — and that the exemption is earned, because every request in it is reachable on the platform host alone |
+| `tests/Souq.ArchitectureTests/TenancyRuleTests.cs` | Tenant ownership, query filters, composite keys, the single reviewed filter bypass, no raw SQL, bulk writes only in reviewed places, and — for the platform tables that are tenant-keyed yet carry **no** filter and no write guard — that only reviewed Infrastructure types handle their rows |
 | `tests/Souq.ArchitectureTests/ClockRuleTests.cs` | No direct clock reads anywhere (IL scan) |
 | `tests/Souq.ArchitectureTests/EndpointRuleTests.cs` | Every endpoint declares its access; platform endpoints need a platform permission; one handler per request |
 | `tests/Souq.ArchitectureTests/WhiteLabelSourceTests.cs` | No brand or currency literal in product code or committed configuration |

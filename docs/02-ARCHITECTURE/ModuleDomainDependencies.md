@@ -12,7 +12,7 @@ This file makes those crossings countable. It lists every place one module's use
 - **A new crossing changes this file and fails the test.** That is the point: it should be a decision, made in review, not a quiet import. Prefer adding a contract to the owning module; if the crossing is deliberate, regenerate the file so the diff shows what you added.
 - **Removing a crossing also changes this file.** Regenerate, and the count goes down.
 
-**Today: 65 crossings across 13 module pairs.**
+**Today: 69 crossings across 14 module pairs.**
 
 | From | To | Crossings |
 |---|---|---|
@@ -20,6 +20,7 @@ This file makes those crossings countable. It lists every place one module's use
 | Shopping | Catalog | 12 |
 | Notifications | Ordering | 9 |
 | Notifications | Platform | 6 |
+| Billing | Platform | 4 |
 | Customers | Shopping | 4 |
 | Notifications | Customers | 4 |
 | Ordering | Customers | 4 |
@@ -99,3 +100,7 @@ This file makes those crossings countable. It lists every place one module's use
 | Notifications | Platform | `StoreContact` | `NotificationEmails` |
 | Notifications | Platform | `StoreSettings` | `NotificationEmails` |
 | Notifications | Platform | `Tenant` | `NotificationEmails` |
+| Billing | Platform | `ITenantRepository` | `AssignTenantPlanHandler` |
+| Billing | Platform | `ITenantRepository` | `GrantEntitlementOverrideHandler` |
+| Billing | Platform | `Tenant` | `AssignTenantPlanHandler` |
+| Billing | Platform | `Tenant` | `GrantEntitlementOverrideHandler` |

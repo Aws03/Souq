@@ -29,6 +29,9 @@ public class DomainExceptionCodeTests
         { new InvalidNotificationException("x"), "InvalidNotification" },
         { new InvalidProductVariantException("DuplicateVariantCombination", "x"), "DuplicateVariantCombination" },
         { new InvalidSearchSynonymException("x"), "InvalidSearchSynonym" },
+        { new InvalidPlanException("x"), "InvalidPlan" },
+        { new InvalidSubscriptionException("x"), "InvalidSubscription" },
+        { new InvalidEntitlementOverrideException("x"), "InvalidEntitlementOverride" },
     };
 
     [Theory]

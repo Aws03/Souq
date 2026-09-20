@@ -24,7 +24,7 @@ Shopping owns what a shopper intends to buy (the basket) or wants to remember (t
 | Shipping methods and rates | Shipping (`IShippingRateProvider`) |
 | Creating the order, freezing totals, taking payment | Ordering and Payments |
 | Customer profile, address book, erasure orchestration | Customers (`CustomerErasure` deletes the basket and wishlist) |
-| Module flags | Platform |
+| Which modules a store has | Platform owns the per-store switch and the one enforcement point; Billing owns what its plan grants |
 
 ## Business concepts
 
@@ -115,7 +115,7 @@ Checkout re-checks availability and reserves atomically inside the order transac
 - **`wishlist`** (`StoreModules.Wishlist`). `WishlistController` carries `[RequiresModule(StoreModules.Wishlist)]`, so `TenantAvailabilityMiddleware` answers `404 ModuleDisabled` on every wishlist route before authentication and before any handler runs. The handlers themselves do not check the flag. The SPA hides the heart, the menu entries and the `/wishlist` route (`useModule('wishlist')`, `RequireModule`).
 - **`promotions`** (`StoreModules.Promotions`). Checked inside the pipeline (stage 3), so the quote reports `ModuleDisabled` and checkout rejects with `422 ModuleDisabled`; `AddressStep` hides the coupon field.
 - The basket has no flag: every store has a basket.
-- Flags come from the cached tenant snapshot (`TenantInfo.HasModule`; a snapshot built without modules means "all enabled"). A change applies immediately on the instance that made it and within 60 seconds elsewhere (`TenantDirectoryCache`).
+- Flags come from the cached tenant snapshot (`TenantInfo.HasModule`), and that snapshot carries the **effective** set: what the store's plan grants plus its live entitlement overrides, intersected with the platform's per-store switch, composed once in `TenantDirectory` ([Platform](../Platform/README.md#tenant-behaviour), [Billing](../Billing/README.md)). Either input missing — no subscription, a plan that cannot be resolved, an empty switch — means no optional module at all; since C1 the module set is non-nullable with no default, so a snapshot built without modules no longer means "all enabled". A change applies immediately on the instance that made it and within 60 seconds elsewhere (`TenantDirectoryCache`).
 
 ## Use cases
 

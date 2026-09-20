@@ -16,7 +16,7 @@ public sealed class LocalFileStorageTests : IDisposable
 
     private LocalFileStorage Storage(int tenantId = 7) =>
         new(Options.Create(new FileStorageOptions { RootPath = _root, PublicBasePath = "/uploads" }),
-            SouqApiFactory.ContextFor(new TenantInfo(tenantId, "store", "متجر", TenantStatus.Active, "JOD", "ar", "Asia/Amman")));
+            SouqApiFactory.ContextFor(new TenantInfo(tenantId, "store", "متجر", TenantStatus.Active, "JOD", "ar", "Asia/Amman", new HashSet<string>(StringComparer.Ordinal))));
 
     [Fact]
     public async Task يحفظ_تحت_بادئة_المتجر_باسم_عشوائي_ويعيد_المسار_العام()

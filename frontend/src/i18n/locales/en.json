@@ -1718,7 +1718,7 @@
     },
     "modules": {
       "title": "Modules",
-      "hint": "Optional capabilities. A disabled module is refused by the server, not only hidden.",
+      "hint": "Optional capabilities. The switch here is operational; the store’s plan is the ceiling — and a disabled module is refused by the server, not merely hidden.",
       "name": {
         "promotions": "Coupons",
         "reviews": "Reviews",
@@ -1731,7 +1731,8 @@
       },
       "saved": "Modules saved",
       "unsaved": "Unsaved changes",
-      "upToDate": "Saved"
+      "upToDate": "Saved",
+      "planLocked": "The store’s plan does not grant this module"
     },
     "admins": {
       "title": "Administrator",
@@ -1788,7 +1789,9 @@
       "backToStore": "← {{name, bidi}}",
       "settingsTitle": "{{name, bidi}}: branding and content",
       "settingsSubtitle": "The same editor the store's administrator uses. Changes apply to the storefront when saved.",
-      "activity": "Activity log"
+      "activity": "Activity log",
+      "plan": "Plan",
+      "noPlan": "No plan — no optional module is in force"
     },
     "accounts": {
       "title": "Platform accounts",

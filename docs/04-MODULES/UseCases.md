@@ -20,6 +20,7 @@
 | [Reviews](#reviews) | `src/Souq.Application/Features/Reviews` | 3 | 2 | 0 |
 | [Notifications](#notifications) | `src/Souq.Application/Features/Notifications` | 2 | 2 | 0 |
 | [Reporting](#reporting) | `src/Souq.Application/Features/Reporting` | 0 | 2 | 0 |
+| [Billing](#billing) | `src/Souq.Application/Features/Billing` | 8 | 4 | 1 |
 
 ## Platform
 
@@ -287,3 +288,26 @@ Module document: [Reporting/README.md](Reporting/README.md).
 |---|---|---|---|---|---|
 | `GetPlatformStatsQuery` | query | `GetPlatformStatsHandler` | — | yes | `GET /api/platform/stats` |
 | `GetStoreDashboardQuery` | query | `GetStoreDashboardHandler` | `GetStoreDashboardQueryValidator` | yes | `GET /api/admin/reports/dashboard` |
+
+## Billing
+
+Module document: [Billing/README.md](Billing/README.md).
+
+| Use case | Kind | Handler | Validator | Audited | Sent by |
+|---|---|---|---|---|---|
+| `AssignTenantPlanCommand` | command | `AssignTenantPlanHandler` | — | yes | `PUT /api/platform/tenants/{tenantId:int}/plan` |
+| `CancelTenantPlanCommand` | command | `CancelTenantPlanHandler` | — | yes | `DELETE /api/platform/tenants/{tenantId:int}/plan` |
+| `CreatePlanVersionCommand` | command | `CreatePlanVersionHandler` | `CreatePlanVersionValidator` | yes | `POST /api/platform/plans` |
+| `GrantEntitlementOverrideCommand` | command | `GrantEntitlementOverrideHandler` | `GrantEntitlementOverrideValidator` | yes | `POST /api/platform/tenants/{tenantId:int}/entitlement-overrides` |
+| `PublishPlanCommand` | command | `PublishPlanHandler` | — | yes | `POST /api/platform/plans/{id:int}/publish` |
+| `RetirePlanCommand` | command | `RetirePlanHandler` | — | yes | `POST /api/platform/plans/{id:int}/retire` |
+| `RevokeEntitlementOverrideCommand` | command | `RevokeEntitlementOverrideHandler` | — | yes | `DELETE /api/platform/tenants/{tenantId:int}/entitlement-overrides/{overrideId:int}` |
+| `UpdatePlanDraftCommand` | command | `UpdatePlanDraftHandler` | `UpdatePlanDraftValidator` | yes | `PUT /api/platform/plans/{id:int}` |
+| `GetPlanQuery` | query | `GetPlanHandler` | — | yes | `GET /api/platform/plans/{id:int}` |
+| `GetTenantEntitlementsQuery` | query | `GetTenantEntitlementsHandler` | — | yes | `GET /api/platform/tenants/{tenantId:int}/entitlements` |
+| `ListEntitlementOverridesQuery` | query | `ListEntitlementOverridesHandler` | — | yes | `GET /api/platform/tenants/{tenantId:int}/entitlement-overrides` |
+| `ListPlansQuery` | query | `ListPlansHandler` | `ListPlansQueryValidator` | yes | `GET /api/platform/plans` |
+
+| Public contract | Implemented by |
+|---|---|
+| `IStoreEntitlements` | `StoreEntitlements` |

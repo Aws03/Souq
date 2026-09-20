@@ -1926,6 +1926,194 @@ namespace Souq.Infrastructure.Migrations
                     b.ToTable("Users", (string)null);
                 });
 
+            modelBuilder.Entity("Souq.Domain.Platform.EntitlementOverride", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Entitlement")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<DateTime>("ExpiresAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("GrantedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<DateTime?>("RevokedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "ExpiresAtUtc");
+
+                    b.ToTable("EntitlementOverrides", (string)null);
+                });
+
+            modelBuilder.Entity("Souq.Domain.Platform.Plan", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code", "Version")
+                        .IsUnique();
+
+                    b.ToTable("Plans", (string)null);
+                });
+
+            modelBuilder.Entity("Souq.Domain.Platform.PlanEntitlement", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Entitlement")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<int>("PlanId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PlanId", "Entitlement")
+                        .IsUnique();
+
+                    b.ToTable("PlanEntitlements", (string)null);
+                });
+
+            modelBuilder.Entity("Souq.Domain.Platform.PlanLimit", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("nvarchar(60)");
+
+                    b.Property<int>("PlanId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("Value")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PlanId", "Name")
+                        .IsUnique();
+
+                    b.ToTable("PlanLimits", (string)null);
+                });
+
+            modelBuilder.Entity("Souq.Domain.Platform.Subscription", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("EndedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("PlanId")
+                        .HasColumnType("int");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<DateTime>("StartedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PlanId");
+
+                    b.HasIndex("TenantId")
+                        .IsUnique();
+
+                    b.ToTable("Subscriptions", (string)null);
+                });
+
             modelBuilder.Entity("Souq.Domain.Platform.Tenant", b =>
                 {
                     b.Property<int>("Id")
@@ -1981,7 +2169,7 @@ namespace Souq.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)")
-                        .HasDefaultValue("promotions,reviews,wishlist")
+                        .HasDefaultValue("")
                         .HasColumnName("EnabledModules");
 
                     b.Property<string>("_settings")
@@ -2866,6 +3054,48 @@ namespace Souq.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict);
                 });
 
+            modelBuilder.Entity("Souq.Domain.Platform.EntitlementOverride", b =>
+                {
+                    b.HasOne("Souq.Domain.Platform.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Souq.Domain.Platform.PlanEntitlement", b =>
+                {
+                    b.HasOne("Souq.Domain.Platform.Plan", null)
+                        .WithMany("Entitlements")
+                        .HasForeignKey("PlanId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Souq.Domain.Platform.PlanLimit", b =>
+                {
+                    b.HasOne("Souq.Domain.Platform.Plan", null)
+                        .WithMany("Limits")
+                        .HasForeignKey("PlanId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Souq.Domain.Platform.Subscription", b =>
+                {
+                    b.HasOne("Souq.Domain.Platform.Plan", null)
+                        .WithMany()
+                        .HasForeignKey("PlanId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Souq.Domain.Platform.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Souq.Domain.Platform.TenantDomain", b =>
                 {
                     b.HasOne("Souq.Domain.Platform.Tenant", null)
@@ -2928,6 +3158,13 @@ namespace Souq.Infrastructure.Migrations
             modelBuilder.Entity("Souq.Domain.Entities.ProductVariant", b =>
                 {
                     b.Navigation("OptionValues");
+                });
+
+            modelBuilder.Entity("Souq.Domain.Platform.Plan", b =>
+                {
+                    b.Navigation("Entitlements");
+
+                    b.Navigation("Limits");
                 });
 
             modelBuilder.Entity("Souq.Domain.Platform.Tenant", b =>

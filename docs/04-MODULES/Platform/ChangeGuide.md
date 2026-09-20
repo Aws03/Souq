@@ -11,7 +11,7 @@
 3. Cross-store reads happen only in `PlatformQueries`, with an explicit `TenantId` predicate or an aggregate count (`TenancyRuleTests`).
 4. Platform *writes* inside a store go through `ITenantScopeRunner`, never by bypassing the write guard.
 5. Business rules live in the `Tenant` aggregate. Handlers coordinate; they do not validate.
-6. Every change to a store invalidates the tenant directory (`ITenantDirectory.Invalidate`), or stale hosts, statuses, modules and branding are served for up to 60 seconds.
+6. Every change to a store invalidates the tenant directory (`ITenantDirectory.Invalidate`), or stale hosts, statuses, modules, entitlements and branding are served for up to 60 seconds.
 7. Settings are validated on write and rebuilt from storage **without** validation, so tightening a rule never breaks a store that saved its settings earlier.
 
 **Files to read first:** `src/Souq.Domain/Platform/Tenant.cs`, `src/Souq.Domain/Platform/StoreSettings.cs`, `src/Souq.Application/Features/Platform/TenantAdministration.cs`, `src/Souq.Application/Features/Stores/StoreSettingsModels.cs`, `src/Souq.API/Tenancy/TenantResolutionMiddleware.cs`, `src/Souq.API/Tenancy/TenantAvailability.cs`, `src/Souq.Infrastructure/Tenancy/TenantDirectory.cs`.
@@ -39,18 +39,18 @@
 
 ## I need to add a module flag
 
-- **Inspect:** `src/Souq.Domain/Platform/StoreModules.cs`, `src/Souq.API/Tenancy/TenantAvailability.cs`, `src/Souq.Application/Common/Tenancy/TenantInfo.cs`, and an existing gated controller such as `src/Souq.API/Controllers/WishlistController.cs`.
-- **Rules to respect:** module flags are **server-enforced**, not a UI toggle; the endpoint check and the use-case check are both needed whenever the feature can be reached indirectly (a coupon at checkout is the precedent); `StoreModules.Parse` must stay tolerant of unknown keys.
+- **Inspect:** `src/Souq.Domain/Platform/StoreModules.cs`, `src/Souq.Domain/Platform/Entitlements.cs`, `src/Souq.Infrastructure/Tenancy/TenantDirectory.cs`, `src/Souq.API/Tenancy/TenantAvailability.cs`, `src/Souq.Application/Common/Tenancy/TenantInfo.cs`, and an existing gated controller such as `src/Souq.API/Controllers/WishlistController.cs`.
+- **Rules to respect:** module flags are **server-enforced**, not a UI toggle; the endpoint check and the use-case check are both needed whenever the feature can be reached indirectly (a coupon at checkout is the precedent); `StoreModules.Parse` must stay tolerant of unknown keys (tolerant, but reporting them through `Unknown` so the drift is logged rather than silent); and the key space is shared with [Billing](../Billing/README.md)'s entitlements on purpose — `Entitlements.All` **is** `StoreModules.All`, so a new key is a new entitlement and must never acquire a second catalogue.
 - **Steps:**
   1. Add the constant to `StoreModules` and to `StoreModules.All`.
   2. Put `RequiresModuleAttribute` with your new key on the controllers that belong to it, the way `StoreModules.Reviews` is used today.
   3. If another module can reach the feature indirectly, check `TenantInfo.HasModule` in that use case and fail with a `ModuleDisabled` business error, as `PricingService` does for coupons.
-  4. Decide the default for existing stores. `Tenants.EnabledModules` has a database default of every current module; adding a key to `All` does **not** grant it to existing rows, because their stored string was written earlier. Write a migration that appends the key if the flag should be on by default.
-- **Tests:** extend `StoreSettingsTests` (module parsing) and `TenantSettingsTests` (replacement and unknown keys); add an integration case to `PlatformAdministrationTests` showing the endpoint answering `404 ModuleDisabled`.
-- **API:** `PUT /api/platform/tenants/{id}/modules` replaces the whole list — a client that sends a stale list silently removes the new flag. `GET /api/storefront/config` exposes the enabled list to the frontend.
+  4. Decide the default for existing stores, remembering that **two** inputs must say yes and neither grants the key by itself. `Tenants.EnabledModules` has a database default of the empty string since C1, and adding a key to `All` does not grant it to existing rows either, because their stored string was written earlier: if the switch should be on by default, write a migration that appends the key. No existing plan grants it either, because a plan names what it grants — so a key that should be part of what stores already pay for needs a **new plan version** granting it, assigned deliberately; a published plan is frozen and must never be edited ([Billing](../Billing/README.md)).
+- **Tests:** extend `StoreSettingsTests` (module parsing) and `TenantSettingsTests` (replacement and unknown keys); add an integration case to `PlatformAdministrationTests` showing the endpoint answering `404 ModuleDisabled`. If the key is meant to reach existing stores, prove it end to end in `CommercialControlPlaneTests` — the switch alone will not do it.
+- **API:** `PUT /api/platform/tenants/{id}/modules` replaces the whole list — a client that sends a stale list silently removes the new flag. `GET /api/storefront/config` exposes the **effective** list (the intersection, from the request's tenant snapshot), not the column, so a key granted by only one input never reaches the frontend.
 - **Database:** a data migration only if existing stores must get the new key.
 - **Security:** a disabled module answers 404, not 403 — the feature's existence is not revealed.
-- **Docs and ADR:** [README.md](README.md), [Modules.md](../Modules.md), and [ADR-0024](../../11-ADR/0024-platform-administration.md) if the enforcement model changes.
+- **Docs and ADR:** [README.md](README.md), [Modules.md](../Modules.md), [Billing/README.md](../Billing/README.md), and [ADR-0024](../../11-ADR/0024-platform-administration.md) if the enforcement model changes — or [ADR-0047](../../11-ADR/0047-commercial-control-plane.md) and [ADR-0053](../../11-ADR/0053-entitlement-resolution.md) if the *resolution* model does.
 
 ## I need to add a platform endpoint
 

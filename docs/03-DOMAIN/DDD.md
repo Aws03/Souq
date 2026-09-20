@@ -7,7 +7,7 @@ This page is deliberately honest about the gaps: claiming "full DDD" when the co
 
 ## 1. Strategic: modules are bounded contexts
 
-Each of the thirteen modules is a boundary inside which a word has one meaning. "Customer" means a commercial profile in Customers and a `CustomerId` reference in Ordering; "product" means the sellable definition in Catalog and a frozen line snapshot in an order. Modules communicate through contracts and ids, never by sharing a model ([Modules.md](../04-MODULES/Modules.md)).
+Each of the fourteen modules is a boundary inside which a word has one meaning. "Customer" means a commercial profile in Customers and a `CustomerId` reference in Ordering; "product" means the sellable definition in Catalog and a frozen line snapshot in an order. Modules communicate through contracts and ids, never by sharing a model ([Modules.md](../04-MODULES/Modules.md)).
 
 What is **not** done strategically: there is no context map with translation layers, and no per-module ubiquitous-language glossary beyond [Glossary.md](../00-START-HERE/Glossary.md). With one team and one deployment, the module catalog does that job.
 

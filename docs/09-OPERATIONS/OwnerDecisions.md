@@ -377,6 +377,80 @@ is exactly the kind of business decision `AGENTS.md` §0 rule 4 reserves for the
 
 ---
 
+## C-08 — Is a visitor identifier stored for signed-out shoppers?
+
+**The question.** When a shopper who is not signed in browses a store, does Souq store an identifier that links
+their actions together — the search, the product they opened, the item they added, the order they eventually
+placed? Three sub-questions come with a "yes" and are part of the same decision: on what legal basis, for how
+long, and may those rows leave Jordan.
+
+**Why it matters.** This is the one item on the commercial plan whose cost rises every day it is unanswered, and
+it is the only one that is not reversible by engineering. Every other capability can be built later at the same
+price. This one cannot: a purchase that happened before the identifier existed can never afterwards be
+attributed to the search that produced it. Saying "not yet" is therefore not a neutral hold — it is a decision
+to permanently lose the data for the period of the delay.
+
+It is equally not a free "yes". Today `SearchQueryLog` holds no personal data **by construction** — no customer
+id, no IP, no session, no visitor token — which is exactly why its 90-day retention could be an engineering
+decision rather than a legal one. A visitor identifier ends that: the event table becomes personal data under
+GDPR and under Jordan's data-protection law, and its retention, its lawful basis and its cross-border movement
+all become questions with legal answers rather than engineering ones.
+
+**What is proposed, precisely.** An opaque, server-minted, per-browser identifier with no meaning outside Souq —
+not an email, not a device fingerprint, not a third-party advertising id, and not derived from an IP address. It
+would be written on the event rows that already need to exist, and **the map from that identifier to a customer
+account would live in a separate, access-controlled table from day one**, so that an erasure request has a cheap
+path and the event store itself never embeds a customer id. Signed-in and signed-out attribution would be joined
+through that one table and nowhere else.
+
+**Affected code.** None yet — this decision gates work that has not started. What exists today and is relevant:
+`SearchQueryLog` and its `ISearchLog` write path (`void`, never throws, bounded channel that drops rather than
+waits) is the pattern the event store would generalise; `SearchLogRetention` is the existing purge; and an
+integration test pins `SearchQueryLog`'s exact property set precisely so that a personal-data column cannot be
+added to it quietly. That guard is working as designed and should not be weakened — a behavioural event is a new
+table, not a wider version of that one.
+
+| Engineering | Deployment | First paying customer |
+|---|---|---|
+| **Yes, for the analytics and recommendation track.** The event foundation is designed and not built, and its shape does not change with the answer — only what may be written to it | No | No — a store can be sold and served with no behavioural data at all |
+
+**What a "yes" enables**, and nothing else does: search-to-purchase attribution (which query produced which
+sale), funnel analysis (where shoppers abandon), click-through rate on any list or recommendation slot, and every
+behavioural recommendation — "bought together", "viewed together", and any ranking evaluated against real
+outcomes rather than opinion.
+
+**What a "no" permanently forecloses**, and this is the half that must be written down rather than left open:
+those four capabilities, for the whole period the answer is "no", with no way to backfill. Attribute and content
+similarity still works — it needs no behavioural data and is the only recommender that is correct on day one for
+a new store — so "related products" remains possible. Aggregate counts that need no identifier (how many
+searches, how many views of a product) also remain possible. What is lost is every measurement that requires
+connecting two actions by the same person.
+
+**The smallest reversible design, if the answer is "yes".** Each of these exists so that a later "stop" costs
+little: the identifier is opaque and Souq-minted, so it has no value to anyone else and can be rotated or dropped
+without touching the rest of the schema; the identity link is a separate table, so erasure is a delete in one
+place rather than a rewrite of an append-only store; identifier-free rollups are computed **before** any purge
+and kept indefinitely, so a shortened retention costs history rather than erasing it; the retention window is
+configuration, not schema; and no row is sent to any external processor, so no cross-border transfer happens by
+default and adding one later is a separate, explicit decision.
+
+**Evidence that exists.** The design is written up in full in
+[ADR-0050](../11-ADR/0050-behavioural-event-foundation.md), including why the outbox is the wrong carrier, which
+fields cannot be reconstructed later, and the identity-link separation. The plan's own §5 states the retention
+norms it found (13 months matches one regulator's tracker lifetime; 14 is the industry norm).
+
+**Evidence still required, and it is not engineering's to produce:** the lawful basis Souq intends to rely on and
+whether consent is collected per store or once per platform; whether the data may be processed outside Jordan;
+what the merchant agreement says about who owns a store's behavioural data; and the retention period the owner
+is willing to state publicly.
+
+**Who decides.** The owner, with legal advice. Engineering has taken this as far as it can: the design is
+complete, the mitigations are chosen, and the cost of each answer is written above. **If the answer is "no", say
+so explicitly and it will be recorded here as a decision with its foreclosed capabilities listed — not left as
+an open question that quietly costs data every week.**
+
+---
+
 ## Commercial platform decisions — `C-01` … `C-18`
 
 Designing the commercial SaaS layer surfaced eighteen further questions that are the owner's. They are written
@@ -394,7 +468,7 @@ which is why the commercial track can start before any of them is answered.
 | **C-05** | Who absorbs the rounding remainder on a percentage in a three-decimal currency? | the ledger |
 | **C-06** | Who bears a chargeback, and how is it recovered here, where bank auto-debit is not available? | the ledger |
 | **C-07** | Pricing granularity in JOD — accept a 10-fils minimum increment platform-wide, or make the rule conditional per provider and card scheme? | the payment port |
-| **C-08** | Is a visitor identifier stored for signed-out shoppers, on what basis, for how long, and may events leave the country? | the behavioural event foundation |
+| **C-08** | [Is a visitor identifier stored for signed-out shoppers, on what basis, for how long, and may events leave the country?](#c-08--is-a-visitor-identifier-stored-for-signed-out-shoppers) — **written out in full above**, because it is the only decision here whose cost rises every week it is unanswered | the behavioural event foundation |
 | **C-09** | May behavioural data ever be pooled across tenants? | recommendations |
 | **C-11** | Custom domains: a managed edge or a self-run certificate client; apex support; the activation SLA; the policy for a domain that stops pointing at us | domain automation |
 | **C-12** | What are the plan tiers, and per limit: hard, soft, or overage? | plans and quotas |

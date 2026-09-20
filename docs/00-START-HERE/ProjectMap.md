@@ -1,6 +1,6 @@
 # Project map
 
-> **What this page is:** the whole system on one page. Who reaches it and through which host, how a request crosses the layers, and how the thirteen business modules depend on each other, including the dependencies the target architecture doesn't want.
+> **What this page is:** the whole system on one page. Who reaches it and through which host, how a request crosses the layers, and how the fourteen business modules depend on each other, including the dependencies the target architecture doesn't want.
 > **Level:** L0. **Read with:** [SystemOverview.md](SystemOverview.md) (what happens at runtime) and [RepositoryMap.md](RepositoryMap.md) (which folder holds what).
 > **Last verified against the code:** 2026-09-17, branch `phase/17-production-hardening`.
 
@@ -49,7 +49,7 @@ flowchart LR
 
 One request walked through every box: [RequestLifecycle.md](RequestLifecycle.md).
 
-## 3. The thirteen modules
+## 3. The fourteen modules
 
 | Module | Owns | Where users meet it |
 |---|---|---|
@@ -66,6 +66,7 @@ One request walked through every box: [RequestLifecycle.md](RequestLifecycle.md)
 | **Reviews** | Reviews and moderation | Product page; admin reviews |
 | **Notifications** | The outbox, in-app notifications, email | Notification bell; emails |
 | **Reporting** | Read-only statistics | Store dashboards; platform overview |
+| **Billing** | The commercial control plane: plans, subscriptions and entitlements | Platform console: a store's plan and what it grants |
 
 The authoritative lists: [Modules.md](../04-MODULES/Modules.md) (ownership and screens) and `tests/Souq.ArchitectureTests/ModuleMap.cs` (which code folder belongs to which module).
 
