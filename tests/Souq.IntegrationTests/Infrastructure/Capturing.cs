@@ -72,8 +72,29 @@ public sealed record CapturedLog(
 // ============================================================================
 public sealed class CapturingLoggerProvider : ILoggerProvider, ISupportExternalScope
 {
-    private readonly ConcurrentQueue<CapturedLog> _entries = new();
+    private readonly ConcurrentQueue<CapturedLog> _entries;
     private IExternalScopeProvider _scopes = new LoggerExternalScopeProvider();
+
+    public CapturingLoggerProvider() : this(new ConcurrentQueue<CapturedLog>()) { }
+
+    private CapturingLoggerProvider(ConcurrentQueue<CapturedLog> entries) => _entries = entries;
+
+    // ========================================================================
+    // **نسخة لكل مضيف، ومصبٌّ واحد.**
+    //
+    // العلّة التي يعالجها هذا: `ISupportExternalScope.SetScopeProvider` يُستدعى من **كل** مضيف
+    // يُسجَّل فيه المزوّد. واختباراتٌ عدّة تبني مصانع مشتقّة (`WithWebHostBuilder`) لتضبط إعداداً
+    // واحداً، فكان المضيف المشتقّ يكتب مزوّد نطاقاته فوق مزوّد المصنع الأساس — ويبقى كذلك **بعد
+    // أن يُتخلَّص منه**. فتصير سجلّات المصنع الأساس تُجمَع من مزوّد نطاقات مضيفٍ ميّت: السطر
+    // يُكتب، ونطاقه فارغ، و`CorrelationId` الذي يبحث عنه الاختبار غير موجود.
+    //
+    // وهو عطبٌ **ترتيبيّ**: يظهر فقط حين يسبق صنفُ الاختبار المشتقّ صنفَ اختبارات الرصد، فبقي
+    // كامناً حتى أضيف صنفٌ جديد غيّر الترتيب. لم يكن اختبارات الرصد خاطئة يوماً.
+    //
+    // فالحلّ أن يأخذ كل مضيف **نسخته** من المزوّد بنطاقاتها الخاصّة، وتشترك كلّها في طابور
+    // القيود نفسه — فيبقى `Logs.Entries` يرى كل شيء، ولا يكتب مضيفٌ فوق نطاقات غيره.
+    // ========================================================================
+    public CapturingLoggerProvider Fork() => new(_entries);
 
     public IReadOnlyCollection<CapturedLog> Entries => _entries.ToArray();
 

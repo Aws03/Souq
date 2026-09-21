@@ -95,12 +95,14 @@ public sealed class SouqApiFactory : WebApplicationFactory<Program>, IAsyncLifet
         builder.UseSetting($"Secrets:Keys:{SecretsKeyId}", SecretsKey);
         builder.UseSetting("Payments:Fake:WebhookSecret", FakeWebhookSecret);
         // مئات الاختبارات تدخل من العنوان نفسه: حدود الإنتاج تخنقها. اختبار حدّ المعدّل يضيّقها بمصنع مشتقّ.
-        foreach (var policy in new[] { "Auth", "Refresh", "CouponPreview", "Basket" })
+        foreach (var policy in new[] { "Auth", "Refresh", "CouponPreview", "Basket", "Export" })
             builder.UseSetting($"RateLimiting:{policy}:PermitLimit", "100000");
 
         builder.ConfigureLogging(logging =>
         {
-            logging.AddProvider(Logs);
+            // نسخة لهذا المضيف بنطاقاته، ومصبّ القيود مشترك — انظر CapturingLoggerProvider.Fork:
+            // تسجيل المثيل نفسه في مضيف مشتقّ كان يكتب فوق مزوّد نطاقات المصنع الأساس.
+            logging.AddProvider(Logs.Fork());
             // أوامر SQL المنفَّذة تُلتقط دائماً لمزوّد الاختبار (أياً كان مستوى الإعداد) كي تعدّ
             // اختبارات N+1 الاستعلامات فعلياً بدل الافتراض.
             logging.AddFilter<CapturingLoggerProvider>("Microsoft.EntityFrameworkCore.Database.Command", LogLevel.Information);

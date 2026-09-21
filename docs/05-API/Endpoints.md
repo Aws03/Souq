@@ -24,14 +24,14 @@
 | PUT | `/api/account/addresses/{id:int}/default-billing` | signed in | store | — | — | `SetMyDefaultAddressCommand` | Customers |
 | PUT | `/api/account/addresses/{id:int}/default-shipping` | signed in | store | — | — | `SetMyDefaultAddressCommand` | Customers |
 | POST | `/api/account/erase` | signed in | store | — | — | `EraseMyAccountCommand` | Customers |
-| GET | `/api/account/export` | signed in | store | — | — | `ExportMyDataQuery` | Customers |
+| GET | `/api/account/export` | signed in | store | — | `data-export` | `ExportMyDataQuery` | Customers |
 | GET | `/api/account/profile` | signed in | store | — | — | `GetMyProfileQuery` | Customers |
 | PUT | `/api/account/profile` | signed in | store | — | — | `UpdateMyProfileCommand` | Customers |
 | GET | `/api/admin/categories` | `catalog.manage` | store | — | — | `ListAdminCategoriesQuery` | Catalog |
 | GET | `/api/admin/customers` | `customers.view` | store | — | — | `ListCustomersQuery` | Customers |
 | GET | `/api/admin/customers/{id:int}` | `customers.view` | store | — | — | `GetCustomerQuery` | Customers |
 | POST | `/api/admin/customers/{id:int}/erase` | `customers.view` + `customers.manage` | store | — | — | `EraseCustomerCommand` | Customers |
-| GET | `/api/admin/customers/{id:int}/export` | `customers.view` + `customers.manage` | store | — | — | `ExportCustomerDataQuery` | Customers |
+| GET | `/api/admin/customers/{id:int}/export` | `customers.view` + `customers.manage` | store | — | `data-export` | `ExportCustomerDataQuery` | Customers |
 | PUT | `/api/admin/customers/{id:int}/status` | `customers.view` + `customers.manage` | store | — | — | `SetCustomerStatusCommand` | Customers |
 | GET | `/api/admin/inventory` | `inventory.view` | store | — | — | `GetInventoryQuery` | Inventory |
 | GET | `/api/admin/inventory/low-stock` | `inventory.view` | store | — | — | `GetLowStockQuery` | Inventory |

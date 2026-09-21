@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Souq.API.Http;
 using Souq.API.Security;
 using Souq.Application.Common.Security;
@@ -36,7 +37,10 @@ public class AdminCustomersController : ControllerBase
     public async Task<IActionResult> SetStatus(int id, [FromBody] CustomerStatusRequest body) =>
         this.ToHttp(await _mediator.Send(new SetCustomerStatusCommand(id, body.Status!.Value)));
 
+    // محدود المعدّل كنظيره في حساب العميل (F-21): الصلاحية تقول **من** يصدّر، لا **كم مرّة** —
+    // وحلقةٌ على هذه النقطة تستنزف القاعدة بصلاحية سليمة تماماً.
     [HttpGet("{id:int}/export")]
+    [EnableRateLimiting(RateLimitPolicies.Export)]
     [HasPermission(Permissions.Customers.Manage)]
     public async Task<IActionResult> Export(int id)
     {

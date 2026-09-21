@@ -116,6 +116,38 @@ public class RateLimitPolicyTests
     }
 
     // ========================================================================
+    // تصدير البيانات محدود **التكرار** لا المحتوى (F-21).
+    //
+    // الاستجابة تكبر بعمر الحساب — كل طلب بكل أسطره وكل تقييم — ويستدعيها أيّ عميل مسجَّل. وقصُّها
+    // مرفوض: تصديرٌ مبتور ليس تصديراً، والنقطة موجودة لتلبية حقّ صاحب البيانات. فالمقيَّد هو عدد
+    // المرّات. والصلاحية لا تُغني: هي تقول **من** يصدّر، لا **كم مرّة**.
+    // ========================================================================
+    [Fact]
+    public async Task تصدير_بيانات_العميل_محدود_المعدّل()
+    {
+        const int permit = 2;
+        await using var strict = _factory.WithWebHostBuilder(
+            b => b.UseSetting("RateLimiting:Export:PermitLimit", permit.ToString()));
+
+        var api = new TestApi((SouqApiFactory)_factory);
+        var (customer, _) = await api.NewCustomerAsync();
+        var token = customer.DefaultRequestHeaders.Authorization!.Parameter!;
+
+        HttpResponseMessage? last = null;
+        for (var i = 0; i < permit + 1; i++)
+        {
+            var client = strict.CreateClient();
+            client.DefaultRequestHeaders.Authorization =
+                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+            last = await client.GetAsync("/api/account/export");
+        }
+
+        last!.StatusCode.Should().Be(HttpStatusCode.TooManyRequests,
+            "التصدير نقطة ثقيلة: تُقيَّد بالتكرار لأن قصّ محتواها ليس خياراً");
+        (await ProblemCodeAsync(last)).Should().Be("TooManyRequests");
+    }
+
+    // ========================================================================
     // الحدّ يحرس نقطةً **قبل** المصادقة، فلا يُلغيه توكن صالح ولا وجودُ حساب: حشو بيانات الاعتماد
     // كلّه طلباتٌ فاشلة، ولو عُدّ الفاشل خارج الحدّ لما حرس شيئاً.
     // ========================================================================

@@ -1,5 +1,6 @@
 using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Souq.Application.Common.Models;
 using Souq.Application.Features.Categories.Queries;
 using Souq.Application.Features.Products.Queries;
@@ -20,7 +21,12 @@ namespace Souq.Infrastructure.Persistence.Queries;
 internal sealed class CatalogQueries : ICatalogQueries
 {
     private readonly AppDbContext _db;
-    public CatalogQueries(AppDbContext db) => _db = db;
+    private readonly ILogger<CatalogQueries> _logger;
+
+    public CatalogQueries(AppDbContext db, ILogger<CatalogQueries> logger)
+    {
+        _db = db; _logger = logger;
+    }
 
     // ============================================================================
     // البحث مع استرجاع الخطأ المطبعي (M3، ADR-0042). ثلاث محاولات، بهذا الترتيب:
@@ -186,10 +192,21 @@ internal sealed class CatalogQueries : ICatalogQueries
         var categories = _db.Categories.AsNoTracking();
         if (!includeInactive) categories = categories.Where(c => c.IsActive);
 
+        // F-21: الشجرة تُعاد كاملةً (نصفُها ليس شجرة)، لكن بسقفٍ يحرس القراءة من متجر شاذّ.
+        // `Take` هنا لا ترقيم: لا واجهة تطلب صفحةً منها، والسقف أبعد من أيّ كتالوج واقعي.
         var rows = await categories.OrderBy(c => c.SortOrder).ThenBy(c => c.Id)
+            .Take(PagingRules.MaxUnpagedItems + 1)
             .Select(c => new CategoryRow(c.Id, c.Slug, c.ParentId, c.SortOrder, c.IsActive,
                 c.Translations.Select(t => new TextRow(t.Culture, t.Name, t.Description, t.MetaTitle, t.MetaDescription)).ToList()))
             .ToListAsync(ct);
+
+        // بلوغ السقف يُقال: قائمةٌ تُقصّ بصمت تجعل فئةً مفقودة تبدو عطباً في مكان آخر تماماً.
+        if (rows.Count > PagingRules.MaxUnpagedItems)
+        {
+            _logger.LogWarning(
+                "Category tree exceeded the unpaged ceiling ({Ceiling}); the response is truncated", PagingRules.MaxUnpagedItems);
+            rows = rows.Take(PagingRules.MaxUnpagedItems).ToList();
+        }
 
         return rows.Select(r =>
         {

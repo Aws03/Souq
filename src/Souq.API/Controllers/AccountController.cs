@@ -1,6 +1,8 @@
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
+using Souq.API.Security;
 using Souq.API.Http;
 using Souq.Application.Features.Customers;
 using Souq.Application.Features.Customers.Account;
@@ -54,7 +56,10 @@ public class AccountController : ControllerBase
         this.ToHttp(await _mediator.Send(new SetMyDefaultAddressCommand(id, AddressUse.Billing)));
 
     // GET /api/account/export — ملف JSON بكل بيانات العميل (يُنزَّل مرفقاً).
+    // محدود المعدّل (F-21): الاستجابة تكبر بعمر الحساب لا بصفحة، والقصُّ ليس خياراً — تصديرٌ
+    // مبتور ليس تصديراً. فالقيد على التكرار: ستّ مرّات في الساعة.
     [HttpGet("export")]
+    [EnableRateLimiting(RateLimitPolicies.Export)]
     public async Task<IActionResult> Export()
     {
         var result = await _mediator.Send(new ExportMyDataQuery());

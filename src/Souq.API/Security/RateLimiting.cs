@@ -13,6 +13,15 @@ public static class RateLimitPolicies
     public const string Refresh = "auth-refresh";       // تجديد الجلسة (يتكرّر كل 15 دقيقة لكل تبويب)
     public const string CouponPreview = "coupon-preview"; // تخمين رموز الكوبونات
     public const string Basket = "basket";              // كتابة السلة (كل إضافة من زائر جديد تُنشئ سلة)
+
+    // ========================================================================
+    // تصدير البيانات (F-21): نقطةٌ **ثقيلة** يستطيع أيّ عميل مسجَّل استدعاءها — تقرأ كل طلباته
+    // بكل أسطرها وكل تقييماته في استجابة واحدة، وتكبر بعمر الحساب لا بصفحة يطلبها.
+    //
+    // والحدّ على **التكرار** لا على المحتوى، عن قصد: التصدير حقٌّ لصاحب البيانات، وتصديرٌ مبتور
+    // ليس تصديراً — فقصُّه لتخفيف الحمل كان يكسر الغرض الذي وُجد له. ما يُقيَّد هو كم مرّة يُطلب.
+    // ========================================================================
+    public const string Export = "data-export";
 }
 
 // الحدود قابلة للضبط (RateLimiting:Auth:PermitLimit…) — الاختبارات ترفعها، والإنتاج يضيّقها إن لزم.
@@ -24,6 +33,10 @@ public sealed class RateLimitingOptions
     public WindowLimit Refresh { get; set; } = new() { PermitLimit = 30, WindowSeconds = 60 };
     public WindowLimit CouponPreview { get; set; } = new() { PermitLimit = 30, WindowSeconds = 60 };
     public WindowLimit Basket { get; set; } = new() { PermitLimit = 120, WindowSeconds = 60 };
+
+    // ستّ مرّات في الساعة: تنزيل نسخة ثم إعادة المحاولة بعد خطأ شبكة يسع فيها مراراً، وحلقةٌ
+    // تستنزف القاعدة لا تسع.
+    public WindowLimit Export { get; set; } = new() { PermitLimit = 6, WindowSeconds = 3600 };
 }
 
 public sealed class WindowLimit
@@ -69,6 +82,7 @@ public static class RateLimitingSetup
             AddPolicy(limiter, RateLimitPolicies.Refresh, options.Refresh);
             AddPolicy(limiter, RateLimitPolicies.CouponPreview, options.CouponPreview);
             AddPolicy(limiter, RateLimitPolicies.Basket, options.Basket);
+            AddPolicy(limiter, RateLimitPolicies.Export, options.Export);
         });
         return services;
     }
