@@ -85,7 +85,7 @@ stateDiagram-v2
     Archived --> [*]
 ```
 
-`Suspend` is legal only from `Active`. `Activate` is legal from anything except `Archived`, and is idempotent on an already-active store. `Archive` is terminal and refuses a second call. There is no delete: `TenantRepository.Remove` throws on purpose.
+`Suspend` is legal from `Active` **and from `Provisioning`** (C3): a store that has not opened yet can still need suspending for a commercial reason — an unfinished contract, a payment that never arrived — and while `Suspend` refused that, the only exit was `Archive`, which is irreversible. It is also what automated dunning (`C6`) needs, since a dunning chain suspends a store that has not paid without first asking what state it was in. `Suspend` from `Suspended` is refused as meaningless, and from `Archived` because archived is terminal. `Activate` is legal from anything except `Archived`, and is idempotent on an already-active store. `Archive` is terminal and refuses a second call. There is no delete: `TenantRepository.Remove` throws on purpose.
 
 ## Use cases
 
@@ -325,6 +325,16 @@ Because administration endpoints are recognised by their permission policy, a st
 ## Common change scenarios
 
 Details in [ChangeGuide.md](ChangeGuide.md): adding a store setting; adding a module flag; adding a platform endpoint; changing store-status rules; custom domains and DNS verification; changing what the storefront config exposes; adding an audited action; changing the tenant-resolution rules.
+
+### Sessions, when a store's lifecycle changes
+
+**Archiving a store revokes every session in it; suspending one does not** (TD-66, closed in C3). The difference is owner decision `C-17` = B: a suspension is temporary and means *admin-only*, so the merchant stays signed in to fix it, while archiving ends the relationship.
+
+The defect this closed was narrow and real. Every permissioned endpoint already answered `503` for an archived store, but sign-in, sign-out, refresh and the current-user endpoint are `AvailableWhenStoreClosedAttribute` **on purpose** — so an archived store's administrators kept indefinitely refreshable sessions.
+
+`ChangeTenantStatusHandler` now calls `IStoreSessionRevoker` inside the same transaction as the status change, so "archived with live sessions" never exists as a committed state. The adapter (`StoreSessionRevoker`) writes two bulk statements with an explicit `TenantId` condition — a new security stamp for every account of the store, and a revocation on every unrevoked refresh token — and then drops this instance's cached stamps. It is the first **writer** allowed to bypass the tenant filter, and it is listed with its reason in both allowlists in `TenancyRuleTests`; the alternative was loading every account of the store, customers included, to rotate a stamp each.
+
+One stamp value is shared by the store's accounts, and that is safe rather than convenient: the stamp is a claim inside a **signed** token, so its only job is to differ from the one the existing tokens carry. Knowing another account's stamp forges nothing — the signature is what prevents that.
 
 ## Known limitations
 

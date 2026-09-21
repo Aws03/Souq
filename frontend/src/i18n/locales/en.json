@@ -1552,7 +1552,11 @@
       "title": "The store couldn't load",
       "message": "Check your connection and try again."
     },
-    "retry": "Try again"
+    "retry": "Try again",
+    "archived": {
+      "title": "This store has closed permanently",
+      "message": "It is no longer trading."
+    }
   },
   "platform": {
     "name": "Souq platform",
@@ -1995,5 +1999,24 @@
       "showStore": "All activity in this store",
       "showActor": "All activity by this account"
     }
+  },
+  "storeClosed": {
+    "suspended": {
+      "title": "This store is temporarily closed",
+      "message": "You cannot buy from this store right now. If you have an earlier order, its tracking link still works."
+    },
+    "provisioning": {
+      "title": "This store is being set up",
+      "message": "It has not opened to visitors yet."
+    },
+    "archived": {
+      "title": "This store has closed permanently",
+      "message": "It is no longer trading."
+    },
+    "closed": {
+      "title": "This store is unavailable",
+      "message": "You cannot buy from this store right now."
+    },
+    "signIn": "Sign in"
   }
 }

@@ -31,7 +31,7 @@
 ## 0. Status (machine-readable)
 
 ```yaml
-plan_version: 1.4.0
+plan_version: 1.5.0
 track: commercial
 current_phase: C11
 phase_status: done
@@ -59,13 +59,14 @@ phase_status: done
 #   C13 <- a provider contract. C-02 is answered by D-13=A; C-03/C-04/C-05 have NO SUBJECT under
 #          D-13=A + C-01=B, because no commission is taken from a shopper's payment at all
 #   C14 <- C-18 (customer code: never, webhooks only, or a sandbox)
+current_phase_note: "C3 done 2026-09-22 (TD-66 + TD-67 closed with it); TD-42's links shipped in C8's first slice"
 next_phase: C9
 blocked_decisions: ["D-18", "C-11", "C-09", "C-18", "C-12", "C-13"]
 answered_decisions: ["C-08", "C-17", "TD-42", "C-15", "P-06", "D-13", "C-01", "C-19"]
 open_sub_decisions: ["C-08 lawful basis", "C-08 retention period", "C-08 data residency",
                      "P-06 every jurisdiction value", "C-01 the provider itself"]
-last_verified_date: 2026-09-21
-last_verified_head: 568fa01                    # the decisions were recorded on top of this
+last_verified_date: 2026-09-22
+last_verified_head: 42876d3                    # decisions at 1611277; F-32 at 4a5601e; TD-42's links at 42876d3
 baseline_branch: phase/17-production-hardening
 
 # ── ما جرى بعد C11 وليس مرحلة ─────────────────────────────────────────────
@@ -173,7 +174,7 @@ Each phase lists: **delivers · depends on · blocked by · why here**.
   was not recompiling that project, so `dotnet build -warnaserror` reported success without ever seeing it.
   Verified against a pristine worktree before fixing.
 
-### C3 — Suspension that actually suspends
+### C3 — Suspension that actually suspends — **done**
 
 - **Delivers.** TD-66 (revoke sessions and refresh tokens on archive; decide suspend separately), TD-67 (a
   store-status filter per message kind in the outbox), TD-61 (the missing archived-store availability tests), and
@@ -188,6 +189,38 @@ Each phase lists: **delivers · depends on · blocked by · why here**.
   tracking must gain a closed-store exemption; and purchasing must be refused server-side, not merely hidden.
 - **Why here.** Today suspension is a status column plus a middleware gate, which is fine while a human types it
   and unsafe the moment dunning automates it. This must precede C6.
+- **Done (2026-09-22).** Suspension now means something different from archiving, in five places that were one:
+  - **The gate.** `Suspended` and `Archived` shared a single branch of `TenantAvailabilityMiddleware.IsOpen`, so
+    nothing distinguished them. `Suspended` now opens `[HasPermission]` endpoints — the merchant works — plus
+    the new `AvailableWhenStoreSuspendedAttribute`, while `Archived` stays as it was. **Purchasing is refused by
+    the server, not hidden by the browser:** the basket, order-creation and registration paths carry no
+    permission, so they fall into the closed branch by construction, and a test asserts each one.
+  - **Order tracking** carries the new attribute, because a shopper who paid before the suspension is not party
+    to it — the dispute is between the platform and the merchant. Not for an archived store.
+  - **`Suspend()` from `Provisioning`**, which the aggregate refused, leaving `Archive` — irreversible — as the
+    only exit from a temporary problem. `C6` needs this: a dunning chain suspends a store that has not paid
+    without first asking what state it was in.
+  - **TD-66 closed, and the product question it named was answered first.** Archiving revokes every session in
+    the store inside the archive's own transaction; suspending revokes none. `IStoreSessionRevoker` is the first
+    **writer** allowed to bypass the tenant filter, listed with its reason in both allowlists.
+  - **TD-67 closed, and the rule turned out to be short.** A suspended store blocks no message at all — under
+    `C-17` = B it has a merchant who ships and a shopper who tracks, so blocking the shipping email while
+    allowing the tracking link is a contradiction the shopper can see. An archived store blocks everything
+    except the two account-security messages, which are about the person and not the store.
+  - **The browser stopped denying what the server allows.** The SPA refused to mount for *any* non-`Active`
+    store, so a suspended merchant could not reach their own admin even though the API was about to allow it —
+    and a provisioning merchant could not either, though the API had allowed that since Phase 12. Only
+    `Archived` replaces the app now; `Suspended` and `Provisioning` mount it, and a gate renders a branded
+    per-status notice in place of the shopping pages. Three states had shared one message ("temporarily
+    closed"), which told a permanently-closed store's visitor to come back soon.
+- **Deliberately not done, with the reason** — the plan's own line asked for "the background-sweep list fix so
+  Provisioning and Archived stores are reachable by the jobs that must see them", and after `C-17` = B **there is
+  no such job**. `ListForBackgroundSweepsAsync` covers `Active` and `Suspended`, which is what the two store
+  sweeps (reservation expiry, basket cleanup) need; a provisioning store has served no shopper so nothing of its
+  can expire, and an archived store is a closed record. `ITenantDirectory` argues both exclusions in its header
+  and `BackgroundSweepScopeTests` pins them. `C6`'s dunning sweep is platform-scope on the outbox's lease
+  pattern, by its own design, so it does not need this either. Changing it would have meant editing a test that
+  exists to prevent exactly that, for no caller.
 
 ### C4 — Multi-instance correctness
 
@@ -246,6 +279,18 @@ Each phase lists: **delivers · depends on · blocked by · why here**.
 - **Blocked by.** ~~TD-42 (scope)~~ **answered 2026-09-21: `TD-42` = C — links now, revisit authored pages when
   a real merchant requires them**, so the policy-link half of this phase is unblocked and *ContentPage* stays
   deferred with its trigger named. Still blocked: a design decision on what the three presets *are*.
+- **Policy links: done (2026-09-22).** `StorePolicyLinks` on the store's settings document — five optional
+  kinds, absolute `https` on any domain because the merchant hosts the page, an empty value meaning deletion,
+  and an unknown kind refused rather than ignored. No migration, because the settings are a JSON document, so
+  no existing store's footer changed. The footer renders a link only where one is set and shows no policy
+  column at all otherwise — which is the substance of the decision, not a detail: Phase 16 had deleted six
+  `href="#"` links from this same footer, and the rule that replaces them is that what is shown goes somewhere
+  real. A new architecture test pairs the domain's kind list with the footer's labels and both locale files,
+  and was shown to fail on an unlabelled kind before it was kept. **This also closes the one deliverable that
+  kept `M2` of [SouqMasterPlan.md](SouqMasterPlan.md) open.**
+- **Still open in this phase:** the three theme presets (TD-65 — the attribute is delivered and no stylesheet
+  selects on it) and the server-validated section registry. Both need a design decision, not an owner
+  decision.
 - **Why here.** It is the cheapest credibility fix on the list: a merchant evaluating the product today picks one
   of three themes and sees no difference, which reads as broken.
 
@@ -382,8 +427,8 @@ legal.
 | 1 | ~~**C1**~~ **done** | nothing else can substitute for it, and nothing blocks it | — |
 | 2 | ~~**C2**~~ **done** | a quota that fails open is a billing defect; also closed TD-68 | — |
 | 3 | **C9** | the only item whose cost rises with delay | ~~C-08~~ **answered A — unblocked** |
-| 4 | **C3** | suspension must be real before it is automated | ~~C-17~~ **answered B — unblocked** |
-| 5 | **C8** | cheapest visible credibility; parallel to the money track | ~~TD-42~~ **answered C — the policy-link half is unblocked; theme presets and the section registry still need a design call** |
+| 4 | ~~**C3**~~ **done (2026-09-22)** | suspension must be real before it is automated | ~~C-17~~ answered B |
+| 5 | **C8** | cheapest visible credibility; parallel to the money track | ~~TD-42~~ **answered C — policy links shipped 2026-09-22; theme presets and the section registry still need a design call** |
 | 6 | **C5** | the half of billing that needs no provider | ~~C-15, P-06~~ **both answered — unblocked** |
 | 7 | **C4** | the precondition for C6 and for in-process ACME | **split:** caches + locking unblocked; blob storage still D-18 |
 | 8 | **C6** | the first automated irreversible action against a customer | ~~C-17~~ answered; needs C3 + C4's locking + C5 |

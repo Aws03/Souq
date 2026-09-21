@@ -161,10 +161,14 @@ public partial class Tenant : Entity
         Status = TenantStatus.Active;
     }
 
+    // الإيقاف من الفعّال ومن قيد التجهيز معاً (C3): متجرٌ لم يُفتَح بعد قد يجب إيقافه لسبب تجاري —
+    // عقدٌ لم يُكمَل، أو دفعةٌ لم تصل — والحارس القديم كان يرفضه، فتصير الأرشفة (وهي **نهائية**)
+    // المخرجَ الوحيد لحالةٍ مؤقّتة. وهذا يلزم قبل أن تُؤتمت المطالبة (C6): سلسلة المطالبة تُوقف
+    // متجراً لم يدفع، بلا سؤال عن حالته قبل ذلك. الإيقاف من الموقوف لا معنى له، والمؤرشف نهائي.
     public void Suspend()
     {
-        if (Status != TenantStatus.Active)
-            throw new InvalidTenantOperationException("يمكن إيقاف متجر فعّال فقط");
+        if (Status is not (TenantStatus.Active or TenantStatus.Provisioning))
+            throw new InvalidTenantOperationException("يمكن إيقاف متجر فعّال أو قيد التجهيز فقط");
         Status = TenantStatus.Suspended;
     }
 

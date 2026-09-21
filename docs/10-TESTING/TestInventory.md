@@ -8,10 +8,10 @@
 | Suite | Files | Facts | Theories |
 |---|---|---|---|
 | [`Souq.Domain.Tests`](#souqdomaintests) | 30 | 260 | 50 |
-| [`Souq.Application.Tests`](#souqapplicationtests) | 52 | 388 | 19 |
+| [`Souq.Application.Tests`](#souqapplicationtests) | 53 | 390 | 20 |
 | [`Souq.ArchitectureTests`](#souqarchitecturetests) | 17 | 77 | 8 |
-| [`Souq.IntegrationTests`](#souqintegrationtests) | 60 | 372 | 27 |
-| [frontend (Vitest)](#frontend-vitest) | 96 | 731 | — |
+| [`Souq.IntegrationTests`](#souqintegrationtests) | 60 | 373 | 27 |
+| [frontend (Vitest)](#frontend-vitest) | 97 | 737 | — |
 | [frontend (Playwright)](#frontend-playwright) | 19 | 126 | — |
 
 ## Souq.Domain.Tests
@@ -77,6 +77,7 @@
 | `tests/Souq.Application.Tests/Inventory/InventoryCommandsTests.cs` | `InventoryCommandsTests` | 7 | 0 |
 | `tests/Souq.Application.Tests/Inventory/InventoryReservationsTests.cs` | `InventoryReservationsTests` | 9 | 0 |
 | `tests/Souq.Application.Tests/Notifications/NotificationHandlersTests.cs` | `OutboxPolicyTests`, `IdentityEmailHandlersTests`, `OrderNotificationHandlersTests`, `NotificationUseCasesTests` | 16 | 1 |
+| `tests/Souq.Application.Tests/Notifications/OutboxStorePolicyTests.cs` | `OutboxStorePolicyTests` | 2 | 1 |
 | `tests/Souq.Application.Tests/Observability/SouqMetricsTests.cs` | `SouqMetricsTests` | 2 | 0 |
 | `tests/Souq.Application.Tests/Orders/CancelMyOrderHandlerTests.cs` | `CancelMyOrderHandlerTests` | 5 | 0 |
 | `tests/Souq.Application.Tests/Orders/ConfirmOrderPaymentHandlerTests.cs` | `ConfirmOrderPaymentHandlerTests` | 12 | 0 |
@@ -189,7 +190,7 @@
 | `tests/Souq.IntegrationTests/TenantIsolationTests.cs` | `TenantIsolationTests` | 13 | 0 |
 | `tests/Souq.IntegrationTests/TenantQuotaTests.cs` | `TenantQuotaTests` | 7 | 0 |
 | `tests/Souq.IntegrationTests/TenantResolutionMiddlewareTests.cs` | `TenantResolutionMiddlewareTests`, `FakeDirectory` | 3 | 3 |
-| `tests/Souq.IntegrationTests/TenantResolutionTests.cs` | `TenantResolutionTests` | 8 | 0 |
+| `tests/Souq.IntegrationTests/TenantResolutionTests.cs` | `TenantResolutionTests` | 9 | 0 |
 | `tests/Souq.IntegrationTests/UploadSecurityTests.cs` | `UploadSecurityTests` | 3 | 0 |
 | `tests/Souq.IntegrationTests/WishlistTests.cs` | `WishlistTests` | 4 | 0 |
 
@@ -202,12 +203,13 @@
 | `frontend/src/api/problem.test.js` | 6 |
 | `frontend/src/api/query.test.js` | 4 |
 | `frontend/src/app/QueryProvider.test.jsx` | 4 |
+| `frontend/src/app/StoreClosed.test.jsx` | 5 |
 | `frontend/src/app/dateLocale.test.js` | 8 |
 | `frontend/src/app/moduleInvariants.test.js` | 2 |
 | `frontend/src/app/pageMetadata.test.js` | 11 |
 | `frontend/src/app/robots.test.js` | 5 |
 | `frontend/src/app/structuredData.test.js` | 8 |
-| `frontend/src/app/tenantModel.test.js` | 8 |
+| `frontend/src/app/tenantModel.test.js` | 9 |
 | `frontend/src/app/tenantModel.themes.test.js` | 21 |
 | `frontend/src/app/themeMode.test.js` | 9 |
 | `frontend/src/components/ProtectedRoute.test.jsx` | 11 |

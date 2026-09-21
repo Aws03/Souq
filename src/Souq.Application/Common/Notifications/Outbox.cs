@@ -6,6 +6,7 @@ using System.Text.Json.Serialization;
 using System.Text.Unicode;
 using Souq.Domain.Enums;
 using Souq.Domain.Events;
+using Souq.Domain.Platform;
 
 namespace Souq.Application.Common.Notifications;
 
@@ -60,6 +61,35 @@ public static class NotificationMessageTypes
 
     public static object? Deserialize(string name, string payload) =>
         ByName.TryGetValue(name, out var type) ? JsonSerializer.Deserialize(payload, type, Json) : null;
+}
+
+// ============================================================================
+// هل تُسلَّم رسالة هذا النوع ومتجرُها بهذه الحالة؟ (TD-67، وقد كان الصندوق لا يسأل أصلاً: حالة
+// المتجر مقروءةٌ في يد المعالج ولا يقرؤها أحد.)
+//
+// **التمييز هنا بين الموقوف والمؤرشف، لا بين المغلق والمفتوح** — وهذا ما يجعل الجواب قصيراً:
+//
+//   • **الموقوف لا يمنع شيئاً**، وهذا نتيجةُ قرار المالك C-17 = B لا تهاوناً: المتجر الموقوف له
+//     تاجرٌ يعمل (الإدارة تعمل)، ومشترٍ يتتبّع طلباً دفع ثمنه. فإن شحن التاجر طلباً وجب أن يُخبَر
+//     صاحبه — وحجبُ البريد مع إتاحة التتبّع تناقضٌ يرى المشتري طرفَيه.
+//   • **المؤرشف يمنع كل شيء إلا رسالتَي أمن الحساب**: إعادة تعيين كلمة المرور، وإخطارُ تغييرها.
+//     الأرشفة نهائية — لا أحد يشحن، ولا أحد يتسوّق، فبريدٌ عن طلبٍ أو مخزونٍ أو تحقّقٍ من بريد
+//     رسالةٌ من متجر لن يعود. أمّا هاتان فعن **الشخص** لا عن المتجر: من حُبس خارج حسابه يحقّ له
+//     استعادته (وقد تحتاجه المنصّة داخلاً لتصدير بياناته)، ومن غُيّرت كلمة مروره يحقّ له أن يعلم
+//     ولو كان المتجر مغلقاً — بل خاصّةً حينها.
+//   • قيد التجهيز لا يمنع شيئاً: لا مشترين له بعد، فما يصدر عنه دعواتُ إدارة واستعادةُ حسابات.
+//
+// رسالةٌ يمنعها هذا القرار تُعلَّم **منجزة** لا فاشلة: المؤرشف نهائي فلن تصلح أبداً، وإعادتها ثماني
+// مرّات حتى تموت تُنذر إنساناً عن قرارٍ صحيح.
+// ============================================================================
+public static class OutboxStorePolicy
+{
+    // رسائل أمن الحساب: عن الشخص لا عن المتجر، فتصل بأي حالة.
+    private static readonly IReadOnlySet<string> AccountSecurity =
+        new HashSet<string>(StringComparer.Ordinal) { nameof(PasswordResetRequested), nameof(PasswordChanged) };
+
+    public static bool MayDeliver(string messageType, TenantStatus status) =>
+        status != TenantStatus.Archived || AccountSecurity.Contains(messageType);
 }
 
 // معالج رسالة واحدة داخل نطاق متجرها (أو المنصّة). يرمي عند الفشل ⇒ يُعاد بسياسة OutboxRetryPolicy؛ نجاحه ⇒ تُعلَّم منجزة.

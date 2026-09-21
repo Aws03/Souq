@@ -121,13 +121,14 @@ export function resumeStep(store, accounts) {
 }
 
 // ── دورة الحياة ────────────────────────────────────────────────────────────
-// كما في Tenant: التفعيل من أيّ حالة غير المؤرشفة، والإيقاف من الفعّال وحده، والأرشفة من غير المؤرشف.
-// إخفاء إجراءٍ يرفضه الخادم حتماً يوفّر خطأً لا أكثر؛ الخادم يبقى الحَكَم.
+// كما في Tenant: التفعيل من أيّ حالة غير المؤرشفة، والإيقاف من الفعّال **أو قيد التجهيز** (C3 —
+// متجرٌ لم يُفتَح بعد قد يجب إيقافه لسبب تجاري، وقبلها كانت الأرشفة النهائية مخرجه الوحيد)،
+// والأرشفة من غير المؤرشف. إخفاء إجراءٍ يرفضه الخادم حتماً يوفّر خطأً لا أكثر؛ الخادم يبقى الحَكَم.
 export function lifecycleActions(status) {
   if (status === 'Archived') return [];
   const actions = [];
   if (status !== 'Active') actions.push('Activate');
-  if (status === 'Active') actions.push('Suspend');
+  if (status !== 'Suspended') actions.push('Suspend');
   actions.push('Archive');
   return actions;
 }

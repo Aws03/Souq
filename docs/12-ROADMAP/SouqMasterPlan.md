@@ -31,8 +31,9 @@
 plan_version: 1.0.0
 current_phase: M20
 phase_status: done
-next_phase: done        # terminal. M2's one blocked deliverable was released on 2026-09-21 (TD-42 = C, links now)
-                        # and closes inside the commercial track's C8, not by re-opening M2.
+next_phase: done        # terminal, and now complete: M2's one blocked deliverable (TD-42 = C, links now) was
+                        # released on 2026-09-21 and SHIPPED on 2026-09-22 inside the commercial track's C8.
+                        # Nothing in M1-M20 is open. The live pointer is CommercialPlatformPlan.md §0.
 blocked_decisions: ["GitHub Actions billing"]   # TD-42 and D-13 were both answered on 2026-09-21 — see
                         # OwnerDecisions.md and CommercialPlatformPlan.md §0. The billing block still stops CI
                         # running at all, and is the only thing left here that is not a commercial-track decision.
@@ -125,11 +126,15 @@ reference); corrected TD-04's review-settings half, TD-02's extraction-order cla
 today's evidence; crossings 79 → 74 across 15 pairs (was 16); `RiskRegister.md` R-04 closed, R-14/R-15 updated.
 Full evidence in M1's own "Completion evidence" field above.
 
+**M2 — closed on 2026-09-22.** Its one blocked deliverable shipped: policy links on the store's settings, with
+a footer that renders only the links a merchant actually set. Nothing in `M1`–`M20` is open any more. The
+paragraph below is kept as the record of how it was blocked and how the block was lifted.
+
 **M2 — audit complete, and its one blocked deliverable was released on 2026-09-21.** `Catalog/README.md` and
 `ProductVariants.md` were re-read in full against the current code: no drift found, nothing to correct. TD-42
 (store-authored content pages) needed a scope decision only the owner could make, and the owner answered **C —
 links now, revisit authored pages when a real merchant requires them**. The deliverable is therefore *policy
-links on the store's settings with a footer that links out*, and it is built inside the commercial track's `C8`
+links on the store's settings with a footer that links out*, and it was built inside the commercial track's `C8`
 rather than by re-opening this phase — `M1`–`M20` stay terminal per §0. *ContentPage* keeps its deferral with
 its trigger named. Variant-image gallery confirmed still genuinely not built (no schema support at all) and
 left correctly deferred, not built speculatively. No code changed in M2 itself.

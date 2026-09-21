@@ -130,8 +130,12 @@ public class TenantTests
     {
         var tenant = NewTenant();
 
-        var suspendWhileProvisioning = () => tenant.Suspend();
-        suspendWhileProvisioning.Should().Throw<InvalidTenantOperationException>();
+        // C3: الإيقاف من قيد التجهيز **مسموح** الآن — وكان يُرفض، فتصير الأرشفة النهائية المخرجَ
+        // الوحيد لحالةٍ مؤقّتة (عقدٌ لم يُكمَل)، وهو ما تحتاجه سلسلة المطالبة الآلية في C6.
+        tenant.Suspend();
+        tenant.Status.Should().Be(TenantStatus.Suspended);
+        var suspendTwice = () => tenant.Suspend();
+        suspendTwice.Should().Throw<InvalidTenantOperationException>("الإيقاف من الموقوف لا معنى له");
 
         tenant.Activate();
         tenant.Suspend();
@@ -144,6 +148,8 @@ public class TenantTests
         reactivate.Should().Throw<InvalidTenantOperationException>();
         var archiveTwice = () => tenant.Archive();
         archiveTwice.Should().Throw<InvalidTenantOperationException>();
+        var suspendArchived = () => tenant.Suspend();
+        suspendArchived.Should().Throw<InvalidTenantOperationException>("المؤرشف نهائي");
     }
 
     [Fact]

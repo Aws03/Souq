@@ -5,7 +5,9 @@ import { useQuery } from '@tanstack/react-query';
 import { CartProvider } from './context/CartContext';
 import { WishlistProvider } from './context/WishlistContext';
 import { useToast } from './context/ToastContext';
-import { useTenant } from './app/TenantProvider';
+import { useStoreConfig, useTenant } from './app/TenantProvider';
+import { ClosedStoreShell, StorefrontGate } from './app/StoreClosed';
+import { storefrontIsOpen } from './app/tenantModel';
 import { api } from './api/client';
 import { queryKeys } from './app/queryKeys';
 import {
@@ -155,7 +157,11 @@ function StoreRoutes() {
       </Route>
 
       {/* ── المتجر (عميل/زائر) وحساب العميل ── */}
-      <Route element={<CustomerLayout />}>
+      {/* متجر غير فعّال (موقوف/قيد تجهيز): القشرة الصغيرة بلا شريط ولا سلّة، وتتبّعُ الطلب وحده
+          يبقى صفحةً عاملة — وما عداه إشعارٌ بهويّة المتجر (C3، قرار المالك C-17 = B). */}
+      <Route element={<StorefrontShell />}>
+        <Route path="/track/:token" element={<OrderTracking />} />
+        <Route element={<StorefrontGate />}>
         <Route index element={<Store />} />
         <Route path="/offers" element={<Offers />} />
         {/* المقبض قد يكون الاسم (القانوني) أو المعرّف — روابط قديمة تبقى تعمل وتُحوَّل. */}
@@ -174,17 +180,21 @@ function StoreRoutes() {
           <Route path="/orders" element={<MyOrders />} />
         </Route>
         <Route path="/orders/:id" element={<ProtectedRoute><OrderDetail /></ProtectedRoute>} />
-        {/* بلا حارس عمداً: رابط التتبّع العام بالرمز العشوائي (المرحلة 9، الخادم لا يتطلّب مصادقة لهذه النقطة) —
-            يعمل لزائر لم يُسجّل الدخول أيضاً، ولا يُخمَّن رابط طلب آخر. */}
-        <Route path="/track/:token" element={<OrderTracking />} />
         <Route path="/checkout" element={<ProtectedRoute><Checkout /></ProtectedRoute>} />
         <Route path="/confirmation" element={<ProtectedRoute><Confirmation /></ProtectedRoute>} />
         {/* مسار مجهول داخل تخطيط المتجر: 404 صريحة مع إبقاء التنقّل والسلّة في متناول الزائر.
             التحويل الصامت للرئيسية كان يُخفي الروابط المكسورة عن الزائر وعن محرّكات البحث معاً. */}
         <Route path="*" element={<NotFound />} />
+        </Route>
       </Route>
     </Routes>
   );
+}
+
+// قشرة المتجر: مفتوح ⇒ التخطيط الكامل (شريط، فئات، سلّة، تذييل)، مغلق ⇒ قشرة صغيرة.
+// الشرط هنا لا في كل صفحة: صفحةٌ تُنسى تصير نافذةً في متجر مغلق.
+function StorefrontShell() {
+  return storefrontIsOpen(useStoreConfig()) ? <CustomerLayout /> : <ClosedStoreShell />;
 }
 
 // صفحة منصّة بصلاحيتها: رابط مباشر بلا صلاحية يعود إلى المتاجر أو النظرة، لا إلى لوحة متجر لا وجود لها هنا.

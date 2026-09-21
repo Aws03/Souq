@@ -18,6 +18,19 @@ public sealed class AvailableDuringProvisioningAttribute : Attribute;
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method)]
 public sealed class AvailableWhenStoreClosedAttribute : Attribute;
 
+// ============================================================================
+// نقطة تجيب والمتجر **موقوف** ولا تجيب وهو **مؤرشف** — وهذا هو التمييز الذي لم يكن موجوداً.
+//
+// قرار المالك C-17 = B (2026-09-21): الإيقاف يُغلق الواجهة ويُبقي الإدارة، و«يبقى العميل قادراً
+// على تتبّع طلبٍ دفع ثمنه». والإيقاف مؤقّت لسببٍ بين المنصّة والتاجر — لا شأن للمشتري به، فحجب
+// طلبٍ دفع ثمنه عنه عقوبةٌ على غير المخطئ.
+//
+// والأرشفة نهائية: المتجر لا يعود إلى الخدمة، فلا إدارة ولا تتبّع. قبل هذا كانت الحالتان فرعاً
+// واحداً (`_ =>`) فلم يكن بينهما فرق أصلاً.
+// ============================================================================
+[AttributeUsage(AttributeTargets.Class | AttributeTargets.Method)]
+public sealed class AvailableWhenStoreSuspendedAttribute : Attribute;
+
 // نقطة تُخدَم على مضيف المنصّة ومضيفي المتاجر معاً (الدخول وجلساته): سلوكها يتبع النطاق —
 // حسابات المتجر على مضيفه، وحسابات المنصّة على مضيفها (المستودعات مُرشَّحة بالنطاق).
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method)]
@@ -75,12 +88,27 @@ public sealed class TenantAvailabilityMiddleware
         await _next(context);
     }
 
+    // ============================================================================
+    // ما يبقى مفتوحاً بكل حالة. المتجر الفعّال مفتوح، وما عداه مغلق إلا ما عُلِّم صراحةً.
+    //
+    // **الموقوف والمؤرشف كانا فرعاً واحداً** حتى قرار C-17 = B، فكان الإيقاف والأرشفة سواءً لكل
+    // مُنادٍ. الآن:
+    //   • الموقوف: نقاط الإدارة (HasPermission) تعمل — فالتاجر يدخل ويُصلح سبب الإيقاف، وهذا هو
+    //     معنى «إدارة فقط» — وتتبّعُ الطلبات المدفوعة يبقى، والواجهة تُغلق. والشراء يُرفض عند
+    //     الخادم لا في المتصفّح وحده: مسارات الشراء ليست محروسة بصلاحية، فتسقط في هذا الفرع
+    //     بالبناء لا بالسهو.
+    //   • المؤرشف: كما كان — إعداد الواجهة والدخول وحدهما (وهو ما يُظهر شاشة الإغلاق بهويّة
+    //     المتجر بدل صفحة خطأ عارية).
+    // ============================================================================
     internal static bool IsOpen(TenantStatus status, Endpoint endpoint) => status switch
     {
         TenantStatus.Active => true,
         TenantStatus.Provisioning => Has<AvailableWhenStoreClosedAttribute>(endpoint)
                                      || Has<AvailableDuringProvisioningAttribute>(endpoint)
                                      || Has<HasPermissionAttribute>(endpoint),
+        TenantStatus.Suspended => Has<AvailableWhenStoreClosedAttribute>(endpoint)
+                                  || Has<AvailableWhenStoreSuspendedAttribute>(endpoint)
+                                  || Has<HasPermissionAttribute>(endpoint),
         _ => Has<AvailableWhenStoreClosedAttribute>(endpoint),
     };
 

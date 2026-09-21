@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   bootModeForConfig, bootOutcome, contrastRatio, currencyDecimals, documentTitle, fontStylesheetUrl, formatMoney,
-  isModuleEnabled, mutedText, pickText, readableOn, storeName, supportedLanguage, themeVariables,
+  isModuleEnabled, mutedText, pickText, readableOn, storeName, storeStatusKey, storefrontIsOpen,
+  supportedLanguage, themeVariables,
 } from './tenantModel';
 
 // متجران بهويّتين وعملتين ووحدات مختلفة — البناء نفسه يرسم كلاً منهما بما في إعداده (معيار خروج المرحلة 15).
@@ -98,13 +99,29 @@ describe('tenant runtime', () => {
   });
 
   // المتجر المغلق يردّ إعداده بنجاح كي تُعرض شاشته بهويّته — فالحالة لا رمز الخطأ هي ما يقرّر (R-08).
-  it('closes the store from its configured status, so the closed screen keeps its identity', () => {
+  //
+  // C3: **التركيب والانفتاح صارا أمرين.** المؤرشف وحده يحلّ محلّ التطبيق؛ والموقوف وقيد التجهيز
+  // يُركَّبان كي تعمل لوحة التاجر وتتبّعُ طلبٍ مدفوع (قرار المالك C-17 = B) — والواجهة مغلقة فيهما.
+  // كان الاختبار يثبّت العكس: أن الثلاثة تمنع التركيب، وهو ما كان يحجب لوحته عن صاحب متجرٍ موقوف.
+  it('mounts the app for every status the server still serves, and only the archived store replaces it', () => {
     expect(bootModeForConfig({ ...storeA, status: 'Active' })).toBe('store');
-    expect(bootModeForConfig({ ...storeA, status: 'Suspended' })).toBe('closed');
-    expect(bootModeForConfig({ ...storeA, status: 'Provisioning' })).toBe('closed');
+    expect(bootModeForConfig({ ...storeA, status: 'Suspended' })).toBe('store');
+    expect(bootModeForConfig({ ...storeA, status: 'Provisioning' })).toBe('store');
     expect(bootModeForConfig({ ...storeA, status: 'Archived' })).toBe('closed');
     expect(bootModeForConfig(storeA)).toBe('store');
     // وهويّته تبقى متاحة للشاشة: الاسم والألوان من الإعداد نفسه.
     expect(storeName({ ...storeA, status: 'Suspended' }, 'ar')).toBe('متجر أ');
+  });
+
+  // وواجهة التسوّق مفتوحة للفعّال وحده — وهو ما يفصل "التطبيق مُركَّب" عن "المتجر يبيع".
+  it('opens the storefront for the active store only, and names each status for its own message', () => {
+    expect(storefrontIsOpen({ ...storeA, status: 'Active' })).toBe(true);
+    expect(storefrontIsOpen(storeA)).toBe(true);
+    for (const status of ['Suspended', 'Provisioning', 'Archived']) {
+      expect(storefrontIsOpen({ ...storeA, status })).toBe(false);
+      expect(storeStatusKey({ ...storeA, status })).toBe(status.toLowerCase());
+    }
+    // حالة لا يعرفها هذا البناء (خادم أحدث) ⇒ رسالة عامّة لا مفتاح مفقود يُرسَم نصّاً.
+    expect(storeStatusKey({ ...storeA, status: 'Dormant' })).toBe('closed');
   });
 });

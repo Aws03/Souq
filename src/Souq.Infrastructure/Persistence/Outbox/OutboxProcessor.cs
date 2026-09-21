@@ -86,6 +86,18 @@ internal sealed class OutboxProcessor : IOutboxProcessor
             {
                 var store = await _directory.FindByIdAsync(storeId, ct)
                     ?? throw new InvalidOperationException($"متجر رسالة الصادر {storeId} غير موجود");
+
+                // TD-67: حالة المتجر كانت مقروءةً هنا ولا يقرؤها أحد. القاعدة في OutboxStorePolicy —
+                // الموقوف لا يمنع شيئاً (C-17 = B)، والمؤرشف يمنع كل شيء إلا رسالتَي أمن الحساب.
+                if (!OutboxStorePolicy.MayDeliver(message.Type, store.Status))
+                {
+                    _logger.LogInformation(
+                        "Outbox message {MessageId} ({MessageType}) suppressed: store {TenantId} is {StoreStatus}",
+                        message.Id, message.Type, storeId, store.Status);
+                    await MarkProcessedAsync(message.Id);
+                    return;
+                }
+
                 await TenantScopes.RunAsync(_services, store, scoped => NotificationMessageDispatch.DispatchAsync(scoped, payload, ct));
             }
             else
@@ -96,16 +108,24 @@ internal sealed class OutboxProcessor : IOutboxProcessor
             // CancellationToken.None عمداً كما في تسجيل الفشل: الرسالة غادرت النظام فعلاً (بريد أُرسل)، وتسجيل ذلك
             // عملٌ محاسبي لا يُلغى. بـ ct كانت إشارة الإيقاف بين الإرسال والتسجيل تُلغي الكتابة، فيبقى الصفّ غير
             // مُعالَج ومحجوزاً حتى تنتهي المهلة ثم يُرسَل ثانيةً — رسالة مكرّرة لكل رسالة طائرة عند كل نشر.
-            var done = _clock.GetUtcNow().UtcDateTime;
-            await _db.OutboxMessages.Where(m => m.Id == message.Id).ExecuteUpdateAsync(s => s
-                .SetProperty(m => m.ProcessedAt, done)
-                .SetProperty(m => m.LockedUntil, (DateTime?)null)
-                .SetProperty(m => m.LastError, (string?)null), CancellationToken.None);
+            await MarkProcessedAsync(message.Id);
         }
         catch (Exception ex) when (!(ex is OperationCanceledException && ct.IsCancellationRequested))
         {
             await RecordFailureAsync(message, ex);
         }
+    }
+
+    // CancellationToken.None عمداً كما في تسجيل الفشل: الرسالة غادرت النظام فعلاً (بريد أُرسل)، وتسجيل ذلك
+    // عملٌ محاسبي لا يُلغى. بـ ct كانت إشارة الإيقاف بين الإرسال والتسجيل تُلغي الكتابة، فيبقى الصفّ غير
+    // مُعالَج ومحجوزاً حتى تنتهي المهلة ثم يُرسَل ثانيةً — رسالة مكرّرة لكل رسالة طائرة عند كل نشر.
+    private Task MarkProcessedAsync(long id)
+    {
+        var done = _clock.GetUtcNow().UtcDateTime;
+        return _db.OutboxMessages.Where(m => m.Id == id).ExecuteUpdateAsync(s => s
+            .SetProperty(m => m.ProcessedAt, done)
+            .SetProperty(m => m.LockedUntil, (DateTime?)null)
+            .SetProperty(m => m.LastError, (string?)null), CancellationToken.None);
     }
 
     private async Task RecordFailureAsync(DueMessage message, Exception ex)

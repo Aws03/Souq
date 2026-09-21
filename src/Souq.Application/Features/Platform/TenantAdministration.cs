@@ -4,6 +4,7 @@ using Souq.Application.Common.Accounts;
 using Souq.Application.Common.Auditing;
 using Souq.Application.Common.Interfaces;
 using Souq.Application.Common.Models;
+using Souq.Application.Common.Security;
 using Souq.Application.Common.Tenancy;
 using Souq.Application.Features.Billing.Contracts;
 using Souq.Application.Features.Stores;
@@ -228,15 +229,29 @@ public sealed class ChangeTenantStatusValidator : AbstractValidator<ChangeTenant
     public ChangeTenantStatusValidator() => RuleFor(x => x.Action).IsInEnum();
 }
 
+// ============================================================================
+// الأرشفة تُبطل جلسات المتجر كلها؛ الإيقاف لا (TD-66، وقرار المالك C-17 = B).
+//
+// الفرق ليس تفضيلاً: الإيقاف مؤقّت ومعناه «إدارة فقط» — التاجر يدخل ليُصلح سببه، فإبطال جلسته
+// يمنعه مما وُجد القرار ليُبقيه. والأرشفة نهائية، وكانت هي الثقب: نقاط الإدارة تردّ 503 للمؤرشف،
+// لكن `/api/auth/refresh` مفتوحةٌ له عمداً (كي يرى صاحب متجرٍ مغلقٍ حالته)، فكانت جلسةُ إدارته
+// قابلةً للتجديد بلا نهاية بعد إغلاقٍ لا رجعة فيه.
+//
+// والإبطال داخل معاملة الحفظ نفسها: متجرٌ صار مؤرشفاً وجلساته حيّة حالةٌ لا يجب أن توجد لحظةً.
+// ============================================================================
 public class ChangeTenantStatusHandler : IRequestHandler<ChangeTenantStatusCommand, Result>
 {
+    private const string ArchivedReason = "store.archived";
+
     private readonly ITenantRepository _tenants;
     private readonly ITenantDirectory _directory;
+    private readonly IStoreSessionRevoker _sessions;
     private readonly IUnitOfWork _uow;
 
-    public ChangeTenantStatusHandler(ITenantRepository tenants, ITenantDirectory directory, IUnitOfWork uow)
+    public ChangeTenantStatusHandler(
+        ITenantRepository tenants, ITenantDirectory directory, IStoreSessionRevoker sessions, IUnitOfWork uow)
     {
-        _tenants = tenants; _directory = directory; _uow = uow;
+        _tenants = tenants; _directory = directory; _sessions = sessions; _uow = uow;
     }
 
     public async Task<Result> Handle(ChangeTenantStatusCommand cmd, CancellationToken ct)
@@ -250,7 +265,16 @@ public class ChangeTenantStatusHandler : IRequestHandler<ChangeTenantStatusComma
             case TenantLifecycleAction.Suspend: tenant.Suspend(); break;
             default: tenant.Archive(); break;
         }
-        await _uow.SaveChangesAsync(ct);
+
+        if (cmd.Action == TenantLifecycleAction.Archive)
+            await _uow.InTransactionAsync(async () =>
+            {
+                await _uow.SaveChangesAsync(ct);
+                await _sessions.RevokeAllAsync(tenant.Id, ArchivedReason, ct);
+            }, ct);
+        else
+            await _uow.SaveChangesAsync(ct);
+
         _directory.Invalidate();
         return Result.Success();
     }

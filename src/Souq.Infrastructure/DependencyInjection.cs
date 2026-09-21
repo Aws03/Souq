@@ -22,6 +22,7 @@ using Souq.Application.Features.Reporting;
 using Souq.Application.Features.Reviews.Queries;
 using Souq.Application.Features.Stores;
 using Souq.Domain.Interfaces;
+using Souq.Infrastructure.Security;
 using Souq.Infrastructure.Auditing;
 using Souq.Infrastructure.BackgroundJobs;
 using Souq.Infrastructure.Notifications;
@@ -110,6 +111,8 @@ public static class DependencyInjection
         services.AddScoped<ICustomerRepository, CustomerRepository>();
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
+        // TD-66: إبطال جلسات متجر كاملةً عند أرشفته — من جهة المنصّة، فخارج مرشّح النطاق.
+        services.AddScoped<IStoreSessionRevoker, StoreSessionRevoker>();
         services.AddScoped<ICouponRepository, CouponRepository>();
         services.AddScoped<IReviewRepository, ReviewRepository>();
         services.AddScoped<IStockMovementRepository, StockMovementRepository>();

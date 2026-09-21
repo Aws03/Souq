@@ -75,26 +75,26 @@
 ## I need to change the store status rules
 
 - **Inspect:** `Tenant.Activate`, `Tenant.Suspend`, `Tenant.Archive`, `src/Souq.Domain/Platform/TenantStatus.cs`, `TenantAvailabilityMiddleware.IsOpen`, `ChangeTenantStatusHandler`.
-- **Rules to respect:** transitions are guarded in the aggregate, and availability is decided in exactly one middleware — never with a status check inside a controller or handler; `Archived` is terminal; the change only takes effect elsewhere after `Invalidate`.
+- **Rules to respect:** transitions are guarded in the aggregate, and availability is decided in exactly one middleware — never with a status check inside a controller or handler; `Archived` is terminal; the change only takes effect elsewhere after `Invalidate`. Since C3, `Suspended` and `Archived` are **separate branches** of `IsOpen` (owner decision `C-17` = B) — collapsing them again reopens an archived store's admin.
 - **Steps:**
   1. Change the transition guard in `Tenant` (and `TenantLifecycleAction` plus its audit action name if you add a transition).
   2. Change `TenantAvailabilityMiddleware.IsOpen` if the new state serves a different set of endpoints, and mark the endpoints that must stay open with the corresponding availability attribute.
-  3. Consider what the frontend should show: `bootOutcome` in `frontend/src/app/tenantModel.js` maps `503 StoreUnavailable` and `404 StoreNotFound` to boot screens.
+  3. Consider what the frontend should show, and keep it matching the server: `bootOutcome` maps `503 StoreUnavailable` and `404 StoreNotFound` to boot screens, `bootModeForConfig` decides whether the app **mounts at all** for that status, and `storefrontIsOpen` decides whether the shopping pages render or the branded notice does (all in `frontend/src/app/tenantModel.js`, with the notice in `frontend/src/app/StoreClosed.jsx`). A status the server still serves must mount, or the browser silently denies what the API allows — which is what kept a suspended merchant out of their own admin until C3.
 - **Tests:** `TenantTests` for the transition guard; `TenantResolutionTests` for what each state serves; `PlatformAdministrationTests` for the end-to-end effect.
 - **API:** the status strings appear in `TenantSummaryDto`, `TenantDetailDto` and `StorefrontConfigDto`; adding a value changes a public contract.
 - **Database:** `TenantStatus` is stored as an `int`; never renumber existing values — add new ones at the end.
 - **Security:** a closed store must not leak data. Check that any endpoint you open while closed exposes only public, branded information.
 - **Docs and ADR:** [README.md](README.md), [MultiTenancy.md](../../02-ARCHITECTURE/MultiTenancy.md) (§3 currently disagrees with the code here — fix it in the same change), and [ADR-0022](../../11-ADR/0022-tenancy-enforcement.md) §6 if the gating model changes.
 
-## I need to make the storefront config readable while a store is closed
+## I need to open an endpoint while a store is closed
 
-This is the smallest fix for the mismatch documented in [README.md](README.md#known-limitations): the attribute exists and the middleware honours it, but no endpoint carries it.
+**Done for the storefront config (R-08, Phase 12) and for order tracking (C3).** This section used to describe the config as unbuilt and named two tests that asserted the opposite of today's behaviour; both statements were stale and are corrected here.
 
-- **Inspect:** `AvailableWhenStoreClosedAttribute` and `TenantAvailabilityMiddleware.IsOpen` in `src/Souq.API/Tenancy/TenantAvailability.cs`, `StorefrontController` in `src/Souq.API/Controllers/StoreAdministrationControllers.cs`, `bootOutcome` in `frontend/src/app/tenantModel.js`.
-- **Rules to respect:** the config is anonymous and public — it must keep containing no secrets, no administrative email and no internal ids; a closed store must still not serve catalogue, basket or order endpoints.
-- **Steps:** mark only the config action; decide whether sign-in should also be reachable (a separate decision: it lets a suspended store's owner in); then make the frontend render a branded closed page from the config it now has, instead of the generic screen.
-- **Tests:** `TenantResolutionTests` asserts today that a suspended store refuses sign-in, and `PlatformAdministrationTests` asserts that a suspended store's config is a 503 — both must be updated deliberately, not deleted.
-- **API:** a previously-503 endpoint starts answering 200 for closed stores. Check that `StorefrontConfigDto.Status` is what the frontend branches on.
+- **Inspect:** `AvailableWhenStoreClosedAttribute`, `AvailableWhenStoreSuspendedAttribute` and `TenantAvailabilityMiddleware.IsOpen` in `src/Souq.API/Tenancy/TenantAvailability.cs`.
+- **Rules to respect:** anything readable by a closed store must be public and branded — no secrets, no administrative email, no internal ids — and a closed store must still not serve catalogue, basket or order-creation endpoints. Choose the **narrower** attribute: `AvailableWhenStoreSuspended` for something a temporarily-suspended store should still answer, `AvailableWhenStoreClosed` only when an **archived** store should answer it too, which is a much stronger claim.
+- **Steps:** mark the single action, not the controller; then make the frontend render the page it now can, and check `storefrontIsOpen`/`StorefrontGate` do not hide it (order tracking sits outside the gate for exactly this reason).
+- **Tests:** `TenantResolutionTests` covers what each status serves, endpoint by endpoint; `PlatformAdministrationTests` covers the end-to-end effect. Update them deliberately — they are written to go red.
+- **API:** a previously-503 endpoint starts answering 200 for closed stores. `StorefrontConfigDto.Status` is what the frontend branches on.
 - **Database:** none.
 - **Docs and ADR:** [README.md](README.md), [MultiTenancy.md](../../02-ARCHITECTURE/MultiTenancy.md), [ADR-0022](../../11-ADR/0022-tenancy-enforcement.md) §6.
 

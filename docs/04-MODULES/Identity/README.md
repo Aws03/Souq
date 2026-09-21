@@ -153,7 +153,9 @@ Data this module reads but does not own: `Customers` (the `cid` claim, via `ICus
 | GET/POST | `/api/platform/users` | `platform.users.manage`, platform host | — | List / invite platform accounts |
 | POST | `/api/platform/users/{id}/status` | `platform.users.manage`, platform host | — | Enable / disable |
 
-`AuthController` carries `[AvailableOnAllHosts]` (the same routes serve both areas, and the scope decides which accounts exist) and `[AvailableDuringProvisioning]` (a store's staff must be able to sign in while the store is still being prepared). Its class-level attributes do **not** include the closed-store exemption, so sign-in on a suspended store answers `503 StoreUnavailable`.
+`AuthController` carries `[AvailableOnAllHosts]` (the same routes serve both areas, and the scope decides which accounts exist) and `[AvailableDuringProvisioning]` (a store's staff must be able to sign in while the store is still being prepared). **Sign-in, refresh, sign-out and the current-user endpoint each carry `[AvailableWhenStoreClosed]` as well**, so a closed store's administrator can get in to see why — the sentence here used to say the opposite, and had been wrong since R-08 fixed it in Phase 12.
+
+Since C3 that matters more, because `Suspended` and `Archived` no longer behave the same: a suspended store's permissioned endpoints answer, so signing in leads somewhere, while an archived store's do not. **Archiving a store also revokes every session in it** (TD-66) — a new security stamp for every account plus a revocation on every refresh token — so the four endpoints above answer `401` rather than `200` afterwards. Suspending revokes nothing, deliberately ([Platform](../Platform/README.md#sessions-when-a-stores-lifecycle-changes)).
 
 ## Security and permissions
 

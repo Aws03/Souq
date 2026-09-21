@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Souq.API.Http;
 using Souq.API.Security;
+using Souq.API.Tenancy;
 using Souq.Application.Common.Security;
 using Souq.Application.Features.Orders.Commands;
 using Souq.Application.Features.Orders.Queries;
@@ -66,6 +67,10 @@ public class OrdersController : ControllerBase
     // B8). العقد يكشف الحدّ الأدنى فقط.
     [HttpGet("track/{token}")]
     [AllowAnonymous]
+    // متاحة والمتجر موقوف (C-17 = B): المشتري دفع ثمن طلبه قبل الإيقاف، والإيقاف مسألة بين المنصّة
+    // والتاجر لا ذنب له فيها — فحجبُ تتبّع طلبه عنه عقوبةٌ على غير المخطئ. ولا تُفتح للمؤرشف:
+    // الأرشفة نهائية.
+    [AvailableWhenStoreSuspended]
     public async Task<IActionResult> Track(string token)
     {
         var result = await _mediator.Send(new GetOrderTrackingQuery(token));

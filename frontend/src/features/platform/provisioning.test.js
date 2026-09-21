@@ -127,8 +127,10 @@ describe('الجاهزية والاستئناف', () => {
 });
 
 describe('دورة الحياة كما في Tenant', () => {
-  it('قيد التجهيز: تفعيل أو أرشفة؛ لا إيقاف لمتجر لم يُفتح', () => {
-    expect(lifecycleActions('Provisioning')).toEqual(['Activate', 'Archive']);
+  // C3: صار الإيقاف متاحاً من قيد التجهيز — متجرٌ لم يُفتَح قد يجب إيقافه لسبب تجاري (عقدٌ لم
+  // يُكمَل)، وقبلها كانت الأرشفة **النهائية** مخرجه الوحيد. `Tenant.Suspend` يقبلها الآن.
+  it('قيد التجهيز: تفعيل أو إيقاف أو أرشفة', () => {
+    expect(lifecycleActions('Provisioning')).toEqual(['Activate', 'Suspend', 'Archive']);
   });
   it('الفعّال يُوقَف أو يُؤرشف؛ الموقوف يُعاد تفعيله أو يُؤرشف', () => {
     expect(lifecycleActions('Active')).toEqual(['Suspend', 'Archive']);

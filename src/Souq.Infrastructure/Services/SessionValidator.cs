@@ -43,7 +43,10 @@ internal sealed class SessionValidator : ISessionValidator
 
     public void Forget(int userId) => _cache.Remove(Key(userId));
 
-    private string Key(int userId) => $"{_tenancy.Tenant?.Id.ToString() ?? "platform"}:{userId}";
+    public void ForgetAll() => _cache.Clear();
+
+    // الجيل جزء من المفتاح: قفزتُه تُهمل كل ما كُتب قبلها بلا حذفٍ ولا عدٍّ للمفاتيح.
+    private string Key(int userId) => $"{_cache.Generation}:{_tenancy.Tenant?.Id.ToString() ?? "platform"}:{userId}";
 }
 
 // ذاكرة الأختام (Singleton) بحدّ حجم — مفتاح لكل حساب نشط؛ "لا ختم" (معطّل/محذوف) يُخزَّن أيضاً.
@@ -51,6 +54,7 @@ public sealed class SessionStampCache : IDisposable
 {
     private static readonly TimeSpan Lifetime = TimeSpan.FromSeconds(30);
     private readonly MemoryCache _cache = new(new MemoryCacheOptions { SizeLimit = 50_000 });
+    private long _generation;
 
     internal bool TryGet(string key, out string? stamp)
     {
@@ -67,6 +71,12 @@ public sealed class SessionStampCache : IDisposable
         _cache.Set(key, new Entry(stamp), new MemoryCacheEntryOptions { Size = 1, AbsoluteExpirationRelativeToNow = Lifetime });
 
     internal void Remove(string key) => _cache.Remove(key);
+
+    // مسح الكل بقفزة جيل، كما يفعل `TenantDirectoryCache`: `MemoryCache` لا يُعدّ مفاتيحه، ومسحُ
+    // ما لا يُعَدّ يكون بإهمالِه لا بحذفه — المفتاح يحمل الجيل، فقفزتُه تُهمل كل ما كُتب قبلها.
+    internal void Clear() => Interlocked.Increment(ref _generation);
+
+    internal long Generation => Interlocked.Read(ref _generation);
 
     public void Dispose() => _cache.Dispose();
 

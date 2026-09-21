@@ -117,6 +117,8 @@ public class AccessTokenValidationTests
             Task.FromException<bool>(new TaskCanceledException());
 
         public void Forget(int userId) { }
+
+        public void ForgetAll() { }
     }
 
     // وكما تُخرجه فعلاً: `InvalidOperationException` تلفّ عطل القاعدة، لا استثناء إلغاء.
@@ -129,5 +131,7 @@ public class AccessTokenValidationTests
                 new Exception("The request failed to run because the batch is aborted. Operation cancelled by user.")));
 
         public void Forget(int userId) { }
+
+        public void ForgetAll() { }
     }
 }

@@ -12,8 +12,12 @@ export function BootScreen({ mode, config, onRetry }) {
     return <div className={styles.screen} aria-busy="true"><Spinner size={32} /></div>;
   }
 
-  const key = mode === 'closed' || mode === 'unknown' ? mode : 'error';
-  const name = key === 'closed' ? storeName(config, i18n.language) : '';
+  // المتجر المؤرشف وحده يبلغ هذه الشاشة الآن (C3): الموقوف وقيد التجهيز يُركَّب تطبيقهما، فرسالتهما
+  // داخله. ولذلك تفترق رسالة الأرشفة عن "مغلق مؤقتاً" — كانت الثلاث رسالةً واحدة تقول لمن أُغلق
+  // متجره نهائياً إننا "نعود قريباً".
+  const closed = mode === 'closed' ? (config?.status === 'Archived' ? 'archived' : 'closed') : null;
+  const key = closed ?? (mode === 'unknown' ? 'unknown' : 'error');
+  const name = closed === null ? '' : storeName(config, i18n.language);
   return (
     <main className={styles.screen}>
       <div className={styles.card}>

@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using Microsoft.EntityFrameworkCore;
 using AwesomeAssertions;
 using Souq.Domain.Platform;
 using Souq.IntegrationTests.Infrastructure;
@@ -29,13 +30,29 @@ public class TenantResolutionTests
         (await ProblemCodeAsync(response)).Should().Be("StoreNotFound");
     }
 
-    // R-08: المتجر يُغلق على زبائنه، لا على صاحبه. قبل الإصلاح كان 503 يشمل إعداد الواجهة والدخول معاً، فيرى صاحب المتجر
-    // صفحة خطأ عارية ولا يستطيع الدخول ليعرف لماذا أُوقف متجره.
+    // ============================================================================
+    // **إيقاف «إدارة فقط»** — قرار المالك C-17 = B (2026-09-21)، وهو تغيير سلوك مقصود.
+    //
+    // ما كان: الصلاحية لا تفتح متجراً موقوفاً، فكانت لوحة التاجر 503 كاملةً. وR-08 كان قد فتح
+    // الدخول وإعدادَ الواجهة وحدهما — أي أنّ التاجر يدخل ليرى أنه لا يستطيع فعل شيء.
+    //
+    // ما صار: **الإدارة تعمل** (التاجر يُصلح سبب الإيقاف)، والواجهة مغلقة على المتسوّق، والشراء
+    // مرفوضٌ عند الخادم لا في المتصفّح — ومسارات الشراء ليست محروسة بصلاحية، فتسقط في فرع الإغلاق
+    // بالبناء لا بالسهو، وهذا الاختبار هو ما يثبّت ذلك.
+    // ============================================================================
     [Fact]
-    public async Task متجر_موقوف_يُغلق_على_الزوّار_ويبقي_إعداد_الواجهة_ودخول_إدارته()
+    public async Task متجر_موقوف_إدارته_تعمل_وواجهته_مغلقة_والشراء_مرفوض_عند_الخادم()
     {
-        var store = await _factory.CreateStoreAsync(TenantStatus.Suspended);
+        // المتجر يُنشأ فعّالاً ويُوقَف بعد أن يصير له عميل: التسجيل مغلق على الموقوف، فالعميل الذي
+        // يجب أن يُمنع من الشراء لا يمكن أن يوجد أصلاً إن بدأ المتجر موقوفاً — وهذا هو الترتيب
+        // الواقعي: متجرٌ كان يبيع ثم أُوقف.
+        var store = await _factory.CreateStoreAsync();
         var api = _api.ForStore(store);
+        var (customer, _) = await api.NewCustomerAsync();
+
+        var owner = await _api.PlatformOwnerAsync();
+        (await owner.PostAsJsonAsync($"/api/platform/tenants/{store.Tenant.Id}/status", new { action = "Suspend" }))
+            .StatusCode.Should().BeOneOf(HttpStatusCode.NoContent, HttpStatusCode.OK);
 
         var catalog = await api.Anonymous().GetAsync("/api/products");
         catalog.StatusCode.Should().Be(HttpStatusCode.ServiceUnavailable);
@@ -44,13 +61,26 @@ public class TenantResolutionTests
         // إعداد الواجهة يجيب: به وحده تعرض الواجهة صفحة "المتجر غير متاح" بهويّة المتجر.
         (await api.Anonymous().GetAsync("/api/storefront/config")).StatusCode.Should().Be(HttpStatusCode.OK);
 
-        // الدخول متاح لإدارته، وما وراءه يبقى مغلقاً: الصلاحية لا تفتح متجراً موقوفاً.
+        // لوحة التاجر تعمل — وهذا هو معنى القرار.
         var admin = await api.AdminAsync();
         (await admin.GetAsync("/api/auth/me")).StatusCode.Should().Be(HttpStatusCode.OK);
-        (await admin.GetAsync("/api/admin/inventory")).StatusCode.Should().Be(HttpStatusCode.ServiceUnavailable);
-        (await admin.GetAsync("/api/orders")).StatusCode.Should().Be(HttpStatusCode.ServiceUnavailable);
+        (await admin.GetAsync("/api/admin/inventory")).StatusCode.Should().Be(HttpStatusCode.OK,
+            "C-17 = B: نقاط الإدارة محروسة بصلاحية، والصلاحية تفتح متجراً موقوفاً");
+        (await admin.GetAsync("/api/orders")).StatusCode.Should().Be(HttpStatusCode.OK,
+            "وقائمة طلبات المتجر إدارةٌ أيضاً (orders.view): التاجر يشحن ما بِيع قبل الإيقاف");
 
-        // ولا يفتح التسجيل ولا الشراء: الإتاحة نقطةً نقطةً، لا للمتحكّم كله.
+        // وما هو للمتسوّق يبقى مغلقاً: قائمة «طلباتي» بلا صلاحية، فتسقط في فرع الإغلاق. وما يبقى
+        // للمشتري هو رابط التتبّع وحده — وهو ما يليه من اختبار.
+        (await customer.GetAsync("/api/orders/mine")).StatusCode.Should().Be(HttpStatusCode.ServiceUnavailable,
+            "«طلباتي» صفحة متجر لا إدارة");
+
+        // والشراء مرفوض عند الخادم: سلّةٌ وطلبٌ، وكلاهما بلا صلاحية فكلاهما مغلق.
+        (await customer.GetAsync("/api/basket")).StatusCode.Should().Be(HttpStatusCode.ServiceUnavailable,
+            "السلّة مسار شراء، والمتجر الموقوف لا يبيع");
+        (await customer.PostAsJsonAsync("/api/orders", new { }))
+            .StatusCode.Should().Be(HttpStatusCode.ServiceUnavailable,
+                "وإنشاء الطلب يُرفض عند الخادم لا في المتصفّح وحده");
+
         (await api.Anonymous().PostAsJsonAsync("/api/auth/register",
                 new { fullName = "زائر", email = $"x-{Guid.NewGuid():N}@souq.test", password = "Customer-Pass-1" }))
             .StatusCode.Should().Be(HttpStatusCode.ServiceUnavailable);
@@ -59,17 +89,15 @@ public class TenantResolutionTests
     // ============================================================================
     // TD-61 — المتجر **المؤرشف**، وهو علاقة تجارية انتهت.
     //
-    // سلوكه اليوم مطابق للموقوف حرفياً: `TenantAvailabilityMiddleware.IsOpen` تُسقط الحالتين على
-    // الفرع نفسه (`_ => Has<AvailableWhenStoreClosed>`). ولم يكن شيء يثبّت ذلك — `TenantStatus.Archived`
-    // لم تظهر في مجموعة التكامل إلّا في اختبار نطاق المنسّقات وفي المصنع. فتعديلُ حالةٍ واحدة في
-    // ذلك `switch` كان يُعيد فتح واجهة متجر انتهى عقده **ولا يحمرّ شيء**.
+    // كان سلوكه مطابقاً للموقوف حرفياً: `IsOpen` تُسقط الحالتين على الفرع نفسه. وقد حذّر هذا
+    // الاختبار عند كتابته من أنّ «يوم يُجاب قرار المالك C-17 يُعدَّل هذا الاختبار عمداً» — وهذا
+    // هو اليوم: C-17 = B فرّق بينهما، فصارت **الصلاحية تفتح الموقوف ولا تفتح المؤرشف**.
     //
-    // وما يثبّته هذا الاختبار هو **السلوك القائم**، لا سلوكاً مرغوباً: يوم يُجاب قرار المالك C-17
-    // (ماذا يفعل متجر مغلق، وهل للمؤرشف مصير مختلف) يُعدَّل هذا الاختبار عمداً — وهو بالضبط الفرق
-    // بين تغييرٍ مقصود وانزلاقٍ صامت.
+    // فما يثبّته الآن هو الفرق نفسه: الأرشفة نهائية، لا لوحة ولا تتبّع ولا تسجيل — وما يبقى هو
+    // إعداد الواجهة والدخول وحدهما، كي تُعرض شاشةٌ بهويّة المتجر لا صفحة خطأ عارية (R-08).
     // ============================================================================
     [Fact]
-    public async Task متجر_مؤرشف_مغلق_كالموقوف_ولا_يُفتح_بصلاحية()
+    public async Task متجر_مؤرشف_لا_تفتحه_صلاحية_بخلاف_الموقوف()
     {
         var store = await _factory.CreateStoreAsync(TenantStatus.Archived);
         var api = _api.ForStore(store);
@@ -81,10 +109,11 @@ public class TenantResolutionTests
         // إعداد الواجهة يجيب: تعرض الواجهة "غير متاح" بهويّة المتجر لا صفحة خطأ عارية (R-08).
         (await api.Anonymous().GetAsync("/api/storefront/config")).StatusCode.Should().Be(HttpStatusCode.OK);
 
-        // والصلاحية لا تفتح متجراً مؤرشفاً، كما لا تفتح موقوفاً.
+        // والصلاحية **لا** تفتح متجراً مؤرشفاً — بخلاف الموقوف، وهذا هو الفرق الذي أحدثه C-17 = B.
         var admin = await api.AdminAsync();
         (await admin.GetAsync("/api/auth/me")).StatusCode.Should().Be(HttpStatusCode.OK);
-        (await admin.GetAsync("/api/admin/inventory")).StatusCode.Should().Be(HttpStatusCode.ServiceUnavailable);
+        (await admin.GetAsync("/api/admin/inventory")).StatusCode.Should().Be(HttpStatusCode.ServiceUnavailable,
+            "المؤرشف نهائي: لا لوحة. والموقوف يفتحها — فإن تساوى الردّان فقد عاد الفرع الواحد");
         (await admin.GetAsync("/api/orders")).StatusCode.Should().Be(HttpStatusCode.ServiceUnavailable);
 
         // ولا يُسجَّل فيه زبون جديد: متجرٌ انتهى عقده لا يكتسب عملاء.
@@ -94,36 +123,87 @@ public class TenantResolutionTests
     }
 
     // ============================================================================
-    // TD-66، مثبَّتاً كما هو لا كما ينبغي أن يكون: أرشفةُ متجر **لا تُبطل جلسات إدارته**.
-    // `ChangeTenantStatusHandler` يغيّر الحالة ويُبطل دليل المتاجر ويقف — بينما تعطيلُ **حساب**
-    // يُدوّر ختم الأمان ويُبطل رموز التجديد.
+    // TD-66 — **مُصلَح**: الأرشفة تُبطل جلسات المتجر كلها، والإيقاف لا يُبطلها.
     //
-    // وغير قابل للاستغلال اليوم: كل نقطة مُصرَّحة تجيب 503 لمتجر مغلق. لكن `/api/auth/refresh`
-    // مُعلَّمة `AvailableWhenStoreClosed` عمداً، فمديرو متجرٍ مؤرشف يحتفظون بجلسات قابلة للتجديد
-    // بلا نهاية — ويصير ذلك ثغرةً حيّة يوم تعمل أيّ نقطة `AvailableWhenStoreClosed` عملاً حقيقياً،
-    // أو يوم تُؤتمت الأرشفة بالفوترة بدل أن يكتبها إنسان.
+    // كان هذا الاختبار يثبّت العطب كما هو، بسطرٍ يقول: «إن احمرّ هذا السطر فقد أُصلح TD-66 —
+    // حدّث الاختبار عمداً». وقد أُصلح، فهذا هو التحديث المقصود.
     //
-    // الاختبار يوثّق الحقيقة القائمة ويجعل إصلاحها **مرئياً**: من يُصلح TD-66 يرى هذا الاختبار
-    // يحمرّ فيعرف أنه غيّر ما قصد تغييره.
+    // والفرق بين الحالتين هو قرار المالك C-17 = B نفسه: الإيقاف مؤقّت ومعناه «إدارة فقط»، فالتاجر
+    // يبقى داخلاً ليُصلح سببه؛ والأرشفة نهائية، وهي التي كانت تُبقي جلسةً قابلة للتجديد بلا نهاية
+    // لأن `/api/auth/refresh` مفتوحةٌ للمغلق عمداً.
     // ============================================================================
     [Fact]
-    public async Task أرشفة_متجر_لا_تُبطل_جلسة_إدارته_اليوم_TD66()
+    public async Task الأرشفة_تُبطل_جلسات_المتجر_والإيقاف_يُبقيها_TD66()
     {
         var store = await _factory.CreateStoreAsync();
         var api = _api.ForStore(store);
         var admin = await api.AdminAsync();
+        var owner = await _api.PlatformOwnerAsync();
 
         (await admin.GetAsync("/api/admin/inventory")).StatusCode.Should().Be(HttpStatusCode.OK);
 
-        var owner = await _api.PlatformOwnerAsync();
+        // الإيقاف أوّلاً: الجلسة تبقى، واللوحة تعمل — وهذا نصف القرار.
+        (await owner.PostAsJsonAsync($"/api/platform/tenants/{store.Tenant.Id}/status", new { action = "Suspend" }))
+            .StatusCode.Should().BeOneOf(HttpStatusCode.NoContent, HttpStatusCode.OK);
+        (await admin.GetAsync("/api/admin/inventory")).StatusCode.Should().Be(HttpStatusCode.OK,
+            "الإيقاف لا يُبطل جلسة التاجر: هو مَن يُصلح سببه");
+
+        // ثم الأرشفة: الجلسة تسقط، وليس لأن بوّابة الحالة أغلقت النقطة — بل لأن الختم دُوِّر.
+        // والدليل هو `/api/auth/me` نفسها: مفتوحةٌ للمتجر المغلق عمداً، فلو بقيت الجلسة لأجابت 200.
         (await owner.PostAsJsonAsync($"/api/platform/tenants/{store.Tenant.Id}/status", new { action = "Archive" }))
             .StatusCode.Should().BeOneOf(HttpStatusCode.NoContent, HttpStatusCode.OK);
 
-        // الجلسة ما زالت تُقبل — النقطة تُغلق بحالة المتجر، لا لأن الجلسة أُبطلت.
-        (await admin.GetAsync("/api/auth/me")).StatusCode.Should().Be(HttpStatusCode.OK,
-            "TD-66: الأرشفة لا تُبطل الجلسة اليوم. إن احمرّ هذا السطر فقد أُصلح TD-66 — حدّث الاختبار عمداً");
-        (await admin.GetAsync("/api/admin/inventory")).StatusCode.Should().Be(HttpStatusCode.ServiceUnavailable,
-            "وما يحمي المتجر المغلق هو بوّابة الحالة لا إبطال الجلسة");
+        (await admin.GetAsync("/api/auth/me")).StatusCode.Should().Be(HttpStatusCode.Unauthorized,
+            "TD-66 مُصلَح: الأرشفة تُدوّر ختم الأمان، فتوكن الوصول لم يعد يطابق");
+
+        // ورموز التجديد أُبطلت في الحفظ نفسه: جلسةٌ مؤرشفة لا تُجدَّد.
+        var live = await _api.WithDbAsync(db => db.RefreshTokens.IgnoreQueryFilters()
+            .CountAsync(t => t.TenantId == store.Tenant.Id && t.RevokedAt == null));
+        live.Should().Be(0, "رمز تجديد حيّ في متجر مؤرشف يعني جلسةً بلا نهاية");
+    }
+
+    // ============================================================================
+    // **رابط تتبّع طلبٍ مدفوع يبقى عاملاً والمتجر موقوف** — نصف قرار C-17 = B الذي يخصّ المشتري.
+    //
+    // المشتري دفع قبل الإيقاف، والإيقاف مسألة بين المنصّة والتاجر لا ذنب له فيها. وقبل هذا كانت
+    // النقطة بلا استثناء إغلاق، فكان الإيقاف **يُعمي المشتري عن طلبٍ دفع ثمنه** — وهي الملاحظة
+    // التي رفعها الملخّص للمالك، وقد تحقّقت من الكود لا من الوثائق.
+    //
+    // وللمؤرشف لا تُفتح: الأرشفة نهائية، وهو الفرق نفسه مرّةً أخرى.
+    // ============================================================================
+    [Fact]
+    public async Task تتبّع_طلب_مدفوع_يعمل_والمتجر_موقوف_ولا_يعمل_والمتجر_مؤرشف()
+    {
+        var store = await _factory.CreateStoreAsync();
+        var api = _api.ForStore(store);
+        var admin = await api.AdminAsync();
+        var productId = await api.CreateProductAsync(admin, price: 12m, stock: 3);
+        var (customer, _) = await api.NewCustomerAsync();
+
+        var created = await api.PlaceOrderAsync(customer, productId, 1);
+        created.StatusCode.Should().Be(HttpStatusCode.Created);
+        var orderId = await _api.WithDbAsync(db => db.Orders.IgnoreQueryFilters()
+            .Where(o => o.TenantId == store.Tenant.Id).Select(o => o.Id).SingleAsync());
+        (await customer.PostAsync($"/api/orders/{orderId}/confirm-payment", null))
+            .StatusCode.Should().Be(HttpStatusCode.OK);
+        var token = await _api.WithDbAsync(db => db.Orders.IgnoreQueryFilters()
+            .Where(o => o.Id == orderId).Select(o => o.TrackingToken).SingleAsync());
+
+        var owner = await _api.PlatformOwnerAsync();
+        (await owner.PostAsJsonAsync($"/api/platform/tenants/{store.Tenant.Id}/status", new { action = "Suspend" }))
+            .StatusCode.Should().BeOneOf(HttpStatusCode.NoContent, HttpStatusCode.OK);
+
+        var tracked = await api.Anonymous().GetAsync($"/api/orders/track/{token}");
+        tracked.StatusCode.Should().Be(HttpStatusCode.OK,
+            "C-17 = B: المشتري يتتبّع طلباً دفع ثمنه، وإن أُوقف المتجر بعده");
+
+        (await owner.PostAsJsonAsync($"/api/platform/tenants/{store.Tenant.Id}/status", new { action = "Archive" }))
+            .StatusCode.Should().BeOneOf(HttpStatusCode.NoContent, HttpStatusCode.OK);
+
+        var afterArchive = await api.Anonymous().GetAsync($"/api/orders/track/{token}");
+        afterArchive.StatusCode.Should().Be(HttpStatusCode.ServiceUnavailable,
+            "والأرشفة نهائية: لا تتبّع بعدها");
+        (await ProblemCodeAsync(afterArchive)).Should().Be("StoreUnavailable");
     }
 
     [Fact]
