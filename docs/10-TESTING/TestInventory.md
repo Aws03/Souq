@@ -7,10 +7,10 @@
 
 | Suite | Files | Facts | Theories |
 |---|---|---|---|
-| [`Souq.Domain.Tests`](#souqdomaintests) | 30 | 254 | 50 |
+| [`Souq.Domain.Tests`](#souqdomaintests) | 30 | 258 | 50 |
 | [`Souq.Application.Tests`](#souqapplicationtests) | 52 | 387 | 19 |
 | [`Souq.ArchitectureTests`](#souqarchitecturetests) | 17 | 76 | 8 |
-| [`Souq.IntegrationTests`](#souqintegrationtests) | 59 | 370 | 27 |
+| [`Souq.IntegrationTests`](#souqintegrationtests) | 59 | 371 | 27 |
 | [frontend (Vitest)](#frontend-vitest) | 95 | 724 | — |
 | [frontend (Playwright)](#frontend-playwright) | 19 | 126 | — |
 
@@ -46,7 +46,7 @@
 | `tests/Souq.Domain.Tests/StoreSettingsTests.cs` | `StoreSettingsTests` | 5 | 3 |
 | `tests/Souq.Domain.Tests/TenantSettingsTests.cs` | `TenantSettingsTests` | 7 | 1 |
 | `tests/Souq.Domain.Tests/TenantTests.cs` | `TenantTests` | 7 | 4 |
-| `tests/Souq.Domain.Tests/UserTests.cs` | `UserTests`, `CustomerTests` | 11 | 3 |
+| `tests/Souq.Domain.Tests/UserTests.cs` | `UserTests`, `CustomerTests`, `SecurityPolicyNumbersTests` | 15 | 3 |
 | `tests/Souq.Domain.Tests/WishlistItemTests.cs` | `WishlistItemTests` | 1 | 1 |
 
 ## Souq.Application.Tests
@@ -146,7 +146,7 @@
 | `tests/Souq.IntegrationTests/CatalogTests.cs` | `CatalogTests`, `ProductCommandCounter` | 9 | 0 |
 | `tests/Souq.IntegrationTests/CheckoutIdempotencyTests.cs` | `CheckoutIdempotencyTests` | 3 | 0 |
 | `tests/Souq.IntegrationTests/CommercialControlPlaneTests.cs` | `CommercialControlPlaneTests` | 7 | 0 |
-| `tests/Souq.IntegrationTests/ConfigurationTests.cs` | `ConfigurationTests`, `ConfiguredFactory` | 10 | 6 |
+| `tests/Souq.IntegrationTests/ConfigurationTests.cs` | `ConfigurationTests`, `ConfiguredFactory` | 11 | 6 |
 | `tests/Souq.IntegrationTests/CookieSecurityTests.cs` | `CookieSecurityTests` | 4 | 0 |
 | `tests/Souq.IntegrationTests/CouponRedemptionTests.cs` | `CouponRedemptionTests` | 3 | 0 |
 | `tests/Souq.IntegrationTests/CustomerAccountTests.cs` | `CustomerAccountTests` | 6 | 0 |
