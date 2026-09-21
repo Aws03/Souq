@@ -31,8 +31,11 @@
 plan_version: 1.0.0
 current_phase: M20
 phase_status: done
-next_phase: done        # terminal. M2 stays blocked on TD-42; what else remains is the owner's — §5 and OwnerDecisions.md
-blocked_decisions: ["TD-42", "GitHub Actions billing", "D-13"]   # see §5 and OwnerDecisions.md; the billing block stops CI running at all. D-13 blocks nothing in M1-M20 (all closed) but gates the whole commercial track — see "After the plan"
+next_phase: done        # terminal. M2's one blocked deliverable was released on 2026-09-21 (TD-42 = C, links now)
+                        # and closes inside the commercial track's C8, not by re-opening M2.
+blocked_decisions: ["GitHub Actions billing"]   # TD-42 and D-13 were both answered on 2026-09-21 — see
+                        # OwnerDecisions.md and CommercialPlatformPlan.md §0. The billing block still stops CI
+                        # running at all, and is the only thing left here that is not a commercial-track decision.
 last_verified_date: 2026-09-21
 last_verified_head: b476a8d         # The M1-M20 plan itself stays terminal. The live pointer for everything
                                     # after it is CommercialPlatformPlan.md §0 — read that block first: it carries
@@ -122,12 +125,14 @@ reference); corrected TD-04's review-settings half, TD-02's extraction-order cla
 today's evidence; crossings 79 → 74 across 15 pairs (was 16); `RiskRegister.md` R-04 closed, R-14/R-15 updated.
 Full evidence in M1's own "Completion evidence" field above.
 
-**M2 — audit complete, one deliverable blocked.** `Catalog/README.md` and `ProductVariants.md` re-read in full
-against the current code: no drift found, nothing to correct. TD-42 (store-authored content pages) needs a
-scope decision only the owner can make — see M2's own STOP entry above for the exact question and a
-recommendation. Variant-image gallery confirmed still genuinely not built (no schema support at all) and left
-correctly deferred, not built speculatively. No code changed. M3 does not depend on the blocked deliverable and
-may proceed; M2 resumes the moment TD-42 is answered.
+**M2 — audit complete, and its one blocked deliverable was released on 2026-09-21.** `Catalog/README.md` and
+`ProductVariants.md` were re-read in full against the current code: no drift found, nothing to correct. TD-42
+(store-authored content pages) needed a scope decision only the owner could make, and the owner answered **C —
+links now, revisit authored pages when a real merchant requires them**. The deliverable is therefore *policy
+links on the store's settings with a footer that links out*, and it is built inside the commercial track's `C8`
+rather than by re-opening this phase — `M1`–`M20` stay terminal per §0. *ContentPage* keeps its deferral with
+its trigger named. Variant-image gallery confirmed still genuinely not built (no schema support at all) and
+left correctly deferred, not built speculatively. No code changed in M2 itself.
 
 **M3 — done.** The catalog now matches a stored, indexed **normalized** form of its text, so Arabic search works
 as people actually type (unvocalized, ه for ة, ي for ى); every query word is a separate condition matched in a

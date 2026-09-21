@@ -78,8 +78,9 @@
 
 ### Commercial platform (designed, not built)
 
-These six records decide *where* and *how* the commercial layer will be built, before any of it exists. Each is
-**Accepted as the design and not implemented**; the architecture they belong to is
+These records decide *where* and *how* the commercial layer will be built. The first six were written before any
+of it existed; `0053` and `0054` were implemented by `C1` and `C2`, and `0055` records the tax capability the
+owner decided on 2026-09-21 and is not implemented yet. The architecture they belong to is
 [CommercialPlatformArchitecture.md](../12-ROADMAP/CommercialPlatformArchitecture.md) and the sequence is
 [CommercialPlatformPlan.md](../12-ROADMAP/CommercialPlatformPlan.md). None of them decides a commercial question
 that is the owner's — those stay in [OwnerDecisions.md](../09-OPERATIONS/OwnerDecisions.md).
@@ -94,6 +95,7 @@ that is the owner's — those stay in [OwnerDecisions.md](../09-OPERATIONS/Owner
 | [0052](0052-bounded-extension-model.md) | Customer-specific extension is integration, not execution: bounded configuration first, then outbound webhooks over the existing outbox, then a scoped API — and anything else is product-ized or declined. Deliberately does **not** meet ExplicitNonGoals §14's condition for revisiting per-tenant custom code | Accepted as the design; not implemented |
 | [0053](0053-entitlement-resolution.md) | An entitlement is the **intersection** of what the plan grants (plus live overrides) and what the platform has switched on, composed once in the tenant snapshot; every missing input resolves to nothing, and `TenantInfo.Modules` lost its default so the compiler names every construction site. Closes three fail-open links and makes the platform area's `TenantId` exemption earned rather than declared | Accepted and implemented (C1) |
 | [0054](0054-limit-semantics-and-catalogue.md) | An **absent** limit means uncapped, not zero — deliberately asymmetric with the entitlement gate, which fails closed: an entitlement grants a capability, a limit only narrows one already granted, and reading a missing number as a prohibition would have stopped every existing store the day C2 shipped. And `LimitNames` is a closed catalogue, because once enforcement exists an uncountable limit name is a cap the merchant is told they have and does not. What is counted is what the merchant can empty — neither products nor staff have a hard delete, so counting the archived and the disabled would have made every limit a one-way ratchet | Accepted and implemented (C2) |
+| [0055](0055-tax-as-a-configurable-capability.md) | Tax is a **configurable, jurisdiction-aware capability**, never a rule in code: a platform-maintained jurisdiction profile, versioned and frozen on publish, that any store may select; inclusive/exclusive is a property of the version rather than of the platform; an immutable snapshot on every order and invoice, so history is exact; and **tax is collected only under a version a named professional marked verified** — engineering never sets that state, so a researched value cannot reach a shopper. Adds a fifteenth module, *Tax* | Accepted as the design; not implemented. Records the owner's answer to `P-06`, which reframed the question |
 
 ### Frontend and white-label
 
@@ -171,6 +173,6 @@ The decisions stand; these *descriptions* have drifted. Living documents are aut
 
 ## 5. Numbering and lifecycle
 
-- ADRs are numbered sequentially and never renumbered. The next one is **0055** (0047–0052 are the commercial-platform set, written 2026-09-20; 0053 was added by C1 and 0054 by C2 as each implemented them; before them this line said 0047, and before 2026-09-20 it still said 0043 while 0043–0046 already existed — a record written from a stale line collides silently, so update it in the same commit that adds a record).
+- ADRs are numbered sequentially and never renumbered. The next one is **0056** (0047–0052 are the commercial-platform set, written 2026-09-20; 0053 was added by C1 and 0054 by C2 as each implemented them; 0055 records the owner's `P-06` answer of 2026-09-21; before them this line said 0047, and before 2026-09-20 it still said 0043 while 0043–0046 already existed — a record written from a stale line collides silently, so update it in the same commit that adds a record).
 - A superseded ADR keeps its text; its `Status` line says what replaced it, and the replacement links back through `Related ADRs`.
 - Rejected proposals are worth an ADR too: "we considered X and chose not to" saves the next person the same investigation ([ExplicitNonGoals.md](../02-ARCHITECTURE/ExplicitNonGoals.md) collects the big ones).

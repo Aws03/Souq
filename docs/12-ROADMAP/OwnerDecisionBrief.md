@@ -1,5 +1,26 @@
 # Owner decision brief
 
+> ## ✅ Answered on 2026-09-21
+>
+> All eight questions on this page have been answered by the owner. **The canonical record of each answer is
+> its own entry in [OwnerDecisions.md](../09-OPERATIONS/OwnerDecisions.md)**; this page is kept as it was
+> written, because the options and their costs are still the best explanation of what each answer bought.
+>
+> | Question | Answer |
+> |---|---|
+> | `C-08` — a visitor identifier for signed-out shoppers | **A** — store an opaque visitor identifier |
+> | `C-17` — what a suspended storefront does | **B** — admin-only |
+> | `TD-42` — authored pages or links | **C** — links now; revisit authored pages when a real merchant requires them |
+> | `C-15` — the invoicing currency | **A** — JOD |
+> | `P-06` — tax | **None of A/B/C.** Tax is a configurable, jurisdiction-aware capability; inclusive/exclusive is per profile, and no value is verified until a professional verifies it |
+> | `D-13` — the merchant of record | **A** — each store is its own merchant of record; Souq does not take shopper funds and earns through merchant subscription billing |
+> | `C-01` — the payment provider | **B** — a redirect-first model without transaction-time splitting. **No provider chosen**; onboarding stays an external dependency |
+> | `C-19` — what the agreement discloses | **A** — disclose the platform's permitted visibility in the merchant agreement |
+>
+> **Three answers left sub-questions open, and they are the owner's:** `C-08`'s lawful basis, retention period
+> and data residency (capture stays off until they exist); every value in every `P-06` jurisdiction profile;
+> and the `C-01` provider itself.
+>
 > **What this page is.** The seven blocked items that only the owner can decide, written so that they can be
 > answered **without reading the codebase first**. Each one says what the decision is in plain language, which
 > parts of the product are waiting on it, what the realistic options actually are, what each option costs, what
@@ -15,10 +36,12 @@
 > [CommercialPlatformArchitecture.md](CommercialPlatformArchitecture.md). This page is the **owner-facing
 > summary** of those three, and where they disagree with the code, the code wins and this page is wrong.
 >
-> **Nothing here has been implemented.** Writing this brief changed no product behaviour. Every phase named
-> below as blocked is still blocked.
+> **Nothing had been implemented when this was written.** Writing the brief changed no product behaviour. The
+> phases named below as blocked were blocked **at the time of writing**; six of them were released by the
+> answers above, and [CommercialPlatformPlan.md](CommercialPlatformPlan.md) §0 is the current state.
 >
-> **Last verified against the code:** 2026-09-21, branch `phase/17-production-hardening`, at `8faf2f4`.
+> **Last verified against the code:** 2026-09-21, branch `phase/17-production-hardening`, at `8faf2f4`; the
+> answers were recorded on top of `568fa01`.
 
 ---
 

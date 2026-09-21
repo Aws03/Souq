@@ -12,10 +12,11 @@
 > [ProductionReleaseChecklist.md](ProductionReleaseChecklist.md) §18 (the sign-off).
 >
 > **If you are the owner and not an engineer, start with
-> [OwnerDecisionBrief.md](../12-ROADMAP/OwnerDecisionBrief.md)**, which takes the seven currently-blocking
-> decisions — `C-08`, `C-17`, `TD-42`, `C-15`, `P-06`, `D-13`, `C-01` and `C-19` — and writes each one out in
-> plain language with its options, its costs, what is already built, and one precise question. **This page
-> stays canonical**: the brief summarises it and links back, and where the two differ this page wins.
+> [OwnerDecisionBrief.md](../12-ROADMAP/OwnerDecisionBrief.md)**, which takes the seven decisions that were
+> blocking on 2026-09-21 — `C-08`, `C-17`, `TD-42`, `C-15`, `P-06`, `D-13`, `C-01` and `C-19` — and writes each
+> one out in plain language with its options, its costs, what is already built, and one precise question. **This
+> page stays canonical**: the brief summarises it and links back, and where the two differ this page wins.
+> **All eight of those questions were answered on 2026-09-21** — see the next section.
 
 ## How to read the blocking columns
 
@@ -24,6 +25,40 @@
 | **Engineering** | Is further engineering work blocked until this is answered? |
 | **Deployment** | Can the system be deployed at all without an answer? |
 | **First paying customer** | Can the first real customer be served without an answer? |
+
+---
+
+## Answered by the owner on 2026-09-21
+
+The eight questions of [OwnerDecisionBrief.md](../12-ROADMAP/OwnerDecisionBrief.md) were answered on
+2026-09-21. Each answer is recorded **in the decision's own entry below**, in the owner's words, with what it
+unblocks and what it costs. This table is an index, not the record.
+
+| id | Answer | What it unblocks |
+|---|---|---|
+| [`C-08`](#c-08--is-a-visitor-identifier-stored-for-signed-out-shoppers--decided) | **A** — store an opaque visitor identifier for signed-out shoppers | `C9`, then `C10` |
+| [`C-17`](#c-17--what-a-suspended-storefront-does--decided) | **B** — admin-only suspension | `C3`, then `C6` |
+| [`TD-42`](#td-42--store-authored-legalinformational-pages-how-much-of-a-capability--decided) | **C** — links now; revisit authored pages when a real merchant requires them | `M2`, part of `C8` |
+| [`C-19`](#c-19--what-the-merchant-agreement-says-the-platform-operator-can-see--decided) | **A** — disclose the platform's permitted visibility in the merchant agreement | nothing in engineering; the capability already existed |
+| [`C-15`](#commercial-platform-decisions--c-01--c-18) | **A** — Souq merchant subscriptions are invoiced in JOD | `C5` |
+| [`D-13`](#d-13--who-is-the-merchant-of-record--decided) | **A** — each store is its own merchant of record; Souq does not take shopper funds and earns through merchant subscription billing | `C12`, and it reshapes `C13` |
+| [`C-01`](#commercial-platform-decisions--c-01--c-18) | **B** — a redirect-first payment model without transaction-time splitting. **No provider is chosen**; provider onboarding stays an external dependency | the payment port's shape (`C12`) |
+| [`P-06`](#p-06--tax--decided-as-a-capability-not-as-a-rate) | **Neither A, B nor C** — tax is a configurable, jurisdiction-aware platform capability, and no tax value is treated as verified until a professional confirms it | the tax *architecture*; no jurisdiction's rules |
+
+**Three answers decide neighbouring questions as a consequence, and are flagged rather than absorbed**, because
+engineering did not ask them and the owner may not have meant to answer them:
+
+- **`C-02` (does Souq ever hold shopper funds?) is answered "never" by `D-13` = A's own wording** — "Souq does
+  not take shopper funds". It is recorded under `D-13` below and left listed here so it is not mistaken for
+  still-open.
+- **`C-03`, `C-04` and `C-05` lose their subject at launch.** They ask the commission basis, whether the
+  platform refunds its commission, and who absorbs a percentage's rounding remainder. With `D-13` = A and
+  `C-01` = B there is **no commission taken from a shopper's payment at all** — Souq's revenue is a
+  subscription it invoices. The questions are not answered; they have nothing to apply to until Souq is in a
+  funds flow, and they are re-marked accordingly.
+- **`C-08` = A does not answer its own three sub-questions.** The lawful basis, the retention period and
+  whether rows may leave Jordan are named in option A as the owner's to supply *before the first row is
+  written*. They are still required, and the code is built to refuse to write without them.
 
 ---
 
@@ -95,10 +130,58 @@ runs the test charge and reports what Stripe actually did.
 
 ---
 
-## P-06 — Tax
+## P-06 — Tax — DECIDED as a capability, not as a rate
 
-**The question.** Are prices tax-inclusive or tax-exclusive, what rates apply to whom, and what must an invoice
-show?
+**Decided by the owner on 2026-09-21, and the decision reframes the question.** The question below asked which
+of two conventions the platform adopts and which rates apply. The owner's answer is that **neither is a
+platform-wide constant**: tax is a configurable, jurisdiction-aware capability, and the values are data that a
+professional must verify before they are relied on. Recorded in
+[ADR-0055](../11-ADR/0055-tax-as-a-configurable-capability.md).
+
+**The owner's direction, as given:**
+
+> Design tax as a configurable, jurisdiction-aware platform capability. Do **not** hard-code tax law into
+> business logic. The architecture should support jurisdiction/tax profiles, configurable tax rates,
+> thresholds, inclusive/exclusive taxation, registration/collection rules, effective dates, applicable
+> product/order rules where required, store-level tax configuration, immutable tax snapshots on
+> orders/invoices, future jurisdiction-specific extensions, and auditability of tax configuration changes.
+>
+> A jurisdiction profile may contain researched/default values, but those values must be treated as
+> configuration requiring verification by the appropriate accountant/tax authority/legal professional before
+> commercial use. Do **not** invent or assert tax rates, thresholds, invoice requirements, or legal
+> obligations.
+>
+> The platform should allow: (1) Souq to maintain a reusable jurisdiction profile for a country/region; (2) a
+> merchant to select/apply that profile during store setup; (3) a merchant to override permitted store-specific
+> settings; (4) a newly onboarded store in the same jurisdiction to reuse the existing verified profile instead
+> of re-entering everything; (5) versioning/effective dates so historical orders retain the exact tax rules
+> used at the time; (6) explicit indication of whether a profile is verified, unverified, or requires
+> professional confirmation.
+>
+> Keep legal/accounting decisions separate from engineering.
+
+**What this unblocks and what it does not.** It unblocks the tax *architecture* — the profile, its versions,
+its effective dates, the store's selection of one, the snapshot frozen onto an order or an invoice, and the
+audit of every configuration change. It unblocks **no jurisdiction's rules**: no rate, threshold, invoice
+requirement or registration rule ships as a verified value. A profile carries a verification state, and an
+unverified profile is visibly unverified everywhere it is used.
+
+**Inclusive versus exclusive is now per profile**, not a platform constant — which is a wider capability than
+either option B or option C of the brief would have built, and it is the reason the answer is recorded as a
+reframing rather than as a letter.
+
+**What is still the owner's, with an accountant.** Every value, for every jurisdiction Souq sells into: the
+rates, who they apply to, the registration thresholds, the invoice wording and content, and whether the store
+or the platform is the invoice issuer for the shopper's purchase. Jordan's national e-invoicing **clearance**
+model — recorded as research on 2026-09-20, unverified — would make the store the issuer; that remains
+unverified and unbuilt.
+
+| Engineering | Deployment | First paying customer |
+|---|---|---|
+| No longer blocked for the capability; still blocked for any jurisdiction's values | No | **Yes** — a store selling where tax must be collected needs a *verified* profile, and engineering cannot verify one |
+
+**The original question, kept for the record.** Are prices tax-inclusive or tax-exclusive, what rates apply to
+whom, and what must an invoice show?
 
 **Why it matters.** The pricing pipeline has an explicit zero where tax belongs. In most jurisdictions selling
 without handling tax correctly is a legal bar, not a missing feature — and the liability accrues from the first
@@ -107,22 +190,56 @@ sale, not from the first audit.
 **Affected code.** The pricing pipeline (`PricingService`), the frozen order totals, the invoice/receipt
 content, and the storefront's displayed prices.
 
-| Engineering | Deployment | First paying customer |
-|---|---|---|
-| **Yes** — the rules must exist before they can be built | No | **Yes**, wherever tax must be shown or collected |
-
 **Evidence that exists.** The zero is deliberate and documented rather than an oversight. **Evidence still
-required:** the jurisdictions to be sold into, the rates, the inclusive/exclusive convention and the invoice
-requirements. **Engineering must not invent any of these.**
+required, and it is not engineering's to produce:** the jurisdictions to be sold into, the rates, the
+registration thresholds and the invoice requirements. **Engineering must not invent any of these**, which is
+why a profile carries a verification state rather than a default nobody signed.
 
-**Who decides.** The owner, with an accountant.
+**Who decides.** The capability was decided by the owner on 2026-09-21 (above). Every value in it is the
+owner's, with an accountant.
 
 ---
 
-## D-13 — Who is the merchant of record
+## D-13 — Who is the merchant of record — DECIDED
 
-**The question.** Does every store connect its own Stripe account, or does the platform adopt Stripe Connect
-and settle on their behalf?
+**Decided by the owner on 2026-09-21: option (a).** In the owner's words:
+
+> **Each store is its own merchant of record; Souq does not take shopper funds and earns through merchant
+> subscription billing.**
+
+**What that settles.**
+
+- **The seller is the store.** Every store holds its own payment relationship, its own chargeback liability
+  and its own fees. Souq is software.
+- **`C-02` is answered "never" by this wording** — Souq is not in the funds flow. Listed separately above so
+  it is not mistaken for still-open; if the owner meant to leave it open, this line is the one to correct.
+- **Souq's revenue is a subscription it invoices to the merchant**, which makes the billing and dunning
+  subsystem (`C5`, `C6`) **mandatory rather than optional** — there is no other way for the platform to be
+  paid.
+- **Commission netting is foreclosed**, and with it `C-03`, `C-04` and `C-05`, which have no subject until
+  Souq is in a funds flow.
+- **No licensing conversation with the Central Bank of Jordan follows from this answer**, which was option
+  (b)'s cost and is now not incurred. That is a legal conclusion the owner drew, not one engineering verified.
+
+**What it makes mandatory engineering work, and each of these is now a requirement rather than a latent
+defect:**
+
+1. **TD-50 must be fixed** — `Payment.Gateway` records the account's *kind* (`stripe:store`), never its
+   identity, so a store that replaces its payment account can never refund what the old one took. BR-PAY-04
+   requires the account that took the money. Mandatory store accounts make account replacement an ordinary
+   event.
+2. **Store readiness needs a payment item.** Provisioning reports four (domain, domain verified,
+   administrator, status) and checks for no payment account, so a store can be activated and sell with none —
+   which under this answer means selling with no merchant of record at all. Whether activation is blocked or
+   warned is engineering's to design; that it is reported is not optional.
+3. **The deployment-account fallback must stop being reachable in production.** Option (c) — today's live
+   behaviour, where a store with no account is paid into the deployment account — is now explicitly *not* the
+   model, and it is the position the platform still takes when `SECRETS_KEY` is absent.
+4. **`StorePaymentAccounts` needs a concurrency token**; two administrators editing keys silently
+   last-write-wins today.
+
+**The original question.** Does every store connect its own Stripe account, or does the platform adopt Stripe
+Connect and settle on their behalf?
 
 **The question as written omits the state the product is actually in, and that was corrected on 2026-09-20.**
 There are **three** positions, not two, because the live default is neither of the named options:
@@ -177,7 +294,7 @@ onboarded under one model.
 
 | Engineering | Deployment | First paying customer |
 |---|---|---|
-| No | No | No — **but yes for the second paying store** |
+| No longer blocked | No | Decided — and the four items above are now required before the **first** paying store, not the second |
 
 **Both named options are narrower than they look — established 2026-09-20 by research into current provider
 documentation, and it does not answer the question, only sharpens it.**
@@ -204,9 +321,12 @@ documentation, and it does not answer the question, only sharpens it.**
 implementable, and the provider research above is written up in
 [CommercialPlatformArchitecture.md](../12-ROADMAP/CommercialPlatformArchitecture.md) §3 and §6. **Evidence still
 required:** the commercial model, the chosen provider's own requirements, and a legal answer on whether
-receiving and remitting shopper funds is a licensable activity in Jordan.
+receiving and remitting shopper funds is a licensable activity in Jordan. **The commercial model was supplied
+on 2026-09-21 (above).** The licensing question is not reached under that answer, because Souq never receives
+shopper funds. The chosen provider's own requirements remain outstanding and are `C-01`'s.
 
-**Who decides.** The owner. This is a business-model decision with legal consequences.
+**Who decides.** Decided by the owner on 2026-09-21 (above). It was a business-model decision with legal
+consequences.
 
 ---
 
@@ -337,9 +457,23 @@ edit nothing or invent product behaviour.
 
 ---
 
-## TD-42 — Store-authored legal/informational pages: how much of a capability?
+## TD-42 — Store-authored legal/informational pages: how much of a capability? — DECIDED
 
-**The question.** A store today has no way to publish a privacy policy, terms, a returns policy, a shipping
+**Decided by the owner on 2026-09-21: option C.** In the owner's words:
+
+> **Links now; revisit authored pages when a real merchant requires them.**
+
+**What that means in build terms.** Option (b) ships now — optional policy-address fields on the store's
+existing settings, with the storefront footer showing a link only where a URL is set. Option (a) — a
+*ContentPage* aggregate, an authored per-language body, a public page route — is **not cancelled**; it is
+deferred until a named merchant asks for it, and the trigger is that request rather than a date. Recorded that
+way in [TechnicalDebt.md](../12-ROADMAP/TechnicalDebt.md) so the deferral keeps its reason.
+
+**What it unblocks.** `M2` of [SouqMasterPlan.md](../12-ROADMAP/SouqMasterPlan.md), whose only blocked
+deliverable this was, and the policy-page half of `C8`. It matches the recommendation this page already
+carried, which is recorded below unchanged so the answer is not read as having been led.
+
+**The original question.** A store today has no way to publish a privacy policy, terms, a returns policy, a shipping
 policy or an FAQ — the storefront footer used to link to all five with `href="#"`, and Phase 16 removed the
 dead links rather than keep the appearance. Two shapes would close that gap, and they differ by an order of
 magnitude in what gets built:
@@ -368,7 +502,7 @@ new aggregate (*ContentPage*, not built), a migration and an admin screen if (a)
 
 | Engineering | Deployment | First paying customer |
 |---|---|---|
-| **Yes** — the M2 phase of [SouqMasterPlan.md](../12-ROADMAP/SouqMasterPlan.md) is blocked on this one deliverable; nothing else in that phase is | No | **Yes, in any jurisdiction that requires a published privacy policy or terms** — see [ProductRoadmap.md](../12-ROADMAP/ProductRoadmap.md) §11's first-sellable-release list |
+| No longer blocked — `M2` of [SouqMasterPlan.md](../12-ROADMAP/SouqMasterPlan.md) may close once the links ship | No | **Yes, in any jurisdiction that requires a published privacy policy or terms** — see [ProductRoadmap.md](../12-ROADMAP/ProductRoadmap.md) §11's first-sellable-release list. A link satisfies it; the page it points at is the merchant's |
 
 **Evidence that exists.** The gap itself: verified in code — no content-page capability of either shape exists
 today, and the footer's dead links were removed rather than kept as a placeholder. **Evidence still required:**
@@ -378,14 +512,39 @@ none technical; this is a scope call between two valid, fully-specified shapes, 
 not foreclose building (a) later as a richer, separately-scoped capability if the owner specifically wants
 authored pages (a small CMS) rather than just reachable policies.
 
-**Who decides.** The owner, as a product-scope call — guessing between a small feature and a much larger one
-is exactly the kind of business decision `AGENTS.md` §0 rule 4 reserves for the owner.
+**Who decides.** Decided by the owner on 2026-09-21 (above), as a product-scope call — guessing between a
+small feature and a much larger one is exactly the kind of business decision `AGENTS.md` §0 rule 4 reserves for
+the owner.
 
 ---
 
-## C-08 — Is a visitor identifier stored for signed-out shoppers?
+## C-08 — Is a visitor identifier stored for signed-out shoppers? — DECIDED
 
-**The question.** When a shopper who is not signed in browses a store, does Souq store an identifier that links
+**Decided by the owner on 2026-09-21: option A.** In the owner's words:
+
+> **Store an opaque visitor identifier for signed-out shoppers.**
+
+**What that authorises, and exactly what it does not.** It authorises the design written out below and in
+[ADR-0050](../11-ADR/0050-behavioural-event-foundation.md): an opaque, server-minted, per-browser identifier
+with no meaning outside Souq, written on behavioural event rows, with the identifier→customer map kept in a
+separate access-controlled table. It authorises `C9` to be built.
+
+**It does not answer the three sub-questions that option A explicitly reserved to the owner**, and option A's
+own wording is the reason they are still listed here:
+
+| Still required | Who answers it | What the code does until it is answered |
+|---|---|---|
+| The **lawful basis** Souq relies on, and whether consent is collected per store or once per platform | the owner, with legal advice | capture is **off unless configured**; there is no default basis in the code |
+| The **retention period**, stated publicly | the owner | no default window ships; an unset window refuses to start the capture, rather than inventing 13 or 14 months from the research |
+| Whether rows may **leave Jordan** | the owner, with legal advice | no row is sent to any external processor, and adding one stays a separate explicit change |
+
+**Why it is built fail-closed rather than shipped on.** Option A says the owner supplies those three "before
+the first row is written". The only way engineering can honour that literally is to make the absence of an
+answer stop the write, so `C9` ships the whole foundation with capture disabled by configuration and a startup
+check that says so. Turning it on is a deliberate act with the three answers in hand, not a deployment
+accident.
+
+**The original question.** When a shopper who is not signed in browses a store, does Souq store an identifier that links
 their actions together — the search, the product they opened, the item they added, the order they eventually
 placed? Three sub-questions come with a "yes" and are part of the same decision: on what legal basis, for how
 long, and may those rows leave Jordan.
@@ -418,7 +577,7 @@ table, not a wider version of that one.
 
 | Engineering | Deployment | First paying customer |
 |---|---|---|
-| **Yes, for the analytics and recommendation track.** The event foundation is designed and not built, and its shape does not change with the answer — only what may be written to it | No | No — a store can be sold and served with no behavioural data at all |
+| No longer blocked — `C9` may be built. The three sub-answers above gate **switching capture on**, not building it | No | No — a store can be sold and served with no behavioural data at all |
 
 **What a "yes" enables**, and nothing else does: search-to-purchase attribution (which query produced which
 sale), funnel analysis (where shoppers abandon), click-through rate on any list or recommendation slot, and every
@@ -450,10 +609,50 @@ whether consent is collected per store or once per platform; whether the data ma
 what the merchant agreement says about who owns a store's behavioural data; and the retention period the owner
 is willing to state publicly.
 
-**Who decides.** The owner, with legal advice. Engineering has taken this as far as it can: the design is
-complete, the mitigations are chosen, and the cost of each answer is written above. **If the answer is "no", say
-so explicitly and it will be recorded here as a decision with its foreclosed capabilities listed — not left as
-an open question that quietly costs data every week.**
+**Who decides.** Decided by the owner on 2026-09-21 (above), with the three sub-questions still reserved to the
+owner and legal advice. Engineering had taken this as far as it could: the design was complete, the mitigations
+chosen, and the cost of each answer written above.
+
+---
+
+## C-17 — what a suspended storefront does — DECIDED
+
+**Decided by the owner on 2026-09-21: option B.** In the owner's words:
+
+> **Admin-only suspension.**
+
+**What that means, precisely**, taken from option B as the brief stated it: the storefront shows the branded
+unavailable page; the merchant can still sign in and act; customers can still track orders they already paid
+for.
+
+**What it unblocks.** `C3` — suspension that actually suspends — and after that `C6`, the dunning state machine
+that is the first place the platform acts irreversibly against a paying customer on its own.
+
+**The three consequences that are engineering work and not further decisions:**
+
+1. **The browser app must stop refusing to mount for a suspended store.** Verified in code on 2026-09-21: the
+   frontend refuses to mount for *any* non-`Active` store, so a merchant whose store is suspended cannot reach
+   their own admin today. Option B requires that they can, so the mount gate has to distinguish the storefront
+   from the admin rather than gate the whole application.
+2. **Public order tracking must survive suspension.** It carries no closed-store exemption today, so suspending
+   a store currently blinds a customer to an order they have already paid for — which option B forbids.
+3. **Purchasing must be refused at the server, not only hidden.** A storefront that is dark in the browser is
+   not suspended; the write paths are what must refuse.
+
+**What option B does *not* decide, and stays engineering's:** whether sessions are revoked (they are not, under
+B — the merchant keeps working), and the wording of the unavailable page, which is copy.
+
+**The defects `C3` fixes under every answer**, so they are not read as part of this decision: suspended and
+archived being indistinguishable to a caller, the outbox ignoring store status (TD-67), the background sweeps
+not seeing `Provisioning` and `Archived` stores, `Suspend()` refusing to work from `Provisioning`, and one
+message shown for three different states.
+
+| Engineering | Deployment | First paying customer |
+|---|---|---|
+| No longer blocked | No | **Yes** — a platform that bills cannot enforce non-payment without it |
+
+**Who decides.** Decided by the owner on 2026-09-21 (above). It was a product call about what a customer of a
+customer sees.
 
 ---
 
@@ -467,22 +666,22 @@ which is why the commercial track can start before any of them is answered.
 
 | id | The question | Blocks |
 |---|---|---|
-| **C-01** | Which payment provider for the launch market? The first adapter sets the port's vocabulary, and Stripe is not available in Jordan | the payment port and every adapter |
-| **C-02** | Does Souq ever hold shopper funds? The money-transmission fork, and the thing that decides whether commission can be netted at all | the ledger and payouts |
-| **C-03** | What is the commission basis — goods only, goods plus shipping, after discounts, or gross including tax? | the ledger |
-| **C-04** | Does the platform refund its commission when a store refunds a shopper? Both provider defaults are traps | the ledger |
-| **C-05** | Who absorbs the rounding remainder on a percentage in a three-decimal currency? | the ledger |
+| **C-01** | Which payment provider for the launch market? The first adapter sets the port's vocabulary, and Stripe is not available in Jordan | **DECIDED 2026-09-21 as a *model*, not a provider: B — a redirect-first payment model without transaction-time splitting.** No provider is chosen; provider onboarding and contract approval stay an external dependency, and the port must remain provider-agnostic |
+| **C-02** | Does Souq ever hold shopper funds? The money-transmission fork, and the thing that decides whether commission can be netted at all | **Answered "never" as a consequence of `D-13` = A**, in that answer's own words. Flagged rather than absorbed — see the index at the top of this page |
+| **C-03** | What is the commission basis — goods only, goods plus shipping, after discounts, or gross including tax? | **No subject at launch** under `D-13` = A + `C-01` = B: no commission is taken from a shopper's payment. Not answered; nothing to apply it to |
+| **C-04** | Does the platform refund its commission when a store refunds a shopper? Both provider defaults are traps | **No subject at launch**, as `C-03` |
+| **C-05** | Who absorbs the rounding remainder on a percentage in a three-decimal currency? | **No subject for commission** at launch, as `C-03`. It still applies to any percentage Souq computes on its **own** invoices, and is answered there by `C5`'s single rounding site |
 | **C-06** | Who bears a chargeback, and how is it recovered here, where bank auto-debit is not available? | the ledger |
 | **C-07** | Pricing granularity in JOD — accept a 10-fils minimum increment platform-wide, or make the rule conditional per provider and card scheme? | the payment port |
-| **C-08** | [Is a visitor identifier stored for signed-out shoppers, on what basis, for how long, and may events leave the country?](#c-08--is-a-visitor-identifier-stored-for-signed-out-shoppers) — **written out in full above**, because it is the only decision here whose cost rises every week it is unanswered | the behavioural event foundation |
+| **C-08** | [Is a visitor identifier stored for signed-out shoppers, on what basis, for how long, and may events leave the country?](#c-08--is-a-visitor-identifier-stored-for-signed-out-shoppers--decided) — **written out in full above** | **DECIDED 2026-09-21: A — yes, an opaque identifier.** The basis, the retention period and the residency answer are still the owner's, and capture stays off until they exist |
 | **C-09** | May behavioural data ever be pooled across tenants? | recommendations |
 | **C-11** | Custom domains: a managed edge or a self-run certificate client; apex support; the activation SLA; the policy for a domain that stops pointing at us | domain automation |
 | **C-12** | What are the plan tiers, and per limit: hard, soft, or overage? | plans and quotas |
 | **C-13** | Trials: none, time-limited, or freemium? | plans |
 | **C-14** | May support grant a capability outside a plan, and how is it recorded? | entitlements |
-| **C-15** | What currency does Souq invoice merchants in, and must it serve merchants with no card on file? | invoicing |
+| **C-15** | What currency does Souq invoice merchants in, and must it serve merchants with no card on file? | **DECIDED 2026-09-21: A — Souq merchant subscriptions are invoiced in JOD.** Manual/bank-transfer collection is built either way and was never part of the question. Unblocks `C5` |
 | **C-16** | Data residency | scale-out and analytics |
-| **C-17** | What does a suspended storefront actually do, and what happens to orders already placed? | suspension and dunning |
+| **C-17** | [What does a suspended storefront actually do, and what happens to orders already placed?](#c-17--what-a-suspended-storefront-does--decided) | **DECIDED 2026-09-21: B — admin-only** — written out in full above, because it drives `C3` |
 | **C-18** | Customer code: never, webhooks only, or eventually a sandbox? | the extension model |
 
 **What engineering decided without asking**, so it is not mistaken for an open question: where commercial tables
@@ -555,9 +754,24 @@ The repository is **private**, so Actions minutes are billed. Nothing in the rep
 suite (Testcontainers inside a container), the frontend job and the supply-chain scans still need the pipeline.
 
 
-## C-19 — what the merchant agreement says the platform operator can see
+## C-19 — what the merchant agreement says the platform operator can see — DECIDED
 
-**Status:** open. Recorded by C11 (2026-09-21) because the code moved, not because engineering has a view on the answer.
+**Decided by the owner on 2026-09-21: option A.** In the owner's words:
+
+> **Explicitly disclose the platform's permitted visibility in the merchant agreement.**
+
+**What that covers.** Option A as stated: the operator can see each store's revenue totals and order counts,
+its customer list, and the audit log of actions taken in the store, for billing, support and fraud prevention.
+
+**What it changes in the repository: nothing, deliberately.** This was the one item that blocked no engineering
+at all — the capability exists, is behind `platform.reports.view`, and is audited with its own action and its
+period. The decision means the disclosure is now owed **in the merchant agreement**, which is a contract
+drafted outside this repository by whoever writes it. Engineering's part is to keep the capability no wider
+than the disclosure: revenue totals and order counts per store, the customer list, and the audit log — and to
+treat any widening of platform visibility as a change that revisits this decision.
+
+**Status:** decided. Recorded by C11 (2026-09-21) because the code moved, not because engineering had a view on
+the answer.
 
 **What changed.** Until C11 the platform screens showed cross-store *counts* only, and the Reporting module document
 said no store's commercial figures reached the platform "by design". C11 reversed that: `GET /api/platform/revenue`
@@ -571,9 +785,10 @@ belongs in the agreement rather than in a support answer later. The same questio
 unanswered, to two things that predate C11: the platform can enumerate a store's customer list, and its audit log
 records actions taken inside a store.
 
-**Options.** (a) State it plainly in the merchant agreement — what the operator can see, and for what purpose
-(billing, support, fraud). (b) Narrow the capability to aggregates only, which weakens per-store billing. (c) Leave
-it unstated, which is the current position and the one that ages worst.
+**Options, as they were put.** (a) State it plainly in the merchant agreement — what the operator can see, and
+for what purpose (billing, support, fraud). (b) Narrow the capability to aggregates only, which weakens
+per-store billing. (c) Leave it unstated, which was the position then and the one that ages worst. **(a) was
+chosen.**
 
 **What engineering did in the meantime.** Kept the read in the single reviewed type allowed to cross the tenant
 filter, put it behind a platform-only permission, and audited it with its own action (`platform.revenue.viewed`) and
@@ -587,5 +802,10 @@ To be explicit, because these are the ways this page could quietly stop being tr
 - **Not invent a tax rule**, not even a "reasonable default" — a wrong rate is worse than an obvious gap.
 - **Not pick a licence**, and not leave MIT in place by inertia and call it a decision.
 - **Not mark P-05 verified** from documentation, a support article, or a sandbox that is not the real account.
-- **Not choose the payment ownership model** by shipping whichever path is easier to code.
+- **Not choose the payment ownership model** by shipping whichever path is easier to code. *(Answered by the
+  owner on 2026-09-21 — `D-13` = A. The rule stands for every future re-opening of it.)*
 - **Not choose F-8's behaviour** by implementing the one that is simpler to write.
+- **Not mark a tax profile verified.** `P-06`'s answer is a capability, and a profile's verification state is
+  set by the professional who verified it — never by engineering, never by a migration, and never as a default.
+- **Not pick a payment provider to close a phase.** `C-01` = B decided the *model*; the provider is a
+  commercial and contractual choice, and the adapter stays provider-agnostic until one is contracted.

@@ -13,6 +13,11 @@
 > phase delivers genuine product capability, adding it to `ProductRoadmap.md` §6 is the owner's next roadmap
 > edit, and this plan does not pre-empt that placement.
 >
+> **The eight blocking owner decisions were answered on 2026-09-21** and `C9`, `C3`, `C5`, the policy-link half
+> of `C8`, the tax architecture and `C12`'s port are unblocked. Every answer is recorded in
+> [OwnerDecisions.md](../09-OPERATIONS/OwnerDecisions.md); §0 lists what each one released and what is still
+> gated.
+>
 > **`C1`, `C2` and `C11` are done.** The *Billing* module exists, plans and entitlements are enforced through the
 > seam that already existed, the fail-open default is closed, numeric limits are now **enforced** by a counter row
 > that no isolation level can defeat, and merchant analytics answer in the merchant's own day with profit reported
@@ -26,26 +31,41 @@
 ## 0. Status (machine-readable)
 
 ```yaml
-plan_version: 1.3.0
+plan_version: 1.4.0
 track: commercial
 current_phase: C11
 phase_status: done
-# EVERY remaining phase is gated on an owner decision. C11 was the last unblocked one, which is
-# why it was taken out of §4's order. The cheapest to unblock, in this order:
-#   C-08  -> C9  (behavioural events; the ONLY phase whose cost rises with delay — data not
-#                 captured today can never be reconstructed. Answer it even if the answer is "no".)
-#   C-17  -> C3  (real suspension), then C6 with C4+C5
-#   TD-42 -> C8  (store-authored pages/themes: the cheapest visible credibility fix)
-#   C-15  -> C5  (invoices + manual collection; needs P-06 too)
-#   D-18  -> C4  (multi-instance: cloud blob storage)
-#   C-11  -> C7  (custom domains)
-#   D-13 + C-01 -> C12, then C13
-#   C-09  -> C10 · C-18 -> C14
-next_phase: C9                                 # gated on C-08; no unblocked phase remains
-blocked_decisions: ["C-08", "C-17", "TD-42", "C-15", "P-06", "D-18", "C-11", "D-13", "C-01", "C-09", "C-18"]
+# 2026-09-21: the owner answered the eight questions of OwnerDecisionBrief.md, and SIX phases that
+# were gated are now unblocked. The canonical record of each answer is its own entry in
+# docs/09-OPERATIONS/OwnerDecisions.md; §5 of this page carries the plan-side consequence.
+#
+#   C-08  = A  -> C9  unblocked (opaque visitor identifier; capture ships OFF until the owner
+#                     supplies lawful basis + retention + residency — those three are still open)
+#   C-17  = B  -> C3  unblocked (admin-only suspension), and C6 once C3+C4+C5 are in
+#   TD-42 = C  -> the policy-link half of C8 unblocked, and M2 of SouqMasterPlan.md closes with it
+#   C-15  = A  -> C5  unblocked (JOD), together with P-06's answer below
+#   P-06  = a configurable jurisdiction-aware tax capability, NOT a rate. Unblocks the tax
+#                     architecture; unblocks no jurisdiction's values, which stay unverified
+#   D-13  = A  -> each store is its own merchant of record; Souq earns by invoicing subscriptions
+#   C-01  = B  -> a redirect-first model WITHOUT transaction-time splitting; NO provider chosen,
+#                     so C12 builds the port and the model, and the adapter waits on a contract
+#   C-19  = A  -> disclosure in the merchant agreement; blocks no engineering, as recorded
+#
+# STILL BLOCKED, and by what:
+#   C4  <- D-18 for blob storage ONLY. Its other two thirds (cross-instance invalidation of all
+#          three caches, and a lock/leader election for the sweeps) are blocked by nothing — split.
+#   C7  <- C-11 (managed edge or self-run ACME; apex; SLA; abandoned-domain policy)
+#   C10 <- C-09 (may behavioural data be pooled across tenants) + C9's data having accumulated
+#   C13 <- a provider contract. C-02 is answered by D-13=A; C-03/C-04/C-05 have NO SUBJECT under
+#          D-13=A + C-01=B, because no commission is taken from a shopper's payment at all
+#   C14 <- C-18 (customer code: never, webhooks only, or a sandbox)
+next_phase: C9
+blocked_decisions: ["D-18", "C-11", "C-09", "C-18", "C-12", "C-13"]
+answered_decisions: ["C-08", "C-17", "TD-42", "C-15", "P-06", "D-13", "C-01", "C-19"]
+open_sub_decisions: ["C-08 lawful basis", "C-08 retention period", "C-08 data residency",
+                     "P-06 every jurisdiction value", "C-01 the provider itself"]
 last_verified_date: 2026-09-21
-last_verified_head: b476a8d                    # C11 closed at d7ee2e5; the commits after it are unblocked
-                                               # debt (TD-61, TD-62, TD-60, F-21, TD-48, TD-63), not a C phase
+last_verified_head: 568fa01                    # the decisions were recorded on top of this
 baseline_branch: phase/17-production-hardening
 
 # ── ما جرى بعد C11 وليس مرحلة ─────────────────────────────────────────────
@@ -160,7 +180,12 @@ Each phase lists: **delivers · depends on · blocked by · why here**.
   the background-sweep list fix so Provisioning and Archived stores are reachable by the jobs that must see them.
   A `Suspend()` path that works from `Provisioning`, which it currently refuses.
 - **Depends on.** Nothing.
-- **Blocked by.** A product call on what a suspended storefront does (§5, C-17).
+- **Blocked by.** ~~A product call on what a suspended storefront does (§5, C-17).~~ **Answered 2026-09-21:
+  `C-17` = B, admin-only.** The storefront shows the branded unavailable page, the merchant can still sign in
+  and act, and customers can still track orders they already paid for. Three consequences are now in scope and
+  are engineering, not further decisions: the browser app must stop refusing to mount for a non-`Active` store
+  (it refuses for all of them today, so a suspended merchant cannot reach their own admin); public order
+  tracking must gain a closed-store exemption; and purchasing must be refused server-side, not merely hidden.
 - **Why here.** Today suspension is a status column plus a middleware gate, which is fine while a human types it
   and unsafe the moment dunning automates it. This must precede C6.
 
@@ -182,8 +207,11 @@ Each phase lists: **delivers · depends on · blocked by · why here**.
   tax snapshot frozen at issue, *CreditNote* as a separate aggregate, and **manual/offline collection** — a
   merchant paying by bank transfer, with invoices, reminders and grace periods operating with no provider in the
   loop. *BillableEvent* and *BillingPeriod* with Open → Closing → Closed.
-- **Depends on.** C1.
-- **Blocked by.** The invoicing currency and the jurisdictions it must satisfy (§5, C-15, P-06).
+- **Depends on.** C1, and the tax capability from `P-06`'s answer for the snapshot it freezes.
+- **Blocked by.** ~~The invoicing currency and the jurisdictions it must satisfy (§5, C-15, P-06).~~ **Both
+  answered 2026-09-21: `C-15` = A, JOD**, and **`P-06` = a configurable jurisdiction-aware capability**. The
+  invoice freezes a tax *snapshot* taken from whichever profile version applied at issue, and an unverified
+  profile is carried as unverified onto the invoice rather than silently trusted.
 - **Why here.** It is the half of billing that needs no payment provider at all, and in this market it is the
   mainstream case rather than the fallback.
 
@@ -215,7 +243,9 @@ Each phase lists: **delivers · depends on · blocked by · why here**.
   fixed JSX. Store-authored content pages or policy links, per TD-42. Per-store string overrides applied as an
   explicit overlay after boot.
 - **Depends on.** Nothing.
-- **Blocked by.** TD-42 (scope), and a design decision on what the three presets *are*.
+- **Blocked by.** ~~TD-42 (scope)~~ **answered 2026-09-21: `TD-42` = C — links now, revisit authored pages when
+  a real merchant requires them**, so the policy-link half of this phase is unblocked and *ContentPage* stays
+  deferred with its trigger named. Still blocked: a design decision on what the three presets *are*.
 - **Why here.** It is the cheapest credibility fix on the list: a merchant evaluating the product today picks one
   of three themes and sees no difference, which reads as broken.
 
@@ -226,8 +256,12 @@ Each phase lists: **delivers · depends on · blocked by · why here**.
   list identity on every impression, write-time denormalisation, the separate identity-link table, the rollup
   jobs, and the retention policy.
 - **Depends on.** Nothing technical.
-- **Blocked by.** C-08 (is a visitor identifier stored for signed-out shoppers, on what basis, for how long, and
-  may it leave the country).
+- **Blocked by.** ~~C-08~~ **answered 2026-09-21: `C-08` = A — store an opaque visitor identifier for signed-out
+  shoppers.** The three sub-questions option A reserved to the owner — the lawful basis, the retention period,
+  and whether rows may leave Jordan — are **still open**, so this phase ships the whole foundation with
+  **capture off unless configured**: no default retention window, no default lawful basis, no external
+  processor, and a startup check that reports the state plainly. Turning it on is a deliberate act with those
+  three answers in hand.
 - **Why here — and why the delay is expensive.** Every other item on this plan can be built later at the same
   cost. This one cannot: a purchase that happened before the event existed can never be attributed to the search
   that produced it. **If C-08 is answered "no visitor identifier", say so explicitly and record what is
@@ -288,8 +322,14 @@ Each phase lists: **delivers · depends on · blocked by · why here**.
   entity. TD-50 (record the account identity, not just its kind) and TD-52 (the injectable gateway factory) are
   prerequisites, not follow-ups.
 - **Depends on.** Nothing technical.
-- **Blocked by.** D-13 and C-01 — the first adapter defines the port's vocabulary, and building it against a
-  provider Souq cannot go live with would validate the wrong shape.
+- **Blocked by.** ~~D-13 and C-01~~ **both answered 2026-09-21.** `D-13` = A — each store is its own merchant of
+  record, Souq never touches shopper funds, and Souq earns by invoicing subscriptions. `C-01` = B — a
+  **redirect-first model without transaction-time splitting**, with **no provider chosen**. So this phase builds
+  the port, the redirect-first result, the attempt aggregate, the webhook inbox and the declared capabilities,
+  and it does **not** build a named provider's adapter: that waits on a contract, which is an external
+  dependency. Three things `D-13` = A makes mandatory rather than optional arrive with it: TD-50 (record the
+  account's identity, not just its kind), a payment item in store readiness, and a concurrency token on
+  `StorePaymentAccounts`.
 
 ### C13 — Commissions, payouts, ledger and reconciliation
 
@@ -298,7 +338,13 @@ Each phase lists: **delivers · depends on · blocked by · why here**.
   party and a state machine modelled on the **longest** provider's lifecycle, not the shortest. Three provider
   reference columns per movement. The reconciliation job and its exception queue.
 - **Depends on.** C12.
-- **Blocked by.** D-13, C-02, C-03, C-04, C-05, C-06.
+- **Blocked by.** **Re-scoped by the 2026-09-21 answers rather than unblocked.** `D-13` = A + `C-01` = B mean no
+  commission is taken from a shopper's payment, so commissions, payouts and reconciliation against a provider's
+  settlement report have nothing to record: `C-02` is answered "never", and `C-03`, `C-04` and `C-05` have no
+  subject. What remains of this phase — Souq's own receivable from a merchant — belongs to `C5`. The phase
+  stays on the plan for the day Souq is in a funds flow, and that day re-opens `D-13`. `C-06` (who bears a
+  chargeback) still applies to the **store's own** provider relationship, which is the store's contract, not
+  Souq's ledger.
 
 ### C14 — The bounded extension model
 
@@ -335,20 +381,39 @@ legal.
 |---|---|---|---|
 | 1 | ~~**C1**~~ **done** | nothing else can substitute for it, and nothing blocks it | — |
 | 2 | ~~**C2**~~ **done** | a quota that fails open is a billing defect; also closed TD-68 | — |
-| 3 | **C9** | the only item whose cost rises with delay | **C-08** |
-| 4 | **C3** | suspension must be real before it is automated | C-17 |
-| 5 | **C8** | cheapest visible credibility; parallel to the money track | TD-42 |
-| 6 | **C5** | the half of billing that needs no provider | C-15, P-06 |
-| 7 | **C4** | the precondition for C6 and for in-process ACME | D-18 |
-| 8 | **C6** | the first automated irreversible action against a customer | C-17 |
+| 3 | **C9** | the only item whose cost rises with delay | ~~C-08~~ **answered A — unblocked** |
+| 4 | **C3** | suspension must be real before it is automated | ~~C-17~~ **answered B — unblocked** |
+| 5 | **C8** | cheapest visible credibility; parallel to the money track | ~~TD-42~~ **answered C — the policy-link half is unblocked; theme presets and the section registry still need a design call** |
+| 6 | **C5** | the half of billing that needs no provider | ~~C-15, P-06~~ **both answered — unblocked** |
+| 7 | **C4** | the precondition for C6 and for in-process ACME | **split:** caches + locking unblocked; blob storage still D-18 |
+| 8 | **C6** | the first automated irreversible action against a customer | ~~C-17~~ answered; needs C3 + C4's locking + C5 |
 | 9 | **C7** | turns onboarding into a product | **C-11** |
 | 10 | ~~**C11**~~ **done (taken early)** | small, independent, immediately useful to merchants — and the only phase gated by nothing, so it ran once C2 closed | — |
-| 11 | **C12** | the port's vocabulary is set by the first real adapter | **D-13, C-01** |
-| 12 | **C13** | the whole financial layer, once the port is real | D-13 + five more |
+| 11 | **C12** | the port's vocabulary is set by the first real adapter | ~~D-13, C-01~~ **both answered — the port and the redirect-first model are unblocked; a real adapter waits on a provider contract** |
+| 12 | **C13** | the whole financial layer, once the port is real | a provider contract. C-02 answered by D-13=A; C-03/C-04/C-05 have no subject under D-13=A |
 | 13 | **C10** | needs C9's data to have accumulated | C-09 |
 | 14 | **C14** | worth building when a customer actually asks | C-18 |
 
+**What the 2026-09-21 answers changed about this order.** `C9` keeps its place and is now buildable. `C13`
+shrinks: with no commission taken from a shopper's payment, the ledger's marketplace half — commissions,
+payouts, reconciliation against a provider's settlement report — has nothing to record, and what remains is
+Souq's own receivable from a merchant, which is `C5`'s. The phase is not cancelled; it is re-scoped to the day
+Souq is in a funds flow, and that day needs `D-13` re-opened.
+
 ## 5. NEXT OWNER DECISIONS
+
+> **Eight of these were answered on 2026-09-21** — `C-08` = A, `C-17` = B, `TD-42` = C, `C-19` = A, `C-15` = A,
+> `D-13` = A, `C-01` = B (a model, not a provider), and `P-06` as a configurable jurisdiction-aware capability
+> rather than any of its three offered letters. **The canonical record of each is its own entry in
+> [OwnerDecisions.md](../09-OPERATIONS/OwnerDecisions.md)**; §0 of this page lists what each released. The
+> prose below is kept as the question that was asked, with the answer marked, because the *reasoning* behind
+> each option is still the best record of why the answer costs what it costs.
+>
+> **What remains genuinely open:** `D-18` (cloud blob storage, for a third of `C4`), `C-11` (custom domains),
+> `C-09` (pooling behavioural data), `C-18` (customer code), `C-12` (tiers and limit values — it blocks
+> *selling*, not building), and three sub-answers inside decisions that are otherwise closed: `C-08`'s lawful
+> basis, retention period and residency, every value in any `P-06` jurisdiction profile, and the `C-01`
+> provider itself.
 
 These are decisions engineering has taken as far as it can and then stopped on purpose. The canonical register
 is [OwnerDecisions.md](../09-OPERATIONS/OwnerDecisions.md); the `C-` items below are new and are summarised
