@@ -10,7 +10,7 @@
 | [`Souq.Domain.Tests`](#souqdomaintests) | 30 | 254 | 50 |
 | [`Souq.Application.Tests`](#souqapplicationtests) | 52 | 387 | 19 |
 | [`Souq.ArchitectureTests`](#souqarchitecturetests) | 17 | 76 | 8 |
-| [`Souq.IntegrationTests`](#souqintegrationtests) | 58 | 365 | 26 |
+| [`Souq.IntegrationTests`](#souqintegrationtests) | 58 | 366 | 26 |
 | [frontend (Vitest)](#frontend-vitest) | 94 | 716 | — |
 | [frontend (Playwright)](#frontend-playwright) | 19 | 126 | — |
 
@@ -164,7 +164,7 @@
 | `tests/Souq.IntegrationTests/OrderLifecycleTests.cs` | `OrderLifecycleTests` | 6 | 0 |
 | `tests/Souq.IntegrationTests/PaymentAdapterTests.cs` | `SecretProtectorTests`, `FakeGatewayTests` | 6 | 1 |
 | `tests/Souq.IntegrationTests/PaymentDataRulesTests.cs` | `PaymentDataRulesTests` | 2 | 0 |
-| `tests/Souq.IntegrationTests/PaymentsAndRefundsTests.cs` | `PaymentsAndRefundsTests` | 6 | 0 |
+| `tests/Souq.IntegrationTests/PaymentsAndRefundsTests.cs` | `PaymentsAndRefundsTests` | 7 | 0 |
 | `tests/Souq.IntegrationTests/PlatformAdministrationTests.cs` | `PlatformAdministrationTests` | 9 | 0 |
 | `tests/Souq.IntegrationTests/PlatformAuditViewerTests.cs` | `PlatformAuditViewerTests` | 5 | 0 |
 | `tests/Souq.IntegrationTests/PlatformRevenueTests.cs` | `PlatformRevenueTests` | 5 | 0 |

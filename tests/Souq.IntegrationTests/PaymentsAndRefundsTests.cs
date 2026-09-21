@@ -215,6 +215,65 @@ public class PaymentsAndRefundsTests
         (await storeApi.WithDbAsync(db => db.StorePaymentAccounts.CountAsync())).Should().Be(0);
     }
 
+    // ============================================================================
+    // TD-62 (P0) — سرّ متجر لا يُفكّ **يُسقط الدفع بصوت**، ولا يرجع صامتاً إلى حساب النشر.
+    //
+    // هذا هو أخطر ما يمكن أن يخطئ فيه هذا الملف كلّه، وهو بالضبط ما وُجدت ADR-0031 لمنعه: لو
+    // تسرّب المسار من الاستثناء إلى `?? _deployment.Gateway` لصار مال بطاقات **متجرٍ** يُقبض في
+    // حساب **النشر** — أموال شخص في حساب شخص آخر، بلا خطأ ولا سجلّ ولا اختبار أحمر. المسار كُتب
+    // دفاعياً ولم يُمسّ قطّ: `PaymentGatewayUnavailableException` لم تكن لها إشارة واحدة في أي اختبار.
+    //
+    // ولا شبكة في هذا الاختبار: فكّ التشفير يفشل **قبل** أن يُبنى أي كائن Stripe، فالفرع المحروس
+    // يُبلَغ فعلاً بلا مفتاح حقيقي ولا اتصال خارجي — وهو ما جعل الاختبار ممكناً قبل TD-52.
+    // ============================================================================
+    [Fact]
+    public async Task سرّ_حساب_المتجر_التالف_يُسقط_الدفع_ولا_يرجع_صامتاً_لحساب_النشر()
+    {
+        var store = await _factory.CreateStoreAsync();
+        var storeApi = _api.ForStore(store);
+        var storeAdmin = await storeApi.AdminAsync();
+
+        (await storeAdmin.PutAsJsonAsync("/api/admin/store/payments", new
+        {
+            publishableKey = "pk_test_51CorruptedPublic",
+            secretKey = "sk_test_51CorruptedSecretAbc7",
+            webhookSecret = "whsec_corrupted_hook",
+        })).StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        // قبل الإفساد: التوجيه يعمل ويعطي مفتاح **المتجر**.
+        (await storeApi.Anonymous().GetFromJsonAsync<ConfigBody>("/api/payments/config", TestApi.Json))!
+            .PublishableKey.Should().Be("pk_test_51CorruptedPublic");
+
+        // مفتاح النشر في هذه الحزمة فارغ — فهو العلامة التي تكشف الرجوع الصامت لو وقع.
+        var deploymentKey = (await _api.Anonymous()
+            .GetFromJsonAsync<ConfigBody>("/api/payments/config", TestApi.Json))!.PublishableKey;
+
+        // يُفسَد النصّ المشفّر مع الإبقاء على صيغته: `v1.<keyId>.<base64>` يُحلَّل ثم يفشل فكّه،
+        // وهو ما يحدث فعلاً عند تدوير مفتاح أو تلف صفّ — لا نصٌّ عشوائي يُرفض عند التحليل.
+        await storeApi.WithDbAsync(async db =>
+        {
+            var account = await db.StorePaymentAccounts.SingleAsync();
+            var parts = account.SecretKeyCipher.Split('.', 3);
+            var blob = Convert.FromBase64String(parts[2]);
+            blob[^1] ^= 0xFF;   // آخر بايت من النصّ المعمّى: التحقّق من الوسم يفشل
+            db.Entry(account).Property(nameof(Souq.Domain.Entities.StorePaymentAccount.SecretKeyCipher))
+                .CurrentValue = $"{parts[0]}.{parts[1]}.{Convert.ToBase64String(blob)}";
+            return await db.SaveChangesAsync();
+        });
+
+        var response = await storeApi.Anonymous().GetAsync("/api/payments/config");
+
+        response.StatusCode.Should().Be(HttpStatusCode.ServiceUnavailable,
+            "سرّ لا يُفكّ يوقف الدفع — ولا يُسلّم المتجر إلى حساب النشر بصمت (ADR-0031)");
+        (await ProblemAsync(response)).Should().Be((HttpStatusCode.ServiceUnavailable, "PaymentsUnavailable"));
+
+        var body = await response.Content.ReadAsStringAsync();
+        body.Should().NotContain("publishableKey",
+            "الاستجابة رفضٌ لا إعداد — ولا تحمل مفتاح أي حساب");
+        if (!string.IsNullOrEmpty(deploymentKey))
+            body.Should().NotContain(deploymentKey, "وأخصّ ما يجب ألّا يظهر: مفتاح حساب النشر");
+    }
+
     private static async Task<int> PaidOrderAsync(TestApi api, HttpClient admin, HttpClient customer, decimal price)
     {
         var orderId = await PlacedOrderAsync(api, customer, await api.CreateProductAsync(admin, price: price, stock: 5));
