@@ -42,6 +42,10 @@ export function settingsToForm(settings, options) {
     seoTitle: texts(settings?.seo?.title, cultures),
     seoDescription: texts(settings?.seo?.description, cultures),
     announcement: texts(settings?.announcement, cultures),
+    // روابط السياسات (TD-42): الأنواع من الخادم لا من نسخة هنا، وكلّها في النموذج ولو فارغة كي
+    // يعرف التاجر ما يمكن ضبطه — والفارغ يصل فارغاً فيحذفه الخادم.
+    policies: Object.fromEntries((options?.policyKinds ?? Object.keys(settings?.policies ?? {}))
+      .map((kind) => [kind, settings?.policies?.[kind] ?? ''])),
   };
 }
 
@@ -73,6 +77,7 @@ export const buildSettingsPayload = (form) => ({
     .filter(({ url }) => url),
   seo: { title: trimmed(form.seoTitle), description: trimmed(form.seoDescription) },
   announcement: trimmed(form.announcement),
+  policies: trimmed(form.policies),
 });
 
 // ── التباين ───────────────────────────────────────────────────────────────
@@ -151,8 +156,20 @@ export function settingsProblems(form, options) {
     }
   });
 
+  // السياسات: رابط https مطلق وحده (كما يفرض Domain). لا نطاق محدّد — التاجر يستضيف صفحته حيث يشاء.
+  for (const [kind, raw] of Object.entries(form.policies ?? {})) {
+    const value = (raw ?? '').trim();
+    if (!value) continue;
+    if (!isHttpsUrl(value, limits.policyUrl)) add(`policies.${kind}`, 'policyInvalid', { max: limits.policyUrl });
+  }
+
   if (form.openingStyle && !options.openingStyles.includes(form.openingStyle)) add('openingStyle', 'openingInvalid');
   return problems;
+}
+
+function isHttpsUrl(value, maxLength) {
+  if (value.length > maxLength) return false;
+  try { return new URL(value).protocol === 'https:'; } catch { return false; }
 }
 
 function linkOnDomains(value, domains, maxLength) {

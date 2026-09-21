@@ -29,12 +29,18 @@ public sealed class StoreSettings
     public SeoSettings Seo { get; }
     public IReadOnlyDictionary<string, string> Announcement { get; }
 
+    // روابط السياسات (TD-42). صفوف كُتبت قبل هذا الحقل تُقرأ بلا قيمة فتأخذ "لا روابط" — لا رابط
+    // يظهر فجأةً في تذييل متجر لم يضبطه.
+    public StorePolicyLinks Policies { get; } = StorePolicyLinks.Empty;
+
     internal StoreSettings(
         IReadOnlyDictionary<string, string> displayName, IReadOnlyList<string> enabledCultures, StoreBranding branding,
-        StoreContact contact, IReadOnlyList<SocialLink> social, SeoSettings seo, IReadOnlyDictionary<string, string> announcement)
+        StoreContact contact, IReadOnlyList<SocialLink> social, SeoSettings seo, IReadOnlyDictionary<string, string> announcement,
+        StorePolicyLinks? policies = null)
     {
         DisplayName = displayName; EnabledCultures = enabledCultures; Branding = branding;
         Contact = contact; Social = social; Seo = seo; Announcement = announcement;
+        Policies = policies ?? StorePolicyLinks.Empty;
     }
 
     // متجر جديد: اسمه بلغته الافتراضية وهوية محايدة مقروءة — والباقي حتى يضبطه أحد.
@@ -45,9 +51,61 @@ public sealed class StoreSettings
     internal StoreSettings With(
         IReadOnlyDictionary<string, string>? displayName = null, IReadOnlyList<string>? enabledCultures = null,
         StoreBranding? branding = null, StoreContact? contact = null, IReadOnlyList<SocialLink>? social = null,
-        SeoSettings? seo = null, IReadOnlyDictionary<string, string>? announcement = null) => new(
+        SeoSettings? seo = null, IReadOnlyDictionary<string, string>? announcement = null,
+        StorePolicyLinks? policies = null) => new(
         displayName ?? DisplayName, enabledCultures ?? EnabledCultures, branding ?? Branding, contact ?? Contact,
-        social ?? Social, seo ?? Seo, announcement ?? Announcement);
+        social ?? Social, seo ?? Seo, announcement ?? Announcement, policies ?? Policies);
+}
+
+// ============================================================================
+// روابط سياسات المتجر — الخصوصية والشروط والإرجاع والشحن والأسئلة الشائعة.
+//
+// **قرار المالك TD-42 = C (2026-09-21): روابط الآن، وصفحات مؤلَّفة حين يطلبها تاجر حقيقي.** فالمنصّة
+// تحفظ عنواناً واحداً لكل نوع، والنصّ نفسه يستضيفه التاجر حيث يشاء. تذييل المتجر يرسم رابطاً حين
+// يُضبط وحده — والغياب أصدق من رابط ميّت، وهو السبب الذي حُذفت به روابط `href="#"` في المرحلة 16.
+//
+// الأنواع **قائمة مغلقة** لا نصّ حرّ: نوعٌ لا تعرفه الواجهة يُرسم مفتاحاً خامّاً بحروف لاتينية في
+// تذييل متجر عربي، وهو بعينه العطب الذي وقع في أيقونات الشبكات. يحرس التطابقَ اختبار معمارية.
+//
+// https وحدها وعنوان مطلق: سياسةٌ على http في متجرٍ على https محتوى مختلط يحجبه المتصفّح، وقابلةٌ
+// للتلاعب في الطريق — وهي الصفحة التي يُفترض أن يثق بها المشتري. ولا javascript: ولا مسار نسبيّ
+// يُوهم بأنّ الصفحة من المنصّة.
+// ============================================================================
+public sealed class StorePolicyLinks
+{
+    public const int UrlMaxLength = 300;
+
+    public static readonly IReadOnlyList<string> Kinds = ["privacy", "terms", "returns", "shipping", "faq"];
+
+    public IReadOnlyDictionary<string, string> Urls { get; }
+
+    internal StorePolicyLinks(IReadOnlyDictionary<string, string> urls) => Urls = urls;
+
+    public static StorePolicyLinks Empty { get; } = new(new Dictionary<string, string>(StringComparer.Ordinal));
+
+    public string? UrlFor(string kind) => Urls.TryGetValue(kind, out var url) ? url : null;
+
+    public static StorePolicyLinks Create(IReadOnlyDictionary<string, string?>? urls)
+    {
+        var result = new Dictionary<string, string>(StringComparer.Ordinal);
+        if (urls is null) return new StorePolicyLinks(result);
+
+        foreach (var (key, raw) in urls)
+        {
+            var kind = key?.Trim().ToLowerInvariant() ?? "";
+            if (!Kinds.Contains(kind))
+                throw new InvalidTenantOperationException($"نوع سياسة غير مدعوم: {key}");
+
+            var value = raw?.Trim() ?? "";
+            if (value.Length == 0) continue;   // الفارغ حذف، لا رابط بلا هدف.
+            if (value.Length > UrlMaxLength)
+                throw new InvalidTenantOperationException($"رابط {kind} يتجاوز {UrlMaxLength} حرفاً");
+            if (!Uri.TryCreate(value, UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttps)
+                throw new InvalidTenantOperationException($"رابط {kind} يجب أن يكون https كاملاً");
+            result[kind] = uri.AbsoluteUri;
+        }
+        return new StorePolicyLinks(result);
+    }
 }
 
 // نص لكل لغة: مفاتيح اللغات المدعومة فقط، قيم مقصوصة، الفارغ يُحذف (الواجهة تعود للّغة الافتراضية).

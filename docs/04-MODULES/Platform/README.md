@@ -13,7 +13,7 @@ The module also hosts the **audit trail**: the append-only record of who did wha
 - The store (tenant) lifecycle: create, name, currency, locale, activate, suspend, archive.
 - Hosts: adding, removing and choosing the primary domain; the platform-wide uniqueness of a host.
 - Resolving a request's store from its `Host` header, and deciding whether the requested endpoint is available on that host in that store's state.
-- The store settings document: per-language display name and announcement, branding (colours, typography and theme presets, uploaded logo/favicon/social image), contact details, social links, SEO, enabled languages.
+- The store settings document: per-language display name and announcement, branding (colours, typography and theme presets, uploaded logo/favicon/social image), contact details, social links, **policy links**, SEO, enabled languages.
 - The platform's per-store switch for the optional modules, and the server-side enforcement of the **effective** set — what the store's plan grants, intersected with that switch.
 - The public storefront configuration one store's frontend boots from, with its cache and ETag.
 - The platform administration area: the store list and detail, a store's administrative accounts, inviting a store's first administrator, platform accounts, and the audit log.
@@ -59,6 +59,7 @@ The module also hosts the **audit trail**: the append-only record of who did wha
 | `StoreContact` | value object | `src/Souq.Domain/Platform/StoreSettings.cs` | Email shape and length; phone shape; per-language address through `LocalizedText` |
 | `SocialLink` | value object | `src/Souq.Domain/Platform/StoreSettings.cs` | Only the eight known networks; absolute `https` URL on that network's own domain; at most `StoreSettings.MaxSocialLinks`, one per network |
 | `SeoSettings` | value object | `src/Souq.Domain/Platform/StoreSettings.cs` | Title ≤70, description ≤160 characters per language |
+| `StorePolicyLinks` | value object | `src/Souq.Domain/Platform/StoreSettings.cs` | The five policy kinds only (`privacy`, `terms`, `returns`, `shipping`, `faq`); each an absolute `https` URL ≤300 characters, on **any** domain — the merchant hosts the page. An empty value is a deletion, an unknown kind is refused rather than ignored. Answers TD-42 as the owner decided it (links, not authored pages) |
 | `LocalizedText` | static helper | `src/Souq.Domain/Platform/StoreSettings.cs` | Only supported culture keys; trims; drops empty values; enforces the caller's maximum length |
 | `BrandPresets` | static catalogue | `src/Souq.Domain/Platform/StoreSettings.cs` | The approved typography and theme keys |
 | `BrandingAsset` | enum | `src/Souq.Domain/Platform/StoreSettings.cs` | — |
@@ -108,7 +109,7 @@ Platform-area requests (`Features/Platform`) are all audited, and are the **only
 | Read the audit log | `ListAuditEntriesQuery` | `ListAuditEntriesHandler` | `platform.audit.view` | `GET /api/platform/audit` |
 | Read a store's own settings | `GetStoreSettingsQuery` | `GetStoreSettingsHandler` | `store.settings.manage` | `GET /api/admin/store/settings` |
 | Edit a store's own settings | `UpdateStoreSettingsCommand` | `UpdateStoreSettingsHandler` | `store.settings.manage` | `PUT /api/admin/store/settings` |
-| Read what the settings editor may offer (cultures, presets, social networks and domains, limits, contrast thresholds) | `GetStoreSettingsOptionsQuery` | `GetStoreSettingsOptionsHandler` | `store.settings.manage` | `GET /api/admin/store/settings/options` |
+| Read what the settings editor may offer (cultures, presets, social networks and domains, **policy kinds**, limits, contrast thresholds) | `GetStoreSettingsOptionsQuery` | `GetStoreSettingsOptionsHandler` | `store.settings.manage` | `GET /api/admin/store/settings/options` |
 | Upload a branding file from the store | `UploadStoreBrandingCommand` | `UploadStoreBrandingHandler` | `store.settings.manage` | `POST /api/admin/store/branding/logo`, `/favicon`, `/social-image` |
 | Read / change the review-publishing policy | `GetReviewSettingsQuery`, `UpdateReviewSettingsCommand` | `GetReviewSettingsHandler`, `UpdateReviewSettingsHandler` | `reviews.moderate` to read; **both** `reviews.moderate` and `store.settings.manage` to change | `GET`/`PUT /api/admin/reviews/settings` |
 | Read / set / unlink the store's own payment account — **owned by [Payments](../Payments/README.md) since M1**, listed here because the platform area calls it through `IStorePaymentAccountEditor` | `GetStorePaymentAccountQuery`, `UpdateStorePaymentAccountCommand`, `RemoveStorePaymentAccountCommand` | `GetStorePaymentAccountHandler`, `UpdateStorePaymentAccountHandler`, `RemoveStorePaymentAccountHandler` | `store.payments.manage` | `GET`/`PUT`/`DELETE /api/admin/store/payments` |
@@ -272,7 +273,7 @@ Because administration endpoints are recognised by their permission policy, a st
 | Level | Class | What it covers |
 |---|---|---|
 | Domain | `tests/Souq.Domain.Tests/TenantTests.cs` | Creation defaults, slug and currency and locale validation, domain rules, guarded status transitions, currency lock |
-| Domain | `tests/Souq.Domain.Tests/TenantSettingsTests.cs` | Default settings, the default culture always enabled, preset lists, branding-asset prefix, module replacement, social-link limits, control characters in the name |
+| Domain | `tests/Souq.Domain.Tests/TenantSettingsTests.cs` | Default settings, the default culture always enabled, preset lists, branding-asset prefix, module replacement, social-link limits, control characters in the name, and policy links — the closed kind list, the `https`-absolute rule, empty-means-delete, and that a caller who does not mention them does not clear them |
 | Domain | `tests/Souq.Domain.Tests/StoreSettingsTests.cs` | WCAG contrast maths and rejections, social-link allowlist, contact normalization, SEO limits, module parsing |
 | Domain | `tests/Souq.Domain.Tests/InvitationAndAuditTests.cs` | Audit action shape, unknown area, clipping |
 | Application | `tests/Souq.Application.Tests/Platform/TenantAdministrationTests.cs` | Unknown store id, directory invalidation, currency lock through the aggregate, invitation without a domain, invitation inside the store's scope |

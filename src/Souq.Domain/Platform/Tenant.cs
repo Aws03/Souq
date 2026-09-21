@@ -107,9 +107,11 @@ public partial class Tenant : Entity
     }
 
     // محتوى الواجهة: اسم العرض لكل لغة، التواصل، الشبكات، SEO، شريط الإعلان — تستبدل الحالي كاملاً.
+    // policies: null ⇒ الروابط كما هي (مُنادٍ لا يعرفها). محرّر الإعدادات يمرّرها دائماً ولو فارغة، فمسحُ
+    // الروابط كلها ممكن — وهو الفرق بين "لم أذكرها" و"أزلتها".
     public void UpdateStorefront(
         IReadOnlyDictionary<string, string?>? displayName, StoreContact contact, IReadOnlyList<SocialLink> social,
-        SeoSettings seo, IReadOnlyDictionary<string, string?>? announcement)
+        SeoSettings seo, IReadOnlyDictionary<string, string?>? announcement, StorePolicyLinks? policies = null)
     {
         if (social.Count > StoreSettings.MaxSocialLinks)
             throw new InvalidTenantOperationException($"حتى {StoreSettings.MaxSocialLinks} روابط تواصل");
@@ -119,7 +121,8 @@ public partial class Tenant : Entity
         _settings = Settings.With(
             displayName: LocalizedText.Normalize(displayName, StoreSettings.DisplayNameMaxLength, "اسم العرض"),
             contact: contact, social: social.ToList(), seo: seo,
-            announcement: LocalizedText.Normalize(announcement, StoreSettings.AnnouncementMaxLength, "شريط الإعلان"));
+            announcement: LocalizedText.Normalize(announcement, StoreSettings.AnnouncementMaxLength, "شريط الإعلان"),
+            policies: policies);
     }
 
     public void UpdateBranding(BrandColors colors, string typography, string themePreset,

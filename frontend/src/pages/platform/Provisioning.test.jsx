@@ -43,7 +43,8 @@ const StoreSettingsPage = (await import('./StoreSettingsPage')).default;
 const settingsOptions = {
   cultures: ['ar', 'en'], typography: ['tajawal'], themePresets: ['classic'], themeModes: ['light', 'dark', 'system'],
   openingStyles: ['doors'], socialNetworks: [{ network: 'instagram', domains: ['instagram.com'] }],
-  limits: { displayName: 80, announcement: 200, seoTitle: 70, seoDescription: 160, address: 200, socialLinks: 8, socialUrl: 300, timeZone: 64, brandingFileBytes: 2097152 },
+  policyKinds: ['privacy', 'terms', 'returns', 'shipping', 'faq'],
+  limits: { displayName: 80, announcement: 200, seoTitle: 70, seoDescription: 160, address: 200, socialLinks: 8, socialUrl: 300, timeZone: 64, brandingFileBytes: 2097152, policyUrl: 300 },
   contrast: { text: 4.5, ui: 3 },
 };
 const options = {

@@ -98,6 +98,53 @@ public class TenantSettingsTests
         duplicate.Should().Throw<InvalidTenantOperationException>();
     }
 
+    // TD-42 (قرار C): روابط السياسات — النوع من قائمة مغلقة، والرابط https مطلق وحده، والفارغ حذف.
+    [Fact]
+    public void روابط_السياسات_أنواعها_مغلقة_وروابطها_https_وحدها()
+    {
+        var tenant = NewTenant();
+
+        var links = StorePolicyLinks.Create(new Dictionary<string, string?>
+        {
+            ["privacy"] = " https://example.test/privacy ",
+            ["terms"] = "",                       // فارغ ⇒ يُحذف، لا رابط بلا هدف
+        });
+        tenant.UpdateStorefront(null, StoreContact.Empty, [], SeoSettings.Empty, null, links);
+
+        tenant.Settings.Policies.UrlFor("privacy").Should().Be("https://example.test/privacy");
+        tenant.Settings.Policies.UrlFor("terms").Should().BeNull();
+        tenant.Settings.Policies.Urls.Should().HaveCount(1);
+
+        // نوع مجهول لا يُتجاهَل: تاجرٌ يظنّ أنه ضبط شيئاً ولم يفعل أسوأ من خطأ صريح.
+        ((Action)(() => StorePolicyLinks.Create(new Dictionary<string, string?> { ["cookies"] = "https://a.test/c" })))
+            .Should().Throw<InvalidTenantOperationException>();
+
+        foreach (var bad in new[] { "http://example.test/p", "javascript:alert(1)", "/pages/privacy", "example.test/p" })
+        {
+            ((Action)(() => StorePolicyLinks.Create(new Dictionary<string, string?> { ["privacy"] = bad })))
+                .Should().Throw<InvalidTenantOperationException>($"رابط سياسة غير https مطلق يُرفض: {bad}");
+        }
+
+        ((Action)(() => StorePolicyLinks.Create(new Dictionary<string, string?>
+            { ["faq"] = "https://example.test/" + new string('a', StorePolicyLinks.UrlMaxLength) })))
+            .Should().Throw<InvalidTenantOperationException>();
+    }
+
+    // المُنادي الذي لا يعرف الروابط لا يمسحها، ومحرّر الإعدادات يمرّرها دائماً فيقدر على مسحها.
+    [Fact]
+    public void تحديث_الواجهة_بلا_سياسات_يبقيها_وبفارغة_يمسحها()
+    {
+        var tenant = NewTenant();
+        var links = StorePolicyLinks.Create(new Dictionary<string, string?> { ["privacy"] = "https://example.test/p" });
+        tenant.UpdateStorefront(null, StoreContact.Empty, [], SeoSettings.Empty, null, links);
+
+        tenant.UpdateStorefront(null, StoreContact.Empty, [], SeoSettings.Empty, null);
+        tenant.Settings.Policies.Urls.Should().HaveCount(1, "مُنادٍ لا يذكر الروابط لا يقصد مسحها");
+
+        tenant.UpdateStorefront(null, StoreContact.Empty, [], SeoSettings.Empty, null, StorePolicyLinks.Empty);
+        tenant.Settings.Policies.Urls.Should().BeEmpty("روابط فارغة صريحة مسحٌ مقصود");
+    }
+
     [Fact]
     public void اسم_المتجر_بلا_محارف_تحكّم()
     {

@@ -32,6 +32,7 @@ If a client asks for something none of those can express, it becomes a product f
 | Default language, enabled languages, time zone | yes | yes | `ar` and `en` today (`Tenant.SupportedCultures`); the time zone is an IANA id used for display and reports, storage stays UTC. The SPA formats dates in the store's time zone and region, in the reader's language (`frontend/src/app/dateLocale.js`). |
 | Contact: e-mail, phone, address | yes | yes | Shown in the footer and used as the reply address on e-mails |
 | Social links | yes | yes | A known network on its own domain, `https` only; no `javascript:` and no disguised links |
+| Policy links: privacy, terms, returns, shipping, FAQ | yes | yes | `StorePolicyLinks`: five kinds, each an optional absolute `https` URL on **any** domain, because the merchant hosts the page itself. The footer renders a link only where a URL is set, so a store that sets none shows no policy column at all — the point of the owner's TD-42 answer is that what is shown goes somewhere real. Authoring policy pages *inside* Souq stays deferred until a merchant asks |
 | SEO: title and description, per language | yes | yes | 70 and 160 characters; used for the document title and meta description |
 | Domains (custom, subdomain) | yes | no (can request) | Unique across the platform; one primary. Verification exists as a platform action that marks a domain verified; an automated DNS check is **FUTURE**. |
 | Enabled modules | yes | no | Enforced server-side ([MultiTenancy.md](../02-ARCHITECTURE/MultiTenancy.md), D-11) |

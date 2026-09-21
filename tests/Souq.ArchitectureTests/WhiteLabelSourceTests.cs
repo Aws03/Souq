@@ -59,6 +59,40 @@ public partial class WhiteLabelSourceTests
         missing.Should().BeEmpty("شبكة بلا أيقونة تُرسَم اسماً خامّاً في تذييل المتجر");
     }
 
+    // نظير الاختبار أعلاه لأنواع السياسات (TD-42). الرابط نفسه بيانات من إعداد المتجر، لكن **اسم**
+    // النوع شيفرةٌ في التذييل — فنوعٌ سادس يُضاف إلى `StorePolicyLinks.Kinds` بلا مفتاح ترجمة هنا
+    // يُرسم للمشتري مفتاحاً لاتينياً خامّاً في تذييل عربي، وكلا الطرفين صحيح وحده. هذا الاختبار
+    // وحده يرى الطرفين معاً — وهو الدرس نفسه الذي علّمته أيقونات الشبكات.
+    [Fact]
+    public void كل_نوع_سياسة_يقبله_النطاق_له_اسم_في_التذييل()
+    {
+        var footer = File.ReadAllText(Path.Combine(RepositoryRoot(), "frontend", "src", "components", "layout", "Footer.jsx"));
+        var map = Regex.Match(footer, @"POLICY_LABELS\s*=\s*\{(?<body>[^}]*)\}", RegexOptions.Singleline);
+        map.Success.Should().BeTrue("التذييل يربط كل نوع سياسة بمفتاح ترجمة اسمه في POLICY_LABELS");
+
+        var labels = Regex.Matches(map.Groups["body"].Value, @"(?<kind>[a-z]+)\s*:\s*'(?<key>[^']+)'")
+            .ToDictionary(m => m.Groups["kind"].Value, m => m.Groups["key"].Value, StringComparer.Ordinal);
+
+        var missing = Souq.Domain.Platform.StorePolicyLinks.Kinds.Where(k => !labels.ContainsKey(k)).ToList();
+        missing.Should().BeEmpty("نوع سياسة بلا اسم يُرسَم مفتاحاً خامّاً في تذييل المتجر");
+
+        // والترجمتان معاً: مفتاح موجود في التذييل ومفقود من ملفّ لغة يُرسم هو نفسه نصّاً.
+        foreach (var culture in new[] { "ar", "en" })
+        {
+            var locale = File.ReadAllText(Path.Combine(RepositoryRoot(), "frontend", "src", "i18n", "locales", $"{culture}.json"));
+            using var document = System.Text.Json.JsonDocument.Parse(locale);
+            foreach (var key in labels.Values)
+            {
+                var node = document.RootElement;
+                foreach (var part in key.Split('.'))
+                {
+                    node.TryGetProperty(part, out var child).Should().BeTrue($"{culture}.json يحمل {key}");
+                    node = child;
+                }
+            }
+        }
+    }
+
     private static string RepositoryRoot()
     {
         for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir is not null; dir = dir.Parent)

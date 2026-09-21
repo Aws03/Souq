@@ -23,7 +23,10 @@ public sealed record StoreSeoInput(IReadOnlyDictionary<string, string?>? Title, 
 public sealed record StoreSettingsInput(
     IReadOnlyDictionary<string, string?>? DisplayName, StoreLocaleInput Locale, StoreBrandingInput Branding,
     StoreContactInput? Contact, IReadOnlyList<SocialLinkInput>? Social, StoreSeoInput? Seo,
-    IReadOnlyDictionary<string, string?>? Announcement);
+    IReadOnlyDictionary<string, string?>? Announcement,
+    // روابط السياسات: النوع ⇒ عنوانه (TD-42). غائبة ⇒ تُمسح كبقيّة هذا العقد — الحفظ يستبدل كل ما
+    // فيه، والواجهة ترسله كاملاً دائماً.
+    IReadOnlyDictionary<string, string?>? Policies = null);
 
 public sealed record BrandColorsDto(
     string Primary, string Secondary, string Accent, string Background, string Text, string OnPrimary, string OnAccent);
@@ -40,7 +43,9 @@ public sealed record StoreLocaleDto(
 public sealed record StoreSettingsDto(
     IReadOnlyDictionary<string, string> DisplayName, StoreLocaleDto Locale, StoreBrandingDto Branding,
     StoreContactDto Contact, IReadOnlyList<SocialLinkDto> Social, StoreSeoDto Seo,
-    IReadOnlyDictionary<string, string> Announcement);
+    IReadOnlyDictionary<string, string> Announcement,
+    // روابط السياسات المضبوطة وحدها (TD-42): النوع غير المضبوط غائب لا فارغ، فالتذييل يرسم ما يجد.
+    IReadOnlyDictionary<string, string> Policies);
 
 // إعداد الواجهة العام (GET /api/storefront/config): عرض فقط — لا أسرار، ولا بريد إداري، ولا معرّفات داخلية.
 public sealed record StorefrontConfigDto(
@@ -66,7 +71,8 @@ public static class StoreSettingsMapper
             new StoreContactDto(settings.Contact.Email, settings.Contact.Phone, settings.Contact.Address),
             settings.Social.Select(l => new SocialLinkDto(l.Network, l.Url)).ToList(),
             new StoreSeoDto(settings.Seo.Title, settings.Seo.Description),
-            settings.Announcement);
+            settings.Announcement,
+            settings.Policies.Urls);
     }
 
     public static StorefrontConfigDto ToStorefront(Tenant tenant) => new(
@@ -93,7 +99,8 @@ public static class StoreSettingsEditor
             StoreContact.Create(input.Contact?.Email, input.Contact?.Phone, input.Contact?.Address),
             (input.Social ?? []).Select(l => SocialLink.Create(l.Network, l.Url)).ToList(),
             SeoSettings.Create(input.Seo?.Title, input.Seo?.Description),
-            input.Announcement);
+            input.Announcement,
+            StorePolicyLinks.Create(input.Policies));
     }
 }
 
@@ -107,5 +114,6 @@ public sealed class StoreSettingsInputValidator : AbstractValidator<StoreSetting
         RuleFor(x => x.Branding).NotNull();
         RuleFor(x => x.Branding.Colors).NotNull().When(x => x.Branding is not null);
         RuleFor(x => x.Social!.Count).LessThanOrEqualTo(StoreSettings.MaxSocialLinks).When(x => x.Social is not null);
+        RuleFor(x => x.Policies!.Count).LessThanOrEqualTo(StorePolicyLinks.Kinds.Count).When(x => x.Policies is not null);
     }
 }

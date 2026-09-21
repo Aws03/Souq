@@ -38,9 +38,10 @@ const options = {
   themeModes: ['light', 'dark', 'system'],
   openingStyles: ['doors'],
   socialNetworks: [{ network: 'instagram', domains: ['instagram.com'] }, { network: 'x', domains: ['x.com'] }],
+  policyKinds: ['privacy', 'terms', 'returns', 'shipping', 'faq'],
   limits: {
     displayName: 80, announcement: 200, seoTitle: 70, seoDescription: 160, address: 200,
-    socialLinks: 8, socialUrl: 300, timeZone: 64, brandingFileBytes: 2097152,
+    socialLinks: 8, socialUrl: 300, timeZone: 64, brandingFileBytes: 2097152, policyUrl: 300,
   },
   contrast: { text: 4.5, ui: 3 },
 };

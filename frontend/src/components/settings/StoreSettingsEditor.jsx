@@ -149,6 +149,7 @@ export default function StoreSettingsEditor({ source, actions = null, onDirtyCha
 
   const cultureLabel = (culture) => t(`admin.settings.culture.${culture}`);
   const checks = colorChecks(form.colors, options.contrast);
+  const policyKinds = options.policyKinds ?? [];
   const usedNetworks = new Set(form.social.map((link) => link.network));
   const nextNetwork = options.socialNetworks.find((n) => !usedNetworks.has(n.network))?.network;
   const locale = settings.locale;
@@ -419,6 +420,35 @@ export default function StoreSettingsEditor({ source, actions = null, onDirtyCha
             </Button>
           )}
         </section>
+
+        {/* ── السياسات ── */}
+        {/* TD-42 (قرار C): روابط يستضيفها التاجر، لا صفحات تُؤلَّف هنا. التذييل يرسم المضبوط وحده. */}
+        {/* خادمٌ لا يعلن أنواعاً (أقدم من هذه الميزة) ⇒ لا قسم، لا قسمٌ بلا حقول. */}
+        {policyKinds.length > 0 && (
+        <section className={styles.section} aria-labelledby="section-policies">
+          <h3 id="section-policies" className={styles.sectionTitle}>{t('admin.settings.section.policies')}</h3>
+          <p className={styles.sectionHint}>{t('admin.settings.section.policiesHint')}</p>
+          <div className={styles.grid2}>
+            {policyKinds.map((kind) => {
+              const problem = fieldError(`policies.${kind}`);
+              return (
+                <div key={kind} className={styles.field}>
+                  <label className={styles.label} htmlFor={fieldId(`policies.${kind}`)}>
+                    {t(`admin.settings.policies.${kind}`)}
+                  </label>
+                  <input id={fieldId(`policies.${kind}`)} type="url" dir="ltr" className={inputClass(!!problem)}
+                    placeholder="https://" value={form.policies?.[kind] ?? ''} aria-invalid={!!problem}
+                    autoComplete="off"
+                    onChange={(e) => update({ policies: { ...form.policies, [kind]: e.target.value } })} />
+                  <span className={problem ? styles.fieldError : styles.hint}>
+                    {problem ?? t('admin.settings.policies.hint', { max: options.limits.policyUrl })}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+        )}
 
         {/* ── محرّكات البحث ── */}
         <section className={styles.section} aria-labelledby="section-seo">

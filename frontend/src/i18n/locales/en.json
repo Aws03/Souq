@@ -1062,7 +1062,9 @@
         "seo": "Search and sharing",
         "seoHint": "The page title and description search engines and link previews use. Left empty, the store name is used.",
         "announcement": "Announcement bar",
-        "announcementHint": "A short line across the top of every storefront page. Leave empty to hide it."
+        "announcementHint": "A short line across the top of every storefront page. Leave empty to hide it.",
+        "policies": "Policies",
+        "policiesHint": "Links to your policy pages, hosted by you. Your storefront footer shows only the links you set — leave a field empty and nothing appears."
       },
       "assets": {
         "none": "None yet",
@@ -1179,7 +1181,8 @@
         "tooManyLinks": "Up to {{max}} links.",
         "duplicateNetwork": "One link per network.",
         "socialInvalid": "Use a full https link on {{domains}}.",
-        "openingInvalid": "Choose a reveal style from the list."
+        "openingInvalid": "Choose a reveal style from the list.",
+        "policyInvalid": "Must be a full https link, up to {{max}} characters"
       },
       "preview": {
         "title": "Preview",
@@ -1190,6 +1193,14 @@
         "mutedText": "Secondary text, such as dates and hints.",
         "contrastNote": "Text contrast in this mode: {{ratio}}:1.",
         "darkNote": "Dark mode is derived from your colours; you don't set it separately."
+      },
+      "policies": {
+        "privacy": "Privacy policy",
+        "terms": "Terms and conditions",
+        "returns": "Returns policy",
+        "shipping": "Shipping policy",
+        "faq": "FAQ",
+        "hint": "A full https link, up to {{max}} characters"
       }
     },
     "staff": {
@@ -1322,7 +1333,15 @@
     "quickLinks": "Quick Links",
     "contactUs": "Contact Us",
     "home": "Home",
-    "copyright": "© {{year}} {{store}}. All rights reserved."
+    "copyright": "© {{year}} {{store}}. All rights reserved.",
+    "policies": {
+      "heading": "Policies",
+      "privacy": "Privacy policy",
+      "terms": "Terms and conditions",
+      "returns": "Returns policy",
+      "shipping": "Shipping policy",
+      "faq": "FAQ"
+    }
   },
   "errors": {
     "connection": "A server connection error occurred",

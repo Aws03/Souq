@@ -37,7 +37,8 @@ internal static class StoreSettingsJson
             new ContactDocument(s.Contact.Email, s.Contact.Phone, new(s.Contact.Address)),
             [.. s.Social.Select(l => new SocialDocument(l.Network, l.Url))],
             new SeoDocument(new(s.Seo.Title), new(s.Seo.Description)),
-            new(s.Announcement)), Options);
+            new(s.Announcement),
+            new(s.Policies.Urls)), Options);
     }
 
     internal static StoreSettings Deserialize(string json)
@@ -62,12 +63,15 @@ internal static class StoreSettingsJson
             new StoreContact(document.Contact?.Email, document.Contact?.Phone, document.Contact?.Address ?? new()),
             (document.Social ?? []).Select(l => new SocialLink(l.Network, l.Url)).ToList(),
             new SeoSettings(document.Seo?.Title ?? new(), document.Seo?.Description ?? new()),
-            document.Announcement ?? new());
+            document.Announcement ?? new(),
+            // مستند أقدم بلا هذا الحقل ⇒ لا روابط سياسات، لا رابط يظهر في تذييل متجر لم يضبطه.
+            document.Policies is { Count: > 0 } policies ? new StorePolicyLinks(policies) : StorePolicyLinks.Empty);
     }
 
     internal sealed record SettingsDocument(
         Dictionary<string, string>? DisplayName, List<string>? EnabledCultures, BrandingDocument? Branding,
-        ContactDocument? Contact, List<SocialDocument>? Social, SeoDocument? Seo, Dictionary<string, string>? Announcement);
+        ContactDocument? Contact, List<SocialDocument>? Social, SeoDocument? Seo, Dictionary<string, string>? Announcement,
+        Dictionary<string, string>? Policies = null);
 
     internal sealed record BrandingDocument(
         ColorsDocument? Colors, string? Typography, string? ThemePreset, string? LogoUrl, string? FaviconUrl,

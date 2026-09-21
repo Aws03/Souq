@@ -16,14 +16,16 @@ public sealed record SocialNetworkOptionDto(string Network, IReadOnlyList<string
 
 public sealed record StoreSettingsLimitsDto(
     int DisplayName, int Announcement, int SeoTitle, int SeoDescription, int Address,
-    int SocialLinks, int SocialUrl, int TimeZone, long BrandingFileBytes);
+    int SocialLinks, int SocialUrl, int TimeZone, long BrandingFileBytes, int PolicyUrl);
 
 public sealed record StoreContrastRulesDto(double Text, double Ui);
 
 public sealed record StoreSettingsOptionsDto(
     IReadOnlyList<string> Cultures, IReadOnlyList<string> Typography, IReadOnlyList<string> ThemePresets,
     IReadOnlyList<string> ThemeModes, IReadOnlyList<string> OpeningStyles,
-    IReadOnlyList<SocialNetworkOptionDto> SocialNetworks, StoreSettingsLimitsDto Limits, StoreContrastRulesDto Contrast);
+    IReadOnlyList<SocialNetworkOptionDto> SocialNetworks, StoreSettingsLimitsDto Limits, StoreContrastRulesDto Contrast,
+    // أنواع السياسات المقبولة (TD-42) — القائمة من النطاق كي لا تحتفظ الواجهة بنسخة ثانية تفترق يوماً.
+    IReadOnlyList<string> PolicyKinds);
 
 public record GetStoreSettingsOptionsQuery : IRequest<StoreSettingsOptionsDto>;
 
@@ -37,8 +39,10 @@ public class GetStoreSettingsOptionsHandler : IRequestHandler<GetStoreSettingsOp
         new StoreSettingsLimitsDto(
             StoreSettings.DisplayNameMaxLength, StoreSettings.AnnouncementMaxLength,
             SeoSettings.TitleMaxLength, SeoSettings.DescriptionMaxLength, StoreContact.AddressMaxLength,
-            StoreSettings.MaxSocialLinks, SocialLink.UrlMaxLength, Tenant.TimeZoneMaxLength, BrandingFiles.MaxBytes),
-        new StoreContrastRulesDto(BrandColors.MinimumTextContrast, BrandColors.MinimumUiContrast));
+            StoreSettings.MaxSocialLinks, SocialLink.UrlMaxLength, Tenant.TimeZoneMaxLength, BrandingFiles.MaxBytes,
+            StorePolicyLinks.UrlMaxLength),
+        new StoreContrastRulesDto(BrandColors.MinimumTextContrast, BrandColors.MinimumUiContrast),
+        StorePolicyLinks.Kinds);
 
     public Task<StoreSettingsOptionsDto> Handle(GetStoreSettingsOptionsQuery query, CancellationToken ct) =>
         Task.FromResult(Options);

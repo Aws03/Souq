@@ -7,11 +7,11 @@
 
 | Suite | Files | Facts | Theories |
 |---|---|---|---|
-| [`Souq.Domain.Tests`](#souqdomaintests) | 30 | 258 | 50 |
+| [`Souq.Domain.Tests`](#souqdomaintests) | 30 | 260 | 50 |
 | [`Souq.Application.Tests`](#souqapplicationtests) | 52 | 388 | 19 |
-| [`Souq.ArchitectureTests`](#souqarchitecturetests) | 17 | 76 | 8 |
+| [`Souq.ArchitectureTests`](#souqarchitecturetests) | 17 | 77 | 8 |
 | [`Souq.IntegrationTests`](#souqintegrationtests) | 60 | 372 | 27 |
-| [frontend (Vitest)](#frontend-vitest) | 95 | 724 | — |
+| [frontend (Vitest)](#frontend-vitest) | 96 | 731 | — |
 | [frontend (Playwright)](#frontend-playwright) | 19 | 126 | — |
 
 ## Souq.Domain.Tests
@@ -44,7 +44,7 @@
 | `tests/Souq.Domain.Tests/ShippingMethodTests.cs` | `ShippingMethodTests` | 4 | 1 |
 | `tests/Souq.Domain.Tests/StorePaymentAccountTests.cs` | `StorePaymentAccountTests` | 3 | 2 |
 | `tests/Souq.Domain.Tests/StoreSettingsTests.cs` | `StoreSettingsTests` | 5 | 3 |
-| `tests/Souq.Domain.Tests/TenantSettingsTests.cs` | `TenantSettingsTests` | 7 | 1 |
+| `tests/Souq.Domain.Tests/TenantSettingsTests.cs` | `TenantSettingsTests` | 9 | 1 |
 | `tests/Souq.Domain.Tests/TenantTests.cs` | `TenantTests` | 7 | 4 |
 | `tests/Souq.Domain.Tests/UserTests.cs` | `UserTests`, `CustomerTests`, `SecurityPolicyNumbersTests` | 15 | 3 |
 | `tests/Souq.Domain.Tests/WishlistItemTests.cs` | `WishlistItemTests` | 1 | 1 |
@@ -126,7 +126,7 @@
 | `tests/Souq.ArchitectureTests/SearchRuntimeRuleTests.cs` | `SearchRuntimeRuleTests` | 1 | 0 |
 | `tests/Souq.ArchitectureTests/TenancyRuleTests.cs` | `TenancyRuleTests` | 8 | 0 |
 | `tests/Souq.ArchitectureTests/ValidationRuleTests.cs` | `ValidationRuleTests` | 2 | 0 |
-| `tests/Souq.ArchitectureTests/WhiteLabelSourceTests.cs` | `WhiteLabelSourceTests` | 2 | 0 |
+| `tests/Souq.ArchitectureTests/WhiteLabelSourceTests.cs` | `WhiteLabelSourceTests` | 3 | 0 |
 
 ## Souq.IntegrationTests
 
@@ -222,6 +222,7 @@
 | `frontend/src/components/common/Tabs.test.jsx` | 7 |
 | `frontend/src/components/common/useConfirmAction.test.jsx` | 4 |
 | `frontend/src/components/common/useDialog.test.jsx` | 8 |
+| `frontend/src/components/layout/Footer.test.jsx` | 4 |
 | `frontend/src/components/layout/SearchBar.test.jsx` | 18 |
 | `frontend/src/components/product/ProductCard.test.jsx` | 11 |
 | `frontend/src/components/product/StarRating.test.jsx` | 7 |
@@ -240,7 +241,7 @@
 | `frontend/src/features/admin/reviews/reviewModeration.test.js` | 2 |
 | `frontend/src/features/admin/search/insights.test.js` | 7 |
 | `frontend/src/features/admin/search/synonymForm.test.js` | 7 |
-| `frontend/src/features/admin/settings/settingsForm.test.js` | 19 |
+| `frontend/src/features/admin/settings/settingsForm.test.js` | 22 |
 | `frontend/src/features/admin/shipping/shippingForm.test.js` | 4 |
 | `frontend/src/features/admin/staff/staffView.test.js` | 11 |
 | `frontend/src/features/auth/safeRedirect.test.js` | 5 |

@@ -21,9 +21,10 @@ const options = {
     { network: 'instagram', domains: ['instagram.com'] },
     { network: 'x', domains: ['x.com', 'twitter.com'] },
   ],
+  policyKinds: ['privacy', 'terms', 'returns', 'shipping', 'faq'],
   limits: {
     displayName: 80, announcement: 200, seoTitle: 70, seoDescription: 160, address: 200,
-    socialLinks: 8, socialUrl: 300, timeZone: 64, brandingFileBytes: 2097152,
+    socialLinks: 8, socialUrl: 300, timeZone: 64, brandingFileBytes: 2097152, policyUrl: 300,
   },
   contrast: { text: 4.5, ui: 3 },
 };
@@ -151,5 +152,27 @@ describe('الحدود والقوائم من الخادم', () => {
 
   it('لا يشترط اسم عرض: الخادم لا يشترطه، والواجهة تعود لاسم المتجر', () => {
     expect(keys(form({ displayName: { ar: '', en: '' } }))).toEqual([]);
+  });
+
+  // TD-42: روابط السياسات — https مطلق وحده، وأيّ نطاق (التاجر يستضيف صفحته حيث يشاء).
+  it('رابط سياسة يقبل أيّ نطاق https ويرفض ما ليس رابطاً مطلقاً', () => {
+    expect(keys(form({ policies: { privacy: 'https://anywhere.test/privacy' } }))).toEqual([]);
+    expect(keys(form({ policies: { privacy: 'http://anywhere.test/privacy' } }))).toEqual(['policies.privacy:policyInvalid']);
+    expect(keys(form({ policies: { terms: '/pages/terms' } }))).toEqual(['policies.terms:policyInvalid']);
+    expect(keys(form({ policies: { faq: 'example.test/faq' } }))).toEqual(['policies.faq:policyInvalid']);
+  });
+
+  it('السياسات كلها اختيارية، والفارغ يُرسل فارغاً ليحذفه الخادم', () => {
+    const empty = { privacy: '', terms: '', returns: '', shipping: '', faq: '' };
+    expect(keys(form({ policies: empty }))).toEqual([]);
+    expect(buildSettingsPayload(form({ policies: { privacy: ' https://a.test/p ', terms: '' } })).policies)
+      .toEqual({ privacy: 'https://a.test/p', terms: '' });
+  });
+
+  it('النموذج يحمل كل نوع سياسة يعلنه الخادم، ولو لم يضبط المتجر شيئاً', () => {
+    expect(Object.keys(settingsToForm({ ...settings, policies: {} }, options).policies))
+      .toEqual(options.policyKinds);
+    expect(settingsToForm({ ...settings, policies: { faq: 'https://a.test/f' } }, options).policies.faq)
+      .toBe('https://a.test/f');
   });
 });

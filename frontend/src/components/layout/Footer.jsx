@@ -23,6 +23,17 @@ export const SOCIAL_ICONS = {
   whatsapp: WhatsappIcon,
 };
 
+// أنواع السياسات التي يقبلها الخادم (`StorePolicyLinks.Kinds`) ⇒ مفتاح ترجمة اسمها. الرابط نفسه من
+// إعداد المتجر، والاسم شيفرةٌ هنا كما الأيقونة — فنوعٌ يُضاف في النطاق بلا اسم هنا يُرسم مفتاحاً
+// لاتينياً خامّاً في تذييل عربي. يحرس التطابقَ اختبار معمارية، كما يحرس أيقونات الشبكات.
+export const POLICY_LABELS = {
+  privacy: 'footer.policies.privacy',
+  terms: 'footer.policies.terms',
+  returns: 'footer.policies.returns',
+  shipping: 'footer.policies.shipping',
+  faq: 'footer.policies.faq',
+};
+
 // تذييل المتجر (المرحلة 15، A4): الهوية ووصفها وروابط الشبكات وبيانات التواصل كلها من إعداد المتجر — لا اسم ولا هاتف ولا بريد
 // مكتوب هنا. ما لا يضبطه المتجر لا يُرسم. يظهر أسفل صفحات المتجر (لا لوحة الإدارة).
 //
@@ -30,6 +41,10 @@ export const SOCIAL_ICONS = {
 // (أسئلة شائعة، شحن، إرجاع، تواصل، سياسة خصوصية، شروط). المنصّة لا تملك صفحات محتوى للمتجر
 // أصلاً، فالروابط كانت زينة تُوهم المشتري بوجود صفحة. الغياب أصدق من رابط ميّت، والنقص مسجّل
 // في سجلّ الدين (صفحات محتوى المتجر).
+//
+// TD-42، قرار المالك C (2026-09-21): **روابط الآن**. عمود السياسات يعود — لكن بروابط يضبطها
+// التاجر لصفحات يستضيفها هو، ويُرسم النوع المضبوط وحده. فالعمود كلّه يغيب عن متجر لم يضبط شيئاً،
+// وهو فرق جوهري عن الرابط الميّت: ما يظهر يذهب إلى صفحة فعلاً.
 export default function Footer() {
   const { t, i18n } = useTranslation();
   const config = useStoreConfig();
@@ -41,6 +56,10 @@ export default function Footer() {
   const address = pickText(settings?.contact?.address, i18n.language, culture);
   const { email, phone } = settings?.contact ?? {};
   const social = (settings?.social ?? []).filter((link) => link.url);
+  // النوع المضبوط وحده، بترتيب POLICY_LABELS لا بترتيب ردّ الخادم — كي لا يتبدّل ترتيب التذييل.
+  const policies = Object.keys(POLICY_LABELS)
+    .map((kind) => ({ kind, url: settings?.policies?.[kind] }))
+    .filter(({ url }) => url);
   const year = new Date().getFullYear();
 
   return (
@@ -72,6 +91,17 @@ export default function Footer() {
             <Link to="/register">{t('nav.registerFull')}</Link>
           </nav>
         </div>
+
+        {policies.length > 0 && (
+          <div className={styles.footer__col}>
+            <h4 className={styles.footer__heading}>{t('footer.policies.heading')}</h4>
+            <nav className={styles.footer__links}>
+              {policies.map(({ kind, url }) => (
+                <a key={kind} href={url} target="_blank" rel="noopener noreferrer">{t(POLICY_LABELS[kind])}</a>
+              ))}
+            </nav>
+          </div>
+        )}
 
         {(phone || email || address) && (
           <div className={styles.footer__col}>
