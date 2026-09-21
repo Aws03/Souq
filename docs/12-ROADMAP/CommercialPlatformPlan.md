@@ -13,27 +13,38 @@
 > phase delivers genuine product capability, adding it to `ProductRoadmap.md` §6 is the owner's next roadmap
 > edit, and this plan does not pre-empt that placement.
 >
-> **`C1` and `C2` are done.** The *Billing* module exists, plans and entitlements are enforced through the seam
-> that already existed, the fail-open default is closed, and numeric limits are now **enforced** by a counter row
-> that no isolation level can defeat. Everything from `C3` onwards is unstarted.
+> **`C1`, `C2` and `C11` are done.** The *Billing* module exists, plans and entitlements are enforced through the
+> seam that already existed, the fail-open default is closed, numeric limits are now **enforced** by a counter row
+> that no isolation level can defeat, and merchant analytics answer in the merchant's own day with profit reported
+> only as far as the data supports it. `C11` was taken out of order because it is the only phase gated by nothing
+> at all — see §0's `next_phase` note.
 >
-> **Last verified against the code:** 2026-09-21, branch `phase/17-production-hardening`, after `C2`.
+> **Last verified against the code:** 2026-09-21, branch `phase/17-production-hardening`, after `C11`.
 
 ---
 
 ## 0. Status (machine-readable)
 
 ```yaml
-plan_version: 1.2.0
+plan_version: 1.3.0
 track: commercial
-current_phase: C2
+current_phase: C11
 phase_status: done
-next_phase: C9                                 # see §4; C9 is next by cost-of-delay but is GATED on C-08.
-                                               # If C-08 is unanswered, the next *unblocked* phase is C11
-                                               # (merchant analytics — depends on nothing, blocked by nothing).
-blocked_decisions: ["D-13", "C-01", "C-08"]    # see §5; neither C1 nor C2 was blocked by any of them
+# EVERY remaining phase is gated on an owner decision. C11 was the last unblocked one, which is
+# why it was taken out of §4's order. The cheapest to unblock, in this order:
+#   C-08  -> C9  (behavioural events; the ONLY phase whose cost rises with delay — data not
+#                 captured today can never be reconstructed. Answer it even if the answer is "no".)
+#   C-17  -> C3  (real suspension), then C6 with C4+C5
+#   TD-42 -> C8  (store-authored pages/themes: the cheapest visible credibility fix)
+#   C-15  -> C5  (invoices + manual collection; needs P-06 too)
+#   D-18  -> C4  (multi-instance: cloud blob storage)
+#   C-11  -> C7  (custom domains)
+#   D-13 + C-01 -> C12, then C13
+#   C-09  -> C10 · C-18 -> C14
+next_phase: C9                                 # gated on C-08; no unblocked phase remains
+blocked_decisions: ["C-08", "C-17", "TD-42", "C-15", "P-06", "D-18", "C-11", "D-13", "C-01", "C-09", "C-18"]
 last_verified_date: 2026-09-21
-last_verified_head: 2288d65                    # the head C2's own closing commit builds on
+last_verified_head: d7ee2e5                    # C11's last work commit
 baseline_branch: phase/17-production-hardening
 ```
 
@@ -226,6 +237,29 @@ Each phase lists: **delivers · depends on · blocked by · why here**.
   platform-owner revenue view through `PlatformQueries`.
 - **Depends on.** Nothing.
 - **Blocked by.** Nothing.
+- **Done (2026-09-21).** All four, and each turned out to be a wrong number rather than a missing one:
+  - **The merchant's day.** `WindowFor` computed every boundary from `nowUtc.Date` while the browser already
+    formatted in the store's zone — so a merchant in a +3 zone was answered about a window opening at 03:00 their
+    time, and the trend chart labelled UTC days with store-zone dates. Boundaries are now computed in local time
+    with full `TimeZoneInfo` handling (including the midnight that does not exist on a spring-forward night, which
+    made `ConvertTimeToUtc` throw). **One limit stays and is written down:** SQL-side bucketing shifts by a single
+    offset because EF Core 10 does not translate `AT TIME ZONE` (tried two ways); totals and boundaries are always
+    exact, and only a DST zone's two transition days move an hour of orders into the neighbouring bucket.
+  - **Refund attribution.** Moved from the order's period to the refund's, from `Refund` rows rather than
+    `Payment.RefundedAmount`, which carries no date — and filtered to `Succeeded`, because `Refund.Fail` stamps
+    `CompletedAt` exactly as `Succeed` does. This reverses a choice the module page had already half-retracted.
+  - **Cost and margin.** `ProductVariant.Cost` optional, `OrderItem.UnitCost` frozen at sale. The design refuses
+    two errors: treating an unknown cost as zero (which shows a merchant a 100% margin) and reading today's cost
+    for yesterday's sale. Coverage is reported beside the margin so partial data reads as partial.
+  - **Platform revenue.** Per store and per currency, never summed across currencies, on a UTC window because the
+    query spans zones. Reverses a documented "by design" claim, and raises `C-19` — what the *merchant agreement*
+    says the operator can see, which is a contract question and is now recorded as one.
+- **Three defects this phase surfaced that nothing else would have.** `F-30`: a SQL Server deadlock escaped
+  `SaveChangesAsync` untranslated while `InTransactionAsync` had translated it since F-7, so the same race was a
+  retryable 409 inside a transaction and a 500 outside one — and the basket's merge path writes outside one, so
+  F-28's retry never saw the class. Only reproducible under full-suite load. `pendingRefunds` counted payments
+  rather than refund requests, so an operational alert undercounted the work waiting. And the white-label guard
+  caught a currency name in a new *comment*, which is exactly the rule working.
 
 ### C12 — The payment port, re-shaped, and the first regional adapter
 
@@ -290,7 +324,7 @@ legal.
 | 7 | **C4** | the precondition for C6 and for in-process ACME | D-18 |
 | 8 | **C6** | the first automated irreversible action against a customer | C-17 |
 | 9 | **C7** | turns onboarding into a product | **C-11** |
-| 10 | **C11** | small, independent, immediately useful to merchants | — |
+| 10 | ~~**C11**~~ **done (taken early)** | small, independent, immediately useful to merchants — and the only phase gated by nothing, so it ran once C2 closed | — |
 | 11 | **C12** | the port's vocabulary is set by the first real adapter | **D-13, C-01** |
 | 12 | **C13** | the whole financial layer, once the port is real | D-13 + five more |
 | 13 | **C10** | needs C9's data to have accumulated | C-09 |
