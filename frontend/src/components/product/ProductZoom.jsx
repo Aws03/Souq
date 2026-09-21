@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { SearchIcon, CloseIcon, ChevronIcon, ExpandIcon, CameraIcon } from '../icons/Icons';
 import { isRealImage } from './ProductImage';
 import styles from './ProductZoom.module.css';
+import { useDialog } from '../common/useDialog';
 
 const MIN_ZOOM = 1.5;
 const MAX_ZOOM = 3;
@@ -55,24 +56,19 @@ export default function ProductZoom({ images, videoUrl, productName }) {
   //
   // المرحلة 16: والتركيز ينتقل إلى الصندوق عند فتحه ويعود إلى ما فتحه عند إغلاقه. بدونه كان
   // مستعمل لوحة المفاتيح يفتح عرضاً كاملاً وتركيزُه ما يزال في الصفحة تحته.
-  const lightboxRef = useRef(null);
+  // TD-48: كان هذا الملفّ ينسخ أربعة سلوكيات من `useDialog` بيده — Escape، ونقل التركيز
+  // واستعادته، وقفل التمرير — فورث ثغرتها نفسها (Tab يخرج) وكان سيحتاج الإصلاح مرّتين. صار
+  // يستعمل الخطّاف، فورث معه حبس التركيز بلا سطر إضافي. وتبقى الأسهم هنا: تنقّل المعرض
+  // خاصّيةُ هذا المكوّن لا سلوكُ كل حوار.
+  const lightboxRef = useDialog(lightboxOpen, () => setLightboxOpen(false));
   useEffect(() => {
     if (!lightboxOpen) return undefined;
-    const opener = document.activeElement;
-    const onKeyDown = (e) => {
-      if (e.key === 'Escape') setLightboxOpen(false);
-      else if (e.key === 'ArrowRight') setActiveIndex((i) => (i + 1) % galleryImages.length);
+    const onArrow = (e) => {
+      if (e.key === 'ArrowRight') setActiveIndex((i) => (i + 1) % galleryImages.length);
       else if (e.key === 'ArrowLeft') setActiveIndex((i) => (i - 1 + galleryImages.length) % galleryImages.length);
     };
-    window.addEventListener('keydown', onKeyDown);
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    lightboxRef.current?.focus();
-    return () => {
-      window.removeEventListener('keydown', onKeyDown);
-      document.body.style.overflow = prevOverflow;
-      if (opener instanceof HTMLElement && document.contains(opener)) opener.focus();
-    };
+    window.addEventListener('keydown', onArrow);
+    return () => window.removeEventListener('keydown', onArrow);
   }, [lightboxOpen, galleryImages.length]);
 
   return (
