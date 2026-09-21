@@ -210,3 +210,11 @@
   .progressStep > a span:last-child, .progressStep > span span:last-child { display: none; }
   .progressCurrent > span span:last-child { display: inline; }
 }
+
+/* حدّ الرقم يُقال بجانبه لا في حاشية: مشغّلٌ يقرأ مجموعاً عبر العملات يظنّه واحداً. */
+.revenueNote {
+  margin: 0 0 0.75rem;
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+  line-height: 1.6;
+}

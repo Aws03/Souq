@@ -4,6 +4,7 @@ import { api } from '../../api/client';
 import { queryKeys } from '../../app/queryKeys';
 import { ErrorBanner } from '../../components/common/StateViews';
 import Skeleton from '../../components/common/Skeleton';
+import { formatPrice } from '../../components/product/ProductBadges';
 import styles from './Platform.module.css';
 
 // حالات المتجر بترتيب دورة حياته — الترتيب معنى لا أبجدية.
@@ -22,6 +23,13 @@ export default function PlatformOverview() {
   const { data, error, isPending, refetch } = useQuery({
     queryKey: queryKeys.platformStats(),
     queryFn: () => api.getPlatformStats(),
+    staleTime: 60_000,
+  });
+
+  // إيراد المتاجر (C11) — استعلام منفصل: أبطأ من العدّادات، وفشله لا يجوز أن يُفرغ الصفحة.
+  const revenue = useQuery({
+    queryKey: queryKeys.platformRevenue(30),
+    queryFn: () => api.getPlatformRevenue(30),
     staleTime: 60_000,
   });
 
@@ -71,6 +79,40 @@ export default function PlatformOverview() {
                 ))}
               </ul>
             </section>
+
+            {/* ============================================================
+                إيراد المتاجر، **مجمَّعاً لكل عملة** (C11). لا مجموع واحد عبر العملات: جمع
+                عملةٍ إلى أخرى يُنتج عدداً بلا وحدة، وتوحيدهما يحتاج أسعار صرف بتواريخها —
+                مصدرَ بيانات لا وجود له هنا، واختراعُه أسوأ من الامتناع.
+                ============================================================ */}
+            {revenue.data && (
+              <section className={styles.panel}>
+                <h2 className={styles.panelTitle}>{t('platform.revenueTitle')}</h2>
+                <p className={styles.revenueNote}>{t('platform.revenueNote')}</p>
+                {revenue.data.totals?.length ? (
+                  <>
+                    <ul className={styles.statusList}>
+                      {revenue.data.totals.map((total) => (
+                        <li key={total.currency}>
+                          <span>{t('platform.revenueForCurrency', { currency: total.currency, orders: total.orders })}</span>
+                          <b>{formatPrice(total.revenue, total.currency)}</b>
+                        </li>
+                      ))}
+                    </ul>
+                    <ul className={styles.statusList}>
+                      {revenue.data.byStore.slice(0, 10).map((store) => (
+                        <li key={store.tenantId}>
+                          <span>{store.name}</span>
+                          <b>{formatPrice(store.revenue, store.currency)}</b>
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                ) : (
+                  <p className={styles.revenueNote}>{t('platform.revenueEmpty')}</p>
+                )}
+              </section>
+            )}
 
             {/* حدود العدّ معروضة لا مطويّة: قارئٌ يفترض أن "الطلبات" تعني المكتملة سيقرأ خطأً. */}
             <section className={styles.limits}>

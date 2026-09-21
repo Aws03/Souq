@@ -156,6 +156,12 @@ public class PlatformInsightsController : ControllerBase
     [HasPermission(Permissions.Platform.Reports)]
     public async Task<IActionResult> Stats() => Ok(await _mediator.Send(new GetPlatformStatsQuery()));
 
+    // GET /api/platform/revenue?days=30 — إيراد المتاجر، **مجمَّع لكل عملة** لا في رقم واحد (C11).
+    [HttpGet("revenue")]
+    [HasPermission(Permissions.Platform.Reports)]
+    public async Task<IActionResult> Revenue([FromQuery] int days = 30) =>
+        Ok(await _mediator.Send(new GetPlatformRevenueQuery(days)));
+
     // GET /api/platform/audit?tenantId=&action=tenant.&actorUserId=&from=&to=&page=1&pageSize=50
     [HttpGet("audit")]
     [HasPermission(Permissions.Platform.Audit)]

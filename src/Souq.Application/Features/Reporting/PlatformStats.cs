@@ -14,6 +14,9 @@ public sealed record PlatformStatsDto(
 public interface IPlatformReports
 {
     Task<PlatformStatsDto> GetStatsAsync(DateTime recentSince, CancellationToken ct);
+
+    // إيراد المنصّة عبر المتاجر (C11) — التفصيل وحدوده في PlatformRevenue.cs.
+    Task<PlatformRevenueDto> GetRevenueAsync(DateTime from, DateTime to, CancellationToken ct);
 }
 
 public record GetPlatformStatsQuery : IRequest<PlatformStatsDto>, IAuditable

@@ -24,6 +24,7 @@ export const queryKeys = {
 
   storeDashboard: (range) => ['store-dashboard', range],
   platformStats: () => ['platform-stats'],
+  platformRevenue: (days) => ['platform-revenue', days],
   provisioningOptions: () => ['provisioning-options'],
   platformStores: (params) => ['platform-stores', params],
   platformStore: (id) => ['platform-store', String(id)],

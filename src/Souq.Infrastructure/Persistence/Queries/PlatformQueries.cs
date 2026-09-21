@@ -127,6 +127,52 @@ internal sealed class PlatformQueries : IPlatformQueries, IPlatformReports
             await orders.CountAsync(o => o.CreatedAt >= recentSince, ct));
     }
 
+    // ========================================================================
+    // إيراد المنصّة عبر المتاجر (C11) — التجميع كلّه في SQL كما في لوحة المتجر: متجران أو ألفان
+    // يكلّفان الاستعلام نفسه، ولا تُحمَّل صفوف طلبات إلى الذاكرة.
+    //
+    // تعريف "الطلب المحسوب" هو تعريف لوحة المتجر نفسه (مُثبَّت ومدفوع)، وتكراره هنا مقصود وموضعه
+    // معروف: لو اختلف التعريفان لأعطت المنصّة رقماً لا يجده التاجر في لوحته، وهي أسوأ أنواع
+    // التناقض — رقمان صحيحان كلٌّ بتعريفه، ولا أحد يعرف أيّهما.
+    //
+    // والعملة تأتي من **المتجر** لا من الطلب: الطلب يجمّد عملته، لكنّ التجميع لكل متجر وعملته
+    // واحدة (BR-TEN-18 يمنع تغييرها بعد أول نشاط تجاري)، فالمصدران يتّفقان والمتجر أرخصهما.
+    // ========================================================================
+    public async Task<PlatformRevenueDto> GetRevenueAsync(DateTime from, DateTime to, CancellationToken ct)
+    {
+        var counted = _db.Orders.IgnoreQueryFilters(TenantFilter).AsNoTracking()
+            .Where(o => o.PlacedAt != null && o.PlacedAt >= from && o.PlacedAt < to
+                        && (o.Status == Souq.Domain.Enums.OrderStatus.Paid || o.Status == Souq.Domain.Enums.OrderStatus.Shipped
+                            || o.Status == Souq.Domain.Enums.OrderStatus.Delivered));
+
+        var perStore = await counted
+            .GroupBy(o => o.TenantId)
+            .Select(g => new { TenantId = g.Key, Revenue = g.Sum(o => o.PlacedTotal), Orders = g.Count() })
+            .ToListAsync(ct);
+
+        // أسماء المتاجر وعملاتها في استعلام واحد للمتاجر التي باعت فقط.
+        var ids = perStore.Select(r => r.TenantId).ToList();
+        var stores = await _db.Tenants.AsNoTracking()
+            .Where(t => ids.Contains(t.Id))
+            .Select(t => new { t.Id, t.Slug, t.Name, t.Currency })
+            .ToListAsync(ct);
+
+        var byStore = perStore
+            .Join(stores, r => r.TenantId, t => t.Id, (r, t) =>
+                new StoreRevenueDto(t.Id, t.Slug, t.Name, t.Currency, r.Revenue, r.Orders))
+            .OrderByDescending(r => r.Revenue)
+            .ThenBy(r => r.TenantId)
+            .ToList();
+
+        var totals = byStore
+            .GroupBy(r => r.Currency, StringComparer.Ordinal)
+            .Select(g => new CurrencyTotalDto(g.Key, g.Sum(r => r.Revenue), g.Sum(r => r.Orders)))
+            .OrderBy(t => t.Currency, StringComparer.Ordinal)
+            .ToList();
+
+        return new PlatformRevenueDto(from, to, totals, byStore);
+    }
+
     private sealed record TenantRow(
         int Id, string Name, string Slug, TenantStatus Status, string Currency, string DefaultCulture,
         string? PrimaryHost, int DomainCount, DateTime CreatedAt);

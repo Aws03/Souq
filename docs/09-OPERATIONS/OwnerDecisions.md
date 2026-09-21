@@ -548,6 +548,32 @@ The repository is **private**, so Actions minutes are billed. Nothing in the rep
 **Do not read the last option as equivalent to the first two.** It covers the fast suites only: the integration
 suite (Testcontainers inside a container), the frontend job and the supply-chain scans still need the pipeline.
 
+
+## C-19 — what the merchant agreement says the platform operator can see
+
+**Status:** open. Recorded by C11 (2026-09-21) because the code moved, not because engineering has a view on the answer.
+
+**What changed.** Until C11 the platform screens showed cross-store *counts* only, and the Reporting module document
+said no store's commercial figures reached the platform "by design". C11 reversed that: `GET /api/platform/revenue`
+returns each store's revenue for a period, behind `platform.reports.view` and audited. The reversal is not optional —
+a platform that bills its merchants cannot compute a commission without knowing what was sold, and `C-03` (the
+commission basis) already presumes the figure exists.
+
+**What is the owner's.** Not whether the capability exists, but **what the merchant is told about it**. A merchant
+signing up is entitled to know that the platform operator can see their sales totals, and in most jurisdictions that
+belongs in the agreement rather than in a support answer later. The same question already applies, and is already
+unanswered, to two things that predate C11: the platform can enumerate a store's customer list, and its audit log
+records actions taken inside a store.
+
+**Options.** (a) State it plainly in the merchant agreement — what the operator can see, and for what purpose
+(billing, support, fraud). (b) Narrow the capability to aggregates only, which weakens per-store billing. (c) Leave
+it unstated, which is the current position and the one that ages worst.
+
+**What engineering did in the meantime.** Kept the read in the single reviewed type allowed to cross the tenant
+filter, put it behind a platform-only permission, and audited it with its own action (`platform.revenue.viewed`) and
+its period in the record — so whatever the agreement ends up saying, who looked at what is already answerable.
+
+
 ## What engineering will not do
 
 To be explicit, because these are the ways this page could quietly stop being true:
