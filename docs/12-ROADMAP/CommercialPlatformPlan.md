@@ -31,7 +31,7 @@
 ## 0. Status (machine-readable)
 
 ```yaml
-plan_version: 1.5.0
+plan_version: 1.6.0
 track: commercial
 current_phase: C11
 phase_status: done
@@ -59,14 +59,39 @@ phase_status: done
 #   C13 <- a provider contract. C-02 is answered by D-13=A; C-03/C-04/C-05 have NO SUBJECT under
 #          D-13=A + C-01=B, because no commission is taken from a shopper's payment at all
 #   C14 <- C-18 (customer code: never, webhooks only, or a sandbox)
-current_phase_note: "C3 done 2026-09-22 (TD-66 + TD-67 closed with it); TD-42's links shipped in C8's first slice"
-next_phase: C9
+current_phase_note: |
+  2026-09-22, in one session and in this order:
+    • the eight owner decisions recorded (1611277)
+    • F-32 fixed — a test that failed one hour every night (4a5601e)
+    • TD-42's policy links, closing M2's last deliverable (42876d3)
+    • C3 done: admin-only suspension, TD-66 and TD-67 closed with it (039f788)
+    • C9's store and write path: capture ships OFF until C-08's three
+      sub-answers exist; only the search surface records so far (6b77f98)
+    • P-06's tax capability: jurisdiction profiles, versions, the verification
+      workflow, a store's selection — a fifteenth module (d894148)
+    • and the tax term itself: the pricing pipeline's explicit zero is now
+      calculated, frozen onto the order, and shown to the shopper (60f5021)
+current_phase: C5
+next_phase: C5           # the revenue mechanism D-13=A made mandatory; its tax snapshot now has a mechanism
 blocked_decisions: ["D-18", "C-11", "C-09", "C-18", "C-12", "C-13"]
 answered_decisions: ["C-08", "C-17", "TD-42", "C-15", "P-06", "D-13", "C-01", "C-19"]
 open_sub_decisions: ["C-08 lawful basis", "C-08 retention period", "C-08 data residency",
                      "P-06 every jurisdiction value", "C-01 the provider itself"]
 last_verified_date: 2026-09-22
-last_verified_head: 42876d3                    # decisions at 1611277; F-32 at 4a5601e; TD-42's links at 42876d3
+last_verified_head: 60f5021
+
+# ── ما بقي، ولماذا ─────────────────────────────────────────────────────────
+# C5  — فواتير المنصّة بالدينار وتحصيلٌ يدويّ. **الطريق التجاري الحرج**: D-13 = A جعل
+#       اشتراكَ التاجر مصدرَ إيراد سوق الوحيد، فبلا هذا لا تُحصَّل قرشاً. ولقطةُ الضريبة التي
+#       تُجمَّد على الفاتورة صار لها آلية.
+# C12 — المنفذ بشكله الجديد والنموذج المُحوِّل (C-01 = B). المحوّلُ نفسه ينتظر عقد مزوّد.
+# C4  — الإبطال بين النسخ والقفل: مقسومٌ، وثُلثُه (التخزين السحابي) وحده موقوف على D-18.
+# C6  — المطالبة الآلية: تحتاج C3 (تمّت) + C4 (قفلها) + C5.
+# C9b — أسطحُ الالتقاط الباقية (ظهورُ القوائم بموضعها، النقر، السلّة، الشراء). لا تُراكم
+#       بياناتٍ اليوم لأنّ الالتقاط معطّل، فقيمتُها تبدأ يوم يُجيب المالك على C-08.
+# C8  — القوالب الثلاثة وسجلّ الأقسام: قرارُ تصميم لا قرارُ مالك.
+# ونصفُ شريحةٍ مؤجَّل صريحاً: فئةُ الضريبة للمنتج (ضريبتان في سلّةٍ واحدة)، وشاشتا إعداد
+# الضريبة (المنصّة والتاجر) — كلتاهما API فقط اليوم.
 baseline_branch: phase/17-production-hardening
 
 # ── ما جرى بعد C11 وليس مرحلة ─────────────────────────────────────────────
