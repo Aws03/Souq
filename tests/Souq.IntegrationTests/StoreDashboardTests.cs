@@ -421,20 +421,28 @@ public class StoreDashboardTests
             .StatusCode.Should().Be(HttpStatusCode.OK);
 
         var zone = TimeZoneInfo.FindSystemTimeZoneById(store.Tenant.TimeZone);
-        var oneAmLocal = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, zone).Date.AddHours(1);
-        var oneAmUtc = TimeZoneInfo.ConvertTimeToUtc(
-            DateTime.SpecifyKind(oneAmLocal, DateTimeKind.Unspecified), zone);
+        var localNow = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, zone);
+        // فجر اليوم المحلّي: الساعة الأولى إن مضت، وإلا أوّل ثانية من اليوم.
+        // كان السطر يأخذ 01:00 دائماً ويفترضها ماضية — فبين منتصف الليل والواحدة بتوقيت المتجر تصير
+        // لحظةً **مستقبلية** تسقط من نافذة "اليوم"، ويسقط الاختبار ساعةً كل يوم بلا أن يتغيّر شيء
+        // في المنتج (وجدناه يسقط فعلاً عند 00:14 بعمّان).
+        var dawnLocal = localNow.TimeOfDay >= TimeSpan.FromHours(1)
+            ? localNow.Date.AddHours(1)
+            : localNow.Date.AddSeconds(1);
+        var dawnUtc = TimeZoneInfo.ConvertTimeToUtc(DateTime.SpecifyKind(dawnLocal, DateTimeKind.Unspecified), zone);
 
         // نُرجع لحظة الطلب إلى فجر اليوم المحلّي — وهي بـ UTC من **أمس**.
         await api.WithDbAsync(async db =>
         {
             var order = await db.Orders.FirstAsync(o => o.Id == orderId);
-            db.Entry(order).Property(nameof(Souq.Domain.Entities.Order.PlacedAt)).CurrentValue = oneAmUtc;
+            db.Entry(order).Property(nameof(Souq.Domain.Entities.Order.PlacedAt)).CurrentValue = dawnUtc;
             return await db.SaveChangesAsync();
         });
 
-        oneAmUtc.Date.Should().Be(DateTime.UtcNow.Date.AddDays(-1),
-            "الفرضية نفسها: فجر اليوم بعمّان هو أمس بـ UTC");
+        // الفرضية تُقاس بين اليومين لا بـ UtcNow: فجر اليوم المحلّي يقع في **يوم UTC آخر**، وإلا فلا
+        // معنى لما يليه. تسقط هذه بوضوح لو صار توقيت المتجر UTC أو غرب غرينتش.
+        dawnUtc.Date.Should().NotBe(dawnLocal.Date, "الفرضية نفسها: فجر اليوم بعمّان يوم UTC آخر");
+        dawnUtc.Should().BeBefore(DateTime.UtcNow, "ولحظةٌ مستقبلية ليست من يوم التاجر بعد");
 
         var today = await ReadAsync(admin, "Today");
 
