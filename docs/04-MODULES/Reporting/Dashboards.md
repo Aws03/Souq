@@ -44,10 +44,10 @@ This is a feature of the dashboards, not an omission from them. Both pages say i
 
 | Not shown | Why it cannot be computed honestly |
 |---|---|
-| **Profit, margin, cost of goods** | Neither `Product` nor `ProductVariant` carries a cost price. Any margin shown here would be invented. Adding a cost field is a product decision with tax and accounting consequences, not a reporting change |
+| ~~**Profit, margin, cost of goods**~~ **Built in C11, and bounded.** `ProductVariant.Cost` is optional and `OrderItem.UnitCost` freezes it at sale time, so the dashboard reports the margin of the lines whose cost is known plus the share of revenue that covers. What is still missing is *allocated* cost — shipping, fees, returns handling — so this is gross margin on goods, not profit |
 | **Conversion rate** | Nothing tracks visits or sessions. There is no denominator. Adding one means analytics collection, which is a privacy decision |
 | **Forecasts** | Every figure describes a period that has already happened. Nothing on these pages predicts |
-| **Customer lifetime value** | Follows from profit; blocked by the same missing cost data |
+| **Customer lifetime value** | Now unblocked in principle (C11 gives per-line cost) and still not built: it needs a per-customer cohort view, which is its own report |
 
 The frontend mirrors this discipline. `businessHealth.js` returns `null` — not `0` — for the repeat rate when a store has no customers at all, because "we do not know yet" and "zero per cent" are different facts.
 
@@ -56,7 +56,7 @@ The frontend mirrors this discipline. `businessHealth.js` returns `null` — not
 `frontend/src/features/reporting/businessHealth.js` turns the same response into a plain-language verdict. Three rules govern it:
 
 1. **No new number.** Everything is derived from the dashboard response the manager also reads.
-2. **No profit.** §3.
+2. **No profit beyond gross margin on goods.** §3.
 3. **No verdict without its reason.** The page never says "healthy" on its own; it says "healthy" and, on the same line, the fact that produced it. A reader who cannot see the reason cannot disagree with the judgement.
 
 The thresholds are collected in one `THRESHOLDS` object so they read as a decision rather than as numbers scattered through the code: a ±5% change is the floor for calling a trend (below it is noise), refunds above 10% of revenue, cancellations above 20% of orders placed, unpaid above 25%, and one product above 50% of period revenue.

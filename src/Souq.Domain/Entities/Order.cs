@@ -118,7 +118,8 @@ public class Order : Entity, ITenantOwned
     // الباب الوحيد لإضافة منتج للطلب. القاعدة محمية: لا إضافة بعد التثبيت ولا بعد بدء المعالجة.
     // السطر متغيّر لا منتج: مقاسان من المنتج نفسه سطران بسعرين، والمتغيّر نفسه مرّتين سطر واحد بكميتهما.
     public void AddItem(
-        int productId, int variantId, string productName, Money unitPrice, int quantity, string? variantLabel = null, string? sku = null)
+        int productId, int variantId, string productName, Money unitPrice, int quantity,
+        string? variantLabel = null, string? sku = null, Money? unitCost = null)
     {
         EnsureOpen("لا يمكن تعديل طلب بدأت معالجته");
         if (quantity <= 0)
@@ -133,7 +134,9 @@ public class Order : Entity, ITenantOwned
         var existing = _items.FirstOrDefault(i => i.VariantId == variantId);
         if (existing is null)
         {
-            _items.Add(new OrderItem(productId, variantId, productName, label, skuSnapshot, unitPrice, quantity));
+            // التكلفة بعملة الطلب أو لا تُسجَّل: لقطةٌ بعملة أخرى أسوأ من غياب لقطة.
+            _items.Add(new OrderItem(productId, variantId, productName, label, skuSnapshot, unitPrice, quantity,
+                unitCost is { } cost && cost.Currency == Currency ? cost : null));
             return;
         }
 

@@ -523,4 +523,130 @@ public class StoreDashboardTests
         dashboard.Current.Refunds.Should().Be(0m, "ما لم يخرج من الصندوق لا يُخصم منه");
         dashboard.Current.NetRevenue.Should().Be(100m);
     }
+
+    private sealed record Margin(decimal KnownRevenue, decimal KnownCost, decimal GrossProfit, decimal CoverageRatio);
+
+    // ============================================================================
+    // الهامش يُحسب على **ما تُعرف تكلفته وحده**، والتغطية تقول كم ذلك (C11).
+    //
+    // العطل الذي يمنعه: لو جُمعت التكلفة المجهولة صفراً لظهر لتاجرٍ لم يُدخل تكلفةً واحدة أنّ
+    // هامشه مئة بالمئة. ذلك ليس نقصاً في الدقّة بل اختلاقُ ربح — وهو أسوأ ما يفعله تقرير.
+    // ============================================================================
+    [Fact]
+    public async Task الهامش_على_ما_تُعرف_تكلفته_وحده_والتغطية_معلنة()
+    {
+        var store = await _factory.CreateStoreAsync();
+        var api = _api.ForStore(store);
+        var admin = await api.AdminAsync();
+        var category = await api.CreateCategoryAsync(admin);
+
+        // منتج بتكلفة معروفة، وآخر بلا تكلفة.
+        var withCost = await api.CreateProductAsync(admin, price: 100m, stock: 50, categoryId: category, name: "بتكلفة");
+        var withoutCost = await api.CreateProductAsync(admin, price: 100m, stock: 50, categoryId: category, name: "بلا تكلفة");
+
+        var body = await admin.GetFromJsonAsync<Dictionary<string, object>>($"/api/admin/products/{withCost}", TestApi.Json);
+        (await admin.PutAsJsonAsync($"/api/products/{withCost}", new
+        {
+            categoryId = category,
+            slug = body!["slug"].ToString(),
+            translations = new Dictionary<string, object> { ["ar"] = new { name = "بتكلفة", description = "اختبار" } },
+            price = 100m,
+            cost = 60m,
+        }, TestApi.Json)).StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        var (customer, _) = await api.NewCustomerAsync();
+        foreach (var productId in new[] { withCost, withoutCost })
+        {
+            var created = await api.PlaceOrderAsync(customer, productId, 1);
+            var orderId = (await created.Content.ReadFromJsonAsync<Dictionary<string, object>>(TestApi.Json))!["orderId"].ToString();
+            (await customer.PostAsync($"/api/orders/{orderId}/confirm-payment", null))
+                .StatusCode.Should().Be(HttpStatusCode.OK);
+        }
+
+        var dashboard = await ReadJsonAsync(admin);
+        var margin = ToMargin(dashboard.GetProperty("margin"));
+
+        margin.KnownRevenue.Should().Be(100m, "إيراد السطر ذي التكلفة المعروفة وحده");
+        margin.KnownCost.Should().Be(60m);
+        margin.GrossProfit.Should().Be(40m, "وليس 140 — لا تُعَدّ التكلفة المجهولة صفراً");
+        margin.CoverageRatio.Should().Be(0.5m, "نصف الإيراد تُعرف تكلفته");
+    }
+
+    [Fact]
+    public async Task متجر_بلا_تكاليف_تغطيته_صفر_ولا_يُنسَب_إليه_ربح()
+    {
+        var store = await _factory.CreateStoreAsync();
+        var api = _api.ForStore(store);
+        var admin = await api.AdminAsync();
+        var productId = await api.CreateProductAsync(admin, price: 80m, stock: 10);
+
+        var (customer, _) = await api.NewCustomerAsync();
+        var created = await api.PlaceOrderAsync(customer, productId, 1);
+        var orderId = (await created.Content.ReadFromJsonAsync<Dictionary<string, object>>(TestApi.Json))!["orderId"].ToString();
+        (await customer.PostAsync($"/api/orders/{orderId}/confirm-payment", null))
+            .StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var margin = ToMargin((await ReadJsonAsync(admin)).GetProperty("margin"));
+
+        margin.CoverageRatio.Should().Be(0m, "لا تكلفة معروفة");
+        margin.GrossProfit.Should().Be(0m, "صفرٌ يقرؤه العميل مع تغطية صفر كـ \u0022غير متاح\u0022 — لا كربحٍ صفر");
+        margin.KnownRevenue.Should().Be(0m);
+    }
+
+    // ============================================================================
+    // اللقطة تُجمَّد: تغييرُ تكلفة المنتج اليوم لا يُحرّك هامش أمس.
+    // ============================================================================
+    [Fact]
+    public async Task تغيير_التكلفة_اليوم_لا_يُحرّك_هامش_طلب_سابق()
+    {
+        var store = await _factory.CreateStoreAsync();
+        var api = _api.ForStore(store);
+        var admin = await api.AdminAsync();
+        var category = await api.CreateCategoryAsync(admin);
+        var productId = await api.CreateProductAsync(admin, price: 100m, stock: 50, categoryId: category, name: "لقطة");
+
+        var slug = (await admin.GetFromJsonAsync<Dictionary<string, object>>(
+            $"/api/admin/products/{productId}", TestApi.Json))!["slug"].ToString();
+
+        object Update(decimal cost) => new
+        {
+            categoryId = category,
+            slug,
+            translations = new Dictionary<string, object> { ["ar"] = new { name = "لقطة", description = "اختبار" } },
+            price = 100m,
+            cost,
+        };
+
+        (await admin.PutAsJsonAsync($"/api/products/{productId}", Update(40m), TestApi.Json))
+            .StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        var (customer, _) = await api.NewCustomerAsync();
+        var created = await api.PlaceOrderAsync(customer, productId, 1);
+        var orderId = (await created.Content.ReadFromJsonAsync<Dictionary<string, object>>(TestApi.Json))!["orderId"].ToString();
+        (await customer.PostAsync($"/api/orders/{orderId}/confirm-payment", null))
+            .StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // التكلفة تتغيّر بعد البيع — بالخطأ أو بتغيّر المورّد.
+        (await admin.PutAsJsonAsync($"/api/products/{productId}", Update(90m), TestApi.Json))
+            .StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        var margin = ToMargin((await ReadJsonAsync(admin)).GetProperty("margin"));
+
+        margin.KnownCost.Should().Be(40m, "تكلفة لحظة البيع، لا تكلفة اليوم");
+        margin.GrossProfit.Should().Be(60m, "ولو قُرئت تكلفة اليوم لصار الربح 10 بأثر رجعي");
+    }
+
+    // قراءة يدوية بدل Deserialize: `JsonElement` في هذا الهدف لا تحمل الامتداد، والحقول أربعة.
+    private static Margin ToMargin(System.Text.Json.JsonElement margin) => new(
+        margin.GetProperty("knownRevenue").GetDecimal(),
+        margin.GetProperty("knownCost").GetDecimal(),
+        margin.GetProperty("grossProfit").GetDecimal(),
+        margin.GetProperty("coverageRatio").GetDecimal());
+
+    private static async Task<System.Text.Json.JsonElement> ReadJsonAsync(HttpClient client, string range = "Last30Days")
+    {
+        var response = await client.GetAsync($"/api/admin/reports/dashboard?range={range}");
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        return await response.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>(TestApi.Json);
+    }
 }

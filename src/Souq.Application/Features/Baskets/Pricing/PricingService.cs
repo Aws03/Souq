@@ -122,7 +122,9 @@ public sealed class PricingService : IPricing
             product.Translations.ToDictionary(t => t.Culture, t => t.Name), product.PrimaryImageUrl,
             variant.Price, line.Quantity, variant.Price.Multiply(line.Quantity), product.CanSell(variant),
             VariantLabel: product.VariantLabel(variant, culture), Sku: variant.Sku,
-            VariantLabels: product.VariantLabelsByCulture(variant));
+            VariantLabels: product.VariantLabelsByCulture(variant),
+            // لقطة التكلفة للطلب وحده — لا تُعرض ولا تُخرَّط إلى أي استجابة متجر (PricingContracts).
+            UnitCost: variant.Cost);
     }
 
     private static PricedLine Missing(PricingLine line, Money zero) => new(

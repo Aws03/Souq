@@ -142,6 +142,13 @@ public class ProductVariantConfiguration : IEntityTypeConfiguration<ProductVaria
         builder.Ignore(v => v.CompareAtPrice);
         builder.Ignore(v => v.IsOnSale);
 
+        // التكلفة (C11): عمود مبلغ واحد بعملة السعر، بنفس شكل سعر المقارنة أعلاه. لا فهرس —
+        // لا يُبحث بها ولا تُرتَّب عليها؛ تُقرأ مع المتغيّر وتُلقَط على سطر الطلب.
+        builder.Property<decimal?>("_costAmount")
+               .HasColumnName("Cost")
+               .HasColumnType(PersistenceConventions.MoneyColumnType);
+        builder.Ignore(v => v.Cost);
+
         builder.HasIndex(v => new { v.TenantId, v.Sku }).IsUnique().HasFilter("[Sku] IS NOT NULL");
 
         // تركيبة القيم فريدة داخل المنتج (ADR-0040): الفحص في Product، والفهرس يغلق سباق مديرَين. null لمنتج بلا خيارات.

@@ -116,17 +116,29 @@ public class Product : Entity, ITenantOwned
 
     // تسعير المنتج من نموذجه = تسعير متغيّره الافتراضي، وهو صحيح لمنتج بسيط. لمنتج بخيارات الأسعار لكل متغيّر: عميل قديم يعيد
     // إرسال ما قرأه (بلا تغيير) يمرّ، أما تغيير فعلي من هنا فيُرفض برمز ثابت — لا يُعدَّل سعر متغيّر لم يقصده المدير.
-    public void SetPricing(Money price, Money? compareAtPrice, string? sku)
+    public void SetPricing(Money price, Money? compareAtPrice, string? sku, Money? cost = null)
     {
         if (HasOptions)
         {
             var current = DefaultVariant;
+            // التكلفة داخل الحارس نفسه (C11): لو بقيت خارجه لمرّ تغييرُها من نموذج المنتج بصمت إلى
+            // المتغيّر الافتراضي وحده — أي تعديلٌ لم يقصده المدير على متغيّرٍ واحد من عدّة.
             if (price != current.Price || compareAtPrice?.Amount != current.CompareAtPrice?.Amount
-                || ProductVariant.NormalizeSku(sku) != current.Sku)
+                || ProductVariant.NormalizeSku(sku) != current.Sku || cost?.Amount != current.Cost?.Amount)
                 throw ProductVariantRules.Invalid("ProductHasVariants", "لهذا المنتج خيارات: السعر وSKU يُعدَّلان لكل متغيّر");
             return;
         }
         DefaultVariant.SetPricing(price, compareAtPrice, sku);
+        DefaultVariant.SetCost(cost);
+    }
+
+    // تكلفة المنتج البسيط = تكلفة متغيّره الافتراضي (C11)، كما أنّ سعره سعرُه. لمنتجٍ بخيارات
+    // التكلفة لكل متغيّر، فتُرفض من هنا بنفس رمز السعر — لا تُكتب على واحدٍ من عدّة بصمت.
+    public void SetCost(Money? cost)
+    {
+        if (HasOptions)
+            throw ProductVariantRules.Invalid("ProductHasVariants", "لهذا المنتج خيارات: التكلفة تُعدَّل لكل متغيّر");
+        DefaultVariant.SetCost(cost);
     }
 
     // ── الخيارات (P-08a، ADR-0040) ───────────────────────────────────────────
@@ -284,7 +296,8 @@ public class Product : Entity, ITenantOwned
     // متغيّر جديد لمنتج بخيارات: قيمة واحدة من كل خيار (بمعرّفاتها في هذا المنتج)، تركيبة لم تُستخدم، وSKU غير مكرّر داخل المنتج
     // (تفرّده في المتجر يفحصه المعالج والفهرس). حتى 100 متغيّر — المعطّل منها يُعدّ: صفوفه باقية.
     public ProductVariant AddVariant(
-        IReadOnlyCollection<int> optionValueIds, Money price, Money? compareAtPrice = null, string? sku = null, bool isActive = true)
+        IReadOnlyCollection<int> optionValueIds, Money price, Money? compareAtPrice = null, string? sku = null,
+        bool isActive = true, Money? cost = null)
     {
         if (!HasOptions)
             throw ProductVariantRules.Invalid("OptionsRequired", "عرّف خيارات المنتج قبل إضافة متغيّر");
@@ -304,6 +317,7 @@ public class Product : Entity, ITenantOwned
             throw ProductVariantRules.Invalid("DuplicateVariantCombination", "متغيّر بهذه القيم موجود في المنتج");
 
         var variant = new ProductVariant(isDefault: false, price, compareAtPrice, sku);
+        variant.SetCost(cost);
         EnsureSkuUnique(variant, variant.Sku);
         variant.SetOptionValues(values);
         variant.SetActive(isActive);
@@ -311,13 +325,16 @@ public class Product : Entity, ITenantOwned
         return variant;
     }
 
-    public void UpdateVariant(int variantId, Money price, Money? compareAtPrice, string? sku)
+    // `cost`: تكلفة الوحدة، و`null` تعني **امسحها** لا "اتركها" — فالتعديل يستبدل الحقول التحريرية
+    // كلّها، ولو عنى الغياب "اتركها" لما استطاع تاجر إزالة تكلفةٍ أدخلها خطأً (C11).
+    public void UpdateVariant(int variantId, Money price, Money? compareAtPrice, string? sku, Money? cost = null)
     {
         var variant = Variant(variantId);
         if (price.Currency != variant.Price.Currency)
             throw new InvalidProductDataException("متغيّرات المنتج بعملة واحدة");
         EnsureSkuUnique(variant, ProductVariant.NormalizeSku(sku));
         variant.SetPricing(price, compareAtPrice, sku);
+        variant.SetCost(cost);
     }
 
     // الافتراضي يمثّل المنتج لكل عميل لا يعرف المتغيّرات (السعر في القوائم، الطلب بلا متغيّر) — فيكون نشطاً دائماً.

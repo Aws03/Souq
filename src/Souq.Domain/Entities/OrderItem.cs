@@ -32,11 +32,27 @@ public class OrderItem : Entity, ITenantOwned
     public Money UnitPrice { get; private set; } = default!;        // لقطة مجمّدة للسعر
     public int Quantity { get; private set; }
 
+    // ============================================================================
+    // لقطة **التكلفة** لحظة الشراء (C11) — بالمبدأ نفسه الذي يجمّد السعر والاسم أعلاه، ولسبب
+    // أقوى: بلا هذه اللقطة كان الهامش يُحسب من تكلفة المتغيّر **الحالية**، فيتحرّك ربحُ العام
+    // الماضي كلّما صحّح التاجر رقمَ تكلفةٍ اليوم. تقريرٌ مالي يتغيّر بأثر رجعي ليس تقريراً.
+    //
+    // و`null` تعني "لم تُعرف لحظة البيع" ولا تُملأ بقيمة اليوم أبداً — كما لا يُملأ `VariantLabel`
+    // للأسطر التاريخية. الأسطر السابقة لهذا العمود تبقى فارغة، والتقرير يقول كم من إيراده مغطّى
+    // بتكلفة معروفة بدل أن يخترع الباقي.
+    // ============================================================================
+    // عمود مبلغ واحد والعملة من `UnitPrice` — نفس شكل `ProductVariant.Cost`، ولنفس السبب: عمود
+    // عملةٍ ثانٍ على السطر يفتح احتمال تناقضه مع عملة سعره.
+    private decimal? _unitCostAmount;
+    public Money? UnitCost => _unitCostAmount is decimal amount ? new Money(amount, UnitPrice.Currency) : null;
+
     public Money LineTotal => UnitPrice.Multiply(Quantity);        // محسوبة، لا مخزّنة
 
     private OrderItem() { }
 
-    internal OrderItem(int productId, int variantId, string productName, string? variantLabel, string? sku, Money unitPrice, int quantity)
+    internal OrderItem(
+        int productId, int variantId, string productName, string? variantLabel, string? sku,
+        Money unitPrice, int quantity, Money? unitCost = null)
     {
         // internal: لا يُنشأ سطر طلب إلا من داخل الطلب نفسه. هذا يحمي التجمّع.
         ProductId = productId;
@@ -46,6 +62,7 @@ public class OrderItem : Entity, ITenantOwned
         Sku = sku;
         UnitPrice = unitPrice;
         Quantity = quantity;
+        _unitCostAmount = unitCost?.Amount;
     }
 
     internal void IncreaseQuantity(int amount) => Quantity += amount;

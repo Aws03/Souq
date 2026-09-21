@@ -45,6 +45,7 @@ public class CreateProductHandler : IRequestHandler<CreateProductCommand, Result
             new Money(cmd.Price, store.Currency), cmd.Status, cmd.Sku,
             cmd.CompareAtPrice is decimal compareAt ? new Money(compareAt, store.Currency) : null,
             cmd.Brand);
+        product.SetCost(cmd.Cost is decimal cost ? new Money(cost, store.Currency) : null);
         product.SetVideoUrl(cmd.VideoUrl);
 
         // معرّف مقترَح يُفرَّد بلاحقة؛ معرّف أدخله المدير نفسه ⇒ تعارض صريح بدل تغييره بصمت.

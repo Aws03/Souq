@@ -29,11 +29,20 @@ public sealed record ShippingRequest(int? MethodId, string? Country);
 // حتى خيارات المتغيّرات — V2).
 // VariantLabel: لقطة وصف المتغيّر بلغة المتجر الافتراضية (تُجمَّد على سطر الطلب). VariantLabels: الوصف بكل لغة يعرفها
 // المنتج، للعرض الحيّ بلغة الزائر — كما Names لاسم المنتج (V3).
+// ============================================================================
+// **UnitCost سرٌّ تجاري، وهو الحقل الوحيد هنا الذي لا يراه المتسوّق أبداً** (C11). يسافر مع
+// السطر لسبب واحد: لقطةُ تكلفةٍ تُجمَّد على سطر الطلب، تماماً كما تُجمَّد `UnitPrice` و`Sku`
+// و`VariantLabel` عبر المسار نفسه — وبلا التجميد يتحرّك ربحُ العام الماضي كلّما صُحِّح رقم اليوم.
+//
+// ولأنّه الأول من نوعه في هذا العقد، يحرسه اختبار: `WhiteLabelSourceTests` يفشل إن ظهر حقل
+// تكلفة في أيّ استجابة تصل متجراً. الخريطة إلى `BasketLineDto` تُسقطه، وهذا مقصود لا سهو.
+// ============================================================================
 public sealed record PricedLine(
     int ProductId, int VariantId, string Name, IReadOnlyDictionary<string, string> Names, string? ImageUrl,
     Money UnitPrice, int Quantity, Money LineTotal, bool Sellable,
     string? VariantLabel = null, string? Sku = null, bool VariantRequired = false,
-    IReadOnlyDictionary<string, string>? VariantLabels = null);
+    IReadOnlyDictionary<string, string>? VariantLabels = null,
+    Money? UnitCost = null);
 
 // الكوبون كما قُيِّم: مطبَّق، أو مرفوض برمز الخطأ ورسالته (ModuleDisabled، CouponNotFound، InvalidCoupon).
 public sealed record CouponOutcome(string Code, bool Applied, string? ErrorCode, string? Message);

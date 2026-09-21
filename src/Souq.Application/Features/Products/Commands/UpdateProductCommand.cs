@@ -21,7 +21,9 @@ public record UpdateProductCommand(
     decimal? CompareAtPrice = null,
     string? Sku = null,
     string? Brand = null,
-    string? VideoUrl = null) : IRequest<Result>, IAuditable
+    string? VideoUrl = null,
+    // `null` تمسح التكلفة: التعديل يستبدل الحقول التحريرية كلّها (Product.UpdateVariant).
+    decimal? Cost = null) : IRequest<Result>, IAuditable
 {
     public AuditRecord ToAuditRecord() => new("catalog.product.updated", "Product", Id.ToString(),
         Metadata: new Dictionary<string, object?> { ["price"] = Price, ["sku"] = Sku });

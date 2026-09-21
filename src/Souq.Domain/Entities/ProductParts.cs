@@ -60,6 +60,37 @@ public partial class ProductVariant : Entity, ITenantOwned
     public Money? CompareAtPrice => _compareAtAmount is decimal amount ? new Money(amount, Price.Currency) : null;
     public bool IsOnSale => _compareAtAmount is decimal amount && amount > Price.Amount;
 
+    // ============================================================================
+    // تكلفة الوحدة (C11) — بعملة السعر نفسها، بالشكل نفسه الذي يتّبعه سعر المقارنة: عمود مبلغ
+    // واحد والعملة من السعر، فلا يمكن أصلاً أن تحمل عملةً أخرى.
+    //
+    // **اختيارية عن قصد، و`null` تعني "غير معروفة" لا "صفر".** تاجرٌ لا يمسك تكاليفه يجب أن يرى
+    // "الهامش غير متاح"، لا هامشاً بنسبة مئة بالمئة. الفرق بين الغياب والصفر هو الفرق بين تقريرٍ
+    // صادق وتقريرٍ يخترع ربحاً — والتقارير تحمل تغطيةَ التكلفة بجانب الهامش لهذا السبب.
+    //
+    // ولا تُقيَّد بالسعر: البيع بخسارة قرارٌ تجاري مشروع (منتج جاذب، تصفية مخزون)، ورفضُ تكلفةٍ
+    // أعلى من السعر كان سيمنع التاجر من قول الحقيقة عن متجره.
+    //
+    // وهي القيمة **الحالية**: الهامش التاريخي لا يُحسب منها بل من لقطة `OrderItem.UnitCost`،
+    // وإلّا تحرّك ربح العام الماضي كلّما صحّح التاجر رقماً.
+    // ============================================================================
+    private decimal? _costAmount;
+    public Money? Cost => _costAmount is decimal amount ? new Money(amount, Price.Currency) : null;
+
+    internal void SetCost(Money? cost)
+    {
+        if (cost is not { } value)
+        {
+            _costAmount = null;
+            return;
+        }
+        if (value.Currency != Price.Currency)
+            throw new InvalidProductDataException("التكلفة بعملة السعر نفسها");
+        // ولا فحص للسالب هنا: `Money` نفسه يرفضه، وتكراره كان سيكون شيفرةً ميّتة تُوهم بحراسة.
+        // المدقّق عند الحافّة يحوّل نفس الخطأ إلى 400 برسالة حقل بدل 422 من المجال.
+        _costAmount = value.Amount;
+    }
+
     private ProductVariant() { }
 
     internal ProductVariant(bool isDefault, Money price, Money? compareAtPrice, string? sku)

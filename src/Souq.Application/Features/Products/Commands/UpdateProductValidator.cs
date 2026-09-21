@@ -21,6 +21,7 @@ public class UpdateProductValidator : AbstractValidator<UpdateProductCommand>
         RuleFor(x => x.Price).GreaterThan(0);
         RuleFor(x => x.CompareAtPrice).GreaterThan(x => x.Price).When(x => x.CompareAtPrice.HasValue)
             .WithMessage("سعر المقارنة (قبل الخصم) يجب أن يكون أعلى من السعر");
+        ProductVariantInputRules.Cost(this, x => x.Cost);
         RuleFor(x => x.Sku).MaximumLength(ProductVariant.SkuMaxLength);
         RuleFor(x => x.Brand).MaximumLength(Product.BrandMaxLength);
         RuleFor(x => x.VideoUrl).MaximumLength(Product.VideoUrlMaxLength);

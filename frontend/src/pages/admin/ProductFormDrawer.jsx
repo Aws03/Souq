@@ -34,6 +34,8 @@ export default function ProductFormDrawer({ product, categories, onSave, onImage
   const [brand, setBrand] = useState(product?.brand ?? '');
   const [price, setPrice] = useState(product?.price ?? '');
   const [compareAtPrice, setCompareAtPrice] = useState(product?.compareAtPrice ?? '');
+  // التكلفة (C11): تُعرض للتاجر وحده ولا تظهر في أي شاشة متجر. فارغة تعني "غير معروفة" لا صفراً.
+  const [cost, setCost] = useState(product?.cost ?? '');
   // يفتحان مخزون المنتج عند الإنشاء فقط؛ بعده التصحيح من صفحة الجرد (المرحلة 6).
   const [stockQuantity, setStockQuantity] = useState('');
   const [lowStockThreshold, setLowStockThreshold] = useState(5);
@@ -119,7 +121,7 @@ export default function ProductFormDrawer({ product, categories, onSave, onImage
     try {
       // المخزون يُرسَل فقط إن غيّره المدير (مع القيمة التي رآها) — تعارض ⇒ 409 تظهر رسالته هنا.
       await onSave(buildProductPayload({
-        texts, slug, sku, brand, price, compareAtPrice, stockQuantity, lowStockThreshold, categoryId, status, videoRemoved,
+        texts, slug, sku, brand, price, compareAtPrice, cost, stockQuantity, lowStockThreshold, categoryId, status, videoRemoved,
       }, product), galleryFull ? null : file, videoFile);
     } catch (err) { setError(err.message); setBusy(false); }
   };
@@ -254,6 +256,13 @@ export default function ProductFormDrawer({ product, categories, onSave, onImage
           <FormField label={t('admin.productForm.compareAtLabel')} hint={t('admin.productForm.compareAtHint')}>
             <input className={inputClass(false)} type="number" min="0" step="0.001" value={compareAtPrice} disabled={hasOptions}
               onChange={(e) => setCompareAtPrice(e.target.value)} />
+          </FormField>
+        </div>
+
+        <div className={styles.row}>
+          <FormField label={t('admin.productForm.costLabel')} hint={t('admin.productForm.costHint')}>
+            <input className={inputClass(false)} type="number" min="0" step="0.001" value={cost} disabled={hasOptions}
+              onChange={(e) => setCost(e.target.value)} />
           </FormField>
         </div>
 

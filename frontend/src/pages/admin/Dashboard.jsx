@@ -14,7 +14,7 @@ import StatusDonut from '../../components/charts/StatusDonut';
 import { formatPrice } from '../../components/product/ProductBadges';
 import { formatDate } from '../../i18n';
 import {
-  hasNoActivity, isBrandNewStore, kpiCards, operationalAlerts, statusSlices, totalOrdersInPeriod, trendBucket, trendPoints,
+  hasNoActivity, isBrandNewStore, kpiCards, marginSummary, operationalAlerts, statusSlices, totalOrdersInPeriod, trendBucket, trendPoints,
 } from '../../features/reporting/dashboardView';
 import styles from './Dashboard.module.css';
 
@@ -48,6 +48,7 @@ export default function Dashboard() {
   const money = (value) => formatPrice(value, data?.currency);
   const cards = kpiCards(data);
   const alerts = operationalAlerts(data);
+  const margin = marginSummary(data);
   const rangeLabel = t(`admin.reports.range.${range}`);
 
   return (
@@ -200,6 +201,32 @@ export default function Dashboard() {
                     <li className={styles.warnRow}><span>{t('admin.reports.inventoryLow')}</span><b>{data.inventory.low}</b></li>
                     <li className={styles.dangerRow}><span>{t('admin.reports.inventoryOut')}</span><b>{data.inventory.outOfStock}</b></li>
                   </ul>
+                </section>
+
+                {/* الهامش، أو سببُ غيابه. لا يُعرض رقمٌ بلا تغطيته: تاجرٌ بلا تكاليف يُقال له
+                    كيف يحصل على الرقم، لا يُعطى صفراً يبدو كأنه ربحه. */}
+                <section className={styles.panel}>
+                  <h3 className={styles.sectionTitle}>{t('admin.reports.marginTitle')}</h3>
+                  {margin.known ? (
+                    <ul className={styles.factList}>
+                      <li><span>{t('admin.reports.grossProfit')}</span><b>{money(margin.grossProfit)}</b></li>
+                      <li>
+                        <span>{t('admin.reports.marginRatio')}</span>
+                        <b>{new Intl.NumberFormat(i18n.language, { style: 'percent', maximumFractionDigits: 1 })
+                          .format(margin.ratio)}</b>
+                      </li>
+                      {margin.partial && (
+                        <li className={styles.warnRow}>
+                          <span>{t('admin.reports.marginCoverage', {
+                            percent: new Intl.NumberFormat(i18n.language, { style: 'percent', maximumFractionDigits: 0 })
+                              .format(margin.coverageRatio),
+                          })}</span>
+                        </li>
+                      )}
+                    </ul>
+                  ) : (
+                    <p className={styles.emptyNote}>{t('admin.reports.marginUnknown')}</p>
+                  )}
                 </section>
 
                 <section className={styles.panel}>

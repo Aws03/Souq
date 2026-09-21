@@ -60,6 +60,22 @@ public sealed record CategoryPerformanceDto(int CategoryId, string Name, int Uni
 public sealed record PeriodTotalsDto(
     decimal Revenue, decimal Refunds, decimal NetRevenue, int Orders, decimal AverageOrderValue, int NewCustomers);
 
+// ============================================================================
+// هامش المدّة **مع تغطيته** (C11) — والتغطية ليست زينة بل شرط صدق الرقم.
+//
+// التكلفة اختيارية لكل متغيّر، ولقطتها على سطر الطلب قد تكون غائبة (أسطرٌ سبقت العمود، أو منتج
+// لم تُدخَل تكلفته). فلو حُسب الهامش على الإيراد كلّه لعُدَّت التكلفة المجهولة **صفراً** — وظهر
+// لتاجرٍ لم يُدخل تكلفةً واحدة أنّ هامشه مئة بالمئة. هذا ليس نقصاً في الدقّة، هو اختلاق.
+//
+// فالمحسوب هنا هو هامش **ما نعرف تكلفته وحده**، و`CoverageRatio` يقول كم من الإيراد ذلك.
+// الواجهة تعرض الهامش حين تكون التغطية ذات معنى، وتقول "غير متاح" حين لا تكون.
+//
+// KnownRevenue: إيراد الأسطر ذات التكلفة المعروفة · KnownCost: تكلفتها · GrossProfit: الفرق
+// · CoverageRatio: KnownRevenue ÷ إيراد المدّة كلّه (صفر حين لا إيراد).
+// ============================================================================
+public sealed record MarginDto(
+    decimal KnownRevenue, decimal KnownCost, decimal GrossProfit, decimal CoverageRatio);
+
 /// <summary>حالة المخزون الآن (ليست تاريخية): سليم، منخفض، نافد.</summary>
 public sealed record InventorySnapshotDto(int Healthy, int Low, int OutOfStock);
 
@@ -79,6 +95,7 @@ public sealed record StoreDashboardDto(
     IReadOnlyList<TopProductDto> TopProducts,
     IReadOnlyList<CategoryPerformanceDto> TopCategories,
     InventorySnapshotDto Inventory,
+    MarginDto Margin,
     int PendingOrders,
     int PendingRefunds,
     int TotalCustomers,

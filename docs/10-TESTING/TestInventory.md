@@ -7,11 +7,11 @@
 
 | Suite | Files | Facts | Theories |
 |---|---|---|---|
-| [`Souq.Domain.Tests`](#souqdomaintests) | 30 | 247 | 50 |
+| [`Souq.Domain.Tests`](#souqdomaintests) | 30 | 254 | 50 |
 | [`Souq.Application.Tests`](#souqapplicationtests) | 52 | 387 | 19 |
-| [`Souq.ArchitectureTests`](#souqarchitecturetests) | 17 | 74 | 8 |
-| [`Souq.IntegrationTests`](#souqintegrationtests) | 57 | 355 | 26 |
-| [frontend (Vitest)](#frontend-vitest) | 94 | 711 | — |
+| [`Souq.ArchitectureTests`](#souqarchitecturetests) | 17 | 76 | 8 |
+| [`Souq.IntegrationTests`](#souqintegrationtests) | 57 | 358 | 26 |
+| [frontend (Vitest)](#frontend-vitest) | 94 | 716 | — |
 | [frontend (Playwright)](#frontend-playwright) | 19 | 126 | — |
 
 ## Souq.Domain.Tests
@@ -35,7 +35,7 @@
 | `tests/Souq.Domain.Tests/PlanAndEntitlementTests.cs` | `PlanAndEntitlementTests` | 20 | 3 |
 | `tests/Souq.Domain.Tests/ProductOptionTests.cs` | `ProductOptionTests` | 19 | 0 |
 | `tests/Souq.Domain.Tests/ProductTests.cs` | `ProductTests`, `CategoryTests` | 11 | 1 |
-| `tests/Souq.Domain.Tests/ProductVariantTests.cs` | `ProductVariantTests` | 10 | 0 |
+| `tests/Souq.Domain.Tests/ProductVariantTests.cs` | `ProductVariantTests`, `ProductCostTests` | 17 | 0 |
 | `tests/Souq.Domain.Tests/RefreshTokenTests.cs` | `RefreshTokenTests` | 3 | 0 |
 | `tests/Souq.Domain.Tests/ReviewTests.cs` | `ReviewTests` | 8 | 1 |
 | `tests/Souq.Domain.Tests/SearchDistanceTests.cs` | `SearchDistanceTests` | 7 | 3 |
@@ -122,7 +122,7 @@
 | `tests/Souq.ArchitectureTests/ModuleAndContractRuleTests.cs` | `ModuleAndContractRuleTests` | 11 | 1 |
 | `tests/Souq.ArchitectureTests/NotificationDocumentationTests.cs` | `NotificationDocumentationTests` | 2 | 0 |
 | `tests/Souq.ArchitectureTests/OperationalScriptTests.cs` | `OperationalScriptTests`, `TempEnv` | 3 | 3 |
-| `tests/Souq.ArchitectureTests/QuotaRuleTests.cs` | `QuotaRuleTests` | 3 | 0 |
+| `tests/Souq.ArchitectureTests/QuotaRuleTests.cs` | `QuotaRuleTests`, `MerchantCostSecrecyTests` | 5 | 0 |
 | `tests/Souq.ArchitectureTests/SearchRuntimeRuleTests.cs` | `SearchRuntimeRuleTests` | 1 | 0 |
 | `tests/Souq.ArchitectureTests/TenancyRuleTests.cs` | `TenancyRuleTests` | 8 | 0 |
 | `tests/Souq.ArchitectureTests/ValidationRuleTests.cs` | `ValidationRuleTests` | 2 | 0 |
@@ -180,7 +180,7 @@
 | `tests/Souq.IntegrationTests/StartupAndSecurityTests.cs` | `StartupAndSecurityTests`, `LoggerAdapter` | 7 | 1 |
 | `tests/Souq.IntegrationTests/StoreAdministrationTests.cs` | `StoreAdministrationTests` | 7 | 0 |
 | `tests/Souq.IntegrationTests/StoreBrandingPersistenceTests.cs` | `StoreBrandingPersistenceTests` | 4 | 0 |
-| `tests/Souq.IntegrationTests/StoreDashboardTests.cs` | `StoreDashboardTests` | 17 | 1 |
+| `tests/Souq.IntegrationTests/StoreDashboardTests.cs` | `StoreDashboardTests` | 20 | 1 |
 | `tests/Souq.IntegrationTests/StorefrontVariantTests.cs` | `StorefrontVariantTests` | 7 | 0 |
 | `tests/Souq.IntegrationTests/StripeAmountConverterTests.cs` | `StripeAmountConverterTests` | 2 | 2 |
 | `tests/Souq.IntegrationTests/TenantIsolationTests.cs` | `TenantIsolationTests` | 13 | 0 |
@@ -254,7 +254,7 @@
 | `frontend/src/features/platform/provisioning.test.js` | 22 |
 | `frontend/src/features/reporting/businessHealth.test.js` | 22 |
 | `frontend/src/features/reporting/chartScales.test.js` | 18 |
-| `frontend/src/features/reporting/dashboardView.test.js` | 17 |
+| `frontend/src/features/reporting/dashboardView.test.js` | 22 |
 | `frontend/src/features/reviews/ratingSummary.test.js` | 3 |
 | `frontend/src/features/statusTone.test.js` | 10 |
 | `frontend/src/features/storefront/openingExperience.test.js` | 11 |

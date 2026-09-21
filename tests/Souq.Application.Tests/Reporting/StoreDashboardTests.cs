@@ -116,7 +116,7 @@ public class StoreDashboardWindowTests
         "Last7Days", Now, Now, "JOD",
         new PeriodTotalsDto(0, 0, 0, 0, 0, 0), new PeriodTotalsDto(0, 0, 0, 0, 0, 0),
         [], new Dictionary<string, int>(), [], [],
-        new InventorySnapshotDto(0, 0, 0), 0, 0, 0, 0);
+        new InventorySnapshotDto(0, 0, 0), new MarginDto(0, 0, 0, 0), 0, 0, 0, 0);
 }
 
 // ============================================================================

@@ -279,7 +279,7 @@ internal sealed class CatalogQueries : ICatalogQueries
                 var level = stock.GetValueOrDefault(v.Variant.Id);
                 int onHandV = level?.OnHand ?? 0, reservedV = level?.Reserved ?? 0;
                 return new AdminProductVariantDto(v.Variant.Id, v.Variant.IsDefault, v.Variant.IsActive, v.Variant.Sku,
-                    v.Variant.Price.Amount, v.Variant.CompareAtPrice?.Amount, v.ValueIds,
+                    v.Variant.Price.Amount, v.Variant.CompareAtPrice?.Amount, v.Variant.Cost?.Amount, v.ValueIds,
                     onHandV, reservedV, onHandV - reservedV, level?.LowStockThreshold ?? 0);
             })
             .ToList();
@@ -290,7 +290,8 @@ internal sealed class CatalogQueries : ICatalogQueries
         return new AdminProductDto(
             product.Id, product.Slug, product.Status.ToString(),
             product.Translations.ToDictionary(t => t.Culture, t => new CatalogTextDto(t.Name, t.Description, t.MetaTitle, t.MetaDescription)),
-            product.Sku, product.Price.Amount, product.CompareAtPrice?.Amount, product.Price.Currency,
+            product.Sku, product.Price.Amount, product.CompareAtPrice?.Amount,
+            product.DefaultVariant.Cost?.Amount, product.Price.Currency,
             onHand, reserved, onHand - reserved, stock.GetValueOrDefault(defaultVariant.Id)?.LowStockThreshold ?? 0,
             product.Images.OrderBy(i => i.SortOrder).ThenBy(i => i.Id).Select(i => new ProductImageDto(i.Id, i.Url, i.SortOrder)).ToList(),
             product.VideoUrl, product.CategoryId, product.Brand, product.CreatedAt, product.UpdatedAt,

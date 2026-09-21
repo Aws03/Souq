@@ -20,6 +20,16 @@ public class OrderItemConfiguration : IEntityTypeConfiguration<OrderItem>
         });
         builder.Ignore(i => i.LineTotal);   // محسوبة، لا تُخزّن
 
+        // ====================================================================
+        // لقطة التكلفة (C11). **اختيارية**: الأسطر التي سبقت هذا العمود تبقى فارغة، وملؤها بتكلفة
+        // اليوم كان سيخترع بيانات لم تُسجَّل. وعملتها لا تُخزَّن: عملة الطلب واحدة والسطر يحملها
+        // أصلاً في `UnitPrice`، فعمودُ عملةٍ ثانٍ كان يفتح احتمال تناقضها مع نفسها.
+        // ====================================================================
+        builder.Property<decimal?>("_unitCostAmount")
+               .HasColumnName("UnitCost")
+               .HasColumnType(PersistenceConventions.MoneyColumnType);
+        builder.Ignore(i => i.UnitCost);
+
         // مرجع للمنتج الأصلي (رغم تجميد الاسم والسعر هنا). Restrict يمنع حذف منتج
         // له مبيعات تاريخية — وهذا سبب إضافي لاعتماد الحذف المنطقي في Product. داخل المتجر فقط.
         builder.HasOne<Product>()

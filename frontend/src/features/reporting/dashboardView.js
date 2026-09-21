@@ -48,6 +48,36 @@ export function kpiCards(dashboard) {
   ].map((card) => ({ ...card, change: changeRatio(card.value, card.previous) }));
 }
 
+// ============================================================================
+// الهامش، أو الاعتراف بأنّه غير معروف (C11).
+//
+// الخادم يرسل هامش **ما تُعرف تكلفته وحده** مع تغطيته. القاعدة هنا سطرٌ واحد: تغطيةٌ صفر تعني
+// "غير متاح"، لا ربحاً صفراً — والفرق بينهما هو الفرق بين تقريرٍ صادق وتقريرٍ يخترع.
+//
+// وحين تكون التغطية جزئية يُعرض الرقم **ونسبته** معاً: هامشٌ على نصف الإيراد معلومةٌ نافعة إن
+// قيل إنه على نصفه، ومضلّلةٌ إن قُدّم كأنه هامش المتجر.
+//
+// `PARTIAL_COVERAGE` = 0.99 لا 1: كسورُ التقريب تجعل تغطيةً كاملة تصل 0.9999، وعرضُ "على 99.99%
+// من المبيعات" لتاجرٍ أدخل كل تكاليفه ضجيجٌ لا معلومة.
+// ============================================================================
+export const PARTIAL_COVERAGE = 0.99;
+
+export function marginSummary(dashboard) {
+  const margin = dashboard?.margin;
+  if (!margin || !(margin.coverageRatio > 0)) return { known: false };
+
+  return {
+    known: true,
+    grossProfit: margin.grossProfit,
+    knownRevenue: margin.knownRevenue,
+    knownCost: margin.knownCost,
+    // الهامش نسبةً من الإيراد الذي نعرف تكلفته — لا من إيراد المدّة كلّه.
+    ratio: margin.knownRevenue > 0 ? margin.grossProfit / margin.knownRevenue : 0,
+    coverageRatio: margin.coverageRatio,
+    partial: margin.coverageRatio < PARTIAL_COVERAGE,
+  };
+}
+
 /**
  * ما يحتاج تصرّفاً الآن، بترتيب الإلحاح. لا تنبيه بلا رقم: قائمة تنبيهات فارغة تعني متجراً
  * سليماً، وهي معلومة تُقال لا فراغ يُترك.

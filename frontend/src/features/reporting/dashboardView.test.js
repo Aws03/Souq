@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { hasNoActivity, isBrandNewStore, kpiCards, operationalAlerts, statusSlices, totalOrdersInPeriod, trendBucket, trendPoints } from './dashboardView';
+import { hasNoActivity, isBrandNewStore, kpiCards, marginSummary, operationalAlerts, statusSlices, totalOrdersInPeriod, trendBucket, trendPoints } from './dashboardView';
 
 const t = (key) => key;
 
@@ -131,5 +131,60 @@ describe('trendBucket', () => {
     expect(trendBucket({ trend: [at('2026-09-01T00:00:00Z')] })).toBe('day');
     expect(trendBucket({ trend: [at('nonsense'), at('also-nonsense')] })).toBe('day');
     expect(trendBucket(null)).toBe('day');
+  });
+});
+
+// ============================================================================
+// الهامش، أو الاعتراف بأنّه غير معروف (C11). القاعدة الوحيدة التي تحرسها هذه الاختبارات:
+// **تغطية صفر تعني "غير متاح"، لا ربحاً صفراً** — والفرق بينهما هو الفرق بين تقرير يَصدُق
+// وتقرير يخترع ربحاً لتاجرٍ لم يُدخل تكلفةً واحدة.
+// ============================================================================
+describe('marginSummary', () => {
+  const withMargin = (margin) => ({ margin });
+
+  it('تغطية صفر ⇒ غير معروف، لا ربح صفر', () => {
+    const summary = marginSummary(withMargin({ knownRevenue: 0, knownCost: 0, grossProfit: 0, coverageRatio: 0 }));
+
+    expect(summary.known).toBe(false);
+    expect(summary.grossProfit).toBeUndefined();
+  });
+
+  it('لا بيانات أصلاً ⇒ غير معروف ولا انهيار', () => {
+    expect(marginSummary(null).known).toBe(false);
+    expect(marginSummary({}).known).toBe(false);
+    expect(marginSummary(withMargin(undefined)).known).toBe(false);
+  });
+
+  it('الهامش نسبةً من الإيراد المعروف تكلفته لا من إيراد المدّة كلّه', () => {
+    // 100 إيراد معروف، 60 تكلفة ⇒ ربح 40 وهامش 40% — ولو قُسم على إيراد المدّة (200) لصار 20%.
+    const summary = marginSummary(withMargin({
+      knownRevenue: 100, knownCost: 60, grossProfit: 40, coverageRatio: 0.5,
+    }));
+
+    expect(summary.known).toBe(true);
+    expect(summary.ratio).toBeCloseTo(0.4, 6);
+    expect(summary.partial).toBe(true);
+    expect(summary.coverageRatio).toBe(0.5);
+  });
+
+  it('تغطية كاملة لا تُعلَن جزئية، ولا تُخدَع بكسر التقريب', () => {
+    expect(marginSummary(withMargin({
+      knownRevenue: 100, knownCost: 70, grossProfit: 30, coverageRatio: 1,
+    })).partial).toBe(false);
+
+    // 0.9999 تغطيةٌ كاملة عملياً: عرض "على 99.99% من المبيعات" ضجيج لا معلومة.
+    expect(marginSummary(withMargin({
+      knownRevenue: 100, knownCost: 70, grossProfit: 30, coverageRatio: 0.9999,
+    })).partial).toBe(false);
+  });
+
+  it('هامش سالب يُعرض كما هو — البيع بخسارة معلومة يحتاجها التاجر', () => {
+    const summary = marginSummary(withMargin({
+      knownRevenue: 100, knownCost: 130, grossProfit: -30, coverageRatio: 1,
+    }));
+
+    expect(summary.known).toBe(true);
+    expect(summary.grossProfit).toBe(-30);
+    expect(summary.ratio).toBeCloseTo(-0.3, 6);
   });
 });

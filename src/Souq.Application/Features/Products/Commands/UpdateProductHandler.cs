@@ -46,7 +46,8 @@ public class UpdateProductHandler : IRequestHandler<UpdateProductCommand, Result
         product.SetTexts(CatalogTexts.ToDomain(cmd.Translations));
         product.MoveToCategory(cmd.CategoryId);
         product.SetPricing(new Money(cmd.Price, currency),
-            cmd.CompareAtPrice is decimal compareAt ? new Money(compareAt, currency) : null, cmd.Sku);
+            cmd.CompareAtPrice is decimal compareAt ? new Money(compareAt, currency) : null, cmd.Sku,
+            cmd.Cost is decimal cost ? new Money(cost, currency) : null);
         product.SetBrand(cmd.Brand);
         product.SetVideoUrl(cmd.VideoUrl);
 

@@ -100,7 +100,8 @@ public class SetProductOptionsHandler : IRequestHandler<SetProductOptionsCommand
 // متغيّر جديد: قيمة من كل خيار، تسعيره بعملة المنتج، ومخزونه الابتدائي — يُفتح في وحدة Inventory في المعاملة نفسها.
 public sealed record NewProductVariantInput(
     IReadOnlyList<int> OptionValueIds, decimal Price, decimal? CompareAtPrice = null, string? Sku = null,
-    int InitialStock = 0, int LowStockThreshold = InventoryItem.DefaultLowStockThreshold, bool IsActive = true);
+    int InitialStock = 0, int LowStockThreshold = InventoryItem.DefaultLowStockThreshold, bool IsActive = true,
+    decimal? Cost = null);
 
 // دفعة متغيّرات (منها "أنشئ التركيبات الناقصة") تُنشأ كلها أو لا شيء. يعيد معرّفاتها بترتيب المدخل.
 public record CreateProductVariantsCommand(int ProductId, IReadOnlyList<NewProductVariantInput> Variants)
@@ -156,7 +157,8 @@ public class CreateProductVariantsHandler : IRequestHandler<CreateProductVariant
         var created = cmd.Variants.Select(input => (Input: input, Variant: product.AddVariant(
             input.OptionValueIds, new Money(input.Price, currency),
             input.CompareAtPrice is decimal compareAt ? new Money(compareAt, currency) : null,
-            input.Sku, input.IsActive))).ToList();
+            input.Sku, input.IsActive,
+            input.Cost is decimal cost ? new Money(cost, currency) : null))).ToList();
 
         foreach (var sku in created.Select(c => c.Variant.Sku).OfType<string>())
             if (await _products.SkuExistsAsync(sku, product.Id, ct))
@@ -177,7 +179,9 @@ public class CreateProductVariantsHandler : IRequestHandler<CreateProductVariant
 
 // ── تعديل متغيّر ──────────────────────────────────────────────────────────────
 
-public record UpdateProductVariantCommand(int ProductId, int VariantId, decimal Price, decimal? CompareAtPrice = null, string? Sku = null)
+public record UpdateProductVariantCommand(
+    int ProductId, int VariantId, decimal Price, decimal? CompareAtPrice = null, string? Sku = null,
+    decimal? Cost = null)
     : IRequest<Result>, IAuditable
 {
     public AuditRecord ToAuditRecord() => new("catalog.product.variant-updated", "ProductVariant", VariantId.ToString(),
@@ -191,6 +195,7 @@ public sealed class UpdateProductVariantValidator : AbstractValidator<UpdateProd
         RuleFor(x => x.ProductId).GreaterThan(0);
         RuleFor(x => x.VariantId).GreaterThan(0);
         ProductVariantInputRules.Pricing(this, x => x.Price, x => x.CompareAtPrice, x => x.Sku);
+        ProductVariantInputRules.Cost(this, x => x.Cost);
     }
 }
 
@@ -211,7 +216,8 @@ public class UpdateProductVariantHandler : IRequestHandler<UpdateProductVariantC
 
         var currency = product.Price.Currency;
         product.UpdateVariant(cmd.VariantId, new Money(cmd.Price, currency),
-            cmd.CompareAtPrice is decimal compareAt ? new Money(compareAt, currency) : null, cmd.Sku);
+            cmd.CompareAtPrice is decimal compareAt ? new Money(compareAt, currency) : null, cmd.Sku,
+            cmd.Cost is decimal cost ? new Money(cost, currency) : null);
 
         if (product.FindVariant(cmd.VariantId)!.Sku is { } sku && await _products.SkuExistsAsync(sku, product.Id, ct))
             return Result.Failure(ProductRules.SkuTaken);
@@ -333,4 +339,11 @@ internal static class ProductVariantInputRules
             .WithMessage("سعر المقارنة (قبل الخصم) يجب أن يكون أعلى من السعر");
         validator.RuleFor(sku).MaximumLength(ProductVariant.SkuMaxLength);
     }
+
+    // التكلفة غير سالبة، ولا سقف لها بالسعر: البيع بخسارة قرار تجاري مشروع (منتج جاذب، تصفية)،
+    // ورفضُ تكلفةٍ أعلى من السعر كان سيمنع التاجر من تسجيل حقيقة متجره (C11).
+    public static void Cost<T>(
+        AbstractValidator<T> validator, System.Linq.Expressions.Expression<Func<T, decimal?>> cost) =>
+        validator.RuleFor(cost).GreaterThanOrEqualTo(0).When(item => cost.Compile()(item).HasValue)
+            .WithMessage("التكلفة لا تكون سالبة");
 }

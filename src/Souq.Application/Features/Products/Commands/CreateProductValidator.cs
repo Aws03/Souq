@@ -24,6 +24,7 @@ public class CreateProductValidator : AbstractValidator<CreateProductCommand>
         RuleFor(x => x.Price).GreaterThan(0);
         RuleFor(x => x.CompareAtPrice).GreaterThan(x => x.Price).When(x => x.CompareAtPrice.HasValue)
             .WithMessage("سعر المقارنة (قبل الخصم) يجب أن يكون أعلى من السعر");
+        ProductVariantInputRules.Cost(this, x => x.Cost);
         RuleFor(x => x.StockQuantity).GreaterThanOrEqualTo(0);
         RuleFor(x => x.LowStockThreshold).GreaterThanOrEqualTo(0);
         RuleFor(x => x.Status).IsInEnum().NotEqual(ProductStatus.Archived);

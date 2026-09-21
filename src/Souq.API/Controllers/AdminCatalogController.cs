@@ -66,7 +66,7 @@ public class AdminCatalogController : ControllerBase
     // PUT /api/admin/products/5/variants/12 { "price": 25, "compareAtPrice": null, "sku": "SHIRT-L" }
     [HttpPut("products/{id:int}/variants/{variantId:int}")]
     public async Task<IActionResult> UpdateVariant(int id, int variantId, [FromBody] ProductVariantPricingRequest body)
-        => this.ToHttp(await _mediator.Send(new UpdateProductVariantCommand(id, variantId, body.Price!.Value, body.CompareAtPrice, body.Sku)));
+        => this.ToHttp(await _mediator.Send(new UpdateProductVariantCommand(id, variantId, body.Price!.Value, body.CompareAtPrice, body.Sku, body.Cost)));
 
     // PUT /api/admin/products/5/variants/12/status { "isActive": false } — تعطيل بدل حذف.
     [HttpPut("products/{id:int}/variants/{variantId:int}/status")]
@@ -89,5 +89,6 @@ public record ProductOptionsRequest(IReadOnlyList<ProductOptionInput>? Options);
 public record ProductVariantsRequest(IReadOnlyList<NewProductVariantInput>? Variants);
 
 // قابلة للعدم و[Required] للسبب نفسه: {} لا يعني سعر صفر ولا تعطيلاً صامتاً.
-public record ProductVariantPricingRequest([Required] decimal? Price, decimal? CompareAtPrice, string? Sku);
+// Cost: تكلفة الوحدة — سرٌّ تجاري لا يخرج إلا في استجابات الإدارة (C11). `null` تمسحها.
+public record ProductVariantPricingRequest([Required] decimal? Price, decimal? CompareAtPrice, string? Sku, decimal? Cost);
 public record ProductVariantStatusRequest([Required] bool? IsActive);

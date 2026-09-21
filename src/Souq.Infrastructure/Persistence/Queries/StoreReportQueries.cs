@@ -57,6 +57,7 @@ internal sealed class StoreReportQueries : IStoreReports
             TopProducts: await TopProductsAsync(window.From, window.To, ct),
             TopCategories: await TopCategoriesAsync(window.From, window.To, ct),
             Inventory: await InventoryAsync(ct),
+            Margin: await MarginAsync(window.From, window.To, currency, ct),
             PendingOrders: await PendingOrdersAsync(ct),
             PendingRefunds: await PendingRefundsAsync(ct),
             TotalCustomers: await _db.Customers.AsNoTracking().CountAsync(c => c.ErasedAt == null, ct),
@@ -201,6 +202,44 @@ internal sealed class StoreReportQueries : IStoreReports
     // الخارجي مفتاح ظلّ يملكه التجمّع، وهذا ما يجعل السطر غير قابل للوصول خارج طلبه.
     private IQueryable<Domain.Entities.OrderItem> CountedItems(DateTime from, DateTime to) =>
         CountedOrders(from, to).SelectMany(o => o.Items);
+
+    // ========================================================================
+    // الهامش على **ما تُعرف تكلفته وحده**، والتغطية بجانبه (C11).
+    //
+    // العدّ في SQL في مسحٍ واحد، والمهمّ فيه شرط `!= null`: بدونه تُجمَع التكلفة المجهولة صفراً
+    // فيُنسَب إلى التاجر ربحٌ كامل على بضاعةٍ لا يعرف ثمنها. ولذلك يُجمَع الإيراد مرّتين —
+    // إيراد الكلّ، وإيراد ما نعرف — فتكون النسبة بينهما هي التغطية.
+    //
+    // `_unitCostAmount` حقلٌ خاصّ مُخرَّط: `EF.Property` هو الطريق إليه في استعلام، وهو ما يُبقي
+    // العملة خارج العمود (عملة السطر من سعره).
+    // ========================================================================
+    private async Task<MarginDto> MarginAsync(DateTime from, DateTime to, string currency, CancellationToken ct)
+    {
+        var totals = await CountedItems(from, to)
+            .GroupBy(_ => 1)
+            .Select(g => new
+            {
+                Revenue = g.Sum(i => i.UnitPrice.Amount * i.Quantity),
+                KnownRevenue = g.Sum(i => EF.Property<decimal?>(i, "_unitCostAmount") == null
+                    ? 0m
+                    : i.UnitPrice.Amount * i.Quantity),
+                KnownCost = g.Sum(i => (EF.Property<decimal?>(i, "_unitCostAmount") ?? 0m) * i.Quantity),
+            })
+            .FirstOrDefaultAsync(ct);
+
+        var revenue = totals?.Revenue ?? 0m;
+        var knownRevenue = totals?.KnownRevenue ?? 0m;
+        var knownCost = totals?.KnownCost ?? 0m;
+        var minor = CurrencyInfo.MinorUnits(currency);
+
+        return new MarginDto(
+            KnownRevenue: decimal.Round(knownRevenue, minor, MidpointRounding.AwayFromZero),
+            KnownCost: decimal.Round(knownCost, minor, MidpointRounding.AwayFromZero),
+            GrossProfit: decimal.Round(knownRevenue - knownCost, minor, MidpointRounding.AwayFromZero),
+            // أربع منازل لا منازل العملة: هذه نسبة لا مبلغ، وتقريبها بخانات الدينار يجعل تغطيةً
+            // ضئيلةً تُعرض صفراً فتبدو "لا تغطية" وهي موجودة.
+            CoverageRatio: revenue == 0m ? 0m : decimal.Round(knownRevenue / revenue, 4, MidpointRounding.AwayFromZero));
+    }
 
     // الترتيب والقصّ يقعان على النوع المجهول لا على السجلّ: EF لا يترجم OrderBy على خاصّية
     // سجلٍّ أُنشئ داخل Select. النتيجة ثمانية صفوف تُحوَّل في الذاكرة — لا حمولة هنا.

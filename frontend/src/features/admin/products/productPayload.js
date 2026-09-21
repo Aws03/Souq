@@ -26,6 +26,8 @@ export function buildProductPayload(form, original) {
     translations: formToTexts(form.texts),
     price: Number(form.price),
     compareAtPrice: optionalNumber(form.compareAtPrice),
+    // التكلفة (C11): فارغ ⇒ null، وnull تمسحها على الخادم. سرٌّ تجاري لا يظهر في أي شاشة متجر.
+    cost: optionalNumber(form.cost),
     sku: form.sku?.trim() || null,
     brand: form.brand?.trim() || null,
     videoUrl: form.videoRemoved ? null : (original?.videoUrl ?? null),
@@ -34,7 +36,13 @@ export function buildProductPayload(form, original) {
   // منتج بخيارات (ADR-0040): السعر وSKU لكل متغيّر من صفحة المتغيّرات. نموذج المنتج يعيد ما قرأه للمتغيّر الافتراضي كما هو،
   // فيقبله الخادم (أي تغيير هنا يرفضه برمز ProductHasVariants) ولا يُعدَّل متغيّر من غير قصد.
   if (original?.options?.length) {
-    Object.assign(payload, { price: original.price, compareAtPrice: original.compareAtPrice ?? null, sku: original.sku ?? null });
+    Object.assign(payload, {
+      price: original.price,
+      compareAtPrice: original.compareAtPrice ?? null,
+      // التكلفة داخل الحارس نفسه: الخادم يرفض تغييرها من نموذج المنتج لمنتجٍ بخيارات، فنُعيد ما قرأناه.
+      cost: original.cost ?? null,
+      sku: original.sku ?? null,
+    });
   }
 
   if (original) return { ...payload, slug: slug ?? original.slug };

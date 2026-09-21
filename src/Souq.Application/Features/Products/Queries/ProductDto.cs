@@ -71,9 +71,11 @@ public sealed record AdminProductListItemDto(
 // Sku/Price/CompareAtPrice للمتغيّر الافتراضي، والمخزون مجموع متغيّراته (منتج بسيط: متغيّره الوحيد) وحدّ تنبيه الافتراضي.
 // Options وVariants (ADR-0040): بمعرّفاتها لنموذج الخيارات وجدول المتغيّرات، وVariantLimits حدود Product كما يطبّقها الخادم —
 // تُنشر ولا تُنسخ في الواجهة.
+// **Cost سرٌّ تجاري**: يظهر في نماذج الإدارة وحدها وفي أي استجابة يراها متسوّق — أبداً
+// (`ProductDto`/`ProductListItemDto` أعلاه لا تحملانه، ويحرس ذلك اختبارٌ معماري).
 public sealed record AdminProductDto(
     int Id, string Slug, string Status, IReadOnlyDictionary<string, CatalogTextDto> Translations,
-    string? Sku, decimal Price, decimal? CompareAtPrice, string Currency,
+    string? Sku, decimal Price, decimal? CompareAtPrice, decimal? Cost, string Currency,
     int OnHand, int Reserved, int Available, int LowStockThreshold,
     IReadOnlyList<ProductImageDto> Images, string? VideoUrl, int CategoryId, string? Brand,
     DateTime CreatedAt, DateTime? UpdatedAt,
@@ -86,7 +88,8 @@ public sealed record AdminProductOptionValueDto(int Id, int Position, IReadOnlyD
 
 // متغيّر في جدول الإدارة: قيمه بمعرّفاتها (الوصف يُبنى بلغة الواجهة من أسماء الخيارات)، وتسعيره، وأرقام مخزونه للعرض من Inventory.
 public sealed record AdminProductVariantDto(
-    int Id, bool IsDefault, bool IsActive, string? Sku, decimal Price, decimal? CompareAtPrice, IReadOnlyList<int> OptionValueIds,
+    int Id, bool IsDefault, bool IsActive, string? Sku, decimal Price, decimal? CompareAtPrice, decimal? Cost,
+    IReadOnlyList<int> OptionValueIds,
     int OnHand, int Reserved, int Available, int LowStockThreshold);
 
 public sealed record ProductVariantLimitsDto(int MaxOptions, int MaxValuesPerOption, int MaxVariants, int NameMaxLength, int SkuMaxLength)

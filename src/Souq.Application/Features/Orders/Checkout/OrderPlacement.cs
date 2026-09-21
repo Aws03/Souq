@@ -47,7 +47,8 @@ public sealed class OrderPlacement
         // الفاتورة تبقى كما كانت لحظة الشراء). سطر لكل متغيّر: مقاسان من المنتج نفسه سطران.
         var order = new Order(draft.CustomerId, draft.ShippingAddress, store.Currency, draft.BillingAddress);
         foreach (var line in quote.Lines)
-            order.AddItem(line.ProductId, line.VariantId, line.Name, line.UnitPrice, line.Quantity, line.VariantLabel, line.Sku);
+            order.AddItem(line.ProductId, line.VariantId, line.Name, line.UnitPrice, line.Quantity,
+                line.VariantLabel, line.Sku, line.UnitCost);
         if (quote.Coupon is { Applied: true } applied)
             order.ApplyCoupon(applied.Code, quote.Discount);
         if (quote.ShippingOutcome?.Selected is { } method)

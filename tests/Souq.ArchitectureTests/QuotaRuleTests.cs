@@ -179,3 +179,78 @@ public class QuotaRuleTests
         return type;
     }
 }
+
+// ============================================================================
+// تكلفة المنتج سرٌّ تجاري (C11). القاعدة: لا حقل تكلفة في أيّ نوع يُسلَّم على **مضيف متجر**.
+//
+// لماذا اختبار لا مراجعة؟ لأن `PricedLine` — عقد التسعير المشترك — صار يحمل `UnitCost` كي
+// تُجمَّد لقطتها على سطر الطلب، وهو يمرّ بخطوة واحدة من `BasketLineDto`. خريطةٌ كسولة (`with`،
+// أو نسخٌ بالانعكاس، أو حقل يُضاف "للاكتمال") تكشف للمتسوّق هامشَ متجره. هنا تُكتشف عند البناء.
+//
+// والاستثناءات مُسمّاة: أنواع الإدارة تحمل التكلفة عن قصد — وهي تُخدَم خلف صلاحية إدارة متجر.
+// ============================================================================
+public class MerchantCostSecrecyTests
+{
+    private static readonly System.Reflection.Assembly Application =
+        typeof(Souq.Application.DependencyInjection).Assembly;
+
+    // أنواعٌ يراها المتجر (الإدارة) وحده. إضافة اسم هنا قرار يُراجَع، لا سطر يمرّ.
+    private static readonly HashSet<string> AdminOnly = new(StringComparer.Ordinal)
+    {
+        "Souq.Application.Features.Products.Queries.AdminProductDto",
+        "Souq.Application.Features.Products.Queries.AdminProductVariantDto",
+        "Souq.Application.Features.Products.Commands.CreateProductCommand",
+        "Souq.Application.Features.Products.Commands.UpdateProductCommand",
+        "Souq.Application.Features.Products.Commands.UpdateProductVariantCommand",
+        "Souq.Application.Features.Products.Commands.NewProductVariantInput",
+        // عقد التسعير الداخلي: يحمل اللقطة إلى سطر الطلب ولا يُسلَّم كما هو إلى أي عميل.
+        "Souq.Application.Features.Baskets.Contracts.PricedLine",
+        // تقارير المتجر: الهامش والتكلفة موضوعها، وهي خلف صلاحية store.reports.view.
+        "Souq.Application.Features.Reporting.MarginDto",
+    };
+
+    // ============================================================================
+    // "تكلفة" لا تعني تكلفة بضاعة دائماً. `ShippingOption.Cost` هو **ما يدفعه المتسوّق** للشحن:
+    // يُعرض له في السلة ويُجمَّد على طلبه، فإخفاؤه عنه عبث. كشفه الفحص عند إدخاله، وهو أدقّ من
+    // تصفيةٍ بالاسم وحده (الحقل اسمه `Cost` مجرّداً، والتمييز في نوعه لا في اسمه).
+    // ============================================================================
+    private static readonly HashSet<string> NotGoodsCost = new(StringComparer.Ordinal)
+    {
+        "Souq.Application.Features.Shipping.Contracts.ShippingOption",
+        "Souq.Application.Features.Baskets.ShippingOptionDto",
+    };
+
+    [Fact]
+    public void لا_تكلفة_في_نوعٍ_يراه_متسوّق()
+    {
+        var offenders = Application.GetTypes()
+            .Where(t => t is { IsClass: true } or { IsValueType: true, IsEnum: false })
+            .Where(t => (t.Namespace ?? "").StartsWith("Souq.Application.Features", StringComparison.Ordinal))
+            .Where(t => !AdminOnly.Contains(t.FullName ?? "") && !NotGoodsCost.Contains(t.FullName ?? ""))
+            .Where(t => t.GetProperties(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance)
+                .Any(pr => pr.Name.Contains("Cost", StringComparison.Ordinal)
+                           // ShippingCost ليست تكلفة بضاعة: مبلغٌ يدفعه المتسوّق ويراه.
+                           && !pr.Name.Contains("Shipping", StringComparison.Ordinal)))
+            .Select(t => t.FullName)
+            .ToList();
+
+        offenders.Should().BeEmpty(
+            "تكلفة البضاعة سرٌّ تجاري: نوعٌ جديد يحملها يُخدَم لمتسوّق بخطأ واحد. "
+            + "إن كان النوع للإدارة وحدها فأضفه إلى AdminOnly بقرار مكتوب");
+    }
+
+    // والفحص يفحص نفسه: لو توقّف الكشف عن العمل لبقيت القائمة أعلاه بلا معنى وبقي الاختبار أخضر.
+    [Fact]
+    public void الكشف_عن_حقول_التكلفة_ما_زال_يعمل()
+    {
+        var seen = Application.GetTypes()
+            .Where(t => AdminOnly.Contains(t.FullName ?? ""))
+            .Where(t => t.GetProperties(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance)
+                .Any(pr => pr.Name.Contains("Cost", StringComparison.Ordinal)))
+            .Select(t => t.FullName)
+            .ToList();
+
+        seen.Should().BeEquivalentTo(AdminOnly,
+            "كل نوع في قائمة الاستثناء يجب أن يكون **مكتشَفاً** فعلاً — وإلا فالقائمة تحرس لا شيء");
+    }
+}

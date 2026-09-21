@@ -23,7 +23,9 @@ public record CreateProductCommand(
     string? Brand = null,
     ProductStatus Status = ProductStatus.Active,
     int LowStockThreshold = Souq.Domain.Entities.InventoryItem.DefaultLowStockThreshold,
-    string? VideoUrl = null) : IRequest<Result<int>>, IAuditable
+    string? VideoUrl = null,
+    // تكلفة الوحدة (C11): اختيارية، وللمتجر وحده — لا تظهر في أي استجابة يراها متسوّق.
+    decimal? Cost = null) : IRequest<Result<int>>, IAuditable
 {
     public AuditRecord ToAuditRecord() => new("catalog.product.created", "Product", Slug,
         Metadata: new Dictionary<string, object?> { ["sku"] = Sku, ["status"] = Status.ToString(), ["price"] = Price });

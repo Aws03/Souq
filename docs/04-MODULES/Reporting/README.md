@@ -157,7 +157,7 @@ There are no business failures: the query cannot fail a rule, only a database ca
 
 **Store dashboard**
 
-- **No profit and no margin.** Neither `Product` nor `ProductVariant` carries a cost price, so any margin would be invented. Both dashboards state this rather than omitting it quietly.
+- **Profit and margin exist, and are reported only as far as the data supports** (C11). `ProductVariant.Cost` is optional, and `OrderItem.UnitCost` freezes it at the moment of sale — so editing a cost today cannot move last year's reported profit, the same rule that already freezes the price and the name. The dashboard reports the margin of the lines **whose cost is known**, together with the share of revenue that covers: a merchant who has entered no costs is told so, and is never shown a 100% margin arrived at by treating an unknown cost as zero. Lines predating the column, and products with no cost entered, stay empty rather than being backfilled with today's number.
 - **No conversion rate.** Nothing records visits or sessions, so there is no denominator.
 - **No forecasting.** Every figure describes a period that has already ended.
 - Each request runs several aggregate queries with no cache. That is right at this scale and will not be at a much larger one; [Dashboards.md](Dashboards.md) §7 records the measurements to argue from.
