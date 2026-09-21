@@ -100,7 +100,7 @@ Measured against SQL Server through the development stack. All aggregation happe
 
 **Three things about that window this page did not say, added in M12.**
 
-- **The window is UTC, and the store's own time zone is ignored.** "Today" runs from UTC midnight to UTC
+- **The window is the store's own day, not the UTC day** (C11). `Tenant.TimeZone` now decides where "today" starts: the boundaries are computed in the store's local time with full `TimeZoneInfo` handling (including the midnight that does not exist on a spring-forward night) and converted to UTC once, for the query. The trend buckets follow the same local day, so the chart's labels — which the browser has always rendered in the store zone — finally describe the data they sit above. A time zone id that the host cannot resolve falls back to UTC and says so in `StoreTimeZone.Resolved` rather than failing the dashboard, because `Tenant.SetLocale` validates the *shape* of an IANA id and deliberately does not consult the OS zone database. **One limit remains, and it is narrow:** the SQL-side bucketing shifts by a single offset taken at the window's start, because EF Core 10 does not translate `AT TIME ZONE` (tried two ways) and raw SQL is barred here. Boundaries and totals are always exact; only in a zone that observes DST, and only on the two transition days, does one hour of orders land in the neighbouring bucket.
   midnight. `Tenant.TimeZone` exists and is surfaced to the platform, and reporting does not consult it — so a
   merchant in UTC+3 sees "Today" begin at 03:00 local, and the previous local evening's orders counted as
   today's. That is a real limitation, not a rounding detail, and it is stated here so nobody has to discover it

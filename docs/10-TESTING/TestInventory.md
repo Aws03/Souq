@@ -8,9 +8,9 @@
 | Suite | Files | Facts | Theories |
 |---|---|---|---|
 | [`Souq.Domain.Tests`](#souqdomaintests) | 30 | 247 | 50 |
-| [`Souq.Application.Tests`](#souqapplicationtests) | 52 | 380 | 18 |
+| [`Souq.Application.Tests`](#souqapplicationtests) | 52 | 387 | 19 |
 | [`Souq.ArchitectureTests`](#souqarchitecturetests) | 17 | 74 | 8 |
-| [`Souq.IntegrationTests`](#souqintegrationtests) | 57 | 351 | 26 |
+| [`Souq.IntegrationTests`](#souqintegrationtests) | 57 | 353 | 26 |
 | [frontend (Vitest)](#frontend-vitest) | 94 | 711 | — |
 | [frontend (Playwright)](#frontend-playwright) | 19 | 126 | — |
 
@@ -95,7 +95,7 @@
 | `tests/Souq.Application.Tests/Products/PurgeSearchLogHandlerTests.cs` | `PurgeSearchLogHandlerTests` | 4 | 0 |
 | `tests/Souq.Application.Tests/Products/SearchSynonymHandlersTests.cs` | `CreateSearchSynonymHandlerTests`, `UpdateSearchSynonymHandlerTests`, `DeleteSearchSynonymHandlerTests` | 9 | 0 |
 | `tests/Souq.Application.Tests/Products/UploadProductMediaHandlerTests.cs` | `UploadProductMediaHandlerTests` | 7 | 0 |
-| `tests/Souq.Application.Tests/Reporting/StoreDashboardTests.cs` | `StoreDashboardWindowTests` | 6 | 2 |
+| `tests/Souq.Application.Tests/Reporting/StoreDashboardTests.cs` | `StoreDashboardWindowTests`, `StoreDashboardLocalWindowTests`, `LetExtensions` | 13 | 3 |
 | `tests/Souq.Application.Tests/Reviews/CreateReviewHandlerTests.cs` | `CreateReviewHandlerTests` | 7 | 0 |
 | `tests/Souq.Application.Tests/Reviews/ReviewModerationHandlersTests.cs` | `ReviewModerationHandlersTests` | 6 | 0 |
 | `tests/Souq.Application.Tests/Security/RolePermissionsTests.cs` | `RolePermissionsTests` | 8 | 0 |
@@ -180,7 +180,7 @@
 | `tests/Souq.IntegrationTests/StartupAndSecurityTests.cs` | `StartupAndSecurityTests`, `LoggerAdapter` | 7 | 1 |
 | `tests/Souq.IntegrationTests/StoreAdministrationTests.cs` | `StoreAdministrationTests` | 7 | 0 |
 | `tests/Souq.IntegrationTests/StoreBrandingPersistenceTests.cs` | `StoreBrandingPersistenceTests` | 4 | 0 |
-| `tests/Souq.IntegrationTests/StoreDashboardTests.cs` | `StoreDashboardTests` | 13 | 1 |
+| `tests/Souq.IntegrationTests/StoreDashboardTests.cs` | `StoreDashboardTests` | 15 | 1 |
 | `tests/Souq.IntegrationTests/StorefrontVariantTests.cs` | `StorefrontVariantTests` | 7 | 0 |
 | `tests/Souq.IntegrationTests/StripeAmountConverterTests.cs` | `StripeAmountConverterTests` | 2 | 2 |
 | `tests/Souq.IntegrationTests/TenantIsolationTests.cs` | `TenantIsolationTests` | 13 | 0 |

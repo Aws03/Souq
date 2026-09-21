@@ -108,39 +108,67 @@ internal sealed class StoreReportQueries : IStoreReports
     // المنحنى: تجميع في SQL بالسنة/الشهر/اليوم، ثم **ملء الفجوات** في الذاكرة على المدّة
     // المطلوبة. الملء ضروري لا تجميلي: يومٌ بلا طلبات نقطة صفر على المنحنى، وحذفه يجعل
     // الخطّ يقفز فيبدو أسبوعٌ ميّت كأنه متّصل.
+    //
+    // **والتجميع بأيّام المتجر لا بأيّام UTC** (C11). كان `PlacedAt` يُجمَّع كما هو مخزَّناً، أي
+    // بتقويم UTC، بينما المتصفّح **يعرض** الملصق بمنطقة المتجر أصلاً (dateLocale.js). فالطرفان
+    // كانا يختلفان على معنى "يوم": متجرٌ بإزاحة سالبة يرى ملصقاً بتاريخٍ غير تاريخ البيانات التي
+    // يلخّصها. الآن الحدود والدلاء والملصق كلّها على يوم المتجر.
+    //
+    // **والتحويل بإزاحةٍ ثابتة، وحدّها مكتوب هنا لا مخفيّ.** `AT TIME ZONE` كان الخيار الأصحّ
+    // نظرياً (يعالج التوقيت الصيفي بنفسه) و**لا يُترجمه EF Core 10** في أيّ من الصيغتين اللتين
+    // جُرّبتا — لا داخل إسقاطٍ وسيط ولا بـ `.Date` عليه؛ الاستعلام يسقط بـ
+    // "could not be translated". وSQL الخام تمنعه القاعدة المعمارية، ومحقّة: لا مرشّح مستأجر عليه.
+    //
+    // فالإزاحة تُؤخذ عند بداية النافذة وتُطبَّق على كل الصفوف بـ `DATEADD`. ما يترتّب على ذلك
+    // **بالضبط**، لا أكثر ولا أقلّ:
+    //   • الحدود والمجاميع **دقيقة دائماً**: تُحسب في C# بـ TimeZoneInfo كاملاً (StoreTimeZone)،
+    //     فـ"اليوم" هو يوم التاجر مهما كانت منطقته — وهو الخطأ الذي وُجدت هذه المرحلة لإصلاحه.
+    //   • تقسيم **المنحنى** إلى أيّام دقيق في كل منطقة بلا توقيت صيفي — ومنها سوق الإطلاق
+    //     (الأردن ألغاه سنة 2022) وUTC.
+    //   • في منطقة ذات توقيت صيفي، وفي **يومَي الانتقال وحدهما**، تقع طلبات ساعةٍ واحدة في الدلو
+    //     المجاور. لا مجموع يتغيّر، ولا حدّ نافذة يتزحزح — نقطةٌ على منحنى تُزاح ساعة.
+    // يُراجَع حين يُترجم EF الدالة، أو حين يشكو متجرٌ في منطقة ذات توقيت صيفي من نقطةٍ على منحناه.
     // ========================================================================
     private async Task<IReadOnlyList<SalesPointDto>> TrendAsync(ReportWindow window, CancellationToken ct)
     {
         var counted = CountedOrders(window.From, window.To);
+        var zone = window.Zone;
+        var offset = zone.OffsetMinutesAt(window.From);
+
+        // نوعٌ مجهول لا مسمّى: EF لا يترجم التجميع فوق إسقاطٍ إلى `record` معرَّف (جُرّب وسقط).
+        var local = counted.Select(o => new { Local = o.PlacedAt!.Value.AddMinutes(offset), o.PlacedTotal });
 
         var rows = window.GroupByMonth
-            ? await counted
-                .GroupBy(o => new { o.PlacedAt!.Value.Year, o.PlacedAt!.Value.Month })
+            ? await local
+                .GroupBy(o => new { o.Local.Year, o.Local.Month })
                 .Select(g => new { g.Key.Year, g.Key.Month, Day = 1, Revenue = g.Sum(o => o.PlacedTotal), Orders = g.Count() })
                 .ToListAsync(ct)
-            : await counted
-                .GroupBy(o => new { o.PlacedAt!.Value.Year, o.PlacedAt!.Value.Month, o.PlacedAt!.Value.Day })
+            : await local
+                .GroupBy(o => new { o.Local.Year, o.Local.Month, o.Local.Day })
                 .Select(g => new { g.Key.Year, g.Key.Month, g.Key.Day, Revenue = g.Sum(o => o.PlacedTotal), Orders = g.Count() })
                 .ToListAsync(ct);
 
+        // المفاتيح بالتوقيت المحلّي، والدلو المُعاد **لحظةُ UTC** لبداية ذلك اليوم المحلّي:
+        // المتصفّح يُنسّقه بمنطقة المتجر فيقرأ التاريخ الصحيح، وهو نفس ما يفعله بـ From وTo.
         var byBucket = rows.ToDictionary(
-            r => new DateTime(r.Year, r.Month, r.Day, 0, 0, 0, DateTimeKind.Utc),
+            r => new DateTime(r.Year, r.Month, r.Day),
             r => (r.Revenue, r.Orders));
 
         var points = new List<SalesPointDto>();
-        var cursor = window.GroupByMonth
-            ? new DateTime(window.From.Year, window.From.Month, 1, 0, 0, 0, DateTimeKind.Utc)
-            : window.From;
+        var localFrom = zone.ToLocal(window.From);
+        var cursor = window.GroupByMonth ? new DateTime(localFrom.Year, localFrom.Month, 1) : localFrom.Date;
+        var localTo = zone.ToLocal(window.To);
 
-        while (cursor < window.To)
+        while (cursor < localTo)
         {
             var found = byBucket.TryGetValue(cursor, out var value);
-            points.Add(new SalesPointDto(cursor, found ? value.Revenue : 0m, found ? value.Orders : 0));
+            points.Add(new SalesPointDto(zone.ToUtc(cursor), found ? value.Revenue : 0m, found ? value.Orders : 0));
             cursor = window.GroupByMonth ? cursor.AddMonths(1) : cursor.AddDays(1);
         }
 
         return points;
     }
+
 
     // كل حالة مذكورة ولو بصفر: جدول حالات ناقص يجعل "لا ملغاة" تبدو كمعلومة غائبة.
     private async Task<IReadOnlyDictionary<string, int>> OrdersByStatusAsync(DateTime from, DateTime to, CancellationToken ct)

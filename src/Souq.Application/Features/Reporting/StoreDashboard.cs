@@ -1,5 +1,6 @@
 using MediatR;
 using Souq.Application.Common.Auditing;
+using Souq.Application.Common.Tenancy;
 
 using FluentValidation;
 
@@ -83,8 +84,13 @@ public sealed record StoreDashboardDto(
     int TotalCustomers,
     int RepeatCustomers);
 
-/// <summary>حدود المدّة كما يحسبها الخادم: [From, To) والمدّة السابقة المساوية لها طولاً.</summary>
-public sealed record ReportWindow(DateTime From, DateTime To, DateTime PreviousFrom, bool GroupByMonth);
+/// <summary>
+/// حدود المدّة كما يحسبها الخادم: [From, To) بـ UTC — والمدّة السابقة المساوية لها طولاً.
+/// الحدود **تُشتقّ من يوم المتجر المحلّي** ثم تُحوَّل إلى UTC (C11)، و<see cref="Zone"/> هي
+/// المنطقة التي اشتُقّت بها، ويلزمها تجميعُ المنحنى ليقع على أيّام المتجر لا على أيّام UTC.
+/// </summary>
+public sealed record ReportWindow(
+    DateTime From, DateTime To, DateTime PreviousFrom, bool GroupByMonth, StoreTimeZone Zone);
 
 public interface IStoreReports
 {
@@ -115,15 +121,20 @@ public sealed record GetStoreDashboardQuery(ReportRange Range = ReportRange.Last
 public sealed class GetStoreDashboardHandler : IRequestHandler<GetStoreDashboardQuery, StoreDashboardDto>
 {
     private readonly IStoreReports _reports;
+    private readonly ITenantContext _tenant;
     private readonly TimeProvider _clock;
 
-    public GetStoreDashboardHandler(IStoreReports reports, TimeProvider clock)
+    public GetStoreDashboardHandler(IStoreReports reports, ITenantContext tenant, TimeProvider clock)
     {
-        _reports = reports; _clock = clock;
+        _reports = reports; _tenant = tenant; _clock = clock;
     }
 
     public Task<StoreDashboardDto> Handle(GetStoreDashboardQuery query, CancellationToken ct) =>
-        _reports.GetDashboardAsync(query.Range, WindowFor(query.Range, _clock.GetUtcNow().UtcDateTime), ct);
+        _reports.GetDashboardAsync(
+            query.Range,
+            WindowFor(query.Range, _clock.GetUtcNow().UtcDateTime,
+                StoreTimeZone.Resolve(_tenant.RequireTenant().TimeZone)),
+            ct);
 
     // ========================================================================
     // حدود المدّة تُحسب هنا من الساعة المحقونة لا في SQL ولا في المتصفّح:
@@ -132,10 +143,20 @@ public sealed class GetStoreDashboardHandler : IRequestHandler<GetStoreDashboard
     //   • المدّة السابقة مساوية في الطول وملاصقة، فالمقارنة تقارن مثيلاً بمثيل.
     //   • المدد التي تتجاوز ~13 أسبوعاً تُجمَّع شهرياً: 365 نقطة على منحنى عرضه 600 بكسل
     //     ليست معلومة أكثر، وهي حمولة أكبر.
+    //
+    // **واليوم يوم المتجر لا يوم UTC** (C11). كان `nowUtc.Date` هو "اليوم"، و`TenantInfo.TimeZone`
+    // مُسقَطة في كل طلب منذ المرحلة 4 ولا يقرؤها أحد هنا — فتاجرٌ في عمّان (UTC+3) يسأل عن "اليوم"
+    // فيُجاب عن نافذة تبدأ الثالثة فجراً بتوقيته وتنتهي الثالثة فجراً من الغد: مبيعات ليلته الأخيرة
+    // في اليوم الخطأ، وأوّل ثلاث ساعات من يومه غائبة. الخطأ صامت تماماً — الأرقام معقولة، وهي
+    // لمدّةٍ أخرى.
+    //
+    // الحساب كلّه **بالتوقيت المحلّي** ثم يُحوَّل مرّةً واحدة إلى UTC للاستعلام. والترتيب مهمّ:
+    // طرحُ الأيام محلّياً ثم التحويل يُبقي الحدود على منتصف ليلٍ حقيقي حتى عبر تغيير التوقيت
+    // الصيفي، بينما طرحُها بـ UTC ثم التحويل يزيحها ساعةً في اليوم الذي يتغيّر فيه.
     // ========================================================================
-    public static ReportWindow WindowFor(ReportRange range, DateTime nowUtc)
+    public static ReportWindow WindowFor(ReportRange range, DateTime nowUtc, StoreTimeZone zone)
     {
-        var today = nowUtc.Date;
+        var today = zone.ToLocal(nowUtc).Date;
         var to = today.AddDays(1);
         var (from, byMonth) = range switch
         {
@@ -143,9 +164,14 @@ public sealed class GetStoreDashboardHandler : IRequestHandler<GetStoreDashboard
             ReportRange.Last7Days => (today.AddDays(-6), false),
             ReportRange.Last30Days => (today.AddDays(-29), false),
             ReportRange.Last90Days => (today.AddDays(-89), true),
-            ReportRange.ThisYear => (new DateTime(today.Year, 1, 1, 0, 0, 0, DateTimeKind.Utc), true),
+            ReportRange.ThisYear => (new DateTime(today.Year, 1, 1), true),
             _ => (today.AddDays(-29), false),
         };
-        return new ReportWindow(from, to, from.AddTicks(-(to - from).Ticks), byMonth);
+
+        // المدّة السابقة تُطرح **بالأيام المحلّية** لا بالتِّكّات: عدّ التِّكّات يُزيح بدايتها ساعةً
+        // كلّما وقع تغيير توقيتٍ داخل إحدى المدّتين، فتُقارَن مدّة بمدّة أطول منها بساعة.
+        var previousFrom = from.AddDays(-(int)(to - from).TotalDays);
+
+        return new ReportWindow(zone.ToUtc(from), zone.ToUtc(to), zone.ToUtc(previousFrom), byMonth, zone);
     }
 }

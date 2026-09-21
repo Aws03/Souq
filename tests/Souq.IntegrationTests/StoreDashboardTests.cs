@@ -366,4 +366,78 @@ public class StoreDashboardTests
             .AnyAsync(e => e.Action == "store.dashboard.viewed"));
         logged.Should().BeTrue();
     }
+
+    // ============================================================================
+    // يوم المتجر لا يوم UTC، على قاعدة حقيقية (C11).
+    //
+    // متاجر الاختبار كلّها في `Asia/Amman` (UTC+3)، فالفجوة ثلاث ساعات دائماً ولا تعتمد على
+    // ساعة تشغيل الاختبار. ما يثبته هذا الاختبار ولا يثبته اختبار وحدة: أنّ الحدّ الذي حسبه
+    // المعالج هو الذي **وصل SQL فعلاً**، وأن دلو المنحنى بُني على اليوم نفسه.
+    // ============================================================================
+    [Fact]
+    public async Task حدود_اللوحة_ودلاؤها_على_يوم_المتجر_لا_على_يوم_UTC()
+    {
+        var store = await _factory.CreateStoreAsync();
+        var api = _api.ForStore(store);
+        var admin = await api.AdminAsync();
+
+        var zone = TimeZoneInfo.FindSystemTimeZoneById(store.Tenant.TimeZone);
+        var localMidnight = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, zone).Date;
+        var expectedFrom = TimeZoneInfo.ConvertTimeToUtc(
+            DateTime.SpecifyKind(localMidnight, DateTimeKind.Unspecified), zone);
+
+        var today = await ReadAsync(admin, "Today");
+
+        // منتصف ليل المتجر، لا منتصف ليل UTC — الفرق ثلاث ساعات، وهو بالضبط ما كان ضائعاً.
+        today.From.Should().Be(expectedFrom);
+        today.To.Should().Be(expectedFrom.AddDays(1));
+        DateTime.SpecifyKind(today.From, DateTimeKind.Unspecified)
+            .Should().NotBe(DateTime.UtcNow.Date, "لو كانت UTC لساوت منتصف ليل UTC");
+
+        // ودلو المنحنى الوحيد ليومٍ واحد هو بداية ذلك اليوم نفسه.
+        today.Trend.Should().ContainSingle().Which.Bucket.Should().Be(expectedFrom);
+    }
+
+    // ============================================================================
+    // طلبٌ في الساعة الواحدة فجراً بتوقيت المتجر هو من **يومه**، وبـ UTC هو من أمس: 22:00 من
+    // اليوم السابق. قبل C11 كان يسقط من لوحة "اليوم" تماماً — بيعٌ حقيقي لا يراه صاحبه.
+    // ============================================================================
+    [Fact]
+    public async Task طلب_فجر_اليوم_بتوقيت_المتجر_يدخل_لوحة_اليوم()
+    {
+        var store = await _factory.CreateStoreAsync();
+        var api = _api.ForStore(store);
+        var admin = await api.AdminAsync();
+        var productId = await api.CreateProductAsync(admin, price: 30m, stock: 10);
+
+        var (customer, _) = await api.NewCustomerAsync();
+        var created = await api.PlaceOrderAsync(customer, productId, 1);
+        created.StatusCode.Should().Be(HttpStatusCode.Created);
+        var orderId = int.Parse(
+            (await created.Content.ReadFromJsonAsync<Dictionary<string, object>>(TestApi.Json))!["orderId"].ToString()!);
+        (await customer.PostAsync($"/api/orders/{orderId}/confirm-payment", null))
+            .StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var zone = TimeZoneInfo.FindSystemTimeZoneById(store.Tenant.TimeZone);
+        var oneAmLocal = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, zone).Date.AddHours(1);
+        var oneAmUtc = TimeZoneInfo.ConvertTimeToUtc(
+            DateTime.SpecifyKind(oneAmLocal, DateTimeKind.Unspecified), zone);
+
+        // نُرجع لحظة الطلب إلى فجر اليوم المحلّي — وهي بـ UTC من **أمس**.
+        await api.WithDbAsync(async db =>
+        {
+            var order = await db.Orders.FirstAsync(o => o.Id == orderId);
+            db.Entry(order).Property(nameof(Souq.Domain.Entities.Order.PlacedAt)).CurrentValue = oneAmUtc;
+            return await db.SaveChangesAsync();
+        });
+
+        oneAmUtc.Date.Should().Be(DateTime.UtcNow.Date.AddDays(-1),
+            "الفرضية نفسها: فجر اليوم بعمّان هو أمس بـ UTC");
+
+        var today = await ReadAsync(admin, "Today");
+
+        today.Current.Orders.Should().Be(1, "الطلب من يوم التاجر وإن كان من أمس بـ UTC");
+        today.Current.Revenue.Should().Be(30m);
+        today.Trend.Should().ContainSingle().Which.Revenue.Should().Be(30m, "ويقع في دلو يومه هو");
+    }
 }
