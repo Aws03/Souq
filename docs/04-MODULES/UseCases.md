@@ -21,6 +21,7 @@
 | [Notifications](#notifications) | `src/Souq.Application/Features/Notifications` | 2 | 2 | 0 |
 | [Reporting](#reporting) | `src/Souq.Application/Features/Reporting`, `src/Souq.Application/Features/Analytics` | 2 | 3 | 4 |
 | [Billing](#billing) | `src/Souq.Application/Features/Billing` | 8 | 4 | 2 |
+| [Tax](#tax) | `src/Souq.Application/Features/Tax` | 6 | 3 | 0 |
 
 ## Platform
 
@@ -322,3 +323,19 @@ Module document: [Billing/README.md](Billing/README.md).
 |---|---|
 | `IStoreEntitlements` | `StoreEntitlements` |
 | `ITenantQuotaGuard` | `TenantQuotaGuard` |
+
+## Tax
+
+Module document: [Tax/README.md](Tax/README.md).
+
+| Use case | Kind | Handler | Validator | Audited | Sent by |
+|---|---|---|---|---|---|
+| `AddTaxProfileVersionCommand` | command | `AddTaxProfileVersionHandler` | `AddTaxProfileVersionValidator` | yes | `POST /api/platform/tax/profiles/{id:int}/versions` |
+| `CreateTaxProfileCommand` | command | `CreateTaxProfileHandler` | `CreateTaxProfileValidator` | yes | `POST /api/platform/tax/profiles` |
+| `PublishTaxProfileVersionCommand` | command | `PublishTaxProfileVersionHandler` | — | yes | `POST /api/platform/tax/profiles/{id:int}/versions/{versionId:int}/publish` |
+| `RequireTaxConfirmationCommand` | command | `RequireTaxConfirmationHandler` | `RequireTaxConfirmationValidator` | yes | `POST /api/platform/tax/profiles/{id:int}/versions/{versionId:int}/require-confirmation` |
+| `UpdateStoreTaxSettingsCommand` | command | `UpdateStoreTaxSettingsHandler` | `UpdateStoreTaxSettingsValidator` | yes | `PUT /api/admin/store/tax` |
+| `VerifyTaxProfileVersionCommand` | command | `VerifyTaxProfileVersionHandler` | `VerifyTaxProfileVersionValidator` | yes | `POST /api/platform/tax/profiles/{id:int}/versions/{versionId:int}/verify` |
+| `GetStoreTaxSettingsQuery` | query | `GetStoreTaxSettingsHandler` | — | yes | `GET /api/admin/store/tax` |
+| `GetTaxProfileQuery` | query | `GetTaxProfileHandler` | — | yes | `GET /api/platform/tax/profiles/{id:int}` |
+| `ListTaxProfilesQuery` | query | `ListTaxProfilesHandler` | — | yes | `GET /api/admin/store/tax/profiles`<br>`GET /api/platform/tax/profiles` |

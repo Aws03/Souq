@@ -241,6 +241,19 @@ Each phase lists: **delivers · depends on · blocked by · why here**.
   merchant paying by bank transfer, with invoices, reminders and grace periods operating with no provider in the
   loop. *BillableEvent* and *BillingPeriod* with Open → Closing → Closed.
 - **Depends on.** C1, and the tax capability from `P-06`'s answer for the snapshot it freezes.
+- **The tax configuration capability shipped first, on 2026-09-22** (a fifteenth module, `Tax`, per
+  [ADR-0055](../11-ADR/0055-tax-as-a-configurable-capability.md)): a platform-maintained jurisdiction profile,
+  versioned and frozen on publish; rates in basis points; a verification workflow whose `Verified` state
+  engineering never sets; a store's *selection* of a profile, with the reason reported when it is not
+  collecting; ten endpoints; five additive tables. **No jurisdiction ships with the product** — there is no
+  seeded profile, verified or otherwise, and there deliberately never will be one from engineering.
+  - **Nothing charges tax yet, and that boundary is deliberate.** Consuming a calculator means freezing a
+    snapshot onto the order in the same change, or a store could charge tax its own order does not record. So
+    `PricingService`'s tax term is still an explicit zero and the two halves ship together next.
+  - **The configuration half went first because it is the part with external lead time**: a profile is
+    worthless until an accountant verifies it, and that wait can start now.
+  - It also gives `platform.settings.manage` its **first endpoint** — open decision `P-07` had recorded that
+    the permission existed, that no endpoint required it, and that no platform-wide setting existed.
 - **Blocked by.** ~~The invoicing currency and the jurisdictions it must satisfy (§5, C-15, P-06).~~ **Both
   answered 2026-09-21: `C-15` = A, JOD**, and **`P-06` = a configurable jurisdiction-aware capability**. The
   invoice freezes a tax *snapshot* taken from whichever profile version applied at issue, and an unverified

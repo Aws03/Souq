@@ -112,6 +112,9 @@ public static class DependencyInjection
         services.AddScoped<ICustomerRepository, CustomerRepository>();
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
+        // الضريبة (ADR-0055): ملفّ الاختصاص جدولُ منصّة، وإعدادُ المتجر ملكٌ لمتجر.
+        services.AddScoped<ITaxProfileRepository, TaxProfileRepository>();
+        services.AddScoped<IStoreTaxSettingsRepository, StoreTaxSettingsRepository>();
         // TD-66: إبطال جلسات متجر كاملةً عند أرشفته — من جهة المنصّة، فخارج مرشّح النطاق.
         services.AddScoped<IStoreSessionRevoker, StoreSessionRevoker>();
         services.AddScoped<ICouponRepository, CouponRepository>();

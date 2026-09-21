@@ -32,6 +32,9 @@ public class DomainExceptionCodeTests
         { new InvalidPlanException("x"), "InvalidPlan" },
         { new InvalidSubscriptionException("x"), "InvalidSubscription" },
         { new InvalidEntitlementOverrideException("x"), "InvalidEntitlementOverride" },
+        // ADR-0055: رموزُ الضريبة. الواجهة تتفرّع عليها — ورسائلُها عربية فلا تُقرأ في شرط.
+        { new InvalidTaxProfileException("x"), "InvalidTaxProfile" },
+        { new InvalidStoreTaxSettingsException("x"), "InvalidStoreTaxSettings" },
     };
 
     [Theory]

@@ -5,7 +5,7 @@
 >
 > Conventions (errors, paging, status codes): [ApiDocumentation.md](ApiDocumentation.md). Use cases per module: [UseCases.md](../04-MODULES/UseCases.md).
 
-**157 endpoints** in 28 controllers: 26 anonymous, 27 for any signed-in account, 104 behind a permission.
+**167 endpoints** in 30 controllers: 26 anonymous, 27 for any signed-in account, 114 behind a permission.
 
 ## How to read this table
 
@@ -78,6 +78,9 @@
 | GET | `/api/admin/store/settings` | `store.settings.manage` | store | — | — | `GetStoreSettingsQuery` | Platform |
 | PUT | `/api/admin/store/settings` | `store.settings.manage` | store | — | — | `UpdateStoreSettingsCommand` | Platform |
 | GET | `/api/admin/store/settings/options` | `store.settings.manage` | store | — | — | `GetStoreSettingsOptionsQuery` | Platform |
+| GET | `/api/admin/store/tax` | `store.settings.manage` | store | — | — | `GetStoreTaxSettingsQuery` | Tax |
+| PUT | `/api/admin/store/tax` | `store.settings.manage` | store | — | — | `UpdateStoreTaxSettingsCommand` | Tax |
+| GET | `/api/admin/store/tax/profiles` | `store.settings.manage` | store | — | — | `ListTaxProfilesQuery` | Tax |
 | POST | `/api/auth/change-password` | signed in | store + platform, during provisioning | — | `auth` | `ChangePasswordCommand` | Identity |
 | POST | `/api/auth/forgot-password` | anonymous | store + platform, during provisioning | — | `auth` | `ForgotPasswordCommand` | Identity |
 | POST | `/api/auth/login` | anonymous | store + platform, even when closed | — | `auth` | `LoginCommand` | Identity |
@@ -130,6 +133,13 @@
 | POST | `/api/platform/plans/{id:int}/retire` | `platform.billing.manage` | platform | — | — | `RetirePlanCommand` | Billing |
 | GET | `/api/platform/revenue` | `platform.reports.view` | platform | — | — | `GetPlatformRevenueQuery` | Reporting |
 | GET | `/api/platform/stats` | `platform.reports.view` | platform | — | — | `GetPlatformStatsQuery` | Reporting |
+| GET | `/api/platform/tax/profiles` | `platform.settings.manage` | platform | — | — | `ListTaxProfilesQuery` | Tax |
+| POST | `/api/platform/tax/profiles` | `platform.settings.manage` | platform | — | — | `CreateTaxProfileCommand` | Tax |
+| GET | `/api/platform/tax/profiles/{id:int}` | `platform.settings.manage` | platform | — | — | `GetTaxProfileQuery` | Tax |
+| POST | `/api/platform/tax/profiles/{id:int}/versions` | `platform.settings.manage` | platform | — | — | `AddTaxProfileVersionCommand` | Tax |
+| POST | `/api/platform/tax/profiles/{id:int}/versions/{versionId:int}/publish` | `platform.settings.manage` | platform | — | — | `PublishTaxProfileVersionCommand` | Tax |
+| POST | `/api/platform/tax/profiles/{id:int}/versions/{versionId:int}/require-confirmation` | `platform.settings.manage` | platform | — | — | `RequireTaxConfirmationCommand` | Tax |
+| POST | `/api/platform/tax/profiles/{id:int}/versions/{versionId:int}/verify` | `platform.settings.manage` | platform | — | — | `VerifyTaxProfileVersionCommand` | Tax |
 | GET | `/api/platform/tenants` | `platform.tenants.manage` | platform | — | — | `ListTenantsQuery` | Platform |
 | POST | `/api/platform/tenants` | `platform.tenants.manage` | platform | — | — | `CreateTenantCommand` | Platform |
 | GET | `/api/platform/tenants/options` | `platform.tenants.manage` | platform | — | — | `GetProvisioningOptionsQuery` | Platform |

@@ -106,7 +106,10 @@ The shopper's tax on a store's order and Souq's tax on its own subscription invo
 
 ## Migration
 
-- **Implemented by the tax-foundation phase of [CommercialPlatformPlan.md](../12-ROADMAP/CommercialPlatformPlan.md)**, which precedes `C5` because a platform invoice freezes a tax snapshot at issue.
+- **The configuration half shipped on 2026-09-22**: the profile, its versions and rates, publish-and-freeze, the verification workflow with its named verifier, the store's selection, ten endpoints and a module document. Five tables, additive, nothing existing altered.
+- **The calculation half is deliberately the next slice, and the two must not be split further.** Consuming a calculator means freezing a snapshot onto the order **in the same change** — otherwise a store could charge tax that its own order does not record, which is worse than charging none. So `PricingService`'s tax term is still an explicit zero, and `TaxSnapshot` exists as a shape with no writer yet.
+- **Why the configuration half went first:** it is the part with external lead time. A profile is worthless until an accountant verifies it, and that wait can start now; the arithmetic can be written any week.
+- Still ahead of `C5` in [CommercialPlatformPlan.md](../12-ROADMAP/CommercialPlatformPlan.md), because a platform invoice freezes a tax snapshot at issue.
 - Additive only: new tables, a nullable snapshot on orders, and no change to any existing total. A store with no profile selected behaves exactly as today — the explicit zero — which is what every existing store does on the day this ships.
 - The product-level tax category and the storefront's display of a tax component are the slice after the foundation, named so they are not assumed built.
 

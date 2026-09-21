@@ -7,10 +7,10 @@
 
 | Suite | Files | Facts | Theories |
 |---|---|---|---|
-| [`Souq.Domain.Tests`](#souqdomaintests) | 31 | 268 | 52 |
-| [`Souq.Application.Tests`](#souqapplicationtests) | 55 | 403 | 22 |
+| [`Souq.Domain.Tests`](#souqdomaintests) | 32 | 280 | 52 |
+| [`Souq.Application.Tests`](#souqapplicationtests) | 56 | 408 | 22 |
 | [`Souq.ArchitectureTests`](#souqarchitecturetests) | 17 | 77 | 8 |
-| [`Souq.IntegrationTests`](#souqintegrationtests) | 61 | 378 | 27 |
+| [`Souq.IntegrationTests`](#souqintegrationtests) | 62 | 382 | 27 |
 | [frontend (Vitest)](#frontend-vitest) | 97 | 737 | — |
 | [frontend (Playwright)](#frontend-playwright) | 19 | 126 | — |
 
@@ -45,6 +45,7 @@
 | `tests/Souq.Domain.Tests/ShippingMethodTests.cs` | `ShippingMethodTests` | 4 | 1 |
 | `tests/Souq.Domain.Tests/StorePaymentAccountTests.cs` | `StorePaymentAccountTests` | 3 | 2 |
 | `tests/Souq.Domain.Tests/StoreSettingsTests.cs` | `StoreSettingsTests` | 5 | 3 |
+| `tests/Souq.Domain.Tests/TaxProfileTests.cs` | `TaxProfileTests` | 12 | 0 |
 | `tests/Souq.Domain.Tests/TenantSettingsTests.cs` | `TenantSettingsTests` | 9 | 1 |
 | `tests/Souq.Domain.Tests/TenantTests.cs` | `TenantTests` | 7 | 4 |
 | `tests/Souq.Domain.Tests/UserTests.cs` | `UserTests`, `CustomerTests`, `SecurityPolicyNumbersTests` | 15 | 3 |
@@ -108,6 +109,7 @@
 | `tests/Souq.Application.Tests/Stores/ReviewSettingsHandlersTests.cs` | `ReviewSettingsHandlersTests` | 2 | 0 |
 | `tests/Souq.Application.Tests/Stores/StoreBrandingSettingsTests.cs` | `StoreBrandingSettingsTests` | 6 | 1 |
 | `tests/Souq.Application.Tests/Stores/StoreSettingsOptionsTests.cs` | `StoreSettingsOptionsTests` | 4 | 1 |
+| `tests/Souq.Application.Tests/Tax/StoreTaxSettingsTests.cs` | `StoreTaxSettingsTests` | 5 | 0 |
 | `tests/Souq.Application.Tests/Wishlist/WishlistHandlersTests.cs` | `WishlistHandlersTests` | 9 | 1 |
 
 ## Souq.ArchitectureTests
@@ -191,6 +193,7 @@
 | `tests/Souq.IntegrationTests/StoreDashboardTests.cs` | `StoreDashboardTests` | 20 | 1 |
 | `tests/Souq.IntegrationTests/StorefrontVariantTests.cs` | `StorefrontVariantTests` | 7 | 0 |
 | `tests/Souq.IntegrationTests/StripeAmountConverterTests.cs` | `StripeAmountConverterTests` | 2 | 2 |
+| `tests/Souq.IntegrationTests/TaxConfigurationTests.cs` | `TaxConfigurationTests` | 4 | 0 |
 | `tests/Souq.IntegrationTests/TenantIsolationTests.cs` | `TenantIsolationTests` | 13 | 0 |
 | `tests/Souq.IntegrationTests/TenantQuotaTests.cs` | `TenantQuotaTests` | 7 | 0 |
 | `tests/Souq.IntegrationTests/TenantResolutionMiddlewareTests.cs` | `TenantResolutionMiddlewareTests`, `FakeDirectory` | 3 | 3 |

@@ -72,6 +72,13 @@ public class AppDbContext : DbContext, IUnitOfWork
     public DbSet<ProductEngagementDaily> ProductEngagementDailies => Set<ProductEngagementDaily>();
     public DbSet<ProductPairDaily> ProductPairDailies => Set<ProductPairDaily>();
     public DbSet<AnalyticsRollupState> AnalyticsRollupStates => Set<AnalyticsRollupState>();
+
+    // الضريبة (ADR-0055، قرار المالك P-06): ملفُّ اختصاصٍ تحفظه المنصّة وإصداراتُه ونسبُه — جداولُ
+    // منصّة بلا متجر، كـ Plan — وإعدادُ كلّ متجر: أيَّ ملفٍّ اختار وهل فعّل الجمع.
+    public DbSet<TaxProfile> TaxProfiles => Set<TaxProfile>();
+    public DbSet<TaxProfileVersion> TaxProfileVersions => Set<TaxProfileVersion>();
+    public DbSet<TaxRate> TaxRates => Set<TaxRate>();
+    public DbSet<StoreTaxSettings> StoreTaxSettings => Set<StoreTaxSettings>();
     public DbSet<Category> Categories => Set<Category>();
     public DbSet<Order> Orders => Set<Order>();
     public DbSet<OrderItem> OrderItems => Set<OrderItem>();
