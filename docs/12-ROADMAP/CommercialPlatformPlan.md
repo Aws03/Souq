@@ -354,6 +354,12 @@ These are decisions engineering has taken as far as it can and then stopped on p
 is [OwnerDecisions.md](../09-OPERATIONS/OwnerDecisions.md); the `C-` items below are new and are summarised
 there with a pointer here.
 
+**Written for the owner rather than for an engineer:**
+[OwnerDecisionBrief.md](OwnerDecisionBrief.md) takes the seven that currently block this plan — `C-08`, `C-17`,
+`TD-42`, `C-15` with `P-06`, `D-13`, `C-01` and `C-19` — and gives each one plain-language options, the
+technical consequence of each, what is already built, and one precise question. It adds no decision and
+changes nothing here; it is a reading surface over this section and the register.
+
 ### The three that gate the most
 
 **D-13 — merchant of record, and how the platform collects its revenue.** Already open, and this research

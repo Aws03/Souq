@@ -10,6 +10,12 @@
 >
 > Read with [ReleaseReadiness.md](ReleaseReadiness.md) (what stops a release, triaged) and
 > [ProductionReleaseChecklist.md](ProductionReleaseChecklist.md) §18 (the sign-off).
+>
+> **If you are the owner and not an engineer, start with
+> [OwnerDecisionBrief.md](../12-ROADMAP/OwnerDecisionBrief.md)**, which takes the seven currently-blocking
+> decisions — `C-08`, `C-17`, `TD-42`, `C-15`, `P-06`, `D-13`, `C-01` and `C-19` — and writes each one out in
+> plain language with its options, its costs, what is already built, and one precise question. **This page
+> stays canonical**: the brief summarises it and links back, and where the two differ this page wins.
 
 ## How to read the blocking columns
 
