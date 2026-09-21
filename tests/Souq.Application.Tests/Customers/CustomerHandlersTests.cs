@@ -166,7 +166,8 @@ public class CreateOrderCustomerRulesTests
         var couponRedemptions = Substitute.For<Souq.Application.Features.Coupons.Contracts.ICouponRedemptions>();
         var orderPayments = Substitute.For<Souq.Application.Features.Payments.Contracts.IOrderPayments>();
         var pricing = new PricingService(_products, Substitute.For<ICouponRepository>(),
-            Substitute.For<ICouponRedemptionRepository>(), TestShipping.None(), TestTenant.Context(), new FixedClock());
+            Substitute.For<ICouponRedemptionRepository>(), TestShipping.None(), TestTax.None(),
+            TestTenant.Context(), new FixedClock());
         var confirmation = new OrderPaymentConfirmation(_orders, _reservations, couponRedemptions, orderPayments,
             _baskets, _payment, _uow, NullLogger<OrderPaymentConfirmation>.Instance);
         return new CreateOrderHandler(

@@ -3,6 +3,7 @@ using Souq.Domain.Common;
 using Souq.Domain.Enums;
 using Souq.Domain.Events;
 using Souq.Domain.Exceptions;
+using Souq.Domain.Platform;
 using Souq.Domain.ValueObjects;
 
 namespace Souq.Domain.Entities;
@@ -64,6 +65,19 @@ public class Order : Entity, ITenantOwned
     public string? ShippingCountry { get; private set; }
     public string? ShippingTrackingUrlTemplate { get; private set; }
 
+    // ============================================================================
+    // لقطة الضريبة (ADR-0055، قرار المالك P-06): المبلغُ المحتسب، ولقطةُ القواعد التي أنتجته.
+    //
+    // **اللقطة تحمل القيم لا مراجعها**، فضريبةُ هذا الطلب قابلةٌ لإعادة الاشتقاق من الطلب وحده بعد
+    // سنةٍ — أيَّ إصدارٍ كان، وبأيّ عُرف، وأيَّ نسبةٍ بنقاطها. ومرجعٌ إلى إصدارٍ كان سيحتاج أن
+    // **يُوجَد** ذلك الإصدار وأن يكون هو بعينه.
+    //
+    // null ⇒ لم تُجمَع ضريبةٌ على هذا الطلب، وهو حالُ كل طلبٍ سابقٍ لهذه القدرة وكلِّ طلبٍ في
+    // متجرٍ لم يختر ملفّاً أو اختار ولم يتحقّق أحدٌ من إصداره.
+    // ============================================================================
+    public decimal TaxAmount { get; private set; }
+    public TaxSnapshot? TaxSnapshot { get; private set; }
+
     // التثبيت (المرحلة 9): لحظته، والإجماليات كما صدرت بها الفاتورة — أعمدة تقرؤها القوائم بلا جمع.
     public DateTime? PlacedAt { get; private set; }
     public decimal PlacedSubtotal { get; private set; }
@@ -81,8 +95,23 @@ public class Order : Entity, ITenantOwned
 
     public Money ShippingCost => new(ShippingAmount, Currency);
 
-    // الإجمالي النهائي = الفرعي ناقص الخصم (إن وُجد كوبون مطبَّق) زائد الشحن (المرحلة 12).
-    public Money TotalAmount => (DiscountAmount is null ? Subtotal : Subtotal.Subtract(DiscountAmount)).Add(ShippingCost);
+    public Money Tax => new(TaxAmount, Currency);
+
+    // ============================================================================
+    // **الضريبة تُضاف إلى الإجمالي في عُرف «مضاف» وحده.** في عُرف «شامل» هي **داخل** أسعار الأسطر
+    // أصلاً، فإضافتُها تُحصّلها مرّتين — وهذا هو الخطأ الذي يجعل المشتري يدفع أكثر مما رأى،
+    // والفرقُ بين العُرفَين هو بعينه ما جعل جوابَ P-06 خاصيّةَ إصدارٍ لا ثابتَ منصّة.
+    //
+    // ولقطةٌ غائبة ⇒ لا ضريبة ⇒ لا إضافة، وهو الطريق الذي تمرّ منه كل الطلبات القائمة.
+    // ============================================================================
+    public Money TaxAddedToTotal =>
+        TaxSnapshot?.PriceMode == TaxPriceMode.Exclusive ? Tax : Money.Zero(Currency);
+
+    // الإجمالي النهائي = الفرعي ناقص الخصم (إن وُجد كوبون مطبَّق) زائد الشحن (المرحلة 12) زائد
+    // الضريبة إن كان عُرفُها «مضاف» (ADR-0055).
+    public Money TotalAmount =>
+        (DiscountAmount is null ? Subtotal : Subtotal.Subtract(DiscountAmount))
+        .Add(ShippingCost).Add(TaxAddedToTotal);
 
     // رابط تتبّع الشحنة من قالب ناقلها ورقمها (يظهر بعد الشحن برقم).
     public string? TrackingUrl => ShippingMethod.TrackingUrl(ShippingTrackingUrlTemplate, TrackingNumber);
@@ -183,6 +212,26 @@ public class Order : Entity, ITenantOwned
         ShippingMinDays = minDays;
         ShippingMaxDays = maxDays;
         ShippingCountry = country?.ToUpperInvariant();
+    }
+
+    // ============================================================================
+    // لقطةُ الضريبة كما احتُسبت — قبل التثبيت فقط، كالشحن والخصم.
+    //
+    // ولا مبلغَ بلا لقطة ولا لقطةَ بلا مبلغٍ مطابق: مبلغٌ بلا قواعدَ أنتجته رقمٌ لا يُدافَع عنه في
+    // مراجعة، ولقطةٌ لا يُطابق مجموعُها المبلغَ المحصَّل تناقضٌ لا يُكتشف إلا حين يُسأل عنه.
+    // ============================================================================
+    public void ApplyTax(Money amount, TaxSnapshot snapshot)
+    {
+        EnsureOpen("لا يمكن تغيير ضريبة طلب بدأت معالجته");
+        if (amount.Currency != Currency)
+            throw new InvalidOrderOperationException("عملة الضريبة لا تطابق عملة الطلب");
+        if (snapshot is null)
+            throw new InvalidOrderOperationException("مبلغ ضريبةٍ بلا لقطة قواعده");
+        if (snapshot.TotalAmount != amount.Amount)
+            throw new InvalidOrderOperationException("مجموع أسطر لقطة الضريبة لا يطابق المبلغ المحصَّل");
+
+        TaxAmount = amount.Amount;
+        TaxSnapshot = snapshot;
     }
 
     // تثبيت الطلب عند إنشائه: بعده لا سطر يُضاف ولا خصم يتغيّر، والإجماليات تُحفظ كما هي — الفاتورة لا تتغيّر.

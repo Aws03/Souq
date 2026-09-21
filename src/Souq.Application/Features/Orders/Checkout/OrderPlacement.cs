@@ -55,6 +55,16 @@ public sealed class OrderPlacement
             order.ApplyShipping(method.Name, method.Cost, method.Carrier, method.TrackingUrlTemplate, method.MinDays, method.MaxDays,
                 draft.ShippingCountry);
 
+        // ============================================================================
+        // لقطةُ الضريبة تُجمَّد هنا (ADR-0055): القواعدُ التي احتُسبت بها، بقيمها لا بمرجعها. فضريبةُ
+        // هذا الطلب تبقى قابلةً لإعادة الاشتقاق منه وحده بعد سنة، ولو نُشر إصدارٌ أحدث بعدها.
+        //
+        // ولا لقطةَ ⇒ لا ضريبة: كلُّ متجرٍ لم يختر ملفّاً متحقَّقاً منه يمرّ من هنا بلا أن يُمسّ
+        // إجماليُّه، وهو حالُ كل متجرٍ قائم.
+        // ============================================================================
+        if (quote.TaxSnapshot is { } taxSnapshot)
+            order.ApplyTax(quote.Tax, taxSnapshot);
+
         var reservationLines = quote.Lines.Select(l => new ReservationLine(l.VariantId, l.Quantity, l.Name)).ToList();
         await _uow.InTransactionAsync(async () =>
         {

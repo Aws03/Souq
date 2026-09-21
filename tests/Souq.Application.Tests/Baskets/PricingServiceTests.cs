@@ -21,8 +21,11 @@ public class PricingServiceTests
     private readonly ICouponRedemptionRepository _redemptions = Substitute.For<ICouponRedemptionRepository>();
     private Souq.Application.Features.Shipping.Contracts.IShippingRateProvider _shipping = TestShipping.None();
 
+    // الافتراضي: لا ملفّ ضريبةٍ مختار — حالُ كل متجرٍ قائم، وهو ما تصفه اختباراتُ هذا الملفّ.
+    private Souq.Application.Features.Tax.Contracts.ITaxCalculator _tax = TestTax.None();
+
     private PricingService Pricing(ITenantContext? store = null) =>
-        new(_products, _coupons, _redemptions, _shipping, store ?? TestTenant.Context(), new FixedClock());
+        new(_products, _coupons, _redemptions, _shipping, _tax, store ?? TestTenant.Context(), new FixedClock());
 
     private void Catalog(params Product[] products) =>
         _products.GetManyAsync(Arg.Any<IReadOnlyCollection<int>>(), Arg.Any<CancellationToken>()).Returns(products.ToList());

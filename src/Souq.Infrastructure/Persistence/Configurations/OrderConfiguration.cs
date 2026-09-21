@@ -19,6 +19,14 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         // لقطة الشحن (المرحلة 12): الطريقة وتكلفتها بعملة الطلب ومدّتها ودولة العنوان وقالب رابط التتبّع.
         builder.Property(o => o.ShippingMethodName).HasMaxLength(Order.ShippingMethodMaxLength);
         builder.Property(o => o.ShippingAmount).HasColumnType(PersistenceConventions.MoneyColumnType);
+
+        // الضريبة (ADR-0055): المبلغ عمودٌ تقرؤه القوائم بلا فكّ JSON، واللقطةُ مستندٌ يُقرأ كاملاً
+        // مع طلبه — و`TaxAddedToTotal` مشتقّةٌ من عُرفِ اللقطة فلا تُخزَّن.
+        builder.Property(o => o.TaxAmount).HasColumnType(PersistenceConventions.MoneyColumnType);
+        builder.Property(o => o.TaxSnapshot)
+               .HasConversion(TaxSnapshotJson.Converter, TaxSnapshotJson.Comparer);
+        builder.Ignore(o => o.Tax);
+        builder.Ignore(o => o.TaxAddedToTotal);
         builder.Property(o => o.ShippingCountry).HasMaxLength(2).IsFixedLength().IsUnicode(false);
         builder.Property(o => o.ShippingTrackingUrlTemplate).HasMaxLength(ShippingMethod.TrackingUrlMaxLength);
         builder.Property(o => o.Currency).HasMaxLength(3).IsRequired();

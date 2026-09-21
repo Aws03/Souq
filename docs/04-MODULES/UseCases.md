@@ -21,7 +21,7 @@
 | [Notifications](#notifications) | `src/Souq.Application/Features/Notifications` | 2 | 2 | 0 |
 | [Reporting](#reporting) | `src/Souq.Application/Features/Reporting`, `src/Souq.Application/Features/Analytics` | 2 | 3 | 4 |
 | [Billing](#billing) | `src/Souq.Application/Features/Billing` | 8 | 4 | 2 |
-| [Tax](#tax) | `src/Souq.Application/Features/Tax` | 6 | 3 | 0 |
+| [Tax](#tax) | `src/Souq.Application/Features/Tax` | 6 | 3 | 1 |
 
 ## Platform
 
@@ -339,3 +339,7 @@ Module document: [Tax/README.md](Tax/README.md).
 | `GetStoreTaxSettingsQuery` | query | `GetStoreTaxSettingsHandler` | — | yes | `GET /api/admin/store/tax` |
 | `GetTaxProfileQuery` | query | `GetTaxProfileHandler` | — | yes | `GET /api/platform/tax/profiles/{id:int}` |
 | `ListTaxProfilesQuery` | query | `ListTaxProfilesHandler` | — | yes | `GET /api/admin/store/tax/profiles`<br>`GET /api/platform/tax/profiles` |
+
+| Public contract | Implemented by |
+|---|---|
+| `ITaxCalculator` | `TaxCalculator` |

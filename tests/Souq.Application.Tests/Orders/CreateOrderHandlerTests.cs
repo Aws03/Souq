@@ -33,6 +33,9 @@ public class CreateOrderHandlerTests
     private readonly IBasketCheckout _baskets = Substitute.For<IBasketCheckout>();
     private readonly ICouponRedemptionRepository _couponUses = Substitute.For<ICouponRedemptionRepository>();
     private Souq.Application.Features.Shipping.Contracts.IShippingRateProvider _shipping = TestShipping.None();
+
+    // الافتراضي: لا ملفّ ضريبةٍ مختار (حالُ كل متجرٍ قائم). تُستبدَل في اختبار الضريبة أدناه.
+    private Souq.Application.Features.Tax.Contracts.ITaxCalculator _tax = TestTax.None();
     private readonly Souq.Application.Features.Payments.Contracts.IOrderPayments _orderPayments =
         Substitute.For<Souq.Application.Features.Payments.Contracts.IOrderPayments>();
     private readonly Souq.Application.Features.Coupons.Contracts.ICouponRedemptions _couponRedemptions =
@@ -63,7 +66,8 @@ public class CreateOrderHandlerTests
     // هنا هو سلوك الدفع من طرف إلى طرف كما يراه العميل، لا حدود التقسيم — فبقيت كل حالات الاختبار كما هي.
     private CreateOrderHandler CreateHandler()
     {
-        var pricing = new PricingService(_products, _coupons, _couponUses, _shipping, TestTenant.Context(), new FixedClock());
+        var pricing = new PricingService(
+            _products, _coupons, _couponUses, _shipping, _tax, TestTenant.Context(), new FixedClock());
         var confirmation = new OrderPaymentConfirmation(_orders, _reservations, _couponRedemptions, _orderPayments,
             _baskets, _payment, _uow, NullLogger<OrderPaymentConfirmation>.Instance);
         return new CreateOrderHandler(

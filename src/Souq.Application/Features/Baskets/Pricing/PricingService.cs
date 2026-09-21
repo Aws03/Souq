@@ -1,6 +1,7 @@
 using Souq.Application.Common.Tenancy;
 using Souq.Application.Features.Baskets.Contracts;
 using Souq.Application.Features.Shipping.Contracts;
+using Souq.Application.Features.Tax.Contracts;
 using Souq.Domain.Entities;
 using Souq.Domain.Exceptions;
 using Souq.Domain.Interfaces;
@@ -12,8 +13,12 @@ namespace Souq.Application.Features.Baskets.Pricing;
 // ============================================================================
 // تنفيذ IPricing. المنتجات تُحمَّل دفعة واحدة (لا استعلام لكل سطر)، والمستودع مُرشَّح بالمتجر: منتج متجر آخر "غير
 // موجود" هنا كما في أي مكان. الشحن (المرحلة 12) من IShippingRateProvider: طرق المتجر التي تخدم العنوان بسعرها للإجمالي
-// بعد الخصم، ومشكلته (طريقة مطلوبة أو غير متاحة) نتيجة في العرض لا فشل. الضريبة صفر صريح — لا نموذج ضريبة (قرار منتج
-// مفتوح P-06) — ومكانها في الخطّ ثابت. قواعد الكوبون كلها من الكيان، وحدّ العميل (المرحلة 10) من استخداماته الفعّالة.
+// بعد الخصم، ومشكلته (طريقة مطلوبة أو غير متاحة) نتيجة في العرض لا فشل. قواعد الكوبون كلها من الكيان، وحدّ العميل
+// (المرحلة 10) من استخداماته الفعّالة.
+//
+// **والضريبة صارت حساباً بعد أن كانت صفراً صريحاً** (ADR-0055، قرار المالك P-06): تُطلب من
+// `ITaxCalculator` الذي يعيد صفراً **بسببٍ مسمّى** لكل متجرٍ لم يختر ملفّ اختصاصٍ تحقّق منه مهنيّ —
+// وهو حال كل متجرٍ قائم، فلم يتغيّر إجماليُّ طلبٍ واحد يوم شُحنت القدرة.
 // ============================================================================
 public sealed class PricingService : IPricing
 {
@@ -21,14 +26,16 @@ public sealed class PricingService : IPricing
     private readonly ICouponRepository _coupons;
     private readonly ICouponRedemptionRepository _redemptions;
     private readonly IShippingRateProvider _shipping;
+    private readonly ITaxCalculator _tax;
     private readonly ITenantContext _tenant;
     private readonly TimeProvider _clock;
 
     public PricingService(
         IProductRepository products, ICouponRepository coupons, ICouponRedemptionRepository redemptions,
-        IShippingRateProvider shipping, ITenantContext tenant, TimeProvider clock)
+        IShippingRateProvider shipping, ITaxCalculator tax, ITenantContext tenant, TimeProvider clock)
     {
-        _products = products; _coupons = coupons; _redemptions = redemptions; _shipping = shipping; _tenant = tenant; _clock = clock;
+        _products = products; _coupons = coupons; _redemptions = redemptions; _shipping = shipping;
+        _tax = tax; _tenant = tenant; _clock = clock;
     }
 
     public async Task<PriceQuote> QuoteAsync(
@@ -57,12 +64,23 @@ public sealed class PricingService : IPricing
         var delivery = await ShippingAsync(goods, shipping, ct);
         var shippingCost = delivery.Selected?.Cost ?? zero;
 
-        // (5) الضريبة: صفر صريح (انظر أعلاه).
-        var tax = zero;
+        // ============================================================================
+        // (5) الضريبة (ADR-0055، قرار المالك P-06). كان صفراً صريحاً منذ المرحلة 8، وصار حساباً —
+        // **وهو صفرٌ بسببٍ مسمّى** لكل متجرٍ لم يختر ملفّ اختصاصٍ متحقَّقاً منه، وهو حال كل متجرٍ
+        // قائم: لا شيء في حساباته تغيّر يوم شُحنت هذه القدرة.
+        //
+        // واللحظةُ تُمرَّر صريحةً لا تُقرأ في الداخل: قواعدُ الضريبة تُرجَّح بتاريخ النفاذ، فمَن
+        // يُعيد احتساب طلبٍ قديم يمرّر لحظتَه هو.
+        // ============================================================================
+        var taxQuote = await _tax.QuoteAsync(
+            new TaxBasis(goods, shippingCost), _clock.GetUtcNow().UtcDateTime, ct);
 
-        // (6) الإجمالي.
-        var total = goods.Add(shippingCost).Add(tax);
-        return new PriceQuote(store.Currency, priced, subtotal, coupon, discount, shippingCost, tax, total, delivery);
+        // (6) الإجمالي. الضريبة تُضاف في عُرف «مضاف» وحده؛ في «شامل» هي داخل أسعار الأسطر أصلاً،
+        // فإضافتُها تُحصّلها مرّتين (Order.TaxAddedToTotal تحمل القاعدة نفسها على الطلب).
+        var total = goods.Add(shippingCost).Add(taxQuote.AddedToTotal(store.Currency));
+        return new PriceQuote(
+            store.Currency, priced, subtotal, coupon, discount, shippingCost, taxQuote.Amount, total, delivery,
+            taxQuote.Snapshot, taxQuote.Reason);
     }
 
     // الطرق المتاحة للعنوان والمختارة منها. متجر بطرق شحن يلزمه اختيار طريقة تخدم العنوان (الدفع يرفض بالرمز)؛ متجر بلا طرق

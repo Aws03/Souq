@@ -66,7 +66,8 @@
     "pageSubtitle": "Review your items before checking out.",
     "summaryTitle": "Order summary",
     "continueShopping": "Continue shopping",
-    "viewCart": "View full cart"
+    "viewCart": "View full cart",
+    "tax": "Tax"
   },
   "product": {
     "addToCart": "Add to cart",

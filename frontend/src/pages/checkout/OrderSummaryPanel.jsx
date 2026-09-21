@@ -5,7 +5,14 @@ import styles from './Checkout.module.css';
 
 // عمود ملخّص الطلب (يسار الصفحة في RTL): أصناف السلة المصغّرة، ثم الفرعي والخصم (إن وُجد كوبون) والشحن (المرحلة 12 —
 // "اختر طريقة" حين يلزم اختيار) والإجمالي النهائي كما سعّره الخادم.
-export default function OrderSummaryPanel({ items, subtotal, discountAmount, shipping = 0, shippingPending = false, total, currency }) {
+// ============================================================================
+// سطرُ الضريبة (ADR-0055): يظهر **حين تُجمَع وحدها**. متجرٌ لا يجمع لا يرى سطراً بصفر — وصفرٌ
+// معروضٌ يدعو المتسوّق إلى سؤالٍ لا جواب له.
+//
+// وبلا هذا السطر كان إجماليُّ متجرٍ بعُرف «مضاف» يزيد على الفرعي والشحن بلا سببٍ مرئيّ، وهو
+// بالضبط ما يجعل المشتري يتراجع عن الدفع.
+// ============================================================================
+export default function OrderSummaryPanel({ items, subtotal, discountAmount, shipping = 0, shippingPending = false, tax = 0, total, currency }) {
   const { t } = useTranslation();
   return (
     <aside className={styles.summary}>
@@ -32,6 +39,9 @@ export default function OrderSummaryPanel({ items, subtotal, discountAmount, shi
         <span>{t('cart.shipping')}</span>
         <span>{shippingPending ? t('checkout.shipping.chooseMethod') : shipping > 0 ? formatPrice(shipping, currency) : t('cart.free')}</span>
       </div>
+      {tax > 0 && (
+        <div className={styles.subtotalRow}><span>{t('cart.tax')}</span><span>{formatPrice(tax, currency)}</span></div>
+      )}
       <div className={styles.totalRow}>
         <span>{t('cart.total')}</span><span>{formatPrice(total, currency)}</span>
       </div>

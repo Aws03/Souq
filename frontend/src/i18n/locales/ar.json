@@ -70,7 +70,8 @@
     "pageSubtitle": "راجع أصنافك قبل إتمام الشراء.",
     "summaryTitle": "ملخّص الطلب",
     "continueShopping": "متابعة التسوّق",
-    "viewCart": "عرض السلة كاملة"
+    "viewCart": "عرض السلة كاملة",
+    "tax": "الضريبة"
   },
   "product": {
     "addToCart": "أضف للسلة",

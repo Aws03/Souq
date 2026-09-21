@@ -162,11 +162,14 @@ export default function Checkout() {
   const discountAmount = order?.discountAmount ?? couponPreview?.discountAmount ?? 0;
   const shippingCost = order?.shippingCost ?? quote?.shipping ?? 0;
   const grandTotal = order?.totalAmount ?? quote?.total ?? total;
+  // الضريبة كما سعّرها الخادم — لا حساب هنا (ADR-0055). الطلبُ المُنشأ لا يعيدها في عقده، فتُقرأ
+  // من عرض السعر الحيّ أو من السلّة، وتظهر في الملخّص حين تُجمَع وحدها.
+  const taxAmount = quote?.tax ?? basket.tax ?? 0;
 
   return (
     <div className={`souq-layout ${styles.grid}`}>
       <OrderSummaryPanel items={items} subtotal={basket.subtotal} discountAmount={discountAmount} shipping={shippingCost}
-        shippingPending={!order && shippingIssue === 'required'} total={grandTotal} currency={currency} />
+        shippingPending={!order && shippingIssue === 'required'} tax={taxAmount} total={grandTotal} currency={currency} />
       <div>
         {serverError && <ErrorBanner message={serverError} />}
         {!order ? (

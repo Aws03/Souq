@@ -52,6 +52,14 @@ public sealed record CouponOutcome(string Code, bool Applied, string? ErrorCode,
 public sealed record ShippingOutcome(
     IReadOnlyList<ShippingOption> Options, ShippingOption? Selected, bool Required, string? ErrorCode, string? Message);
 
+// ============================================================================
+// TaxSnapshot وTaxReason (ADR-0055): لقطةُ القواعد التي أنتجت الضريبة، **وسببُ صفرِها إن كان
+// صفراً**. اللقطةُ تُجمَّد على الطلب عند التثبيت، والسببُ يُعرَض للتاجر لا للمتسوّق: صفرٌ بلا سببٍ
+// يقرأ كأنه عطب، فيُفتَح له بلاغٌ بدل أن يُكمَل إعداد.
+//
+// null للقطة ⇒ لم تُجمَع ضريبة، وهو حال كل متجرٍ لم يختر ملفّ اختصاصٍ متحقَّقاً منه.
+// ============================================================================
 public sealed record PriceQuote(
     string Currency, IReadOnlyList<PricedLine> Lines, Money Subtotal, CouponOutcome? Coupon, Money Discount,
-    Money Shipping, Money Tax, Money Total, ShippingOutcome? ShippingOutcome = null);
+    Money Shipping, Money Tax, Money Total, ShippingOutcome? ShippingOutcome = null,
+    Souq.Domain.ValueObjects.TaxSnapshot? TaxSnapshot = null, string? TaxReason = null);

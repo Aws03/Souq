@@ -20,6 +20,12 @@ export default function CartSummary({ basket, blocked, onCheckout }) {
       <div className={styles.row}>
         <span>{t('cart.shipping')}</span><span>{shipping}</span>
       </div>
+      {/* الضريبة تظهر حين تُجمَع وحدها (ADR-0055): صفرٌ معروض يدعو إلى سؤالٍ لا جواب له. */}
+      {basket.tax > 0 && (
+        <div className={styles.row}>
+          <span>{t('cart.tax')}</span><span>{formatPrice(basket.tax, currency)}</span>
+        </div>
+      )}
       <div className={styles.total}>
         <span>{t('cart.total')}</span><span>{formatPrice(basket.total, currency)}</span>
       </div>

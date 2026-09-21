@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
 using AwesomeAssertions;
 using Souq.IntegrationTests.Infrastructure;
 
@@ -158,6 +159,88 @@ public class TaxConfigurationTests
         // والتاجر يرى ما يستطيع اختياره من نقطته هو.
         (await (await api.AdminAsync()).GetAsync("/api/admin/store/tax/profiles"))
             .StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    // ============================================================================
+    // **الضريبة تصل إلى طلبٍ حقيقيّ، وتُجمَّد عليه** — وهذا ما يفصل «قدرةً مضبوطة» عن «قدرةٍ تعمل».
+    //
+    // ويُثبت الاختبار الأمرَين معاً: الإجماليَّ المدفوع (فرعي + ضريبة في عُرف «مضاف»)، واللقطةَ
+    // المجمَّدة على الطلب بقيمها — فضريبةُ هذا الطلب قابلةٌ لإعادة الاشتقاق منه وحده بعد سنة.
+    // ============================================================================
+    [Fact]
+    public async Task ملفّ_متحقَّق_منه_يُضرِّب_طلباً_حقيقياً_وتُجمَّد_لقطته_عليه()
+    {
+        var owner = await _api.PlatformOwnerAsync();
+        var jurisdiction = $"X{Random.Shared.Next(100, 999)}";
+
+        var created = await owner.PostAsJsonAsync("/api/platform/tax/profiles",
+            new { jurisdiction, name = "Applied (test)" });
+        var profileId = (await created.Content.ReadFromJsonAsync<IdResponse>(Json))!.Id;
+
+        // نسبةٌ **اختبارية** بعُرف «مضاف»: 10% على البضاعة، والشحن غير مُضرَّب.
+        var version = await owner.PostAsJsonAsync($"/api/platform/tax/profiles/{profileId}/versions", new
+        {
+            effectiveFrom = DateTime.UtcNow.AddDays(-1),
+            priceMode = "Exclusive",
+            shippingTaxable = false,
+            rates = new[] { new { code = "standard", name = "Standard (test)", basisPoints = 1000, category = (string?)null } },
+        });
+        var versionId = (await version.Content.ReadFromJsonAsync<IdResponse>(Json))!.Id;
+
+        (await owner.PostAsync($"/api/platform/tax/profiles/{profileId}/versions/{versionId}/publish", null))
+            .StatusCode.Should().Be(HttpStatusCode.NoContent);
+        (await owner.PostAsJsonAsync($"/api/platform/tax/profiles/{profileId}/versions/{versionId}/verify",
+                new { verifiedBy = "محاسب (اختبار)", note = (string?)null }))
+            .StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        var store = await _factory.CreateStoreAsync();
+        var api = _api.ForStore(store);
+        var admin = await api.AdminAsync();
+        (await admin.PutAsJsonAsync("/api/admin/store/tax",
+                new { taxProfileId = profileId, collectionEnabled = true, registrationNumber = "T-1" }))
+            .StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var productId = await api.CreateProductAsync(admin, price: 20m, stock: 5);
+        var (customer, _) = await api.NewCustomerAsync();
+
+        // السلّة تعرض الضريبة قبل الدفع: ما يراه المشتري هو ما سيدفعه.
+        var basketAdd = await customer.PostAsJsonAsync("/api/basket/items", new { productId, quantity = 2 });
+        basketAdd.StatusCode.Should().Be(HttpStatusCode.OK);
+        using (var basket = JsonDocument.Parse(await basketAdd.Content.ReadAsStringAsync()))
+        {
+            basket.RootElement.GetProperty("tax").GetDecimal().Should().Be(4m, "40 × 10%");
+            basket.RootElement.GetProperty("total").GetDecimal().Should().Be(44m);
+        }
+
+        var placed = await api.PlaceOrderAsync(customer, productId, 2);
+        placed.StatusCode.Should().Be(HttpStatusCode.Created);
+
+        // والطلبُ يحمل المبلغَ ولقطتَه: مجموعُ الأسطر يطابق المحصَّل، والإجماليُّ المثبَّت يحتويه.
+        var order = await _api.WithDbAsync(db => db.Orders.IgnoreQueryFilters()
+            .Where(o => o.TenantId == store.Tenant.Id).OrderByDescending(o => o.Id).FirstAsync());
+
+        order.TaxAmount.Should().Be(4m);
+        order.TaxSnapshot.Should().NotBeNull("لقطةُ القواعد تُجمَّد مع الطلب");
+        order.TaxSnapshot!.Jurisdiction.Should().Be(jurisdiction);
+        order.TaxSnapshot.PriceMode.Should().Be(Souq.Domain.Platform.TaxPriceMode.Exclusive);
+        order.TaxSnapshot.Verification.Should().Be(Souq.Domain.Platform.TaxVerificationState.Verified);
+        order.TaxSnapshot.TotalAmount.Should().Be(4m);
+        order.TaxSnapshot.Lines.Should().ContainSingle().Which.BasisPoints.Should().Be(1000);
+        order.PlacedTotal.Should().Be(44m, "الإجمالي المثبَّت يحتوي الضريبة في عُرف «مضاف»");
+
+        // ولقطتُه لا تتغيّر بنشر إصدارٍ أحدث: هي قيمٌ لا مرجع.
+        var newer = await owner.PostAsJsonAsync($"/api/platform/tax/profiles/{profileId}/versions", new
+        {
+            effectiveFrom = DateTime.UtcNow.AddDays(1),
+            priceMode = "Exclusive",
+            shippingTaxable = false,
+            rates = new[] { new { code = "standard", name = "Standard (test)", basisPoints = 2000, category = (string?)null } },
+        });
+        newer.StatusCode.Should().Be(HttpStatusCode.Created);
+
+        var unchanged = await _api.WithDbAsync(db => db.Orders.IgnoreQueryFilters()
+            .Where(o => o.Id == order.Id).FirstAsync());
+        unchanged.TaxSnapshot!.Lines.Single().BasisPoints.Should().Be(1000, "طلبُ الأمس بقواعد الأمس");
     }
 
     private sealed record IdResponse(int Id);

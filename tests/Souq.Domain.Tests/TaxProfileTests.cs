@@ -1,4 +1,5 @@
 using AwesomeAssertions;
+using Souq.Domain.Entities;
 using Souq.Domain.Exceptions;
 using Souq.Domain.Platform;
 using Souq.Domain.ValueObjects;
@@ -203,5 +204,70 @@ public class TaxProfileTests
         profile.VersionOn(Jul.AddDays(-1)).Should().Be(first);
         profile.VersionOn(Jul).Should().Be(second);
         profile.VersionOn(Jul.AddYears(1)).Should().Be(second, "المسوّدة لا تنفذ ولو مضى تاريخها");
+    }
+}
+
+// ============================================================================
+// ضريبةُ الطلب: **تُضاف إلى الإجمالي في «مضاف» وحده** (ADR-0055).
+//
+// وهذا هو الخطأ الأغلى في هذا الملفّ كلّه لو انقلب: في عُرف «شامل» الضريبة **داخل** أسعار الأسطر،
+// فإضافتُها إلى الإجمالي تُحصّلها مرّتين — والمشتري يدفع أكثر مما رأى، بنسبة الضريبة كاملةً.
+// ============================================================================
+public class OrderTaxTests
+{
+    private const string Currency = "JOD";
+
+    private static Order Placed(TaxPriceMode? mode, decimal tax, decimal unitPrice = 100m)
+    {
+        var order = new Order(1, "عمّان، الأردن", Currency);
+        order.AddItem(1, 1, "منتج", new Money(unitPrice, Currency), 1);
+        if (mode is { } priceMode)
+        {
+            var snapshot = new TaxSnapshot(1, 1, "JO", priceMode, TaxVerificationState.Verified, false,
+                [new TaxSnapshotLine("standard", "Standard", 1600, tax)]);
+            order.ApplyTax(new Money(tax, Currency), snapshot);
+        }
+        return order;
+    }
+
+    [Fact]
+    public void عُرف_مضاف_يزيد_الإجمالي_وعُرف_شامل_لا_يزيده()
+    {
+        Placed(TaxPriceMode.Exclusive, 16m).TotalAmount.Amount.Should().Be(116m);
+        Placed(TaxPriceMode.Inclusive, 16m).TotalAmount.Amount.Should()
+            .Be(100m, "في «شامل» الضريبة داخل السعر — وإضافتها تُحصّلها مرّتين");
+        Placed(null, 0m).TotalAmount.Amount.Should().Be(100m, "بلا لقطة ⇒ بلا ضريبة، وهو حال كل طلب قائم");
+    }
+
+    // المبلغُ واللقطةُ لا يفترقان: مبلغٌ لا يطابق مجموعَ أسطره تناقضٌ لا يُكتشف إلا حين يُسأل عنه.
+    [Fact]
+    public void مبلغ_الضريبة_يطابق_مجموع_أسطر_لقطتها()
+    {
+        var order = new Order(1, "عمّان", Currency);
+        order.AddItem(1, 1, "منتج", new Money(100m, Currency), 1);
+        var snapshot = new TaxSnapshot(1, 1, "JO", TaxPriceMode.Exclusive, TaxVerificationState.Verified, false,
+            [new TaxSnapshotLine("standard", "Standard", 1600, 16m)]);
+
+        ((Action)(() => order.ApplyTax(new Money(20m, Currency), snapshot)))
+            .Should().Throw<Souq.Domain.Exceptions.InvalidOrderOperationException>();
+
+        order.ApplyTax(new Money(16m, Currency), snapshot);
+        order.Tax.Amount.Should().Be(16m);
+    }
+
+    // الضريبة لا تُغيَّر بعد أن تبدأ معالجة الطلب، كالشحن والخصم: الفاتورة لا تتغيّر.
+    [Fact]
+    public void الضريبة_لا_تُغيَّر_بعد_بدء_المعالجة()
+    {
+        var order = Placed(TaxPriceMode.Exclusive, 16m);
+        order.AssignNumber(1);
+        order.Place(new DateTime(2026, 9, 22, 0, 0, 0, DateTimeKind.Utc));
+        order.PlacedTotal.Should().Be(116m, "الإجمالي المثبَّت يحتوي الضريبة");
+
+        order.MarkAsPaid();
+        var snapshot = new TaxSnapshot(1, 2, "JO", TaxPriceMode.Exclusive, TaxVerificationState.Verified, false,
+            [new TaxSnapshotLine("standard", "Standard", 2000, 20m)]);
+        ((Action)(() => order.ApplyTax(new Money(20m, Currency), snapshot)))
+            .Should().Throw<Souq.Domain.Exceptions.InvalidOrderOperationException>();
     }
 }

@@ -59,8 +59,10 @@ public class ModuleAndContractRuleTests
         // الحجز والمتاح (6)؛ IPricing والسلة (8/9)؛ استخدامات الكوبون (10)؛ دفعة الطلب واستردادها (11)
         ["Ordering"] = ["Inventory", "Shopping", "Promotions", "Payments", "Shipping"],   // … لقطة طريقة الشحن (12)
         ["Inventory"] = ["Catalog"],    // تنفّذ منفذ Catalog IVariantStockInitializer (عكس الاعتماد، المرحلة 6)
-        // IStockAvailability لعرض المتاح في السلة — لا حجز (المرحلة 8)؛ IShippingRateProvider لمرحلة الشحن في التسعير (12)
-        ["Shopping"] = ["Inventory", "Shipping"],
+        // IStockAvailability لعرض المتاح في السلة — لا حجز (المرحلة 8)؛ IShippingRateProvider لمرحلة الشحن في التسعير (12).
+        // وITaxCalculator (ADR-0055): مرحلةُ الضريبة في الخطّ نفسه، بعد الخصم والشحن — فمَن يحسب
+        // الإجمالي هو مَن يسأل. والاتجاه واحد: الضريبة لا تسأل السلّةَ شيئاً.
+        ["Shopping"] = ["Inventory", "Shipping", "Tax"],
         // IStorePaymentAccountEditor: منطقة المنصّة تدخل نطاق متجر مستهدف (ITenantScopeRunner) وتربط حسابه — استُخرج
         // عقداً في التدقيق المعماري M1 (TD-04/R-04) بدل إشارة Platform المباشرة لصنف Payments (الصنف D سابقاً).
         // IStoreEntitlements (C1، ADR-0047/0053): تجهيز متجر من المنصّة يُسنِد له الخطة التأسيسية، وإلّا

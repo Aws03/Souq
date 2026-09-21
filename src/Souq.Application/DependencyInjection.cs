@@ -52,6 +52,9 @@ public static class DependencyInjection
         // وحدة Shopping (المرحلة 8): خطّ التسعير الواحد (السلة والدفع)، وسلة المتصل وعرضها. الإعدادات (أعمار السلال)
         // يسجّلها Infrastructure من Basket:* بعد التحقّق منها.
         services.AddScoped<Features.Baskets.Contracts.IPricing, Features.Baskets.Pricing.PricingService>();
+        // حسابُ الضريبة خدمةُ تطبيقٍ كخطّ التسعير نفسه: تنسيقٌ فوق منافذ، بلا معرفةٍ بتقنية تخزين
+        // (ADR-0055). ومحوّلٌ إلى خدمةٍ خارجية يوماً يحلّ محلّها بلا أن يتغيّر مُنادٍ واحد.
+        services.AddScoped<Features.Tax.Contracts.ITaxCalculator, Features.Tax.TaxCalculator>();
         services.AddScoped<Features.Baskets.BasketResolver>();
         services.AddScoped<Features.Baskets.BasketViews>();
         services.AddScoped<Features.Baskets.BasketLines>();
