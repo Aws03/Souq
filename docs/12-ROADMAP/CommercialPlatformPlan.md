@@ -44,8 +44,20 @@ phase_status: done
 next_phase: C9                                 # gated on C-08; no unblocked phase remains
 blocked_decisions: ["C-08", "C-17", "TD-42", "C-15", "P-06", "D-18", "C-11", "D-13", "C-01", "C-09", "C-18"]
 last_verified_date: 2026-09-21
-last_verified_head: d7ee2e5                    # C11's last work commit
+last_verified_head: 1f0affd                    # C11 closed at d7ee2e5; the commits after it are unblocked
+                                               # debt (TD-61, TD-62, TD-60, F-21, TD-48, TD-63), not a C phase
 baseline_branch: phase/17-production-hardening
+
+# ── ما جرى بعد C11 وليس مرحلة ─────────────────────────────────────────────
+# كل مرحلة تجارية متبقّية موقوفة على قرار مالك، فتحوّل العمل إلى دَين **غير موقوف** من
+# TechnicalDebt.md و ReleaseReadiness.md. المغلق: TD-61 (متجر مؤرشف بلا اختبار)، TD-62 (وهو
+# الـ P0 الوحيد الذي كان هندسياً)، TD-60 (حدود المعدّل)، F-21 (قراءات بلا حدّ)، TD-48 (حبس
+# التركيز)، TD-63 (أرقام الأمان مثبَّتة بقيمها).
+#
+# وثلاثة عيوب كشفها العمل نفسه لا البحث عنها: F-29 (EF Core يُفعّل RCSI على كل قاعدة يُنشئها،
+# فحارس آخر مدير يفشل مفتوحاً على كل نشر — **مفتوح**، مسموع عند كل إقلاع، وإصلاحه مُحدَّد)،
+# F-30 (جمود SQL كان 409 داخل معاملة و500 خارجها — مُصلَح)، F-31 (مصنع اختبار مشتقّ يكسر
+# ملتقط السجلّ لأصناف لاحقة — مُصلَح).
 ```
 
 **The completion protocol is the master plan's.** [SouqMasterPlan.md](SouqMasterPlan.md) §3 defines discover →

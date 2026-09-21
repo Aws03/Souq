@@ -30,7 +30,23 @@
 2. **The API in Development**, with its output written to a file: `dotnet run --project src/Souq.API --urls http://localhost:5200 > /tmp/souq-api.log 2>&1`. Port 5200 is what `launchSettings.json` and the Vite proxy expect. Development seeds the demo default store and the development accounts — admin@souq.com / Admin@123 (store admin) and owner@souq.com / Owner@12345 (platform owner) — which the journeys sign in with.
 3. **Vite**: `cd frontend && npm run dev` on port 5173. It proxies `/api` and `/uploads` with the Host header unchanged, which is what makes `http://localhost:5173` the default store, `http://{slug}.localhost:5173` another store and `http://admin.localhost:5173` the platform.
 4. **Run one file at a time, about a minute apart:** `npx playwright test e2e/storefront.spec.js`. Sign-in is rate-limited to 10 requests a minute per host and client address (`RateLimiting:Auth:PermitLimit`), and a full run in one go trips it — unless the stack raises the limit for QA, which is what M19's full-suite runs did.
-5. **Wait for the right signal, not for something that looks like it.** Three of the "rotating" failures TD-57
+5. **Against the container stack, pass the demo credentials and the published port.** `scripts/demo-up.sh` brings up
+   a complete stack with no local SQL Server and no Vite, which makes it the shortest path to a real browser run —
+   but its seeded accounts are **not** the development ones, because `DbSeeder` refuses `Admin@123` outside
+   Development. The journeys default to the development passwords, so they fail at sign-in with a `waitForURL`
+   timeout that looks nothing like a credentials problem:
+
+   ```bash
+   SOUQ_E2E_BASE_URL=http://localhost:8081 \
+   SOUQ_E2E_ADMIN_PASSWORD='Admin@123456' \
+   SOUQ_E2E_OWNER_PASSWORD='Owner@123456' \
+     npx playwright test e2e/back-office.spec.js --project=desktop
+   ```
+
+   And if port 8081 is taken by another stack, override only the web port rather than stopping a stack you did not
+   start — Compose **appends** to `ports`, so the override needs `ports: !override` or the old mapping comes along
+   and the bind still fails.
+6. **Wait for the right signal, not for something that looks like it.** Three of the "rotating" failures TD-57
    recorded turned out to be three different versions of this mistake, each deterministic once the store was full
    enough. A table's loading skeleton **is** five real `<tr>` elements, so waiting for the first row waits for
    nothing — wait for `[role="region"][aria-busy="false"]`, which `DataTable` now sets. A list that answers a
@@ -38,14 +54,14 @@
    for the table to go quiet (`keepPreviousData` keeps the old rows on screen, honestly marked not-busy). And a
    success toast lingers for seconds, so it is still on screen from the *previous* save — never use it to wait for
    the next one; wait for the write's own response, then assert the toast if you want the message checked.
-6. **Start a full-suite pass from a known baseline.** The journeys share one store and deliberately do not
+7. **Start a full-suite pass from a known baseline.** The journeys share one store and deliberately do not
    clean up, so it grows every run — and journeys that find their fixture by scanning a list start failing as
    thresholds are crossed (TD-57). `scripts/qa-reset.sh` returns the store to its seed, and
    `scripts/qa-second-store.py --skip-admin` adds the second store `cross-tenant-adversarial.spec.js` needs
    (that flag works on a Production stack; the full fixture, with its administrator and products, still needs a
    Development API for the invitation link). Two consecutive passes from that baseline were clean — 16 files,
    109 tests — where the same suite had never managed one before.
-7. **Run serially (`--workers=1`) for a full-suite pass.** M19 measured it: with two workers, five journeys fail that pass alone, because parallel specs mutate the same catalogue and compete for a memory-capped database. Those are not product defects and chasing them as such wastes a day.
+8. **Run serially (`--workers=1`) for a full-suite pass.** M19 measured it: with two workers, five journeys fail that pass alone, because parallel specs mutate the same catalogue and compete for a memory-capped database. Those are not product defects and chasing them as such wastes a day.
 
 What else the files need:
 
