@@ -7,6 +7,24 @@ namespace Souq.Domain.Interfaces;
 // ثم فشل حفظ الطلب، نكون قد خسرنا مخزوناً دون بيع — كارثة بيانات.
 // وحدة العمل تضمن الحفظ الذرّي: SaveChanges واحدة تحفظ كل شيء أو لا شيء.
 // ============================================================================
+
+// ============================================================================
+// مستوى عزل المعاملة، مسمّىً بالنيّة لا بمصطلح مزوّد (F-29).
+//
+// تعدادٌ يملكه المجال بدل `System.Data.IsolationLevel`: المجال لا يعرف تقنية تخزين، والاسم هنا
+// يقول **ما المطلوب** لا كيف يُنفَّذ — وInfrastructure وحدها تعرف ترجمته.
+// ============================================================================
+public enum TransactionIsolation
+{
+    // ما تعطيه القاعدة: READ COMMITTED، قافلاً كان أم لقطةً. يكفي لكل عمل لا ثابت له عبر صفوف.
+    Default = 0,
+
+    // ثابتٌ يُقاس عبر **عدّة صفوف** ("يبقى مديرٌ فعّال واحد على الأقل"): لا يصحّ إلّا بعزلٍ يمنع
+    // ظهور صفٍّ جديد أو تغيّر صفٍّ قائم داخل المدى المعدود قبل الالتزام. الجمود هنا متوقَّع
+    // ويُترجَم إلى تعارض تزامن قابل لإعادة المحاولة، لا إلى خطأ خادم.
+    Serializable = 1,
+}
+
 public interface IUnitOfWork
 {
     Task<int> SaveChangesAsync(CancellationToken ct = default);
@@ -16,4 +34,8 @@ public interface IUnitOfWork
     Task<T> InTransactionAsync<T>(Func<Task<T>> work, CancellationToken ct = default);
 
     Task InTransactionAsync(Func<Task> work, CancellationToken ct = default);
+
+    // بمستوى عزل مطلوب. داخل معاملة قائمة ⇒ تنضمّ إليها ويُتجاهَل المستوى: مستوى المعاملة يُحدَّد
+    // عند فتحها، ورفعُه في منتصفها ليس ممكناً ولا مفهوماً.
+    Task InTransactionAsync(Func<Task> work, TransactionIsolation isolation, CancellationToken ct = default);
 }

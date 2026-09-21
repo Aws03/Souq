@@ -281,4 +281,35 @@ public class AppDbContext : DbContext, IUnitOfWork
 
     public Task InTransactionAsync(Func<Task> work, CancellationToken ct = default) =>
         InTransactionAsync(async () => { await work(); return true; }, ct);
+
+    // ========================================================================
+    // معاملة بمستوى عزل مطلوب (F-29). الترجمة إلى `System.Data.IsolationLevel` تقع **هنا**: المجال
+    // يسمّي النيّة، وهذه الطبقة وحدها تعرف مفردات المزوّد.
+    //
+    // ونفس ترجمة الجمود تنطبق: SERIALIZABLE يجعل الجمود **متوقَّعاً** لا نادراً — متسابقان يأخذان
+    // أقفال مدى مشتركة ثمّ يطلبان الحصري. وهو مقبول هنا لأن الضحية تُرجَع كاملةً ويصل المتصل
+    // `ConcurrencyConflictException`، أي "أعد المحاولة" — وهو ما يُترجمه المستدعي إلى رفض عمل واضح.
+    // ========================================================================
+    public async Task InTransactionAsync(
+        Func<Task> work, TransactionIsolation isolation, CancellationToken ct = default)
+    {
+        // داخل معاملة قائمة ⇒ ننضمّ إليها: مستوى المعاملة يُحدَّد عند فتحها ولا يُرفَع في منتصفها.
+        if (Database.CurrentTransaction is not null || isolation == TransactionIsolation.Default)
+        {
+            await InTransactionAsync(work, ct);
+            return;
+        }
+
+        await using var transaction = await Database.BeginTransactionAsync(
+            System.Data.IsolationLevel.Serializable, ct);
+        try
+        {
+            await work();
+        }
+        catch (Exception ex) when (IsDeadlock(ex))
+        {
+            throw new ConcurrencyConflictException(ex);
+        }
+        await transaction.CommitAsync(ct);
+    }
 }

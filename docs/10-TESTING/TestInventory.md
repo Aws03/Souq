@@ -8,9 +8,9 @@
 | Suite | Files | Facts | Theories |
 |---|---|---|---|
 | [`Souq.Domain.Tests`](#souqdomaintests) | 30 | 258 | 50 |
-| [`Souq.Application.Tests`](#souqapplicationtests) | 52 | 387 | 19 |
+| [`Souq.Application.Tests`](#souqapplicationtests) | 52 | 388 | 19 |
 | [`Souq.ArchitectureTests`](#souqarchitecturetests) | 17 | 76 | 8 |
-| [`Souq.IntegrationTests`](#souqintegrationtests) | 59 | 371 | 27 |
+| [`Souq.IntegrationTests`](#souqintegrationtests) | 60 | 372 | 27 |
 | [frontend (Vitest)](#frontend-vitest) | 95 | 724 | — |
 | [frontend (Playwright)](#frontend-playwright) | 19 | 126 | — |
 
@@ -64,7 +64,7 @@
 | `tests/Souq.Application.Tests/Baskets/PricingServiceTests.cs` | `PricingServiceTests` | 11 | 0 |
 | `tests/Souq.Application.Tests/Billing/BillingHandlerTests.cs` | `BillingHandlerTests`, `FixedClock` | 9 | 0 |
 | `tests/Souq.Application.Tests/Categories/CategoryHandlersTests.cs` | `CreateCategoryHandlerTests`, `UpdateCategoryHandlerTests`, `DeleteCategoryHandlerTests` | 13 | 0 |
-| `tests/Souq.Application.Tests/Common/AccountsTests.cs` | `AccountsTests` | 7 | 0 |
+| `tests/Souq.Application.Tests/Common/AccountsTests.cs` | `AccountsTests` | 8 | 0 |
 | `tests/Souq.Application.Tests/Common/AuditBehaviorTests.cs` | `AuditBehaviorTests` | 5 | 0 |
 | `tests/Souq.Application.Tests/Common/MediaFileInspectorTests.cs` | `MediaFileInspectorTests`, `NonSeekableStream` | 3 | 2 |
 | `tests/Souq.Application.Tests/Common/PagingValidatorTests.cs` | `PagingValidatorTests` | 6 | 1 |
@@ -156,6 +156,7 @@
 | `tests/Souq.IntegrationTests/HealthCheckTests.cs` | `HealthCheckTests` | 7 | 0 |
 | `tests/Souq.IntegrationTests/InventoryAndOrderTests.cs` | `InventoryAndOrderTests` | 11 | 0 |
 | `tests/Souq.IntegrationTests/LastAdministratorConcurrencyTests.cs` | `LastAdministratorConcurrencyTests` | 2 | 0 |
+| `tests/Souq.IntegrationTests/LastAdministratorRcsiTests.cs` | `LastAdministratorRcsiTests`, `LastAdministratorRace` | 1 | 0 |
 | `tests/Souq.IntegrationTests/LocalFileStorageTests.cs` | `LocalFileStorageTests` | 2 | 2 |
 | `tests/Souq.IntegrationTests/MigrationRehearsalTests.cs` | `MigrationRehearsalTests` | 2 | 0 |
 | `tests/Souq.IntegrationTests/MigrationRollbackTests.cs` | `MigrationRollbackTests` | 1 | 0 |

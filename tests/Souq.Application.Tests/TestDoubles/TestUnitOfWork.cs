@@ -26,4 +26,15 @@ public class RecordingUnitOfWork : IUnitOfWork
     public virtual Task<T> InTransactionAsync<T>(Func<Task<T>> work, CancellationToken ct = default) => work();
 
     public virtual Task InTransactionAsync(Func<Task> work, CancellationToken ct = default) => work();
+
+    // العزل لا معنى له بلا قاعدة: يُسجَّل آخر ما طُلب كي تستطيع الاختبارات تأكيده، ويُنفَّذ
+    // الجسم كما هو. أثرُه الحقيقي يُقاس في اختبارات التكامل على قاعدة تعمل بلقطات فعلاً.
+    public TransactionIsolation LastIsolation { get; private set; } = TransactionIsolation.Default;
+
+    public virtual Task InTransactionAsync(
+        Func<Task> work, TransactionIsolation isolation, CancellationToken ct = default)
+    {
+        LastIsolation = isolation;
+        return work();
+    }
 }
