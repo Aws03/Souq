@@ -10,7 +10,7 @@
 | [`Souq.Domain.Tests`](#souqdomaintests) | 30 | 254 | 50 |
 | [`Souq.Application.Tests`](#souqapplicationtests) | 52 | 387 | 19 |
 | [`Souq.ArchitectureTests`](#souqarchitecturetests) | 17 | 76 | 8 |
-| [`Souq.IntegrationTests`](#souqintegrationtests) | 58 | 363 | 26 |
+| [`Souq.IntegrationTests`](#souqintegrationtests) | 58 | 365 | 26 |
 | [frontend (Vitest)](#frontend-vitest) | 94 | 716 | — |
 | [frontend (Playwright)](#frontend-playwright) | 19 | 126 | — |
 
@@ -187,7 +187,7 @@
 | `tests/Souq.IntegrationTests/TenantIsolationTests.cs` | `TenantIsolationTests` | 13 | 0 |
 | `tests/Souq.IntegrationTests/TenantQuotaTests.cs` | `TenantQuotaTests` | 7 | 0 |
 | `tests/Souq.IntegrationTests/TenantResolutionMiddlewareTests.cs` | `TenantResolutionMiddlewareTests`, `FakeDirectory` | 3 | 3 |
-| `tests/Souq.IntegrationTests/TenantResolutionTests.cs` | `TenantResolutionTests` | 6 | 0 |
+| `tests/Souq.IntegrationTests/TenantResolutionTests.cs` | `TenantResolutionTests` | 8 | 0 |
 | `tests/Souq.IntegrationTests/UploadSecurityTests.cs` | `UploadSecurityTests` | 3 | 0 |
 | `tests/Souq.IntegrationTests/WishlistTests.cs` | `WishlistTests` | 4 | 0 |
 
