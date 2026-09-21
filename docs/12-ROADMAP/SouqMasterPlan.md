@@ -34,7 +34,7 @@ phase_status: done
 next_phase: done        # terminal. M2 stays blocked on TD-42; what else remains is the owner's — §5 and OwnerDecisions.md
 blocked_decisions: ["TD-42", "GitHub Actions billing", "D-13"]   # see §5 and OwnerDecisions.md; the billing block stops CI running at all. D-13 blocks nothing in M1-M20 (all closed) but gates the whole commercial track — see "After the plan"
 last_verified_date: 2026-09-21
-last_verified_head: 1f0affd         # The M1-M20 plan itself stays terminal. The live pointer for everything
+last_verified_head: b476a8d         # The M1-M20 plan itself stays terminal. The live pointer for everything
                                     # after it is CommercialPlatformPlan.md §0 — read that block first: it carries
                                     # C1/C2/C11 and the unblocked-debt work that followed, and it lists every
                                     # remaining phase against the owner decision that gates it.
