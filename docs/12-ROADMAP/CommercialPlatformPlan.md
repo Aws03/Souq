@@ -13,24 +13,27 @@
 > phase delivers genuine product capability, adding it to `ProductRoadmap.md` §6 is the owner's next roadmap
 > edit, and this plan does not pre-empt that placement.
 >
-> **`C1` is done.** The *Billing* module exists, plans and entitlements are enforced through the seam that
-> already existed, and the fail-open default is closed. Everything from `C2` onwards is unstarted.
+> **`C1` and `C2` are done.** The *Billing* module exists, plans and entitlements are enforced through the seam
+> that already existed, the fail-open default is closed, and numeric limits are now **enforced** by a counter row
+> that no isolation level can defeat. Everything from `C3` onwards is unstarted.
 >
-> **Last verified against the code:** 2026-09-20, branch `phase/17-production-hardening`, after `C1`.
+> **Last verified against the code:** 2026-09-21, branch `phase/17-production-hardening`, after `C2`.
 
 ---
 
 ## 0. Status (machine-readable)
 
 ```yaml
-plan_version: 1.1.0
+plan_version: 1.2.0
 track: commercial
-current_phase: C1
+current_phase: C2
 phase_status: done
-next_phase: C2                                 # quotas + TD-68; depends on C1, blocked by nothing
-blocked_decisions: ["D-13", "C-01", "C-08"]    # see §5; C1 was blocked by none of them
-last_verified_date: 2026-09-20
-last_verified_head: 0421350                    # the head C1 started from; C1's own head is this commit
+next_phase: C9                                 # see §4; C9 is next by cost-of-delay but is GATED on C-08.
+                                               # If C-08 is unanswered, the next *unblocked* phase is C11
+                                               # (merchant analytics — depends on nothing, blocked by nothing).
+blocked_decisions: ["D-13", "C-01", "C-08"]    # see §5; neither C1 nor C2 was blocked by any of them
+last_verified_date: 2026-09-21
+last_verified_head: 2288d65                    # the head C2's own closing commit builds on
 baseline_branch: phase/17-production-hardening
 ```
 
@@ -98,6 +101,28 @@ Each phase lists: **delivers · depends on · blocked by · why here**.
 - **Blocked by.** Nothing.
 - **Why here.** A commercial quota that fails open is a billing defect, and the repository's existing pattern
   fails open silently under a database setting that a managed host enables by default.
+- **Done (2026-09-21).** *ITenantQuotaGuard* with one implementation, `TenantUsageCounter` as a store-owned
+  table, the reviewed bulk-write entry with its written reason, `QuotaReconciliationService` as a
+  `StoreSweepService`, and `QuotaRuleTests` forbidding any other count-then-insert. TD-68 closed with the
+  startup check `DatabaseIsolation` — on the running database, since a test could only ever assert the test
+  container. Wired to the five paths that create or free a countable thing: product create, archive and
+  restore; staff invite and enable/disable.
+- **Three things C2 decided that the plan did not name, all recorded in [ADR-0054](../11-ADR/0054-limit-semantics-and-catalogue.md).**
+  (1) **An absent limit means uncapped, not zero** — deliberately asymmetric with the entitlement gate, and the
+  only answer that did not stop every existing store the day this shipped, since the foundation plan carries no
+  limits. (2) **`LimitNames` is a closed catalogue**, which *reverses* a C1 abstention: C1 left names
+  unvalidated so as not to answer `C-12` implicitly, and this catalogue still does not — it lists what the
+  machine can count, never a tier or a value. (3) **Archived products and disabled staff do not count**, because
+  neither has a hard delete here and counting them would have made every limit a one-way ratchet with upgrade as
+  the only exit — a commercial policy nobody decided.
+- **What C2 did *not* do.** No tier and no number was named; `C-12` is untouched and still the owner's. No usage
+  is displayed to a merchant — `PeekAsync` exists and takes no lock, and no screen calls it yet.
+- **Two pre-existing findings the new rule surfaced, neither in any inventory.** `CouponRedemptions` counts then
+  inserts and is **correct** — the coupon aggregate's `rowversion` serialises it, the exception ADR-0049 names —
+  and is now inventoried with that reasoning rather than left undocumented. And `HEAD` at `38daea9` did **not**
+  build clean from scratch: a blocking `.Result` in C1's own test violates `xUnit1031`, and the incremental build
+  was not recompiling that project, so `dotnet build -warnaserror` reported success without ever seeing it.
+  Verified against a pristine worktree before fixing.
 
 ### C3 — Suspension that actually suspends
 
@@ -256,8 +281,8 @@ legal.
 
 | # | Phase | Why here | Gate |
 |---|---|---|---|
-| 1 | **C1** | nothing else can substitute for it, and nothing blocks it | — |
-| 2 | **C2** | a quota that fails open is a billing defect; also closes TD-68 | — |
+| 1 | ~~**C1**~~ **done** | nothing else can substitute for it, and nothing blocks it | — |
+| 2 | ~~**C2**~~ **done** | a quota that fails open is a billing defect; also closed TD-68 | — |
 | 3 | **C9** | the only item whose cost rises with delay | **C-08** |
 | 4 | **C3** | suspension must be real before it is automated | C-17 |
 | 5 | **C8** | cheapest visible credibility; parallel to the money track | TD-42 |
@@ -319,7 +344,7 @@ the question open.**
 | **C-07** | What is the pricing granularity in JOD? | accept a 10-fils minimum increment platform-wide (one rounding rule everywhere) · allow 1-fil pricing and make the rule conditional on tenant, provider and card scheme | C12, C13 |
 | **C-09** | May behavioural data be pooled across tenants? | never (correct by construction, simplest to put in a contract, every tenant starts cold) · pooled with consent · pooled anonymously | C10 |
 | **C-11** | Custom domains: managed edge or self-run ACME? | managed (per-hostname monthly cost, no certificate handling, wildcards gated) · self-run (free certificates, and Souq owns storage, locking, renewal and expiry alerting). Plus: apex support or CNAME-only, the activation SLA shown to merchants, and the policy for a domain that stops pointing at us | C7 |
-| **C-12** | What are the tiers, and per limit: hard, soft or overage? | hard is the only one needing no billing integration; overage needs metering first | C1, C2 |
+| **C-12** | What are the tiers, and per limit: hard, soft or overage? | hard is the only one needing no billing integration; overage needs metering first. **C2 built the mechanism and answered none of this:** limits are hard today because that is the only kind that needs no billing, and the two countable names (`catalog.products`, `staff.seats`) carry no values anywhere | still open — it now blocks *selling*, not *building* |
 | **C-13** | Trials? | none · time-limited with reduced limits (needs a Trial state and an expiry sweep) · freemium | C1 |
 | **C-14** | May support grant a capability outside a plan? | no · an expiring, attributed, audited override · an ad-hoc flag (creates a second truth — not recommended) | C1 |
 | **C-15** | What currency does Souq invoice merchants in, and must it support merchants with no card on file? | JOD · USD; and bank transfer is a mainstream case here, not an edge one | C5 |

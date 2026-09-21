@@ -148,7 +148,7 @@ public class CommercialControlPlaneTests
         var created = await owner.PostAsJsonAsync("/api/platform/plans", new
         {
             code, name = "شريحة اختبار", entitlements = new[] { StoreModules.Reviews },
-            limits = new[] { new { name = "products.max", value = 500 } },
+            limits = new[] { new { name = LimitNames.CatalogProducts, value = 500 } },
         });
         created.StatusCode.Should().Be(HttpStatusCode.Created);
         var planId = (await created.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetInt32();

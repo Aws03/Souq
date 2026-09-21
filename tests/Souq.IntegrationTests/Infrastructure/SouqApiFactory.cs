@@ -153,6 +153,36 @@ public sealed class SouqApiFactory : WebApplicationFactory<Program>, IAsyncLifet
         return scope;
     }
 
+    // ============================================================================
+    // متجر على خطة بحدود حقيقية (C2). الخطة التأسيسية بلا حدود عمداً، فاختبارُ الحصص يحتاج عقداً
+    // يحمل رقماً — إصدارٌ منشور خاصٌّ بهذا المتجر وحده كي لا تتشارك الاختبارات سقفاً واحداً.
+    // ============================================================================
+    public async Task<TestStore> CreateStoreOnPlanWithLimitsAsync(params (string Name, int Value)[] limits)
+    {
+        var store = await CreateStoreAsync();
+
+        await using (var scope = Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var plan = new Plan($"limited-{Guid.NewGuid():N}"[..24], 1, "خطة محدودة");
+            plan.SetEntitlements(StoreModules.All);
+            plan.SetLimits(limits.Select(l => new Limit(l.Name, l.Value)));
+            plan.Publish();
+            db.Plans.Add(plan);
+            await db.SaveChangesAsync();
+
+            // صفّ اشتراك واحد لكل متجر: نُحوّل القائم بدل إضافة ثانٍ يخرقه الفهرس الفريد.
+            var subscription = await db.Subscriptions.FirstAsync(s => s.TenantId == store.Tenant.Id);
+            subscription.ChangePlan(plan, DateTime.UtcNow);
+            await db.SaveChangesAsync();
+
+            scope.ServiceProvider.GetRequiredService<ITenantDirectory>().Invalidate();
+        }
+
+        // اللقطة تُعاد قراءتها: حدود الخطة تعيش فيها، والقديمة بلا حدود.
+        return store with { Tenant = await TenantAsync(store.Tenant.Slug) };
+    }
+
     // متجر حقيقي إضافي بنطاقه ومديره — كما ستُنشئه المنصّة (المرحلة 4)، لكن مباشرة عبر القاعدة.
     public async Task<TestStore> CreateStoreAsync(TenantStatus status = TenantStatus.Active, string currency = "JOD")
     {

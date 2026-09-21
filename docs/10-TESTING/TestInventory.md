@@ -7,10 +7,10 @@
 
 | Suite | Files | Facts | Theories |
 |---|---|---|---|
-| [`Souq.Domain.Tests`](#souqdomaintests) | 30 | 245 | 50 |
+| [`Souq.Domain.Tests`](#souqdomaintests) | 30 | 247 | 50 |
 | [`Souq.Application.Tests`](#souqapplicationtests) | 52 | 380 | 18 |
 | [`Souq.ArchitectureTests`](#souqarchitecturetests) | 17 | 74 | 8 |
-| [`Souq.IntegrationTests`](#souqintegrationtests) | 56 | 343 | 26 |
+| [`Souq.IntegrationTests`](#souqintegrationtests) | 57 | 350 | 26 |
 | [frontend (Vitest)](#frontend-vitest) | 94 | 711 | — |
 | [frontend (Playwright)](#frontend-playwright) | 19 | 126 | — |
 
@@ -32,7 +32,7 @@
 | `tests/Souq.Domain.Tests/OrderShippingTests.cs` | `OrderShippingTests` | 5 | 0 |
 | `tests/Souq.Domain.Tests/OrderTests.cs` | `OrderTests` | 28 | 2 |
 | `tests/Souq.Domain.Tests/PaymentTests.cs` | `PaymentTests` | 5 | 3 |
-| `tests/Souq.Domain.Tests/PlanAndEntitlementTests.cs` | `PlanAndEntitlementTests` | 18 | 3 |
+| `tests/Souq.Domain.Tests/PlanAndEntitlementTests.cs` | `PlanAndEntitlementTests` | 20 | 3 |
 | `tests/Souq.Domain.Tests/ProductOptionTests.cs` | `ProductOptionTests` | 19 | 0 |
 | `tests/Souq.Domain.Tests/ProductTests.cs` | `ProductTests`, `CategoryTests` | 11 | 1 |
 | `tests/Souq.Domain.Tests/ProductVariantTests.cs` | `ProductVariantTests` | 10 | 0 |
@@ -184,6 +184,7 @@
 | `tests/Souq.IntegrationTests/StorefrontVariantTests.cs` | `StorefrontVariantTests` | 7 | 0 |
 | `tests/Souq.IntegrationTests/StripeAmountConverterTests.cs` | `StripeAmountConverterTests` | 2 | 2 |
 | `tests/Souq.IntegrationTests/TenantIsolationTests.cs` | `TenantIsolationTests` | 13 | 0 |
+| `tests/Souq.IntegrationTests/TenantQuotaTests.cs` | `TenantQuotaTests` | 7 | 0 |
 | `tests/Souq.IntegrationTests/TenantResolutionMiddlewareTests.cs` | `TenantResolutionMiddlewareTests`, `FakeDirectory` | 3 | 3 |
 | `tests/Souq.IntegrationTests/TenantResolutionTests.cs` | `TenantResolutionTests` | 6 | 0 |
 | `tests/Souq.IntegrationTests/UploadSecurityTests.cs` | `UploadSecurityTests` | 3 | 0 |

@@ -33,8 +33,10 @@ current_phase: M20
 phase_status: done
 next_phase: done        # terminal. M2 stays blocked on TD-42; what else remains is the owner's — §5 and OwnerDecisions.md
 blocked_decisions: ["TD-42", "GitHub Actions billing", "D-13"]   # see §5 and OwnerDecisions.md; the billing block stops CI running at all. D-13 blocks nothing in M1-M20 (all closed) but gates the whole commercial track — see "After the plan"
-last_verified_date: 2026-09-20
-last_verified_head: 50a8f01         # see "And after that" below. Was f5cfece and had gone stale by two commits, which §5 makes a STOP condition; corrected 2026-09-20. M20's own closing head was f3548ee; e276f54 closed 2026-09-19
+last_verified_date: 2026-09-21
+last_verified_head: 2288d65         # C2's work commit. The M1-M20 plan itself stays terminal; the live pointer
+                                    # for the commercial track is CommercialPlatformPlan.md §0, which is ahead of
+                                    # this one and is the block to read first. Was 50a8f01 (2026-09-20)
 baseline_branch: phase/17-production-hardening
 ```
 
@@ -405,6 +407,41 @@ filter — the shape the new commercial tables use — had no architecture rule 
 to bypass and so the existing bypass rule can never fire for them; the new rule found a pre-existing reader that
 no inventory had listed. And the platform area's privilege of carrying a `TenantId` in a request is now **earned
 rather than declared**: a test proves every such request is reachable only through a platform-host endpoint.
+
+### And after that (2026-09-21, `C2`)
+
+**`C2` — quotas, and closing TD-68 — is done**, and its home is still
+[CommercialPlatformPlan.md](CommercialPlatformPlan.md), not this section. Recorded here for the same reason as
+the block above: the head moved, and a session reading §0 should not be surprised.
+
+Plan limits are now **enforced**. The mechanism is one conditional statement — `SET Used = Used + 1 WHERE Used
+< @limit` on a per-store counter row — and the reason it is that and not the obvious thing is the part worth
+carrying forward: **the repository's own safe-looking count-then-write pattern fails open**, silently, under
+`READ_COMMITTED_SNAPSHOT`, which a managed database this repository names as a possible target enables by
+default. An `UPDATE` re-qualifies its predicate against the last committed value and takes an exclusive lock
+regardless of isolation level; a `SELECT COUNT` does not. [ADR-0049](../11-ADR/0049-tenant-quota-enforcement.md)
+had already decided this; C2 implemented it and **checked the check** — reverting the guard to count-then-write
+made the concurrency test produce four products against a limit of three, so the test can genuinely fail, which
+is the property ADR-0049 §obligation 4 exists to demand.
+
+**TD-68 closed in two places, not one.** The quota does not inherit the invariant at all. The *existing*
+administrator guard still does, and still depends on locking read-committed — so a startup check now reads the
+database's own setting and warns loudly. A test could only ever have asserted the test container, which has the
+setting off; the risk was always a host that has it on.
+
+**Three decisions C2 made that no plan had named**, all in [ADR-0054](../11-ADR/0054-limit-semantics-and-catalogue.md):
+an absent limit means **uncapped, not zero** (deliberately asymmetric with the entitlement gate, and the only
+answer that does not stop every existing store); the limit names became a **closed catalogue**, reversing a C1
+abstention without answering `C-12`; and archived products and disabled staff **do not count**, because neither
+has a hard delete here and counting them would have made every limit a ratchet that only an upgrade can release.
+
+**And a correction to what "green" meant.** `HEAD` at `38daea9` did not build clean from a pristine checkout: a
+blocking `.Result` in C1's own test violates `xUnit1031`, and the incremental build was not recompiling that
+project — so `dotnet build -warnaserror` reported success without ever compiling the file. Verified in a
+throwaway worktree at `38daea9` before fixing. **A gate that runs on cached build state is not the gate**, and
+§3 step 8's "actually ran on the exact commit being recorded" now has a concrete way to be false.
+
+---
 
 Keep this block current in the same commit that closes a phase: `current_phase`, `phase_status`
 (`not_started` | `in_progress` | `blocked` | `done`), `next_phase`, `blocked_decisions` (the exact ID from

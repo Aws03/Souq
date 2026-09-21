@@ -1,9 +1,9 @@
 # ADR-0049: A per-tenant quota is enforced by a counter row under an explicit lock — not by the write-first-then-recount pattern this repository already uses
 
-- **Status:** Accepted as the design, 2026-09-20. **Not implemented.** It also decides how TD-68 closes, because the existing administrator guard and any future quota share one invariant. Supersedes nothing.
+- **Status:** Accepted and **implemented** in C2, 2026-09-21. It also decided how TD-68 closes, because the existing administrator guard and any future quota share one invariant — and TD-68 closed with it. All four obligations below shipped, and the fourth one was honoured literally: the concurrency test was mutation-checked by reverting the guard to option A, which produced **four products against a limit of three** on the second of five attempts. What this record left to the enforcing phase — what an absent limit means — is [ADR-0054](0054-limit-semantics-and-catalogue.md). Supersedes nothing.
 - **Date:** 2026-09-20
 - **Related modules:** Platform, Identity, Catalog, Shopping — every module that would carry a countable limit
-- **Related ADRs:** [ADR-0013](0013-optimistic-concurrency.md) (rowversion on contended aggregates), [ADR-0021](0021-transaction-boundaries.md) (the use case owns the unit of work), [ADR-0007](0007-database-strategy.md) (EF Core as the only schema source), [ADR-0047](0047-commercial-control-plane.md) (why the counter is a store-owned table)
+- **Related ADRs:** [ADR-0013](0013-optimistic-concurrency.md) (rowversion on contended aggregates), [ADR-0021](0021-transaction-boundaries.md) (the use case owns the unit of work), [ADR-0007](0007-database-strategy.md) (EF Core as the only schema source), [ADR-0047](0047-commercial-control-plane.md) (why the counter is a store-owned table), [ADR-0054](0054-limit-semantics-and-catalogue.md) (what an absent limit means, and the closed name catalogue)
 
 ## Context
 

@@ -180,7 +180,7 @@ With no provider key at all:
 
 With `Email:Provider=Log` outside local, the startup report warns `Email:Provider=Log — لا تُرسَل أي رسالة (إعادة تعيين، تأكيد، دعوة، تأكيد طلب): عرض توضيحي فقط.` and every message logs `No email provider configured — {Kind} to {Recipient} was not sent`.
 
-Provider HTTP calls use `IHttpClientFactory` clients with a 15-second timeout; failures raise `EmailDeliveryException` and the outbox retries (see [§12](#12-notifications-inventory-and-basket-schedules)).
+Provider HTTP calls use `IHttpClientFactory` clients with a 15-second timeout; failures raise `EmailDeliveryException` and the outbox retries (see [§12](#12-notifications-inventory-basket-and-billing-schedules)).
 
 docker-compose: `Email__Provider`, `Resend__ApiKey`, `Brevo__ApiKey`, `Brevo__SenderEmail`, `Gmail__AppPassword`, `Gmail__Username`, `Gmail__Port` (`.env`: `EMAIL_PROVIDER`, `RESEND_API_KEY`, `BREVO_API_KEY`, `BREVO_SENDER_EMAIL`, `GMAIL_APP_PASSWORD`, `GMAIL_USERNAME`, `GMAIL_SMTP_PORT`). `Resend:From`, `Brevo:SenderName`, `Gmail:Host` and `Gmail:EnableSsl` are **not** exposed by compose.
 
@@ -266,9 +266,9 @@ docker-compose hard-codes a single key id: `Secrets__ActiveKeyId: ${SECRETS_KEY:
 
 docker-compose does not set it; the container default resolves to `/app/wwwroot/uploads`, which is the mount point of the `souq_uploads` volume.
 
-## 12. Notifications, inventory and basket schedules
+## 12. Notifications, inventory, basket and billing schedules
 
-All three are typed options with `ValidateOnStart`, and each interval accepts `0` to disable its background service (which is how the integration tests run deterministic dispatches).
+All four are typed options with `ValidateOnStart`, and each interval accepts `0` to disable its background service (which is how the integration tests run deterministic dispatches).
 
 | Key | Default | Range | Effect |
 |---|---|---|---|
@@ -279,6 +279,7 @@ All three are typed options with `ValidateOnStart`, and each interval accepts `0
 | `Basket:CleanupIntervalMinutes` | 60 | 0 (off) or 5–1440 | how often `BasketCleanupService` deletes expired baskets |
 | `Notifications:DispatchIntervalSeconds` | 5 | 0 (off) or 1–300 | outbox polling interval (`OutboxDispatcherService`) |
 | `Notifications:RetentionDays` | 14 | 1–365 | processed outbox rows are purged after this; the purge runs at most hourly. Dead rows are kept |
+| `Billing:QuotaReconcileIntervalMinutes` | 360 | 0 (off) or 5–1440 | how often `QuotaReconciliationService` recounts each store's quota counters against the truth. A safety net, not a defence — the creation and release paths keep the counters correct, and this catches a path that stopped reporting, a manual database edit or an erasure. **Any correction is logged as a warning**, because drift is a symptom rather than routine, so shortening this interval hides the signal rather than improving it |
 
 Validation messages name the key, for example `Inventory:SweepIntervalSeconds صفر (معطّل) أو بين 10 و3600 ثانية.` None of these are exposed by `docker-compose.yml`; set them as environment variables (`Inventory:SweepIntervalSeconds` and so on, with double underscores) if you need to.
 

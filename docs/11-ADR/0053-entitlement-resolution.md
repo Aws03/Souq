@@ -3,7 +3,7 @@
 - **Status:** Accepted and **implemented** in C1, 2026-09-20. It decides how a plan reaches the enforcement point that already exists, and closes the fail-open default that point carried. Refines [ADR-0047](0047-commercial-control-plane.md) §4, which decided *that* entitlements feed one seam without deciding *how*.
 - **Date:** 2026-09-20
 - **Related modules:** Billing, Platform
-- **Related ADRs:** [ADR-0047](0047-commercial-control-plane.md) (the control plane and the three table shapes), [ADR-0005](0005-multi-tenancy-model.md) and [ADR-0022](0022-tenancy-enforcement.md) (the isolation this must not weaken), [ADR-0024](0024-platform-administration.md) (the platform area's conventions), [ADR-0049](0049-tenant-quota-enforcement.md) (limits, which this record carries but does not enforce)
+- **Related ADRs:** [ADR-0047](0047-commercial-control-plane.md) (the control plane and the three table shapes), [ADR-0005](0005-multi-tenancy-model.md) and [ADR-0022](0022-tenancy-enforcement.md) (the isolation this must not weaken), [ADR-0024](0024-platform-administration.md) (the platform area's conventions), [ADR-0049](0049-tenant-quota-enforcement.md) (limits, which this record carries but does not enforce — C2 enforces them), [ADR-0054](0054-limit-semantics-and-catalogue.md) (why an absent **limit** is uncapped while an absent **entitlement** here is a refusal)
 
 ## Context
 

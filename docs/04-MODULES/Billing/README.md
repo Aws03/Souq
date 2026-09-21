@@ -1,6 +1,6 @@
 # Billing module
 
-> **Code:** `src/Souq.Application/Features/Billing`, `src/Souq.Domain/Platform/Plan.cs`, `src/Souq.Domain/Platform/Subscription.cs`, `src/Souq.Domain/Platform/EntitlementOverride.cs`, `src/Souq.Domain/Platform/Entitlements.cs`, `src/Souq.Infrastructure/Persistence/Queries/BillingQueries.cs` · **Decisions:** [ADR-0047](../../11-ADR/0047-commercial-control-plane.md), [ADR-0053](../../11-ADR/0053-entitlement-resolution.md) · **Change guide:** none yet
+> **Code:** `src/Souq.Application/Features/Billing`, `src/Souq.Domain/Platform/Plan.cs`, `src/Souq.Domain/Platform/Subscription.cs`, `src/Souq.Domain/Platform/EntitlementOverride.cs`, `src/Souq.Domain/Platform/Entitlements.cs`, `src/Souq.Domain/Platform/LimitNames.cs`, `src/Souq.Domain/Entities/TenantUsageCounter.cs`, `src/Souq.Infrastructure/Persistence/TenantQuotaGuard.cs`, `src/Souq.Infrastructure/Persistence/QuotaResources.cs`, `src/Souq.Infrastructure/Persistence/Queries/BillingQueries.cs` · **Decisions:** [ADR-0047](../../11-ADR/0047-commercial-control-plane.md), [ADR-0049](../../11-ADR/0049-tenant-quota-enforcement.md), [ADR-0053](../../11-ADR/0053-entitlement-resolution.md), [ADR-0054](../../11-ADR/0054-limit-semantics-and-catalogue.md) · **Change guide:** see **Adding a limit** below
 
 ## Purpose
 
@@ -13,6 +13,7 @@ The module exists because commercial concepts do not belong to `Platform`, which
 - The plan catalogue: versioned plans, each naming the entitlements it grants and the numeric limits it carries.
 - Which plan version is in force for each store, and since when.
 - Expiring, attributed, audited entitlement overrides, so support can make an exception without creating a second source of truth.
+- **Enforcing a numeric limit** — refusing the (N+1)th product or staff seat, correctly under concurrency, through the one port `ITenantQuotaGuard` (C2).
 - Nothing else. In particular, no money.
 
 ## Not this module's job
@@ -23,13 +24,15 @@ The module exists because commercial concepts do not belong to `Platform`, which
 | Resolving the effective set | Infrastructure — `TenantDirectory` composes the inputs once per cached snapshot |
 | A store's identity, domains, status and settings | [Platform](../Platform/README.md) |
 | Taking a shopper's money | [Payments](../Payments/README.md). The two money paths never meet — see **Tenant behaviour** |
-| Counting a limit, or refusing the (N+1)th thing | Nobody yet. Limits are carried here and enforced in a later phase ([ADR-0049](../../11-ADR/0049-tenant-quota-enforcement.md)) |
+| Deciding *what* the tiers and their numbers are | The owner — decision `C-12`. This module builds the mechanism and names no tier and no value |
 | Charging a merchant | Nobody yet — a later phase, blocked on owner decisions |
 
 ## Business concepts
 
 - **Entitlement** — a boolean capability key: *may they?* Its key space is deliberately the same as the optional store modules (`StoreModules.All`), because one catalogue and one enforcement point is the whole point.
-- **Limit** — a name and a non-negative number: *how much?* A different concept from an entitlement and never conflated with one. The limit **names** are not validated against a catalogue, because deciding what the limits are is the owner's call, not engineering's.
+- **Limit** — a name and a non-negative number: *how much?* A different concept from an entitlement and never conflated with one. Since C2 the **names** come from a closed catalogue (`LimitNames`) while the **values** remain entirely the owner's, so `C-12` is still open: the catalogue lists what the platform knows how to count, not what is sold ([ADR-0054](../../11-ADR/0054-limit-semantics-and-catalogue.md)).
+- **An absent limit means uncapped, not zero** — deliberately the opposite of an absent entitlement, which is a refusal. An entitlement grants a capability; a limit only narrows one already granted, so a missing number is a missing restriction, not a missing grant. Reading it as zero would have stopped every existing store the day C2 shipped, since the foundation plan carries no limits at all.
+- **Usage counter** — one row per (store, limit name) holding what is consumed. It is a *picture* of the truth, not the truth: `QuotaResources` holds the real count, and a reconciling sweep corrects drift.
 - **Plan** — a versioned set of entitlements and limits, identified by `(Code, Version)`. A published plan is **frozen**: a subscriber keeps the terms they subscribed to, so a change is a new version, never an edit.
 - **Plan status** — `Draft` (editable, not subscribable) → `Published` (subscribable, frozen) → `Retired` (no new subscriptions; existing subscribers keep it).
 - **Subscription** — which plan version is in force for one store. One row per store.
@@ -47,7 +50,10 @@ Every type lives in the `Souq.Domain.Platform` **namespace** — a tenancy rule 
 | `PlanEntitlement` | entity (child) | same file | One row per granted key; a related table, not a longer string column |
 | `PlanLimit` | entity (child) | same file | Name and value; carried, not enforced |
 | `PlanStatus` | enum | same file | `Draft`, `Published`, `Retired` |
-| `Limit` | value object | `src/Souq.Domain/Platform/Limit.cs` | Name shape validated; name membership deliberately not |
+| `Limit` | value object | `src/Souq.Domain/Platform/Limit.cs` | Name shape **and** membership validated since C2 |
+| `LimitNames` | catalogue (static) | `src/Souq.Domain/Platform/LimitNames.cs` | The closed set of countable limits: `catalog.products`, `staff.seats` |
+| `TenantUsageCounter` | entity (store-owned) | `src/Souq.Domain/Entities/TenantUsageCounter.cs` | One row per (store, limit); `ITenantOwned`, so the tenant filter guards the bulk update |
+| `ITenantQuotaGuard` | port | `src/Souq.Application/Features/Billing/Contracts/ITenantQuotaGuard.cs` | Reserve / release / peek / reconcile — one port, one implementation |
 | `Entitlements` | domain service (static) | `src/Souq.Domain/Platform/Entitlements.cs` | `Granted` and `Effective` — the resolution rule, testable without a database |
 | `Subscription` | entity | `src/Souq.Domain/Platform/Subscription.cs` | `TenantId` as a plain column; one per store; only a published plan may be assigned |
 | `SubscriptionStatus` | enum | same file | `Active`, `Cancelled` — Souq's own vocabulary, never a provider's |
@@ -131,6 +137,8 @@ None, deliberately. Nothing in this module talks to a payment provider, and noth
 | Domain | `tests/Souq.Domain.Tests/PlanAndEntitlementTests.cs` | A published plan is frozen; an unknown entitlement is refused in a plan; the effective set is an intersection and is empty when either input is missing; only a published plan may be subscribed to; an override expires, is attributed and is bounded |
 | Application | `tests/Souq.Application.Tests/Billing/BillingHandlerTests.cs` | Assignment and revocation invalidate the directory; a second active override on one key is refused; an override for a switched-off module is refused rather than silently doing nothing |
 | Architecture | `tests/Souq.ArchitectureTests/TenancyRuleTests.cs` | Only reviewed Infrastructure types handle tenant-keyed platform rows |
+| Architecture | `tests/Souq.ArchitectureTests/QuotaRuleTests.cs` | Count-then-insert is confined to a reviewed list; every limit name has a counting rule and vice versa; the port has exactly one implementation. **The first test checks itself before it checks the code** — it asserts the known sites are still *detected*, so the rule cannot go green while measuring nothing, which is the failure ADR-0049 §obligation 4 was written about |
+| Integration | `tests/Souq.IntegrationTests/TenantQuotaTests.cs` | A plan with no limit caps nothing; the ceiling refuses with a stable `QuotaExceeded` code and writes nothing; **two concurrent requests for the last remaining seat never both succeed** (five attempts, mutation-checked — reverting the guard to count-then-write produced four products against a limit of three); archiving frees a seat and restoring re-takes it; a counter created for a store that already has a catalogue starts from the real count, not zero; reconciliation returns a drifted counter to the truth; a staff seat is taken by an invitation and freed by disabling |
 | Architecture | `tests/Souq.ArchitectureTests/ModuleAndContractRuleTests.cs` | Platform-area requests are audited, and their `TenantId` exemption is earned |
 | Integration | `tests/Souq.IntegrationTests/CommercialControlPlaneTests.cs` | An unresolvable plan grants nothing end to end; plan changes take effect through the real middleware; another store's override answers 404 |
 
@@ -144,21 +152,33 @@ None, deliberately. Nothing in this module talks to a payment provider, and noth
 | A draft plan is assigned to a store | Refused with 422 `InvalidSubscription` |
 | An override is granted for a module the platform has switched off | Refused with 409 `ModuleSwitchedOff`, because granting it would have done nothing while reporting success |
 | Two overrides for one key | The second is refused with 409 `OverrideAlreadyActive`, so "when does this end?" keeps one answer |
+| A store reaches a plan limit | The creation is refused with 409 `QuotaExceeded`, naming the limit. The refusal is an abstention, not a rollback: nothing was written |
+| A plan does not name a limit | The store is **uncapped** for it. Not zero — see **Business concepts** and [ADR-0054](../../11-ADR/0054-limit-semantics-and-catalogue.md) |
+| A plan carries a limit the code no longer knows | It is dropped with a warning when the snapshot is built, so the store is uncapped for it rather than stopped. Writing such a name is refused at publish time |
+| A counter drifts from the truth | `QuotaReconciliationService` recounts per store every `Billing:QuotaReconcileIntervalMinutes` and logs a **warning** with what it corrected — drift means a path is not reporting, so it is never corrected silently |
+| `ReserveAsync` is called outside a transaction | It throws. A reservation that cannot roll back with the write it reserved for would leak quota against something that never existed |
 
 ## Common change scenarios
 
 - **Add a new optional capability.** Add the key to `StoreModules`, then add it to a new plan **version**. No existing plan grants it, so no store receives it by accident — which is the property the whole design is built around.
 - **Give one store an exception.** Grant an override with a reason and a duration. Do not edit its plan.
 - **Change what a tier includes.** Create a new version and assign it. Never edit a published one.
+- **Adding a limit (the change guide for this module).** A limit name is an engineering undertaking of **three parts**, and shipping one without the others produces a cap that lies:
+  1. A name in `LimitNames`, with what it counts and — just as important — **what frees it**.
+  2. A counting rule in `QuotaResources`. The architecture test `كل_اسم_حدّ_له_قاعدة_عدّ` fails the build in both directions if this is missing or orphaned.
+  3. `ReserveAsync` on every path that creates the thing (inside the caller's transaction, **before** the write) and `ReleaseAsync` on every path that frees it. Only human review enforces this part — which is why the reconciling sweep warns rather than silently correcting.
+
+  Count only what the merchant can actually empty. Neither products nor staff accounts have a hard delete here, so counting archived products or disabled accounts would make the limit a one-way ratchet with upgrade as the only exit.
 
 ## Known limitations
 
 - **No money.** No price, no invoice, no collection, no commission. Deliberate: those need owner decisions on the merchant-of-record model and the invoicing currency.
-- **Limits are carried, not enforced.** The plan can say "500 products" and nothing counts products. Enforcement needs a counter design that does not race, which is its own decision record.
+- **Only two things are countable.** `catalog.products` and `staff.seats`. Anything else a tier might want to cap — orders per month, storage, API calls — needs the three parts above, and the first two are guarded by a build-time test.
+- **No usage is shown to the merchant.** `PeekAsync` exists and reads without taking a lock, but no screen calls it yet, so a merchant meets the ceiling by hitting it. That is the next visible-value change in this module.
 - **One subscription row per store, unfiltered unique index.** A cancelled subscription keeps the store's only row, and its previous plan survives only as an audit entry. Billing periods will need a filtered index and a migration.
 - **The platform console shows the answer but does not yet let the owner build a tier.** Plans are created through the API.
 - **Cross-instance invalidation is not built.** With more than one API instance, a plan change reaches the others within the cache window.
 
 ## Future evolution
 
-Metering and billable events, platform invoices with their own number series, a dunning state machine driven by Souq's own invoice state, and quota enforcement over the limits this module already carries. Each is a separate phase in [CommercialPlatformPlan.md](../../12-ROADMAP/CommercialPlatformPlan.md), and several wait on a decision that is the owner's rather than engineering's.
+Metering and billable events, platform invoices with their own number series, and a dunning state machine driven by Souq's own invoice state. Each is a separate phase in [CommercialPlatformPlan.md](../../12-ROADMAP/CommercialPlatformPlan.md), and several wait on a decision that is the owner's rather than engineering's. Quota enforcement is no longer on that list: C2 built it.
