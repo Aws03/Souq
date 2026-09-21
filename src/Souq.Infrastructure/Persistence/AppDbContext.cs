@@ -64,6 +64,14 @@ public class AppDbContext : DbContext, IUnitOfWork
     public DbSet<SearchSynonym> SearchSynonyms => Set<SearchSynonym>();
     // أثر ما بحث عنه المتسوّقون (M13): يكتبه كاتبٌ خلفي على دفعات، وتقرؤه لوحة التاجر ليُصلح المفردات أعلاه.
     public DbSet<SearchQueryLog> SearchQueryLogs => Set<SearchQueryLog>();
+
+    // الالتقاط السلوكي (C9، ADR-0050): الأحداث الخام، وربطُ الزائر بالعميل في جدولٍ منفصل عنها
+    // عمداً، والتجميعات التي تبقى بعد مسحها، وعلامةُ «إلى أيّ يومٍ جُمِّع».
+    public DbSet<BehaviouralEvent> BehaviouralEvents => Set<BehaviouralEvent>();
+    public DbSet<VisitorIdentityLink> VisitorIdentityLinks => Set<VisitorIdentityLink>();
+    public DbSet<ProductEngagementDaily> ProductEngagementDailies => Set<ProductEngagementDaily>();
+    public DbSet<ProductPairDaily> ProductPairDailies => Set<ProductPairDaily>();
+    public DbSet<AnalyticsRollupState> AnalyticsRollupStates => Set<AnalyticsRollupState>();
     public DbSet<Category> Categories => Set<Category>();
     public DbSet<Order> Orders => Set<Order>();
     public DbSet<OrderItem> OrderItems => Set<OrderItem>();

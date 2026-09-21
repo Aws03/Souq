@@ -11,8 +11,27 @@ public sealed class ProductSearchPage : PaginatedList<ProductDto>
     // null ⇒ لا شيء يُقال للمتسوّق: إمّا وُجدت نتائج بكلماته هو، وإمّا لا استرجاع ممكناً.
     public SearchRecovery? Search { get; }
 
-    public ProductSearchPage(PaginatedList<ProductDto> page, SearchRecovery? search = null)
-        : base(page.Items, page.TotalCount, page.PageNumber, page.PageSize) => Search = search;
+    // ============================================================================
+    // معرّفُ تنفيذ هذا البحث (C9، ADR-0050 §3) — يُصكّ لحظةَ الاستعلام ويُعاد هنا كي يردّه العميل
+    // مع النقرة والإضافة والشراء. **وبلا ردٍّ لا تُنسَب مبيعةٌ إلى البحث الذي أنتجها أبداً**: القُرب
+    // الزمنيّ ليس نسبةً، ولا تُستخرَج النسبة لاحقاً من صفوفٍ لا تحملها. والحقلُ الثاني يُضاف بالحيلة
+    // نفسها التي أُضيف بها `search`: وراثةُ شكل الترقيم تُبقي كلَّ عميلٍ قائم يعمل.
+    //
+    // null ⇒ الالتقاط معطّل: لا معرّف بلا حدثٍ يحمله.
+    // ============================================================================
+    public Guid? SearchExecutionId { get; }
+
+    public ProductSearchPage(
+        PaginatedList<ProductDto> page, SearchRecovery? search = null, Guid? searchExecutionId = null)
+        : base(page.Items, page.TotalCount, page.PageNumber, page.PageSize)
+    {
+        Search = search;
+        SearchExecutionId = searchExecutionId;
+    }
+
+    // نسخةٌ بمعرّف التنفيذ: منفذ القراءة (`ICatalogQueries`) لا يعرف الالتقاط، والمعالجُ هو من
+    // يصكّ — فالإضافة تقع بعد القراءة لا داخلها.
+    public ProductSearchPage WithSearchExecution(Guid id) => new(this, Search, id);
 }
 
 // ============================================================================

@@ -58,6 +58,7 @@ public static class DependencyInjection
         AddInventory(services, config);
         AddBaskets(services, config);
         AddSearchLog(services, config);
+        AddEventCapture(services, config);
         AddBilling(services, config);
         AddPayments(services, config, environment, report);
         AddEmail(services, config, environment, report);
@@ -209,6 +210,46 @@ public static class DependencyInjection
             sp.GetRequiredService<IOptions<Application.Features.Billing.BillingSettings>>().Value);
 
         services.AddHostedService<BackgroundJobs.QuotaReconciliationService>();
+    }
+
+    // ============================================================================
+    // الالتقاط السلوكي (C9، ADR-0050). **معطّلٌ حتى يُضبَط، وتفعيلُه نصفَ مضبوطٍ يمنع الإقلاع.**
+    //
+    // قرار المالك C-08 = A أذن بمعرّف زائر مُعتِم وأبقى ثلاثة أجوبة للمالك «قبل أن يُكتب أوّل
+    // صفّ»: الأساس القانوني، ومدّة الحفظ، والإقامة. والتحقّق أدناه هو ما يجعل تلك الجملة قاعدةً
+    // في الكود: `Enabled=true` بلا مدّةٍ أو بلا أساسٍ **يرفض الإقلاع** ويسمّي المفتاح وC-08.
+    //
+    // ولا مدّةَ افتراضية هنا: البحث وجد 13 و14 شهراً، وكلاهما **بحثٌ لا قرار**.
+    // ============================================================================
+    private static void AddEventCapture(IServiceCollection services, IConfiguration config)
+    {
+        services.AddOptions<Application.Features.Analytics.EventCaptureSettings>()
+            .Bind(config.GetSection(Application.Features.Analytics.EventCaptureSettings.SectionName))
+            .Validate(s => !s.Enabled || s.RetentionDays is >= Application.Features.Analytics.EventCaptureSettings.MinRetentionDays
+                                             and <= Application.Features.Analytics.EventCaptureSettings.MaxRetentionDays,
+                "Analytics:Events:RetentionDays مطلوبة بين 1 و730 يوماً حين يُفعَّل الالتقاط — لا مدّة افتراضية (C-08).")
+            .Validate(s => !s.Enabled || !string.IsNullOrWhiteSpace(s.LawfulBasis),
+                "Analytics:Events:LawfulBasis مطلوب حين يُفعَّل الالتقاط — الأساس القانوني جواب المالك (C-08).")
+            .Validate(s => !s.VisitorIdentifierEnabled || s.Enabled,
+                "Analytics:Events:VisitorIdentifierEnabled لا معنى له والالتقاط معطّل.")
+            .Validate(s => s.SessionIdleMinutes is >= 1 and <= 1440, "Analytics:Events:SessionIdleMinutes بين 1 و1440 دقيقة.")
+            .Validate(s => s.WriteBatchMilliseconds is >= 10 and <= 60_000, "Analytics:Events:WriteBatchMilliseconds بين 10 و60000.")
+            .Validate(s => s.RollupIntervalMinutes == 0 || s.RollupIntervalMinutes is >= 5 and <= 1440,
+                "Analytics:Events:RollupIntervalMinutes صفر (معطّل) أو بين 5 و1440 دقيقة.")
+            .Validate(s => s.PurgeIntervalMinutes == 0 || s.PurgeIntervalMinutes is >= 5 and <= 1440,
+                "Analytics:Events:PurgeIntervalMinutes صفر (معطّل) أو بين 5 و1440 دقيقة.")
+            .Validate(s => s.PurgeBatchSize is >= 100 and <= 50_000, "Analytics:Events:PurgeBatchSize بين 100 و50000.")
+            .ValidateOnStart();
+        services.AddSingleton(sp =>
+            sp.GetRequiredService<IOptions<Application.Features.Analytics.EventCaptureSettings>>().Value);
+
+        services.AddSingleton<BackgroundJobs.EventChannel>();
+        services.AddScoped<Application.Features.Analytics.Contracts.IEventSink, BackgroundJobs.EventBuffer>();
+        services.AddScoped<Application.Features.Analytics.Contracts.IEventRollups, Persistence.EventRollups>();
+        services.AddScoped<Application.Features.Analytics.Contracts.IEventStoreRetention, Persistence.EventStoreRetention>();
+        services.AddHostedService<BackgroundJobs.EventWriterService>();
+        services.AddHostedService<BackgroundJobs.EventRollupService>();
+        services.AddHostedService<BackgroundJobs.EventPurgeService>();
     }
 
     private static void AddSearchLog(IServiceCollection services, IConfiguration config)

@@ -2,6 +2,7 @@ using AwesomeAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using Souq.Application.Common.Models;
+using Souq.Application.Features.Analytics.Contracts;
 using Souq.Application.Features.Products.Contracts;
 using Souq.Application.Features.Products.Queries;
 using Souq.Application.Tests.TestDoubles;
@@ -15,6 +16,10 @@ public class GetProductsHandlerTests
     private readonly ICatalogQueries _catalog = Substitute.For<ICatalogQueries>();
     private readonly ISearchLog _log = Substitute.For<ISearchLog>();
 
+    // مصرفٌ معطّل هو الحالة الافتراضية في كل اختبارات هذا الملفّ: الالتقاط معطّل حتى يُضبَط (C-08)،
+    // فسلوكُ البحث الذي تصفه هذه الاختبارات هو سلوكُه في نشرٍ لم يُفعِّل الالتقاط.
+    private readonly IEventSink _events = Substitute.For<IEventSink>();
+
     [Fact]
     public async Task يمرّر_كل_الفلاتر_والترتيب_والصفحة_ولغة_المتجر_لمنفذ_القراءة()
     {
@@ -23,7 +28,7 @@ public class GetProductsHandlerTests
         _catalog.SearchProductsAsync(Arg.Any<ProductSearch>(), Arg.Any<PageRequest>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns(page);
 
-        var result = await new GetProductsHandler(_catalog, TestTenant.Context(), _log, NullLogger<GetProductsHandler>.Instance).Handle(
+        var result = await new GetProductsHandler(_catalog, TestTenant.Context(), _log, _events, NullLogger<GetProductsHandler>.Instance).Handle(
             new GetProductsQuery("سما", categories, Page: 2, PageSize: 12,
                 MinPrice: 10m, MaxPrice: 100m, SortBy: ProductSortBy.PriceAsc, OnSale: true),
             CancellationToken.None);
@@ -41,7 +46,7 @@ public class GetProductsHandlerTests
         _catalog.SearchProductsAsync(Arg.Any<ProductSearch>(), Arg.Any<PageRequest>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns(new ProductSearchPage(new PaginatedList<ProductDto>(new List<ProductDto>(), 0, 1, 12)));
 
-        await new GetProductsHandler(_catalog, TestTenant.Context(), _log, NullLogger<GetProductsHandler>.Instance).Handle(new GetProductsQuery(), CancellationToken.None);
+        await new GetProductsHandler(_catalog, TestTenant.Context(), _log, _events, NullLogger<GetProductsHandler>.Instance).Handle(new GetProductsQuery(), CancellationToken.None);
 
         await _catalog.Received(1).SearchProductsAsync(new ProductSearch(), new PageRequest(1, 12), "ar", Arg.Any<CancellationToken>());
     }
@@ -56,7 +61,7 @@ public class GetProductsHandlerTests
         _catalog.SearchProductsAsync(Arg.Any<ProductSearch>(), Arg.Any<PageRequest>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns(new ProductSearchPage(new PaginatedList<ProductDto>(new List<ProductDto>(), 25, 4, 12)));
 
-        await new GetProductsHandler(_catalog, TestTenant.Context(), _log, NullLogger<GetProductsHandler>.Instance).Handle(
+        await new GetProductsHandler(_catalog, TestTenant.Context(), _log, _events, NullLogger<GetProductsHandler>.Instance).Handle(
             new GetProductsQuery("مكنسة", Page: 4), CancellationToken.None);
 
         _log.Received(1).Record("مكنسة", 25, "ar");
@@ -68,7 +73,7 @@ public class GetProductsHandlerTests
         _catalog.SearchProductsAsync(Arg.Any<ProductSearch>(), Arg.Any<PageRequest>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns(new ProductSearchPage(new PaginatedList<ProductDto>(new List<ProductDto>(), 0, 1, 12)));
 
-        await new GetProductsHandler(_catalog, TestTenant.Context(), _log, NullLogger<GetProductsHandler>.Instance).Handle(
+        await new GetProductsHandler(_catalog, TestTenant.Context(), _log, _events, NullLogger<GetProductsHandler>.Instance).Handle(
             new GetProductsQuery("شيء لا يوجد"), CancellationToken.None);
 
         _log.Received(1).Record("شيء لا يوجد", 0, "ar");
@@ -81,10 +86,10 @@ public class GetProductsHandlerTests
         _catalog.SearchProductsAsync(Arg.Any<ProductSearch>(), Arg.Any<PageRequest>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns(new ProductSearchPage(new PaginatedList<ProductDto>(new List<ProductDto>(), 30, 1, 12)));
 
-        await new GetProductsHandler(_catalog, TestTenant.Context(), _log, NullLogger<GetProductsHandler>.Instance).Handle(
+        await new GetProductsHandler(_catalog, TestTenant.Context(), _log, _events, NullLogger<GetProductsHandler>.Instance).Handle(
             new GetProductsQuery(CategoryIds: [3], MinPrice: 10m), CancellationToken.None);
 
-        await new GetProductsHandler(_catalog, TestTenant.Context(), _log, NullLogger<GetProductsHandler>.Instance).Handle(
+        await new GetProductsHandler(_catalog, TestTenant.Context(), _log, _events, NullLogger<GetProductsHandler>.Instance).Handle(
             new GetProductsQuery("   "), CancellationToken.None);
 
         _log.DidNotReceive().Record(Arg.Any<string?>(), Arg.Any<int>(), Arg.Any<string>());
@@ -104,7 +109,7 @@ public class GetProductsHandlerTests
         _log.When(l => l.Record(Arg.Any<string?>(), Arg.Any<int>(), Arg.Any<string>()))
             .Do(_ => throw new InvalidOperationException("سجلّ معطوب"));
 
-        var act = async () => await new GetProductsHandler(_catalog, TestTenant.Context(), _log, NullLogger<GetProductsHandler>.Instance).Handle(
+        var act = async () => await new GetProductsHandler(_catalog, TestTenant.Context(), _log, _events, NullLogger<GetProductsHandler>.Instance).Handle(
             new GetProductsQuery("مكنسة"), CancellationToken.None);
 
         (await act.Should().NotThrowAsync()).Which.Should().BeSameAs(page);

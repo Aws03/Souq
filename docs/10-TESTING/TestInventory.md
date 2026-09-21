@@ -7,10 +7,10 @@
 
 | Suite | Files | Facts | Theories |
 |---|---|---|---|
-| [`Souq.Domain.Tests`](#souqdomaintests) | 30 | 260 | 50 |
-| [`Souq.Application.Tests`](#souqapplicationtests) | 53 | 390 | 20 |
+| [`Souq.Domain.Tests`](#souqdomaintests) | 31 | 268 | 52 |
+| [`Souq.Application.Tests`](#souqapplicationtests) | 55 | 403 | 22 |
 | [`Souq.ArchitectureTests`](#souqarchitecturetests) | 17 | 77 | 8 |
-| [`Souq.IntegrationTests`](#souqintegrationtests) | 60 | 373 | 27 |
+| [`Souq.IntegrationTests`](#souqintegrationtests) | 61 | 378 | 27 |
 | [frontend (Vitest)](#frontend-vitest) | 97 | 737 | — |
 | [frontend (Playwright)](#frontend-playwright) | 19 | 126 | — |
 
@@ -19,6 +19,7 @@
 | File | Classes | Facts | Theories |
 |---|---|---|---|
 | `tests/Souq.Domain.Tests/BasketTests.cs` | `BasketTests` | 9 | 1 |
+| `tests/Souq.Domain.Tests/BehaviouralEventTests.cs` | `BehaviouralEventTests`, `AnalyticsRollupTests` | 8 | 2 |
 | `tests/Souq.Domain.Tests/CatalogSearchProjectionTests.cs` | `CatalogSearchProjectionTests` | 8 | 0 |
 | `tests/Souq.Domain.Tests/CouponRuleMatrixTests.cs` | `CouponRuleMatrixTests` | 2 | 2 |
 | `tests/Souq.Domain.Tests/CouponTests.cs` | `CouponTests` | 12 | 1 |
@@ -53,6 +54,8 @@
 
 | File | Classes | Facts | Theories |
 |---|---|---|---|
+| `tests/Souq.Application.Tests/Analytics/EventCaptureTests.cs` | `EventCaptureSettingsTests`, `BehaviouralEventPayloadsTests` | 9 | 1 |
+| `tests/Souq.Application.Tests/Analytics/PurgeBehaviouralEventsHandlerTests.cs` | `PurgeBehaviouralEventsHandlerTests`, `FakeTimeProvider` | 4 | 1 |
 | `tests/Souq.Application.Tests/Auth/AccountLifecycleTests.cs` | `AccountLifecycleTests` | 7 | 0 |
 | `tests/Souq.Application.Tests/Auth/AccountWriterTests.cs` | `AccountWriterTests` | 6 | 0 |
 | `tests/Souq.Application.Tests/Auth/AuthHandlersTests.cs` | `AuthRig`, `RegisterHandlerTests`, `LoginHandlerTests`, `RefreshSessionHandlerTests`, `LogoutHandlerTests`, `ChangePasswordHandlerTests`, `ForgotPasswordHandlerTests`, `ResetPasswordHandlerTests`, `VerifyEmailHandlerTests` | 27 | 0 |
@@ -142,6 +145,7 @@
 | `tests/Souq.IntegrationTests/BackgroundSweepScopeTests.cs` | `BackgroundSweepScopeTests` | 2 | 0 |
 | `tests/Souq.IntegrationTests/BasketConcurrencyTests.cs` | `BasketConcurrencyTests` | 3 | 0 |
 | `tests/Souq.IntegrationTests/BasketTests.cs` | `BasketTests` | 5 | 0 |
+| `tests/Souq.IntegrationTests/BehaviouralEventCaptureTests.cs` | `BehaviouralEventCaptureTests`, `VisitorCookieNames` | 5 | 0 |
 | `tests/Souq.IntegrationTests/BestSellingPerformanceTests.cs` | `BestSellingPerformanceTests`, `ScratchApp`, `SqlCapture`, `Sink` | 0 | 1 |
 | `tests/Souq.IntegrationTests/CatalogSearchTests.cs` | `CatalogSearchTests` | 31 | 0 |
 | `tests/Souq.IntegrationTests/CatalogTests.cs` | `CatalogTests`, `ProductCommandCounter` | 9 | 0 |

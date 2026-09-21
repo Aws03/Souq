@@ -119,6 +119,11 @@ public class TenancyRuleTests
         // في `RevokedAt` نفسه. الشرط `TenantId == tenantId` صريح في الجملتين.
         // ============================================================================
         "Souq.Infrastructure.Security.StoreSessionRevoker",
+        // C9 (ADR-0050 §6): مسح الأحداث السلوكية. حذفٌ مجمَّع بدفعاتٍ بالمفتاح، كنظيره في
+        // `SearchLogRetention` وللسبب نفسه: `DELETE TOP` لا يُعبَّر عنه في LINQ. و`BehaviouralEvent`
+        // كيان `ITenantOwned` فمرشّح المستأجر يُطبَّق على الجملة، والصفّ يُحذف لا يُعدَّل فلا طوابع
+        // تُفوَّت. ومَن يحرس **ألّا يُمسح ما لم يُجمَّع** هو المعالج لا هذه القائمة.
+        "Souq.Infrastructure.Persistence.EventStoreRetention",
     };
 
     [Fact]

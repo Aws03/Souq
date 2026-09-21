@@ -9,6 +9,8 @@ using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using Souq.API.Analytics;
+using Souq.Application.Features.Analytics.Contracts;
 using Souq.API.Http;
 using Souq.API.Middleware;
 using Souq.API.Observability;
@@ -100,6 +102,11 @@ builder.Services.AddScoped<ICurrentUser, HttpCurrentUser>();
 builder.Services.AddScoped<IStorefrontLinks, RequestStorefrontLinks>();
 builder.Services.AddSingleton<Souq.Application.Common.Tenancy.IPlatformHosts, ConfiguredPlatformHosts>();   // نطاق متجر لا يكون مضيف المنصّة
 builder.Services.AddScoped<IClientInfo, RequestClientInfo>();   // عنوان العميل لسطر التدقيق (D-17)
+
+// سياق الزائر للالتقاط السلوكي (C9، ADR-0050): يُضبَط في VisitorCookieMiddleware ويُقرأ في المصرف.
+// يُسجَّل بنوعه وبمنفذه معاً كما يُسجَّل سياق المستأجر: الوسيط يكتب، وحالات الاستخدام تقرأ المنفذ.
+builder.Services.AddScoped<RequestVisitorContext>();
+builder.Services.AddScoped<IVisitorContext>(sp => sp.GetRequiredService<RequestVisitorContext>());
 builder.Services.Configure<RefreshCookieOptions>(builder.Configuration.GetSection(RefreshCookieOptions.SectionName));
 builder.Services.AddSouqRateLimiting(builder.Configuration);
 
@@ -310,6 +317,11 @@ app.UseStaticFiles(new StaticFileOptions
 });
 app.UseRouting();
 app.UseMiddleware<TenantAvailabilityMiddleware>(); // نقطة منصّة/متجر على المضيف الصحيح؟ المتجر مفتوح؟
+
+// معرّفا الزائر والجلسة: بعد تحديد المتجر (لا معرّف لزائرٍ بلا متجر) وبعد بوّابة الحالة (متجرٌ مغلق
+// لا يُلتقَط له شيء)، وقبل المصادقة — الزائر مُعتِم بالتعريف ولا يُشتقّ من حساب. ولا يضع ملفّاً على
+// متصفّح أحد ما لم يكن الالتقاط مضبوطاً ومعرّف الزائر مفعَّلاً (C-08).
+app.UseMiddleware<VisitorCookieMiddleware>();
 app.UseRateLimiter();        // سياسات النقاط ([EnableRateLimiting]) — بعد التوجيه، لكل (مضيف، عنوان)
 app.UseCors("frontend");
 app.UseAuthentication();     // من أنت؟ (يفكّ التوكن ويطابق tid مع المضيف)

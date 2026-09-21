@@ -23,7 +23,10 @@ internal static class ModuleMap
         ["Shipping"] = ["Shipping"],
         ["Reviews"] = ["Reviews"],
         ["Notifications"] = ["Notifications"],
-        ["Reporting"] = ["Reporting"],
+        // C9 (ADR-0050): الالتقاط السلوكي مجلّدٌ في وحدة Reporting لا وحدةٌ جديدة — Reporting هي
+        // من يجيب عن أسئلة المتجر عن تجارته، وهذه موادُّ جوابها. والتوصياتُ (C10) تقرؤها عبر
+        // عقودها من Catalog، فلا سهمَ تبعيةٍ جديد بين وحدتين.
+        ["Reporting"] = ["Reporting", "Analytics"],
         // C1 (ADR-0047): مستوى التحكّم التجاري — الخطط والاشتراكات والاستحقاقات. مُلحقة في آخر
         // الترتيب عمداً: الترتيب هو ترتيب العرض في الجرود، وإدراجها في الوسط يعيد ترتيب ملفّين كاملين.
         ["Billing"] = ["Billing"],
@@ -129,6 +132,20 @@ internal static class ModuleMap
         ["IEntitlementOverrideRepository"] = "Billing",
         ["InvalidPlanException"] = "Billing", ["InvalidSubscriptionException"] = "Billing",
         ["InvalidEntitlementOverrideException"] = "Billing",
+
+        // ============================================================================
+        // Analytics (C9، ADR-0050) — أوّل أنواع مجالٍ تملكها وحدة Reporting: كانت كلُّها خدمات
+        // قراءة بلا كيان واحد.
+        //
+        // وإدراجُها هنا يُظهر حافّةً حقيقية في الجرد المولَّد: معالجُ البحث في Catalog يسمّي
+        // `BehaviouralEventNames`، فالعبور يُرى بدل أن يُحسَب "نواةً مشتركة". و`SearchQueryLog`
+        // غيرُ مدرَجٍ منذ M13 — نقصٌ قائم لا يصلحه هذا السطر، وتصحيحُه يغيّر أرقام جردٍ لمرحلةٍ
+        // أخرى، فيُترك لمن يملكه.
+        // ============================================================================
+        ["BehaviouralEvent"] = "Reporting", ["BehaviouralEventNames"] = "Reporting",
+        ["BehaviouralSurfaces"] = "Reporting", ["VisitorIdentityLink"] = "Reporting",
+        ["ProductEngagementDaily"] = "Reporting", ["ProductPairDaily"] = "Reporting",
+        ["AnalyticsRollupState"] = "Reporting",
     };
 
     public static string? DomainOwnerOf(string typeName) => DomainOwners.GetValueOrDefault(typeName);

@@ -294,7 +294,7 @@ Each phase lists: **delivers · depends on · blocked by · why here**.
 - **Why here.** It is the cheapest credibility fix on the list: a merchant evaluating the product today picks one
   of three themes and sees no difference, which reads as broken.
 
-### C9 — The behavioural event foundation
+### C9 — The behavioural event foundation — **the store and the write path are done**
 
 - **Delivers.** The event envelope and the versioned payload, the bounded non-blocking write path generalised
   from `ISearchLog`, the search-execution identifier minted at query time and echoed back, position-in-list and
@@ -307,6 +307,36 @@ Each phase lists: **delivers · depends on · blocked by · why here**.
   **capture off unless configured**: no default retention window, no default lawful basis, no external
   processor, and a startup check that reports the state plainly. Turning it on is a deliberate act with those
   three answers in hand.
+- **Done (2026-09-22): the store, the write path, retention and the rollups.** The envelope and its versioned
+  payload, the bounded drop-on-full channel, a writer that batches inside each store's scope, the identity link
+  as its own table, the two rollups, and the purge — with a migration that adds five tables and changes nothing
+  existing.
+  - **Capture ships OFF, and that is the phase's headline, not a caveat.** `C-08` = A reserved three answers to
+    the owner "before the first row is written" — lawful basis, retention period, residency — so the absence of
+    an answer stops the write: `Enabled` without a retention period *and* a lawful basis **refuses to boot**,
+    naming the key and `C-08`. Disabled means no row *and* no cookie on anybody's browser, and an integration
+    test measures that on a real deployment rather than reading the code. A second test runs a **configured**
+    deployment end to end: the search mints its execution id, the response echoes it, the row is written with
+    the same id in its envelope, and both cookies appear — one of them declared non-essential.
+  - **No default retention shipped.** The 13- and 14-month figures the plan found are research, not the owner's
+    decision, so neither is a default. `VisitorIdentifierEnabled` is a separate switch, so `C-08`'s "no" answer
+    is preserved in the same shape: capture can run with no identifier at all.
+  - **"Roll up before you purge" is enforced by code, not by documentation.** `AnalyticsRollupState` records the
+    last complete day rolled up, and the purge never passes it — so a store whose rollup stalls grows its log
+    and keeps its history, which is the right trade: disk is cheaper than an aggregate that cannot be recomputed.
+    A watermark row was needed because "has this day been rolled up?" cannot be inferred from the existence of
+    rollup rows: a day with no events produces none.
+  - **Both writer defects ADR-0050 named are fixed rather than inherited**: per-store isolation in the writer
+    (one store's bad batch no longer discards every other store's rows in that cycle) and drops counted at
+    platform scope instead of silently returning.
+  - **Four architecture tests caught real mistakes on the way in**, which is the system working: the visitor
+    cookie read the clock directly; the payload registry sat outside `Contracts`, so `Catalog` reached into
+    another module's internals; the rollup's read-then-insert needed a written reason in the count-then-write
+    allowlist; and the new domain types needed an owner in the module map.
+- **Still to come in this phase:** the capture surfaces — list impressions with position and list identity,
+  clicks, item views, cart changes and purchases — which need the frontend to echo the search-execution id and
+  to pass an ordinal to each card. The events and their payloads exist; nothing writes them yet except the
+  search.
 - **Why here — and why the delay is expensive.** Every other item on this plan can be built later at the same
   cost. This one cannot: a purchase that happened before the event existed can never be attributed to the search
   that produced it. **If C-08 is answered "no visitor identifier", say so explicitly and record what is
@@ -426,7 +456,7 @@ legal.
 |---|---|---|---|
 | 1 | ~~**C1**~~ **done** | nothing else can substitute for it, and nothing blocks it | — |
 | 2 | ~~**C2**~~ **done** | a quota that fails open is a billing defect; also closed TD-68 | — |
-| 3 | **C9** | the only item whose cost rises with delay | ~~C-08~~ **answered A — unblocked** |
+| 3 | **C9** | the only item whose cost rises with delay | ~~C-08~~ answered A — **store, write path, rollups and retention done 2026-09-22; capture surfaces next** |
 | 4 | ~~**C3**~~ **done (2026-09-22)** | suspension must be real before it is automated | ~~C-17~~ answered B |
 | 5 | **C8** | cheapest visible credibility; parallel to the money track | ~~TD-42~~ **answered C — policy links shipped 2026-09-22; theme presets and the section registry still need a design call** |
 | 6 | **C5** | the half of billing that needs no provider | ~~C-15, P-06~~ **both answered — unblocked** |

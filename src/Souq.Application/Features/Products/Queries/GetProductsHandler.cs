@@ -2,6 +2,8 @@ using MediatR;
 using Microsoft.Extensions.Logging;
 using Souq.Application.Common.Models;
 using Souq.Application.Common.Tenancy;
+using Souq.Domain.Entities;
+using Souq.Application.Features.Analytics.Contracts;
 using Souq.Application.Features.Products.Contracts;
 
 namespace Souq.Application.Features.Products.Queries;
@@ -13,12 +15,14 @@ public class GetProductsHandler : IRequestHandler<GetProductsQuery, ProductSearc
     private readonly ICatalogQueries _catalog;
     private readonly ITenantContext _tenant;
     private readonly ISearchLog _searchLog;
+    private readonly IEventSink _events;
     private readonly ILogger<GetProductsHandler> _logger;
 
     public GetProductsHandler(
-        ICatalogQueries catalog, ITenantContext tenant, ISearchLog searchLog, ILogger<GetProductsHandler> logger)
+        ICatalogQueries catalog, ITenantContext tenant, ISearchLog searchLog, IEventSink events,
+        ILogger<GetProductsHandler> logger)
     {
-        _catalog = catalog; _tenant = tenant; _searchLog = searchLog; _logger = logger;
+        _catalog = catalog; _tenant = tenant; _searchLog = searchLog; _events = events; _logger = logger;
     }
 
     public async Task<ProductSearchPage> Handle(GetProductsQuery q, CancellationToken ct)
@@ -60,6 +64,35 @@ public class GetProductsHandler : IRequestHandler<GetProductsQuery, ProductSearc
             }
         }
 
-        return page;
+        // ============================================================================
+        // معرّف تنفيذ البحث (C9، ADR-0050 §3): **يُصكّ هنا ويُعاد مع النتائج**، فيردّه العميل مع
+        // النقرة والإضافة والشراء — وهذه هي السلسلة الوحيدة التي تنسب مبيعةً إلى بحثٍ. استخراجُها
+        // لاحقاً من الطوابع غير ممكن: القُرب الزمنيّ ليس نسبةً.
+        //
+        // ويُصكّ للبحث بكلمة وحده: تصفّحٌ بفئةٍ ليس تنفيذَ بحث، ومعرّفٌ له يقيس ما لا وجود له.
+        // والالتقاط معطّلاً ⇒ لا معرّف أصلاً (`Enabled` تُقرأ كي لا تُبنى حمولةٌ لن تُكتب).
+        //
+        // والحراسة هنا لنفس سبب حراسة سجلّ البحث أعلاه: "بحثُ المتسوّق لا يفشل بسبب قياس" خاصيّةُ
+        // منتَجٍ لا تفصيلُ تنفيذ، وهذه آخر نقطة يمكن حفظُها فيها.
+        // ============================================================================
+        if (string.IsNullOrWhiteSpace(q.Keyword) || !_events.Enabled) return page;
+
+        try
+        {
+            var searchExecutionId = Guid.CreateVersion7();
+            _events.Record(
+                BehaviouralEventNames.SearchExecuted,
+                new SearchExecutedPayload(
+                    q.Keyword, null, page.TotalCount, page.PageNumber, page.PageSize,
+                    CorrectedTo: page.Search?.SearchedInstead,
+                    CategorySuggested: page.Search?.Category?.Slug),
+                searchExecutionId);
+            return page.WithSearchExecution(searchExecutionId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Behavioural search event rejected; results returned unaffected");
+            return page;
+        }
     }
 }

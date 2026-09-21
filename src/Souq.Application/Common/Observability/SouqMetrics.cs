@@ -48,6 +48,13 @@ public static class SouqMetrics
         Meter.CreateCounter<long>("souq.auth.login_failed", "attempts",
             "Failed sign-in attempts, tagged with the outcome");
 
+    // حدثٌ سلوكيّ لم يُكتب: امتلأت الذاكرة المحدودة، أو رُفض غلافُه، أو حمولتُه غير مسجَّلة.
+    // الضمان «مرّة على الأكثر» عن قصد (ADR-0050 §1)، **فالمُسقَط يجب أن يكون معدوداً لا مجهولاً**:
+    // بلا هذا العدّاد يصير الفقدُ صامتاً، ويصير رقمٌ ناقص في لوحةٍ أسوأ من لوحةٍ فارغة.
+    private static readonly Counter<long> BehaviouralEventDropped =
+        Meter.CreateCounter<long>("souq.analytics.event_dropped", "events",
+            "Behavioural events dropped before reaching the database");
+
     // سطر بحث لم يُسجَّل لأنّ الذاكرة المحدودة امتلأت.
     private static readonly Counter<long> SearchLogDropped =
         Meter.CreateCounter<long>("souq.search.log_dropped", "entries",
@@ -64,4 +71,6 @@ public static class SouqMetrics
         LoginFailed.Add(1, new KeyValuePair<string, object?>("outcome", outcome));
 
     public static void RecordSearchLogDropped() => SearchLogDropped.Add(1);
+
+    public static void RecordBehaviouralEventDropped() => BehaviouralEventDropped.Add(1);
 }

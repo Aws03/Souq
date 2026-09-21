@@ -32,7 +32,23 @@ The module has two read paths. The **platform statistics** cross every store and
 
 ## Domain model
 
-This module owns no entities, no value objects and no domain events. Its only types are the read contract and its DTO:
+**Since C9 this module owns entities**, which it did not before: the behavioural event store and its rollups ([ADR-0050](../../11-ADR/0050-behavioural-event-foundation.md)). They live in `Souq.Domain.Entities` and are recorded as Reporting's in `ModuleMap`'s domain-owner map.
+
+| Type | Kind | Path | Notes |
+|---|---|---|---|
+| `BehaviouralEvent` | entity, `ITenantOwned` | `src/Souq.Domain/Entities/BehaviouralEvent.cs` | The stable envelope — event id, name, schema version, occurred/received, visitor, session, search execution, correlation, surface, culture — plus a **versioned JSON payload**. **It carries no customer id**, deliberately (see *Personal data* below) |
+| `BehaviouralEventNames` · `BehaviouralSurfaces` | closed catalogues | same file | Nine event names and three surfaces. A name outside the list is refused rather than written and then never read |
+| `VisitorIdentityLink` | entity, `ITenantOwned` | `src/Souq.Domain/Entities/VisitorIdentityLink.cs` | The **only** place a visitor id and a customer id meet |
+| `ProductEngagementDaily` | entity, `ITenantOwned` | `src/Souq.Domain/Entities/ProductEngagementDaily.cs` | Impressions, clicks, cart adds, purchases and units per product per UTC day. Identifier-free, so kept indefinitely |
+| `ProductPairDaily` | entity, `ITenantOwned` | same file | Co-views within a session and co-purchases within an order, per day, the pair always ordered low→high, capped at 20 items per group |
+| `AnalyticsRollupState` | entity, `ITenantOwned` | `src/Souq.Domain/Entities/AnalyticsRollupState.cs` | One row per store: the last **complete** day rolled up. It is what makes "roll up before you purge" a rule the code enforces |
+| `IEventSink` | port | `Features/Analytics/Contracts/IEventSink.cs` | `void`, never throws, drops when full. Exposes `Enabled` so a caller does not build a payload that will not be written |
+| `IVisitorContext` | port | `Features/Analytics/Contracts/IVisitorContext.cs` | Implemented in the API layer from the request, as `IClientInfo` is |
+| `IEventRollups` · `IEventStoreRetention` | ports | `Features/Analytics/Contracts/IEventStoreMaintenance.cs` | Two ports, not one: rolling up and purging have different guarantees |
+| `BehaviouralEventPayloads` | registry | `Features/Analytics/Contracts/BehaviouralEventPayloads.cs` | Name ⇒ (payload type, current version). In `Contracts` because another module that records an event builds its payload |
+| `EventCaptureSettings` | options | `Features/Analytics/EventCaptureSettings.cs` | **Capture is off until configured** — see below |
+
+Its read contracts and their DTOs:
 
 | Type | Kind | Path | Notes |
 |---|---|---|---|
@@ -73,9 +89,37 @@ Both handlers do one thing: they turn "now" into a window and delegate. All aggr
   - Enforced — `ModuleAndContractRuleTests` requires every request under `Features.Reporting` to implement `IAuditable`, exactly as for the platform area: a cross-store read is an event worth recording.
   - Convention — "Reporting never writes" is not enforced by a test. The port returns a DTO and the implementation only counts, but nothing would stop a future method from mutating.
 
+## Personal data, and why capture ships switched off
+
+Owner decision `C-08` = A (2026-09-21) permits an **opaque, server-minted visitor identifier** for signed-out shoppers. Option A explicitly reserved three answers to the owner **"before the first row is written"**: the lawful basis relied on, the retention period stated publicly, and whether rows may leave Jordan. None of the three is engineering's, and none is answered yet.
+
+So the whole foundation ships **disabled**, and disabled means nothing happens at all: no event row, and **no cookie on anybody's browser**. `EventCaptureSettings.CaptureIsConfigured` is false unless `Enabled` is set *and* `RetentionDays` is inside 1–730 *and* `LawfulBasis` is non-empty; and setting `Enabled` without the other two **refuses to boot**, naming the configuration key and `C-08`. That is the only way to honour "before the first row is written" literally rather than by asking whoever deploys to remember.
+
+**No default retention ships.** The research recorded in the commercial plan found 13 months (one regulator's tracker lifetime) and 14 months (an industry norm). Both are *research*, not the owner's decision, so neither is written as a default.
+
+**`VisitorIdentifierEnabled` is a separate switch**, so capture can run with no visitor identifier at all — aggregate counts that need no link between two actions by the same person. That is `C-08`'s "no" answer preserved in the same shape, which is why the build serves either answer without assuming one.
+
+Three properties exist so that stopping later is cheap, and each is load-bearing:
+
+- **The identifier is opaque and Souq-minted** — not an email, not a device fingerprint, not an advertising id, not derived from an IP address. It has no value to anyone else and can be rotated or dropped without touching the rest of the schema.
+- **The identity link is a separate table.** `BehaviouralEvents` has no customer column, and an integration test pins its exact column set for that reason. Erasure is a delete from `VisitorIdentityLinks`: the events keep *what happened* and lose *who*. Retrofitting that separation onto an append-only store that already embeds customer ids is the documented failure mode.
+- **Rollups are computed before any purge and kept indefinitely**, so a shortened retention costs detail rather than history.
+
+The visitor cookie is declared **`IsEssential = false`** — the deliberate difference from the basket's guest cookie, which is essential because the basket cannot work without it. Measurement is not a function the shopper asked for, and that difference is exactly where the consent question lives.
+
+**"No personal data" is a claim about columns, not content**, and that holds here too: the search payload stores the shopper's own words, and a shopper can type an email address into a search box.
+
 ## Data ownership
 
-The module owns **no tables**. The platform query reads `Tenants`, `Users`, `Customers`, `Products` and `Orders`; the store dashboard reads `Orders` (and its owned items), `Products`, `Categories`, `ProductVariants` and `Customers`, all through the tenant filter. There are no read models, no materialized views and no caches: each request aggregates the live tables.
+Before C9 the module owned **no tables**; it now owns five: `BehaviouralEvents`, `VisitorIdentityLinks`, `ProductEngagementDailies`, `ProductPairDailies` and `AnalyticsRollupStates`. All five are store-owned (shape A of [ADR-0047](../../11-ADR/0047-commercial-control-plane.md)) because they are the merchant's data read by the merchant's dashboards — which is also the answer to what happens when a merchant leaves.
+
+`BehaviouralEvents` carries **two indexes and no more**, as `SearchQueryLogs` already demonstrated: one unique on (store, event id) so a replayed write cannot double-count, and one on (store, occurred-at, name) serving both the read shape and the purge. Every further index is paid for in write amplification on the highest-volume path in the system. When dashboard scans hurt, the next step is a nonclustered columnstore over the same table — not a second datastore.
+
+The write path's guarantee is **at-most-once**, deliberately weaker than the outbox's, and it is written here so that nobody builds on it by mistake: **no money and no billable usage may ever be computed from these rows.** Sampled or dropped telemetry is unfit for an invoice; a billable event is a durable row with a deterministic idempotency key.
+
+### The read side
+
+The platform query reads `Tenants`, `Users`, `Customers`, `Products` and `Orders`; the store dashboard reads `Orders` (and its owned items), `Products`, `Categories`, `ProductVariants` and `Customers`, all through the tenant filter. There are no read models, no materialized views and no caches: each request aggregates the live tables.
 
 Counting semantics worth knowing before quoting a number:
 
