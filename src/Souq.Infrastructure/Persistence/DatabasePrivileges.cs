@@ -29,6 +29,53 @@ public sealed record DatabasePrivilegeReport(string Login, bool IsSysadmin, bool
     }.Where(r => r is not null));
 }
 
+// ============================================================================
+// هل تعمل القاعدة بلقطات القراءة المُلتزَمة؟ (TD-68، ADR-0049)
+//
+// `AccountStatusChanger.SetActiveAsync` — حارس "آخر مدير" — آمنٌ فقط لأن READ COMMITTED الافتراضي
+// **قافل**: يكتب أوّلاً فيأخذ القفل، فيضطرّ المتسابق إلى الانتظار ثم يَعُدّ الحقيقة الملتزمة. وتحت
+// READ_COMMITTED_SNAPSHOT يقرأ العدُّ لقطةً ولا ينتظر شيئاً، **فيمرّ المتسابقان معاً ويُوقَف آخر
+// مديرَين**. يفشل مغلقاً؟ لا: يفشل **مفتوحاً** وبلا استثناء ولا سطر سجلّ ولا اختبار أحمر.
+//
+// ولماذا فحصٌ عند الإقلاع لا اختبار؟ لأن الاختبار لا يُثبت إلّا حال حاوية الاختبار، وهي مطفأة
+// الخاصيّة. والخطر في مكان آخر تماماً: Azure SQL Database — التي تسمّيها BackupAndRestore.md
+// هدفاً ممكناً — تُفعّلها **افتراضياً**. فالقياس يجب أن يقع على القاعدة التي تعمل عليها فعلاً،
+// وهو بالضبط ما تفعله DatabasePrivileges أعلاه للهوية، وبالشكل نفسه.
+//
+// حارس الحصص (TenantQuotaGuard) لا يتأثّر بهذا إطلاقاً — تحديثه المشروط يأخذ قفلاً مهما كان مستوى
+// العزل، وهو سبب اختياره في ADR-0049. لكن حارس المدير القائم ما زال يعتمد عليه، فيبقى الفحص لازماً.
+// تشخيصي بالكامل: أي فشل يعيد null ولا يمنع الإقلاع.
+// ============================================================================
+public static class DatabaseIsolation
+{
+    private const string Query = "SELECT CONVERT(int, DATABASEPROPERTYEX(DB_NAME(), 'IsReadCommittedSnapshotOn'));";
+
+    public static async Task<bool?> IsReadCommittedSnapshotOnAsync(AppDbContext db, CancellationToken ct = default)
+    {
+        try
+        {
+            var connection = db.Database.GetDbConnection();
+            if (connection.State != ConnectionState.Open) await connection.OpenAsync(ct);
+
+            await using var command = connection.CreateCommand();
+            command.CommandText = Query;
+            var value = await command.ExecuteScalarAsync(ct);
+            return value is null or DBNull ? null : Convert.ToInt32(value) == 1;
+        }
+        catch (Exception)
+        {
+            return null;   // مزوّد مختلف أو صلاحية ناقصة: لا يعني خطأً، ولا يعني أماناً أيضاً
+        }
+    }
+
+    public const string Warning =
+        "قاعدة البيانات تعمل بـ READ_COMMITTED_SNAPSHOT. حارس \"آخر مدير\" (AccountStatusChanger) "
+        + "يعتمد على قراءةٍ **قافلة** ليُسلسل المتسابقَين، وتحت اللقطات لا يقفل شيء فيمرّان معاً "
+        + "ويُوقَف آخر مديرَين للمتجر — بلا خطأ ولا أثر. عطّلها لهذه القاعدة "
+        + "(ALTER DATABASE ... SET READ_COMMITTED_SNAPSHOT OFF) أو حوّل ذلك الحارس إلى شكل العدّاد "
+        + "في ADR-0049. حصص الخطط (TenantQuotaGuard) غير متأثّرة. — TD-68";
+}
+
 public static class DatabasePrivileges
 {
     private const string Query = """

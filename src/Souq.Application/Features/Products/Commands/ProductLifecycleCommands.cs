@@ -2,8 +2,10 @@ using FluentValidation;
 using MediatR;
 using Souq.Application.Common.Auditing;
 using Souq.Application.Common.Models;
+using Souq.Application.Features.Billing.Contracts;
 using Souq.Domain.Enums;
 using Souq.Domain.Interfaces;
+using Souq.Domain.Platform;
 
 namespace Souq.Application.Features.Products.Commands;
 
@@ -28,14 +30,20 @@ public sealed class ChangeProductStatusValidator : AbstractValidator<ChangeProdu
     }
 }
 
+// ============================================================================
+// هذا هو الموضع الوحيد الذي **يستعيد** مؤرشفاً، فهو الموضع الوحيد الذي يُعيد حجز حصّته (C2).
+// بغيره كان الحدّ يُتجاوَز بأرشفةٍ واستعادة: الأرشفة تُطلق والاستعادة لا تحجز — ثغرةٌ لا يكشفها
+// اختبار إنشاء واحد، وتُصلحها المصالحة بعد فوات الأوان.
+// ============================================================================
 public class ChangeProductStatusHandler : IRequestHandler<ChangeProductStatusCommand, Result>
 {
     private readonly IProductRepository _products;
+    private readonly ITenantQuotaGuard _quota;
     private readonly IUnitOfWork _uow;
 
-    public ChangeProductStatusHandler(IProductRepository products, IUnitOfWork uow)
+    public ChangeProductStatusHandler(IProductRepository products, ITenantQuotaGuard quota, IUnitOfWork uow)
     {
-        _products = products; _uow = uow;
+        _products = products; _quota = quota; _uow = uow;
     }
 
     public async Task<Result> Handle(ChangeProductStatusCommand cmd, CancellationToken ct)
@@ -43,8 +51,29 @@ public class ChangeProductStatusHandler : IRequestHandler<ChangeProductStatusCom
         var product = await _products.GetByIdAsync(cmd.Id, ct);
         if (product is null) return Result.Failure(Error.NotFound("المنتج غير موجود"));
 
+        var wasCounted = product.Status != ProductStatus.Archived;
+        var willBeCounted = cmd.Status != ProductStatus.Archived;
+
+        // استعادة: تُحجَز أوّلاً داخل معاملة، فمتجرٌ بلغ سقفه لا يستعيد فوقه.
+        if (!wasCounted && willBeCounted)
+        {
+            var quota = await _uow.InTransactionAsync(async () =>
+            {
+                var decision = await _quota.ReserveAsync(LimitNames.CatalogProducts, ct);
+                if (!decision.Allowed) return decision;
+
+                product.ChangeStatus(cmd.Status);
+                await _uow.SaveChangesAsync(ct);
+                return decision;
+            }, ct);
+
+            return quota.Allowed ? Result.Success() : Result.Failure(quota.ToError());
+        }
+
         product.ChangeStatus(cmd.Status);
         await _uow.SaveChangesAsync(ct);
+
+        if (wasCounted && !willBeCounted) await _quota.ReleaseAsync(LimitNames.CatalogProducts, ct: ct);
         return Result.Success();
     }
 }

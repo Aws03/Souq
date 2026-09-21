@@ -188,7 +188,9 @@ public class CommercialControlPlaneTests
 
         // وأنّ مدير المنصّة (لا مالكها) يُمنع منها يثبته مسحُ التدرّج في AuthorizationBoundaryTests،
         // وهو يشتقّ توقّعه من RolePermissions فيغطّي هذه النقاط لحظةَ توجيهها — فلا نكرّره هنا بيدنا.
-        (await _api.PlatformOwnerAsync()).GetAsync("/api/platform/plans").Result
+        // `await` لا `.Result`: الحجب داخل اختبار غير متزامن جمودٌ محتمل (xUnit1031)، والمحلّل
+        // يرفضه. ولم يكن يُكتشف عند إغلاق C1 لأن البناء التزايدي لم يكن يُعيد ترجمة هذا المشروع.
+        (await (await _api.PlatformOwnerAsync()).GetAsync("/api/platform/plans"))
             .StatusCode.Should().Be(HttpStatusCode.OK);
     }
 

@@ -172,13 +172,13 @@ public class BillingHandlerTests
         _plans.NextVersionAsync("growth", Arg.Any<CancellationToken>()).Returns(3);
 
         var result = await new CreatePlanVersionHandler(_plans, _uow).Handle(
-            new CreatePlanVersionCommand("Growth", "خطة النمو", [StoreModules.Reviews], [new PlanLimitDto("products.max", 500)]),
+            new CreatePlanVersionCommand("Growth", "خطة النمو", [StoreModules.Reviews], [new PlanLimitDto(LimitNames.CatalogProducts, 500)]),
             CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
         await _plans.Received(1).AddAsync(
             Arg.Is<Plan>(p => p.Code == "growth" && p.Version == 3 && p.Status == PlanStatus.Draft
-                              && p.LimitFor("products.max") == 500),
+                              && p.LimitFor(LimitNames.CatalogProducts) == 500),
             Arg.Any<CancellationToken>());
     }
 

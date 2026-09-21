@@ -1,10 +1,12 @@
 using MediatR;
 using Souq.Application.Common.Models;
 using Souq.Application.Common.Tenancy;
+using Souq.Application.Features.Billing.Contracts;
 using Souq.Application.Features.Products.Contracts;
 using Souq.Application.Features.Products.Queries;
 using Souq.Domain.Entities;
 using Souq.Domain.Interfaces;
+using Souq.Domain.Platform;
 using Souq.Domain.ValueObjects;
 
 namespace Souq.Application.Features.Products.Commands;
@@ -14,14 +16,16 @@ public class CreateProductHandler : IRequestHandler<CreateProductCommand, Result
     private readonly IProductRepository _products;
     private readonly ICategoryRepository _categories;
     private readonly IVariantStockInitializer _stock;
+    private readonly ITenantQuotaGuard _quota;
     private readonly ITenantContext _tenant;
     private readonly IUnitOfWork _uow;
 
     public CreateProductHandler(
         IProductRepository products, ICategoryRepository categories, IVariantStockInitializer stock,
-        ITenantContext tenant, IUnitOfWork uow)
+        ITenantQuotaGuard quota, ITenantContext tenant, IUnitOfWork uow)
     {
-        _products = products; _categories = categories; _stock = stock; _tenant = tenant; _uow = uow;
+        _products = products; _categories = categories; _stock = stock;
+        _quota = quota; _tenant = tenant; _uow = uow;
     }
 
     public async Task<Result<int>> Handle(CreateProductCommand cmd, CancellationToken ct)
@@ -60,14 +64,21 @@ public class CreateProductHandler : IRequestHandler<CreateProductCommand, Result
 
         // المنتج ومخزونه معاً أو لا شيء: الحفظ يولّد معرّفَي المنتج والمتغيّر، ثم تفتح وحدة المخزون مخزونه (منفذ
         // Catalog تنفّذه Inventory) — والكمية الابتدائية حركة توريد.
-        await _products.AddAsync(product, ct);
-        await _uow.InTransactionAsync(async () =>
+        //
+        // **الحجز أوّلاً ثم الإنشاء** (C2، ADR-0049): داخل المعاملة نفسها، فرفضُ الحصّة امتناعٌ عن
+        // الكتابة لا تراجعٌ عنها، وفشلُ ما بعده يُرجع الحجز معه. خطةٌ لا تسمّي هذا الحدّ = بلا قيد.
+        var quota = await _uow.InTransactionAsync(async () =>
         {
+            var decision = await _quota.ReserveAsync(LimitNames.CatalogProducts, ct);
+            if (!decision.Allowed) return decision;
+
+            await _products.AddAsync(product, ct);
             await _uow.SaveChangesAsync(ct);
             await _stock.InitializeAsync(product.Id, product.DefaultVariant.Id, cmd.StockQuantity, cmd.LowStockThreshold, ct);
+            return decision;
         }, ct);
 
-        return Result<int>.Success(product.Id);
+        return quota.Allowed ? Result<int>.Success(product.Id) : Result<int>.Failure(quota.ToError());
     }
 }
 

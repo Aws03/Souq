@@ -24,7 +24,8 @@ namespace Souq.Application.Tests.Orders;
 public class ProcessPaymentWebhookHandlerTests
 {
     private static readonly TenantInfo OtherStore =
-        new(99, "other", "متجر آخر", TenantStatus.Active, "JOD", "ar", "Asia/Amman", new HashSet<string>(StringComparer.Ordinal));
+        new(99, "other", "متجر آخر", TenantStatus.Active, "JOD", "ar", "Asia/Amman",
+            new HashSet<string>(StringComparer.Ordinal), new Dictionary<string, int>(StringComparer.Ordinal));
 
     private readonly IPaymentService _payment = Substitute.For<IPaymentService>();
     private readonly ITenantDirectory _directory = Substitute.For<ITenantDirectory>();

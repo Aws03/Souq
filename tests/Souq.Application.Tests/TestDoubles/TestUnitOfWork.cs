@@ -7,11 +7,23 @@ namespace Souq.Application.Tests.TestDoubles;
 // والاستثناء من داخلها يصعد كما في الحقيقة (والتراجع مسؤولية القاعدة — تُثبته اختبارات التكامل).
 public static class TestUnitOfWork
 {
-    public static IUnitOfWork Create()
-    {
-        var uow = Substitute.For<IUnitOfWork>();
-        uow.InTransactionAsync(Arg.Any<Func<Task>>(), Arg.Any<CancellationToken>())
-           .Returns(call => call.Arg<Func<Task>>()());
-        return uow;
-    }
+    // ============================================================================
+    // ضعفٌ **جزئي** على صنف حقيقي، لا بديل كامل (C2) — والسبب أن NSubstitute يضبط كل صيغة مغلقة
+    // من الطريقة المُعمَّمة على حدة: `InTransactionAsync<T>` لا تُضبَط إلّا بمعرفة T مسبقاً، فأيّ
+    // حالة استخدام بـ T جديد كانت ستتلقّى `null` لـ `Task<T>` وتسقط بـ NullReferenceException.
+    //
+    // وهذا ليس افتراضاً: هو ما وقع فعلاً حين صار إنشاءُ المنتج يُرجع `QuotaDecision` من معاملته.
+    // الصنف أدناه يُنفّذ الصيغتين بنفسه لأيّ T، والضعف الجزئي يُبقي `Received()`/`DidNotReceive()`
+    // على `SaveChangesAsync` تعمل كما كانت.
+    // ============================================================================
+    public static IUnitOfWork Create() => Substitute.ForPartsOf<RecordingUnitOfWork>();
+}
+
+public class RecordingUnitOfWork : IUnitOfWork
+{
+    public virtual Task<int> SaveChangesAsync(CancellationToken ct = default) => Task.FromResult(0);
+
+    public virtual Task<T> InTransactionAsync<T>(Func<Task<T>> work, CancellationToken ct = default) => work();
+
+    public virtual Task InTransactionAsync(Func<Task> work, CancellationToken ct = default) => work();
 }

@@ -57,6 +57,7 @@ public static class DependencyInjection
         AddInventory(services, config);
         AddBaskets(services, config);
         AddSearchLog(services, config);
+        AddBilling(services, config);
         AddPayments(services, config, environment, report);
         AddEmail(services, config, environment, report);
         AddNotifications(services, config);
@@ -126,6 +127,9 @@ public static class DependencyInjection
         services.AddScoped<IPlanRepository, PlanRepository>();
         services.AddScoped<ISubscriptionRepository, SubscriptionRepository>();
         services.AddScoped<IEntitlementOverrideRepository, EntitlementOverrideRepository>();
+        // C2 (ADR-0049): **التنفيذ الوحيد** لحارس الحصص. أي تنفيذ ثانٍ يعني قاعدة عدّ ثانية —
+        // واختبار معماري في TenancyRuleTests يمنع العدّ-ثم-الكتابة خارج هذا الصنف.
+        services.AddScoped<Application.Features.Billing.Contracts.ITenantQuotaGuard, TenantQuotaGuard>();
 
         // خدمات القراءة (ADR-0008): إسقاطات بلا تتبّع خلف منافذ Application، لكل وحدة منفذها.
         services.AddScoped<ICatalogQueries, CatalogQueries>();
@@ -189,6 +193,21 @@ public static class DependencyInjection
     //
     // ومدّة الحفظ مُتحقَّق منها عند الإقلاع: جدولٌ بلا حدٍّ لنموّه لا يُطلق بإعدادٍ خاطئ يمرّ بصمت.
     // ============================================================================
+    // وحدة Billing (C2): إعداداتها ومنسّق مصالحة عدّادات الحصص. المستودعات وحارس الحصص نفسه
+    // مسجّلة في AddPersistence مع بقيّة ما يحتاج AppDbContext.
+    private static void AddBilling(IServiceCollection services, IConfiguration config)
+    {
+        services.AddOptions<Application.Features.Billing.BillingSettings>()
+            .Bind(config.GetSection("Billing"))
+            .Validate(s => s.QuotaReconcileIntervalMinutes == 0 || s.QuotaReconcileIntervalMinutes is >= 5 and <= 1440,
+                "Billing:QuotaReconcileIntervalMinutes صفر (معطّل) أو بين 5 و1440 دقيقة.")
+            .ValidateOnStart();
+        services.AddSingleton(sp =>
+            sp.GetRequiredService<IOptions<Application.Features.Billing.BillingSettings>>().Value);
+
+        services.AddHostedService<BackgroundJobs.QuotaReconciliationService>();
+    }
+
     private static void AddSearchLog(IServiceCollection services, IConfiguration config)
     {
         services.AddOptions<Application.Features.Products.SearchLogSettings>()

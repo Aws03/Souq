@@ -249,6 +249,18 @@ await using (var privilegeScope = app.Services.CreateAsyncScope())
         && DatabasePrivileges.SameLogin(runtimeConnection, migrationConnection.Value))
         startupLog.LogWarning("Configuration warning: {ConfigurationWarning}",
             "ConnectionStrings:Migrations مضبوطة لكنها تحمل هوية التشغيل نفسها — الفصل اسمي لا فعلي.");
+
+    // ── TD-68: مستوى عزل القاعدة كما *تقوله هي*، لا كما يُفترض ──────────────
+    // حارس "آخر مدير" يفشل **مفتوحاً وبصمت** تحت READ_COMMITTED_SNAPSHOT، وهي مُفعَّلة افتراضياً
+    // على قواعد مُدارة. لا اختبار يكشف ذلك — لا يُقاس إلّا على القاعدة العاملة. DatabaseIsolation.
+    var snapshotOn = await DatabaseIsolation.IsReadCommittedSnapshotOnAsync(
+        privilegeScope.ServiceProvider.GetRequiredService<AppDbContext>());
+    if (snapshotOn is null)
+        startupLog.LogInformation("The database isolation level could not be read; the RCSI check was skipped");
+    else if (snapshotOn.Value)
+        startupLog.LogWarning("Configuration warning: {ConfigurationWarning}", DatabaseIsolation.Warning);
+    else
+        startupLog.LogInformation("READ_COMMITTED_SNAPSHOT is off — the last-administrator guard holds");
 }
 
 // ── خط أنابيب الطلب (Request Pipeline) — الترتيب مهم ──────────────────────

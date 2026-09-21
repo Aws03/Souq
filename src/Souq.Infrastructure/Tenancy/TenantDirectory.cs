@@ -89,6 +89,15 @@ internal sealed class TenantDirectory : ITenantDirectory
             _db.EntitlementOverrides
                 .Where(o => o.TenantId == t.Id && o.RevokedAtUtc == null && o.ExpiresAtUtc > utcNow)
                 .Select(o => o.Entitlement)
+                .ToList(),
+            // حدود الخطة السارية (C2، ADR-0054). من الاشتراك نفسه ومن إصداره نفسه الذي جاءت منه
+            // الاستحقاقات: عقدٌ واحد يُقرأ مرّة، لا سؤالان قد يجيبان عن إصدارين مختلفين.
+            // **لا استثناءات على الحدود**: الاستثناء يمنح قدرة ولا يرفع سقفاً — رفعُ السقف تغييرُ
+            // خطة، وله مساره (C-14 سمّى الاستحقاق وحده).
+            _db.Subscriptions
+                .Where(s => s.TenantId == t.Id && s.Status == SubscriptionStatus.Active)
+                .SelectMany(s => _db.PlanLimits.Where(l => EF.Property<int>(l, "PlanId") == s.PlanId))
+                .Select(l => new PlanLimitRow(l.Name, l.Value))
                 .ToList()));
 
     private TenantInfo ToTenantInfo(TenantSnapshotRow row)
@@ -100,10 +109,18 @@ internal sealed class TenantDirectory : ITenantDirectory
         // ما لم يُقَل. التجاهل نفسه يفشل مغلقاً — المفتاح المجهول لا يُمنح.
         WarnAboutUnknown(row.Id, "وحدات المتجر", StoreModules.Unknown(row.EnabledModules));
         WarnAboutUnknown(row.Id, "استحقاقات الخطة", row.PlanEntitlements.Where(k => !Entitlements.IsKnown(k)).ToList());
+        WarnAboutUnknown(row.Id, "حدود الخطة", row.PlanLimits.Where(l => !LimitNames.IsKnown(l.Name))
+            .Select(l => l.Name).ToList());
 
         var granted = Entitlements.Granted(row.PlanEntitlements, row.ActiveOverrides);
         return new TenantInfo(row.Id, row.Slug, row.Name, row.Status, row.Currency, row.DefaultCulture, row.TimeZone,
-            Entitlements.Effective(granted, enabled));
+            Entitlements.Effective(granted, enabled),
+            // المجهول يُسقَط لا يُرفَض (كسائر القراءة هنا): حدٌّ باسم أُزيل من المنتج لا يجوز أن
+            // يُسقط متجراً — ولا أن يُفرض، إذ لا قاعدة عدّ له. وإسقاطه يعني "غير مقيَّد" لا "صفر"،
+            // وهو الاتجاه الوحيد الذي لا يوقف تاجراً بسبب انحرافٍ في بيانات المنصّة (ADR-0054).
+            // والأخير يفوز عند التكرار المستحيل: الفهرس الفريد (PlanId, Name) يمنعه في القاعدة.
+            row.PlanLimits.Where(l => LimitNames.IsKnown(l.Name))
+                .ToDictionary(l => l.Name, l => l.Value, StringComparer.Ordinal));
     }
 
     private void WarnAboutUnknown(int tenantId, string source, IReadOnlyList<string> unknown)
@@ -116,7 +133,10 @@ internal sealed class TenantDirectory : ITenantDirectory
     // صفّ وسيط بين SQL والمجال — لا يعبر حدود Infrastructure.
     private sealed record TenantSnapshotRow(
         int Id, string Slug, string Name, TenantStatus Status, string Currency, string DefaultCulture, string TimeZone,
-        string EnabledModules, List<string> PlanEntitlements, List<string> ActiveOverrides);
+        string EnabledModules, List<string> PlanEntitlements, List<string> ActiveOverrides,
+        List<PlanLimitRow> PlanLimits);
+
+    private sealed record PlanLimitRow(string Name, int Value);
 }
 
 // إعداد الواجهة لمتجر (IStoreConfiguration) في الذاكرة نفسها: يُبطَل مع الدليل عند كل تعديل على متجر.

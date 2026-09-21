@@ -2,12 +2,13 @@ using Souq.Domain.Platform;
 
 namespace Souq.Application.Common.Tenancy;
 
-// لقطة المتجر التي يحتاجها طلب واحد: الهوية واللغة والعملة والحالة والوحدات المفعّلة. تُبنى من
-// ITenantDirectory (مخزَّنة مؤقتاً لكل مضيف) — لا كيان Tenant متتبَّع يعيش طوال الطلب.
+// لقطة المتجر التي يحتاجها طلب واحد: الهوية واللغة والعملة والحالة والوحدات المفعّلة وحدود خطته.
+// تُبنى من ITenantDirectory (مخزَّنة مؤقتاً لكل مضيف) — لا كيان Tenant متتبَّع يعيش طوال الطلب.
 public sealed record TenantInfo(
     int Id, string Slug, string Name, TenantStatus Status,
     string Currency, string DefaultCulture, string TimeZone,
-    IReadOnlySet<string> Modules)
+    IReadOnlySet<string> Modules,
+    IReadOnlyDictionary<string, int> Limits)
 {
     // ============================================================================
     // **يفشل مغلقاً** (C1، ADR-0047 §4). كان `Modules is null || Modules.Contains(module)` مع
@@ -19,4 +20,18 @@ public sealed record TenantInfo(
     // وإغلاق أحد مظاهرها.
     // ============================================================================
     public bool HasModule(string module) => Modules.Contains(module);
+
+    // ============================================================================
+    // حدّ الخطة لهذا الاسم، أو فارغ إذا لم تسمِّه الخطة = **غير مقيَّد** (C2، ADR-0054).
+    //
+    // وهذا **عكس** HasModule أعلاه عن عمد، والفرق ليس تساهلاً: الاستحقاق بوّابةٌ تمنح قدرة،
+    // فغيابه امتناعٌ عن المنح ويفشل مغلقاً. والحدّ **قيدٌ على قدرة مُنحت أصلاً**، فغيابه غيابُ
+    // قيد لا غيابُ منح. ولو قُرئ الغياب صفراً لصار نشرُ خطةٍ نُسي فيها رقمٌ واحد إيقافاً كاملاً
+    // لكتالوج تاجر — ولصار متجرٌ بلا عقد (حالةٌ يحتملها C1 صراحةً في AssignFoundationPlanAsync)
+    // متجراً لا يستطيع إنشاء شيء. الحجّة كاملةً وبدائلها المرفوضة في ADR-0054.
+    //
+    // والمعامل بلا قيمة افتراضية لنفس سبب Modules: قاموسٌ منسيٌّ يعني "لا حدود" بصمت.
+    // ============================================================================
+    public int? LimitFor(string limitName) =>
+        Limits.TryGetValue(limitName, out var value) ? value : null;
 }

@@ -76,6 +76,8 @@ public class AppDbContext : DbContext, IUnitOfWork
     public DbSet<StockReservation> StockReservations => Set<StockReservation>();
     public DbSet<Basket> Baskets => Set<Basket>();
     public DbSet<OrderNumberSequence> OrderNumberSequences => Set<OrderNumberSequence>();
+    // عدّاد حصص المتجر (C2): كيان متجر مُرشَّح كسائرها — لا جدول منصّة رغم أن الحدّ يأتي من الخطة.
+    public DbSet<TenantUsageCounter> TenantUsageCounters => Set<TenantUsageCounter>();
     public DbSet<CouponRedemption> CouponRedemptions => Set<CouponRedemption>();
     public DbSet<Payment> Payments => Set<Payment>();
     public DbSet<Refund> Refunds => Set<Refund>();

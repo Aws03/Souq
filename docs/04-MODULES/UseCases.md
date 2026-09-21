@@ -20,7 +20,7 @@
 | [Reviews](#reviews) | `src/Souq.Application/Features/Reviews` | 3 | 2 | 0 |
 | [Notifications](#notifications) | `src/Souq.Application/Features/Notifications` | 2 | 2 | 0 |
 | [Reporting](#reporting) | `src/Souq.Application/Features/Reporting` | 0 | 2 | 0 |
-| [Billing](#billing) | `src/Souq.Application/Features/Billing` | 8 | 4 | 1 |
+| [Billing](#billing) | `src/Souq.Application/Features/Billing` | 8 | 4 | 2 |
 
 ## Platform
 
@@ -311,3 +311,4 @@ Module document: [Billing/README.md](Billing/README.md).
 | Public contract | Implemented by |
 |---|---|
 | `IStoreEntitlements` | `StoreEntitlements` |
+| `ITenantQuotaGuard` | `TenantQuotaGuard` |

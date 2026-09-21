@@ -16,8 +16,8 @@ namespace Souq.IntegrationTests;
 // ============================================================================
 public class TenantResolutionMiddlewareTests
 {
-    private static readonly TenantInfo StoreA = new(1, "store-a", "A", TenantStatus.Active, "JOD", "ar", "Asia/Amman", new HashSet<string>(StringComparer.Ordinal));
-    private static readonly TenantInfo StoreB = new(2, "store-b", "B", TenantStatus.Active, "USD", "en", "UTC", new HashSet<string>(StringComparer.Ordinal));
+    private static readonly TenantInfo StoreA = new(1, "store-a", "A", TenantStatus.Active, "JOD", "ar", "Asia/Amman", new HashSet<string>(StringComparer.Ordinal), new Dictionary<string, int>(StringComparer.Ordinal));
+    private static readonly TenantInfo StoreB = new(2, "store-b", "B", TenantStatus.Active, "USD", "en", "UTC", new HashSet<string>(StringComparer.Ordinal), new Dictionary<string, int>(StringComparer.Ordinal));
 
     [Fact]
     public async Task الإنتاج_يحدّد_بالنطاق_المسجَّل_ويتجاهل_ترويسة_التطوير()

@@ -95,5 +95,6 @@ public class TenantAdministrationTests
             Arg.Is<TenantInfo>(t => t.Slug == "acme"), Arg.Any<Func<AccountInvitations, Task<Result<InvitationResult>>>>());
     }
 
-    private static TenantInfo Info() => new(0, "acme", "Acme", TenantStatus.Provisioning, "JOD", "ar", "Asia/Amman", new HashSet<string>(StringComparer.Ordinal));
+    private static TenantInfo Info() => new(0, "acme", "Acme", TenantStatus.Provisioning, "JOD", "ar", "Asia/Amman",
+        new HashSet<string>(StringComparer.Ordinal), new Dictionary<string, int>(StringComparer.Ordinal));
 }

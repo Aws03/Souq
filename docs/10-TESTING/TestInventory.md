@@ -9,7 +9,7 @@
 |---|---|---|---|
 | [`Souq.Domain.Tests`](#souqdomaintests) | 30 | 245 | 50 |
 | [`Souq.Application.Tests`](#souqapplicationtests) | 52 | 380 | 18 |
-| [`Souq.ArchitectureTests`](#souqarchitecturetests) | 16 | 71 | 8 |
+| [`Souq.ArchitectureTests`](#souqarchitecturetests) | 17 | 74 | 8 |
 | [`Souq.IntegrationTests`](#souqintegrationtests) | 56 | 343 | 26 |
 | [frontend (Vitest)](#frontend-vitest) | 94 | 711 | — |
 | [frontend (Playwright)](#frontend-playwright) | 19 | 126 | — |
@@ -122,6 +122,7 @@
 | `tests/Souq.ArchitectureTests/ModuleAndContractRuleTests.cs` | `ModuleAndContractRuleTests` | 11 | 1 |
 | `tests/Souq.ArchitectureTests/NotificationDocumentationTests.cs` | `NotificationDocumentationTests` | 2 | 0 |
 | `tests/Souq.ArchitectureTests/OperationalScriptTests.cs` | `OperationalScriptTests`, `TempEnv` | 3 | 3 |
+| `tests/Souq.ArchitectureTests/QuotaRuleTests.cs` | `QuotaRuleTests` | 3 | 0 |
 | `tests/Souq.ArchitectureTests/SearchRuntimeRuleTests.cs` | `SearchRuntimeRuleTests` | 1 | 0 |
 | `tests/Souq.ArchitectureTests/TenancyRuleTests.cs` | `TenancyRuleTests` | 8 | 0 |
 | `tests/Souq.ArchitectureTests/ValidationRuleTests.cs` | `ValidationRuleTests` | 2 | 0 |

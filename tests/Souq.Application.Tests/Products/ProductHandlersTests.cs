@@ -1,6 +1,7 @@
 using AwesomeAssertions;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
+using Souq.Application.Features.Billing.Contracts;
 using Souq.Application.Features.Products.Commands;
 using Souq.Application.Features.Products.Contracts;
 using Souq.Application.Features.Products.Queries;
@@ -23,7 +24,7 @@ public class CreateProductHandlerTests
         _categories.GetByIdAsync(1, Arg.Any<CancellationToken>()).Returns(Category("فئة", "cat"));
 
     private CreateProductHandler Handler(string currency = "JOD") =>
-        new(_products, _categories, _stock, TestTenant.Context(currency), _uow);
+        new(_products, _categories, _stock, TestQuota.Unlimited(), TestTenant.Context(currency), _uow);
 
     private static CreateProductCommand Command(int categoryId = 1, int stock = 10, string? slug = null, string? sku = null) =>
         new(categoryId, Input("سماعات", "Wireless Headphones"), 59.9m, stock, Slug: slug, Sku: sku);
@@ -96,7 +97,9 @@ public class CreateProductHandlerTests
 
         result.IsSuccess.Should().BeTrue();
         await _stock.Received(1).InitializeAsync(0, 0, 10, 3, Arg.Any<CancellationToken>());
-        await _uow.Received(1).InTransactionAsync(Arg.Any<Func<Task>>(), Arg.Any<CancellationToken>());
+        // الصيغة المُرجِعة قيمة منذ C2: المعاملة تحمل قرار الحصّة خارجها. الدعوى نفسها — معاملة واحدة.
+        await _uow.Received(1).InTransactionAsync(
+            Arg.Any<Func<Task<QuotaDecision>>>(), Arg.Any<CancellationToken>());
         await _uow.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
@@ -179,7 +182,7 @@ public class UpdateProductHandlerTests
 public class ProductLifecycleHandlerTests
 {
     private readonly IProductRepository _products = Substitute.For<IProductRepository>();
-    private readonly IUnitOfWork _uow = Substitute.For<IUnitOfWork>();
+    private readonly IUnitOfWork _uow = TestUnitOfWork.Create();
 
     [Fact]
     public async Task حذف_المنتج_أرشفة_لا_حذف()
@@ -187,7 +190,7 @@ public class ProductLifecycleHandlerTests
         var product = Product();
         _products.GetByIdAsync(1, Arg.Any<CancellationToken>()).Returns(product);
 
-        var result = await new DeleteProductHandler(_products, _uow).Handle(new DeleteProductCommand(1), CancellationToken.None);
+        var result = await new DeleteProductHandler(_products, TestQuota.Unlimited(), _uow).Handle(new DeleteProductCommand(1), CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
         product.Status.Should().Be(ProductStatus.Archived);
@@ -201,7 +204,7 @@ public class ProductLifecycleHandlerTests
         product.Archive();
         _products.GetByIdAsync(1, Arg.Any<CancellationToken>()).Returns(product);
 
-        var result = await new ChangeProductStatusHandler(_products, _uow)
+        var result = await new ChangeProductStatusHandler(_products, TestQuota.Unlimited(), _uow)
             .Handle(new ChangeProductStatusCommand(1, ProductStatus.Active), CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();

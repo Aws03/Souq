@@ -83,7 +83,7 @@ public class AccessTokenValidationTests
     {
         var tenancy = new TenantContext();
         tenancy.UseTenant(new TenantInfo(
-            1, "marka", "ماركة", TenantStatus.Active, "JOD", "ar", "Asia/Amman", new HashSet<string>(StringComparer.Ordinal)));
+            1, "marka", "ماركة", TenantStatus.Active, "JOD", "ar", "Asia/Amman", new HashSet<string>(StringComparer.Ordinal), new Dictionary<string, int>(StringComparer.Ordinal)));
 
         var services = new ServiceCollection();
         services.AddSingleton<ITenantContext>(tenancy);

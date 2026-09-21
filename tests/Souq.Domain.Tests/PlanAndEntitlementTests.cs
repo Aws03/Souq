@@ -98,20 +98,57 @@ public class PlanAndEntitlementTests
     public void الحدّ_الغائب_غير_محدَّد_لا_صفر()
     {
         var plan = new Plan("foundation", 1, "خطة");
-        plan.SetLimits([new Limit("Products.Max", 500)]);
+        plan.SetLimits([new Limit("Catalog.Products", 500)]);
 
-        plan.LimitFor("products.max").Should().Be(500);
-        plan.LimitFor("staff.seats").Should().BeNull("الغياب ليس صفراً — ما يعنيه قرارُ الفرض في C2");
+        plan.LimitFor(LimitNames.CatalogProducts).Should().Be(500);
+
+        // C2 أجابه (ADR-0054): الغياب = **غير مقيَّد**، لا صفر. والجواب يُفرَض في TenantInfo.LimitFor،
+        // وهذه الطبقة تبقى كما كانت: الكتالوج يقول ما حملته الخطة لا ما يعنيه غيابه.
+        plan.LimitFor(LimitNames.StaffSeats).Should().BeNull();
     }
 
     [Fact]
     public void حدّ_سالب_أو_باسم_مكرَّر_يُرفض()
     {
-        FluentActions.Invoking(() => new Limit("products.max", -1)).Should().Throw<InvalidPlanException>();
+        FluentActions.Invoking(() => new Limit(LimitNames.CatalogProducts, -1)).Should().Throw<InvalidPlanException>();
 
         var plan = new Plan("foundation", 1, "خطة");
-        FluentActions.Invoking(() => plan.SetLimits([new Limit("products.max", 1), new Limit("Products.Max", 2)]))
+        FluentActions.Invoking(() => plan.SetLimits(
+                [new Limit("catalog.products", 1), new Limit("Catalog.Products", 2)]))
             .Should().Throw<InvalidPlanException>();
+    }
+
+    // ============================================================================
+    // C2 (ADR-0054) — الكتالوج المغلق. C1 كان يقبل أيّ اسمٍ سليم الشكل كي لا يُجيب قرار المالك
+    // C-12 ضمناً؛ ولمّا وُجد الفرض صار الاسم المجهول **وعداً لا يُنفَّذ**: يُحمَل في العقد ولا
+    // يمنع شيئاً. والرفض هنا نظير رفضِ استحقاقٍ مجهول في SetEntitlements، بالحجّة نفسها.
+    // ============================================================================
+    [Fact]
+    public void حدّ_باسم_خارج_الكتالوج_يُرفض()
+    {
+        FluentActions.Invoking(() => new Limit("products.max", 500))
+            .Should().Throw<InvalidPlanException>("اسمٌ لا قاعدة عدّ له حدٌّ يُباع ولا يُفرَض");
+
+        var plan = new Plan("foundation", 1, "خطة");
+        FluentActions.Invoking(() => plan.SetLimits([new Limit("orders.per.month", 10)]))
+            .Should().Throw<InvalidPlanException>();
+
+        // والشكل يُفحص قبل العضوية: نصٌّ مشوّه رسالته عن شكله لا عن عضويّته.
+        FluentActions.Invoking(() => new Limit("Catalog Products!", 1)).Should().Throw<InvalidPlanException>();
+    }
+
+    [Fact]
+    public void كل_اسم_في_الكتالوج_مطبَّع_ومعروف()
+    {
+        LimitNames.All.Should().OnlyHaveUniqueItems().And.NotBeEmpty();
+        foreach (var name in LimitNames.All)
+        {
+            LimitNames.Normalize(name).Should().Be(name, "الأسماء المعلنة مطبَّعة أصلاً");
+            LimitNames.IsKnown(name).Should().BeTrue();
+        }
+
+        LimitNames.IsKnown(null).Should().BeFalse();
+        LimitNames.IsKnown("catalog.nonexistent").Should().BeFalse();
     }
 
     // ── الاستحقاق الفعّال: يفشل مغلقاً ──────────────────────────────────────
