@@ -82,10 +82,24 @@ internal sealed class StoreReportQueries : IStoreReports
         var revenue = totals?.Revenue ?? 0m;
         var orders = totals?.Orders ?? 0;
 
-        // الاسترداد يُنسب إلى مدّة الطلب لا مدّة الاسترداد (موثَّق في StoreDashboard.cs).
-        var refunds = await _db.Payments.AsNoTracking()
-            .Where(p => counted.Any(o => o.Id == p.OrderId))
-            .SumAsync(p => (decimal?)p.RefundedAmount, ct) ?? 0m;
+        // ====================================================================
+        // **الاسترداد يُنسب إلى مدّة الاسترداد** (C11) — بعد أن كان يُنسب إلى مدّة **الطلب**.
+        //
+        // ما كان: مجموع `Payment.RefundedAmount` لكل طلبٍ وقع في المدّة. و`RefundedAmount` عدّادٌ
+        // تراكمي بلا تاريخ، فاستردادٌ يقع اليوم عن طلبٍ من آذار كان يُخصم من **آذار** — أي أن
+        // "صافي إيراد آذار" يتغيّر بأثر رجعي كلّما استُرِدّ شيء، وصافي الشهر الجاري لا يتأثّر بما
+        // خرج من الصندوق فيه فعلاً. التاجر يقارن اللوحة بحسابه البنكي فلا يجدان بعضهما.
+        //
+        // وما صار: صفوف `Refund` نفسها، بتاريخ اكتمالها. وشرط `Succeeded` ليس زينة —
+        // `Refund.Fail` تختم `CompletedAt` تماماً كما تختمها `Succeed`، فالتصفية بالتاريخ وحده
+        // كانت ستخصم استرداداتٍ **رفضتها البوّابة** من إيراد المتجر.
+        //
+        // والنتيجة أن "صافي الإيراد" صار نقدياً: ما دخل في المدّة ناقص ما خرج فيها. وهو تغيّر
+        // في معنى رقمٍ يراه التاجر، مسجَّل في BusinessRules.md ووثيقة الوحدة.
+        // ====================================================================
+        var refunds = await _db.Refunds.AsNoTracking()
+            .Where(r => r.Status == RefundStatus.Succeeded && r.CompletedAt >= from && r.CompletedAt < to)
+            .SumAsync(r => (decimal?)r.Amount.Amount, ct) ?? 0m;
 
         var newCustomers = await _db.Customers.AsNoTracking()
             .CountAsync(c => c.ErasedAt == null && c.CreatedAt >= from && c.CreatedAt < to, ct);
@@ -265,8 +279,15 @@ internal sealed class StoreReportQueries : IStoreReports
     private Task<int> PendingOrdersAsync(CancellationToken ct) =>
         _db.Orders.AsNoTracking().CountAsync(o => o.PlacedAt != null && o.Status == OrderStatus.Pending, ct);
 
+    // ========================================================================
+    // عدد **الاستردادات** المعلّقة، لا عدد الدفعات التي عليها استرداد معلّق (C11).
+    //
+    // كان يَعُدّ الدفعات: طلبٌ عليه استردادان ينتظران يظهر بندَ عملٍ واحداً. والرقم تنبيهٌ تشغيلي
+    // معناه "كم بنداً ينتظرك"، فعدّ الدفعات يُقلّل العمل المعروض — وهو النوع من الخطأ الذي لا
+    // يُكتشف، لأن الرقم يبقى معقولاً ولا يكون خاطئاً إلا حين يكون العمل أكثر مما يُقال.
+    // ========================================================================
     private Task<int> PendingRefundsAsync(CancellationToken ct) =>
-        _db.Payments.AsNoTracking().CountAsync(p => p.PendingRefundAmount > 0, ct);
+        _db.Refunds.AsNoTracking().CountAsync(r => r.Status == RefundStatus.Pending, ct);
 
     // العميل المُعيد: طلبان محسوبان أو أكثر منذ بداية المتجر. صفة علاقة لا صفة مدّة.
     private Task<int> RepeatCustomersAsync(CancellationToken ct) =>

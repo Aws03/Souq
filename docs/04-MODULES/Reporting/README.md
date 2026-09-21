@@ -161,7 +161,8 @@ There are no business failures: the query cannot fail a rule, only a database ca
 - **No conversion rate.** Nothing records visits or sessions, so there is no denominator.
 - **No forecasting.** Every figure describes a period that has already ended.
 - Each request runs several aggregate queries with no cache. That is right at this scale and will not be at a much larger one; [Dashboards.md](Dashboards.md) §7 records the measurements to argue from.
-- Refunds are attributed to the **order's** period rather than the refund's. That is a deliberate choice, not a derivation ([Dashboards.md](Dashboards.md) §2).
+- The trend chart's day boundaries shift by a single UTC offset taken at the window's start, because EF Core 10 does not translate `AT TIME ZONE` and raw SQL is barred here. Period boundaries and every total are exact in the store's own zone; only in a zone that observes DST, and only on its two transition days, does one hour of orders land in the neighbouring bucket ([Dashboards.md](Dashboards.md) §2).
+- There is no **cohort** refund view — how much of what was sold in a period later came back. Refunds now count against the period the money moved, which is the cash question; the cohort question is a separate report nobody has asked for yet.
 
 ## Future evolution
 

@@ -161,7 +161,9 @@ public class StoreDashboardTests
 
         dashboard.Current.Orders.Should().Be(1);
         dashboard.Current.Revenue.Should().Be(100m, "الإجمالي لا ينقص بالاسترداد");
-        dashboard.Current.Refunds.Should().Be(30m, "الاسترداد يُنسب إلى مدّة الطلب لا مدّة الاسترداد");
+        // اكتمل في المدّة نفسها التي وقع فيها الطلب، فالنسبتان تتّفقان هنا — والاختبار الذي
+        // يفرّق بينهما هو `الاسترداد_يُنسب_إلى_مدّته_لا_إلى_مدّة_الطلب` أدناه.
+        dashboard.Current.Refunds.Should().Be(30m);
         dashboard.Current.NetRevenue.Should().Be(70m);
         dashboard.Current.AverageOrderValue.Should().Be(100m, "المتوسّط من الإجمالي: 100 ÷ 1");
 
@@ -439,5 +441,86 @@ public class StoreDashboardTests
         today.Current.Orders.Should().Be(1, "الطلب من يوم التاجر وإن كان من أمس بـ UTC");
         today.Current.Revenue.Should().Be(30m);
         today.Trend.Should().ContainSingle().Which.Revenue.Should().Be(30m, "ويقع في دلو يومه هو");
+    }
+    // ============================================================================
+    // الاسترداد يُنسب إلى **مدّته** لا إلى مدّة الطلب (C11).
+    //
+    // قبل هذا كان المجموع يُؤخذ من `Payment.RefundedAmount` — عدّادٌ تراكمي بلا تاريخ — لكل طلبٍ
+    // وقع في المدّة. فاستردادٌ يقع اليوم عن طلبٍ قديم كان يُخصم من **مدّة ذلك الطلب**: صافي مدّةٍ
+    // مضت يتغيّر بأثر رجعي، وصافي المدّة الجارية لا يرى ما خرج من الصندوق فيها.
+    //
+    // الطلب هنا يُدفع ثم يُرجَع تاريخُه إلى ما قبل النافذة، والاسترداد يقع الآن: فبالقاعدة القديمة
+    // يظهر صفراً (لا طلب محسوب في المدّة)، وبالجديدة يظهر بمبلغه.
+    // ============================================================================
+    [Fact]
+    public async Task الاسترداد_يُنسب_إلى_مدّته_لا_إلى_مدّة_الطلب()
+    {
+        var store = await _factory.CreateStoreAsync();
+        var api = _api.ForStore(store);
+        var admin = await api.AdminAsync();
+        var productId = await api.CreateProductAsync(admin, price: 50m, stock: 100);
+
+        var (customer, _) = await api.NewCustomerAsync();
+        var created = await api.PlaceOrderAsync(customer, productId, 2);   // 100
+        var orderId = int.Parse(
+            (await created.Content.ReadFromJsonAsync<Dictionary<string, object>>(TestApi.Json))!["orderId"].ToString()!);
+        (await customer.PostAsync($"/api/orders/{orderId}/confirm-payment", null))
+            .StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // الطلب يصير قديماً: خارج نافذة "اليوم" بيقين.
+        await api.WithDbAsync(async db =>
+        {
+            var order = await db.Orders.FirstAsync(o => o.Id == orderId);
+            db.Entry(order).Property(nameof(Souq.Domain.Entities.Order.PlacedAt)).CurrentValue =
+                DateTime.UtcNow.AddDays(-10);
+            return await db.SaveChangesAsync();
+        });
+
+        (await admin.PostAsJsonAsync($"/api/orders/{orderId}/refunds", new { amount = 30m }))
+            .StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var today = await ReadAsync(admin, "Today");
+
+        today.Current.Orders.Should().Be(0, "الطلب خارج المدّة");
+        today.Current.Revenue.Should().Be(0m);
+        today.Current.Refunds.Should().Be(30m, "لكن المال خرج **اليوم**، فهو خصم اليوم");
+        today.Current.NetRevenue.Should().Be(-30m, "صافي سالب جوابٌ صحيح ليومٍ لم يبع وردّ مالاً");
+    }
+
+    // ============================================================================
+    // استردادٌ **فشل** ليس خصماً. `Refund.Fail` تختم `CompletedAt` تماماً كما تختمها `Succeed`،
+    // فالتصفية بالتاريخ وحده كانت ستخصم مالاً لم يخرج من الصندوق قطّ.
+    // ============================================================================
+    [Fact]
+    public async Task استرداد_رفضته_البوّابة_لا_يُخصم_من_الإيراد()
+    {
+        var store = await _factory.CreateStoreAsync();
+        var api = _api.ForStore(store);
+        var admin = await api.AdminAsync();
+        var productId = await api.CreateProductAsync(admin, price: 50m, stock: 100);
+
+        var (customer, _) = await api.NewCustomerAsync();
+        var created = await api.PlaceOrderAsync(customer, productId, 2);   // 100
+        var orderId = int.Parse(
+            (await created.Content.ReadFromJsonAsync<Dictionary<string, object>>(TestApi.Json))!["orderId"].ToString()!);
+        (await customer.PostAsync($"/api/orders/{orderId}/confirm-payment", null))
+            .StatusCode.Should().Be(HttpStatusCode.OK);
+        (await admin.PostAsJsonAsync($"/api/orders/{orderId}/refunds", new { amount = 30m }))
+            .StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // تُرَدّ حالة الاسترداد إلى "فشل" بختمه الزمني كما تفعل البوّابة.
+        await api.WithDbAsync(async db =>
+        {
+            var refund = await db.Refunds.FirstAsync();
+            db.Entry(refund).Property(nameof(Souq.Domain.Entities.Refund.Status)).CurrentValue =
+                Souq.Domain.Enums.RefundStatus.Failed;
+            db.Entry(refund).Property(nameof(Souq.Domain.Entities.Refund.CompletedAt)).CurrentValue = DateTime.UtcNow;
+            return await db.SaveChangesAsync();
+        });
+
+        var dashboard = await ReadAsync(admin);
+
+        dashboard.Current.Refunds.Should().Be(0m, "ما لم يخرج من الصندوق لا يُخصم منه");
+        dashboard.Current.NetRevenue.Should().Be(100m);
     }
 }

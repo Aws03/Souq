@@ -35,7 +35,7 @@ The definitions are in the header comment of `src/Souq.Application/Features/Repo
 
 Two choices inside those definitions are genuine judgement calls rather than derivations, and are written down so they can be argued with:
 
-1. **Refunds are attributed to the order's period.** A refund in March against a January order reduces January. **Correction (M12): the rationale this entry used to give was backwards.** It claimed this choice "keeps a closed period closed"; it does the opposite — re-reading January's report after a March refund returns a *lower* January figure, and it is the alternative (attributing to the month the money moved) that leaves January fixed forever. The choice is still defensible, on the honest ground that a refund belongs to the sale it reverses, but a reader must not be told it gives stability it does not give. The alternative — reducing the month the money moved — makes a period's revenue change after the fact. Neither is wrong; this one keeps a closed period closed.
+1. **Refunds are attributed to the refund's period** (C11). Money that left the till in March reduces March, whatever month the sale was in, so "net revenue" is a cash figure a merchant can put beside a bank statement. **This reverses the earlier choice, and the reversal settles an argument this page was having with itself.** The original entry claimed attributing to the *order's* period "keeps a closed period closed"; M12 corrected that as backwards — re-reading January after a March refund returned a *lower* January — and then kept the behaviour anyway on the ground that a refund belongs to the sale it reverses. That ground is real but it is a cohort question, and it was being used to answer a cash question the dashboard's own label asks. Now a past period is genuinely immutable, which is what the page wanted all along. The cohort view (how much of what I sold in March came back) is a separate report and is not built. Two details make the switch correct rather than merely different: the sum comes from `Refund` rows, not `Payment.RefundedAmount`, which is a running total carrying no date at all; and it is filtered to `RefundStatus.Succeeded`, because `Refund.Fail` stamps `CompletedAt` exactly as `Succeed` does, so filtering on the date alone would deduct refunds the gateway rejected.
 2. **The product name in "best sellers" is the order-line snapshot**, not the product's current name. A product that was renamed or archived stays readable in yesterday's report. The **category** name is the opposite: it comes from the live category, translated, because a category is a classification rather than a record of what was sold.
 
 ## 3. What is not measured, and why
@@ -114,8 +114,8 @@ Measured against SQL Server through the development stack. All aggregation happe
 
 **Four figures the response returns that this page did not define, and their scope, added in M12.** All four sit
 beside period KPIs and are **not** period-scoped: `pendingOrders` (all placed orders still `Pending`, all time),
-`pendingRefunds` (all time — and it counts **payments** with an unsettled refund, so one payment with three
-pending refunds counts as one), `totalCustomers` (all non-erased accounts, all time, buyers or not — and it is
+`pendingRefunds` (all time — and since C11 it counts **refund requests** awaiting settlement, not payments: one
+payment with three pending refunds is three items of work, which is what the alert is for), `totalCustomers` (all non-erased accounts, all time, buyers or not — and it is
 the denominator of the browser-computed repeat rate, which therefore is not "the share of buyers who returned"),
 and `trend` (above).
 
