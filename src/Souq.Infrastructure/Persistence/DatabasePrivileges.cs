@@ -48,7 +48,20 @@ public sealed record DatabasePrivilegeReport(string Login, bool IsSysadmin, bool
 // ============================================================================
 public static class DatabaseIsolation
 {
-    private const string Query = "SELECT CONVERT(int, DATABASEPROPERTYEX(DB_NAME(), 'IsReadCommittedSnapshotOn'));";
+    // ============================================================================
+    // من `sys.databases` لا من `DATABASEPROPERTYEX`، رغم أن TD-68 وADR-0049 سمّيا الثانية:
+    // **`DATABASEPROPERTYEX(DB_NAME(), 'IsReadCommittedSnapshotOn')` تعيد NULL** — لا خاصّية
+    // بهذا الاسم، والدالة تجيب NULL عن المجهول بدل أن تخطئ. قِيس على SQL Server 2022 في الحاوية:
+    // العمود في `sys.databases` يقول 1 والدالة تقول NULL على القاعدة نفسها في اللحظة نفسها.
+    //
+    // وهذا بالضبط ما لا يكشفه إلا تشغيل التطبيق: الفحص كان "يعمل" ويسجّل "تعذّرت القراءة" في كل
+    // إقلاع — أي أنه يفشل **صامتاً**، وهو العيب الذي وُجد هو نفسه لعلاجه.
+    //
+    // والصفّ مرئيّ لهوية منخفضة الصلاحية: `sys.databases` تُظهر لكل مستفيد قواعده، وشرط
+    // `DB_ID()` يحصره في القاعدة العاملة.
+    // ============================================================================
+    private const string Query =
+        "SELECT CONVERT(int, is_read_committed_snapshot_on) FROM sys.databases WHERE database_id = DB_ID();";
 
     public static async Task<bool?> IsReadCommittedSnapshotOnAsync(AppDbContext db, CancellationToken ct = default)
     {
@@ -69,11 +82,13 @@ public static class DatabaseIsolation
     }
 
     public const string Warning =
-        "قاعدة البيانات تعمل بـ READ_COMMITTED_SNAPSHOT. حارس \"آخر مدير\" (AccountStatusChanger) "
-        + "يعتمد على قراءةٍ **قافلة** ليُسلسل المتسابقَين، وتحت اللقطات لا يقفل شيء فيمرّان معاً "
-        + "ويُوقَف آخر مديرَين للمتجر — بلا خطأ ولا أثر. عطّلها لهذه القاعدة "
-        + "(ALTER DATABASE ... SET READ_COMMITTED_SNAPSHOT OFF) أو حوّل ذلك الحارس إلى شكل العدّاد "
-        + "في ADR-0049. حصص الخطط (TenantQuotaGuard) غير متأثّرة. — TD-68";
+        "قاعدة البيانات تعمل بـ READ_COMMITTED_SNAPSHOT، وهذه هي الحال **المتوقَّعة** لا الاستثناء: "
+        + "EF Core يُفعّلها على أي قاعدة يُنشئها هو (قِيس: model = 0 وقاعدة التطبيق = 1، ولا شيء في "
+        + "المستودع يضبطها). أثرها أنّ حارس \"آخر مدير\" (AccountStatusChanger) يعتمد على قراءةٍ "
+        + "**قافلة** ليُسلسل المتسابقَين، وتحت اللقطات لا يقفل شيء فيمرّان معاً ويُوقَف آخر مديرَين "
+        + "للمتجر — بلا خطأ ولا أثر (F-29). عطّلها لهذه القاعدة "
+        + "(ALTER DATABASE ... SET READ_COMMITTED_SNAPSHOT OFF) أو اقرأ F-29 لحالة الإصلاح. "
+        + "حصص الخطط (TenantQuotaGuard) غير متأثّرة إطلاقاً — تحديثها المشروط يقفل مهما كان العزل. — TD-68";
 }
 
 public static class DatabasePrivileges

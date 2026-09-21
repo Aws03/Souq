@@ -113,6 +113,17 @@ isolation level whether or not quotas do, so a startup check reads the database'
 the runtime identity from the database at every boot, rather than a test that could only ever assert the test
 container.
 
+> **Two corrections from implementing this, 2026-09-21.** First, the query named above and in TD-68 does not
+> work: `DATABASEPROPERTYEX(DB_NAME(), 'IsReadCommittedSnapshotOn')` returns `NULL`, because no property of that
+> name exists, so the first build of the check reported "could not be read" at every boot and looked healthy.
+> `sys.databases.is_read_committed_snapshot_on` is the working source. Second, and more consequential: this
+> record and TD-68 both treat RCSI as a hazard that arrives *if* a managed database is adopted. **It is already
+> on.** Measured on the running stack — `model` = 0, the application's own database = 1, and nothing in this
+> repository sets it — the cause is EF Core, which enables RCSI on databases it creates. So option A's failure
+> is not a future risk to this repository; it is the present state of every deployment whose database EF
+> created, and it is recorded as an open defect, [F-29](../09-OPERATIONS/ReleaseReadiness.md). That strengthens
+> rather than changes the decision below: the counter was chosen precisely because it does not care.
+
 ## Consequences
 
 **Good.** Quota correctness stops depending on a database setting that a managed host enables by default. There

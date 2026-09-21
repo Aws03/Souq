@@ -98,6 +98,29 @@ public class EnforcementDiagnosticsTests
         report.Roles.Should().NotBeNullOrEmpty();
     }
 
+    // ========================================================================
+    // TD-68 / F-29. **يجب أن يعيد قيمة، لا null.**
+    //
+    // هذا الاختبار موجود لأن الفحص شُحن مرّةً وهو لا يعمل: كان يسأل
+    // `DATABASEPROPERTYEX(DB_NAME(), 'IsReadCommittedSnapshotOn')` — كما سمّتها TD-68 وADR-0049 —
+    // وتلك الدالة **تعيد NULL** لأنّ لا خاصّية بهذا الاسم، فكان الفحص يسجّل "تعذّرت القراءة" في
+    // كل إقلاع ويبدو سليماً. فحصٌ يفشل صامتاً هو بعينه العيب الذي وُجد لعلاجه، ولم يكشفه إلّا
+    // تشغيل التطبيق في حاوية. `null` هنا تعني أن الفحص عمي مرّةً أخرى.
+    //
+    // ولا تؤكّد القيمة نفسها عمداً: المقصود أنّ الفحص **يقيس**، لا أيّ إجابة تعطيها قاعدة بعينها.
+    // ========================================================================
+    [Fact]
+    public async Task فحص_مستوى_العزل_يقرأ_قيمة_فعلية_لا_يعجز_صامتاً()
+    {
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        var snapshotOn = await DatabaseIsolation.IsReadCommittedSnapshotOnAsync(db);
+
+        snapshotOn.Should().NotBeNull(
+            "الفحص يجب أن يقرأ الإعداد من SQL Server حقيقي — و null تعني أنّه عاد يعجز بصمت (F-29)");
+    }
+
     [Theory]
     [InlineData("Server=db;Database=S;User Id=souq_app;Password=x", "Server=db;Database=S;User Id=souq_app;Password=y", true)]
     [InlineData("Server=db;Database=S;User Id=souq_app;Password=x", "Server=db;Database=S;User Id=souq_migrator;Password=y", false)]

@@ -10,7 +10,7 @@
 | [`Souq.Domain.Tests`](#souqdomaintests) | 30 | 247 | 50 |
 | [`Souq.Application.Tests`](#souqapplicationtests) | 52 | 380 | 18 |
 | [`Souq.ArchitectureTests`](#souqarchitecturetests) | 17 | 74 | 8 |
-| [`Souq.IntegrationTests`](#souqintegrationtests) | 57 | 350 | 26 |
+| [`Souq.IntegrationTests`](#souqintegrationtests) | 57 | 351 | 26 |
 | [frontend (Vitest)](#frontend-vitest) | 94 | 711 | — |
 | [frontend (Playwright)](#frontend-playwright) | 19 | 126 | — |
 
@@ -150,7 +150,7 @@
 | `tests/Souq.IntegrationTests/CookieSecurityTests.cs` | `CookieSecurityTests` | 4 | 0 |
 | `tests/Souq.IntegrationTests/CouponRedemptionTests.cs` | `CouponRedemptionTests` | 3 | 0 |
 | `tests/Souq.IntegrationTests/CustomerAccountTests.cs` | `CustomerAccountTests` | 6 | 0 |
-| `tests/Souq.IntegrationTests/EnforcementDiagnosticsTests.cs` | `EnforcementDiagnosticsTests` | 2 | 3 |
+| `tests/Souq.IntegrationTests/EnforcementDiagnosticsTests.cs` | `EnforcementDiagnosticsTests` | 3 | 3 |
 | `tests/Souq.IntegrationTests/ErrorContractTests.cs` | `ErrorContractTests` | 8 | 1 |
 | `tests/Souq.IntegrationTests/GlobalExceptionHandlerTests.cs` | `GlobalExceptionHandlerTests` | 4 | 1 |
 | `tests/Souq.IntegrationTests/HealthCheckTests.cs` | `HealthCheckTests` | 7 | 0 |
