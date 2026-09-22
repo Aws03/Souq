@@ -516,6 +516,20 @@ Each phase lists: **delivers · depends on · blocked by · why here**.
   dependency. Three things `D-13` = A makes mandatory rather than optional arrive with it: TD-50 (record the
   account's identity, not just its kind), a payment item in store readiness, and a concurrency token on
   `StorePaymentAccounts`.
+- **Prerequisites and the mandatory trio: done (2026-09-22).** `TD-52` — the gateway construction is behind an
+  injectable `StoreGatewayFactory`, and every routing rule `D-13` rests on is now tested offline, including the
+  `503`-not-silent-fallback rule, which is mutation-checked because the silent version collects one merchant's
+  money into another's account. `TD-50` — a payment records the **publishable key** of the account that took it
+  and the router refuses a mismatch before calling
+  ([ADR-0061](../11-ADR/0061-a-payment-records-which-account-took-it.md)); an unrecorded identity passes, so no
+  existing payment lost its refund path on upgrade day. And `StorePaymentAccounts` now carries a concurrency
+  token, so two admins editing keys at once get a `409` instead of a silent overwrite — not an auto-retry, which
+  would be the same defect with an extra step.
+- **Still open in this phase:** the port re-shape itself — `StartPayment` with its discriminated result, the
+  *PaymentAttempt* aggregate, event-log-derived totals, the webhook **inbox** with raw-bytes verification and a
+  tenant-carrying route, declared adapter capabilities, and refund as its own entity. All are described in
+  [ADR-0048](../11-ADR/0048-payment-provider-abstraction.md); none needs an owner decision. The **adapter** for a
+  named provider stays blocked on a contract, which is external.
 
 ### C13 — Commissions, payouts, ledger and reconciliation
 

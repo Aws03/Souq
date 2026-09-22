@@ -70,7 +70,7 @@ Payments records the money side of an order — one payment per order, how it se
 
 **Aggregate boundary.** `Payment` owns its refunds; `IPaymentRepository.GetForOrderAsync` loads both. Nothing outside the aggregate may create or settle a `Refund` — the amount guard lives on the payment.
 
-**Concurrency.** `Payments` carries a `RowVersion`. Every refund changes the payment row (`PendingRefundAmount`, then `RefundedAmount`), so two concurrent refunds collide there: the loser re-reads and sees what the winner reserved. `Refunds` needs no token of its own. `StorePaymentAccounts` has none either — concurrent edits are last-write-wins.
+**Concurrency.** `Payments` carries a `RowVersion`. Every refund changes the payment row (`PendingRefundAmount`, then `RefundedAmount`), so two concurrent refunds collide there: the loser re-reads and sees what the winner reserved. `Refunds` needs no token of its own. **`StorePaymentAccounts` carries one since `C12`**: two admins editing keys at once used to produce a silent last-write-wins, and payment keys are not a display field — the loser believes their store collects into one account while it collects into another. The conflict surfaces as `409` and is **not** retried automatically, because retrying writes the second admin's keys over the first's, which is the same defect with an extra step.
 
 ```mermaid
 stateDiagram-v2
@@ -252,7 +252,7 @@ Add a provider · change refund rules · support a new currency or change minor-
 6. A refund changes nothing outside the payment: not the order status, not the coupon use, not stock.
 7. Money captured against an order that Ordering has already cancelled is recorded by `Payment.MarkCapturedAfterClose`, which moves the payment to `Succeeded` so the normal refund path accepts it ([ADR-0036](../../11-ADR/0036-payment-intent-state-machine.md)). Nothing refunds it automatically and nothing sweeps for it: the signal is an error log line, and the reconciliation query is "a `Succeeded` payment on a `Cancelled` order".
 8. Every refund is sent to Stripe with the reason `requested_by_customer`, whatever the real reason was; the store's reason is kept only in our own row.
-9. `StorePaymentAccounts` has no concurrency token: two admins editing keys at once silently produce last-write-wins.
+9. ~~`StorePaymentAccounts` has no concurrency token.~~ **Closed by `C12`**: it carries a `RowVersion`, and a stale edit is refused with `409` rather than silently overwriting.
 10. `PaymentIntentResult` defaults its gateway name to a value no adapter produces; adapters always pass their own `Name`, and the router treats anything that isn't `stripe:store` as the deployment account.
 11. Only Stripe and the fake gateway exist, and the Stripe adapter is untested (see Tests).
 

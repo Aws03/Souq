@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 using AwesomeAssertions;
 using Microsoft.EntityFrameworkCore;
+using Souq.Application.Common.Exceptions;
 using Souq.Domain.Entities;
 using Souq.Domain.Enums;
 using Souq.Infrastructure.Payments;
@@ -226,6 +227,57 @@ public class PaymentsAndRefundsTests
     // ولا شبكة في هذا الاختبار: فكّ التشفير يفشل **قبل** أن يُبنى أي كائن Stripe، فالفرع المحروس
     // يُبلَغ فعلاً بلا مفتاح حقيقي ولا اتصال خارجي — وهو ما جعل الاختبار ممكناً قبل TD-52.
     // ============================================================================
+    // ========================================================================
+    // تحريران متزامنان لمفاتيح الدفع (C12، جواب المالك D-13 = A).
+    //
+    // كان الصفّ بلا حارس تزامن: مديران يحفظان معاً، فيفوز الأخير صامتاً. والمفاتيحُ ليست حقلَ
+    // عرضٍ يُغتفر فيه ذلك — الخاسرُ يظنّ متجره يقبض في حسابٍ وهو يقبض في آخر.
+    //
+    // ويُفحص هنا أنّ الثاني **يُرفض بـ409** لا أن يُعاد تلقائياً: إعادةُ المحاولة تكتب مفاتيحه
+    // فوق مفاتيح الأوّل، وهو العطبُ نفسه بخطوةٍ إضافية.
+    // ========================================================================
+    [Fact]
+    public async Task تحريران_متزامنان_لمفاتيح_الدفع_لا_يفوز_فيهما_الأخير_صامتاً()
+    {
+        var store = await _factory.CreateStoreAsync();
+        var storeApi = _api.ForStore(store);
+        var storeAdmin = await storeApi.AdminAsync();
+
+        (await storeAdmin.PutAsJsonAsync("/api/admin/store/payments",
+                new { publishableKey = "pk_test_51ConcurrencyFirst", secretKey = "sk_test_51ConcurrencyFirstAaa" }))
+            .StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        // نسخةٌ قديمة من الصفّ في يد «المدير الثاني»: قرأها قبل أن يكتب الأوّل مرّةً أخرى.
+        var stale = await storeApi.WithDbAsync(db => db.StorePaymentAccounts.AsNoTracking().SingleAsync());
+
+        (await storeAdmin.PutAsJsonAsync("/api/admin/store/payments",
+                new { publishableKey = "pk_test_51ConcurrencySecond", secretKey = "sk_test_51ConcurrencySecondBb" }))
+            .StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        // الكتابةُ بالنسخة القديمة تصطدم بالحارس بدل أن تمرّ فوق ما كُتب بعدها.
+        var conflict = await storeApi.WithDbAsync(async db =>
+        {
+            db.Attach(stale);
+            stale.Update("pk_test_51ConcurrencyThird", false, "cipher", "…Ccc", null, null);
+            try
+            {
+                await db.SaveChangesAsync();
+                return false;
+            }
+            // النوعُ هو استثناءُ التطبيق لا استثناءُ EF: `AppDbContext` يترجمه، وهو ما يُربط
+            // إلى 409 في المعالج العام — أي أنّ ما يُفحص هنا هو ما يصل المستخدم فعلاً.
+            catch (ConcurrencyConflictException)
+            {
+                return true;
+            }
+        });
+
+        conflict.Should().BeTrue("صفٌّ بلا rowversion كان يقبل هذه الكتابة ويمحو ما قبلها بلا أثر");
+
+        var row = await storeApi.WithDbAsync(db => db.StorePaymentAccounts.AsNoTracking().SingleAsync());
+        row.PublishableKey.Should().Be("pk_test_51ConcurrencySecond", "ما كُتب آخراً بنجاح هو ما يبقى");
+    }
+
     [Fact]
     public async Task سرّ_حساب_المتجر_التالف_يُسقط_الدفع_ولا_يرجع_صامتاً_لحساب_النشر()
     {

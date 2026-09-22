@@ -61,8 +61,10 @@ public class PaymentDataRulesTests
         // مفاتيح المتجر: العلني كما هو، والسرّان مشفَّران فقط — لا عمود لنصّهما.
         ColumnsOf(db, "StorePaymentAccounts").Should().Equal(new[]
         {
-            "CreatedAt", "Id", "LiveMode", "Provider", "PublishableKey", "SecretKeyCipher", "SecretKeyHint", "TenantId",
-            "UpdatedAt", "UpdatedByUserId", "WebhookSecretCipher",
+            // "RowVersion" أُضيف بقرارٍ مُراجَع (C12): حارسُ تزامنٍ على صفٍّ كان «آخرُ كاتبٍ يفوز»
+            // فيه صامتاً — ومفاتيحُ الدفع ليست حقلَ عرضٍ يُغتفر فيه ذلك.
+            "CreatedAt", "Id", "LiveMode", "Provider", "PublishableKey", "RowVersion", "SecretKeyCipher",
+            "SecretKeyHint", "TenantId", "UpdatedAt", "UpdatedByUserId", "WebhookSecretCipher",
         }.Order());
     }
 }
