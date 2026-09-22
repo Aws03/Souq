@@ -67,9 +67,9 @@ public class BasketConcurrencyTests
 
             var statuses = string.Join(", ", responses.Select(r => (int)r.StatusCode));
             responses.Should().NotContain(r => r.StatusCode == HttpStatusCode.Conflict,
-                $"الجولة {round}: دمج سلّة الزائر لا يجوز أن يُنتج تعارضاً على قراءة (F-28) — الردود: {statuses}{ServerErrors()}");
+                $"الجولة {round}: دمج سلّة الزائر لا يجوز أن يُنتج تعارضاً على قراءة (F-28) — الردود: {statuses}{ServerErrors(responses)}");
             responses.Should().OnlyContain(r => r.StatusCode == HttpStatusCode.OK,
-                $"الجولة {round}: كل قراءة للسلّة تنجح مهما تزامنت — الردود: {statuses}{ServerErrors()}");
+                $"الجولة {round}: كل قراءة للسلّة تنجح مهما تزامنت — الردود: {statuses}{ServerErrors(responses)}");
 
             // والدمج وقع **مرّة واحدة**: ستّ قراءات متزامنة لا تضيف الصنف ستّ مرّات.
             var baskets = await Task.WhenAll(responses.Select(r => r.Content.ReadFromJsonAsync<TestApi.BasketBody>(TestApi.Json)));
@@ -121,8 +121,9 @@ public class BasketConcurrencyTests
         var responses = await Task.WhenAll(writes.Concat(reads).ToArray());
 
         var statuses = string.Join(", ", responses.Select(r => (int)r.StatusCode));
-        responses.Should().NotContain(r => r.StatusCode == HttpStatusCode.Conflict, $"لا تعارض — الردود: {statuses}");
-        responses.Should().NotContain(r => (int)r.StatusCode >= 500, $"ولا خطأ خادم — الردود: {statuses}{ServerErrors()}");
+        responses.Should().NotContain(r => r.StatusCode == HttpStatusCode.Conflict,
+            $"لا تعارض — الردود: {statuses}{ServerErrors(responses)}");
+        responses.Should().NotContain(r => (int)r.StatusCode >= 500, $"ولا خطأ خادم — الردود: {statuses}{ServerErrors(responses)}");
     }
 
     // ========================================================================
@@ -135,13 +136,32 @@ public class BasketConcurrencyTests
     // ويقرأ من `CapturingLoggerProvider` المُسجَّل أصلاً في المصنع: أخطاءُ الخادم تُلتقط، ورقمُ
     // خطأ SQL يظهر في نصّها — وهو ما يفرّق الجمود (1205) عن انتهاء المهلة (-2) عن غيرهما،
     // والفرقُ بينها هو الفرقُ بين إصلاحٍ صحيح وتخمين.
+    //
+    // **والتصفيةُ بمعرّف الربط لا بالمستوى وحده**: الطابور يخصّ المصنع كلّه، أي كلَّ اختبارٍ في
+    // المجموعة. النسخةُ الأولى أخذت أوّل ثلاثة أخطاء فطبعت حجباً لكتابةٍ عابرة للمتاجر من اختبار
+    // عزلٍ آخر — ضجيجٌ صادقٌ في غير موضعه، كلّف جولة CI كاملة. فالردُّ الفاشل يحمل
+    // `X-Correlation-Id`، والسطرُ الذي يحمل المكدَّس يحمله أيضاً (GlobalExceptionHandler)، فيُجمَعان.
     // ========================================================================
-    private string ServerErrors() =>
-        string.Join(" | ", _factory.Logs.Entries
-            .Where(e => e.Level >= LogLevel.Error)
+    private string ServerErrors(IEnumerable<HttpResponseMessage> responses)
+    {
+        var ids = responses
+            .Where(r => r.StatusCode == HttpStatusCode.Conflict || (int)r.StatusCode >= 500)
+            .SelectMany(r => r.Headers.TryGetValues("X-Correlation-Id", out var values) ? values : [])
+            .ToHashSet(StringComparer.Ordinal);
+        if (ids.Count == 0) return string.Empty;
+
+        // في النطاق (سطر الطلب) أو في الخصائص (سطر الاستثناء، وهو خارج النطاق) — أيّهما وُجد.
+        var captured = _factory.Logs.Entries
+            .Where(e => e.Level >= LogLevel.Warning && (Value(e.Scope) ?? Value(e.Properties)) is { } id && ids.Contains(id))
             .Select(e => $"{e.Category}: {e.Message}")
             .Distinct()
-            .Take(3)) is { Length: > 0 } captured
-            ? $" — سجلّ الخادم: {captured}"
-            : " — لا خطأ في سجلّ الخادم";
+            .ToArray();
+
+        return captured.Length > 0
+            ? $" — سجلّ الخادم لـ {string.Join("، ", ids)}: {string.Join(" | ", captured)}"
+            : $" — لا سطر خطأ تحت {string.Join("، ", ids)}";
+
+        static string? Value(IReadOnlyDictionary<string, object?> from) =>
+            from.TryGetValue("CorrelationId", out var id) ? id?.ToString() : null;
+    }
 }

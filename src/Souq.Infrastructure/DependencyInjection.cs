@@ -94,11 +94,14 @@ public static class DependencyInjection
         // عند الإضافة ورفض الكتابة عبر المتاجر — MultiTenancy.md §4).
         services.AddSingleton<AuditTimestampsInterceptor>();
         services.AddSingleton<TenantWriteGuardInterceptor>();
+        // ومعترِضُ أوامرٍ يترجم الجمود على **كل** أمر — قراءةً كان أو كتابةً (F-33).
+        services.AddSingleton<DeadlockTranslatingInterceptor>();
         services.AddDbContext<AppDbContext>((sp, options) =>
             options.UseSqlServer(connectionString)
                    .AddInterceptors(
                        sp.GetRequiredService<AuditTimestampsInterceptor>(),
-                       sp.GetRequiredService<TenantWriteGuardInterceptor>()));
+                       sp.GetRequiredService<TenantWriteGuardInterceptor>(),
+                       sp.GetRequiredService<DeadlockTranslatingInterceptor>()));
 
         // دليل المتاجر (المضيف ⇒ المتجر) مخزَّن مؤقتاً في العملية؛ الذاكرة Singleton والاستعلام لكل نطاق.
         services.AddSingleton<TenantDirectoryCache>();

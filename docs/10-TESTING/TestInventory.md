@@ -10,7 +10,7 @@
 | [`Souq.Domain.Tests`](#souqdomaintests) | 35 | 335 | 56 |
 | [`Souq.Application.Tests`](#souqapplicationtests) | 59 | 448 | 22 |
 | [`Souq.ArchitectureTests`](#souqarchitecturetests) | 17 | 77 | 8 |
-| [`Souq.IntegrationTests`](#souqintegrationtests) | 68 | 431 | 29 |
+| [`Souq.IntegrationTests`](#souqintegrationtests) | 69 | 433 | 29 |
 | [frontend (Vitest)](#frontend-vitest) | 108 | 836 | — |
 | [frontend (Playwright)](#frontend-playwright) | 24 | 147 | — |
 
@@ -164,11 +164,12 @@
 | `tests/Souq.IntegrationTests/CookieSecurityTests.cs` | `CookieSecurityTests` | 4 | 0 |
 | `tests/Souq.IntegrationTests/CouponRedemptionTests.cs` | `CouponRedemptionTests` | 3 | 0 |
 | `tests/Souq.IntegrationTests/CustomerAccountTests.cs` | `CustomerAccountTests` | 6 | 0 |
+| `tests/Souq.IntegrationTests/DeadlockTranslationTests.cs` | `DeadlockTranslationTests` | 1 | 0 |
 | `tests/Souq.IntegrationTests/DistributedLeaseTests.cs` | `DistributedLeaseTests` | 5 | 0 |
 | `tests/Souq.IntegrationTests/DunningTests.cs` | `DunningTests` | 4 | 0 |
 | `tests/Souq.IntegrationTests/EnforcementDiagnosticsTests.cs` | `EnforcementDiagnosticsTests` | 3 | 3 |
 | `tests/Souq.IntegrationTests/ErrorContractTests.cs` | `ErrorContractTests` | 8 | 1 |
-| `tests/Souq.IntegrationTests/GlobalExceptionHandlerTests.cs` | `GlobalExceptionHandlerTests` | 4 | 1 |
+| `tests/Souq.IntegrationTests/GlobalExceptionHandlerTests.cs` | `GlobalExceptionHandlerTests` | 5 | 1 |
 | `tests/Souq.IntegrationTests/HealthCheckTests.cs` | `HealthCheckTests` | 7 | 0 |
 | `tests/Souq.IntegrationTests/InventoryAndOrderTests.cs` | `InventoryAndOrderTests` | 11 | 0 |
 | `tests/Souq.IntegrationTests/LastAdministratorConcurrencyTests.cs` | `LastAdministratorConcurrencyTests` | 2 | 0 |

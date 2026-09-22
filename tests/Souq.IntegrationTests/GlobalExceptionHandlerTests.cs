@@ -110,6 +110,33 @@ public class GlobalExceptionHandlerTests
         logs.Entries.Should().Contain(e => e.Message.Contains("/api/orders/track/***"), "القالب يبقى مفيداً للتشخيص");
     }
 
+    // ========================================================================
+    // السطر الذي يحمل المكدَّس يحمل معرّف الربط أيضاً.
+    //
+    // هذه الطبقة **خارج** `RequestLoggingMiddleware`، فنطاقُ سجلّ الطلب — وفيه `CorrelationId` —
+    // يُتخلَّص منه قبل أن يصل الاستثناءُ إلى هنا. فكان الجسمُ يُسلّم العميلَ `traceId` والسطرُ
+    // الوحيد ذو المكدَّس لا يحمله: يشتكي مستخدمٌ برمزه، فلا يُجاب إلا تخميناً بين أخطاءٍ
+    // متجاورة زمنياً. والقيمة واحدة في الثلاثة: الترويسة، والجسم، والسجلّ.
+    // ========================================================================
+    [Fact]
+    public async Task سطر_الخطأ_يحمل_معرّف_الربط_نفسه_الذي_يتسلّمه_العميل()
+    {
+        var logs = new CapturingLoggerProvider();
+        var context = NewContext();
+
+        await HandlerFor(context, logs).TryHandleAsync(context, new InvalidOperationException("boom"), CancellationToken.None);
+
+        context.Response.Body.Position = 0;
+        using var document = await JsonDocument.ParseAsync(context.Response.Body);
+        var traceId = document.RootElement.GetProperty(ProblemDetailsConventions.TraceIdKey).GetString()!;
+
+        traceId.Should().NotBeNullOrWhiteSpace();
+        logs.Entries.Should().Contain(
+            e => e.Level == LogLevel.Error && e.Properties.ContainsKey("CorrelationId")
+                 && (string?)e.Properties["CorrelationId"] == traceId,
+            "سؤال «ماذا جرى في الطلب الذي رمزه كذا؟» لا يُجاب إن لم يحمله سطرُ الاستثناء");
+    }
+
     private static async Task<(int Status, JsonElement Json)> HandleAsync(Exception exception)
     {
         var context = NewContext();

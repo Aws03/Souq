@@ -762,7 +762,9 @@ that has never reported blocks every merge.
 > **Resolved.** The repository was made **public** with the owner's authorisation after a clean security audit,
 > and public repositories get standard-runner minutes free. The first run afterwards executed all four jobs for
 > the first time since before M13 — and immediately earned its keep by reproducing a concurrency defect that a
-> developer machine could not (F-33 in [ReleaseReadiness.md](ReleaseReadiness.md)). Subsequent runs are green.
+> developer machine could not: **F-33**, a SQL Server deadlock whose victim was a *read*, which had been escaping
+> the repository's deadlock translation entirely because that translation only covered writes
+> ([ReleaseReadiness.md](ReleaseReadiness.md)). It cost two red runs and paid for both.
 >
 > The diagnosis below is kept because it was correct, and because the shape of it is worth remembering: **every
 > job failed in three seconds and none of them ever started.** Nothing in the repository could have fixed it,

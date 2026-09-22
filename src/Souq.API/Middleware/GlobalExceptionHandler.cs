@@ -113,15 +113,24 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
         string.Join('.', propertyName.Split('.').Select(JsonNamingPolicy.CamelCase.ConvertName));
 
     // المسار يمرّ بالتنقيح نفسه الذي يمرّ به سطر الطلب: رمز التتبّع جزء من المسار، ومسار الخطأ كان ينسخه خاماً (R-10).
+    //
+    // ── ولماذا يحمل كلُّ سطرٍ هنا `CorrelationId` صراحةً ──
+    // هذه الطبقة **خارج** `RequestLoggingMiddleware` (Program.cs: `UseExceptionHandler` قبله)، فالاستثناء
+    // يصعد من الوسيط فيُتخلَّص من نطاق سجلّه قبل أن يصل إلى هنا. فكان السطر الوحيد الذي يحمل المكدَّس هو
+    // السطر الوحيد بلا معرّف ربط: لا يُضمّ إلى سطر الطلب، ولا إلى متجره ومستخدمه، ولا إلى `traceId`
+    // المكتوب في الجسم الذي يتلوه العميلُ حين يشتكي. المعرّف نفسه يُكتب في الترويسة وفي الجسم، فيصير
+    // السؤال «ماذا جرى في الطلب 8244eec…؟» قابلاً للجواب بدل أن يكون تخميناً بين أخطاء متجاورة زمنياً.
     private void Log(HttpContext httpContext, Exception exception, int status)
     {
+        var correlationId = RequestCorrelation.GetId(httpContext);
         if (status >= StatusCodes.Status500InternalServerError)
-            _logger.LogError(exception, "Unhandled exception while processing {Method} {Path}",
-                httpContext.Request.Method, SensitivePath.Redact(httpContext));
+            _logger.LogError(exception, "Unhandled exception while processing {Method} {Path} ({CorrelationId})",
+                httpContext.Request.Method, SensitivePath.Redact(httpContext), correlationId);
         else if (status == StatusCodes.Status409Conflict)
-            _logger.LogWarning("Persistence conflict {ConflictType} on {Method} {Path}",
-                exception.GetType().Name, httpContext.Request.Method, SensitivePath.Redact(httpContext));
+            _logger.LogWarning("Persistence conflict {ConflictType} on {Method} {Path} ({CorrelationId})",
+                exception.GetType().Name, httpContext.Request.Method, SensitivePath.Redact(httpContext), correlationId);
         else
-            _logger.LogDebug("Request rejected with {StatusCode}: {ExceptionType}", status, exception.GetType().Name);
+            _logger.LogDebug("Request rejected with {StatusCode}: {ExceptionType} ({CorrelationId})",
+                status, exception.GetType().Name, correlationId);
     }
 }
