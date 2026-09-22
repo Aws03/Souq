@@ -114,6 +114,13 @@ describe('التباين كما يحسبه الخادم', () => {
     const branding = previewBranding(form({ colors: { ...form().colors, accent: '#F2A541' } }));
     expect(branding.colors.onAccent).toBe('#1F2933');
   });
+
+  // القالبُ يصل المعاينة (C8، ADR-0059). سقط أوّل مرّة، فبقيت المعاينةُ تُبنى على `classic`
+  // مهما اختار التاجر — والرحلةُ في المتصفّح هي ما أمسكه، لأنّ الحقل يُرسَل في الحفظ صحيحاً
+  // ولا يظهر النقصُ إلّا في شيءٍ يُرسَم.
+  it('القالب يصل المعاينة كما يصل جسم الحفظ', () => {
+    expect(previewBranding(form({ themePreset: 'bold' })).themePreset).toBe('bold');
+  });
 });
 
 describe('الحدود والقوائم من الخادم', () => {

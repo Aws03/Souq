@@ -81,6 +81,8 @@
   --fs-body-sm: 15px;
   --fs-caption: 13px;
   --fs-label: 13px;
+  /* وزنُ العناوين رمزٌ لا رقمٌ في قاعدة: هو ما يغيّره القالب (C8، ADR-0059). */
+  --weight-display: 600;
 
   /* ── الحركة ────────────────────────────────────────────────────────────
      ثلاث مدد ومنحنيان، لا أكثر. القاعدة: ما يستجيب للمسّ سريع (120ms)، وما ينزلق
@@ -144,16 +146,79 @@ html[data-theme='dark'] {
   --color-danger: #CD7E69;
 }
 
-/* ── القوالب (Presets) ─────────────────────────────────────────────────────
-   لا سمة يختارها الزائر بعد المرحلة 15 (A7): الهوية قرار المتجر. applyStoreTheme يضع قالب المتجر
-   (classic / minimal / bold) في data-preset على <html> — نقطة ربط لتنويعات التخطيط في المرحلة 16
-   (WhiteLabel.md §4)، والألوان والخطّ من إعداد المتجر لا من هنا. */
+/* ============================================================================
+   القوالب (Presets) — ما تعنيه الثلاثة فعلاً (C8، TD-65، [ADR-0059](0059))
+   ============================================================================
+   `applyStoreTheme` يضع قالب المتجر في `data-preset` على `<html>` منذ المرحلة 15، ولم يكن يختار
+   عليه شيء: متجرٌ يبدّل بين الثلاثة لا يرى فرقاً، وخيارٌ مُقدَّمٌ لا يفعل شيئاً أسوأ من خيارٍ
+   غير مُقدَّم.
+
+   **والقاعدةُ التي تحسم ما تكونه الثلاثة: اللونُ والخطُّ ملكُ التاجر، لا ملكُ القالب.** المتجر
+   يختار هويّته من إعداده، فقالبٌ يفرض لوناً يُنازعه عليها. ولذلك لا يلمس أيُّ قالبٍ هنا لوناً
+   ولا خطّاً — الثلاثة ثلاثةُ أجوبةٍ عن سؤالٍ واحد: **كم تفرض الواجهةُ نفسَها؟**
+
+     • `classic` — الأسطحُ تطفو: ظلٌّ ناعم، أنصافُ أقطارٍ سخيّة، وزنٌ معتدل. الافتراض.
+     • `minimal` — لا شيء يطفو: الظلُّ يصير **خطّاً بسمك بكسل**، والأقطارُ تضيق، والوزن يخفّ.
+     • `bold`    — حوافٌّ حادّة، إطارٌ بسمك بكسلين، ووزنٌ ثقيل. أقربُ إلى لافتةٍ منه إلى بطاقة.
+
+   **والحيلةُ التي تجعل هذا بلا تعديل مكوّنٍ واحد**: الظلُّ لا يُلغى بل يُعاد تعريفه حلقةً
+   (`0 0 0 1px`). فكلُّ ما يكتب `box-shadow: var(--shadow)` — وهو كلُّ سطحٍ في المنتج — يصير له
+   خطٌّ بدل الظلّ من تلقاء نفسه. ولأنّ الحلقة تُرسم بـ `--color-border`، فهي **تتبع الوضع
+   الداكن مجّاناً**: الرمزُ نفسه يُعاد تعريفه هناك.
+
+   وموضعُ هذه الكتلة بعد كتلة الداكن مقصود: تخصيصُهما متساوٍ (كلاهما `html[attr]`)، فالترتيب هو
+   ما يحسم — والقالبُ يجب أن يعلو اشتقاقَ الظلّ للوضع الداكن، لا العكس.
+
+   `--radius-pill` لا يتغيّر في أيّ قالب: هو شكلٌ وظيفيّ (لصائق، شارات) لا ذوقٌ في التخطيط.
+
+   **والمحدِّدُ سمةٌ وحدها لا `html[data-preset]`**، كي تلتقطه **معاينةُ الإعدادات** أيضاً: هي
+   `<div>` تحمل السمة نفسها لا الجذر، ومحدِّدٌ مربوطٌ بـ `html` كان سيترك التاجر يبدّل القوالب
+   في المعاينة بلا أن يتغيّر شيء — وهو العطب نفسه الذي تُصلحه هذه المرحلة. */
+
+/* الافتراضُ مكتوبٌ صراحةً وإن ساوى `:root`: ملفٌّ يصف قالبين من ثلاثة يقرأ كأنّ الثالث نُسي. */
+[data-preset='classic'] {
+  --weight-display: 600;
+}
+
+[data-preset='minimal'] {
+  --radius-sm: 4px;
+  --radius: 6px;
+  --radius-lg: 10px;
+  --card-radius: 6px;
+  --weight-display: 500;
+
+  /* الظلُّ خطّ. والدرجاتُ الأربع تبقى أربعاً — ما كان أعلى يصير خطّاً أظهر لا أعرض. */
+  --shadow-sm: 0 0 0 1px var(--color-border);
+  --shadow: 0 0 0 1px var(--color-border);
+  --shadow-md: 0 0 0 1px var(--color-border);
+  --shadow-lg: 0 0 0 1px var(--color-border), 0 12px 32px rgb(0 0 0 / 0.16);
+
+  /* عناوينُ أهدأ قليلاً: الفرقُ في الوزن وحده يُقرأ سهواً لا قراراً. */
+  --fs-display: clamp(28px, 4.2vw, 40px);
+  --fs-heading-lg: clamp(20px, 2.6vw, 25px);
+}
+
+[data-preset='bold'] {
+  --radius-sm: 0px;
+  --radius: 2px;
+  --radius-lg: 4px;
+  --card-radius: 2px;
+  --weight-display: 800;
+
+  --shadow-sm: 0 0 0 1px var(--color-border);
+  --shadow: 0 0 0 2px var(--color-border);
+  --shadow-md: 0 0 0 2px var(--color-border);
+  --shadow-lg: 0 0 0 2px var(--color-border), 0 16px 40px rgb(0 0 0 / 0.22);
+
+  --fs-display: clamp(36px, 5.6vw, 56px);
+  --fs-heading-lg: clamp(24px, 3.4vw, 32px);
+}
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html { scroll-behavior: smooth; }
 body { font-family: var(--font-body); background: var(--color-bg); color: var(--color-text);
   line-height: 1.6; font-size: var(--fs-body); }
-h1, h2, h3 { font-family: var(--font-display); font-weight: 600; }
+h1, h2, h3 { font-family: var(--font-display); font-weight: var(--weight-display); }
 button { font-family: var(--font-body); cursor: pointer; border: none; background: none; color: inherit; }
 input, textarea, select { font-family: var(--font-body); font-size: var(--fs-body-sm); color: inherit; }
 img { display: block; max-width: 100%; }

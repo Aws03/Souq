@@ -18,7 +18,10 @@ export default function StorePreview({ branding, texts, logoUrl, fallbackName })
   const { t, i18n } = useTranslation();
   const [mode, setMode] = useState('light');
   const language = i18n.language;
-  const variables = useMemo(() => themeVariables(branding, mode), [branding, mode]);
+  // القالبُ مُدخَلٌ هنا كما هو في `applyStoreTheme` (C8): المعاينةُ هي الموضعُ الذي يجرّب فيه
+  // التاجرُ الثلاثةَ قبل أن يحفظ، ومعاينةٌ لا تُظهر الفرق تجعله يحفظ ليكتشفه — أو لا يحفظ أصلاً.
+  const preset = branding.themePreset || 'classic';
+  const variables = useMemo(() => themeVariables(branding, mode, preset), [branding, mode, preset]);
 
   useEffect(() => { if (branding.typography) loadPreviewFonts(branding.typography); }, [branding.typography]);
 
@@ -42,7 +45,7 @@ export default function StorePreview({ branding, texts, logoUrl, fallbackName })
       </div>
 
       {/* الإطار زخرفيّ للقارئ الآلي: نصوصه هي نفسها الحقول أعلاه، وقراءتها مرّتين ضجيج. */}
-      <div className={styles.frame} style={variables} data-theme={mode} aria-hidden="true">
+      <div className={styles.frame} style={variables} data-theme={mode} data-preset={preset} aria-hidden="true">
         {announcement && <div className={styles.announcement}>{announcement}</div>}
         <div className={styles.header}>
           {logoUrl ? <img className={styles.logo} src={logoUrl} alt="" /> : <span className={styles.name}>{name}</span>}

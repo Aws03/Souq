@@ -353,7 +353,7 @@ Each phase lists: **delivers · depends on · blocked by · why here**.
 - **Blocked by.** C-11 (managed edge or self-run; apex support; activation SLA; abandoned-domain policy).
 - **Why here.** This is what turns onboarding customer #2 from an operation into a product.
 
-### C8 — Customization a merchant can see
+### C8 — Customization a merchant can see — **presets done, section registry open**
 
 - **Delivers.** Real theme presets (CSS only — the hook, validation, delivery and editor already exist). A
   server-validated registry of section types so the home page becomes an ordered descriptor list rather than
@@ -372,11 +372,24 @@ Each phase lists: **delivers · depends on · blocked by · why here**.
   real. A new architecture test pairs the domain's kind list with the footer's labels and both locale files,
   and was shown to fail on an unlabelled kind before it was kept. **This also closes the one deliverable that
   kept `M2` of [SouqMasterPlan.md](SouqMasterPlan.md) open.**
-- **Still open in this phase:** the three theme presets (TD-65 — the attribute is delivered and no stylesheet
-  selects on it) and the server-validated section registry. Both need a design decision, not an owner
-  decision.
-- **Why here.** It is the cheapest credibility fix on the list: a merchant evaluating the product today picks one
-  of three themes and sees no difference, which reads as broken.
+- **Theme presets: done (2026-09-22), closing `TD-65`** ([ADR-0059](../11-ADR/0059-theme-presets-vary-form-not-colour.md)).
+  The design decision this waited on was made and written down: **a preset varies form, never colour or font
+  family** — those are the merchant's identity, chosen in the same editor, and a preset imposing a palette
+  would compete with the store for it. So the three are three answers to *how much the interface asserts
+  itself*: `classic` floats on a soft brand-tinted shadow, `minimal` replaces that shadow with a 1px hairline
+  and tightens the radii, `bold` squares the corners, thickens the rule to 2px and raises the heading weight.
+  **No component changed** — `minimal` and `bold` redefine `--shadow` as `0 0 0 Npx var(--color-border)`, and
+  every surface already writes `box-shadow: var(--shadow)`, so each acquires a line for free and dark mode with
+  it, because the border token is already derived per mode. The selector is the bare attribute, not
+  `html[…]`, so the **settings preview** picks it up too. Two defects fell out and were fixed: `previewBranding`
+  dropped `themePreset`, so the preview was always `classic` — the browser journey caught it, because the field
+  is sent correctly on save and the loss is only visible in something drawn — and `--shadow-sm`/`--shadow-md`
+  were never derived at all, keeping light-mode values in dark mode, which is a black shadow on a black surface.
+- **Still open in this phase:** the server-validated section registry. `Storefront.jsx` composes a fixed JSX
+  list and the section components are already prop-driven, so they are renderers waiting for a descriptor list.
+  A design decision, not an owner decision.
+- **Why here.** It was the cheapest credibility fix on the list: a merchant evaluating the product picked one of
+  three themes and saw no difference, which reads as broken. That half is now closed; the layout half is not.
 
 ### C9 — The behavioural event foundation — **the store and the write path are done**
 

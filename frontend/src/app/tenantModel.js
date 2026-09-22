@@ -93,7 +93,45 @@ const DARK_TEXT_ON = '#ECEFF4';
 
 export const THEME_MODES = ['light', 'dark'];
 
-export function themeVariables(branding, mode = 'light') {
+// ============================================================================
+// القوالبُ الثلاثة (C8، TD-65، [ADR-0059](0059)) — ونصفُها هنا لا في الورقة، **لأنّ الظلّ وحده
+// من رموز القالب يُكتب سطرياً**: ظلُّ الوضع الفاتح مصبوغٌ بلون هوية المتجر (`rgba(primary, .08)`)،
+// فهو مشتقٌّ لا ثابت، والسطريُّ يعلو أيَّ قاعدة — تماماً كما يقول رأسُ `storeTheme.js` عن الوضع.
+//
+// وبقيّةُ القالب (أنصافُ الأقطار، وزنُ العناوين، مقياسُ العناوين) في `styles.css`: لا يكتبها أحدٌ
+// سطرياً فلا تُغلَب. والنافذةُ بين أوّل رسمٍ ووصول الإعداد تحكمها الورقةُ وحدها، ولهذا تحمل
+// الورقةُ ظلالَ القوالب أيضاً — **والاثنان يجب أن يتّفقا، ويحرس ذلك `styles.presets.test.js`.**
+//
+// و`minimal` و`bold` لا يصبغان الظلّ بالهوية أصلاً: حلقتُهما تُرسم بـ `--color-border` المشتقّ
+// للوضع، فهي تتبع الفاتح والداكن بلا سطرٍ ثانٍ.
+// ============================================================================
+export const THEME_PRESETS = ['classic', 'minimal', 'bold'];
+
+function shadowScale(preset, dark, primary) {
+  // حلقةٌ بدل ظلّ. `--shadow-lg` يحتفظ بظلٍّ حقيقيّ في القالبين: هو ارتفاعُ الحوارات
+  // والقوائم المنسدلة، وسطحٌ يطفو فوق الصفحة كلّها بخطٍّ وحده يضيع فيما تحته.
+  if (preset === 'minimal' || preset === 'bold') {
+    const ring = preset === 'bold' ? '0 0 0 2px var(--color-border)' : '0 0 0 1px var(--color-border)';
+    return {
+      '--shadow-sm': '0 0 0 1px var(--color-border)',
+      '--shadow': ring,
+      '--shadow-md': ring,
+      '--shadow-lg': `${ring}, 0 ${dark ? 20 : 16}px ${dark ? 48 : 40}px ${rgba('#000000', dark ? 0.6 : 0.22)}`,
+    };
+  }
+
+  // الظلّ لا يعمل على سطح داكن: الارتفاع هناك حدٌّ مضيء لا ظلّ أسود.
+  return {
+    '--shadow-sm': dark ? `0 1px 0 ${rgba('#FFFFFF', 0.05)}` : `0 1px 2px ${rgba(primary, 0.06)}`,
+    '--shadow': dark ? `0 1px 0 ${rgba('#FFFFFF', 0.06)}, 0 8px 24px ${rgba('#000000', 0.45)}`
+      : `0 6px 24px ${rgba(primary, 0.08)}`,
+    '--shadow-md': dark ? `0 1px 0 ${rgba('#FFFFFF', 0.06)}, 0 12px 32px ${rgba('#000000', 0.5)}`
+      : `0 10px 30px ${rgba(primary, 0.10)}`,
+    '--shadow-lg': dark ? `0 24px 60px ${rgba('#000000', 0.65)}` : `0 20px 50px ${rgba('#000000', 0.25)}`,
+  };
+}
+
+export function themeVariables(branding, mode = 'light', preset = 'classic') {
   const colors = branding?.colors ?? {};
   const primary = hex(colors.primary, NEUTRAL.primary);
   const accent = hex(colors.accent, NEUTRAL.accent);
@@ -194,10 +232,9 @@ export function themeVariables(branding, mode = 'light') {
     '--color-danger': readableAgainst(STATUS.danger, statusSoft.danger),
     '--color-danger-soft': statusSoft.danger,
 
-    // الظلّ لا يعمل على سطح داكن: الارتفاع هناك حدٌّ مضيء لا ظلّ أسود.
-    '--shadow': dark ? `0 1px 0 ${rgba('#FFFFFF', 0.06)}, 0 8px 24px ${rgba('#000000', 0.45)}`
-      : `0 6px 24px ${rgba(primary, 0.08)}`,
-    '--shadow-lg': dark ? `0 24px 60px ${rgba('#000000', 0.65)}` : `0 20px 50px ${rgba('#000000', 0.25)}`,
+    // سُلَّمُ الارتفاع الكامل، بحسب القالب — والدرجتان الوسطيان كانتا تُتركان للورقة، فتبقيان
+    // على قيم الوضع الفاتح في الوضع الداكن: ظلٌّ أسود على سطحٍ أسود، أي لا ارتفاع أصلاً.
+    ...shadowScale(preset, dark, primary),
 
     '--tenant-font-heading': type.heading,
     '--tenant-font-body': type.body,

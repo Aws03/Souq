@@ -13,8 +13,13 @@ import { documentDescription, documentTitle, fontStylesheetUrl, themeVariables }
 export function applyStoreTheme(config, language, mode = 'light') {
   const root = document.documentElement;
   const branding = config.settings?.branding;
-  for (const [name, value] of Object.entries(themeVariables(branding, mode))) root.style.setProperty(name, value);
-  root.dataset.preset = branding?.themePreset ?? 'classic';
+  // القالبُ مُدخَلٌ للاشتقاق لا سمةٌ تُكتب وحسب (C8): ظلُّ الوضع الفاتح مصبوغٌ بلون الهوية،
+  // فهو من الرموز التي تُكتب سطرياً — ولو تُرك للورقة لَغلَبه السطريُّ وبقي القالبان يطفوان.
+  const preset = branding?.themePreset ?? 'classic';
+  for (const [name, value] of Object.entries(themeVariables(branding, mode, preset))) {
+    root.style.setProperty(name, value);
+  }
+  root.dataset.preset = preset;
   root.dataset.theme = mode;
   // حقول النماذج وأشرطة التمرير التي يرسمها المتصفّح نفسه تتبع هذه الخاصّية لا متغيّراتنا.
   root.style.colorScheme = mode;

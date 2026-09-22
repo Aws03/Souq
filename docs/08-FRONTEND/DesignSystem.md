@@ -35,8 +35,8 @@ That ordering is the reason dark mode is an *input to derivation* rather than a 
 | Page | `--color-bg`, `--color-surface`, `--color-surface-alt`, `--color-text`, `--color-text-muted`, `--color-border` | The store's background and text in light mode; derived from a cool dark base in dark mode |
 | Inverted panel | `--color-panel`, `--color-panel-strong`, `--color-on-panel`, `--color-accent-on-panel` | §2.3 |
 | Status | `--color-success`, `--color-info`, `--color-danger` and their `-soft` variants | Fixed hues, re-derived per mode for contrast. **Not tenant-configurable**: a merchant must not be able to make "out of stock" look calm |
-| Elevation | `--shadow`, `--shadow-sm`, `--shadow-md`, `--shadow-lg` | A black shadow in light mode; a light top edge plus a deeper shadow in dark mode, because a black shadow is invisible on a dark surface |
-| Rhythm | `--space-1` … `--space-16`, `--radius`, `--radius-pill` | Fixed scale |
+| Elevation | `--shadow`, `--shadow-sm`, `--shadow-md`, `--shadow-lg` | A shadow tinted with the store's primary in light mode; a light top edge plus a deeper shadow in dark mode, because a black shadow is invisible on a dark surface. **Under `minimal` and `bold` the whole ladder becomes a `--color-border` ring instead** — see §theme presets |
+| Rhythm | `--space-1` … `--space-16`, `--radius`, `--radius-pill` | Fixed scale, except that the radii follow the theme preset. `--radius-pill` never does: a pill is a functional shape |
 | Motion | `--motion-fast`, `--motion-base`, `--motion-slow`, `--ease-out`, `--ease-in-out` | Fixed scale |
 | Typography | `--tenant-font-heading`, `--tenant-font-body`, the `--fs-*` scale | The store's typography preset |
 
@@ -256,5 +256,5 @@ The measurements above include React StrictMode's duplicate effects in developme
 
 - **No component gallery.** There is no Storybook and no visual-regression suite. Changes are verified in a real browser and by the checks in `frontend/e2e`.
 - **No free-form theme editor.** Branding is edited in `/admin/settings` (and by the platform in `/platform/stores/:id/settings`) through `StoreSettingsEditor`, with readability checks as the merchant types and a live preview (`StorePreview`) in both modes; colours are entered, and there are no selectable colour presets or custom CSS.
-- **No layout switching by theme preset.** `data-preset` is on `<html>` and no stylesheet reads it yet ([WhiteLabel.md](WhiteLabel.md) §4).
+- **No *layout* switching by theme preset.** A preset changes surface treatment, radii, heading weight and type scale — never colour, font family or the order of anything ([ADR-0059](../11-ADR/0059-theme-presets-vary-form-not-colour.md)). Header style, product-card style and section order wait on the section registry.
 - **No design tokens shared with e-mail.** `EmailComposer` carries its own inline styles, because an e-mail client cannot read custom properties.

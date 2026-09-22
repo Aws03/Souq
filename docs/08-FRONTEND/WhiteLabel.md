@@ -67,11 +67,14 @@ sequenceDiagram
 - **SEO:** the SPA sets the title and meta description at runtime from the store's SEO text. Page-level title, description, sharing tags and schema.org product data are also set client-side (`frontend/src/app/pageMetadata.js`, `frontend/src/app/structuredData.js`), which serves crawlers that run JavaScript. Injecting the store's head into `frontend/index.html` per host, for crawlers and link previews that do not, is **DEFERRED**: it was not delivered in Phase 16 and is not scheduled. Full server-side rendering is not planned; revisit if organic search becomes the main acquisition channel.
 - **E-mails** use the store's name, logo, primary colour and reply address, in the recipient's language ([ADR-0034](../11-ADR/0034-notifications-outbox.md)).
 
-## 4. Theme presets (layout variations without forks)
+## 4. Theme presets (form variations without forks)
 
-- A **preset** is a named bundle of token defaults plus layout switches. The registry is `BrandPresets.Themes`: `classic`, `minimal`, `bold`.
-- Intended switches: header style, product-card style, home-page section order.
-- A tenant picks one, the server validates it, and since Phase 15 the SPA exposes it as `data-preset` on `<html>`. **No stylesheet reads that attribute yet** — the storefront rebuild in Phase 16 did not add the layout switches, and they are not scheduled (**DEFERRED**). Today the attribute is a hook, and a preset changes nothing visually.
+- A **preset** is a named bundle of token defaults. The registry is `BrandPresets.Themes`: `classic`, `minimal`, `bold`.
+- **A preset varies form, never colour or font family** ([ADR-0059](../11-ADR/0059-theme-presets-vary-form-not-colour.md)). Colour and type are the merchant's identity, chosen in the same editor; a preset that imposed a palette would compete with the store for it. The three are three answers to *how much the interface asserts itself*: `classic` lets surfaces float on a soft, brand-tinted shadow; `minimal` replaces that shadow with a 1px hairline and tightens the radii; `bold` squares the corners, thickens the rule to 2px and raises the heading weight.
+- **What makes it cost nothing**: `minimal` and `bold` redefine `--shadow` as `0 0 0 Npx var(--color-border)`. Every surface already writes `box-shadow: var(--shadow)`, so each acquires a line with no component change — and the ring reads a token that is already derived per mode, so dark mode needs no second set of values.
+- A tenant picks one, the server validates it, and the SPA writes it as `data-preset` on `<html>` — and on the settings-preview frame, which is why the selector is the bare attribute rather than `html[…]`.
+- **Where a preset is defined:** radii, heading weight and type scale in `styles.css`; the shadow ladder in `themeVariables`, because the light-mode shadow is tinted with the store's primary and is therefore written inline, where it beats any stylesheet rule. `styles.presets.test.js` asserts the two halves agree.
+- **Layout switching is still not built**: header style, product-card style and home-page section order need the section registry (`C8`'s other half), not an attribute.
 - A new preset is a product feature available to everyone, never a per-client branch.
 - Custom CSS injection is **not** offered: it breaks upgrades and invites XSS. Revisit only with sandboxing and a paid tier.
 

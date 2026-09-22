@@ -1124,7 +1124,7 @@
         "minimal": "Minimal",
         "bold": "Bold"
       },
-      "themePresetHint": "Saved with the store. Presets do not change the storefront layout yet.",
+      "themePresetHint": "Saved with the store and applied live — Classic lets surfaces float, Minimal replaces shadow with a hairline, Bold squares the corners and thickens the type. Colours and fonts stay yours.",
       "themeModeLegend": "Default mode",
       "themeMode": {
         "light": "Light",

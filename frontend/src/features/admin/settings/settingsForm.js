@@ -194,5 +194,7 @@ export function previewBranding(form) {
   const colors = { ...form.colors };
   if (HEX.test(colors.primary) && HEX.test(colors.text)) colors.onPrimary = buttonTextOn(colors.primary, colors.text);
   if (HEX.test(colors.accent) && HEX.test(colors.text)) colors.onAccent = buttonTextOn(colors.accent, colors.text);
-  return { colors, typography: form.typography };
+  // والقالبُ معها (C8، ADR-0059): بدونه تُبنى المعاينةُ دائماً على `classic`، فيبدّل التاجر
+  // القوالبَ الثلاثة ولا يتغيّر شيء أمامه — وهو العطبُ نفسه الذي أُغلق في الواجهة، في مكانٍ آخر.
+  return { colors, typography: form.typography, themePreset: form.themePreset };
 }
