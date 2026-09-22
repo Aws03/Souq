@@ -124,3 +124,83 @@ public class StoreSectionsTests
         tenant.Settings.Sections.EnabledTypes.Should().NotContain(StoreSections.Featured);
     }
 }
+
+// ============================================================================
+// تسمياتُ المتجر (C8، ADR-0062).
+//
+// **القائمةُ المغلقة هي الاختبار كلُّه.** ملفُّ الترجمة يحمل — إلى جانب نصوص العرض — رسائلَ
+// الأخطاء ونصوصَ الإتاحة التي لا يقرؤها إلّا قارئُ الشاشة. تاجرٌ يُعيد كتابة «تعذّر إتمام
+// الدفع» أو يُفرغ عنوان زرٍّ لا يراه إلّا الأعمى لا يُخصّص متجره — يكسره، وقد يكسره على مَن لا
+// حيلة له.
+// ============================================================================
+public class StoreTextOverridesTests
+{
+    private static Dictionary<string, IReadOnlyDictionary<string, string?>?> One(string key, string text) =>
+        new() { [key] = new Dictionary<string, string?> { ["ar"] = text } };
+
+    [Fact]
+    public void مفتاح_مسموح_يُحفظ_بلغته()
+    {
+        var texts = StoreTextOverrides.Create(One("store.newArrivals", "مجموعاتنا"));
+
+        texts.Values["store.newArrivals"]["ar"].Should().Be("مجموعاتنا");
+    }
+
+    [Theory]
+    [InlineData("errors.connection")]
+    [InlineData("nav.openMenu")]
+    [InlineData("storeClosed.suspended.title")]
+    [InlineData("")]
+    public void مفتاح_خارج_القائمة_يُرفض_ولا_يُتجاهَل(string key)
+    {
+        var act = () => StoreTextOverrides.Create(One(key, "نصّ"));
+
+        act.Should().Throw<InvalidTenantOperationException>();
+    }
+
+    // الفارغُ حذفٌ لا قيمةٌ فارغة: إفراغُ تسميةٍ يعيد النصّ الأصليّ بدل أن يترك زرّاً بلا كلمة.
+    [Fact]
+    public void إفراغ_التسمية_يحذفها_ولا_يترك_نصّاً_فارغاً()
+    {
+        var texts = StoreTextOverrides.Create(One("store.newArrivals", "   "));
+
+        texts.Values.Should().NotContainKey("store.newArrivals");
+    }
+
+    [Fact]
+    public void نصّ_أطول_من_الحدّ_يُرفض()
+    {
+        var act = () => StoreTextOverrides.Create(
+            One("store.newArrivals", new string('ن', StoreTextOverrides.ValueMaxLength + 1)));
+
+        act.Should().Throw<InvalidTenantOperationException>();
+    }
+
+    [Fact]
+    public void لغة_غير_مدعومة_تُرفض()
+    {
+        var act = () => StoreTextOverrides.Create(new Dictionary<string, IReadOnlyDictionary<string, string?>?>
+        {
+            ["store.newArrivals"] = new Dictionary<string, string?> { ["fr"] = "Nouveautés" },
+        });
+
+        act.Should().Throw<InvalidTenantOperationException>();
+    }
+
+    [Fact]
+    public void لا_مدخل_يعني_بلا_تسميات()
+    {
+        StoreTextOverrides.Create(null).Values.Should().BeEmpty();
+    }
+
+    // القائمةُ نصوصُ عرضٍ وحدها: هذا الفحص هو ما يمنع توسيعَها سهواً إلى ما يحمل معنى.
+    [Fact]
+    public void القائمة_لا_تحوي_رسائل_أخطاء_ولا_نصوص_إتاحة()
+    {
+        StoreTextOverrides.Allowed.Should().NotContain(k =>
+            k.StartsWith("errors.", StringComparison.Ordinal)
+            || k.StartsWith("storeClosed.", StringComparison.Ordinal)
+            || k.Contains("aria", StringComparison.OrdinalIgnoreCase)
+            || k.Contains("Label", StringComparison.Ordinal));
+    }
+}

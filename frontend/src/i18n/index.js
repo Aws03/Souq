@@ -29,6 +29,43 @@ async function ensureLanguage(language) {
   if (i18n.hasResourceBundle?.(language, 'translation')) return;
   const module = await BUNDLES[language]();
   i18n.addResourceBundle(language, 'translation', module.default, true, true);
+  applyStoreTexts(language);
+}
+
+// ============================================================================
+// تسمياتُ المتجر، **طبقةً فوق الحزمة لا بديلاً عنها** (C8، ADR-0062).
+//
+// تُحفظ هنا لأنّ ترتيبَ الأمرين غير مضمون: إعدادُ المتجر قد يصل قبل حزمة اللغة أو بعدها،
+// وحزمةُ اللغة تُحمَّل ثانيةً عند التبديل **فتمسح ما فوقها**. فكلُّ مسارٍ يُعيد التطبيق: الحزمةُ
+// حين تصل، والإعدادُ حين يصل. وبغير ذلك يرى التاجرُ تسمياته تختفي بمجرّد تبديل اللغة.
+//
+// والمفاتيحُ المسموحة يفرضها الخادم (قائمةٌ مغلقة في النطاق)، فلا تُفحص هنا ثانيةً: نسخةٌ ثانية
+// من القائمة في الواجهة تفترق يوماً، والخادمُ هو الحَكَم.
+// ============================================================================
+let storeTexts = {};
+
+export function applyStoreTexts(language = i18n.language) {
+  const byKey = storeTexts;
+  if (!language || !i18n.hasResourceBundle?.(language, 'translation')) return;
+
+  for (const [key, byCulture] of Object.entries(byKey)) {
+    const text = byCulture?.[language];
+    if (typeof text !== 'string' || text.length === 0) continue;
+    // `addResourceBundle` بدمجٍ عميق: المفتاح المنقّط يُفكّ إلى شجرته، فلا يُستبدل قسمٌ كامل.
+    const path = key.split('.');
+    const leaf = path.pop();
+    if (!leaf) continue;
+
+    /** @type {any} */
+    let tree = { [leaf]: text };
+    for (let i = path.length - 1; i >= 0; i -= 1) tree = { [path[i]]: tree };
+    i18n.addResourceBundle(language, 'translation', tree, true, true);
+  }
+}
+
+export function setStoreTexts(values) {
+  storeTexts = values && typeof values === 'object' ? values : {};
+  applyStoreTexts();
 }
 
 function detectLanguage() {
@@ -97,6 +134,8 @@ export async function setLanguage(lang) {
   // الحزمة أولاً: تبديلٌ قبل وصولها يعرض أسماء المفاتيح للحظة.
   await ensureLanguage(lang);
   await i18n.changeLanguage(lang);
+  // الحزمةُ المحمَّلة سابقاً لا تمرّ بـ`ensureLanguage`، فتُعاد الطبقةُ هنا صراحةً.
+  applyStoreTexts(lang);
   localStorage.setItem(STORAGE_KEY, lang);
   applyDocumentDirection(lang);
 }

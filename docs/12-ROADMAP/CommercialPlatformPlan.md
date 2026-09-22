@@ -33,8 +33,8 @@
 ```yaml
 plan_version: 1.7.0
 track: commercial
-current_phase: C12
-phase_status: port-done-adapter-blocked
+current_phase: C8
+phase_status: done
 # 2026-09-21: the owner answered the eight questions of OwnerDecisionBrief.md, and SIX phases that
 # were gated are now unblocked. The canonical record of each answer is its own entry in
 # docs/09-OPERATIONS/OwnerDecisions.md; §5 of this page carries the plan-side consequence.
@@ -71,17 +71,17 @@ current_phase_note: |
       workflow, a store's selection — a fifteenth module (d894148)
     • and the tax term itself: the pricing pipeline's explicit zero is now
       calculated, frozen onto the order, and shown to the shopper (60f5021)
-next_phase: C9b          # the remaining capture surfaces; capture itself stays OFF until C-08's sub-answers
-# C12's port seam is in (discriminated start result + declared capabilities), and its two prerequisites
-# TD-50/TD-52 are closed. The attempt aggregate, event-log totals and webhook inbox wait on the first
-# redirect-first adapter, which waits on a provider contract — external. So the last unblocked work is
-# C9b's capture surfaces.
+next_phase: none-unblocked
+# C6, C8 and C9 are closed; C12's port seam and both its prerequisites are in. Everything that remains
+# is waiting on someone outside engineering — see the blocked list above and §5. §4.13's four customization
+# items are all built now; the visible gap left inside a closed phase is that text overrides have no editor
+# screen yet, which is a small frontend change needing no decision.
 blocked_decisions: ["D-18", "C-11", "C-09", "C-18", "C-12", "C-13"]
 answered_decisions: ["C-08", "C-17", "TD-42", "C-15", "P-06", "D-13", "C-01", "C-19"]
 open_sub_decisions: ["C-08 lawful basis", "C-08 retention period", "C-08 data residency",
                      "P-06 every jurisdiction value", "C-01 the provider itself"]
 last_verified_date: 2026-09-22
-last_verified_head: f91088c
+last_verified_head: c9a4edb  # +C8's text overrides
 
 # ── ما بقي، ولماذا ─────────────────────────────────────────────────────────
 # C4  — بقي منه ثُلثٌ واحد: التخزين السحابي، وهو وحده الموقوف على D-18. القفلُ والإبطالُ تمّا.
@@ -402,12 +402,23 @@ Each phase lists: **delivers · depends on · blocked by · why here**.
   merchant's layout by saving an unrelated field. No migration: the settings are a JSON document. The editor
   reorders with two named buttons rather than drag-and-drop, so it works from the keyboard and needs no
   left/right that RTL would invert.
+- **Per-store string overrides: done (2026-09-22)**
+  ([ADR-0062](../11-ADR/0062-store-text-overrides-are-a-closed-list.md)), which closes the phase's fourth and
+  last deliverable. A store may rename display text **from a closed list of nine keys in the Domain** — the
+  translation file also holds error messages, what the platform says on its own behalf, and accessibility
+  strings only a screen reader reads, and a merchant rewriting *"payment could not be completed"* or emptying a
+  label only a blind shopper hears has broken their store rather than customised it. An unknown key is refused
+  rather than ignored; empty means delete, so clearing a rename restores the original instead of leaving a
+  button with no word on it. The load-bearing detail is **ordering**: the language bundle reloads on every
+  switch and overwrites whatever was layered on it, so the overrides are re-applied on bundle load, on config
+  arrival and after every language change — with a test that reproduces the disappearance before fixing it. No
+  migration, and **no editor yet**: the capability is complete through the API and the storefront, and a
+  merchant cannot set a rename from a screen. That is the next visible-value change here.
 - **Why here.** It was the cheapest credibility fix on the list: a merchant evaluating the product picked one of
-  three themes and saw no difference, which reads as broken. Both halves are now closed. What remains under this
-  heading is `TD-42`'s authored-page capability, deferred by the owner with a named trigger, and per-store string
-  overrides — neither of which is section or preset work.
+  three themes and saw no difference, which reads as broken. All four deliverables are now closed. What remains
+  under this heading is only `TD-42`'s authored-page capability, which the owner deferred with a named trigger.
 
-### C9 — The behavioural event foundation — **the store and the write path are done**
+### C9 — The behavioural event foundation — **done, and capture still ships off**
 
 - **Delivers.** The event envelope and the versioned payload, the bounded non-blocking write path generalised
   from `ISearchLog`, the search-execution identifier minted at query time and echoed back, position-in-list and
@@ -462,9 +473,20 @@ Each phase lists: **delivers · depends on · blocked by · why here**.
   - Two `AllowedContracts` edges were added deliberately, `Shopping` → `Reporting` and `Ordering` →
     `Reporting`, which is what the existing comment there promised would happen "when the capture surfaces
     arrive".
-- **Still to come:** the client-only surfaces — list impressions with position and list identity, clicks, and
-  item views. These have no server touchpoint, so they need an ingest endpoint and a frontend that echoes the
-  search-execution id and passes an ordinal to each card.
+- **The browser-only surfaces: done (2026-09-22), completing the phase.** `POST /api/storefront/events` takes
+  list impressions with position, clicks and item views — anonymous by decision, because the signed-out shopper
+  is most of the browsing and a measurement only signed-in people generate measures the minority.
+  - **The client sends identifiers and positions, never money or stock.** The impression payload carries price
+    and availability, and accepting those from the browser would let any visitor claim a product was shown at a
+    price that was never offered — into the table the merchant's numbers are built from. The server reads them
+    from its own catalogue.
+  - **202 whatever happens**, so the answer does not reveal whether the store captures; the browser waits for
+    no measurement; and with capture off there is no query, no payload and no row.
+  - The search-execution id travels in a **header on every request** rather than in each event's payload, so
+    the chain closes even for events only the server writes.
+  - Impressions batch in the browser; a click flushes immediately because the page is about to change. What is
+    measured is **ordering, not visibility** — without an intersection observer we do not know what actually
+    entered the viewport, and claiming otherwise produces a number that looks precise and is not.
 - **Why here — and why the delay is expensive.** Every other item on this plan can be built later at the same
   cost. This one cannot: a purchase that happened before the event existed can never be attributed to the search
   that produced it. **If C-08 is answered "no visitor identifier", say so explicitly and record what is

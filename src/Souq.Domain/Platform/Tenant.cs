@@ -134,6 +134,13 @@ public partial class Tenant : Entity
         _settings = Settings.With(sections: sections);
     }
 
+    // إعادةُ تسمية نصوص العرض (C8). `null` تعني «لم أذكرها»، كالأقسام والروابط.
+    public void UpdateTexts(StoreTextOverrides? texts)
+    {
+        if (texts is null) return;
+        _settings = Settings.With(texts: texts);
+    }
+
     public void UpdateBranding(BrandColors colors, string typography, string themePreset,
         string? themeMode = null, StoreOpening? opening = null) =>
         _settings = Settings.With(branding: Settings.Branding.WithStyle(colors, typography, themePreset, themeMode, opening));

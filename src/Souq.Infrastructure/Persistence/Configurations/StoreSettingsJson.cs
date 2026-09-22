@@ -39,7 +39,8 @@ internal static class StoreSettingsJson
             new SeoDocument(new(s.Seo.Title), new(s.Seo.Description)),
             new(s.Announcement),
             new(s.Policies.Urls),
-            [.. s.Sections.Items.Select(i => new SectionDocument(i.Type, i.Enabled))]), Options);
+            [.. s.Sections.Items.Select(i => new SectionDocument(i.Type, i.Enabled))],
+            s.Texts.Values.ToDictionary(e => e.Key, e => new Dictionary<string, string>(e.Value))), Options);
     }
 
     internal static StoreSettings Deserialize(string json)
@@ -72,13 +73,19 @@ internal static class StoreSettingsJson
             // ثمّ أُضيف نوعٌ جديد — أمّا مستندٌ لم يُكتب فيه شيءٌ قطّ فلم يُطفئ أحدٌ فيه شيئاً.
             document.Sections is { Count: > 0 } sections
                 ? new StoreSections([.. sections.Select(x => new StoreSection(x.Type, x.Enabled))])
-                : StoreSections.Default);
+                : StoreSections.Default,
+            // مستند أقدم بلا هذا الحقل ⇒ لا تجاوزات، فلا نصّ يتبدّل في متجرٍ لم يطلب تبديله.
+            document.Texts is { Count: > 0 } texts
+                ? new StoreTextOverrides(texts.ToDictionary(
+                    e => e.Key, e => (IReadOnlyDictionary<string, string>)e.Value, StringComparer.Ordinal))
+                : StoreTextOverrides.Empty);
     }
 
     internal sealed record SettingsDocument(
         Dictionary<string, string>? DisplayName, List<string>? EnabledCultures, BrandingDocument? Branding,
         ContactDocument? Contact, List<SocialDocument>? Social, SeoDocument? Seo, Dictionary<string, string>? Announcement,
-        Dictionary<string, string>? Policies = null, List<SectionDocument>? Sections = null);
+        Dictionary<string, string>? Policies = null, List<SectionDocument>? Sections = null,
+        Dictionary<string, Dictionary<string, string>>? Texts = null);
 
     internal sealed record SectionDocument(string Type, bool Enabled);
 

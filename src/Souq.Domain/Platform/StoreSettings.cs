@@ -37,15 +37,20 @@ public sealed class StoreSettings
     // الافتراضي — وهو ترتيب الصفحة اليوم حرفياً، فلا تتغيّر رئيسيةُ متجرٍ قائم عند الترقية.
     public StoreSections Sections { get; } = StoreSections.Default;
 
+    // نصوصٌ يُعيد المتجر تسميتها (C8). صفوفٌ كُتبت قبل هذا الحقل تُقرأ بلا تجاوزات — فلا نصّ
+    // يتبدّل في متجرٍ لم يطلب تبديله.
+    public StoreTextOverrides Texts { get; } = StoreTextOverrides.Empty;
+
     internal StoreSettings(
         IReadOnlyDictionary<string, string> displayName, IReadOnlyList<string> enabledCultures, StoreBranding branding,
         StoreContact contact, IReadOnlyList<SocialLink> social, SeoSettings seo, IReadOnlyDictionary<string, string> announcement,
-        StorePolicyLinks? policies = null, StoreSections? sections = null)
+        StorePolicyLinks? policies = null, StoreSections? sections = null, StoreTextOverrides? texts = null)
     {
         DisplayName = displayName; EnabledCultures = enabledCultures; Branding = branding;
         Contact = contact; Social = social; Seo = seo; Announcement = announcement;
         Policies = policies ?? StorePolicyLinks.Empty;
         Sections = sections ?? StoreSections.Default;
+        Texts = texts ?? StoreTextOverrides.Empty;
     }
 
     // متجر جديد: اسمه بلغته الافتراضية وهوية محايدة مقروءة — والباقي حتى يضبطه أحد.
@@ -57,9 +62,11 @@ public sealed class StoreSettings
         IReadOnlyDictionary<string, string>? displayName = null, IReadOnlyList<string>? enabledCultures = null,
         StoreBranding? branding = null, StoreContact? contact = null, IReadOnlyList<SocialLink>? social = null,
         SeoSettings? seo = null, IReadOnlyDictionary<string, string>? announcement = null,
-        StorePolicyLinks? policies = null, StoreSections? sections = null) => new(
+        StorePolicyLinks? policies = null, StoreSections? sections = null,
+        StoreTextOverrides? texts = null) => new(
         displayName ?? DisplayName, enabledCultures ?? EnabledCultures, branding ?? Branding, contact ?? Contact,
-        social ?? Social, seo ?? Seo, announcement ?? Announcement, policies ?? Policies, sections ?? Sections);
+        social ?? Social, seo ?? Seo, announcement ?? Announcement, policies ?? Policies, sections ?? Sections,
+        texts ?? Texts);
 }
 
 // ============================================================================
@@ -190,6 +197,65 @@ public sealed class StoreSections
             ordered.Add(new StoreSection(type, Required.Contains(type)));
 
         return new StoreSections(ordered);
+    }
+}
+
+// ============================================================================
+// نصوصٌ يُعيد المتجر تسميتها (C8، [ADR-0062](0062)) — **بقائمةٍ مغلقة، وهذا هو القرار كلُّه.**
+//
+// تخصيصُ النصّ مطلبٌ حقيقيّ لمنتجٍ أبيض العلامة: متجرُ عطورٍ يقول «مجموعاتنا» لا «وصل حديثاً»،
+// ومتجرُ جملةٍ يقول «طلبيّة» لا «سلّة». وحتى هنا القاعدةُ نفسها: التخصيصُ إعداد، لا فرع.
+//
+// **ولا يُفتح هذا لكلّ مفتاح.** ملفُّ الترجمة يحمل — إلى جانب نصوص العرض — رسائلَ الأخطاء،
+// وما تقوله المنصّةُ عن نفسها، ونصوصَ الإتاحة التي يقرؤها قارئُ الشاشة وحده. تاجرٌ يُعيد كتابة
+// «تعذّر إتمام الدفع» أو يُفرغ عنوان زرٍّ لا يراه إلّا الأعمى لا يُخصّص متجره — يكسره، وقد يكسره
+// على مَن لا حيلة له. فالمسموحُ قائمةٌ منصوصة من **نصوص العرض وحدها**، ومفتاحٌ خارجها يُرفض
+// ولا يُتجاهَل: تجاهلُه يعني تاجراً حفظ تسميةً ولم تظهر، بلا سببٍ يقرؤه.
+//
+// وتوسيعُ القائمة قرارٌ يُراجَع، لا سطرٌ يمرّ — وهو ما يجعلها قائمةً لا نمطاً.
+// ============================================================================
+public sealed class StoreTextOverrides
+{
+    public const int ValueMaxLength = 120;
+    public const int MaxKeys = 40;
+
+    // نصوصُ عرضٍ بحتة: عناوينُ أقسامٍ وأزرارُ دعوةٍ لا تحمل معنى قانونياً ولا تصف خطأً.
+    public static readonly IReadOnlySet<string> Allowed = new HashSet<string>(StringComparer.Ordinal)
+    {
+        "store.newArrivals", "store.bestSellers", "store.allProducts", "store.featuredTitle",
+        "store.shopNow", "store.viewAll", "store.heroCta",
+        "nav.offers", "nav.viewCart",
+    };
+
+    public IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> Values { get; }
+
+    internal StoreTextOverrides(IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> values) =>
+        Values = values;
+
+    public static StoreTextOverrides Empty { get; } =
+        new(new Dictionary<string, IReadOnlyDictionary<string, string>>(StringComparer.Ordinal));
+
+    public static StoreTextOverrides Create(IReadOnlyDictionary<string, IReadOnlyDictionary<string, string?>?>? values)
+    {
+        var result = new Dictionary<string, IReadOnlyDictionary<string, string>>(StringComparer.Ordinal);
+        if (values is null) return new StoreTextOverrides(result);
+
+        if (values.Count > MaxKeys)
+            throw new InvalidTenantOperationException($"حتى {MaxKeys} نصّاً مُعاد تسميته");
+
+        foreach (var (rawKey, byCulture) in values)
+        {
+            var key = rawKey?.Trim() ?? "";
+            if (!Allowed.Contains(key))
+                throw new InvalidTenantOperationException($"نصٌّ لا يُعاد تسميته: {rawKey}");
+
+            // `LocalizedText` نفسها: اللغاتُ المدعومة وحدها، والفارغُ حذفٌ لا قيمةٌ فارغة —
+            // فإفراغُ تسميةٍ يعيد النصّ الأصليّ بدل أن يترك زرّاً بلا كلمة.
+            var texts = LocalizedText.Normalize(byCulture, ValueMaxLength, $"نصّ {key}");
+            if (texts.Count > 0) result[key] = texts;
+        }
+
+        return new StoreTextOverrides(result);
     }
 }
 

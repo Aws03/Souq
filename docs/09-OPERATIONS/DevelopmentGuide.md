@@ -84,6 +84,16 @@ Every step is recorded in `GET /api/platform/audit`.
 
 ## 4. The Docker stack
 
+> **Stop this stack before running the integration suite.** The suite starts its own SQL Server through
+> Testcontainers, and a Docker VM sized around 3–4 GiB cannot hold that beside this stack's SQL Server (and
+> anything else on the machine). What it looks like when it runs out is **not** an out-of-memory message: it is
+> *ResourceReaper* failing to start and taking every test with it, or — earlier, and more confusingly — one or
+> two concurrency tests failing while everything else passes and they pass again in isolation. Measured on
+> 2026-09-22: with the demo stack up, intermittent concurrency failures and then 421 reaper failures; with it
+> stopped, 532/532 and a minute faster. `docker compose -p souq-demo ... stop` is enough — nothing needs
+> rebuilding afterwards.
+
+
 ```bash
 cp .env.example .env    # fill it in
 docker compose up --build

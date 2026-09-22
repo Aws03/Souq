@@ -30,7 +30,9 @@ public sealed record StoreSettingsInput(
     // أقسام الرئيسية بترتيبها (C8). **غائبةٌ ⇒ تبقى كما هي**، على خلاف بقيّة هذا العقد الذي
     // يستبدل ما فيه: عميلٌ أقدم لا يعرف الحقل كان سيُعيد كلَّ متجرٍ يحفظ منه إلى الترتيب
     // الافتراضي بلا أن يطلب أحدٌ ذلك — وتخطيطٌ يُمحى بحفظِ حقلٍ آخر عطبٌ لا عقد.
-    IReadOnlyList<StoreSectionInput>? Sections = null);
+    IReadOnlyList<StoreSectionInput>? Sections = null,
+    // نصوصٌ يُعيد المتجر تسميتها: المفتاح ⇒ (اللغة ⇒ النصّ). غائبةٌ ⇒ تبقى كما هي، كالأقسام.
+    IReadOnlyDictionary<string, IReadOnlyDictionary<string, string?>?>? Texts = null);
 
 public sealed record StoreSectionInput(string Type, bool Enabled);
 public sealed record StoreSectionDto(string Type, bool Enabled);
@@ -56,7 +58,9 @@ public sealed record StoreSettingsDto(
     // الأقسام كاملةً — المُطفأُ منها أيضاً — كي يعرف المحرّرُ ما يمكن تشغيلُه، و`EnabledSections`
     // ما تعرضه الواجهةُ فعلاً بترتيبه. الاثنان معاً لأنّ للشاشتين سؤالين مختلفين.
     IReadOnlyList<StoreSectionDto> Sections,
-    IReadOnlyList<string> EnabledSections);
+    IReadOnlyList<string> EnabledSections,
+    // التسمياتُ المضبوطة وحدها: مفتاحٌ لم يُعَد تسميته غائبٌ لا فارغ، فالواجهةُ تُبقي نصّها.
+    IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> Texts);
 
 // إعداد الواجهة العام (GET /api/storefront/config): عرض فقط — لا أسرار، ولا بريد إداري، ولا معرّفات داخلية.
 public sealed record StorefrontConfigDto(
@@ -86,7 +90,8 @@ public static class StoreSettingsMapper
             settings.Policies.Urls,
             settings.Sections.Items.Select(i => new StoreSectionDto(i.Type, i.Enabled)).ToList(),
             // ما يُرسَم فعلاً، محسوباً في الخادم: الواجهةُ تعرض ولا تقرّر (FrontendGuide).
-            settings.Sections.EnabledTypes);
+            settings.Sections.EnabledTypes,
+            settings.Texts.Values);
     }
 
     public static StorefrontConfigDto ToStorefront(Tenant tenant) => new(
@@ -119,6 +124,8 @@ public static class StoreSettingsEditor
         tenant.UpdateSections(input.Sections is null
             ? null
             : StoreSections.Create([.. input.Sections.Select(x => new StoreSection(x.Type, x.Enabled))]));
+
+        tenant.UpdateTexts(input.Texts is null ? null : StoreTextOverrides.Create(input.Texts));
     }
 }
 

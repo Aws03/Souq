@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api } from '../api/client';
-import { setLanguage } from '../i18n';
+import { setLanguage, setStoreTexts } from '../i18n';
 import { BootScreen } from './BootScreens';
 import { applyPlatformTheme, applyStoreTheme } from './storeTheme';
 import { setStoreDateSettings } from './dateLocale';
@@ -79,6 +79,12 @@ export function TenantProvider({ children }) {
     if (state.config) applyStoreTheme(state.config, i18n.language, theme);
     else if (state.mode === 'platform') applyPlatformTheme(theme);
   }, [state, i18n.language, theme]);
+
+  // تسمياتُ المتجر (C8، ADR-0062): طبقةٌ فوق حزمة اللغة تُطبَّق حين يصل الإعداد. و`setStoreTexts`
+  // تحفظها كي تُعاد بعد كلّ تبديل لغةٍ يُحمّل الحزمة من جديد فيمسح ما فوقها.
+  useEffect(() => {
+    setStoreTexts(state.config?.settings?.texts);
+  }, [state.config]);
 
   // زائر لم يختر شيئاً يتبع نظامه حيّاً: تبديل النظام ليلاً يجب أن يتبعه المتجر بلا إعادة تحميل.
   // العدّاد لا معنى له في ذاته — وجوده وحده يُعيد التقييم، فـsystemPrefersDark() تُقرأ عند الرسم.

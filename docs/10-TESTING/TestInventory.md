@@ -7,11 +7,11 @@
 
 | Suite | Files | Facts | Theories |
 |---|---|---|---|
-| [`Souq.Domain.Tests`](#souqdomaintests) | 35 | 329 | 55 |
+| [`Souq.Domain.Tests`](#souqdomaintests) | 35 | 335 | 56 |
 | [`Souq.Application.Tests`](#souqapplicationtests) | 59 | 448 | 22 |
 | [`Souq.ArchitectureTests`](#souqarchitecturetests) | 17 | 77 | 8 |
 | [`Souq.IntegrationTests`](#souqintegrationtests) | 67 | 425 | 28 |
-| [frontend (Vitest)](#frontend-vitest) | 107 | 830 | — |
+| [frontend (Vitest)](#frontend-vitest) | 108 | 836 | — |
 | [frontend (Playwright)](#frontend-playwright) | 24 | 147 | — |
 
 ## Souq.Domain.Tests
@@ -46,7 +46,7 @@
 | `tests/Souq.Domain.Tests/SearchTextTests.cs` | `SearchTextTests` | 5 | 6 |
 | `tests/Souq.Domain.Tests/ShippingMethodTests.cs` | `ShippingMethodTests` | 4 | 1 |
 | `tests/Souq.Domain.Tests/StorePaymentAccountTests.cs` | `StorePaymentAccountTests` | 3 | 2 |
-| `tests/Souq.Domain.Tests/StoreSectionsTests.cs` | `StoreSectionsTests` | 8 | 2 |
+| `tests/Souq.Domain.Tests/StoreSectionsTests.cs` | `StoreSectionsTests`, `StoreTextOverridesTests` | 14 | 3 |
 | `tests/Souq.Domain.Tests/StoreSettingsTests.cs` | `StoreSettingsTests` | 5 | 3 |
 | `tests/Souq.Domain.Tests/TaxProfileTests.cs` | `TaxProfileTests`, `OrderTaxTests` | 15 | 0 |
 | `tests/Souq.Domain.Tests/TenantSettingsTests.cs` | `TenantSettingsTests` | 9 | 1 |
@@ -290,6 +290,7 @@
 | `frontend/src/features/wishlist/wishlistModel.test.js` | 5 |
 | `frontend/src/i18n/bidi.test.js` | 4 |
 | `frontend/src/i18n/locales.test.js` | 2 |
+| `frontend/src/i18n/storeTexts.test.js` | 6 |
 | `frontend/src/i18n/translationKeys.test.js` | 8 |
 | `frontend/src/pages/Cart.test.jsx` | 7 |
 | `frontend/src/pages/Confirmation.test.jsx` | 7 |

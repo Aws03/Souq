@@ -29,7 +29,10 @@ public sealed record StoreSettingsOptionsDto(
     // أنواع أقسام الرئيسية وترتيبُها الافتراضي (C8)، ومَن منها لا يُطفأ. من النطاق لا من نسخةٍ
     // في الواجهة: قائمةٌ ثانية تفترق يوماً، ومحرّرٌ يعرض خياراً يرفضه الخادم بلاغٌ مضمون.
     IReadOnlyList<string> SectionTypes,
-    IReadOnlyList<string> RequiredSections);
+    IReadOnlyList<string> RequiredSections,
+    // المفاتيحُ التي يجوز إعادةُ تسميتها، من النطاق: محرّرٌ يعرض مفتاحاً يرفضه الخادم بلاغٌ مضمون.
+    IReadOnlyList<string> TextKeys,
+    int TextMaxLength);
 
 public record GetStoreSettingsOptionsQuery : IRequest<StoreSettingsOptionsDto>;
 
@@ -48,7 +51,9 @@ public class GetStoreSettingsOptionsHandler : IRequestHandler<GetStoreSettingsOp
         new StoreContrastRulesDto(BrandColors.MinimumTextContrast, BrandColors.MinimumUiContrast),
         StorePolicyLinks.Kinds,
         StoreSections.Types,
-        [.. StoreSections.Required]);
+        [.. StoreSections.Required],
+        [.. StoreTextOverrides.Allowed.Order(StringComparer.Ordinal)],
+        StoreTextOverrides.ValueMaxLength);
 
     public Task<StoreSettingsOptionsDto> Handle(GetStoreSettingsOptionsQuery query, CancellationToken ct) =>
         Task.FromResult(Options);
