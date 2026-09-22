@@ -114,6 +114,11 @@ public static class DependencyInjection
             Features.Notifications.OrderStatusChangedHandler>();
         services.AddScoped<Common.Notifications.INotificationMessageHandler<Domain.Events.StockBecameLow>,
             Features.Notifications.StockBecameLowHandler>();
+        // C6 (ADR-0058): تذكيرُ الفاتورة المتأخّرة. الرسالةُ الوحيدة هنا التي تُودعها كنسةٌ خلفية
+        // لا حالةُ استخدام — ونسيانُ تسجيلها كان سيُودعها بلا خطأ ثمّ يُميتها في الصندوق بصمت،
+        // فلا يرى أحدٌ إلّا تاجراً عُلِّق متجرُه بلا أن يصله تذكيرٌ واحد.
+        services.AddScoped<Common.Notifications.INotificationMessageHandler<Common.Notifications.InvoiceOverdueReminder>,
+            Features.Notifications.InvoiceOverdueReminderHandler>();
 
         return services;
     }

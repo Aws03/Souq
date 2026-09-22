@@ -47,4 +47,6 @@ public static class NotificationKinds
     public const string OrderStatus = "order.status";   // للعميل: دُفع/شُحن/سُلِّم/أُلغي طلبه
     public const string NewOrder = "order.new";         // للإدارة: طلب جديد مدفوع
     public const string LowStock = "stock.low";         // للإدارة: متاح منتج نزل عن حدّ التنبيه
+    // C6 (ADR-0058): لصاحب المتجر — فاتورةُ اشتراكٍ استحقّت ولم تُسدَّد.
+    public const string InvoiceOverdue = "billing.invoice.overdue";
 }

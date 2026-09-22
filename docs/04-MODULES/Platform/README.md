@@ -85,7 +85,7 @@ stateDiagram-v2
     Archived --> [*]
 ```
 
-`Suspend` is legal from `Active` **and from `Provisioning`** (C3): a store that has not opened yet can still need suspending for a commercial reason — an unfinished contract, a payment that never arrived — and while `Suspend` refused that, the only exit was `Archive`, which is irreversible. It is also what automated dunning (`C6`) needs, since a dunning chain suspends a store that has not paid without first asking what state it was in. `Suspend` from `Suspended` is refused as meaningless, and from `Archived` because archived is terminal. `Activate` is legal from anything except `Archived`, and is idempotent on an already-active store. `Archive` is terminal and refuses a second call. There is no delete: `TenantRepository.Remove` throws on purpose.
+`Suspend` is legal from `Active` **and from `Provisioning`** (C3): a store that has not opened yet can still need suspending for a commercial reason — an unfinished contract, a payment that never arrived — and while `Suspend` refused that, the only exit was `Archive`, which is irreversible. It is also what automated dunning needs, and `C6` now uses it: the sweep suspends a store that has not paid without first asking what state it was in — and refuses to act twice, because the invoice carries the escalation mark ([ADR-0058](../../11-ADR/0058-dunning-and-automated-suspension.md)). `Suspend` from `Suspended` is refused as meaningless, and from `Archived` because archived is terminal. `Activate` is legal from anything except `Archived`, and is idempotent on an already-active store. `Archive` is terminal and refuses a second call. There is no delete: `TenantRepository.Remove` throws on purpose.
 
 ## Use cases
 

@@ -111,6 +111,19 @@ public class PlatformInvoice : Entity
     // يُسحب — يُقابَل بفاتورةٍ جديدة إن لزم.
     public decimal CreditedAmount { get; private set; }
 
+    // ── المطالبة (C6، [ADR-0058](0058)) ─────────────────────────────────────
+    // **حالةُ المطالبة تعيش على المستند نفسه، لا في جدولٍ موازٍ.** «كم مرّةً ذُكِّر هذا التاجر
+    // بهذه الفاتورة ومتى» سؤالٌ عن الفاتورة، وجوابُه في مكانٍ آخر يفترق عنها يوماً.
+
+    public int RemindersSent { get; private set; }
+
+    public DateTime? LastReminderAtUtc { get; private set; }
+
+    // متى تسبّبت هذه الفاتورة في تعليق متجرها. **مرّةً واحدة أبداً**: التعليقُ فعلٌ يقع على المتجر
+    // لا على الفاتورة، وتكرارُه بلا معنى — والعلامةُ هنا هي ما يمنع سلّم المطالبة من إعادته في
+    // كل دورة.
+    public DateTime? EscalatedAtUtc { get; private set; }
+
     public IReadOnlyCollection<PlatformInvoiceLine> Lines => _lines.AsReadOnly();
     public IReadOnlyCollection<PlatformInvoicePayment> Payments => _payments.AsReadOnly();
 
@@ -310,6 +323,34 @@ public class PlatformInvoice : Entity
 
         CreditedAmount += amount.Amount;
         SettleIfNothingOutstanding();
+    }
+
+    // ============================================================================
+    // تسجيلُ تذكيرٍ أُرسل. لا يُرسل شيئاً — الإرسالُ من شأن المُنادي وصندوق الصادر — بل يسجّل أنّه
+    // أُرسل، وهو ما يمنع إرسالَه كلَّ دورةٍ بعد ذلك.
+    //
+    // ولا يُسجَّل على مستندٍ لم يعد عليه شيء: تذكيرٌ بفاتورةٍ سُدّدت مطالبةٌ بمالٍ وصل.
+    // ============================================================================
+    public void RecordReminder(DateTime utcNow)
+    {
+        if (Status != PlatformInvoiceStatus.Issued)
+            throw new InvalidPlatformInvoiceException("لا يُذكَّر إلّا بفاتورةٍ صادرةٍ لم تُسدَّد");
+        RemindersSent++;
+        LastReminderAtUtc = utcNow;
+    }
+
+    // ============================================================================
+    // تسجيلُ أنّ هذه الفاتورة صعّدت إلى تعليق. **مرّةً واحدة**، ومحاولةُ الثانية ترمي: سلّمٌ يُعيد
+    // التعليق كلَّ دورة يُغرق سجلّ التدقيق ويُرسل إشعاراً لا جديد فيه، ويجعل «متى عُلِّق هذا
+    // المتجر؟» سؤالاً بلا جواب واحد.
+    // ============================================================================
+    public void RecordEscalation(DateTime utcNow)
+    {
+        if (Status != PlatformInvoiceStatus.Issued)
+            throw new InvalidPlatformInvoiceException("لا يُصعَّد إلّا بفاتورةٍ صادرةٍ لم تُسدَّد");
+        if (EscalatedAtUtc is not null)
+            throw new InvalidPlatformInvoiceException("صُعِّدت هذه الفاتورة من قبل — ولا تُصعَّد مرّتين");
+        EscalatedAtUtc = utcNow;
     }
 
     private void SettleIfNothingOutstanding()

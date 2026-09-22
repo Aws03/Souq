@@ -36,6 +36,12 @@ public class UserRepository : RepositoryBase<User>, IUserRepository
         await Db.Users.Where(u => roles.Contains(u.Role) && u.Status == UserStatus.Active && u.PasswordHash != "")
             .OrderBy(u => u.Id).Select(u => u.Id).ToListAsync(ct);
 
+    // الشرطُ نفسه حرفاً: فعّالٌ وقد فعّل حسابه (`PasswordHash != ""` تستبعد دعوةً لم تُقبَل بعد).
+    // بريدُ حسابٍ لم يُفعَّل يصل إلى من لم يُثبت ملكيّته له.
+    public async Task<IReadOnlyList<string>> ListActiveEmailsByRolesAsync(IReadOnlyCollection<string> roles, CancellationToken ct = default) =>
+        await Db.Users.Where(u => roles.Contains(u.Role) && u.Status == UserStatus.Active && u.PasswordHash != "")
+            .OrderBy(u => u.Id).Select(u => u.Email).ToListAsync(ct);
+
     // ========================================================================
     // ما تُنساه محاولةٌ فشلت بتعارض، ولماذا هذه الأنواع بالذات.
     //

@@ -59,6 +59,16 @@ public interface IPlatformInvoiceRepository : IRepository<PlatformInvoice>
     // فاتورةٌ بعينها لمتجرٍ بعينه. الوسيطان معاً لا المعرّف وحده: هذا ما يجعل تاجراً لا يقرأ
     // فاتورةَ تاجرٍ آخر بتخمين رقم — و404 هو الجوابُ الصحيح لا 403 (عُرفُ المستودع).
     Task<PlatformInvoice?> GetForTenantAsync(int id, int tenantId, CancellationToken ct = default);
+
+    // ============================================================================
+    // الفواتيرُ الصادرة التي مرّ استحقاقُها (C6، ADR-0058) — **قراءةٌ تعبر المتاجر عمداً**، لأنّ
+    // المطالبة عملُ منصّةٍ لا عملُ متجر: سلّمٌ يعمل لكل متجر على حدة كان سيحتاج دورةً لكل متجر
+    // وقفلاً لكل متجر، بلا أن يشتري شيئاً.
+    //
+    // ولا تُستدعى إلّا من منسّق المطالبة، وهو وحيد ومحروسٌ بعقد إيجار. والحدُّ الأعلى يمنع دورةً
+    // تُحمّل عشرات الآلاف من الصفوف بعد إهمالٍ طويل.
+    // ============================================================================
+    Task<IReadOnlyList<PlatformInvoice>> ListOverdueAsync(DateTime utcNow, int max, CancellationToken ct = default);
 }
 
 public interface ICreditNoteRepository : IRepository<CreditNote>

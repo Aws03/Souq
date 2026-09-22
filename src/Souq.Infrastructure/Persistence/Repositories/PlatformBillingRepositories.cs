@@ -47,6 +47,24 @@ public class PlatformInvoiceRepository : RepositoryBase<PlatformInvoice>, IPlatf
             .Include(i => i.Lines)
             .Include(i => i.Payments)
             .FirstOrDefaultAsync(i => i.Id == id && i.TenantId == tenantId, ct);
+
+    // ========================================================================
+    // **القراءةُ الوحيدة هنا التي لا تحمل شرطَ متجر، وهي مقصودة**: المطالبة عملُ منصّةٍ يمرّ على
+    // ما استحقّ عبر المتاجر كلّها — وهو بالضبط الشكلُ الذي يسمح به عُرفُ `PlatformQueries`
+    // لقراءةٍ عابرة، ما دامت تُستدعى من مسارٍ واحدٍ مُدقَّق ومحروس بعقد إيجار.
+    //
+    // و`Issued` وحدها: `Settled` لم يبقَ عليها شيء، و`Draft` لم تُطالِب بشيء، و`Cancelled` لم
+    // تكن مطالبةً قطّ. والأقدمُ أوّلاً كي لا يتأخّر سلّمُ فاتورةٍ قديمة خلف أحدث منها.
+    // ========================================================================
+    public async Task<IReadOnlyList<PlatformInvoice>> ListOverdueAsync(
+        DateTime utcNow, int max, CancellationToken ct = default) =>
+        await Db.PlatformInvoices
+            .Include(i => i.Lines)
+            .Include(i => i.Payments)
+            .Where(i => i.Status == PlatformInvoiceStatus.Issued && i.DueAtUtc != null && i.DueAtUtc < utcNow)
+            .OrderBy(i => i.DueAtUtc).ThenBy(i => i.Id)
+            .Take(max)
+            .ToListAsync(ct);
 }
 
 public class CreditNoteRepository : RepositoryBase<CreditNote>, ICreditNoteRepository

@@ -120,6 +120,52 @@ test.describe('فوترة التاجر', () => {
     expect(await axe(owner)).toEqual([]);
   });
 
+  // ==========================================================================
+  // **أخطرُ مفتاحٍ في المنتج، يُفحَص في متصفّح** (C6، ADR-0058): المطالبة الآلية هي الوحيدة التي
+  // تُغلق متجرَ عميلٍ يدفع بلا إنسان. وما يفحصه هذا وحده — لا اختبارُ وحدةٍ ولا تكامل — هو أنّ
+  // مشغّلاً يفتح الشاشة **يراها معطّلةً**، ويقرأ تحذيرَها عند المفتاح لا في وثيقة، ويستطيع
+  // تفعيلها ثمّ **إعادتها** — فقدرةٌ لا تُطفأ من حيث تُشعل ليست قابلةً للتراجع عملياً.
+  //
+  // والرحلةُ تُعيدها معطّلةً قبل أن تنتهي: المتجرُ التجريبي مشترك، وتركُ المطالبة مفعّلةً فيه
+  // يجعل كنسةً لاحقة تُعلّق متجراً لا علاقة له بهذا الاختبار.
+  // ==========================================================================
+  test('المطالبة الآلية معطّلةٌ ومحذَّرٌ عندها، وتُفعَّل وتُطفأ من مكانها', async () => {
+    await owner.goto(`${PLATFORM}/platform/billing`);
+
+    const toggle = owner.getByLabel(/Chase overdue invoices automatically|طالِب بالفواتير المتأخّرة آلياً/);
+    await expect(toggle).toBeVisible();
+    await expect(toggle).not.toBeChecked();
+
+    // التحذيرُ حيث يُضغط المفتاح: هذا ما يفصله عن سطرٍ في وثيقةٍ يقرؤها من بحث عنها.
+    await expect(owner.getByRole('note')).toContainText(/no person in the loop|بلا إنسان/);
+
+    await toggle.check();
+    await owner.getByLabel(/Reminders before suspension|عدد التذكيرات قبل التعليق/).fill('3');
+
+    let saved = owner.waitForResponse((r) =>
+      r.url().endsWith('/api/platform/billing/settings') && r.request().method() === 'PUT');
+    await owner.getByRole('button', { name: /^(Save|حفظ)$/ }).click();
+    expect((await saved).status()).toBe(204);
+
+    // تحميلٌ كامل، لا حالةٌ في الذاكرة: ما يُقرأ بعده جاء من القاعدة.
+    await owner.reload();
+    await expect(owner.getByLabel(
+      /Chase overdue invoices automatically|طالِب بالفواتير المتأخّرة آلياً/)).toBeChecked();
+
+    expect(await axe(owner)).toEqual([]);
+
+    // وتُطفأ من مكانها، فلا تبقى كنسةٌ مفعّلةٌ على متجرٍ تجريبيّ مشترك بعد الرحلة.
+    saved = owner.waitForResponse((r) =>
+      r.url().endsWith('/api/platform/billing/settings') && r.request().method() === 'PUT');
+    await owner.getByLabel(/Chase overdue invoices automatically|طالِب بالفواتير المتأخّرة آلياً/).uncheck();
+    await owner.getByRole('button', { name: /^(Save|حفظ)$/ }).click();
+    expect((await saved).status()).toBe(204);
+
+    await owner.reload();
+    await expect(owner.getByLabel(
+      /Chase overdue invoices automatically|طالِب بالفواتير المتأخّرة آلياً/)).not.toBeChecked();
+  });
+
   test('مسوّدةٌ تُنشأ من الشاشة، وبلا أسطر لا تُصدَر والسببُ مكتوب', async () => {
     // ====================================================================
     // **كلُّ خطوةٍ من الشاشة، ولا نداءَ API يدويّ في هذه الرحلة.**

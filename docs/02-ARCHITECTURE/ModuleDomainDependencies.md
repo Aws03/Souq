@@ -12,11 +12,11 @@ This file makes those crossings countable. It lists every place one module's use
 - **A new crossing changes this file and fails the test.** That is the point: it should be a decision, made in review, not a quiet import. Prefer adding a contract to the owning module; if the crossing is deliberate, regenerate the file so the diff shows what you added.
 - **Removing a crossing also changes this file.** Regenerate, and the count goes down.
 
-**Today: 75 crossings across 14 module pairs.**
+**Today: 78 crossings across 15 module pairs.**
 
 | From | To | Crossings |
 |---|---|---|
-| Notifications | Identity | 14 |
+| Notifications | Identity | 15 |
 | Shopping | Catalog | 12 |
 | Billing | Platform | 10 |
 | Notifications | Ordering | 9 |
@@ -25,6 +25,7 @@ This file makes those crossings countable. It lists every place one module's use
 | Notifications | Customers | 4 |
 | Ordering | Customers | 4 |
 | Shopping | Promotions | 4 |
+| Notifications | Billing | 2 |
 | Notifications | Catalog | 2 |
 | Reviews | Customers | 2 |
 | Reviews | Platform | 2 |
@@ -64,6 +65,8 @@ This file makes those crossings countable. It lists every place one module's use
 | Reviews | Ordering | `IOrderRepository` | `CreateReviewHandler` |
 | Reviews | Platform | `ITenantRepository` | `CreateReviewHandler` |
 | Reviews | Platform | `Tenant` | `CreateReviewHandler` |
+| Notifications | Billing | `IPlatformInvoiceRepository` | `InvoiceOverdueReminderHandler` |
+| Notifications | Billing | `PlatformInvoice` | `InvoiceOverdueReminderHandler` |
 | Notifications | Catalog | `IProductRepository` | `StockBecameLowHandler` |
 | Notifications | Catalog | `Product` | `StockBecameLowHandler` |
 | Notifications | Customers | `Customer` | `OrderEmailHandler` |
@@ -72,6 +75,7 @@ This file makes those crossings countable. It lists every place one module's use
 | Notifications | Customers | `ICustomerRepository` | `OrderStatusChangedHandler` |
 | Notifications | Identity | `IUserRepository` | `EmailVerificationEmailHandler` |
 | Notifications | Identity | `IUserRepository` | `InvitationEmailHandler` |
+| Notifications | Identity | `IUserRepository` | `InvoiceOverdueReminderHandler` |
 | Notifications | Identity | `IUserRepository` | `OrderStatusChangedHandler` |
 | Notifications | Identity | `IUserRepository` | `PasswordChangedEmailHandler` |
 | Notifications | Identity | `IUserRepository` | `PasswordResetEmailHandler` |

@@ -8,10 +8,10 @@
 | Suite | Files | Facts | Theories |
 |---|---|---|---|
 | [`Souq.Domain.Tests`](#souqdomaintests) | 34 | 319 | 52 |
-| [`Souq.Application.Tests`](#souqapplicationtests) | 57 | 421 | 22 |
+| [`Souq.Application.Tests`](#souqapplicationtests) | 58 | 433 | 22 |
 | [`Souq.ArchitectureTests`](#souqarchitecturetests) | 17 | 77 | 8 |
-| [`Souq.IntegrationTests`](#souqintegrationtests) | 65 | 402 | 28 |
-| [frontend (Vitest)](#frontend-vitest) | 102 | 792 | — |
+| [`Souq.IntegrationTests`](#souqintegrationtests) | 66 | 406 | 28 |
+| [frontend (Vitest)](#frontend-vitest) | 103 | 796 | — |
 | [frontend (Playwright)](#frontend-playwright) | 22 | 136 | — |
 
 ## Souq.Domain.Tests
@@ -69,6 +69,7 @@
 | `tests/Souq.Application.Tests/Baskets/BasketWriterTests.cs` | `BasketWriterTests` | 6 | 0 |
 | `tests/Souq.Application.Tests/Baskets/PricingServiceTests.cs` | `PricingServiceTests` | 11 | 0 |
 | `tests/Souq.Application.Tests/Billing/BillingHandlerTests.cs` | `BillingHandlerTests`, `FixedClock` | 9 | 0 |
+| `tests/Souq.Application.Tests/Billing/DunningPolicyTests.cs` | `DunningPolicyTests` | 12 | 0 |
 | `tests/Souq.Application.Tests/Categories/CategoryHandlersTests.cs` | `CreateCategoryHandlerTests`, `UpdateCategoryHandlerTests`, `DeleteCategoryHandlerTests` | 13 | 0 |
 | `tests/Souq.Application.Tests/Common/AccountsTests.cs` | `AccountsTests` | 8 | 0 |
 | `tests/Souq.Application.Tests/Common/AuditBehaviorTests.cs` | `AuditBehaviorTests` | 5 | 0 |
@@ -162,6 +163,7 @@
 | `tests/Souq.IntegrationTests/CouponRedemptionTests.cs` | `CouponRedemptionTests` | 3 | 0 |
 | `tests/Souq.IntegrationTests/CustomerAccountTests.cs` | `CustomerAccountTests` | 6 | 0 |
 | `tests/Souq.IntegrationTests/DistributedLeaseTests.cs` | `DistributedLeaseTests` | 5 | 0 |
+| `tests/Souq.IntegrationTests/DunningTests.cs` | `DunningTests` | 4 | 0 |
 | `tests/Souq.IntegrationTests/EnforcementDiagnosticsTests.cs` | `EnforcementDiagnosticsTests` | 3 | 3 |
 | `tests/Souq.IntegrationTests/ErrorContractTests.cs` | `ErrorContractTests` | 8 | 1 |
 | `tests/Souq.IntegrationTests/GlobalExceptionHandlerTests.cs` | `GlobalExceptionHandlerTests` | 4 | 1 |
@@ -306,6 +308,7 @@
 | `frontend/src/pages/checkout/stripeClient.test.js` | 3 |
 | `frontend/src/pages/platform/Accounts.test.jsx` | 6 |
 | `frontend/src/pages/platform/Audit.test.jsx` | 7 |
+| `frontend/src/pages/platform/BillingSettings.test.jsx` | 4 |
 | `frontend/src/pages/platform/Invoices.test.jsx` | 7 |
 | `frontend/src/pages/platform/PlatformOverview.test.jsx` | 5 |
 | `frontend/src/pages/platform/Provisioning.test.jsx` | 15 |

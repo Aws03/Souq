@@ -225,11 +225,14 @@ public static class DependencyInjection
             .Bind(config.GetSection("Billing"))
             .Validate(s => s.QuotaReconcileIntervalMinutes == 0 || s.QuotaReconcileIntervalMinutes is >= 5 and <= 1440,
                 "Billing:QuotaReconcileIntervalMinutes صفر (معطّل) أو بين 5 و1440 دقيقة.")
+            .Validate(s => s.DunningSweepIntervalMinutes == 0 || s.DunningSweepIntervalMinutes is >= 5 and <= 1440,
+                "Billing:DunningSweepIntervalMinutes صفر (معطّل) أو بين 5 و1440 دقيقة.")
             .ValidateOnStart();
         services.AddSingleton(sp =>
             sp.GetRequiredService<IOptions<Application.Features.Billing.BillingSettings>>().Value);
 
         services.AddHostedService<BackgroundJobs.QuotaReconciliationService>();
+        services.AddHostedService<BackgroundJobs.DunningService>();
     }
 
     // ============================================================================

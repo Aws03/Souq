@@ -37,7 +37,7 @@ unblocks and what it costs. This table is an index, not the record.
 | id | Answer | What it unblocks |
 |---|---|---|
 | [`C-08`](#c-08--is-a-visitor-identifier-stored-for-signed-out-shoppers--decided) | **A** — store an opaque visitor identifier for signed-out shoppers | `C9`, then `C10` |
-| [`C-17`](#c-17--what-a-suspended-storefront-does--decided) | **B** — admin-only suspension | `C3`, then `C6` |
+| [`C-17`](#c-17--what-a-suspended-storefront-does--decided) | **B** — admin-only suspension | `C3`, then `C6` — **both built 2026-09-22** |
 | [`TD-42`](#td-42--store-authored-legalinformational-pages-how-much-of-a-capability--decided) | **C** — links now; revisit authored pages when a real merchant requires them | `M2`, part of `C8` |
 | [`C-19`](#c-19--what-the-merchant-agreement-says-the-platform-operator-can-see--decided) | **A** — disclose the platform's permitted visibility in the merchant agreement | nothing in engineering; the capability already existed |
 | [`C-15`](#commercial-platform-decisions--c-01--c-18) | **A** — Souq merchant subscriptions are invoiced in JOD | `C5` |

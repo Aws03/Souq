@@ -34,6 +34,15 @@ public sealed record PasswordChanged(int UserId, string Origin);
 // بريد العميل عن حالة طلبه — رسالة مستقلّة عن إنشاء الإشعارات، فيُعاد البريد وحده إن فشل المزوّد.
 public sealed record OrderEmailRequested(int OrderId, OrderStatus Status);
 
+// ============================================================================
+// تذكيرُ تاجرٍ بفاتورة اشتراكٍ استحقّت (C6، [ADR-0058](0058)).
+//
+// **تحمل معرّف الفاتورة لا مبالغها**: الحمولةُ مرجعٌ والمعالجُ يقرأ الحقيقة وقت الإرسال، فتذكيرٌ
+// انتظر في الصندوق ساعةً بعد سدادٍ وصل لا يُرسل مبلغاً لم يعد مستحقّاً. وهي القاعدةُ نفسها التي
+// تتبعها `OrderEmailRequested`، ولنفس السبب.
+// ============================================================================
+public sealed record InvoiceOverdueReminder(int InvoiceId);
+
 // الأنواع المسموح بها في الصندوق: الاسم المخزَّن يُحلّ من هذه القائمة وحدها — لا تحميل نوع اعتباطي باسم قادم من القاعدة.
 public static class NotificationMessageTypes
 {
@@ -41,7 +50,7 @@ public static class NotificationMessageTypes
     {
         typeof(PasswordResetRequested), typeof(EmailVerificationRequested), typeof(AccountInvited), typeof(OrderEmailRequested),
         typeof(PasswordChanged),
-        typeof(OrderStatusChanged), typeof(StockBecameLow),
+        typeof(OrderStatusChanged), typeof(StockBecameLow), typeof(InvoiceOverdueReminder),
     }.ToDictionary(t => t.Name, StringComparer.Ordinal);
 
     // الحالات بأسمائها لا بأرقامها: إعادة ترتيب تعداد لا تغيّر معنى رسالة تنتظر في الصندوق. النصوص العربية (اسم الجهة الداعية)

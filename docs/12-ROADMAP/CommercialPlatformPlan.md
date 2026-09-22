@@ -33,7 +33,7 @@
 ```yaml
 plan_version: 1.7.0
 track: commercial
-current_phase: C5
+current_phase: C6
 phase_status: done
 # 2026-09-21: the owner answered the eight questions of OwnerDecisionBrief.md, and SIX phases that
 # were gated are now unblocked. The canonical record of each answer is its own entry in
@@ -71,19 +71,18 @@ current_phase_note: |
       workflow, a store's selection — a fifteenth module (d894148)
     • and the tax term itself: the pricing pipeline's explicit zero is now
       calculated, frozen onto the order, and shown to the shopper (60f5021)
-next_phase: C4           # split: cross-instance invalidation + locking are unblocked; blob storage waits on D-18
-# and C6 becomes executable the moment C4's lock exists — C3 and C5 are both in.
+next_phase: C8           # the theme presets + section registry: a design decision, not an owner decision
+# C4's lock and invalidation are in, so C6 is closed too. What is left unblocked is C8 (design),
+# C9b's remaining capture surfaces (capture stays OFF), and C12's port + redirect-first model.
 blocked_decisions: ["D-18", "C-11", "C-09", "C-18", "C-12", "C-13"]
 answered_decisions: ["C-08", "C-17", "TD-42", "C-15", "P-06", "D-13", "C-01", "C-19"]
 open_sub_decisions: ["C-08 lawful basis", "C-08 retention period", "C-08 data residency",
                      "P-06 every jurisdiction value", "C-01 the provider itself"]
 last_verified_date: 2026-09-22
-last_verified_head: 30b02d5
+last_verified_head: 14fef59
 
 # ── ما بقي، ولماذا ─────────────────────────────────────────────────────────
-# C4  — الإبطال بين النسخ والقفل: **الجزء غير الموقوف هو التالي**، وثُلثُه (التخزين السحابي)
-#       وحده موقوف على D-18. وقفلُه هو آخرُ ما ينقص C6.
-# C6  — المطالبة الآلية: C3 تمّت وC5 تمّت، فلم يبقَ إلّا قفلُ C4.
+# C4  — بقي منه ثُلثٌ واحد: التخزين السحابي، وهو وحده الموقوف على D-18. القفلُ والإبطالُ تمّا.
 # C12 — المنفذ بشكله الجديد والنموذج المُحوِّل (C-01 = B). المحوّلُ نفسه ينتظر عقد مزوّد.
 # C9b — أسطحُ الالتقاط الباقية. لا تُراكم بياناتٍ اليوم لأنّ الالتقاط معطّل، فقيمتُها تبدأ يوم
 #       يُجيب المالك على أسئلة C-08 الثلاث (الأساس القانوني، ومدّة الحفظ، ومكان التخزين).
@@ -98,6 +97,11 @@ last_verified_head: 30b02d5
 # وشاشتا الضريبة اللتان كانتا API فقط: صارتا موجودتين ومحقَّقتَين في متصفّح — فما كان
 #      «قدرةً بلا واجهة» صار قدرةً يصلها مشغّلٌ وتاجر.
 # وفجوةُ التحقّق في المتصفّح التي تركتها C3: أُغلقت برحلةٍ تُعلّق متجراً وتعيده.
+# C4 — ثُلثاه: عقدُ إيجارٍ يُطالَب بتحديثٍ شرطيّ واحد، وعدّادُ جيلٍ مشترك تقرؤه كلُّ نسخة خلال
+#      ثوانٍ. ومعهما تصحيحُ تصنيف محدّد المعدّل: **عدّادٌ يُشارَك لا ذاكرةٌ تُبطَل**. ADR-0057.
+# C6 — **تمّت**: `DunningPolicy` دالّةٌ نقيّة بجدول حالات، وشرطان معاً قبل أن يُغلق متجر (مهلةٌ
+#      مضت **و**تذكيراتٌ استُنفدت)، والفاصلُ يُقاس من آخر تذكير فلا تُضغَط السلّمُ بانقطاع.
+#      معطّلةٌ حتى يُفعّلها إنسان، ومرفوضةٌ بمهلةِ صفر، والتحذيرُ عند المفتاح. ADR-0058.
 baseline_branch: phase/17-production-hardening
 
 # ── ما جرى بعد C11 وليس مرحلة ─────────────────────────────────────────────
@@ -307,15 +311,36 @@ Each phase lists: **delivers · depends on · blocked by · why here**.
 - **What C5 deliberately did not do:** no automated collection (needs `C-01`), no dunning (that is `C6`), no
   commission ledger (`D-13` = A leaves it no subject), no PDF or email, and no tier values (`C-12`).
 
-### C6 — Dunning and automated suspension
+### C6 — Dunning and automated suspension — **done**
 
 - **Delivers.** The dunning state machine on Souq's own invoice state — not on a provider webhook — with its
   grace period, reminder schedule and escalation to `Suspended`. The platform-scope sweep using the outbox's
   lease pattern rather than `StoreSweepService`, which is per-store and single-instance by its own declaration.
-- **Depends on.** C3, C4, C5.
-- **Blocked by.** C-17 (what suspension means commercially).
+- **Depends on.** C3, C4, C5. **All three landed first**, in that order, on 2026-09-22.
+- **Blocked by.** ~~C-17 (what suspension means commercially).~~ **Answered 2026-09-21: `C-17` = B**, and `C3`
+  turned that answer into a reversible state with an operator's button — which is what makes an automatic
+  suspension survivable.
 - **Why here.** It is the first place the platform takes an irreversible action against a paying customer
   automatically, so everything it rests on must be true first.
+- **Built** ([ADR-0058](../11-ADR/0058-dunning-and-automated-suspension.md)):
+  - `DunningPolicy.Decide(invoice, settings, utcNow)` — a **pure function** returning an action plus a named
+    reason, reading no database and no clock. The service executes its answer and adds no condition of its own,
+    which is why the most dangerous logic in the product is a state table testable with no server.
+  - **Two conditions before a store closes**: the grace period passed **and** every reminder sent. Grace alone
+    would suspend a merchant who was never told; reminders alone would let a shortened interval quietly shorten
+    everyone's runway. Mutation-checked — `&&` → `||` fails four of twelve policy tests.
+  - The reminder interval is measured **from the last reminder**, so a sweep that was down for two days sends one
+    reminder rather than the two it missed.
+  - `DunningService`: platform scope, under `C4`'s `GuardedWork.Dunning` lease, batch of 200, hourly by default.
+    Suspension and the invoice's escalation mark commit **together**; session revocation and directory
+    invalidation happen after the commit.
+  - The reminder goes through the outbox with the invoice's tenant taken explicitly (the sweep has no ambient
+    tenant), reaching `store.settings.manage` holders in-app and by email, ar + en. **No payment link** — there
+    is no provider in this path.
+  - **Off until an operator enables it**, refused outright with a zero-day grace period, and the platform
+    billing-settings screen carries the warning at the switch with the toggle disabled in that case.
+- **Deliberately not built.** Automated collection of any kind (no provider — `C-01`), per-store dunning
+  overrides (a tenant fork of a platform rule), and partial-payment credit toward the ladder.
 
 ### C7 — Custom domains: verification and certificates
 

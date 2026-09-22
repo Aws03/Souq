@@ -48,7 +48,8 @@ public class GetPlatformBillingSettingsHandler
                 PlatformBillingSettings.DefaultInvoicePrefix, PlatformBillingSettings.DefaultCreditNotePrefix,
                 PlatformBillingSettings.DefaultPaymentTermsDays, PlatformBillingSettings.DefaultGracePeriodDays,
                 null, null, null, null, false,
-                false, BillingBlockingReasons.SettingsMissing, TaxCollectionReasonsFor(null, false, null));
+                false, BillingBlockingReasons.SettingsMissing, TaxCollectionReasonsFor(null, false, null),
+                false, PlatformBillingSettings.DefaultReminderIntervalDays, PlatformBillingSettings.DefaultMaxReminders);
 
         var profile = settings.TaxProfileId is int id ? await _profiles.GetWithVersionsAsync(id, ct) : null;
 
@@ -58,7 +59,8 @@ public class GetPlatformBillingSettingsHandler
             settings.PaymentTermsDays, settings.GracePeriodDays, settings.PaymentInstructions,
             settings.TaxProfileId, profile?.Jurisdiction, profile?.Name, settings.TaxCollectionEnabled,
             settings.CanIssue, BlockingReasonFor(settings),
-            TaxCollectionReasonsFor(settings.TaxProfileId, settings.TaxCollectionEnabled, profile));
+            TaxCollectionReasonsFor(settings.TaxProfileId, settings.TaxCollectionEnabled, profile),
+            settings.DunningEnabled, settings.ReminderIntervalDays, settings.MaxRemindersBeforeSuspension);
     }
 
     // السببُ الأوّل الذي يمنع الإصدار، بترتيب ما يُملأ أوّلاً. واحدٌ في كل مرّة: قائمةُ نواقصَ
@@ -103,6 +105,7 @@ public record UpdatePlatformBillingSettingsCommand(PlatformBillingSettingsInput 
             ["gracePeriodDays"] = Settings?.GracePeriodDays,
             ["taxProfileId"] = Settings?.TaxProfileId,
             ["taxCollectionEnabled"] = Settings?.TaxCollectionEnabled,
+            ["dunningEnabled"] = Settings?.DunningEnabled,
         });
 }
 
@@ -123,6 +126,10 @@ public sealed class UpdatePlatformBillingSettingsValidator : AbstractValidator<U
                 .InclusiveBetween(0, PlatformBillingSettings.MaxPaymentTermsDays);
             RuleFor(x => x.Settings.GracePeriodDays)
                 .InclusiveBetween(0, PlatformBillingSettings.MaxGracePeriodDays);
+            RuleFor(x => x.Settings.ReminderIntervalDays)
+                .InclusiveBetween(1, PlatformBillingSettings.MaxReminderIntervalDays);
+            RuleFor(x => x.Settings.MaxRemindersBeforeSuspension)
+                .InclusiveBetween(0, PlatformBillingSettings.MaxReminders);
         });
     }
 }
@@ -168,6 +175,10 @@ public class UpdatePlatformBillingSettingsHandler : IRequestHandler<UpdatePlatfo
         settings.SetTerms(input.PaymentTermsDays, input.GracePeriodDays);
         settings.SetPaymentInstructions(input.PaymentInstructions);
         settings.SelectTaxProfile(input.TaxProfileId, input.TaxCollectionEnabled);
+
+        // **بعد `SetTerms`**: تفعيلُ المطالبة يرفض مهلةَ سماحٍ صفر، فترتيبُ النداءين هو ما يجعل
+        // مشغّلاً يضبط المهلة والتفعيل في حفظةٍ واحدة بلا أن يُرفَض على قيمةٍ هو بصدد تغييرها.
+        settings.SetDunning(input.DunningEnabled, input.ReminderIntervalDays, input.MaxRemindersBeforeSuspension);
 
         await _uow.SaveChangesAsync(ct);
         return Result.Success();

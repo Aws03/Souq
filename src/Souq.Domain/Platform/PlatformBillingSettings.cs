@@ -37,6 +37,8 @@ public class PlatformBillingSettings : Entity
     public const int PaymentInstructionsMaxLength = 2000;
     public const int MaxPaymentTermsDays = 365;
     public const int MaxGracePeriodDays = 365;
+    public const int MaxReminderIntervalDays = 90;
+    public const int MaxReminders = 20;
 
     // البادئتان الافتراضيّتان حرفان لاتينيّان لا علامةٌ تجارية: `INV` و`CN` مصطلحا مستنداتٍ
     // محاسبيّان، والمشغّل يبدّلهما من شاشته. ولذلك لا يمسّهما اختبارُ الواجهة البيضاء.
@@ -48,6 +50,11 @@ public class PlatformBillingSettings : Entity
     // تُصدَر بمهلةٍ صفر لأنّ أحداً لم يملأ حقلاً.
     public const int DefaultPaymentTermsDays = 30;
     public const int DefaultGracePeriodDays = 7;
+
+    // سبعةُ أيام بين تذكيرٍ وآخر، وثلاثةُ تذكيرات. قيمتان يبدأ منهما المشغّل ويغيّرهما — ولا
+    // أثرَ لهما ما لم تُفعَّل المطالبة أصلاً.
+    public const int DefaultReminderIntervalDays = 7;
+    public const int DefaultMaxReminders = 3;
 
     // ============================================================================
     // عملةُ فواتير المنصّة. `null` ⇒ **لم تُضبَط بعد** ⇒ لا إصدار. وهي عملةُ سوق لا عملةَ المتجر:
@@ -77,6 +84,23 @@ public class PlatformBillingSettings : Entity
     // بسببه لا صمتاً (كما في `StoreTaxSettings`).
     public int? TaxProfileId { get; private set; }
     public bool TaxCollectionEnabled { get; private set; }
+
+    // ============================================================================
+    // **المطالبة الآلية: معطّلةٌ حتى يُفعّلها إنسان** (C6، [ADR-0058](0058)).
+    //
+    // وهذا ليس حذراً زائداً بل الافتراضَ الوحيد الصحيح: هذه أوّلُ قدرةٍ في المنتج تتّخذ إجراءً
+    // **لا رجعةَ فيه ضدّ عميلٍ يدفع** بلا إنسانٍ في الحلقة. فنشرُ هذه الشريحة على منصّةٍ قائمة
+    // يجب ألّا يُعلّق متجراً واحداً يوم النشر — والمشغّل يُفعّلها حين يكون قد راجع مهلَه وتأكّد
+    // أنّ فواتيره تُصدَر في وقتها.
+    //
+    // ومعها تُعطَّل التذكيراتُ أيضاً: منصّةٌ تُذكّر ولا تُصعّد أبداً تُدرّب تجّارها على تجاهل
+    // تذكيراتها.
+    // ============================================================================
+    public bool DunningEnabled { get; private set; }
+
+    public int ReminderIntervalDays { get; private set; } = DefaultReminderIntervalDays;
+
+    public int MaxRemindersBeforeSuspension { get; private set; } = DefaultMaxReminders;
 
     private PlatformBillingSettings() { }
 
@@ -130,6 +154,26 @@ public class PlatformBillingSettings : Entity
             throw new InvalidPlatformBillingSettingsException($"مهلةُ السماح بين 0 و{MaxGracePeriodDays} يوماً");
         PaymentTermsDays = paymentTermsDays;
         GracePeriodDays = gracePeriodDays;
+    }
+
+    // ============================================================================
+    // ضبطُ المطالبة. **ولا تُفعَّل بلا مهلةِ سماحٍ موجبة**: مهلةُ صفرٍ مع تفعيلٍ تعني تعليقاً في
+    // اليوم التالي للاستحقاق مباشرةً — وهو ما لا يقصده أحد، ولو قصده لكتبه يوماً واحداً.
+    // ============================================================================
+    public void SetDunning(bool enabled, int reminderIntervalDays, int maxReminders)
+    {
+        if (reminderIntervalDays is < 1 or > MaxReminderIntervalDays)
+            throw new InvalidPlatformBillingSettingsException(
+                $"الفاصل بين التذكيرات بين 1 و{MaxReminderIntervalDays} يوماً");
+        if (maxReminders is < 0 or > MaxReminders)
+            throw new InvalidPlatformBillingSettingsException($"عددُ التذكيرات بين 0 و{MaxReminders}");
+        if (enabled && GracePeriodDays < 1)
+            throw new InvalidPlatformBillingSettingsException(
+                "لا تُفعَّل المطالبة بمهلة سماحٍ صفر — التعليقُ عندها يقع في اليوم التالي للاستحقاق");
+
+        DunningEnabled = enabled;
+        ReminderIntervalDays = reminderIntervalDays;
+        MaxRemindersBeforeSuspension = maxReminders;
     }
 
     public void SetPaymentInstructions(string? instructions) =>

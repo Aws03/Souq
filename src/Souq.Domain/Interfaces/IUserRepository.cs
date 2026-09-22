@@ -19,6 +19,11 @@ public interface IUserRepository : IRepository<User>
     // معرّفات الحسابات القادرة على الدخول بأحد هذه الأدوار في النطاق — مستلمو إشعارات الإدارة (المرحلة 14).
     Task<IReadOnlyList<int>> ListActiveIdsByRolesAsync(IReadOnlyCollection<string> roles, CancellationToken ct = default);
 
+    // بريدُ من يملك دوراً، لإشعارٍ يخرج من النظام (C6، ADR-0058). منفصلٌ عن المعرّفات عمداً:
+    // الإشعارُ في اللوحة يحتاج معرّفاً والبريدُ يحتاج عنواناً، وجمعُهما في نداءٍ واحد كان سيحمّل
+    // كلَّ مُنادٍ ما لا يحتاجه.
+    Task<IReadOnlyList<string>> ListActiveEmailsByRolesAsync(IReadOnlyCollection<string> roles, CancellationToken ct = default);
+
     // بعد تعارض تزامن على الحساب: تُنسى قراءات المحاولة الفاشلة وكتاباتها كي تقرأ التالية القيم
     // الملتزمة. نفس ما يفعله `IInventoryRepository.Reset` و`ICouponRedemptionRepository.Reset`
     // ولنفس السبب — والمُعيد الوحيد هنا هو `AccountWriter`.

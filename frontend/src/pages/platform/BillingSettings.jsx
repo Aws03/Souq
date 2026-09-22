@@ -32,6 +32,7 @@ export default function BillingSettings() {
     currency: useId(), issuerName: useId(), issuerAddress: useId(), issuerTaxNumber: useId(),
     invoicePrefix: useId(), creditPrefix: useId(), terms: useId(), grace: useId(),
     instructions: useId(), taxProfile: useId(),
+    reminderInterval: useId(), maxReminders: useId(),
   };
 
   const { data, error, isPending, refetch } = useQuery({
@@ -78,6 +79,9 @@ function BillingSettingsForm({ settings: data, profiles, ids }) {
     paymentInstructions: data.paymentInstructions ?? '',
     taxProfileId: data.taxProfileId ? String(data.taxProfileId) : '',
     taxCollectionEnabled: Boolean(data.taxCollectionEnabled),
+    dunningEnabled: Boolean(data.dunningEnabled),
+    reminderIntervalDays: String(data.reminderIntervalDays ?? 7),
+    maxRemindersBeforeSuspension: String(data.maxRemindersBeforeSuspension ?? 3),
   }));
   const [busy, setBusy] = useState(false);
   const [saveError, setSaveError] = useState(null);
@@ -104,6 +108,9 @@ function BillingSettingsForm({ settings: data, profiles, ids }) {
         paymentInstructions: form.paymentInstructions.trim() || null,
         taxProfileId: form.taxProfileId ? Number(form.taxProfileId) : null,
         taxCollectionEnabled: form.taxCollectionEnabled,
+        dunningEnabled: form.dunningEnabled,
+        reminderIntervalDays: Number(form.reminderIntervalDays),
+        maxRemindersBeforeSuspension: Number(form.maxRemindersBeforeSuspension),
       });
       await queryClient.invalidateQueries({ queryKey: queryKeys.platformBillingSettings() });
       await queryClient.invalidateQueries({ queryKey: queryKeys.platformInvoicesAll() });
@@ -240,6 +247,43 @@ function BillingSettingsForm({ settings: data, profiles, ids }) {
             <span className={styles.hint}> {t('platform.billing.collectTaxHint')}</span>
           </span>
         </label>
+
+        {/* ============================================================
+            المطالبة الآلية (C6، ADR-0058). **معطّلةٌ حتى يُفعّلها إنسان**، وهي القدرة الوحيدة في
+            المنتج التي تُغلق متجرَ عميلٍ يدفع بلا إنسانٍ في الحلقة — فالتحذيرُ مكتوبٌ حيث يُضغط
+            المفتاح، لا في وثيقةٍ يقرؤها من يبحث عنها.
+            ============================================================ */}
+        <h2 className={styles.panelTitle}>{t('platform.billing.dunning')}</h2>
+        <p className={styles.notice} role="note">{t('platform.billing.dunningWarning')}</p>
+
+        <label className={styles.option}>
+          <input type="checkbox" checked={form.dunningEnabled} onChange={set('dunningEnabled')}
+            disabled={Number(form.gracePeriodDays) < 1} />
+          <span>
+            {t('platform.billing.enableDunning')}
+            <span className={styles.hint}> {t('platform.billing.enableDunningHint')}</span>
+          </span>
+        </label>
+
+        <div className={styles.formGrid}>
+          <div className={styles.field}>
+            <label htmlFor={ids.reminderInterval} className={styles.label}>
+              {t('platform.billing.reminderInterval')}
+            </label>
+            <input id={ids.reminderInterval} className={`${styles.input} ${styles.mono}`} dir="ltr"
+              type="number" min="1" max="90" value={form.reminderIntervalDays}
+              onChange={set('reminderIntervalDays')} />
+            <span className={styles.hint}>{t('platform.billing.reminderIntervalHint')}</span>
+          </div>
+
+          <div className={styles.field}>
+            <label htmlFor={ids.maxReminders} className={styles.label}>{t('platform.billing.maxReminders')}</label>
+            <input id={ids.maxReminders} className={`${styles.input} ${styles.mono}`} dir="ltr"
+              type="number" min="0" max="20" value={form.maxRemindersBeforeSuspension}
+              onChange={set('maxRemindersBeforeSuspension')} />
+            <span className={styles.hint}>{t('platform.billing.maxRemindersHint')}</span>
+          </div>
+        </div>
 
         <div className={styles.formActions}>
           <Button type="submit" variant="primary" loading={busy}>{t('common.save')}</Button>

@@ -6,7 +6,7 @@
 
 Billing is the platform's **commercial control plane**: it answers *what may this store use, on what terms, and what does it owe*. It is the fourteenth module, and since `C5` it holds both halves — plans, subscriptions and entitlements, **and Souq's own invoices and their collection**.
 
-That second half is not optional. Owner decision `D-13` = A makes every store its own merchant of record: Souq never touches shopper funds and takes no commission, so **a merchant subscription Souq invoices is the only way the company is paid**. Dunning, automated card collection and commission ledgers remain later phases, each waiting on a named decision.
+That second half is not optional. Owner decision `D-13` = A makes every store its own merchant of record: Souq never touches shopper funds and takes no commission, so **a merchant subscription Souq invoices is the only way the company is paid**. Automated card collection and commission ledgers remain later phases, each waiting on a named decision; dunning is no longer one of them — `C6` built it.
 
 The module exists because commercial concepts do not belong to `Platform`, which owns a store's identity and presentation. But it deliberately owns **no enforcement**: `TenantInfo.HasModule` stays the single enforced answer to "may this store use X?", asked where it was always asked. Billing *feeds* that answer; it does not sit beside it. A second feature-flag system is the failure this module is shaped to avoid.
 
@@ -31,7 +31,7 @@ The module exists because commercial concepts do not belong to `Platform`, which
 | Taking a shopper's money | [Payments](../Payments/README.md). The two money paths never meet — see **Tenant behaviour** |
 | Deciding *what* the tiers and their numbers are | The owner — decision `C-12`. This module builds the mechanism and names no tier and no value |
 | Deciding a tax rate, or marking one trustworthy | [Tax](../Tax/README.md). Billing asks `ITaxCalculator` and freezes what it answers; it never interprets a rule ([ADR-0055](../../11-ADR/0055-tax-as-a-configurable-capability.md)) |
-| Chasing an unpaid invoice, or suspending for non-payment | Nobody yet — `C6`, which needs this module's invoice state plus `C4`'s cross-instance locking |
+| Chasing an unpaid invoice, or suspending for non-payment | `DunningPolicy` decides, `DunningService` executes ([ADR-0058](../../11-ADR/0058-dunning-and-automated-suspension.md)) — **off until an operator enables it** |
 | Charging a card automatically | Nobody yet — it needs a payment provider, and `C-01` names none |
 
 ## Business concepts
@@ -189,7 +189,7 @@ Two rules that used to be assertions and are now tested:
 
 None. No domain events, no outbox messages, no sweeps. An expiring override needs no job: expiry is evaluated when the snapshot is built, and an overdue invoice needs none either because overdue is computed from the clock rather than stored.
 
-**The first background job this module will need is `C6`'s dunning sweep**, and it is deliberately absent: it takes an irreversible action against a paying customer, so it waits until suspension is real (`C3`, done) and until a lease stops two instances from doing it twice (`C4`).
+**This module's one background job is `C6`'s dunning sweep**, and it is the only place in the product that acts against a paying customer with nobody in the loop. Everything around it is built to be boring: the rule is a pure function (`DunningPolicy.Decide`) that the service executes without adding a condition, it runs under `C4`'s lease so two instances do not mail twice, and it is **off until a human enables it**. A store closes only once the grace period has passed **and** every reminder has been sent — and the reminder interval is measured from the last reminder, so an outage delays the ladder rather than compressing it. [ADR-0058](../../11-ADR/0058-dunning-and-automated-suspension.md) records why each of those is the way it is.
 
 ## External integrations
 
@@ -254,7 +254,7 @@ None, deliberately. Nothing in this module talks to a payment provider, and noth
 
 ## Known limitations
 
-- **No automated collection, and no dunning.** Every payment is entered by a person; nothing chases an overdue invoice, sends a reminder, or suspends a store. `GracePeriodDays` and `DaysOverdueAt` exist as inputs with no consumer — that is `C6`, which also needs `C4`'s locking.
+- **No automated collection.** Every payment is entered by a person. Dunning chases and can suspend (`C6`), but nothing charges anyone — that needs a provider, and `C-01` has not named one.
 - **No commission, payout or ledger.** With `D-13` = A there is no commission to take, so `C13` has been re-scoped rather than deferred.
 - **No PDF and no email.** An invoice is read in the dashboard or through the API. Rendering and delivery are a presentation concern nobody has asked for yet.
 - **No tax category per line in practice.** Lines carry a category and every caller passes the default, because assigning categories is the deferred half of [ADR-0055](../../11-ADR/0055-tax-as-a-configurable-capability.md).
@@ -265,10 +265,10 @@ None, deliberately. Nothing in this module talks to a payment provider, and noth
 - **No usage is shown to the merchant.** `PeekAsync` exists and reads without taking a lock, but no screen calls it yet, so a merchant meets the ceiling by hitting it. That is the next visible-value change in this module.
 - **One subscription row per store, unfiltered unique index.** A cancelled subscription keeps the store's only row, and its previous plan survives only as an audit entry. Billing periods will need a filtered index and a migration.
 - **The platform console shows the answer but does not yet let the owner build a tier.** Plans are created through the API, including their price.
-- **Cross-instance invalidation is not built.** With more than one API instance, a plan change reaches the others within the cache window.
+- **Dunning is one ladder for the whole platform.** No per-store interval or grace override — that would be a tenant fork of a platform rule. And the sweep is hourly by default, so an invoice that falls due at 09:05 is acted on within the hour, not at the minute.
 
 ## Future evolution
 
-A dunning state machine driven by Souq's own invoice state (`C6`), automated card collection behind `IPlatformBilling` once a provider exists (`C-01`), usage-priced tiers once metering has run for a real period and `C-12` is answered, and proration. Each is a separate phase in [CommercialPlatformPlan.md](../../12-ROADMAP/CommercialPlatformPlan.md), and several wait on a decision that is the owner's rather than engineering's.
+Automated card collection behind `IPlatformBilling` once a provider exists (`C-01`), usage-priced tiers once metering has run for a real period and `C-12` is answered, and proration. Each is a separate phase in [CommercialPlatformPlan.md](../../12-ROADMAP/CommercialPlatformPlan.md), and several wait on a decision that is the owner's rather than engineering's.
 
-Quota enforcement is no longer on that list: `C2` built it. Neither are invoices, credit notes, manual collection or the metering ledger: `C5` built them.
+Quota enforcement is no longer on that list: `C2` built it. Neither are invoices, credit notes, manual collection or the metering ledger, which `C5` built, nor the dunning state machine, which `C6` did.

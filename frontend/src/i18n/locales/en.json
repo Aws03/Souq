@@ -2137,7 +2137,15 @@
       "taxProfileHint": "The jurisdiction Souq itself invoices under — not a merchant's.",
       "noTaxProfile": "No profile",
       "collectTax": "Charge tax on invoices",
-      "collectTaxHint": "Only a version a professional has verified ever charges anything."
+      "collectTaxHint": "Only a version a professional has verified ever charges anything.",
+      "dunning": "Automatic dunning",
+      "dunningWarning": "This is the only capability that closes a paying customer's storefront with no person in the loop. It stays off until you turn it on, and a store is suspended only once both the grace period has passed and every reminder has been sent.",
+      "enableDunning": "Chase overdue invoices automatically",
+      "enableDunningHint": "Needs a grace period of at least one day — suspending the day after an invoice falls due is not something anyone means.",
+      "reminderInterval": "Days between reminders",
+      "reminderIntervalHint": "Measured from the last reminder sent, so a paused platform does not send the missed ones at once.",
+      "maxReminders": "Reminders before suspension",
+      "maxRemindersHint": "Zero means suspend as soon as the grace period passes, with no reminder."
     },
     "invoices": {
       "title": "Merchant invoices",

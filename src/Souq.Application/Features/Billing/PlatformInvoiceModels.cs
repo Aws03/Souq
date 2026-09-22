@@ -65,13 +65,16 @@ public sealed record PlatformBillingSettingsDto(
     string InvoiceNumberPrefix, string CreditNoteNumberPrefix,
     int PaymentTermsDays, int GracePeriodDays, string? PaymentInstructions,
     int? TaxProfileId, string? TaxJurisdiction, string? TaxProfileName, bool TaxCollectionEnabled,
-    bool CanIssue, string? BlockingReason, string TaxReason);
+    bool CanIssue, string? BlockingReason, string TaxReason,
+    // C6 (ADR-0058): المطالبة الآلية — معطّلةٌ حتى يُفعّلها إنسان.
+    bool DunningEnabled, int ReminderIntervalDays, int MaxRemindersBeforeSuspension);
 
 public sealed record PlatformBillingSettingsInput(
     string? Currency, string? IssuerName, string? IssuerAddress, string? IssuerTaxNumber,
     string? InvoiceNumberPrefix, string? CreditNoteNumberPrefix,
     int PaymentTermsDays, int GracePeriodDays, string? PaymentInstructions,
-    int? TaxProfileId, bool TaxCollectionEnabled);
+    int? TaxProfileId, bool TaxCollectionEnabled,
+    bool DunningEnabled = false, int ReminderIntervalDays = 7, int MaxRemindersBeforeSuspension = 3);
 
 public sealed record InvoiceLineInput(string Description, decimal Quantity, decimal UnitAmount, string? TaxCategory);
 

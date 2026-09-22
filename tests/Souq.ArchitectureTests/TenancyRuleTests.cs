@@ -84,6 +84,16 @@ public class TenancyRuleTests
         "Souq.Infrastructure.Persistence.Repositories.BillingPeriodRepository",
         "Souq.Infrastructure.Persistence.Repositories.BillableEventRepository",
         "Souq.Infrastructure.Persistence.Queries.PlatformBillingQueries",
+        // ============================================================================
+        // C6 (ADR-0058): المطالبة الآلية. **هذا الصنف الوحيد هنا الذي يقرأ عبر المتاجر عمداً**
+        // ولا يحمل شرط `TenantId` — والسبب أنّ سؤاله ليس «ما على هذا المتجر» بل «ما استحقّ على
+        // المنصّة كلّها»، وهو استعلامٌ واحد لا مرورٌ على المتاجر. ولذلك يعمل بنطاق المنصّة صراحةً
+        // (`UsePlatform`)، وتحت عقد إيجارٍ فلا نسختان تفعلانه معاً.
+        //
+        // وما يحفظ العزل هنا ليس شرطاً في استعلام بل أنّ **كل فعلٍ يأخذ متجره من الفاتورة نفسها**:
+        // التعليقُ يقرأ `invoice.TenantId`، ورسالةُ الصادر تُبنى به صراحةً لا من سياقٍ لا متجر فيه.
+        // ============================================================================
+        "Souq.Infrastructure.BackgroundJobs.DunningService",
     };
 
     private static readonly HashSet<string> RawSqlMethods = new(StringComparer.Ordinal)

@@ -38,7 +38,7 @@ Telling people what happened — in the store's voice, through the right channel
 | Type | Kind | Path | Invariants it guards |
 |---|---|---|---|
 | `Notification` | aggregate root | `src/Souq.Domain/Entities/Notification.cs` | a recipient account id > 0; kind non-empty and ≤ `Notification.KindMaxLength` (40); data non-null and ≤ `Notification.DataMaxLength` (1000); `MarkRead` is once-only — a second read keeps the first timestamp |
-| `NotificationKinds` | constants | same file | the fixed contract with the frontend: `order.status`, `order.new`, `stock.low` |
+| `NotificationKinds` | constants | same file | the fixed contract with the frontend: `order.status`, `order.new`, `stock.low`, `billing.invoice.overdue` |
 | `InvalidNotificationException` | domain exception | `src/Souq.Domain/Exceptions/InvalidNotificationException.cs` | code `InvalidNotification` |
 | `IDomainEvent`, `OrderStatusChanged`, `StockBecameLow` | domain events | `src/Souq.Domain/Events/DomainEvents.cs` | ids and small values only; the consumer reads live state, so no personal data sits in the outbox |
 | `OutboxMessage` | technical building block, **not** a domain entity | `src/Souq.Infrastructure/Persistence/Outbox/OutboxMessage.cs` | the type name must come from the allow-list; payload ≤ `OutboxMessage.PayloadMaxLength` (4000) or the enqueue throws; `LastError` ≤ 500 |
@@ -68,6 +68,7 @@ The rest of the module is **not** MediatR: outbox handlers implement `INotificat
 | `OrderStatusChanged` | `OrderStatusChangedHandler` | in-app row for the customer, `order.new` for staff with `orders.view` on payment, and an `OrderEmailRequested` message when the change deserves an email — all in one save |
 | `StockBecameLow` | `StockBecameLowHandler` | `stock.low` rows for staff with `inventory.view`, with the product name in the store's default culture and, for a product with options, `variantId` and `variantLabel` (`Product.VariantLabel`, BR-NTF-12) |
 | `OrderEmailRequested` | `OrderEmailHandler` | the customer's order email with the store's branding and a tracking link |
+| `InvoiceOverdueReminder` | `InvoiceOverdueReminderHandler` | **C6.** A Souq invoice that has fallen due: `billing.invoice.overdue` rows plus email for staff with `store.settings.manage`. Exits silently if the invoice was settled or is no longer overdue between enqueue and dispatch, and **carries no payment link** — collection is a human act ([ADR-0058](../../11-ADR/0058-dunning-and-automated-suspension.md)). The only message here enqueued by a background sweep rather than a use case, so it is built with the invoice's tenant **explicitly**: the sweep runs in platform scope, where `INotificationOutbox` would read no tenant at all |
 | `PasswordChanged` | `PasswordChangedEmailHandler` | **M15.** Active account only; tells the holder their password changed and every session was signed out. The only message here that carries **no token and asks for no action** — its whole value is reaching someone who was *not* the one who changed it, so its button goes to password recovery |
 
 ## Public contracts
@@ -75,7 +76,7 @@ The rest of the module is **not** MediatR: outbox handlers implement `INotificat
 | Contract | Path | Consumers |
 |---|---|---|
 | `INotificationOutbox` | `src/Souq.Application/Common/Notifications/Outbox.cs` | Identity (`ForgotPassword.cs`, `Register.cs`, `VerifyEmail.cs`, and since M15 `ChangePassword.cs` and `ResetPassword.cs`), `src/Souq.Application/Common/Accounts/Accounts.cs`, and this module's own `OrderStatusChangedHandler` |
-| Message records `PasswordResetRequested`, `EmailVerificationRequested`, `AccountInvited`, `OrderEmailRequested`, `PasswordChanged` | same file | the enqueuing use cases |
+| Message records `PasswordResetRequested`, `EmailVerificationRequested`, `AccountInvited`, `OrderEmailRequested`, `PasswordChanged`, `InvoiceOverdueReminder` | same file | the enqueuing use cases |
 | `INotificationMessageHandler<TMessage>` | same file | implemented here, resolved by `OutboxProcessor` |
 | `NotificationMessageTypes`, `OutboxRetryPolicy`, `NotificationMessageDispatch` | same file | the processor and the tests |
 | `IEmailSender`, `EmailMessage`, `EmailDeliveryException`, `EmailTemplate`, `EmailBranding`, `EmailContent`, `ComposedEmail`, `IEmailComposer`, `IStoreOrigins` | `src/Souq.Application/Common/Notifications/Email.cs` | **this module only** — an architecture test enforces it |
