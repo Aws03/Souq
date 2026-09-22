@@ -10,9 +10,9 @@
 | [`Souq.Domain.Tests`](#souqdomaintests) | 35 | 327 | 54 |
 | [`Souq.Application.Tests`](#souqapplicationtests) | 58 | 433 | 22 |
 | [`Souq.ArchitectureTests`](#souqarchitecturetests) | 17 | 77 | 8 |
-| [`Souq.IntegrationTests`](#souqintegrationtests) | 66 | 411 | 28 |
+| [`Souq.IntegrationTests`](#souqintegrationtests) | 67 | 419 | 28 |
 | [frontend (Vitest)](#frontend-vitest) | 106 | 819 | — |
-| [frontend (Playwright)](#frontend-playwright) | 23 | 141 | — |
+| [frontend (Playwright)](#frontend-playwright) | 24 | 147 | — |
 
 ## Souq.Domain.Tests
 
@@ -180,6 +180,7 @@
 | `tests/Souq.IntegrationTests/OrderLifecycleTests.cs` | `OrderLifecycleTests` | 6 | 0 |
 | `tests/Souq.IntegrationTests/PaymentAdapterTests.cs` | `SecretProtectorTests`, `FakeGatewayTests` | 6 | 1 |
 | `tests/Souq.IntegrationTests/PaymentDataRulesTests.cs` | `PaymentDataRulesTests` | 2 | 0 |
+| `tests/Souq.IntegrationTests/PaymentGatewayRoutingTests.cs` | `PaymentGatewayRoutingTests`, `RecordingGateway`, `FakeAccounts`, `FakePayments`, `FakeSecrets`, `FakeTenantContext` | 7 | 0 |
 | `tests/Souq.IntegrationTests/PaymentsAndRefundsTests.cs` | `PaymentsAndRefundsTests` | 7 | 0 |
 | `tests/Souq.IntegrationTests/PlatformAdministrationTests.cs` | `PlatformAdministrationTests` | 9 | 0 |
 | `tests/Souq.IntegrationTests/PlatformAuditViewerTests.cs` | `PlatformAuditViewerTests` | 5 | 0 |
@@ -198,7 +199,7 @@
 | `tests/Souq.IntegrationTests/ShippingTests.cs` | `ShippingTests` | 3 | 0 |
 | `tests/Souq.IntegrationTests/StartupAndSecurityTests.cs` | `StartupAndSecurityTests`, `LoggerAdapter` | 7 | 1 |
 | `tests/Souq.IntegrationTests/StoreAdministrationTests.cs` | `StoreAdministrationTests` | 7 | 0 |
-| `tests/Souq.IntegrationTests/StoreBrandingPersistenceTests.cs` | `StoreBrandingPersistenceTests`, `StoreSectionsPersistenceTests` | 9 | 0 |
+| `tests/Souq.IntegrationTests/StoreBrandingPersistenceTests.cs` | `StoreBrandingPersistenceTests`, `StoreSectionsPersistenceTests` | 10 | 0 |
 | `tests/Souq.IntegrationTests/StoreDashboardTests.cs` | `StoreDashboardTests` | 20 | 1 |
 | `tests/Souq.IntegrationTests/StorefrontVariantTests.cs` | `StorefrontVariantTests` | 7 | 0 |
 | `tests/Souq.IntegrationTests/StripeAmountConverterTests.cs` | `StripeAmountConverterTests` | 2 | 2 |
@@ -336,6 +337,7 @@
 | `frontend/e2e/cross-tenant-adversarial.spec.js` | 4 |
 | `frontend/e2e/csp.spec.js` | 6 |
 | `frontend/e2e/experience.spec.js` | 16 |
+| `frontend/e2e/home-sections.spec.js` | 6 |
 | `frontend/e2e/merchant-billing.spec.js` | 6 |
 | `frontend/e2e/platform-provisioning.spec.js` | 9 |
 | `frontend/e2e/product-variants.spec.js` | 5 |

@@ -25,17 +25,18 @@ public sealed class PaymentGatewayRouter : IPaymentService
     private readonly ISecretProtector _secrets;
     private readonly ITenantContext _tenant;
     private readonly ILogger<PaymentGatewayRouter> _logger;
-    private readonly ILogger<StripeGateway> _stripeLogger;
+    private readonly StoreGatewayFactory _storeGateway;
 
     private bool _storeResolved;
     private IPaymentGateway? _store;
 
     public PaymentGatewayRouter(
         DeploymentPaymentGateway deployment, IStorePaymentAccountRepository accounts, IPaymentRepository payments,
-        ISecretProtector secrets, ITenantContext tenant, ILogger<PaymentGatewayRouter> logger, ILogger<StripeGateway> stripeLogger)
+        ISecretProtector secrets, ITenantContext tenant, ILogger<PaymentGatewayRouter> logger,
+        StoreGatewayFactory storeGateway)
     {
         _deployment = deployment; _accounts = accounts; _payments = payments; _secrets = secrets; _tenant = tenant;
-        _logger = logger; _stripeLogger = stripeLogger;
+        _logger = logger; _storeGateway = storeGateway;
     }
 
     public async Task<PaymentIntentResult> CreateIntentAsync(Money amount, string orderReference, CancellationToken ct = default) =>
@@ -107,8 +108,8 @@ public sealed class PaymentGatewayRouter : IPaymentService
                 var webhook = account.WebhookSecretCipher is null
                     ? null
                     : _secrets.Unprotect(account.WebhookSecretCipher, SecretPurposes.StripeWebhookSecret(tenantId));
-                _store = new StripeGateway(StripeGateway.StoreAccount,
-                    new StripeCredentials(secret, account.PublishableKey, webhook), _stripeLogger);
+                _store = _storeGateway(StripeGateway.StoreAccount,
+                    new StripeCredentials(secret, account.PublishableKey, webhook));
             }
             catch (SecretUnavailableException ex)
             {

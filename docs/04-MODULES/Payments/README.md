@@ -37,7 +37,7 @@ Payments records the money side of an order — one payment per order, how it se
 | `IStorePaymentAccountEditor`, `StorePaymentAccountDto`, `StorePaymentAccountInput`, `StorePaymentAudit` — the published contract | `src/Souq.Application/Features/Payments/Contracts/StorePaymentAccountContracts.cs` | **Payments** |
 | `StorePaymentAccountEditor` (implements the contract), `GetStorePaymentAccountQuery`, `UpdateStorePaymentAccountCommand`, `RemoveStorePaymentAccountCommand`, `StorePaymentPolicy` — the store's own admin path | `src/Souq.Application/Features/Payments/StorePaymentAccounts.cs` | **Payments** |
 | `GetTenantPaymentAccountQuery`, `UpdateTenantPaymentAccountCommand`, `RemoveTenantPaymentAccountCommand` — the platform's admin path | `src/Souq.Application/Features/Platform/TenantPaymentAccounts.cs` | **Platform** — stays here because these commands carry `TenantId`, and only `Features.Platform` requests may ([MultiTenancy.md](../../02-ARCHITECTURE/MultiTenancy.md) §2); they call `IStorePaymentAccountEditor` through `ITenantScopeRunner`, never the concrete class |
-| `PaymentGatewayRouter`, which reads the account and decrypts its secrets | `src/Souq.Infrastructure/Payments/PaymentGatewayRouter.cs` | Infrastructure, serving the Payments port |
+| `PaymentGatewayRouter`, which reads the account and decrypts its secrets | `src/Souq.Infrastructure/Payments/PaymentGatewayRouter.cs` | Infrastructure, serving the Payments port. The store adapter is built through an injected `StoreGatewayFactory` (TD-52), so the routing rules are testable without a network |
 | `StorePaymentAccounts` table | `StorePaymentAccountConfiguration` | — |
 
 `ModuleAndContractRuleTests`' `AllowedContracts["Platform"] = ["Payments"]` authorizes exactly the one crossing above — Platform reaching `Payments.Contracts`, nothing else. Before this fix, the domain was Payments' but the use cases sat in Platform's folders (`Features/Stores`), so an edit to the sensitive gateway-secret code was reviewed and tested as a Platform change; see [ModuleBoundaryAudit.md](../../02-ARCHITECTURE/ModuleBoundaryAudit.md) for why the two files could not simply trade places without a contract in between.
@@ -208,7 +208,9 @@ None. No domain event is raised for a payment or a refund, no hosted service tou
 | Architecture | `DependencyRuleTests`, `ModuleAndContractRuleTests` | Stripe stays in Infrastructure; the module references nothing |
 | Frontend | `frontend/src/features/admin/payments/paymentView.test.js` | key modes, the first problem that blocks saving, never sending an empty secret, refund amount rules per currency |
 
-Gaps: **no test names `StripeGateway` or `PaymentGatewayRouter`.** The router is exercised end to end because it is the only `IPaymentService` implementation, but the Stripe adapter itself — status mapping, cancellation race, refund error classes, signature parsing — has no automated coverage; every test runs against the fake gateway.
+`PaymentGatewayRoutingTests` (added by `C12`, closing TD-52) names the router directly and exercises all four routing rules offline, against a fake built through the injectable `StoreGatewayFactory`: store account when connected, deployment when not, the account **kind recorded on the payment** routing everything after the intent, and **503 rather than a silent fallback** when a store secret will not decrypt. The last is mutation-checked, because the silent version collects one merchant's money into another's account.
+
+Gaps: **no test names `StripeGateway`.** The Stripe adapter itself — status mapping, cancellation race, refund error classes, signature parsing — has no automated coverage; every test runs against the fake gateway.
 
 ## Failure modes
 

@@ -353,6 +353,13 @@ public static class DependencyInjection
                             "كل دفع يُعتبر ناجحاً بلا مال — للعرض التوضيحي فقط، لا زبائن حقيقيون.");
         }
 
+        // مصنعُ بوّابةِ حساب المتجر (TD-52): الافتراضُ هو السطران اللذان كان الموجّه يكتبهما
+        // بنفسه — بلا تغييرِ سلوك — لكنّ كونَه حقناً هو ما يجعل فرعَ حساب المتجر قابلاً للاختبار
+        // بلا شبكة، وهو الفرعُ الذي تستقرّ عليه كلُّ قواعد `D-13`.
+        services.AddSingleton<Payments.StoreGatewayFactory>(sp => (kind, credentials) =>
+            new Payments.StripeGateway(kind, credentials,
+                sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<Payments.StripeGateway>>()));
+
         services.AddScoped<IPaymentService, Payments.PaymentGatewayRouter>();
 
         // أسرار حسابات المتاجر: AES-GCM بمفتاح من Secrets:* (سرّ بيئة). اختياري — بدونه لا تُربط حسابات متاجر.
