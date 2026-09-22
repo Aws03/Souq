@@ -35,6 +35,10 @@ public interface IPaymentGateway
 
     Task<PaymentIntentResult> CreateIntentAsync(Money amount, string orderReference, int tenantId, CancellationToken ct);
 
+    // يبدأ الدفع ويعيد شكلَه (ADR-0048 §1). المحوّلان الحاليّان يُنتجان `ClientScript` — وهو
+    // وصفٌ صادق لما يفعلانه، لا التفافٌ حول العقد: الشاري لا يغادر الصفحة عند أيٍّ منهما.
+    Task<StartPaymentResult> StartPaymentAsync(Money amount, string orderReference, int tenantId, CancellationToken ct);
+
     Task<PaymentConfirmationResult> ConfirmAsync(string paymentIntentId, CancellationToken ct);
 
     Task<PaymentIntentState> CancelIntentAsync(string paymentIntentId, CancellationToken ct);

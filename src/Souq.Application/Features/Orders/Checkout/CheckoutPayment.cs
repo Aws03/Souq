@@ -41,7 +41,7 @@ public sealed class CheckoutPayment
 
     public async Task<Result<string>> StartAsync(Order order, CancellationToken ct)
     {
-        PaymentIntentResult intent;
+        StartPaymentAttempt attempt;
         try
         {
             // **القدراتُ تُسأل قبل أن يُعرَض الدفع** (ADR-0048 §5). قاعدتان هنا لهما ضحيّةٌ حقيقية:
@@ -61,7 +61,7 @@ public sealed class CheckoutPayment
                     "PaymentCurrencyNotSupported", "حساب الدفع المربوط لا يقبل عملة هذا المتجر."));
             }
 
-            intent = await _payment.CreateIntentAsync(order.TotalAmount, order.Id.ToString(), ct);
+            attempt = await _payment.StartPaymentAsync(order.TotalAmount, order.Id.ToString(), ct);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -71,11 +71,33 @@ public sealed class CheckoutPayment
                 "PaymentUnavailable", "تعذّر بدء عملية الدفع حالياً. لم يُحجز أي مخزون، يُرجى المحاولة لاحقاً."));
         }
 
-        order.SetPaymentIntent(intent.PaymentIntentId);
-        // دفعة الطلب (المرحلة 11) بالحساب الذي أنشأ النيّة — تُحفظ مع ربطها بالطلب في الحفظ نفسه.
-        await _orderPayments.RecordIntentAsync(order.Id, intent, order.TotalAmount, ct);
+        // ====================================================================
+        // **الشكلُ يُفرَّق هنا، لا في الواجهة** (ADR-0048 §1). اليومَ يُنتج المحوّلان
+        // `ClientScript` وحده، والأشكالُ الأخرى مرفوضةٌ صراحةً بدل أن تُعامَل ضمناً كأنّها هو:
+        // مزوّدٌ يُعيد توجيهاً ويُسلَّم سرُّه للواجهة يُنتج شاشةَ دفعٍ فارغة، وهو عطبٌ صامت.
+        //
+        // فالرفضُ هنا ليس عجزاً بل عقد: مَن يُدخل أوّلَ مزوّدٍ يُعيد التوجيه يُضيف فرعَه وشاشته
+        // معاً، ويسقط هذا السطر حين يفعل. والطلبُ يُلغى وحجزُه يُحرَّر كأيّ فشلِ بدء.
+        // ====================================================================
+        if (attempt.Result is not StartPaymentResult.ClientScript script)
+        {
+            _logger.LogError(
+                "المحوّل {Gateway} بدأ الدفع بشكل {Flow} ولا واجهة له بعد — أُلغي الطلب {OrderId}",
+                attempt.Gateway, attempt.Result.GetType().Name, order.Id);
+            await _confirmation.CancelAsync(order, PaymentStartFailedNote, expired: false, OrderActor.System, ct);
+            return Result<string>.Failure(Error.Unavailable(
+                "PaymentFlowNotSupported", "طريقة الدفع لدى المزوّد المربوط غير مدعومة في هذه النسخة."));
+        }
+
+        order.SetPaymentIntent(script.ProviderReference);
+        // دفعة الطلب (المرحلة 11) بالحساب الذي بدأ الدفع، نوعاً وهويّةً (TD-50) — تُحفظ مع ربطها
+        // بالطلب في الحفظ نفسه.
+        await _orderPayments.RecordIntentAsync(
+            order.Id,
+            new PaymentIntentResult(script.ProviderReference, script.ClientSecret, attempt.Gateway, attempt.GatewayAccount),
+            order.TotalAmount, ct);
         await _uow.SaveChangesAsync(ct);
 
-        return Result<string>.Success(intent.ClientSecret);
+        return Result<string>.Success(script.ClientSecret);
     }
 }

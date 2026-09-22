@@ -8,7 +8,7 @@
 | Suite | Files | Facts | Theories |
 |---|---|---|---|
 | [`Souq.Domain.Tests`](#souqdomaintests) | 35 | 329 | 55 |
-| [`Souq.Application.Tests`](#souqapplicationtests) | 58 | 435 | 22 |
+| [`Souq.Application.Tests`](#souqapplicationtests) | 58 | 436 | 22 |
 | [`Souq.ArchitectureTests`](#souqarchitecturetests) | 17 | 77 | 8 |
 | [`Souq.IntegrationTests`](#souqintegrationtests) | 67 | 425 | 28 |
 | [frontend (Vitest)](#frontend-vitest) | 106 | 819 | — |
@@ -89,7 +89,7 @@
 | `tests/Souq.Application.Tests/Observability/SouqMetricsTests.cs` | `SouqMetricsTests` | 2 | 0 |
 | `tests/Souq.Application.Tests/Orders/CancelMyOrderHandlerTests.cs` | `CancelMyOrderHandlerTests` | 5 | 0 |
 | `tests/Souq.Application.Tests/Orders/ConfirmOrderPaymentHandlerTests.cs` | `ConfirmOrderPaymentHandlerTests` | 12 | 0 |
-| `tests/Souq.Application.Tests/Orders/CreateOrderHandlerTests.cs` | `CreateOrderHandlerTests` | 17 | 1 |
+| `tests/Souq.Application.Tests/Orders/CreateOrderHandlerTests.cs` | `CreateOrderHandlerTests` | 18 | 1 |
 | `tests/Souq.Application.Tests/Orders/ExpireStaleCheckoutsHandlerTests.cs` | `ExpireStaleCheckoutsHandlerTests` | 6 | 0 |
 | `tests/Souq.Application.Tests/Orders/GetOrderByIdHandlerTests.cs` | `GetOrderByIdHandlerTests` | 7 | 1 |
 | `tests/Souq.Application.Tests/Orders/ProcessPaymentWebhookHandlerTests.cs` | `ProcessPaymentWebhookHandlerTests`, `ApplyPaymentEventHandlerTests` | 6 | 2 |

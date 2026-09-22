@@ -56,7 +56,7 @@ public class CreateOrderHandlerTests
         });
         _reservations.When(r => r.ReserveAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<ReservationLine>>(), Arg.Any<CancellationToken>()))
             .Do(_ => _steps.Add("reserve"));
-        _payment.When(p => p.CreateIntentAsync(Arg.Any<Money>(), Arg.Any<string>(), Arg.Any<CancellationToken>()))
+        _payment.When(p => p.StartPaymentAsync(Arg.Any<Money>(), Arg.Any<string>(), Arg.Any<CancellationToken>()))
             .Do(_ => _steps.Add("intent"));
         _numbers.NextAsync(Arg.Any<CancellationToken>()).Returns(1001);
     }
@@ -94,8 +94,9 @@ public class CreateOrderHandlerTests
             .Returns(new List<Product> { product ?? NewProduct() });
         _availability.AvailableAsync(Arg.Any<IReadOnlyCollection<int>>(), Arg.Any<CancellationToken>())
             .Returns(new Dictionary<int, int> { [1] = available });
-        _payment.CreateIntentAsync(Arg.Any<Money>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
-            .Returns(new PaymentIntentResult("pi_123", "pi_123_secret"));
+        _payment.StartPaymentAsync(Arg.Any<Money>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(new StartPaymentAttempt(
+                new StartPaymentResult.ClientScript("pi_123", "pi_123_secret", "pk_test"), "fake", "pk_test"));
     }
 
     [Fact]
@@ -113,7 +114,7 @@ public class CreateOrderHandlerTests
         (result.Value!.TotalAmount, result.Value.ShippingCost).Should().Be((53.5m, 3.5m));
         (_saved!.ShippingMethodName, _saved.ShippingAmount, _saved.ShippingCarrier, _saved.ShippingTrackingUrlTemplate, _saved.PlacedTotal)
             .Should().Be(("توصيل", 3.5m, "Aramex", "https://track.example/{number}", 53.5m));
-        await _payment.Received(1).CreateIntentAsync(Arg.Is<Money>(m => m.Amount == 53.5m), Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await _payment.Received(1).StartPaymentAsync(Arg.Is<Money>(m => m.Amount == 53.5m), Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -124,7 +125,7 @@ public class CreateOrderHandlerTests
         var result = await CreateHandler().Handle(NewCommand(), CancellationToken.None);
 
         result.ErrorCode.Should().Be("CustomerNotFound");
-        await _payment.DidNotReceive().CreateIntentAsync(Arg.Any<Money>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await _payment.DidNotReceive().StartPaymentAsync(Arg.Any<Money>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -200,7 +201,7 @@ public class CreateOrderHandlerTests
         result.Value!.Subtotal.Should().Be(100);
         result.Value.DiscountAmount.Should().Be(10);
         result.Value.TotalAmount.Should().Be(90);
-        await _payment.Received(1).CreateIntentAsync(
+        await _payment.Received(1).StartPaymentAsync(
             Arg.Is<Money>(m => m.Amount == 90), Arg.Any<string>(), Arg.Any<CancellationToken>());
         // استخدام الكوبون يُحجز في معاملة الطلب نفسها (المرحلة 10) — بقواعده على قراءة جديدة.
         await _couponRedemptions.Received(1).ReserveAsync("SAVE10", SavedOrderId, 1,
@@ -250,7 +251,7 @@ public class CreateOrderHandlerTests
         var act = () => CreateHandler().Handle(NewCommand(), CancellationToken.None);
 
         await act.Should().ThrowAsync<InsufficientStockException>();
-        await _payment.DidNotReceive().CreateIntentAsync(Arg.Any<Money>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await _payment.DidNotReceive().StartPaymentAsync(Arg.Any<Money>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -258,7 +259,7 @@ public class CreateOrderHandlerTests
     {
         // Phase 0 C6: كان الطلب يبقى Pending يحجز المخزون للأبد بلا أي وسيلة دفع.
         Arrange();
-        _payment.CreateIntentAsync(Arg.Any<Money>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+        _payment.StartPaymentAsync(Arg.Any<Money>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
             .ThrowsAsync(new HttpRequestException("gateway down"));
 
         var result = await CreateHandler().Handle(NewCommand(quantity: 3), CancellationToken.None);
@@ -270,6 +271,28 @@ public class CreateOrderHandlerTests
         // حفظ الطلب مع الحجز، ثم حفظ الإلغاء مع التحرير — كلٌّ في معاملته.
         await _uow.Received(2).SaveChangesAsync(Arg.Any<CancellationToken>());
         await _uow.Received(2).InTransactionAsync(Arg.Any<Func<Task>>(), Arg.Any<CancellationToken>());
+    }
+
+    // ========================================================================
+    // شكلُ بدءٍ لا واجهةَ له يُعامَل كفشلِ بدء (ADR-0048 §1): يُلغى الطلب ويُحرَّر حجزه.
+    //
+    // **والبديلُ الصامت هو العطب**: مزوّدٌ يُعيد توجيهاً وسرُّه يُسلَّم للواجهة يُنتج شاشةَ دفعٍ
+    // فارغة وطلباً معلّقاً يحجز مخزوناً — ولا رسالةَ خطأٍ في أيّ مكان.
+    // ========================================================================
+    [Fact]
+    public async Task شكل_دفع_لا_واجهة_له_يُلغي_الطلب_ويحرّر_حجزه()
+    {
+        Arrange();
+        _payment.StartPaymentAsync(Arg.Any<Money>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(new StartPaymentAttempt(
+                new StartPaymentResult.Redirect("ref_1", "https://provider.example/pay/ref_1"), "fake", null));
+
+        var result = await CreateHandler().Handle(NewCommand(quantity: 3), CancellationToken.None);
+
+        result.ErrorCode.Should().Be("PaymentFlowNotSupported");
+        _saved!.Status.Should().Be(OrderStatus.Cancelled);
+        await _reservations.Received(1).CancelAsync(
+            OrderStockReference.For(SavedOrderId), "تعذّر بدء عملية الدفع", false, Arg.Any<CancellationToken>());
     }
 
     // ── المتغيّرات (ProductVariants.md، V1) ── المنتج 1 بمتغيّرين: الافتراضي 1 (50) والثاني 12 (60).

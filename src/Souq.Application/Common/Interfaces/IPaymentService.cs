@@ -26,6 +26,10 @@ public interface IPaymentService
     // نتيجة (Succeeded = false)؛ انقطاعها استثناء — النتيجة مجهولة ويُعاد بالمفتاح نفسه.
     Task<PaymentRefundResult> RefundAsync(string paymentIntentId, Money amount, string idempotencyKey, CancellationToken ct = default);
 
+    // يبدأ الدفع ويعيد **كيف** يُكمله الشاري (ADR-0048 §1). يحلّ محلّ `CreateIntentAsync` بالنسبة
+    // لكلّ مُنادٍ جديد: ذاك يفترض شكلاً واحداً، وهذا ينقل الشكلَ كما يقوله المحوّل.
+    Task<StartPaymentAttempt> StartPaymentAsync(Money amount, string orderReference, CancellationToken ct = default);
+
     // ما يستطيعه المزوّد المربوط — بياناتٌ يعلنها، لا استثناءاتٌ يُكتشف بها (ADR-0048 §5).
     Task<PaymentCapabilities> GetCapabilitiesAsync(CancellationToken ct = default);
 
@@ -52,6 +56,49 @@ public record PaymentConfirmationResult(PaymentIntentState State, string? Failur
     public static PaymentConfirmationResult Ok() => new(PaymentIntentState.Succeeded);
 }
 public record PaymentRefundResult(bool Succeeded, string? ProviderRefundId, string? FailureReason);
+
+// ============================================================================
+// **كيف يبدأ الدفع** — نتيجةٌ مُميَّزة تحملها النواة بلا أن تفهمها (ADR-0048 §1).
+//
+// اليومَ الشكلُ واحد: سرٌّ يُسلَّم للمتصفّح فيُكمل الدفع في الصفحة (`ClientScript`). وهذا شكلُ
+// المزوّد الحاليّ وحده — **والمزوّدون الإقليميون الذين يخدمون هذا السوق يعيدون توجيهاً**، أي
+// أنّ الشاري يغادر الصفحة ويعود. وحين كان العقدُ يقول «أعطني سرّاً» كان إدخالُ مزوّدٍ كهذا
+// **يغيّر واجهةً في Application** — وهو بالضبط عكسُ ما يَعِد به المنفذ.
+//
+// فالشكلُ صار نتيجةً مُميَّزة: المحوّلُ يقول كيف يبدأ، والنواةُ تنقله إلى الواجهة كما هو.
+// إضافةُ مزوّدٍ يُعيد التوجيه صارت **تغييرَ محوّلٍ وحده**.
+//
+//   • `ClientScript`  — سرٌّ وإعدادٌ للواجهة؛ الشاري لا يغادر (الشكلُ القائم).
+//   • `Redirect`      — رابطٌ يُذهب إليه الشاري ويعود منه.
+//   • `BrowserPost`   — نموذجٌ يُرسَل بحقولٍ موقَّعة إلى صفحة المزوّد.
+//   • `Completed`     — حُسم فوراً بلا خطوةٍ في المتصفّح.
+//   • `Deferred`      — تعليماتٌ تُنفَّذ خارج النطاق: الدفعُ عند الاستلام وفواتيرُ السداد، وهما
+//                       في هذا السوق ليسا حالاتٍ هامشية.
+//
+// **ولا تُبنى هنا شاشةٌ لشكلٍ لا يُنتجه محوّل**: الأشكالُ الأربعة الأخرى معرَّفةٌ ليكون العقدُ
+// صحيحاً، ومَن يُدخل أوّلَ مزوّدٍ يُعيد التوجيه يبني شاشته معه. تعريفُ الشكل ليس تعميماً
+// استباقياً — هو موضعُ الفصل؛ أمّا بناءُ واجهةٍ لمزوّدٍ لا وجود له فهو كذلك، ولا يُبنى.
+// ============================================================================
+// ما تحتاجه النواة من البدء: الشكلُ، والحسابُ الذي قبض ونوعُه — الأخيران يُسجَّلان على الدفعة.
+public sealed record StartPaymentAttempt(StartPaymentResult Result, string Gateway, string? GatewayAccount);
+
+public abstract record StartPaymentResult(string ProviderReference)
+{
+    // سرٌّ للمتصفّح: الشاري يُكمل الدفع في الصفحة نفسها.
+    public sealed record ClientScript(string Reference, string ClientSecret, string? PublishableKey)
+        : StartPaymentResult(Reference);
+
+    // رابطٌ يغادر إليه الشاري ويعود. **ولهذا وُجد سجلُّ المحاولة في ADR-0048**: العودةُ والإشعارُ
+    // والمُطابِقُ قد تصل بأيّ ترتيب — ويُبنى مع أوّل محوّلٍ يُنتج هذا الشكل، لا قبله.
+    public sealed record Redirect(string Reference, string Url) : StartPaymentResult(Reference);
+
+    public sealed record BrowserPost(string Reference, string Url, IReadOnlyDictionary<string, string> Fields)
+        : StartPaymentResult(Reference);
+
+    public sealed record Completed(string Reference, PaymentIntentState State) : StartPaymentResult(Reference);
+
+    public sealed record Deferred(string Reference, string Instructions) : StartPaymentResult(Reference);
+}
 
 // ============================================================================
 // قدراتُ المزوّد — **بياناتٌ يعلنها، لا استثناءاتٌ تُكتشف** (ADR-0048 §5).

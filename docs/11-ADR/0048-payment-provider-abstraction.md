@@ -1,6 +1,6 @@
 # ADR-0048: The payment port becomes flow-agnostic — a payment attempt, a discriminated start result, and a webhook inbox
 
-- **Status:** Accepted as the design, 2026-09-20. **Not implemented**, and deliberately not implementable until **D-13** and the launch-provider choice are answered, because the first adapter sets the port's vocabulary. Supersedes no decision; it re-shapes the port that [ADR-0031](0031-payments-and-refunds.md) introduced and [ADR-0036](0036-payment-intent-state-machine.md) refined.
+- **Status:** Accepted, and **partly implemented by `C12` on 2026-09-22** — see *Implementation notes* for what was built and what waits on a redirect-first adapter. Originally accepted as the design, 2026-09-20. **Not implemented**, and deliberately not implementable until **D-13** and the launch-provider choice are answered, because the first adapter sets the port's vocabulary. Supersedes no decision; it re-shapes the port that [ADR-0031](0031-payments-and-refunds.md) introduced and [ADR-0036](0036-payment-intent-state-machine.md) refined.
 - **Date:** 2026-09-20
 - **Related modules:** Payments, Ordering, Platform
 - **Related ADRs:** [ADR-0031](0031-payments-and-refunds.md) (the payment path and per-store accounts), [ADR-0036](0036-payment-intent-state-machine.md) (reading the intent's state rather than a boolean), [ADR-0014](0014-money-precision.md) (money and minor units), [ADR-0003](0003-clean-hexagonal-boundaries.md) (a port only at a real variation point), [ADR-0047](0047-commercial-control-plane.md) (where the platform's own money path lives)
@@ -107,6 +107,18 @@ field names; payout scheduling; reserve and negative-balance machinery; dispute 
 formats; minor-unit encoding; 3-D Secure step-up timing; national e-invoicing clearance. These live in the
 adapter, and the two that decide *liability* live as **stored data on the tenant**, because one platform can
 legitimately have stores on both sides of that line.
+
+## Implementation notes (added 2026-09-22 by `C12`)
+
+Three of this record's decisions are built; two are deliberately not, and the split is worth stating because a reader would otherwise read the gap as an omission.
+
+**Built.** §1's discriminated result (`StartPaymentResult`, with `CheckoutPayment` branching on it and refusing an unimplemented flow rather than mis-handling it), §5's declared capabilities with two enforced rules, and §6's Souq-minted idempotency, which already existed. `TD-50` and `TD-52`, named above as prerequisites, are closed.
+
+**Deferred with its trigger named: §2's *PaymentAttempt* aggregate.** The reason this record gives for it is precise — *"redirect-first means the shopper leaves the process, so the attempt must be addressable when they come back, when the webhook arrives, and when a reconciler polls"*. Every adapter that exists today produces `ClientScript`: the shopper never leaves, there is no return leg, and `Payment` plus `Order.PaymentIntentId` already address the one attempt there can be. Building the aggregate now would add a second table that duplicates `Payment` and that no flow exercises — and a second place where the truth about money lives is worse than either place alone. **It lands with the first adapter that returns `Redirect` or `BrowserPost`**, which is also the first time its ordering guarantees can be tested against something real.
+
+**Deferred for the same reason: §3's event-log totals and §4's webhook inbox.** Both are answers to out-of-order, duplicated and concurrent ingress, which arrives with redirect-first and with a provider whose delivery guarantees are known. Today's single webhook path is verified, tenant-routed through intent metadata, and covered; replacing it now would be a rewrite validated against the one provider whose shape this record says is *not* the target.
+
+The seam is what mattered, and the seam is in place: adding a redirect-first provider is an adapter change plus the pieces above, not a change to an Application interface — which is the promise §1 exists to keep.
 
 ## Consequences
 

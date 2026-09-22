@@ -46,6 +46,15 @@ public sealed class FakeGateway : IPaymentGateway
     public bool CanVerifyWebhooks => _webhookSecret is not null;
 
     // البوّابةُ التجريبية تقبل كلَّ شيء — وهو صحيحٌ عنها: لا مال ولا شبكة، فلا قيد.
+    // البدءُ يُبنى على إنشاء النيّة نفسه: مسارُ شبكةٍ واحد لا اثنان، فما يُختبر اليوم هو ما
+    // يُنفَّذ غداً. ومَن يُدخل مزوّداً يُعيد التوجيه يكتب هنا `Redirect` ولا يمسّ شيئاً فوقه.
+    public async Task<StartPaymentResult> StartPaymentAsync(
+        Money amount, string orderReference, int tenantId, CancellationToken ct)
+    {
+        var intent = await CreateIntentAsync(amount, orderReference, tenantId, ct);
+        return new StartPaymentResult.ClientScript(intent.PaymentIntentId, intent.ClientSecret, PublishableKey);
+    }
+
     public PaymentCapabilities Capabilities { get; } = new(
         AuthorizeThenCapture: true, PartialCapture: true, PartialRefund: true, StoredInstruments: true);
 

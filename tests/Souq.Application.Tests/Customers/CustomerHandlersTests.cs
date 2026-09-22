@@ -156,8 +156,9 @@ public class CreateOrderCustomerRulesTests
             .Returns(new List<Product> { TestCatalog.Product("سماعات", price: 50, id: 1) });
         _availability.AvailableAsync(Arg.Any<IReadOnlyCollection<int>>(), Arg.Any<CancellationToken>())
             .Returns(new Dictionary<int, int> { [1] = 10 });
-        _payment.CreateIntentAsync(Arg.Any<Money>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
-            .Returns(new PaymentIntentResult("pi_1", "pi_1_secret"));
+        _payment.StartPaymentAsync(Arg.Any<Money>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(new StartPaymentAttempt(
+                new StartPaymentResult.ClientScript("pi_1", "pi_1_secret", "pk_test"), "fake", "pk_test"));
     }
 
     // المراحل الثلاث بالبدائل نفسها (TD-13، قُسِّم في M5): ما يُختبَر هنا قواعد العميل لا حدود التقسيم.

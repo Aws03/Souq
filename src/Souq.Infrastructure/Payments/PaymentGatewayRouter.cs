@@ -42,6 +42,16 @@ public sealed class PaymentGatewayRouter : IPaymentService
     public async Task<PaymentIntentResult> CreateIntentAsync(Money amount, string orderReference, CancellationToken ct = default) =>
         await (await CurrentAsync(ct)).CreateIntentAsync(amount, orderReference, _tenant.RequireTenant().Id, ct);
 
+    // البدءُ يمرّ بالحساب الذي سيقبض، ويعيد معه نوعَه وهويّته — فما يُسجَّل على الدفعة يأتي من
+    // موضعٍ واحد لا من تخمينِ المُنادي.
+    public async Task<StartPaymentAttempt> StartPaymentAsync(
+        Money amount, string orderReference, CancellationToken ct = default)
+    {
+        var gateway = await CurrentAsync(ct);
+        var result = await gateway.StartPaymentAsync(amount, orderReference, _tenant.RequireTenant().Id, ct);
+        return new StartPaymentAttempt(result, gateway.Name, gateway.PublishableKey);
+    }
+
     public async Task<PaymentConfirmationResult> ConfirmAsync(string paymentIntentId, CancellationToken ct = default) =>
         await (await ForIntentAsync(paymentIntentId, ct)).ConfirmAsync(paymentIntentId, ct);
 

@@ -33,8 +33,8 @@
 ```yaml
 plan_version: 1.7.0
 track: commercial
-current_phase: C8
-phase_status: done
+current_phase: C12
+phase_status: port-done-adapter-blocked
 # 2026-09-21: the owner answered the eight questions of OwnerDecisionBrief.md, and SIX phases that
 # were gated are now unblocked. The canonical record of each answer is its own entry in
 # docs/09-OPERATIONS/OwnerDecisions.md; §5 of this page carries the plan-side consequence.
@@ -71,15 +71,17 @@ current_phase_note: |
       workflow, a store's selection — a fifteenth module (d894148)
     • and the tax term itself: the pricing pipeline's explicit zero is now
       calculated, frozen onto the order, and shown to the shopper (60f5021)
-next_phase: C12          # the payment port re-shaped + the redirect-first model; the adapter waits on a contract
-# C8 is closed (presets + section registry). What is left unblocked is C12's port and model, and
-# C9b's remaining capture surfaces — capture itself stays OFF until C-08's three sub-answers exist.
+next_phase: C9b          # the remaining capture surfaces; capture itself stays OFF until C-08's sub-answers
+# C12's port seam is in (discriminated start result + declared capabilities), and its two prerequisites
+# TD-50/TD-52 are closed. The attempt aggregate, event-log totals and webhook inbox wait on the first
+# redirect-first adapter, which waits on a provider contract — external. So the last unblocked work is
+# C9b's capture surfaces.
 blocked_decisions: ["D-18", "C-11", "C-09", "C-18", "C-12", "C-13"]
 answered_decisions: ["C-08", "C-17", "TD-42", "C-15", "P-06", "D-13", "C-01", "C-19"]
 open_sub_decisions: ["C-08 lawful basis", "C-08 retention period", "C-08 data residency",
                      "P-06 every jurisdiction value", "C-01 the provider itself"]
 last_verified_date: 2026-09-22
-last_verified_head: d97c131
+last_verified_head: f91088c
 
 # ── ما بقي، ولماذا ─────────────────────────────────────────────────────────
 # C4  — بقي منه ثُلثٌ واحد: التخزين السحابي، وهو وحده الموقوف على D-18. القفلُ والإبطالُ تمّا.
@@ -499,7 +501,7 @@ Each phase lists: **delivers · depends on · blocked by · why here**.
   rather than refund requests, so an operational alert undercounted the work waiting. And the white-label guard
   caught a currency name in a new *comment*, which is exactly the rule working.
 
-### C12 — The payment port, re-shaped, and the first regional adapter
+### C12 — The payment port, re-shaped, and the first regional adapter — **port done, adapter blocked**
 
 - **Delivers.** The flow-agnostic port: *StartPayment* returning a discriminated result (redirect, client
   script, browser post, completed synchronously, deferred out-of-band), a persisted *PaymentAttempt* aggregate,
@@ -525,11 +527,23 @@ Each phase lists: **delivers · depends on · blocked by · why here**.
   existing payment lost its refund path on upgrade day. And `StorePaymentAccounts` now carries a concurrency
   token, so two admins editing keys at once get a `409` instead of a silent overwrite — not an auto-retry, which
   would be the same defect with an extra step.
-- **Still open in this phase:** the port re-shape itself — `StartPayment` with its discriminated result, the
-  *PaymentAttempt* aggregate, event-log-derived totals, the webhook **inbox** with raw-bytes verification and a
-  tenant-carrying route, declared adapter capabilities, and refund as its own entity. All are described in
-  [ADR-0048](../11-ADR/0048-payment-provider-abstraction.md); none needs an owner decision. The **adapter** for a
-  named provider stays blocked on a contract, which is external.
+- **The port re-shape: the seam is done (2026-09-22).** `StartPaymentResult` is a discriminated result —
+  `ClientScript` / `Redirect` / `BrowserPost` / `Completed` / `Deferred` — that the core carries without
+  understanding, and `CheckoutPayment` branches on it, **refusing an unimplemented flow rather than mishandling
+  it**: a redirect provider whose reference was handed to the card widget would render an empty payment screen
+  and leave a pending order holding stock, with no error anywhere. Declared capabilities landed with it, with
+  two enforced rules. Adding a redirect-first provider is now an adapter change, not a change to an Application
+  interface — which is the whole promise of the port.
+- **Deliberately deferred inside this phase, with the trigger named:** the *PaymentAttempt* aggregate,
+  event-log-derived totals, and the webhook **inbox**. All three are answers to the shopper *leaving the
+  process* and to out-of-order, duplicated ingress. Every adapter that exists produces `ClientScript`: nobody
+  leaves, and `Payment` already addresses the single attempt. Building the aggregate now would add a second
+  table duplicating `Payment` that no flow exercises, and two places holding the truth about money is worse than
+  either. **They land with the first adapter that returns `Redirect` or `BrowserPost`** — which is also the
+  first time their ordering guarantees can be tested against something real. Recorded in
+  [ADR-0048](../11-ADR/0048-payment-provider-abstraction.md)'s implementation notes.
+- **Still blocked:** the adapter for a named provider, on a contract — an external dependency, and the same one
+  that would unblock the deferred three.
 
 ### C13 — Commissions, payouts, ledger and reconciliation
 

@@ -40,7 +40,12 @@ public class PaymentGatewayRoutingTests
         public PaymentCapabilities Capabilities { get; init; } = new();
 
         public Task<PaymentIntentResult> CreateIntentAsync(Money amount, string orderReference, int tenantId, CancellationToken ct) =>
-            Task.FromResult(new PaymentIntentResult($"pi_{Name}", "secret", PublishableKey!));
+            Task.FromResult(new PaymentIntentResult($"pi_{Name}", "secret", Name, PublishableKey));
+
+        public Task<StartPaymentResult> StartPaymentAsync(
+            Money amount, string orderReference, int tenantId, CancellationToken ct) =>
+            Task.FromResult<StartPaymentResult>(
+                new StartPaymentResult.ClientScript($"pi_{Name}", "secret", PublishableKey));
 
         public Task<PaymentConfirmationResult> ConfirmAsync(string paymentIntentId, CancellationToken ct) =>
             Task.FromResult(PaymentConfirmationResult.Ok());

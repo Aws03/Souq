@@ -48,6 +48,15 @@ public sealed class StripeGateway : IPaymentGateway
 
     public bool CanVerifyWebhooks => !string.IsNullOrWhiteSpace(_credentials.WebhookSecret);
 
+    // البدءُ يُبنى على إنشاء النيّة نفسه: مسارُ شبكةٍ واحد لا اثنان، فما يُختبر اليوم هو ما
+    // يُنفَّذ غداً. ومَن يُدخل مزوّداً يُعيد التوجيه يكتب هنا `Redirect` ولا يمسّ شيئاً فوقه.
+    public async Task<StartPaymentResult> StartPaymentAsync(
+        Money amount, string orderReference, int tenantId, CancellationToken ct)
+    {
+        var intent = await CreateIntentAsync(amount, orderReference, tenantId, ct);
+        return new StartPaymentResult.ClientScript(intent.PaymentIntentId, intent.ClientSecret, PublishableKey);
+    }
+
     public PaymentCapabilities Capabilities => StripeCapabilities;
 
     public async Task<PaymentIntentResult> CreateIntentAsync(Money amount, string orderReference, int tenantId, CancellationToken ct)
