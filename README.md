@@ -16,7 +16,7 @@
 | **Frontend** | React 18 · Vite · React Router 6 · TanStack Query · i18next (Arabic/English, RTL and LTR) · CSS Modules · JSDoc type-checking |
 | **Adapters** | Demo payment gateway (local, deterministic) · log / Resend / Brevo / SMTP email · local filesystem storage |
 | **Architecture** | Modular monolith · Clean Architecture · ports and adapters · selective CQRS and DDD · 15 business modules |
-| **Scale** | ~2,700 automated tests · 65 architecture decision records · 37 migrations · 24 browser journey specs |
+| **Scale** | 2,741 automated tests · 64 architecture decision records · 38 migrations · 24 browser journey specs |
 
 ## Why it exists
 
@@ -106,7 +106,7 @@ Engineered with care and covered by tests — and **not** externally audited, wh
 | Domain | 671 | Business rules, in isolation, with no database |
 | Application | 532 | Use cases, orchestration, compensation paths |
 | **Architecture** | 127 | Layering, module boundaries, tenant isolation, authorization surface, documentation accuracy |
-| **Integration** | 544 | Real SQL Server via Testcontainers: HTTP in, database out, including concurrency races |
+| **Integration** | 546 | Real SQL Server via Testcontainers: HTTP in, database out, including concurrency races |
 | Frontend | 865 | Vitest, plus lint and JSDoc type-checking |
 | Browser | 24 specs | Playwright journeys against the container stack, run by hand |
 

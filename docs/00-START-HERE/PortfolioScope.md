@@ -79,7 +79,7 @@ dotnet build -warnaserror                    # zero warnings
 dotnet test tests/Souq.Domain.Tests          # ~671
 dotnet test tests/Souq.Application.Tests     # ~532
 dotnet test tests/Souq.ArchitectureTests     # ~127 — the rules above, enforced
-dotnet test tests/Souq.IntegrationTests      # ~544, real SQL Server via Testcontainers
+dotnet test tests/Souq.IntegrationTests      # ~546, real SQL Server via Testcontainers
 cd frontend && npm ci && npm run lint && npm run typecheck && npm test && npm run build
 ```
 
