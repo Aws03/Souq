@@ -175,8 +175,12 @@ public class ConfigurationTests
     {
         // Email:Provider=Log يمرّ، لكن الإقلاع يستمر حتى القاعدة (غير موجودة هنا) — فالفشل
         // المتوقّع صار فشل اتصال لا فشل إعداد. هذا هو الفرق الذي نثبته.
+        //
+        // **وهذه التوليفة بعينها هي ما يحمله `.env.example`**: `Demo` + `Log` في بيئة Production.
+        // فهذا الاختبار هو ما يُثبت أنّ `cp .env.example .env && docker compose up` يقلع عند مَن
+        // يراجع المشروع بلا حسابٍ عند أيّ مزوّد — وهو أوّلُ ما يجرّبه، وأسوأُ ما يمكن أن يفشل.
         using var factory = new ConfiguredFactory("Production",
-            ("Jwt:Key", ValidKey), ("Payments:Provider", "Fake"), ("Email:Provider", "Log"));
+            ("Jwt:Key", ValidKey), ("Payments:Provider", "Demo"), ("Email:Provider", "Log"));
 
         var act = () => factory.CreateClient();
 
