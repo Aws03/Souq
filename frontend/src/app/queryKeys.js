@@ -37,6 +37,9 @@ export const queryKeys = {
   // يغيّر الصفّ **والقائمة والملخّص** معاً، فإبطال الجذر يُصيبها بنداء واحد.
   platformBillingSettings: () => ['platform-billing-settings'],
   platformTaxProfiles: () => ['platform-tax-profiles'],
+  platformTaxProfile: (id) => ['platform-tax-profiles', String(id)],
+  storeTax: () => ['store-tax'],
+  storeTaxProfiles: () => ['store-tax-profiles'],
   platformInvoicesAll: () => ['platform-invoices'],
   platformInvoices: (params) => ['platform-invoices', params],
   platformInvoice: (id) => ['platform-invoices', String(id)],

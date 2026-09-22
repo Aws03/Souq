@@ -60,6 +60,12 @@ const VOCABULARIES = {
   // ليست حالةً يرسلها الخادم بل تُحتسب من `isOverdue`، ولها نغمتُها هنا كي تُقرأ بالمفردة نفسها.
   invoice: { Draft: 'neutral', Issued: 'info', Settled: 'success', Cancelled: 'neutral', Overdue: 'danger' },
 
+  // حالةُ التحقّق من إصدارٍ ضريبيّ (ADR-0055). **غيرُ المتحقَّق منه ليس خطأً بل غيرُ صالحٍ
+  // للجمع**، فهو تحذيرٌ لا خطر: قيمةٌ صحيحةُ الشكل تنتظر مَن يؤكّدها. والخطرُ محجوزٌ لِما هو
+  // معطوب، ولا شيء هنا معطوب.
+  taxVerification: { Unverified: 'warning', RequiresProfessionalConfirmation: 'warning', Verified: 'success' },
+  taxVersion: { Draft: 'neutral', Published: 'info' },
+
   customer: { Active: 'success', Blocked: 'danger' },
 
   // بنود جاهزية المتجر — وفيها وحدها كانت المحايدة مستعملة أصلاً.

@@ -4,9 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useStoreConfig } from '../../app/TenantProvider';
 import StoreBrand from '../../app/StoreBrand';
 import { isModuleEnabled } from '../../app/tenantModel';
-import {
-  GridIcon, PackageIcon, InventoryIcon, TagIcon, ReceiptIcon, PercentIcon, UserIcon, CardIcon, TruckIcon, StarIcon, TrendIcon, SlidersIcon, TeamIcon, SearchIcon,
-} from '../../components/icons/Icons';
+import { CardIcon, GridIcon, InventoryIcon, PackageIcon, PercentIcon, ReceiptIcon, SearchIcon, SlidersIcon, StarIcon, TagIcon, TeamIcon, TrendIcon, TruckIcon, UserIcon } from '../../components/icons/Icons';
 import styles from './AdminLayout.module.css';
 
 // روابط لوحة الإدارة بصلاحياتها ووحداتها — مشتركة بين الشريط الجانبي (سطح المكتب) والشريط السفلي (الجوال).
@@ -27,6 +25,7 @@ export const ADMIN_NAV = [
   { to: '/admin/settings', label: 'admin.nav.settings', icon: SlidersIcon, permission: 'store.settings.manage' },
   // اشتراك المتجر وفواتيره (C5): بصلاحية الإعدادات نفسها — شأنُ صاحب المتجر لا موظّفه.
   { to: '/admin/subscription', label: 'admin.nav.subscription', icon: CardIcon, permission: 'store.settings.manage' },
+  { to: '/admin/tax', label: 'admin.nav.tax', icon: PercentIcon, permission: 'store.settings.manage' },
 ];
 
 // الروابط التي يراها الحساب الحالي: صلاحيته من الخادم، والوحدة (إن كانت اختيارية) مفعّلة في متجره — الموظّف لا يرى ما سيرفضه

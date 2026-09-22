@@ -278,6 +278,25 @@ export const api = {
   // ملفّاتُ الاختصاص الضريبيّ التي تستطيع المنصّة أن تُفوتر تحتها (platform.settings.manage،
   // ADR-0055). النقطةُ نفسها التي يقرأ منها التاجر ما يختاره — قائمةٌ واحدة لا نسختان.
   getPlatformTaxProfiles: () => request('/platform/tax/profiles'),
+  getPlatformTaxProfile: (id) => request(`/platform/tax/profiles/${id}`),
+  createPlatformTaxProfile: (payload) =>
+    request('/platform/tax/profiles', { method: 'POST', body: JSON.stringify(payload) }),
+  addPlatformTaxVersion: (id, payload) =>
+    request(`/platform/tax/profiles/${id}/versions`, { method: 'POST', body: JSON.stringify(payload) }),
+  publishPlatformTaxVersion: (id, versionId) =>
+    request(`/platform/tax/profiles/${id}/versions/${versionId}/publish`, { method: 'POST' }),
+  // تسجيلُ التحقّق: الفعلُ الوحيد الذي يسمح بجمع ضريبة، ويحمل **اسمَ** مَن تحقّق (ADR-0055).
+  verifyPlatformTaxVersion: (id, versionId, payload) =>
+    request(`/platform/tax/profiles/${id}/versions/${versionId}/verify`,
+      { method: 'POST', body: JSON.stringify(payload) }),
+  requirePlatformTaxConfirmation: (id, versionId, payload) =>
+    request(`/platform/tax/profiles/${id}/versions/${versionId}/require-confirmation`,
+      { method: 'POST', body: JSON.stringify(payload ?? {}) }),
+
+  // ── ضريبة المتجر كما يضبطها تاجره (store.settings.manage) ── اختيارُ ملفّ لا إدخالُ نسبة.
+  getStoreTax: () => request('/admin/store/tax'),
+  updateStoreTax: (payload) => request('/admin/store/tax', { method: 'PUT', body: JSON.stringify(payload) }),
+  getStoreTaxProfiles: () => request('/admin/store/tax/profiles'),
 
   getPlatformBillingSettings: () => request('/platform/billing/settings'),
   updatePlatformBillingSettings: (payload) =>

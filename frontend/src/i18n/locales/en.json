@@ -329,7 +329,8 @@
       "business": "Business",
       "staff": "Team",
       "settings": "Settings",
-      "subscription": "Subscription"
+      "subscription": "Subscription",
+      "tax": "Tax"
     },
     "dashboard": {
       "greeting": "Welcome, {{name, bidi}}",
@@ -1376,6 +1377,46 @@
       "overdueBy_other": "{{count}} days overdue",
       "lineQuantity_one": "{{count}} unit",
       "lineQuantity_other": "{{count}} units"
+    },
+    "tax": {
+      "title": "Tax",
+      "subtitle": "Choose the jurisdiction your store trades under. Rates are kept by the platform and confirmed by a professional — you never enter one.",
+      "state": "What your store charges today",
+      "collecting": "Charging tax",
+      "notCollecting": "Not charging tax",
+      "reason": {
+        "Collecting": "Tax is applied to orders, under a version a professional has verified.",
+        "NoProfileSelected": "You have not selected a jurisdiction, so no tax is added.",
+        "CollectionDisabled": "A jurisdiction is selected but collection is off, so no tax is added.",
+        "NoEffectiveVersion": "The selected jurisdiction has no version in effect, so no tax is added.",
+        "VersionNotVerified": "The selected version has not been verified by a professional yet, so no tax is added."
+      },
+      "settings": "Settings",
+      "profile": "Jurisdiction",
+      "profileHint": "Kept once by the platform. A second store in the same jurisdiction reuses what the first store's accountant verified.",
+      "noProfile": "None",
+      "unverifiedProfile": "not verified yet",
+      "registrationNumber": "Tax registration number",
+      "registrationNumberHint": "Yours, shown on documents where the jurisdiction requires it. Its format is never checked, because formats differ by jurisdiction.",
+      "collect": "Charge tax on orders",
+      "collectHint": "Selecting a jurisdiction does not charge anything on its own, and neither does this until the version is verified.",
+      "saved": "Tax settings saved.",
+      "jurisdiction": "Jurisdiction",
+      "priceMode": {
+        "Exclusive": "Added to the price",
+        "Inclusive": "Included in the price"
+      },
+      "shipping": "Shipping",
+      "shippingTaxed": "Taxed",
+      "shippingNotTaxed": "Not taxed",
+      "verification": "Verification",
+      "verificationState": {
+        "Unverified": "Not verified",
+        "RequiresProfessionalConfirmation": "Awaiting professional confirmation",
+        "Verified": "Verified by a professional"
+      },
+      "rates": "Rates",
+      "priceModeLabel": "Price convention"
     }
   },
   "wishlist": {
@@ -1678,7 +1719,8 @@
       "stores": "Stores",
       "accounts": "Accounts",
       "audit": "Activity log",
-      "invoices": "Invoices"
+      "invoices": "Invoices",
+      "tax": "Tax"
     },
     "setup": {
       "backToStores": "← All stores",
@@ -2232,7 +2274,76 @@
       "verification": {
         "Unverified": "Not verified",
         "RequiresProfessionalConfirmation": "Awaiting professional confirmation",
-        "Verified": "Verified by a professional"
+        "Verified": "Verified"
+      },
+      "title": "Tax jurisdictions",
+      "subtitle": "Rules the platform keeps once, that any store may select. No rate is ever entered by a store.",
+      "disclaimer": "Every value here is configuration, not law. Nothing is charged to anyone until a named professional — an accountant, a tax authority or a lawyer — has verified the version that carries it.",
+      "newProfile": "New jurisdiction",
+      "jurisdiction": "Jurisdiction code",
+      "jurisdictionHint": "A country code, or a region code where the rule is regional. It is a grouping key, never interpreted as logic.",
+      "profileName": "Name",
+      "createProfile": "Create jurisdiction",
+      "profileCreated": "Jurisdiction created. It has no version yet, so it charges nothing.",
+      "emptyTitle": "No jurisdiction yet",
+      "emptyMessage": "None ships with the product, and none ever will from engineering. Add the one your accountant has confirmed.",
+      "collects": "Charges tax",
+      "doesNotCollect": "Charges nothing",
+      "currentVersion": "Version {{version}} in effect, {{percent}}% in total",
+      "noEffectiveVersion": "No version in effect",
+      "showVersions": "Show versions",
+      "hideVersions": "Hide versions",
+      "versionLabel": "Version {{version}}",
+      "versionStatus": {
+        "Draft": "Draft",
+        "Published": "Published"
+      },
+      "priceMode": {
+        "Exclusive": "Added to the price",
+        "Inclusive": "Included in the price"
+      },
+      "priceModeLabel": "Price convention",
+      "priceModeHint": "Whether the displayed price already contains the tax. A property of the jurisdiction, not of the platform.",
+      "shippingTaxable": "Is shipping taxed?",
+      "shippingTaxableHint": "A jurisdiction rule with no default. Assuming either way is wrong by the shipping tax on every order.",
+      "shippingTaxed": "Shipping is taxed",
+      "shippingNotTaxed": "Shipping is not taxed",
+      "choose": "Choose…",
+      "newVersion": "New version",
+      "createVersion": "Create draft version",
+      "versionDrafted": "Draft version created. It charges nothing until it is published and verified.",
+      "draftExists": "This jurisdiction already has a draft. Publish or edit it before starting another.",
+      "draftStartsUnverified": "A new version always starts unverified, and nothing on this form can change that. Verification is a separate, attributed action.",
+      "effectiveFrom": "In effect from",
+      "effectiveFromHint": "Must be later than the last published version, so the rules that applied on a past date never change.",
+      "rateCode": "Rate code",
+      "rateName": "Rate name",
+      "ratePercent": "Rate (%)",
+      "ratePercentHint": "Entered as a percentage and stored as basis points, so the arithmetic never touches a float.",
+      "basisPointsPreview": "Stored as {{points}} basis points",
+      "addRate": "Add rate",
+      "publish": "Publish version",
+      "published": "Version published. It still charges nothing until it is verified.",
+      "confirmPublish": {
+        "title": "Publish this version?",
+        "message": "Publishing freezes every value in it. A correction after this is a new version with a later effective date — this one can never be edited again."
+      },
+      "recordVerification": "Record verification",
+      "verifyHint": "This does not assert that the numbers are right. It records who asserted it — which is the whole of the owner's answer to P-06.",
+      "verifiedByLabel": "Verified by",
+      "verifiedByHint": "The accounting firm, adviser or authority that confirmed these values.",
+      "verificationNote": "Note",
+      "verified": "Verification recorded. This version may now charge tax.",
+      "verifiedBy": "Verified by {{by, bidi}} on {{at}}",
+      "withdraw": "Withdraw verification",
+      "withdrawn": "Verification withdrawn. Collection stops immediately.",
+      "confirmWithdraw": {
+        "title": "Withdraw this verification?",
+        "message": "Collection under this version stops at once. Orders already placed keep the snapshot they were charged under — their history does not change."
+      },
+      "problem": {
+        "required": "Required.",
+        "atLeastOneRate": "A version needs at least one rate."
       }
     }
   },

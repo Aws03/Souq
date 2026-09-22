@@ -66,6 +66,7 @@ const ReviewModeration = lazy(() => import('./pages/admin/ReviewModeration'));
 const StoreSettings = lazy(() => import('./pages/admin/StoreSettings'));
 // اشتراك المتجر وفواتيره كما يراها تاجره (C5، ADR-0056).
 const Subscription = lazy(() => import('./pages/admin/Subscription'));
+const StoreTax = lazy(() => import('./pages/admin/StoreTax'));
 const Staff = lazy(() => import('./pages/admin/Staff'));
 const PlatformLayout = lazy(() => import('./app/PlatformLayout'));
 const PlatformOverview = lazy(() => import('./pages/platform/PlatformOverview'));
@@ -80,6 +81,8 @@ const PlatformAudit = lazy(() => import('./pages/platform/Audit'));
 const PlatformBillingSettings = lazy(() => import('./pages/platform/BillingSettings'));
 const PlatformInvoices = lazy(() => import('./pages/platform/Invoices'));
 const PlatformNewInvoice = lazy(() => import('./pages/platform/NewInvoice'));
+// ملفّات الاختصاص الضريبي (ADR-0055): أوّل واجهة لوحدة الضريبة.
+const PlatformTaxProfiles = lazy(() => import('./pages/platform/TaxProfiles'));
 const PlatformInvoiceDetail = lazy(() => import('./pages/platform/InvoiceDetail'));
 
 // صفحة إدارة بصلاحيتها (والوحدة إن كانت اختيارية) — الشريط الجانبي يخفي رابطها بالشرط نفسه.
@@ -161,6 +164,7 @@ function StoreRoutes() {
         <Route path="reviews" element={guarded(<ReviewModeration />, 'reviews.moderate', 'reviews')} />
         <Route path="settings" element={guarded(<StoreSettings />, 'store.settings.manage')} />
         <Route path="subscription" element={guarded(<Subscription />, 'store.settings.manage')} />
+        <Route path="tax" element={guarded(<StoreTax />, 'store.settings.manage')} />
         <Route path="staff" element={guarded(<Staff />, 'store.staff.manage')} />
       </Route>
 
@@ -230,6 +234,7 @@ function PlatformRoutes() {
         <Route path="billing" element={platformGuarded(<PlatformBillingSettings />, 'platform.billing.manage')} />
         <Route path="invoices" element={platformGuarded(<PlatformInvoices />, 'platform.billing.manage')} />
         <Route path="invoices/new" element={platformGuarded(<PlatformNewInvoice />, 'platform.billing.manage')} />
+        <Route path="tax" element={platformGuarded(<PlatformTaxProfiles />, 'platform.settings.manage')} />
         <Route path="invoices/:id" element={platformGuarded(<PlatformInvoiceDetail />, 'platform.billing.manage')} />
         <Route path="audit" element={platformGuarded(<PlatformAudit />, 'platform.audit.view')} />
         <Route path="*" element={<Navigate to="/platform" replace />} />
