@@ -193,7 +193,9 @@ test.describe('حسابات المنصّة وسجلّ النشاط', () => {
   /** @type {import('@playwright/test').Page} */
   let owner;
   const email = `qa-ops-${stamp}@souq.test`;
-  const password = `Qa-Ops-${stamp}-Pass`;
+  // الرقم صريح: السياسة تشترط حرفاً ورقماً، و`toString(36)` يخرج أحياناً بحروفٍ فقط
+  // (انظر platform-provisioning.spec.js).
+  const password = `Qa-Ops-${stamp}-Pass1`;
   let opsId;
   let invitationLink;
 

@@ -44,7 +44,10 @@ const host = `${slug}.localhost`;
 const STORE = `http://${host}${PORT}`;
 const storeName = `QA Provision ${stamp}`;
 const adminEmail = `qa-boss-${stamp}@souq.test`;
-const adminPassword = `Qa-Boss-${stamp}-Pass`;
+// الرقم `1` صريحٌ في آخرها: السياسة تشترط حرفاً **ورقماً** (`PasswordRules`)، و`Date.now()
+// .toString(36)` يخرج بثمانية محارف كلّها حروف نحو 7٪ من المرّات — فتُرفض كلمةُ المرور في
+// المتصفّح، ولا يُرسَل طلب، وتنتهي مهلة الانتظار برسالةٍ لا تذكر السبب. وقع فعلاً على `mucvzqfb`.
+const adminPassword = `Qa-Boss-${stamp}-Pass1`;
 
 test.describe.configure({ mode: 'serial' });
 test.skip(!API_LOG, 'SOUQ_API_LOG must point to the running API\'s log to follow the invitation link');
