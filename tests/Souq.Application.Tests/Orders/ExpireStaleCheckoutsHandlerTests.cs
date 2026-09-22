@@ -20,7 +20,7 @@ public class ExpireStaleCheckoutsHandlerTests
 {
     private readonly IInventoryReservations _reservations = Substitute.For<IInventoryReservations>();
     private readonly IOrderRepository _orders = Substitute.For<IOrderRepository>();
-    private readonly IPaymentService _payment = Substitute.For<IPaymentService>();
+    private readonly IPaymentService _payment = PaymentServiceFake.Create();
     private readonly IUnitOfWork _uow = TestUnitOfWork.Create();
 
     private ExpireStaleCheckoutsHandler CreateHandler() => new(

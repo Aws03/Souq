@@ -29,7 +29,7 @@ public class CreateOrderHandlerTests
     private readonly ICouponRepository _coupons = Substitute.For<ICouponRepository>();
     private readonly IInventoryReservations _reservations = Substitute.For<IInventoryReservations>();
     private readonly IStockAvailability _availability = Substitute.For<IStockAvailability>();
-    private readonly IPaymentService _payment = Substitute.For<IPaymentService>();
+    private readonly IPaymentService _payment = PaymentServiceFake.Create();
     private readonly IBasketCheckout _baskets = Substitute.For<IBasketCheckout>();
     private readonly ICouponRedemptionRepository _couponUses = Substitute.For<ICouponRedemptionRepository>();
     private Souq.Application.Features.Shipping.Contracts.IShippingRateProvider _shipping = TestShipping.None();

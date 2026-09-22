@@ -142,7 +142,7 @@ public class CreateOrderCustomerRulesTests
     private readonly ICustomerRepository _customers = Substitute.For<ICustomerRepository>();
     private readonly IInventoryReservations _reservations = Substitute.For<IInventoryReservations>();
     private readonly IStockAvailability _availability = Substitute.For<IStockAvailability>();
-    private readonly IPaymentService _payment = Substitute.For<IPaymentService>();
+    private readonly IPaymentService _payment = PaymentServiceFake.Create();
     private readonly IBasketCheckout _baskets = Substitute.For<IBasketCheckout>();
     private readonly IOrderNumbers _numbers = Substitute.For<IOrderNumbers>();
     private readonly IUnitOfWork _uow = TestUnitOfWork.Create();

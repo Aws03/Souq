@@ -37,6 +37,7 @@ public class PaymentGatewayRoutingTests
         public string Name { get; }
         public string? PublishableKey => $"pk_{Name}";
         public bool CanVerifyWebhooks => false;
+        public PaymentCapabilities Capabilities { get; init; } = new();
 
         public Task<PaymentIntentResult> CreateIntentAsync(Money amount, string orderReference, int tenantId, CancellationToken ct) =>
             Task.FromResult(new PaymentIntentResult($"pi_{Name}", "secret", PublishableKey!));
@@ -120,10 +121,12 @@ public class PaymentGatewayRoutingTests
     }
 
     private static PaymentGatewayRouter Router(
-        StorePaymentAccount? account, PaymentAccountRef? recorded = null, bool secretsBroken = false)
+        StorePaymentAccount? account, PaymentAccountRef? recorded = null, bool secretsBroken = false,
+        PaymentCapabilities? capabilities = null)
     {
+        capabilities ??= new PaymentCapabilities();
         // المصنعُ المحقون: هنا كان الاختبارُ مستحيلاً بلا شبكة.
-        StoreGatewayFactory factory = (kind, _) => new RecordingGateway(kind);
+        StoreGatewayFactory factory = (kind, _) => new RecordingGateway(kind) { Capabilities = capabilities };
 
         return new PaymentGatewayRouter(
             new DeploymentPaymentGateway(Deployment), new FakeAccounts(account), new FakePayments(recorded),
@@ -189,6 +192,34 @@ public class PaymentGatewayRoutingTests
         var act = () => router.RefundAsync("pi_1", Money.FromCalculation(5m, "JOD"), "idem-1");
 
         await act.Should().ThrowAsync<PaymentGatewayUnavailableException>();
+    }
+
+    // ========================================================================
+    // القدراتُ تُقرأ من **الحساب الذي سيقبض**، لا من المزوّد بإطلاق (ADR-0048 §5): متجرٌ ربط
+    // حسابه قد تختلف قدراتُه عن حساب النشر، والنواةُ تسأل قبل أن تعرض.
+    // ========================================================================
+    [Fact]
+    public async Task القدرات_تُقرأ_من_الحساب_الذي_سيقبض()
+    {
+        var limited = new PaymentCapabilities(PartialRefund: false, SupportedCurrencies: new HashSet<string> { "USD" });
+
+        var store = await Router(Account(), capabilities: limited).GetCapabilitiesAsync();
+        store.PartialRefund.Should().BeFalse();
+        store.Supports("USD").Should().BeTrue();
+        store.Supports("JOD").Should().BeFalse();
+
+        // ومتجرٌ بلا حساب يقرأ قدرات حساب النشر، وهي هنا الافتراضُ بلا قيد.
+        var deployment = await Router(account: null, capabilities: limited).GetCapabilitiesAsync();
+        deployment.PartialRefund.Should().BeTrue();
+    }
+
+    // قائمةٌ فارغة تعني «بلا قيدٍ معلن»، لا «لا شيء» — والفرقُ بينهما هو الفرقُ بين متجرٍ يبيع
+    // ومتجرٍ يُرفض كلُّ طلبٍ فيه.
+    [Fact]
+    public void عملات_فارغة_تعني_بلا_قيد_لا_لا_شيء()
+    {
+        new PaymentCapabilities().Supports("JOD").Should().BeTrue();
+        new PaymentCapabilities(SupportedCurrencies: new HashSet<string>()).Supports("JOD").Should().BeTrue();
     }
 
     // ========================================================================

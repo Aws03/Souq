@@ -18,6 +18,13 @@ public sealed record StripeCredentials(string SecretKey, string? PublishableKey,
 // ============================================================================
 public sealed class StripeGateway : IPaymentGateway
 {
+    // ما يدعمه **هذا التكامل**، لا ما يدعمه المزوّد في كتيّبه: التقسيمُ وقت المعاملة والتسجيلُ
+    // البرمجيّ للتجّار الفرعيين يحتاجان تكاملاً آخر لا يوجد هنا، فإعلانُهما صحيحاً كذبٌ مبكّر.
+    // والعملاتُ فارغةٌ: المزوّد يقبل عشرات، ولا قائمةَ يمكن التحقّق منها تُكتب هنا بلا مصدر.
+    public static readonly PaymentCapabilities StripeCapabilities = new(
+        AuthorizeThenCapture: true, PartialCapture: true, PartialRefund: true, StoredInstruments: true,
+        TransactionTimeSplit: false, ProgrammaticOnboarding: false);
+
     public const string StoreAccount = "stripe:store";
     public const string DeploymentAccount = "stripe:deployment";
     private const string OrderReferenceKey = "orderReference";
@@ -40,6 +47,8 @@ public sealed class StripeGateway : IPaymentGateway
     public string? PublishableKey => string.IsNullOrWhiteSpace(_credentials.PublishableKey) ? null : _credentials.PublishableKey;
 
     public bool CanVerifyWebhooks => !string.IsNullOrWhiteSpace(_credentials.WebhookSecret);
+
+    public PaymentCapabilities Capabilities => StripeCapabilities;
 
     public async Task<PaymentIntentResult> CreateIntentAsync(Money amount, string orderReference, int tenantId, CancellationToken ct)
     {

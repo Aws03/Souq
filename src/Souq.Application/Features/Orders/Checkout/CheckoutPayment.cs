@@ -44,6 +44,23 @@ public sealed class CheckoutPayment
         PaymentIntentResult intent;
         try
         {
+            // **القدراتُ تُسأل قبل أن يُعرَض الدفع** (ADR-0048 §5). قاعدتان هنا لهما ضحيّةٌ حقيقية:
+            // عملةٌ لا يقبلها الحساب المربوط، ومبلغٌ أدقُّ ممّا يقبله. والثانيةُ ليست تنسيقاً: حين
+            // يوثّق مزوّدٌ أنّ شبكةَ بطاقاتٍ تشترط مبلغاً ينتهي بصفرٍ في عملةٍ ثلاثية الخانات، فأصغرُ
+            // زيادةٍ ممكنة عشرُ وحداتٍ صغرى — وهو قيدٌ يمتدّ إلى أسعار المنتجات نفسها.
+            //
+            // **ولا قيمةَ لأيّ سوقٍ مكتوبةٌ في المنتج**: المحوّلُ يعلن ما يوثّقه مزوّدُه، والافتراضُ
+            // «بلا قيد». فشلُ الدفع هنا يُعامَل كفشل البوّابة تماماً: الطلبُ يُلغى وحجزُه يُحرَّر.
+            var capabilities = await _payment.GetCapabilitiesAsync(ct);
+            if (!capabilities.Supports(order.TotalAmount.Currency))
+            {
+                _logger.LogError("حساب الدفع المربوط لا يقبل العملة {Currency} — أُلغي الطلب {OrderId}",
+                    order.TotalAmount.Currency, order.Id);
+                await _confirmation.CancelAsync(order, PaymentStartFailedNote, expired: false, OrderActor.System, ct);
+                return Result<string>.Failure(Error.Unavailable(
+                    "PaymentCurrencyNotSupported", "حساب الدفع المربوط لا يقبل عملة هذا المتجر."));
+            }
+
             intent = await _payment.CreateIntentAsync(order.TotalAmount, order.Id.ToString(), ct);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)

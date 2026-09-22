@@ -8,9 +8,9 @@
 | Suite | Files | Facts | Theories |
 |---|---|---|---|
 | [`Souq.Domain.Tests`](#souqdomaintests) | 35 | 329 | 55 |
-| [`Souq.Application.Tests`](#souqapplicationtests) | 58 | 433 | 22 |
+| [`Souq.Application.Tests`](#souqapplicationtests) | 58 | 435 | 22 |
 | [`Souq.ArchitectureTests`](#souqarchitecturetests) | 17 | 77 | 8 |
-| [`Souq.IntegrationTests`](#souqintegrationtests) | 67 | 423 | 28 |
+| [`Souq.IntegrationTests`](#souqintegrationtests) | 67 | 425 | 28 |
 | [frontend (Vitest)](#frontend-vitest) | 106 | 819 | — |
 | [frontend (Playwright)](#frontend-playwright) | 24 | 147 | — |
 
@@ -94,7 +94,7 @@
 | `tests/Souq.Application.Tests/Orders/GetOrderByIdHandlerTests.cs` | `GetOrderByIdHandlerTests` | 7 | 1 |
 | `tests/Souq.Application.Tests/Orders/ProcessPaymentWebhookHandlerTests.cs` | `ProcessPaymentWebhookHandlerTests`, `ApplyPaymentEventHandlerTests` | 6 | 2 |
 | `tests/Souq.Application.Tests/Orders/UpdateOrderStatusHandlerTests.cs` | `UpdateOrderStatusHandlerTests` | 9 | 2 |
-| `tests/Souq.Application.Tests/Payments/OrderPaymentsTests.cs` | `OrderPaymentsTests` | 10 | 0 |
+| `tests/Souq.Application.Tests/Payments/OrderPaymentsTests.cs` | `OrderPaymentsTests` | 12 | 0 |
 | `tests/Souq.Application.Tests/Payments/StorePaymentAccountEditorTests.cs` | `StorePaymentAccountEditorTests` | 5 | 1 |
 | `tests/Souq.Application.Tests/Platform/TenantAdministrationTests.cs` | `TenantAdministrationTests` | 5 | 0 |
 | `tests/Souq.Application.Tests/Products/GetProductsHandlerTests.cs` | `GetProductsHandlerTests` | 6 | 0 |
@@ -180,7 +180,7 @@
 | `tests/Souq.IntegrationTests/OrderLifecycleTests.cs` | `OrderLifecycleTests` | 6 | 0 |
 | `tests/Souq.IntegrationTests/PaymentAdapterTests.cs` | `SecretProtectorTests`, `FakeGatewayTests` | 6 | 1 |
 | `tests/Souq.IntegrationTests/PaymentDataRulesTests.cs` | `PaymentDataRulesTests` | 2 | 0 |
-| `tests/Souq.IntegrationTests/PaymentGatewayRoutingTests.cs` | `PaymentGatewayRoutingTests`, `RecordingGateway`, `FakeAccounts`, `FakePayments`, `FakeSecrets`, `FakeTenantContext` | 10 | 0 |
+| `tests/Souq.IntegrationTests/PaymentGatewayRoutingTests.cs` | `PaymentGatewayRoutingTests`, `RecordingGateway`, `FakeAccounts`, `FakePayments`, `FakeSecrets`, `FakeTenantContext` | 12 | 0 |
 | `tests/Souq.IntegrationTests/PaymentsAndRefundsTests.cs` | `PaymentsAndRefundsTests` | 8 | 0 |
 | `tests/Souq.IntegrationTests/PlatformAdministrationTests.cs` | `PlatformAdministrationTests` | 9 | 0 |
 | `tests/Souq.IntegrationTests/PlatformAuditViewerTests.cs` | `PlatformAuditViewerTests` | 5 | 0 |

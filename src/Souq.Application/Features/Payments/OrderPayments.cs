@@ -67,6 +67,15 @@ public sealed class OrderPayments : IOrderPayments
                 return Result<RefundOutcome>.Failure(Error.BusinessRule("NothingToRefund", "لا مبلغ متبقٍّ للاسترداد"));
 
             var requested = amount is decimal value ? new Money(value, payment.Amount.Currency) : payment.Refundable;
+
+            // **القدراتُ تُسأل قبل النداء، لا تُكتشف به** (ADR-0048 §5): مزوّدٌ لا يدعم الاسترداد
+            // الجزئيّ كان سيرفضه بعد أن يُحجز المبلغ محلّياً، فيبقى `PendingRefundAmount` معلّقاً
+            // على استردادٍ لن يقع. والسؤالُ هنا لأنّه أوّلُ موضعٍ يُعرف فيه أنّ الاسترداد جزئيّ.
+            var capabilities = await _gateway.GetCapabilitiesAsync(ct);
+            if (!capabilities.PartialRefund && requested.Amount < payment.Amount.Amount)
+                return Result<RefundOutcome>.Failure(Error.BusinessRule("PartialRefundNotSupported",
+                    "حساب الدفع المربوط لا يدعم الاسترداد الجزئي — استردّ كامل المبلغ أو غيّر الحساب"));
+
             var refund = payment.RequestRefund(requested, reason, requestedByUserId);
             try
             {

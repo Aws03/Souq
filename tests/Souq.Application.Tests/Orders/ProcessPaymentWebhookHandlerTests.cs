@@ -27,7 +27,7 @@ public class ProcessPaymentWebhookHandlerTests
         new(99, "other", "متجر آخر", TenantStatus.Active, "JOD", "ar", "Asia/Amman",
             new HashSet<string>(StringComparer.Ordinal), new Dictionary<string, int>(StringComparer.Ordinal));
 
-    private readonly IPaymentService _payment = Substitute.For<IPaymentService>();
+    private readonly IPaymentService _payment = PaymentServiceFake.Create();
     private readonly ITenantDirectory _directory = Substitute.For<ITenantDirectory>();
     private readonly ITenantScopeRunner _scopes = Substitute.For<ITenantScopeRunner>();
     private readonly IMediator _mediator = Substitute.For<IMediator>();
@@ -123,7 +123,7 @@ public class ProcessPaymentWebhookHandlerTests
 // تطبيق الحدث في متجره: نفس منطق التأكيد (التحقّق لدى البوّابة، مضمون التكرار).
 public class ApplyPaymentEventHandlerTests
 {
-    private readonly IPaymentService _payment = Substitute.For<IPaymentService>();
+    private readonly IPaymentService _payment = PaymentServiceFake.Create();
     private readonly IOrderRepository _orders = Substitute.For<IOrderRepository>();
     private readonly IUnitOfWork _uow = TestUnitOfWork.Create();
     private readonly Souq.Application.Features.Inventory.Contracts.IInventoryReservations _reservations =

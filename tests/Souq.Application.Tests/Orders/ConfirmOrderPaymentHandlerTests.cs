@@ -24,7 +24,7 @@ public class ConfirmOrderPaymentHandlerTests
     private readonly IOrderRepository _orders = Substitute.For<IOrderRepository>();
     private readonly IInventoryReservations _reservations = Substitute.For<IInventoryReservations>();
     private readonly ICouponRepository _coupons = Substitute.For<ICouponRepository>();
-    private readonly IPaymentService _payment = Substitute.For<IPaymentService>();
+    private readonly IPaymentService _payment = PaymentServiceFake.Create();
     private readonly Souq.Application.Features.Baskets.Contracts.IBasketCheckout _baskets =
         Substitute.For<Souq.Application.Features.Baskets.Contracts.IBasketCheckout>();
     private readonly Souq.Application.Features.Coupons.Contracts.ICouponRedemptions _couponRedemptions =

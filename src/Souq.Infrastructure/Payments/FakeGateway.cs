@@ -45,6 +45,10 @@ public sealed class FakeGateway : IPaymentGateway
 
     public bool CanVerifyWebhooks => _webhookSecret is not null;
 
+    // البوّابةُ التجريبية تقبل كلَّ شيء — وهو صحيحٌ عنها: لا مال ولا شبكة، فلا قيد.
+    public PaymentCapabilities Capabilities { get; } = new(
+        AuthorizeThenCapture: true, PartialCapture: true, PartialRefund: true, StoredInstruments: true);
+
     public Task<PaymentIntentResult> CreateIntentAsync(Money amount, string orderReference, int tenantId, CancellationToken ct)
     {
         var id = $"pi_fake_{Guid.NewGuid():N}";

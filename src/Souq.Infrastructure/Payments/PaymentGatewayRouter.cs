@@ -52,6 +52,10 @@ public sealed class PaymentGatewayRouter : IPaymentService
         string paymentIntentId, Money amount, string idempotencyKey, CancellationToken ct = default) =>
         await (await ForIntentAsync(paymentIntentId, ct)).RefundAsync(paymentIntentId, amount, idempotencyKey, ct);
 
+    // قدراتُ الحساب الذي سيقبض — لا قدراتُ المزوّد بإطلاق: متجرٌ ربط حسابه قد يختلف عن حساب النشر.
+    public async Task<PaymentCapabilities> GetCapabilitiesAsync(CancellationToken ct = default) =>
+        (await CurrentAsync(ct)).Capabilities;
+
     public async Task<PaymentClientConfig> GetClientConfigAsync(CancellationToken ct = default) =>
         new((await CurrentAsync(ct)).PublishableKey);
 

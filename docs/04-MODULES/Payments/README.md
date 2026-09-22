@@ -113,7 +113,7 @@ The two arrows out of `Failed` and `Cancelled` are the only way a settled paymen
 
 **`IPaymentQueries`** — `ForOrderAsync`, used by `GetOrderByIdHandler`; the handler strips the refundable amount and the refund list for non-staff viewers. DTOs: `RefundOutcome`, `RefundDto`, `OrderPaymentDto`.
 
-**`IPaymentService`** (`src/Souq.Application/Common/Interfaces/IPaymentService.cs`) — the gateway port: create intent, confirm, cancel intent, refund, client config, parse webhook. It lives in the **shared kernel**, not under `src/Souq.Application/Features/Payments`, which is why Ordering's direct gateway calls are invisible to the module test. Its single implementation is `PaymentGatewayRouter`. Callers: `CreateOrderHandler`, `OrderPaymentConfirmation`, `ExpireStaleCheckoutsHandler`, `ProcessPaymentWebhookHandler`, `OrderPayments`, `GetPaymentConfigHandler`.
+**`IPaymentService`** (`src/Souq.Application/Common/Interfaces/IPaymentService.cs`) — the gateway port: create intent, confirm, cancel intent, refund, **declared capabilities**, client config, parse webhook. It lives in the **shared kernel**, not under `src/Souq.Application/Features/Payments`, which is why Ordering's direct gateway calls are invisible to the module test. Its single implementation is `PaymentGatewayRouter`. Callers: `CreateOrderHandler`, `OrderPaymentConfirmation`, `ExpireStaleCheckoutsHandler`, `ProcessPaymentWebhookHandler`, `OrderPayments`, `GetPaymentConfigHandler`.
 
 **`IPaymentGateway`** (`src/Souq.Infrastructure/Payments/IPaymentGateway.cs`) — one gateway account, given its keys, knowing nothing about stores or the database. `StripeGateway` and `FakeGateway` implement it; `DeploymentPaymentGateway` is the singleton wrapper for the deployment's account. Adding a provider means adding an implementation here and nothing in Application.
 
@@ -241,6 +241,17 @@ Gaps: **no test names `StripeGateway`.** The Stripe adapter itself — status ma
 ## Common change scenarios
 
 Add a provider · change refund rules · support a new currency or change minor-unit handling · change how a store's account is configured (D-13) · handle a new webhook event · rotate the secrets key. Details in [ChangeGuide.md](ChangeGuide.md).
+
+## Declared capabilities
+
+`PaymentCapabilities` is what the connected account **says it can do**, asked before an operation is offered rather than discovered by a failed call ([ADR-0048](../../11-ADR/0048-payment-provider-abstraction.md) §5). It is read from the account that will actually take the money, so a store with its own account can differ from the deployment account.
+
+Two rules are enforced today, and each has a real victim:
+
+- **Partial refund.** A provider that does not support one used to reject it *after* the amount was reserved locally, leaving `PendingRefundAmount` sitting on a refund that would never happen — a number the merchant reads as money on its way. The check happens before the reservation.
+- **Supported currencies.** An account that cannot take the store's currency fails checkout the way a gateway outage does: the order is cancelled and its reservation released, rather than leaving a dead order behind. An **empty** currency set means "no declared constraint", not "nothing".
+
+`AmountGranularityMinorUnits` is declared but not yet enforced, and that is deliberate. It is a **pricing** constraint, not formatting: when a provider documents that a card network requires amounts ending in zero for a three-decimal currency, the smallest possible increment becomes ten minor units, which reaches back into product prices. **No market's value is written in the product** — the adapter declares what its provider documents, and the default `1` means no constraint. A rule nobody has verified does not enter the product as a precaution.
 
 ## Known limitations
 

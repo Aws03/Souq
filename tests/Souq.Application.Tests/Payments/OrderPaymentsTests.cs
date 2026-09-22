@@ -20,7 +20,7 @@ namespace Souq.Application.Tests.Payments;
 public class OrderPaymentsTests
 {
     private readonly IPaymentRepository _payments = Substitute.For<IPaymentRepository>();
-    private readonly IPaymentService _gateway = Substitute.For<IPaymentService>();
+    private readonly IPaymentService _gateway = PaymentServiceFake.Create();
     private readonly IUnitOfWork _uow = TestUnitOfWork.Create();
 
     private OrderPayments CreateSut() =>
@@ -198,5 +198,43 @@ public class OrderPaymentsTests
         await CreateSut().MarkClosedAsync(2, failed: false, CancellationToken.None);
 
         (pending.Status, paid.Status).Should().Be((PaymentStatus.Failed, PaymentStatus.Succeeded));
+    }
+
+    // ========================================================================
+    // القدراتُ تُسأل قبل النداء، لا تُكتشف به (ADR-0048 §5).
+    //
+    // مزوّدٌ لا يدعم الاسترداد الجزئيّ كان سيرفضه **بعد** أن يُحجز المبلغ محلّياً، فيبقى
+    // `PendingRefundAmount` معلّقاً على استردادٍ لن يقع — وهو رقمٌ يقرؤه التاجر على أنّه مالٌ في
+    // الطريق. الرفضُ قبل الحجز يترك الدفعة كما كانت.
+    // ========================================================================
+    [Fact]
+    public async Task استرداد_جزئي_لدى_مزوّد_لا_يدعمه_يُرفض_قبل_أن_يُحجز_المبلغ()
+    {
+        var payment = Paid();
+        Stored(payment);
+        _gateway.GetCapabilitiesAsync(Arg.Any<CancellationToken>())
+            .Returns(new PaymentCapabilities(PartialRefund: false));
+
+        var result = await CreateSut().RefundAsync(1, 20m, null, 7, CancellationToken.None);
+
+        result.IsSuccess.Should().BeFalse();
+        result.Error!.Code.Should().Be("PartialRefundNotSupported");
+        payment.PendingRefundAmount.Should().Be(0, "لا يُحجز مبلغٌ لاستردادٍ مرفوضٍ أصلاً");
+        payment.Refunds.Should().BeEmpty();
+        await _gateway.DidNotReceiveWithAnyArgs().RefundAsync(default!, default!, default!, default);
+    }
+
+    // والاستردادُ الكامل يمرّ عند المزوّد نفسه: القيدُ على الجزئيّ وحده.
+    [Fact]
+    public async Task الاسترداد_الكامل_يمرّ_عند_مزوّد_لا_يدعم_الجزئي()
+    {
+        Stored(Paid());
+        _gateway.GetCapabilitiesAsync(Arg.Any<CancellationToken>())
+            .Returns(new PaymentCapabilities(PartialRefund: false));
+        GatewayAnswers(new PaymentRefundResult(true, "re_1", null));
+
+        var result = await CreateSut().RefundAsync(1, 50m, null, 7, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
     }
 }

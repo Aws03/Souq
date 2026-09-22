@@ -26,6 +26,9 @@ public interface IPaymentService
     // نتيجة (Succeeded = false)؛ انقطاعها استثناء — النتيجة مجهولة ويُعاد بالمفتاح نفسه.
     Task<PaymentRefundResult> RefundAsync(string paymentIntentId, Money amount, string idempotencyKey, CancellationToken ct = default);
 
+    // ما يستطيعه المزوّد المربوط — بياناتٌ يعلنها، لا استثناءاتٌ يُكتشف بها (ADR-0048 §5).
+    Task<PaymentCapabilities> GetCapabilitiesAsync(CancellationToken ct = default);
+
     // الإعدادات العامة التي تحتاجها الواجهة لتهيئة مزوّد الدفع (المفتاح العلني لحساب المتجر أو النشر) — لا أسرار هنا.
     // null ⇒ البوّابة التجريبية.
     Task<PaymentClientConfig> GetClientConfigAsync(CancellationToken ct = default);
@@ -49,6 +52,35 @@ public record PaymentConfirmationResult(PaymentIntentState State, string? Failur
     public static PaymentConfirmationResult Ok() => new(PaymentIntentState.Succeeded);
 }
 public record PaymentRefundResult(bool Succeeded, string? ProviderRefundId, string? FailureReason);
+
+// ============================================================================
+// قدراتُ المزوّد — **بياناتٌ يعلنها، لا استثناءاتٌ تُكتشف** (ADR-0048 §5).
+//
+// النواةُ تسأل قبل أن تعرض، فلا تَعِد التاجرَ بما لا يُنفَّذ ثمّ تُخفق عند النداء. وهذا ليس
+// تعميماً استباقياً: قاعدتان منه تُنفَّذان اليوم ولهما ضحيّةٌ حقيقية — استردادٌ جزئيٌّ لدى مزوّدٍ
+// لا يدعمه، ومبلغٌ لا يقبله المزوّد بدقّته.
+//
+// **AmountGranularityMinorUnits قيدُ تسعيرٍ لا تنسيق.** بعضُ المزوّدين يوثّق أنّ شبكةَ بطاقاتٍ
+// تشترط أن ينتهي المبلغ بصفر في عملةٍ ثلاثية الخانات — أي أنّ أصغر زيادةٍ ممكنة عشرُ وحداتٍ
+// صغرى لا واحدة، وهو ما يمتدّ إلى أسعار المنتجات نفسها. **ولا قيمةَ لأيّ سوقٍ مكتوبةٌ هنا**:
+// المحوّلُ يعلن ما يوثّقه مزوّدُه، والافتراضُ `1` يعني «بلا قيد» — فقاعدةٌ لم يتحقّق منها أحدٌ
+// لا تدخل المنتج بحجّة الاحتياط.
+//
+// SupportedCurrencies فارغةٌ تعني «بلا قيدٍ معلن»، لا «لا شيء».
+// ============================================================================
+public sealed record PaymentCapabilities(
+    bool AuthorizeThenCapture = false,
+    bool PartialCapture = false,
+    bool PartialRefund = true,
+    bool StoredInstruments = false,
+    bool TransactionTimeSplit = false,
+    bool ProgrammaticOnboarding = false,
+    IReadOnlySet<string>? SupportedCurrencies = null,
+    int AmountGranularityMinorUnits = 1)
+{
+    public bool Supports(string currency) =>
+        SupportedCurrencies is not { Count: > 0 } allowed || allowed.Contains(currency);
+}
 public record PaymentClientConfig(string? PublishableKey);
 
 // TenantId: المتجر الذي أنشأ النيّة (null لنيّات ما قبل المرحلة 11). VerifiedByStoreAccount: وقّعه سرّ حساب المتجر نفسه،

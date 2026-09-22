@@ -30,6 +30,9 @@ public interface IPaymentGateway
 
     bool CanVerifyWebhooks { get; }
 
+    // ما يستطيعه هذا الحساب لدى مزوّده — يُعلَن ولا يُستنتج (ADR-0048 §5).
+    PaymentCapabilities Capabilities { get; }
+
     Task<PaymentIntentResult> CreateIntentAsync(Money amount, string orderReference, int tenantId, CancellationToken ct);
 
     Task<PaymentConfirmationResult> ConfirmAsync(string paymentIntentId, CancellationToken ct);
