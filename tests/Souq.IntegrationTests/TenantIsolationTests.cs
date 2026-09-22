@@ -36,6 +36,10 @@ public class TenantIsolationTests
     {
         Product, ProductVariant, ProductImage, Category, Coupon, Order, StaffAccount, Customer, CustomerAddress, ShippingMethod, Review, Notification,
         SearchSynonym,
+        // C5 (ADR-0056): فاتورةُ اشتراكِ متجرٍ من المنصّة. **جدولُ الشكل B بلا مرشّح مستأجر
+        // أصلاً** — عزلُها كلُّه شرطُ `TenantId` الذي يكتبه المستدعي بيده، فهي أحوجُ ما في
+        // هذا الجدول إلى صفٍّ فيه لا أقلُّه.
+        PlatformInvoice,
     }
 
     private sealed record ForeignCase(string Method, string Route, Resource Resource, Actor Actor, Func<HttpContent>? Body = null);
@@ -124,6 +128,9 @@ public class TenantIsolationTests
         new("DELETE", "api/basket/items/{productId:int}", Resource.Product, Actor.Anonymous),
         new("PUT", "api/basket/items/variants/{variantId:int}", Resource.ProductVariant, Actor.Anonymous, () => JsonBody(new { quantity = 1 })),
         new("DELETE", "api/basket/items/variants/{variantId:int}", Resource.ProductVariant, Actor.Anonymous),
+        // C5 (ADR-0056): فاتورةُ اشتراكِ متجرٍ آخر لا تُقرأ بتخمين رقمها — و**404 لا 403**، فلا
+        // يُكشَف أنّ لمتجرٍ آخر فاتورةً بهذا الرقم أصلاً.
+        new("GET", "api/admin/store/subscription/invoices/{id:int}", Resource.PlatformInvoice, Actor.Admin),
     ];
 
     // قوائم تحت منتج (أو متغيّر) لـ A: 200 بلا أي صف (القائمة موجودة؛ المورد "لا صفوف له" من منظور B).
@@ -608,6 +615,29 @@ public class TenantIsolationTests
         var variantId = await storeA.WithDbAsync(db =>
             db.Products.Where(p => p.Id == productId).SelectMany(p => p.Variants).Select(v => v.Id).SingleAsync());
 
+        // ====================================================================
+        // فاتورةُ اشتراكٍ **صادرة** لمتجر A، تُكتب في القاعدة مباشرةً لا عبر الـ API.
+        //
+        // والسببُ أنّ الإصدار عبر الـ API يحتاج إعدادَ فوترةٍ عالميّاً يتشاركه كلُّ اختبار في
+        // هذه المجموعة، فكان ضبطُه من هنا يُسرّب حالةً إلى رحلاتٍ أخرى. وما يحتاجه هذا الجدول
+        // صفٌّ صادرٌ يخصّ A فحسب.
+        // ====================================================================
+        var tenantAId = (await _factory.DefaultTenantAsync()).Id;
+        var invoiceId = await storeA.WithDbAsync(async db =>
+        {
+            var now = DateTime.UtcNow;
+            var invoice = new Souq.Domain.Platform.PlatformInvoice(
+                tenantAId, "JOD", new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+                new DateTime(2026, 2, 1, 0, 0, 0, DateTimeKind.Utc));
+            invoice.AddLine("اشتراك (عزل)", 1, new Souq.Domain.ValueObjects.Money(1m, "JOD"));
+            invoice.Issue($"ISO{Guid.NewGuid():N}"[..16], now, now.AddDays(30),
+                Souq.Domain.ValueObjects.Money.Zero("JOD"), null,
+                "سوق (عزل)", null, null, "متجر A", null, null);
+            db.PlatformInvoices.Add(invoice);
+            await db.SaveChangesAsync();
+            return invoice.Id;
+        });
+
         var b = await _factory.CreateStoreAsync();
         var storeB = storeA.ForStore(b);
         return new Arranged(storeA, storeB, b, adminA, await storeB.AdminAsync(), (await storeB.NewCustomerAsync()).Client,
@@ -618,6 +648,7 @@ public class TenantIsolationTests
                 [Resource.Customer] = customerId, [Resource.CustomerAddress] = addressId, [Resource.ShippingMethod] = shippingMethodId,
                 [Resource.SearchSynonym] = searchSynonymId,
                 [Resource.Review] = reviewId, [Resource.Notification] = notificationId,
+                [Resource.PlatformInvoice] = invoiceId,
             },
             couponCode, productSlug, orderToken);
     }

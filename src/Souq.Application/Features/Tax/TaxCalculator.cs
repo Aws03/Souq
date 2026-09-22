@@ -35,12 +35,21 @@ public sealed class TaxCalculator : ITaxCalculator
 
     public async Task<TaxQuote> QuoteAsync(TaxBasis basis, DateTime at, CancellationToken ct = default)
     {
+        var settings = await _settings.GetAsync(ct);
+        return await QuoteForProfileAsync(
+            basis, settings?.TaxProfileId, settings?.CollectionEnabled ?? false, at, ct);
+    }
+
+    // الاحتسابُ الفعليّ، ومصدرُ الاختيار وسيطٌ لا قراءة. مسارُ المتجر أعلاه يقرأ إعدادَه ثم
+    // يُنادي هذا؛ ومسارُ فاتورة المنصّة (C5) يمرّر اختيارَ المنصّة — **وبوّابةٌ واحدة لكليهما**.
+    public async Task<TaxQuote> QuoteForProfileAsync(
+        TaxBasis basis, int? taxProfileId, bool collectionEnabled, DateTime at, CancellationToken ct = default)
+    {
         var currency = basis.Goods.Currency;
 
-        var settings = await _settings.GetAsync(ct);
-        if (settings?.TaxProfileId is not int profileId)
+        if (taxProfileId is not int profileId)
             return TaxQuote.None(currency, TaxCollectionReasons.NoProfileSelected);
-        if (!settings.CollectionEnabled)
+        if (!collectionEnabled)
             return TaxQuote.None(currency, TaxCollectionReasons.CollectionDisabled);
 
         var profile = await _profiles.GetWithVersionsAsync(profileId, ct);

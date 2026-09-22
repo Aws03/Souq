@@ -28,6 +28,14 @@ public class PlanConfiguration : IEntityTypeConfiguration<Plan>
 
         builder.Ignore(p => p.Grants);
 
+        // سعرُ الإصدار (C5، ADR-0056): مبلغٌ بعملته — أو **لا سعر**، وهو حالُ الخطة التأسيسية
+        // وكلِّ خطةٍ لم يُسعّرها المشغّل بعد. العمودان قابلان للفراغ معاً، ولا افتراضَ لأيٍّ منهما.
+        builder.OwnsOne(p => p.Price, price =>
+        {
+            price.Property(m => m.Amount).HasColumnName("PriceAmount").HasPrecision(18, 4);
+            price.Property(m => m.Currency).HasColumnName("PriceCurrency").HasMaxLength(3);
+        });
+
         builder.HasMany(p => p.Entitlements)
                .WithOne()
                .HasForeignKey("PlanId")

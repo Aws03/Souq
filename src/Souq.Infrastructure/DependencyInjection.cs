@@ -138,6 +138,15 @@ public static class DependencyInjection
         // واختبار معماري في TenancyRuleTests يمنع العدّ-ثم-الكتابة خارج هذا الصنف.
         services.AddScoped<Application.Features.Billing.Contracts.ITenantQuotaGuard, TenantQuotaGuard>();
 
+        // C5 (ADR-0056): فوترةُ التاجر — الإعداد والفواتير وإشعاراتُ الدائن وفتراتُ القياس وأحداثُها،
+        // وسلسلةُ الترقيم. كلُّها جداولُ منصّة، ومستودعاتُها مدرَجةٌ في ReviewedPlatformKeyedReads.
+        services.AddScoped<IPlatformBillingSettingsRepository, PlatformBillingSettingsRepository>();
+        services.AddScoped<IPlatformInvoiceRepository, PlatformInvoiceRepository>();
+        services.AddScoped<ICreditNoteRepository, CreditNoteRepository>();
+        services.AddScoped<IBillingPeriodRepository, BillingPeriodRepository>();
+        services.AddScoped<IBillableEventRepository, BillableEventRepository>();
+        services.AddScoped<Application.Features.Billing.IPlatformDocumentNumbers, PlatformDocumentNumbers>();
+
         // خدمات القراءة (ADR-0008): إسقاطات بلا تتبّع خلف منافذ Application، لكل وحدة منفذها.
         services.AddScoped<ICatalogQueries, CatalogQueries>();
         services.AddScoped<IOrderQueries, OrderQueries>();
@@ -155,6 +164,7 @@ public static class DependencyInjection
         // تقارير متجر واحد: بلا تجاوز للمرشّح — المرشّح العادي يضيّق كل جدول داخل نطاق المتجر.
         services.AddScoped<IStoreReports, StoreReportQueries>();
         services.AddScoped<Application.Features.Billing.IBillingQueries, BillingQueries>();
+        services.AddScoped<Application.Features.Billing.IPlatformBillingQueries, PlatformBillingQueries>();
         services.AddScoped<IStoreConfiguration, StoreConfiguration>();
 
         // سجلّ التدقيق في وحدة العمل الحالية، والعمل داخل متجر بعينه من منطقة المنصّة.

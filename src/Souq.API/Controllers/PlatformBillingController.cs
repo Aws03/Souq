@@ -41,7 +41,8 @@ public class PlatformPlansController : ControllerBase
     public async Task<IActionResult> Create([FromBody] CreatePlanVersionRequest body)
     {
         var result = await _mediator.Send(new CreatePlanVersionCommand(
-            body.Code, body.Name, body.Entitlements!, body.Limits!));
+            body.Code, body.Name, body.Entitlements!, body.Limits!,
+            body.PriceAmount, body.BillingIntervalMonths));
         return result.IsSuccess
             ? CreatedAtAction(nameof(Get), new { id = result.Value }, new { id = result.Value })
             : this.Failure(result);
@@ -50,7 +51,8 @@ public class PlatformPlansController : ControllerBase
     // تحرير المسوّدة وحدها — الشروط المشترَك عليها لا تتغيّر (يرفضه المجال بـ 422).
     [HttpPut("{id:int}")]
     public async Task<IActionResult> Update(int id, [FromBody] UpdatePlanDraftRequest body)
-        => this.ToHttp(await _mediator.Send(new UpdatePlanDraftCommand(id, body.Name, body.Entitlements!, body.Limits!)));
+        => this.ToHttp(await _mediator.Send(new UpdatePlanDraftCommand(
+            id, body.Name, body.Entitlements!, body.Limits!, body.PriceAmount, body.BillingIntervalMonths)));
 
     [HttpPost("{id:int}/publish")]
     public async Task<IActionResult> Publish(int id) => this.ToHttp(await _mediator.Send(new PublishPlanCommand(id)));
@@ -112,12 +114,18 @@ public class PlatformTenantBillingController : ControllerBase
 public record CreatePlanVersionRequest(
     string Code, string Name,
     [Required] IReadOnlyList<string>? Entitlements,
-    [Required] IReadOnlyList<PlanLimitDto>? Limits);
+    [Required] IReadOnlyList<PlanLimitDto>? Limits,
+    // C5 (ADR-0056): سعرُ الإصدار ودورتُه. **بلا عملة** — عملةُ الفوترة من إعداد المنصّة،
+    // فلا ترسلها الواجهة ولا تستطيع أن تخالف الدفتر.
+    decimal? PriceAmount = null,
+    int BillingIntervalMonths = 1);
 
 public record UpdatePlanDraftRequest(
     string Name,
     [Required] IReadOnlyList<string>? Entitlements,
-    [Required] IReadOnlyList<PlanLimitDto>? Limits);
+    [Required] IReadOnlyList<PlanLimitDto>? Limits,
+    decimal? PriceAmount = null,
+    int BillingIntervalMonths = 1);
 
 public record AssignPlanRequest([Required] int? PlanId);
 

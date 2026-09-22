@@ -93,6 +93,7 @@ public static class DbSeeder
         {
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
             await EnsureFoundationPlanAsync(db, scope.ServiceProvider.GetRequiredService<TimeProvider>(), logger);
+            if (options.SeedDemoData) await SeedPlatformBillingSettingsAsync(db, logger);
             await BindDefaultTenantHostsAsync(db, options.DefaultTenantHosts, logger);
             if (options.SeedDemoData) await ApplyDefaultStoreLookAsync(db, logger);
             defaultTenant = await scope.ServiceProvider.GetRequiredService<ITenantDirectory>()
@@ -191,6 +192,35 @@ public static class DbSeeder
         db.Subscriptions.Add(new Subscription(tenant.Id, plan, clock.GetUtcNow().UtcDateTime));
         await db.SaveChangesAsync();
         logger.LogInformation("Subscribed the default store to the foundation plan");
+    }
+
+    // ============================================================================
+    // إعدادُ فوترة المنصّة **لحزمة العرض والتطوير وحدها** (C5، ADR-0056).
+    //
+    // **ولا يُبذَر في الإنتاج عمداً، وهذا هو جوهرُ الأمر.** قرار المالك `C-15` جوابٌ تجاريّ
+    // يُدخِله المشغّل من شاشته، لا قيمةٌ تأتيه بالوراثة من بذر: منصّةٌ تُقلع في الإنتاج بعملةِ
+    // فوترةٍ لم يقرّرها أحد ستُصدر أوّلَ فاتورةٍ بها قبل أن ينتبه إليها أحد — وتغييرُها بعد أوّل
+    // فاتورة مرفوضٌ بحقّ. فبلا هذا الصفّ **لا تُصدَر فاتورة**، ويُقال السببُ باسمه على الشاشة،
+    // وذلك هو الفشلُ المغلق الذي يريده التصميم.
+    //
+    // والعملةُ هنا عملةُ المتجر الافتراضي لا رمزٌ مكتوب: قاعدةُ الواجهة البيضاء تمنع كتابةَ رمز
+    // عملةٍ في الشيفرة (وهذا الملفّ مستثنىً منها، لكنّ الاستثناء لبياناتِ العرض لا لمنطق المنتج).
+    // ============================================================================
+    private static async Task SeedPlatformBillingSettingsAsync(AppDbContext db, ILogger logger)
+    {
+        if (await db.PlatformBillingSettings.AnyAsync()) return;
+
+        var tenant = await db.Tenants.FirstOrDefaultAsync(t => t.Slug == DefaultTenantSlug);
+        if (tenant is null) return;
+
+        var settings = PlatformBillingSettings.Empty();
+        settings.SetCurrency(tenant.Currency);
+        settings.SetIssuer("منصّة العرض التوضيحي", null, null);
+        db.PlatformBillingSettings.Add(settings);
+        await db.SaveChangesAsync();
+        logger.LogInformation(
+            "Seeded demo platform billing settings in {Currency}; production starts without them by design",
+            tenant.Currency);
     }
 
     private static async Task BindDefaultTenantHostsAsync(AppDbContext db, IReadOnlyList<string> hosts, ILogger logger)

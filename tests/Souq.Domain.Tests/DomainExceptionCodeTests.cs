@@ -35,6 +35,11 @@ public class DomainExceptionCodeTests
         // ADR-0055: رموزُ الضريبة. الواجهة تتفرّع عليها — ورسائلُها عربية فلا تُقرأ في شرط.
         { new InvalidTaxProfileException("x"), "InvalidTaxProfile" },
         { new InvalidStoreTaxSettingsException("x"), "InvalidStoreTaxSettings" },
+        // ADR-0056: رموزُ فوترة التاجر. الواجهة تتفرّع عليها — ورسائلُها عربية فلا تُقرأ في شرط.
+        { new InvalidPlatformBillingSettingsException("x"), "InvalidPlatformBillingSettings" },
+        { new InvalidPlatformInvoiceException("x"), "InvalidPlatformInvoice" },
+        { new InvalidCreditNoteException("x"), "InvalidCreditNote" },
+        { new InvalidBillingPeriodException("x"), "InvalidBillingPeriod" },
     };
 
     [Theory]

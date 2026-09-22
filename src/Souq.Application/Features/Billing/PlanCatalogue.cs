@@ -4,6 +4,7 @@ using Souq.Application.Common.Auditing;
 using Souq.Application.Common.Models;
 using Souq.Domain.Interfaces;
 using Souq.Domain.Platform;
+using Souq.Domain.ValueObjects;
 
 namespace Souq.Application.Features.Billing;
 
@@ -65,11 +66,13 @@ public class GetPlanHandler : IRequestHandler<GetPlanQuery, Result<PlanDetailDto
 
 // إصدار جديد لمعرّف خطة (الأول = 1). يبدأ مسوّدةً: لا يُشترَك عليه حتى يُنشر.
 public record CreatePlanVersionCommand(
-    string Code, string Name, IReadOnlyList<string> Entitlements, IReadOnlyList<PlanLimitDto> Limits)
+    string Code, string Name, IReadOnlyList<string> Entitlements, IReadOnlyList<PlanLimitDto> Limits,
+    decimal? PriceAmount = null, int BillingIntervalMonths = Plan.MinBillingIntervalMonths)
     : IRequest<Result<int>>, IAuditable
 {
     public AuditRecord ToAuditRecord() => new("billing.plan.version.created", "Plan", Code?.Trim().ToLowerInvariant(),
-        Metadata: BillingErrors.Meta(("name", Name), ("entitlements", Entitlements)));
+        Metadata: BillingErrors.Meta(("name", Name), ("entitlements", Entitlements),
+            ("priceAmount", PriceAmount), ("billingIntervalMonths", BillingIntervalMonths)));
 }
 
 public sealed class CreatePlanVersionValidator : AbstractValidator<CreatePlanVersionCommand>
@@ -80,25 +83,34 @@ public sealed class CreatePlanVersionValidator : AbstractValidator<CreatePlanVer
         RuleFor(x => x.Name).NotEmpty().MaximumLength(Plan.NameMaxLength);
         RuleFor(x => x.Entitlements).NotNull();
         RuleFor(x => x.Limits).NotNull();
+        RuleFor(x => x.PriceAmount).GreaterThanOrEqualTo(0).When(x => x.PriceAmount is not null);
+        RuleFor(x => x.BillingIntervalMonths)
+            .InclusiveBetween(Plan.MinBillingIntervalMonths, Plan.MaxBillingIntervalMonths);
     }
 }
 
 public class CreatePlanVersionHandler : IRequestHandler<CreatePlanVersionCommand, Result<int>>
 {
     private readonly IPlanRepository _plans;
+    private readonly IPlatformBillingSettingsRepository _settings;
     private readonly IUnitOfWork _uow;
 
-    public CreatePlanVersionHandler(IPlanRepository plans, IUnitOfWork uow)
+    public CreatePlanVersionHandler(
+        IPlanRepository plans, IPlatformBillingSettingsRepository settings, IUnitOfWork uow)
     {
-        _plans = plans; _uow = uow;
+        _plans = plans; _settings = settings; _uow = uow;
     }
 
     public async Task<Result<int>> Handle(CreatePlanVersionCommand cmd, CancellationToken ct)
     {
+        var price = await PlanPricing.ResolveAsync(_settings, cmd.PriceAmount, ct);
+        if (!price.IsSuccess) return Result<int>.Failure(price.Error!);
+
         var code = Plan.NormalizeCode(cmd.Code);
         var plan = new Plan(code, await _plans.NextVersionAsync(code, ct), cmd.Name);
         plan.SetEntitlements(cmd.Entitlements);
         plan.SetLimits(cmd.Limits.Select(l => new Limit(l.Name, l.Value)));
+        plan.SetPrice(price.Value, cmd.BillingIntervalMonths);
 
         await _plans.AddAsync(plan, ct);
         await _uow.SaveChangesAsync(ct);
@@ -106,13 +118,39 @@ public class CreatePlanVersionHandler : IRequestHandler<CreatePlanVersionCommand
     }
 }
 
+// ============================================================================
+// عملةُ سعر الخطة **لا تُرسَل ولا تُكتب**: هي عملةُ فوترة المنصّة، ولا غيرها.
+//
+// وذلك يغلق بابين معاً: خطةٌ بعملةٍ لا تُفوتَر بها (فاتورةٌ لا تستطيع أن تحمل سطرَها)، وعملةٌ
+// تصل من جسم طلب فتصير قابلةً للاختلاف عن الدفتر. والسعرُ بلا عملةٍ مضبوطة **مرفوض**: قرار
+// المالك `C-15` يُدخَل أوّلاً، ثمّ تُسعَّر الخطط.
+// ============================================================================
+internal static class PlanPricing
+{
+    public static async Task<Result<Money?>> ResolveAsync(
+        IPlatformBillingSettingsRepository settings, decimal? amount, CancellationToken ct)
+    {
+        if (amount is not decimal value) return Result<Money?>.Success(null);
+
+        var current = await settings.GetAsync(ct);
+        if (string.IsNullOrEmpty(current?.Currency))
+            return Result<Money?>.Failure(Error.BusinessRule(
+                BillingBlockingReasons.CurrencyNotSet,
+                "اضبط عملةَ فوترة المنصّة قبل تسعير أيّ خطة"));
+
+        return Result<Money?>.Success(new Money(value, current.Currency));
+    }
+}
+
 // تحرير مسوّدة. لا يمسّ المنشور: المشترك يحتفظ بالشروط التي اشترك عليها (يرفضه المجال).
 public record UpdatePlanDraftCommand(
-    int PlanId, string Name, IReadOnlyList<string> Entitlements, IReadOnlyList<PlanLimitDto> Limits)
+    int PlanId, string Name, IReadOnlyList<string> Entitlements, IReadOnlyList<PlanLimitDto> Limits,
+    decimal? PriceAmount = null, int BillingIntervalMonths = Plan.MinBillingIntervalMonths)
     : IRequest<Result>, IAuditable
 {
     public AuditRecord ToAuditRecord() => new("billing.plan.draft.updated", "Plan", PlanId.ToString(),
-        Metadata: BillingErrors.Meta(("name", Name), ("entitlements", Entitlements)));
+        Metadata: BillingErrors.Meta(("name", Name), ("entitlements", Entitlements),
+            ("priceAmount", PriceAmount), ("billingIntervalMonths", BillingIntervalMonths)));
 }
 
 public sealed class UpdatePlanDraftValidator : AbstractValidator<UpdatePlanDraftCommand>
@@ -122,17 +160,22 @@ public sealed class UpdatePlanDraftValidator : AbstractValidator<UpdatePlanDraft
         RuleFor(x => x.Name).NotEmpty().MaximumLength(Plan.NameMaxLength);
         RuleFor(x => x.Entitlements).NotNull();
         RuleFor(x => x.Limits).NotNull();
+        RuleFor(x => x.PriceAmount).GreaterThanOrEqualTo(0).When(x => x.PriceAmount is not null);
+        RuleFor(x => x.BillingIntervalMonths)
+            .InclusiveBetween(Plan.MinBillingIntervalMonths, Plan.MaxBillingIntervalMonths);
     }
 }
 
 public class UpdatePlanDraftHandler : IRequestHandler<UpdatePlanDraftCommand, Result>
 {
     private readonly IPlanRepository _plans;
+    private readonly IPlatformBillingSettingsRepository _settings;
     private readonly IUnitOfWork _uow;
 
-    public UpdatePlanDraftHandler(IPlanRepository plans, IUnitOfWork uow)
+    public UpdatePlanDraftHandler(
+        IPlanRepository plans, IPlatformBillingSettingsRepository settings, IUnitOfWork uow)
     {
-        _plans = plans; _uow = uow;
+        _plans = plans; _settings = settings; _uow = uow;
     }
 
     public async Task<Result> Handle(UpdatePlanDraftCommand cmd, CancellationToken ct)
@@ -140,9 +183,13 @@ public class UpdatePlanDraftHandler : IRequestHandler<UpdatePlanDraftCommand, Re
         var plan = await _plans.GetWithTermsAsync(cmd.PlanId, ct);
         if (plan is null) return Result.Failure(BillingErrors.PlanNotFound);
 
+        var price = await PlanPricing.ResolveAsync(_settings, cmd.PriceAmount, ct);
+        if (!price.IsSuccess) return Result.Failure(price.Error!);
+
         plan.Rename(cmd.Name);
         plan.SetEntitlements(cmd.Entitlements);
         plan.SetLimits(cmd.Limits.Select(l => new Limit(l.Name, l.Value)));
+        plan.SetPrice(price.Value, cmd.BillingIntervalMonths);
         await _uow.SaveChangesAsync(ct);
         return Result.Success();
     }

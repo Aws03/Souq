@@ -35,3 +35,61 @@ public interface IEntitlementOverrideRepository : IRepository<EntitlementOverrid
     // استثناء سارٍ لهذا المتجر ولهذا الاستحقاق بعينه — كي لا يتكدّس استثناءان على استحقاق واحد.
     Task<EntitlementOverride?> FindActiveAsync(int tenantId, string entitlement, DateTime utcNow, CancellationToken ct = default);
 }
+
+// ── فوترةُ التاجر (C5، ADR-0056) ─────────────────────────────────────────────
+//
+// كلُّ قراءةٍ هنا تخصّ متجراً تحمل `tenantId` **وسيطاً صريحاً**: هذه جداولُ الشكل B، بلا مرشّحٍ
+// وبلا حارسِ كتابة، فعزلُها هو الشرطُ الذي يكتبه المستدعي بيده — وهو ما يحرسه
+// `قراءة_جداول_المنصّة_بمفتاح_متجر_محصورة_في_مسارها_المراجَع` في `TenancyRuleTests`.
+
+// إعدادُ فوترة المنصّة: صفٌّ واحد عالميّ. `null` ⇒ لم يُنشَأ بعد ⇒ لا إصدار.
+public interface IPlatformBillingSettingsRepository
+{
+    Task<PlatformBillingSettings?> GetAsync(CancellationToken ct = default);
+
+    void Add(PlatformBillingSettings settings);
+}
+
+public interface IPlatformInvoiceRepository : IRepository<PlatformInvoice>
+{
+    // الفاتورةُ بأسطرها ومسدَّداتها: كلُّ قرارٍ عليها يحتاج الشجرة لا الجذر — الإصدارُ يفحص
+    // الأسطر، وتسجيلُ السداد يحتاج المتبقّي، والمتبقّي محتسَبٌ من الاثنين.
+    Task<PlatformInvoice?> GetWithDetailsAsync(int id, CancellationToken ct = default);
+
+    // فاتورةٌ بعينها لمتجرٍ بعينه. الوسيطان معاً لا المعرّف وحده: هذا ما يجعل تاجراً لا يقرأ
+    // فاتورةَ تاجرٍ آخر بتخمين رقم — و404 هو الجوابُ الصحيح لا 403 (عُرفُ المستودع).
+    Task<PlatformInvoice?> GetForTenantAsync(int id, int tenantId, CancellationToken ct = default);
+}
+
+public interface ICreditNoteRepository : IRepository<CreditNote>
+{
+    Task<CreditNote?> GetWithLinesAsync(int id, CancellationToken ct = default);
+
+    // إشعاراتُ فاتورةٍ بعينها — تُقرأ مع الفاتورة كي يُعرف ما قُيّد دائناً وبأيّ سبب.
+    Task<IReadOnlyList<CreditNote>> ListForInvoiceAsync(int platformInvoiceId, CancellationToken ct = default);
+}
+
+public interface IBillingPeriodRepository : IRepository<BillingPeriod>
+{
+    // ============================================================================
+    // الفترةُ التي تسع هذه اللحظة لهذا المتجر — **بأيّ حالة**، إن وُجدت.
+    //
+    // وحالتُها مقصودةٌ في النتيجة لا مُرشَّحةٌ منها: «لا فترةَ مفتوحة» و«الفترةُ أُغلقت» جوابان
+    // مختلفان تماماً — الأوّلُ يُفتح له فترة، والثاني يُرفض الحدثُ عنده لأنّ فاتورتَها قد صدرت.
+    // وترشيحُ المغلقة هنا كان سيجعل الثانيَ يُقرأ كالأول، فيلتحق حدثٌ متأخّرٌ بفترةٍ جديدة
+    // تحمل تاريخَ فترةٍ مغلقة.
+    // ============================================================================
+    Task<BillingPeriod?> FindCoveringAsync(int tenantId, DateTime instant, CancellationToken ct = default);
+
+    Task<BillingPeriod?> GetForTenantAsync(int id, int tenantId, CancellationToken ct = default);
+}
+
+public interface IBillableEventRepository : IRepository<BillableEvent>
+{
+    // بحثٌ بمفتاح عدم التكرار: إعادةُ محاولةٍ بعد انقطاعٍ شبكيّ لا تُفوتر الوحدةَ مرّتين. الفهرسُ
+    // الفريد هو الحاسم في القاعدة، وهذا هو الفحصُ اللطيف قبله.
+    Task<BillableEvent?> FindByKeyAsync(int tenantId, string idempotencyKey, CancellationToken ct = default);
+
+    // أحداثُ فترةٍ لم تُحمَّل على فاتورةٍ بعد — ما تقرؤه صناعةُ الفاتورة كي لا تُفوتر وحدةً مرّتين.
+    Task<IReadOnlyList<BillableEvent>> ListUnbilledAsync(int tenantId, int billingPeriodId, CancellationToken ct = default);
+}

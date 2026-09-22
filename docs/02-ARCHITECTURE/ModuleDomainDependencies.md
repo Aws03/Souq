@@ -12,15 +12,15 @@ This file makes those crossings countable. It lists every place one module's use
 - **A new crossing changes this file and fails the test.** That is the point: it should be a decision, made in review, not a quiet import. Prefer adding a contract to the owning module; if the crossing is deliberate, regenerate the file so the diff shows what you added.
 - **Removing a crossing also changes this file.** Regenerate, and the count goes down.
 
-**Today: 69 crossings across 14 module pairs.**
+**Today: 75 crossings across 14 module pairs.**
 
 | From | To | Crossings |
 |---|---|---|
 | Notifications | Identity | 14 |
 | Shopping | Catalog | 12 |
+| Billing | Platform | 10 |
 | Notifications | Ordering | 9 |
 | Notifications | Platform | 6 |
-| Billing | Platform | 4 |
 | Customers | Shopping | 4 |
 | Notifications | Customers | 4 |
 | Ordering | Customers | 4 |
@@ -101,6 +101,12 @@ This file makes those crossings countable. It lists every place one module's use
 | Notifications | Platform | `StoreSettings` | `NotificationEmails` |
 | Notifications | Platform | `Tenant` | `NotificationEmails` |
 | Billing | Platform | `ITenantRepository` | `AssignTenantPlanHandler` |
+| Billing | Platform | `ITenantRepository` | `CreatePlatformInvoiceHandler` |
 | Billing | Platform | `ITenantRepository` | `GrantEntitlementOverrideHandler` |
+| Billing | Platform | `ITenantRepository` | `IssuePlatformInvoiceHandler` |
+| Billing | Platform | `ITenantRepository` | `RecordBillableEventHandler` |
 | Billing | Platform | `Tenant` | `AssignTenantPlanHandler` |
+| Billing | Platform | `Tenant` | `CreatePlatformInvoiceHandler` |
 | Billing | Platform | `Tenant` | `GrantEntitlementOverrideHandler` |
+| Billing | Platform | `Tenant` | `IssuePlatformInvoiceHandler` |
+| Billing | Platform | `Tenant` | `RecordBillableEventHandler` |

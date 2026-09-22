@@ -125,6 +125,25 @@ public class AppDbContext : DbContext, IUnitOfWork
     public DbSet<Subscription> Subscriptions => Set<Subscription>();
     public DbSet<EntitlementOverride> EntitlementOverrides => Set<EntitlementOverride>();
 
+    // ============================================================================
+    // فوترةُ التاجر (C5، ADR-0056). الشكلان نفساهما:
+    //   • PlatformBillingSettings وPlatformDocumentSequences — الشكل C: صفٌّ عالميّ بلا متجر.
+    //   • PlatformInvoices وCreditNotes وBillingPeriods وBillableEvents — الشكل **B**: تحمل
+    //     TenantId ولا مرشّح عليها. وهو مقصود: الفاتورة يجب أن تبقى مقروءةً بعد أرشفة متجرها.
+    //
+    // والأبناء (الأسطر، المسدَّدات) بلا TenantId: يُقرأون مع جذرهم ولا يُستعلَمون وحدهم، فحملُهم
+    // مفتاحَ متجرٍ كان سيوحي بأنّهم يُقرأون مستقلّين.
+    // ============================================================================
+    public DbSet<PlatformBillingSettings> PlatformBillingSettings => Set<PlatformBillingSettings>();
+    public DbSet<PlatformDocumentSequence> PlatformDocumentSequences => Set<PlatformDocumentSequence>();
+    public DbSet<PlatformInvoice> PlatformInvoices => Set<PlatformInvoice>();
+    public DbSet<PlatformInvoiceLine> PlatformInvoiceLines => Set<PlatformInvoiceLine>();
+    public DbSet<PlatformInvoicePayment> PlatformInvoicePayments => Set<PlatformInvoicePayment>();
+    public DbSet<CreditNote> CreditNotes => Set<CreditNote>();
+    public DbSet<CreditNoteLine> CreditNoteLines => Set<CreditNoteLine>();
+    public DbSet<BillingPeriod> BillingPeriods => Set<BillingPeriod>();
+    public DbSet<BillableEvent> BillableEvents => Set<BillableEvent>();
+
     // سجلّ التدقيق (D-17): للإضافة فقط، بلا مرشّح (يُقرأ من المنصّة بشرط صريح).
     public DbSet<AuditEntry> AuditEntries => Set<AuditEntry>();
 

@@ -1,6 +1,7 @@
 using System.Text.RegularExpressions;
 using Souq.Domain.Common;
 using Souq.Domain.Exceptions;
+using Souq.Domain.ValueObjects;
 
 namespace Souq.Domain.Platform;
 
@@ -45,10 +46,30 @@ public partial class Plan : Entity
     private readonly List<PlanEntitlement> _entitlements = new();
     private readonly List<PlanLimit> _limits = new();
 
+    // الفاصلُ الأدنى والأقصى بالأشهر: شهريٌّ إلى خمسيّ سنوات. ليسا شريحةً ولا سعراً — هما مدى
+    // ما تستطيع الآلةُ التعبير عنه، والقيمةُ داخلَه قرارُ المشغّل.
+    public const int MinBillingIntervalMonths = 1;
+    public const int MaxBillingIntervalMonths = 60;
+
     public string Code { get; private set; } = default!;
     public int Version { get; private set; }
     public string Name { get; private set; } = default!;
     public PlanStatus Status { get; private set; }
+
+    // ============================================================================
+    // سعرُ إصدار الخطة ودورتُه (C5، [ADR-0056](0056)). `null` ⇒ **بلا سعر**: خطةٌ مجّانية أو خطةٌ
+    // لم يُسعَّر إصدارُها بعد — والخطةُ التأسيسية منهما، فلا سعرَ لها ولا يُفترض لها.
+    //
+    // **ووجودُ الحقل ليس جواباً عن `C-12`.** السؤالُ المفتوح هو ما الشرائح وما قيمُها؛ وهذا
+    // مكانُ القيمة لا القيمة. ولا يُكتب فيه شيءٌ من هجرةٍ ولا من بذر — يكتبه المشغّل من شاشته،
+    // كما لا يكتب المهندسُ نسبةَ ضريبة (ADR-0055).
+    //
+    // **ويُجمَّد بالنشر** كبقيّة شروط الخطة: مشتركٌ اشترى بسعرٍ لا يتغيّر سعرُه بتحريرِ صفّ —
+    // تغييرُ السعر إصدارٌ جديد، وهو ما تعنيه «الخطةُ مُصدَّرة» أصلاً.
+    // ============================================================================
+    public Money? Price { get; private set; }
+
+    public int BillingIntervalMonths { get; private set; } = MinBillingIntervalMonths;
 
     public IReadOnlyCollection<PlanEntitlement> Entitlements => _entitlements.AsReadOnly();
     public IReadOnlyCollection<PlanLimit> Limits => _limits.AsReadOnly();
@@ -108,6 +129,24 @@ public partial class Plan : Entity
         _limits.Clear();
         foreach (var limit in normalized.OrderBy(l => l.Name, StringComparer.Ordinal))
             _limits.Add(new PlanLimit(limit.Name, limit.Value));
+    }
+
+    // ============================================================================
+    // تسعيرُ المسوّدة. السعرُ **بعملة فوترة المنصّة** لا بعملة أيّ متجر — يتحقّق المُنادي من ذلك،
+    // ولا يُكتب رمزُ عملةٍ هنا (قاعدةُ الواجهة البيضاء، ويحرسها `WhiteLabelSourceTests`).
+    //
+    // وسعرُ صفرٍ مقبولٌ وليس كـ`null`: «خطةٌ سعرُها صفر» قرارٌ صريح تُصدَر له فاتورةٌ بصفر
+    // وتُغلَق، و«بلا سعر» تعني أنّ أحداً لم يقرّر بعد — والفرقُ بينهما هو ما يمنع فاتورةً تصدر
+    // عن خطةٍ لم تُسعَّر.
+    // ============================================================================
+    public void SetPrice(Money? price, int billingIntervalMonths)
+    {
+        RequireDraft("سعرُ الخطة");
+        if (billingIntervalMonths is < MinBillingIntervalMonths or > MaxBillingIntervalMonths)
+            throw new InvalidPlanException(
+                $"دورةُ الفوترة بين {MinBillingIntervalMonths} و{MaxBillingIntervalMonths} شهراً");
+        Price = price;
+        BillingIntervalMonths = billingIntervalMonths;
     }
 
     // النشر يُجمّد الشروط. لا نمنع خطةً بلا استحقاقات: "خطة بلا وحدات اختيارية" شريحة مشروعة.

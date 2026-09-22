@@ -16,13 +16,17 @@ namespace Souq.Application.Features.Billing;
 
 public sealed record PlanLimitDto(string Name, int Value);
 
+// السعرُ يُقرأ حيث تُقرأ الخطة (C5، ADR-0056). `null` ⇒ **بلا سعر**: لم يُقرَّر بعد، ولا تُصدَر
+// عنها فاتورةُ اشتراك — وهو غيرُ «سعرُها صفر»، وذلك الفرقُ مقصود.
 public sealed record PlanSummaryDto(
-    int Id, string Code, int Version, string Name, string Status, int SubscriberCount);
+    int Id, string Code, int Version, string Name, string Status, int SubscriberCount,
+    decimal? PriceAmount, string? PriceCurrency, int BillingIntervalMonths);
 
 public sealed record PlanDetailDto(
     int Id, string Code, int Version, string Name, string Status,
     IReadOnlyList<string> Entitlements, IReadOnlyList<PlanLimitDto> Limits,
-    int SubscriberCount, DateTime CreatedAt);
+    int SubscriberCount, DateTime CreatedAt,
+    decimal? PriceAmount, string? PriceCurrency, int BillingIntervalMonths);
 
 public sealed record EntitlementOverrideDto(
     int Id, string Entitlement, DateTime ExpiresAtUtc, string Reason,

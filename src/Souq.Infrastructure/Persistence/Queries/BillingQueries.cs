@@ -43,7 +43,10 @@ internal sealed class BillingQueries : IBillingQueries
             .ToPageAsync(p => new PlanSummaryDto(
                 p.Id, p.Code, p.Version, p.Name, p.Status.ToString(),
                 // عدٌّ مجمَّع عبر المتاجر: كم متجراً يسري عليه هذا الإصدار — لا صفّ متجرٍ بعينه.
-                _db.Subscriptions.Count(s => s.PlanId == p.Id && s.Status == SubscriptionStatus.Active)),
+                _db.Subscriptions.Count(s => s.PlanId == p.Id && s.Status == SubscriptionStatus.Active),
+                p.Price == null ? (decimal?)null : p.Price.Amount,
+                p.Price == null ? null : p.Price.Currency,
+                p.BillingIntervalMonths),
                 page, ct);
     }
 
@@ -55,7 +58,10 @@ internal sealed class BillingQueries : IBillingQueries
                 p.Entitlements.Select(e => e.Entitlement).OrderBy(e => e).ToList(),
                 p.Limits.Select(l => new PlanLimitDto(l.Name, l.Value)).OrderBy(l => l.Name).ToList(),
                 _db.Subscriptions.Count(s => s.PlanId == p.Id && s.Status == SubscriptionStatus.Active),
-                p.CreatedAt))
+                p.CreatedAt,
+                p.Price == null ? (decimal?)null : p.Price.Amount,
+                p.Price == null ? null : p.Price.Currency,
+                p.BillingIntervalMonths))
             .FirstOrDefaultAsync(ct);
 
     public async Task<TenantEntitlementsDto?> GetTenantEntitlementsAsync(int tenantId, CancellationToken ct)

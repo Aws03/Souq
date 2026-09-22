@@ -29,7 +29,13 @@ internal static class ModuleMap
         ["Reporting"] = ["Reporting", "Analytics"],
         // C1 (ADR-0047): مستوى التحكّم التجاري — الخطط والاشتراكات والاستحقاقات. مُلحقة في آخر
         // الترتيب عمداً: الترتيب هو ترتيب العرض في الجرود، وإدراجها في الوسط يعيد ترتيب ملفّين كاملين.
-        ["Billing"] = ["Billing"],
+        // C5 (ADR-0056): مجلّدان لوحدةٍ واحدة، وحدُّهما هو مَن يقرأ:
+        //   • Billing        — دفترُ المنصّة عن التاجر. منطقةُ منصّة، فطلباتُه تحمل TenantId
+        //                      وتُخدَم على مضيف المنصّة وحده.
+        //   • Subscriptions  — ما يراه التاجرُ من اشتراكه وفواتيره، على مضيف متجره وبلا TenantId
+        //                      في أيّ طلب. ولهذا لا يمكن أن يعيش مع Billing: إدراجُه في منطقة
+        //                      المنصّة كان سيمنع خدمتَه على مضيف متجر أصلاً.
+        ["Billing"] = ["Billing", "Subscriptions"],
         // ============================================================================
         // ADR-0055 (قرار المالك P-06): الضريبة وحدةٌ خامسة عشرة، والبدائلُ أسوأ وقد نُوقشت في الـ
         // ADR: داخل Shopping تصير Billing معتمدةً على Shopping لتُضرِّب فاتورة اشتراك؛ وداخل
@@ -60,7 +66,10 @@ internal static class ModuleMap
     //     ومتى ليس تفصيلاً. وليست منطقةَ منصّة: طلباتُ المتجر منها تأخذ متجرَها من المضيف كغيرها،
     //     وطلباتُ المنصّة لا تستهدف متجراً بعينه أصلاً — الملفّ عامٌّ لا يخصّ أحداً.
     // ============================================================================
-    public static readonly IReadOnlyList<string> AuditedAreaFolders = [.. PlatformAreaFolders, "Reporting", "Tax"];
+    // ويُدقَّق `Subscriptions` وإن لم يكن منطقةَ منصّة: ما فيه مالٌ ومطالبة، ومَن قرأ فاتورةً
+    // ومتى سؤالٌ يُسأل في خلافٍ تجاريّ. وليس منطقةَ منصّة لأنّ متجرَه يأتي من مضيفه كأيّ نقطة متجر.
+    public static readonly IReadOnlyList<string> AuditedAreaFolders =
+        [.. PlatformAreaFolders, "Reporting", "Tax", "Subscriptions"];
 
     public static IEnumerable<string> Modules => FeatureFolders.Keys;
 
@@ -149,6 +158,21 @@ internal static class ModuleMap
         ["IEntitlementOverrideRepository"] = "Billing",
         ["InvalidPlanException"] = "Billing", ["InvalidSubscriptionException"] = "Billing",
         ["InvalidEntitlementOverrideException"] = "Billing",
+
+        // C5 (ADR-0056): فوترةُ التاجر. تعيش في Souq.Domain.Platform للسبب نفسه الذي تعيش له
+        // Plan هناك — النطاقُ يُقارَن بالمساواة — وملكيّتُها لوحدة Billing، وهذه الخريطة تقوله.
+        ["PlatformBillingSettings"] = "Billing", ["PlatformDocumentSequence"] = "Billing",
+        ["PlatformInvoice"] = "Billing", ["PlatformInvoiceLine"] = "Billing",
+        ["PlatformInvoicePayment"] = "Billing", ["PlatformInvoiceStatus"] = "Billing",
+        ["PlatformPaymentMethod"] = "Billing",
+        ["CreditNote"] = "Billing", ["CreditNoteLine"] = "Billing", ["CreditNoteStatus"] = "Billing",
+        ["BillingPeriod"] = "Billing", ["BillingPeriodStatus"] = "Billing", ["BillableEvent"] = "Billing",
+        ["IPlatformBillingSettingsRepository"] = "Billing", ["IPlatformInvoiceRepository"] = "Billing",
+        ["ICreditNoteRepository"] = "Billing", ["IBillingPeriodRepository"] = "Billing",
+        ["IBillableEventRepository"] = "Billing",
+        ["InvalidPlatformBillingSettingsException"] = "Billing",
+        ["InvalidPlatformInvoiceException"] = "Billing", ["InvalidCreditNoteException"] = "Billing",
+        ["InvalidBillingPeriodException"] = "Billing",
 
         // ============================================================================
         // Analytics (C9، ADR-0050) — أوّل أنواع مجالٍ تملكها وحدة Reporting: كانت كلُّها خدمات

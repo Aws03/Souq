@@ -7,10 +7,10 @@
 
 | Suite | Files | Facts | Theories |
 |---|---|---|---|
-| [`Souq.Domain.Tests`](#souqdomaintests) | 32 | 283 | 52 |
-| [`Souq.Application.Tests`](#souqapplicationtests) | 57 | 418 | 22 |
+| [`Souq.Domain.Tests`](#souqdomaintests) | 34 | 319 | 52 |
+| [`Souq.Application.Tests`](#souqapplicationtests) | 57 | 421 | 22 |
 | [`Souq.ArchitectureTests`](#souqarchitecturetests) | 17 | 77 | 8 |
-| [`Souq.IntegrationTests`](#souqintegrationtests) | 62 | 383 | 27 |
+| [`Souq.IntegrationTests`](#souqintegrationtests) | 63 | 392 | 27 |
 | [frontend (Vitest)](#frontend-vitest) | 97 | 737 | — |
 | [frontend (Playwright)](#frontend-playwright) | 19 | 126 | — |
 
@@ -20,6 +20,7 @@
 |---|---|---|---|
 | `tests/Souq.Domain.Tests/BasketTests.cs` | `BasketTests` | 9 | 1 |
 | `tests/Souq.Domain.Tests/BehaviouralEventTests.cs` | `BehaviouralEventTests`, `AnalyticsRollupTests` | 8 | 2 |
+| `tests/Souq.Domain.Tests/BillingPeriodTests.cs` | `BillingPeriodTests`, `PlatformBillingSettingsTests`, `PlanPricingTests` | 19 | 0 |
 | `tests/Souq.Domain.Tests/CatalogSearchProjectionTests.cs` | `CatalogSearchProjectionTests` | 8 | 0 |
 | `tests/Souq.Domain.Tests/CouponRuleMatrixTests.cs` | `CouponRuleMatrixTests` | 2 | 2 |
 | `tests/Souq.Domain.Tests/CouponTests.cs` | `CouponTests` | 12 | 1 |
@@ -34,6 +35,7 @@
 | `tests/Souq.Domain.Tests/OrderTests.cs` | `OrderTests` | 28 | 2 |
 | `tests/Souq.Domain.Tests/PaymentTests.cs` | `PaymentTests` | 5 | 3 |
 | `tests/Souq.Domain.Tests/PlanAndEntitlementTests.cs` | `PlanAndEntitlementTests` | 20 | 3 |
+| `tests/Souq.Domain.Tests/PlatformInvoiceTests.cs` | `PlatformInvoiceTests` | 17 | 0 |
 | `tests/Souq.Domain.Tests/ProductOptionTests.cs` | `ProductOptionTests` | 19 | 0 |
 | `tests/Souq.Domain.Tests/ProductTests.cs` | `ProductTests`, `CategoryTests` | 11 | 1 |
 | `tests/Souq.Domain.Tests/ProductVariantTests.cs` | `ProductVariantTests`, `ProductCostTests` | 17 | 0 |
@@ -110,7 +112,7 @@
 | `tests/Souq.Application.Tests/Stores/StoreBrandingSettingsTests.cs` | `StoreBrandingSettingsTests` | 6 | 1 |
 | `tests/Souq.Application.Tests/Stores/StoreSettingsOptionsTests.cs` | `StoreSettingsOptionsTests` | 4 | 1 |
 | `tests/Souq.Application.Tests/Tax/StoreTaxSettingsTests.cs` | `StoreTaxSettingsTests` | 5 | 0 |
-| `tests/Souq.Application.Tests/Tax/TaxCalculatorTests.cs` | `TaxCalculatorTests` | 10 | 0 |
+| `tests/Souq.Application.Tests/Tax/TaxCalculatorTests.cs` | `TaxCalculatorTests` | 13 | 0 |
 | `tests/Souq.Application.Tests/Wishlist/WishlistHandlersTests.cs` | `WishlistHandlersTests` | 9 | 1 |
 
 ## Souq.ArchitectureTests
@@ -176,6 +178,7 @@
 | `tests/Souq.IntegrationTests/PaymentsAndRefundsTests.cs` | `PaymentsAndRefundsTests` | 7 | 0 |
 | `tests/Souq.IntegrationTests/PlatformAdministrationTests.cs` | `PlatformAdministrationTests` | 9 | 0 |
 | `tests/Souq.IntegrationTests/PlatformAuditViewerTests.cs` | `PlatformAuditViewerTests` | 5 | 0 |
+| `tests/Souq.IntegrationTests/PlatformInvoicingTests.cs` | `PlatformInvoicingTests` | 9 | 0 |
 | `tests/Souq.IntegrationTests/PlatformRevenueTests.cs` | `PlatformRevenueTests` | 5 | 0 |
 | `tests/Souq.IntegrationTests/ProductOptionAdminTests.cs` | `ProductOptionAdminTests` | 9 | 0 |
 | `tests/Souq.IntegrationTests/ProductVariantTests.cs` | `ProductVariantTests` | 6 | 0 |

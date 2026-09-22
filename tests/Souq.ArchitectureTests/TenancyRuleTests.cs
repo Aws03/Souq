@@ -73,6 +73,17 @@ public class TenancyRuleTests
         "Souq.Infrastructure.Notifications.StoreOrigins",
         // البذر ينشئ المتجر الافتراضي ونطاقه وخطته التأسيسية قبل أن يوجد مستأجر أصلاً.
         "Souq.Infrastructure.Persistence.DbSeeder",
+        // ============================================================================
+        // C5 (ADR-0056): فوترةُ التاجر. الفواتيرُ وإشعاراتُ الدائن وفتراتُ الفوترة وأحداثُها
+        // جداولُ الشكل B — بلا مرشّحٍ وبلا حارس كتابة — ورأسُ كل ملفٍّ منها يحمل القاعدة مكتوبة:
+        // كلُّ قراءةٍ تخصّ متجراً تحمل شرط `TenantId` صريحاً، وما يقرؤه تاجرٌ عن نفسه يمرّ
+        // بـ `GetForTenantAsync` حصراً.
+        // ============================================================================
+        "Souq.Infrastructure.Persistence.Repositories.PlatformInvoiceRepository",
+        "Souq.Infrastructure.Persistence.Repositories.CreditNoteRepository",
+        "Souq.Infrastructure.Persistence.Repositories.BillingPeriodRepository",
+        "Souq.Infrastructure.Persistence.Repositories.BillableEventRepository",
+        "Souq.Infrastructure.Persistence.Queries.PlatformBillingQueries",
     };
 
     private static readonly HashSet<string> RawSqlMethods = new(StringComparer.Ordinal)
@@ -112,6 +123,14 @@ public class TenancyRuleTests
         // تضرّ هنا: الصفّ عدّادٌ لا سجلّ، و`UpdatedAt` عليه لا يقرؤه أحد.
         // ============================================================================
         "Souq.Infrastructure.Persistence.TenantQuotaGuard",
+        // ============================================================================
+        // C5 (ADR-0056): سلسلةُ ترقيم مستندات المنصّة. التحديثُ المجمَّع هنا **هو الآلية** لا
+        // اختصارُ أداء — جملةٌ واحدة ذرّية تزيد العدّاد وتقفل صفَّه حتى الالتزام، وتفكيكُها إلى
+        // قراءةٍ فكتابة يُنتج رقمَين متطابقَين لفاتورتين. ونطاقُها عالميّ لا متجريّ (الشكل C)،
+        // فهي تكتب شرطَ سلسلتها بيدها ولا ترث مرشّحاً — خلافاً لـ `OrderNumbers`.
+        // والطوابعُ المفوَّتة لا تضرّ: الصفُّ عدّادٌ لا سجلّ.
+        // ============================================================================
+        "Souq.Infrastructure.Persistence.PlatformDocumentNumbers",
         // ============================================================================
         // C3 (TD-66): إبطال جلسات متجر عند أرشفته. البديل تحميلُ كل حسابات المتجر — عملاؤه لا
         // موظّفوه وحدهم، فقد تكون آلافاً — لتدوير ختم كلٍّ منها. جملتان ثابتتا التكلفة تكفيان،

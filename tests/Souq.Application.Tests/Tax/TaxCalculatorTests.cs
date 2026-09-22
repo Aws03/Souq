@@ -209,4 +209,58 @@ public class TaxCalculatorTests
         quote.Snapshot!.Lines.Should().HaveCount(2);
         quote.Snapshot.TotalAmount.Should().Be(12m);
     }
+
+    // ========================================================================
+    // مسارُ فاتورة المنصّة (C5، ADR-0056): الاختيارُ يصل **وسيطاً** لا من إعداد متجر.
+    //
+    // وما يُثبَت هنا هو أنّ البوّابات هي هي: فاتورةُ اشتراكٍ تحت إصدارٍ لم يؤكّده مهنيّ لا
+    // تُضرَّب، تماماً كسلّة متسوّق. ولو كان لكلٍّ حسابُه لصار للمنصّة بابٌ خلفيّ إلى رقمٍ لم
+    // يتحقّق منه أحد — وهو بالضبط ما وُجدت ADR-0055 لتمنعه.
+    // ========================================================================
+    [Fact]
+    public async Task مسار_المنصّة_لا_يقرأ_إعداد_متجر_ولا_يمسّه()
+    {
+        Profile(basisPoints: 1600);
+
+        var quote = await Calculator().QuoteForProfileAsync(Basis(100m), 1, true, Now);
+
+        quote.Amount.Amount.Should().Be(16m);
+        quote.Reason.Should().Be(TaxCollectionReasons.Collecting);
+        // لا نداءَ واحد على إعداد المتجر: الاختيارُ جاء وسيطاً.
+        await _settings.DidNotReceive().GetAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task مسار_المنصّة_يمرّ_بالبوّابات_نفسها()
+    {
+        // بلا ملفّ، وبالجمع معطّلاً، وبإصدارٍ لم يتحقّق منه أحد: ثلاثةُ أصفارٍ بأسبابها.
+        var none = await Calculator().QuoteForProfileAsync(Basis(100m), null, true, Now);
+        none.Amount.Amount.Should().Be(0m);
+        none.Reason.Should().Be(TaxCollectionReasons.NoProfileSelected);
+
+        Profile(basisPoints: 1600);
+        var disabled = await Calculator().QuoteForProfileAsync(Basis(100m), 1, false, Now);
+        disabled.Amount.Amount.Should().Be(0m);
+        disabled.Reason.Should().Be(TaxCollectionReasons.CollectionDisabled);
+
+        Profile(basisPoints: 1600, verified: false);
+        var unverified = await Calculator().QuoteForProfileAsync(Basis(100m), 1, true, Now);
+        unverified.Amount.Amount.Should().Be(0m);
+        unverified.Reason.Should().Be(TaxCollectionReasons.VersionNotVerified);
+        unverified.Snapshot.Should().BeNull("لا لقطةَ بلا جمع — ولا مبلغَ بلا لقطة");
+    }
+
+    [Fact]
+    public async Task مسار_المتجر_يُفوّض_إلى_مسار_الاختيار_فالحساب_واحد()
+    {
+        // الطريقان يلتقيان في دالّةٍ واحدة، فلا يمكن أن يختلف رقمُ فاتورةٍ عن رقم سلّة.
+        Profile(basisPoints: 1600);
+        Selected();
+
+        var store = await Calculator().QuoteAsync(Basis(100m), Now);
+        var platform = await Calculator().QuoteForProfileAsync(Basis(100m), 1, true, Now);
+
+        store.Amount.Amount.Should().Be(platform.Amount.Amount);
+        store.Reason.Should().Be(platform.Reason);
+    }
 }

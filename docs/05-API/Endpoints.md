@@ -5,7 +5,7 @@
 >
 > Conventions (errors, paging, status codes): [ApiDocumentation.md](ApiDocumentation.md). Use cases per module: [UseCases.md](../04-MODULES/UseCases.md).
 
-**167 endpoints** in 30 controllers: 26 anonymous, 27 for any signed-in account, 114 behind a permission.
+**187 endpoints** in 34 controllers: 26 anonymous, 27 for any signed-in account, 134 behind a permission.
 
 ## How to read this table
 
@@ -78,6 +78,9 @@
 | GET | `/api/admin/store/settings` | `store.settings.manage` | store | — | — | `GetStoreSettingsQuery` | Platform |
 | PUT | `/api/admin/store/settings` | `store.settings.manage` | store | — | — | `UpdateStoreSettingsCommand` | Platform |
 | GET | `/api/admin/store/settings/options` | `store.settings.manage` | store | — | — | `GetStoreSettingsOptionsQuery` | Platform |
+| GET | `/api/admin/store/subscription` | `store.settings.manage` | store | — | — | `GetMySubscriptionQuery` | Billing |
+| GET | `/api/admin/store/subscription/invoices` | `store.settings.manage` | store | — | — | `ListMyInvoicesQuery` | Billing |
+| GET | `/api/admin/store/subscription/invoices/{id:int}` | `store.settings.manage` | store | — | — | `GetMyInvoiceQuery` | Billing |
 | GET | `/api/admin/store/tax` | `store.settings.manage` | store | — | — | `GetStoreTaxSettingsQuery` | Tax |
 | PUT | `/api/admin/store/tax` | `store.settings.manage` | store | — | — | `UpdateStoreTaxSettingsCommand` | Tax |
 | GET | `/api/admin/store/tax/profiles` | `store.settings.manage` | store | — | — | `ListTaxProfilesQuery` | Tax |
@@ -125,6 +128,19 @@
 | GET | `/api/payments/config` | anonymous | store | — | — | `GetPaymentConfigQuery` | Payments |
 | POST | `/api/payments/webhook` | anonymous | store | — | — | `ProcessPaymentWebhookCommand` | Ordering |
 | GET | `/api/platform/audit` | `platform.audit.view` | platform | — | — | `ListAuditEntriesQuery` | Platform |
+| GET | `/api/platform/billing/settings` | `platform.billing.manage` | platform | — | — | `GetPlatformBillingSettingsQuery` | Billing |
+| PUT | `/api/platform/billing/settings` | `platform.billing.manage` | platform | — | — | `UpdatePlatformBillingSettingsCommand` | Billing |
+| GET | `/api/platform/invoices` | `platform.billing.manage` | platform | — | — | `ListPlatformInvoicesQuery` | Billing |
+| POST | `/api/platform/invoices` | `platform.billing.manage` | platform | — | — | `CreatePlatformInvoiceCommand` | Billing |
+| GET | `/api/platform/invoices/{id:int}` | `platform.billing.manage` | platform | — | — | `GetPlatformInvoiceQuery` | Billing |
+| POST | `/api/platform/invoices/{id:int}/cancel` | `platform.billing.manage` | platform | — | — | `CancelPlatformInvoiceDraftCommand` | Billing |
+| POST | `/api/platform/invoices/{id:int}/credit-notes` | `platform.billing.manage` | platform | — | — | `IssueCreditNoteCommand` | Billing |
+| POST | `/api/platform/invoices/{id:int}/issue` | `platform.billing.manage` | platform | — | — | `IssuePlatformInvoiceCommand` | Billing |
+| POST | `/api/platform/invoices/{id:int}/lines` | `platform.billing.manage` | platform | — | — | `AddPlatformInvoiceLineCommand` | Billing |
+| DELETE | `/api/platform/invoices/{id:int}/lines/{lineId:int}` | `platform.billing.manage` | platform | — | — | `RemovePlatformInvoiceLineCommand` | Billing |
+| POST | `/api/platform/invoices/{id:int}/metered-lines` | `platform.billing.manage` | platform | — | — | `AddMeteredLinesCommand` | Billing |
+| PUT | `/api/platform/invoices/{id:int}/notes` | `platform.billing.manage` | platform | — | — | `UpdatePlatformInvoiceNotesCommand` | Billing |
+| POST | `/api/platform/invoices/{id:int}/payments` | `platform.billing.manage` | platform | — | — | `RecordInvoicePaymentCommand` | Billing |
 | GET | `/api/platform/plans` | `platform.billing.manage` | platform | — | — | `ListPlansQuery` | Billing |
 | POST | `/api/platform/plans` | `platform.billing.manage` | platform | — | — | `CreatePlanVersionCommand` | Billing |
 | GET | `/api/platform/plans/{id:int}` | `platform.billing.manage` | platform | — | — | `GetPlanQuery` | Billing |
@@ -158,6 +174,10 @@
 | DELETE | `/api/platform/tenants/{id:int}/payments` | `platform.tenants.manage` | platform | — | — | `RemoveTenantPaymentAccountCommand` | Platform |
 | PUT | `/api/platform/tenants/{id:int}/settings` | `platform.tenants.manage` | platform | — | — | `UpdateTenantSettingsCommand` | Platform |
 | POST | `/api/platform/tenants/{id:int}/status` | `platform.tenants.manage` | platform | — | — | `ChangeTenantStatusCommand` | Platform |
+| POST | `/api/platform/tenants/{tenantId:int}/billing/events` | `platform.billing.manage` | platform | — | — | `RecordBillableEventCommand` | Billing |
+| GET | `/api/platform/tenants/{tenantId:int}/billing/periods` | `platform.billing.manage` | platform | — | — | `ListBillingPeriodsQuery` | Billing |
+| POST | `/api/platform/tenants/{tenantId:int}/billing/periods/{periodId:int}/close` | `platform.billing.manage` | platform | — | — | `CloseBillingPeriodCommand` | Billing |
+| GET | `/api/platform/tenants/{tenantId:int}/billing/periods/{periodId:int}/events` | `platform.billing.manage` | platform | — | — | `ListBillableEventsQuery` | Billing |
 | GET | `/api/platform/tenants/{tenantId:int}/entitlement-overrides` | `platform.billing.manage` | platform | — | — | `ListEntitlementOverridesQuery` | Billing |
 | POST | `/api/platform/tenants/{tenantId:int}/entitlement-overrides` | `platform.billing.manage` | platform | — | — | `GrantEntitlementOverrideCommand` | Billing |
 | DELETE | `/api/platform/tenants/{tenantId:int}/entitlement-overrides/{overrideId:int}` | `platform.billing.manage` | platform | — | — | `RevokeEntitlementOverrideCommand` | Billing |

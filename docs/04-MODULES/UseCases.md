@@ -20,7 +20,7 @@
 | [Reviews](#reviews) | `src/Souq.Application/Features/Reviews` | 3 | 2 | 0 |
 | [Notifications](#notifications) | `src/Souq.Application/Features/Notifications` | 2 | 2 | 0 |
 | [Reporting](#reporting) | `src/Souq.Application/Features/Reporting`, `src/Souq.Application/Features/Analytics` | 2 | 3 | 4 |
-| [Billing](#billing) | `src/Souq.Application/Features/Billing` | 8 | 4 | 2 |
+| [Billing](#billing) | `src/Souq.Application/Features/Billing`, `src/Souq.Application/Features/Subscriptions` | 20 | 12 | 2 |
 | [Tax](#tax) | `src/Souq.Application/Features/Tax` | 6 | 3 | 1 |
 
 ## Platform
@@ -306,18 +306,38 @@ Module document: [Billing/README.md](Billing/README.md).
 
 | Use case | Kind | Handler | Validator | Audited | Sent by |
 |---|---|---|---|---|---|
+| `AddMeteredLinesCommand` | command | `AddMeteredLinesHandler` | `AddMeteredLinesValidator` | yes | `POST /api/platform/invoices/{id:int}/metered-lines` |
+| `AddPlatformInvoiceLineCommand` | command | `AddPlatformInvoiceLineHandler` | `AddPlatformInvoiceLineValidator` | yes | `POST /api/platform/invoices/{id:int}/lines` |
 | `AssignTenantPlanCommand` | command | `AssignTenantPlanHandler` | — | yes | `PUT /api/platform/tenants/{tenantId:int}/plan` |
+| `CancelPlatformInvoiceDraftCommand` | command | `CancelPlatformInvoiceDraftHandler` | — | yes | `POST /api/platform/invoices/{id:int}/cancel` |
 | `CancelTenantPlanCommand` | command | `CancelTenantPlanHandler` | — | yes | `DELETE /api/platform/tenants/{tenantId:int}/plan` |
+| `CloseBillingPeriodCommand` | command | `CloseBillingPeriodHandler` | — | yes | `POST /api/platform/tenants/{tenantId:int}/billing/periods/{periodId:int}/close` |
 | `CreatePlanVersionCommand` | command | `CreatePlanVersionHandler` | `CreatePlanVersionValidator` | yes | `POST /api/platform/plans` |
+| `CreatePlatformInvoiceCommand` | command | `CreatePlatformInvoiceHandler` | `CreatePlatformInvoiceValidator` | yes | `POST /api/platform/invoices` |
 | `GrantEntitlementOverrideCommand` | command | `GrantEntitlementOverrideHandler` | `GrantEntitlementOverrideValidator` | yes | `POST /api/platform/tenants/{tenantId:int}/entitlement-overrides` |
+| `IssueCreditNoteCommand` | command | `IssueCreditNoteHandler` | `IssueCreditNoteValidator` | yes | `POST /api/platform/invoices/{id:int}/credit-notes` |
+| `IssuePlatformInvoiceCommand` | command | `IssuePlatformInvoiceHandler` | `IssuePlatformInvoiceValidator` | yes | `POST /api/platform/invoices/{id:int}/issue` |
 | `PublishPlanCommand` | command | `PublishPlanHandler` | — | yes | `POST /api/platform/plans/{id:int}/publish` |
+| `RecordBillableEventCommand` | command | `RecordBillableEventHandler` | `RecordBillableEventValidator` | yes | `POST /api/platform/tenants/{tenantId:int}/billing/events` |
+| `RecordInvoicePaymentCommand` | command | `RecordInvoicePaymentHandler` | `RecordInvoicePaymentValidator` | yes | `POST /api/platform/invoices/{id:int}/payments` |
+| `RemovePlatformInvoiceLineCommand` | command | `RemovePlatformInvoiceLineHandler` | — | yes | `DELETE /api/platform/invoices/{id:int}/lines/{lineId:int}` |
 | `RetirePlanCommand` | command | `RetirePlanHandler` | — | yes | `POST /api/platform/plans/{id:int}/retire` |
 | `RevokeEntitlementOverrideCommand` | command | `RevokeEntitlementOverrideHandler` | — | yes | `DELETE /api/platform/tenants/{tenantId:int}/entitlement-overrides/{overrideId:int}` |
 | `UpdatePlanDraftCommand` | command | `UpdatePlanDraftHandler` | `UpdatePlanDraftValidator` | yes | `PUT /api/platform/plans/{id:int}` |
+| `UpdatePlatformBillingSettingsCommand` | command | `UpdatePlatformBillingSettingsHandler` | `UpdatePlatformBillingSettingsValidator` | yes | `PUT /api/platform/billing/settings` |
+| `UpdatePlatformInvoiceNotesCommand` | command | `UpdatePlatformInvoiceNotesHandler` | `UpdatePlatformInvoiceNotesValidator` | yes | `PUT /api/platform/invoices/{id:int}/notes` |
+| `GetMyInvoiceQuery` | query | `GetMyInvoiceHandler` | — | yes | `GET /api/admin/store/subscription/invoices/{id:int}` |
+| `GetMySubscriptionQuery` | query | `GetMySubscriptionHandler` | — | yes | `GET /api/admin/store/subscription` |
 | `GetPlanQuery` | query | `GetPlanHandler` | — | yes | `GET /api/platform/plans/{id:int}` |
+| `GetPlatformBillingSettingsQuery` | query | `GetPlatformBillingSettingsHandler` | — | yes | `GET /api/platform/billing/settings` |
+| `GetPlatformInvoiceQuery` | query | `GetPlatformInvoiceHandler` | — | yes | `GET /api/platform/invoices/{id:int}` |
 | `GetTenantEntitlementsQuery` | query | `GetTenantEntitlementsHandler` | — | yes | `GET /api/platform/tenants/{tenantId:int}/entitlements` |
+| `ListBillableEventsQuery` | query | `ListBillableEventsHandler` | — | yes | `GET /api/platform/tenants/{tenantId:int}/billing/periods/{periodId:int}/events` |
+| `ListBillingPeriodsQuery` | query | `ListBillingPeriodsHandler` | — | yes | `GET /api/platform/tenants/{tenantId:int}/billing/periods` |
 | `ListEntitlementOverridesQuery` | query | `ListEntitlementOverridesHandler` | — | yes | `GET /api/platform/tenants/{tenantId:int}/entitlement-overrides` |
+| `ListMyInvoicesQuery` | query | `ListMyInvoicesHandler` | `ListMyInvoicesValidator` | yes | `GET /api/admin/store/subscription/invoices` |
 | `ListPlansQuery` | query | `ListPlansHandler` | `ListPlansQueryValidator` | yes | `GET /api/platform/plans` |
+| `ListPlatformInvoicesQuery` | query | `ListPlatformInvoicesHandler` | `ListPlatformInvoicesValidator` | yes | `GET /api/platform/invoices` |
 
 | Public contract | Implemented by |
 |---|---|

@@ -16,6 +16,8 @@ public class BillingHandlerTests
 
     private readonly ITenantRepository _tenants = Substitute.For<ITenantRepository>();
     private readonly IPlanRepository _plans = Substitute.For<IPlanRepository>();
+    // C5 (ADR-0056): تسعيرُ الخطة يقرأ عملةَ فوترة المنصّة — بلا إعدادٍ لا سعر، والاختبارات هنا لا تُسعّر.
+    private readonly IPlatformBillingSettingsRepository _billingSettings = Substitute.For<IPlatformBillingSettingsRepository>();
     private readonly ISubscriptionRepository _subscriptions = Substitute.For<ISubscriptionRepository>();
     private readonly IEntitlementOverrideRepository _overrides = Substitute.For<IEntitlementOverrideRepository>();
     private readonly ITenantDirectory _directory = Substitute.For<ITenantDirectory>();
@@ -171,7 +173,7 @@ public class BillingHandlerTests
     {
         _plans.NextVersionAsync("growth", Arg.Any<CancellationToken>()).Returns(3);
 
-        var result = await new CreatePlanVersionHandler(_plans, _uow).Handle(
+        var result = await new CreatePlanVersionHandler(_plans, _billingSettings, _uow).Handle(
             new CreatePlanVersionCommand("Growth", "خطة النمو", [StoreModules.Reviews], [new PlanLimitDto(LimitNames.CatalogProducts, 500)]),
             CancellationToken.None);
 
