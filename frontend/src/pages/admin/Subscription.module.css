@@ -1,0 +1,62 @@
+/* ============================================================================
+   اشتراكُ المتجر وفواتيره (C5، ADR-0056).
+   وحدةٌ صغيرة خاصّة بهذه الشاشة: ما تحتاجه لوحٌ ولائحةٌ وقائمةُ حقائق، وكلُّها رموزٌ مشتركة
+   لا ألوانٌ مكتوبة — فالوضع الداكن يتبعها بلا قاعدةٍ ثانية.
+   ============================================================================ */
+
+.panel {
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  background: var(--color-surface);
+  padding: var(--space-4);
+  margin-block: var(--space-4);
+}
+
+.panelTitle {
+  margin: 0 0 var(--space-3);
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+/* تعليماتُ الدفع نصٌّ يكتبه المشغّل بأسطره — حسابٌ بنكيّ على عدّة سطور يُقرأ كما كُتب. */
+.preLine {
+  white-space: pre-line;
+  margin: 0;
+  color: var(--color-text);
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--space-2) var(--space-4);
+  margin: 0 0 var(--space-3);
+}
+
+.facts dt { color: var(--color-text-muted); }
+.facts dd { margin: 0; color: var(--color-text); }
+
+.rows {
+  list-style: none;
+  margin: 0 0 var(--space-3);
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-surface-alt);
+}
+
+/* ما يحتاج انتباهاً: مبلغٌ مستحقّ، أو تأخّر. النصُّ وحده لا اللون وحده — الشارةُ تقول ما تقوله
+   والنغمةُ تؤكّده، فلا يعتمد المعنى على تمييز الألوان. */
+.attention { color: var(--color-danger); font-weight: 600; }

@@ -25,6 +25,8 @@ export const ADMIN_NAV = [
   { to: '/admin/payments', label: 'admin.nav.payments', icon: CardIcon, permission: 'store.payments.manage' },
   { to: '/admin/staff', label: 'admin.nav.staff', icon: TeamIcon, permission: 'store.staff.manage' },
   { to: '/admin/settings', label: 'admin.nav.settings', icon: SlidersIcon, permission: 'store.settings.manage' },
+  // اشتراك المتجر وفواتيره (C5): بصلاحية الإعدادات نفسها — شأنُ صاحب المتجر لا موظّفه.
+  { to: '/admin/subscription', label: 'admin.nav.subscription', icon: CardIcon, permission: 'store.settings.manage' },
 ];
 
 // الروابط التي يراها الحساب الحالي: صلاحيته من الخادم، والوحدة (إن كانت اختيارية) مفعّلة في متجره — الموظّف لا يرى ما سيرفضه

@@ -64,6 +64,8 @@ const ShippingMethods = lazy(() => import('./pages/admin/ShippingMethods'));
 const SearchSynonyms = lazy(() => import('./pages/admin/SearchSynonyms'));
 const ReviewModeration = lazy(() => import('./pages/admin/ReviewModeration'));
 const StoreSettings = lazy(() => import('./pages/admin/StoreSettings'));
+// اشتراك المتجر وفواتيره كما يراها تاجره (C5، ADR-0056).
+const Subscription = lazy(() => import('./pages/admin/Subscription'));
 const Staff = lazy(() => import('./pages/admin/Staff'));
 const PlatformLayout = lazy(() => import('./app/PlatformLayout'));
 const PlatformOverview = lazy(() => import('./pages/platform/PlatformOverview'));
@@ -74,6 +76,10 @@ const PlatformStoreDetail = lazy(() => import('./pages/platform/StoreDetail'));
 const PlatformStoreSettingsPage = lazy(() => import('./pages/platform/StoreSettingsPage'));
 const PlatformAccounts = lazy(() => import('./pages/platform/Accounts'));
 const PlatformAudit = lazy(() => import('./pages/platform/Audit'));
+// فوترة التجّار (C5، ADR-0056): دفتر المنصّة وإعداده.
+const PlatformBillingSettings = lazy(() => import('./pages/platform/BillingSettings'));
+const PlatformInvoices = lazy(() => import('./pages/platform/Invoices'));
+const PlatformInvoiceDetail = lazy(() => import('./pages/platform/InvoiceDetail'));
 
 // صفحة إدارة بصلاحيتها (والوحدة إن كانت اختيارية) — الشريط الجانبي يخفي رابطها بالشرط نفسه.
 const guarded = (element, permission, module) => {
@@ -153,6 +159,7 @@ function StoreRoutes() {
         <Route path="payments" element={guarded(<Payments />, 'store.payments.manage')} />
         <Route path="reviews" element={guarded(<ReviewModeration />, 'reviews.moderate', 'reviews')} />
         <Route path="settings" element={guarded(<StoreSettings />, 'store.settings.manage')} />
+        <Route path="subscription" element={guarded(<Subscription />, 'store.settings.manage')} />
         <Route path="staff" element={guarded(<Staff />, 'store.staff.manage')} />
       </Route>
 
@@ -219,6 +226,9 @@ function PlatformRoutes() {
         <Route path="stores/:id/settings" element={platformGuarded(<PlatformStoreSettingsPage />, 'platform.tenants.manage')} />
         <Route path="stores/:id/setup/:step" element={platformGuarded(<PlatformStoreSetup />, 'platform.tenants.manage')} />
         <Route path="accounts" element={platformGuarded(<PlatformAccounts />, 'platform.users.manage')} />
+        <Route path="billing" element={platformGuarded(<PlatformBillingSettings />, 'platform.billing.manage')} />
+        <Route path="invoices" element={platformGuarded(<PlatformInvoices />, 'platform.billing.manage')} />
+        <Route path="invoices/:id" element={platformGuarded(<PlatformInvoiceDetail />, 'platform.billing.manage')} />
         <Route path="audit" element={platformGuarded(<PlatformAudit />, 'platform.audit.view')} />
         <Route path="*" element={<Navigate to="/platform" replace />} />
       </Route>

@@ -55,6 +55,11 @@ const VOCABULARIES = {
 
   store: { Provisioning: 'info', Active: 'success', Suspended: 'danger', Archived: 'danger' },
 
+  // فاتورة المنصّة (C5، ADR-0056). `Draft` محايدة لا تحذير — خلافاً لمسوّدة المنتج أعلاه، وعن
+  // قصد: مسوّدةُ فاتورةٍ لا تنتظر أحداً ولا تنقص شيئاً، هي ورقةٌ يحرّرها مشغّلٌ الآن. و«متأخّرة»
+  // ليست حالةً يرسلها الخادم بل تُحتسب من `isOverdue`، ولها نغمتُها هنا كي تُقرأ بالمفردة نفسها.
+  invoice: { Draft: 'neutral', Issued: 'info', Settled: 'success', Cancelled: 'neutral', Overdue: 'danger' },
+
   customer: { Active: 'success', Blocked: 'danger' },
 
   // بنود جاهزية المتجر — وفيها وحدها كانت المحايدة مستعملة أصلاً.

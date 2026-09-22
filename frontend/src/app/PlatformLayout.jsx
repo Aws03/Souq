@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { setLanguage } from '../i18n';
 import { useTheme } from './TenantProvider';
 import { PagePending } from '../components/ProtectedRoute';
-import { GridIcon, MoonIcon, PackageIcon, ReceiptIcon, SunIcon, TeamIcon } from '../components/icons/Icons';
+import { CardIcon, GridIcon, MoonIcon, PackageIcon, ReceiptIcon, SunIcon, TeamIcon } from '../components/icons/Icons';
 import styles from '../pages/platform/Platform.module.css';
 
 // ============================================================================
@@ -17,6 +17,8 @@ export const PLATFORM_NAV = [
   { to: '/platform', end: true, label: 'platform.nav.overview', icon: GridIcon, permission: 'platform.reports.view' },
   { to: '/platform/stores', label: 'platform.nav.stores', icon: PackageIcon, permission: 'platform.tenants.manage' },
   { to: '/platform/accounts', label: 'platform.nav.accounts', icon: TeamIcon, permission: 'platform.users.manage' },
+  // فوترة التجّار (C5): للمالك وحده كبقيّة العلاقة التجارية مع العميل.
+  { to: '/platform/invoices', label: 'platform.nav.invoices', icon: CardIcon, permission: 'platform.billing.manage' },
   { to: '/platform/audit', label: 'platform.nav.audit', icon: ReceiptIcon, permission: 'platform.audit.view' },
 ];
 

@@ -33,6 +33,19 @@ export const queryKeys = {
   platformUsers: (page, pageSize) => ['platform-users', page, pageSize],
   platformAudit: (params) => ['platform-audit', params],
 
+  // فوترة التجّار (C5، ADR-0056). جذرٌ للإبطال ومفتاحٌ بالمرشّحات: إصدارُ فاتورة أو تسجيلُ سداد
+  // يغيّر الصفّ **والقائمة والملخّص** معاً، فإبطال الجذر يُصيبها بنداء واحد.
+  platformBillingSettings: () => ['platform-billing-settings'],
+  platformTaxProfiles: () => ['platform-tax-profiles'],
+  platformInvoicesAll: () => ['platform-invoices'],
+  platformInvoices: (params) => ['platform-invoices', params],
+  platformInvoice: (id) => ['platform-invoices', String(id)],
+
+  mySubscriptionAll: () => ['my-subscription'],
+  mySubscription: () => ['my-subscription', 'summary'],
+  myInvoices: (params) => ['my-subscription', 'invoices', params],
+  myInvoice: (id) => ['my-subscription', 'invoices', String(id)],
+
   adminProduct: (id) => ['admin-product', String(id)],
 
   // ============================================================================

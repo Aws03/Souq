@@ -267,6 +267,43 @@ export const api = {
   // ── سجلّ التدقيق (مضيف المنصّة، platform.audit.view) ── ترقيم وتصفية من الخادم: متجر، بادئة فعل، حساب، مدّة.
   getPlatformAudit: (params = {}) => request(`/platform/audit${toQueryString(params)}`),
 
+  // ============================================================================
+  // فوترة التجّار (مضيف المنصّة، platform.billing.manage — المالك وحده). C5، ADR-0056.
+  //
+  // **لا عملة تُرسل من هنا في أيّ نداء.** عملة الفوترة إعدادُ منصّةٍ واحد يقرؤه الخادم، وإرسالها
+  // من المتصفّح كان يجعلها قابلةً للاختلاف عن الدفتر. والمبالغ تُرسل أرقاماً، وتُعرض بعملة الصفّ.
+  //
+  // ولا مزوّد دفع خلف أيٍّ من هذه النداءات: التحصيل حوالةٌ يسجّلها مشغّل بعد وقوعها.
+  // ============================================================================
+  // ملفّاتُ الاختصاص الضريبيّ التي تستطيع المنصّة أن تُفوتر تحتها (platform.settings.manage،
+  // ADR-0055). النقطةُ نفسها التي يقرأ منها التاجر ما يختاره — قائمةٌ واحدة لا نسختان.
+  getPlatformTaxProfiles: () => request('/platform/tax/profiles'),
+
+  getPlatformBillingSettings: () => request('/platform/billing/settings'),
+  updatePlatformBillingSettings: (payload) =>
+    request('/platform/billing/settings', { method: 'PUT', body: JSON.stringify(payload) }),
+
+  getPlatformInvoices: (params = {}) => request(`/platform/invoices${toQueryString(params)}`),
+  getPlatformInvoice: (id) => request(`/platform/invoices/${id}`),
+  createPlatformInvoice: (payload) => request('/platform/invoices', { method: 'POST', body: JSON.stringify(payload) }),
+  addPlatformInvoiceLine: (id, payload) =>
+    request(`/platform/invoices/${id}/lines`, { method: 'POST', body: JSON.stringify(payload) }),
+  removePlatformInvoiceLine: (id, lineId) =>
+    request(`/platform/invoices/${id}/lines/${lineId}`, { method: 'DELETE' }),
+  cancelPlatformInvoice: (id) => request(`/platform/invoices/${id}/cancel`, { method: 'POST' }),
+  issuePlatformInvoice: (id, payload) =>
+    request(`/platform/invoices/${id}/issue`, { method: 'POST', body: JSON.stringify(payload ?? {}) }),
+  recordPlatformInvoicePayment: (id, payload) =>
+    request(`/platform/invoices/${id}/payments`, { method: 'POST', body: JSON.stringify(payload) }),
+  issuePlatformCreditNote: (id, payload) =>
+    request(`/platform/invoices/${id}/credit-notes`, { method: 'POST', body: JSON.stringify(payload) }),
+
+  // ── اشتراك المتجر كما يراه تاجره (store.settings.manage) ── على مضيف متجره، وبلا معرّف متجر
+  // في أيّ مسار: المتجر من المضيف كأيّ نقطة متجر، فـ«فاتورة تاجر آخر» غير قابلة للطلب أصلاً.
+  getMySubscription: () => request('/admin/store/subscription'),
+  getMyInvoices: (params = {}) => request(`/admin/store/subscription/invoices${toQueryString(params)}`),
+  getMyInvoice: (id) => request(`/admin/store/subscription/invoices/${id}`),
+
   // ── تقارير المتجر (أدمن، store.reports.view) ── استجابة واحدة للوحة كاملة: بطاقاتها من
   // لحظة واحدة لا من اثنتي عشرة، والمدّة مفتاح مغلق لا تاريخان من المتصفّح.
   getStoreDashboard: (range = 'Last30Days') => request(`/admin/reports/dashboard?range=${range}`),
