@@ -108,7 +108,7 @@ Engineered with care and covered by tests — and **not** externally audited, wh
 | **Architecture** | 127 | Layering, module boundaries, tenant isolation, authorization surface, documentation accuracy |
 | **Integration** | 546 | Real SQL Server via Testcontainers: HTTP in, database out, including concurrency races |
 | Frontend | 865 | Vitest, plus lint and JSDoc type-checking |
-| Browser | 24 specs | Playwright journeys against the container stack, run by hand |
+| Browser | 24 specs · 149 journeys | Playwright, run by hand against a live stack. Most run against the container stack; three need a Development API because `{slug}.localhost` resolution is Development-only by design, and `csp.spec.js` needs nginx — [the runbook](docs/09-OPERATIONS/DeveloperQualityGates.md) says which is which |
 
 The architecture suite is the one to read first: it is where "tenant isolation is enforced" stops being a sentence in a document and becomes a failing build.
 
