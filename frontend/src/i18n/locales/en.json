@@ -1067,7 +1067,9 @@
         "announcement": "Announcement bar",
         "announcementHint": "A short line across the top of every storefront page. Leave empty to hide it.",
         "policies": "Policies",
-        "policiesHint": "Links to your policy pages, hosted by you. Your storefront footer shows only the links you set — leave a field empty and nothing appears."
+        "policiesHint": "Links to your policy pages, hosted by you. Your storefront footer shows only the links you set — leave a field empty and nothing appears.",
+        "texts": "Wording",
+        "textsHint": "Say it in your own words. Leave a field empty to keep the default wording."
       },
       "assets": {
         "none": "None yet",
@@ -1216,6 +1218,17 @@
         "newArrivals": "New arrivals",
         "offers": "Offers",
         "catalog": "Full catalog"
+      },
+      "texts": {
+        "store.newArrivals": "New arrivals heading",
+        "store.bestSellers": "Best sellers heading",
+        "store.allProducts": "Full catalog heading",
+        "store.featuredTitle": "Featured product heading",
+        "store.shopNow": "Shop now button",
+        "store.viewAll": "View all link",
+        "store.heroCta": "Banner call to action",
+        "nav.offers": "Offers link",
+        "nav.viewCart": "View cart link"
       }
     },
     "staff": {

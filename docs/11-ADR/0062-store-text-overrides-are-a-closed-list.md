@@ -62,7 +62,7 @@ The settings are a JSON document; a document written before this field reads as 
 
 - Nine keys is deliberately conservative, and the first merchant request will probably be for a tenth. That is a small reviewed change, which is the point.
 - The overrides live on the settings document, so a store with many renames carries them in every storefront config response. At 120 characters and a bounded key list this is small, but it is not free.
-- **There is no editor for this yet.** The capability is complete through the API and the storefront; a merchant cannot set a rename from a screen. That is the honest state, and the next visible-value change in this area.
+- The editor shows **every permitted key in every enabled language**, so a merchant sees what *can* be renamed rather than only what they already renamed. That is nine keys times the store's languages — a long section, and deliberately so; hiding the unset ones would make the capability undiscoverable.
 
 ## Deliberately out of scope
 

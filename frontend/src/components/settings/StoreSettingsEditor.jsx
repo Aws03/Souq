@@ -151,6 +151,7 @@ export default function StoreSettingsEditor({ source, actions = null, onDirtyCha
   const cultureLabel = (culture) => t(`admin.settings.culture.${culture}`);
   const checks = colorChecks(form.colors, options.contrast);
   const policyKinds = options.policyKinds ?? [];
+  const textKeys = options.textKeys ?? [];
   const usedNetworks = new Set(form.social.map((link) => link.network));
   const nextNetwork = options.socialNetworks.find((n) => !usedNetworks.has(n.network))?.network;
   const locale = settings.locale;
@@ -484,6 +485,36 @@ export default function StoreSettingsEditor({ source, actions = null, onDirtyCha
                 </div>
               );
             })}
+          </div>
+        </section>
+        )}
+
+        {/* ============================================================
+            التسميات (C8، ADR-0062): نصوصُ عرضٍ يُعيد المتجر تسميتها بكلماته.
+            المفاتيحُ من الخادم (قائمةٌ مغلقة في النطاق) لا من نسخةٍ هنا — فلا تُعرض تسميةٌ
+            يرفضها الخادم. والفارغُ يعيد النصّ الأصليّ، وهو مكتوبٌ للتاجر لا مستنتَج.
+            وخادمٌ لا يعلن مفاتيح (أقدم من هذه الميزة) ⇒ لا قسم.
+            ============================================================ */}
+        {textKeys.length > 0 && (
+        <section className={styles.section} aria-labelledby="section-texts">
+          <h3 id="section-texts" className={styles.sectionTitle}>{t('admin.settings.section.texts')}</h3>
+          <p className={styles.sectionHint}>{t('admin.settings.section.textsHint')}</p>
+          <div className={styles.grid2}>
+            {textKeys.map((key) => form.enabledCultures.map((culture) => (
+              <div key={`${key}.${culture}`} className={styles.field}>
+                <label className={styles.label} htmlFor={fieldId(`texts.${key}.${culture}`)}>
+                  {t(`admin.settings.texts.${key}`)}
+                  <span className={styles.hint}> {t(`admin.settings.culture.${culture}`)}</span>
+                </label>
+                <input id={fieldId(`texts.${key}.${culture}`)} className={inputClass(false)}
+                  value={form.texts?.[key]?.[culture] ?? ''} autoComplete="off"
+                  maxLength={options.textMaxLength}
+                  placeholder={t(`admin.settings.texts.${key}`)}
+                  onChange={(e) => update({
+                    texts: { ...form.texts, [key]: { ...form.texts?.[key], [culture]: e.target.value } },
+                  })} />
+              </div>
+            )))}
           </div>
         </section>
         )}

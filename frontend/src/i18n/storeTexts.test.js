@@ -40,7 +40,8 @@ describe('تسميات المتجر', () => {
     i18n.addResourceBundle('ar', 'translation', {
       store: { newArrivals: 'وصل حديثاً', allProducts: 'كل المنتجات' },
     }, true, true);
-    expect(i18n.t('store.newArrivals')).toBe('وصل حديثاً', 'الحزمة كتبت فوقها — وهذا هو العطب');
+    // الحزمةُ كتبت فوق الطبقة — وهذا هو العطب الذي يحرسه هذا الاختبار.
+    expect(i18n.t('store.newArrivals')).toBe('وصل حديثاً');
 
     applyStoreTexts('ar');
     expect(i18n.t('store.newArrivals')).toBe('مجموعاتنا');

@@ -74,8 +74,7 @@ current_phase_note: |
 next_phase: none-unblocked
 # C6, C8 and C9 are closed; C12's port seam and both its prerequisites are in. Everything that remains
 # is waiting on someone outside engineering — see the blocked list above and §5. §4.13's four customization
-# items are all built now; the visible gap left inside a closed phase is that text overrides have no editor
-# screen yet, which is a small frontend change needing no decision.
+# items are all built now, editors included. Nothing executable remains that does not wait on a person.
 blocked_decisions: ["D-18", "C-11", "C-09", "C-18", "C-12", "C-13"]
 answered_decisions: ["C-08", "C-17", "TD-42", "C-15", "P-06", "D-13", "C-01", "C-19"]
 open_sub_decisions: ["C-08 lawful basis", "C-08 retention period", "C-08 data residency",
@@ -412,8 +411,9 @@ Each phase lists: **delivers · depends on · blocked by · why here**.
   button with no word on it. The load-bearing detail is **ordering**: the language bundle reloads on every
   switch and overwrites whatever was layered on it, so the overrides are re-applied on bundle load, on config
   arrival and after every language change — with a test that reproduces the disappearance before fixing it. No
-  migration, and **no editor yet**: the capability is complete through the API and the storefront, and a
-  merchant cannot set a rename from a screen. That is the next visible-value change here.
+  migration. The settings editor gained a *Wording* section listing **every permitted key in every enabled
+  language**, so a merchant sees what can be renamed rather than only what they already did — verified in a
+  browser through the real save and reload.
 - **Why here.** It was the cheapest credibility fix on the list: a merchant evaluating the product picked one of
   three themes and saw no difference, which reads as broken. All four deliverables are now closed. What remains
   under this heading is only `TD-42`'s authored-page capability, which the owner deferred with a named trigger.

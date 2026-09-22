@@ -49,6 +49,11 @@ export function settingsToForm(settings, options) {
     // يعرف التاجر ما يمكن ضبطه — والفارغ يصل فارغاً فيحذفه الخادم.
     policies: Object.fromEntries((options?.policyKinds ?? Object.keys(settings?.policies ?? {}))
       .map((kind) => [kind, settings?.policies?.[kind] ?? ''])),
+    // التسميات: كلُّ مفتاحٍ مسموح × كلُّ لغةٍ مفعّلة، حاضرةً ولو فارغة — فالتاجرُ يرى ما **يمكن**
+    // تسميته لا ما سمّاه وحده. والفارغُ يصل فارغاً فيحذفه الخادم، فيعود النصّ الأصليّ.
+    texts: Object.fromEntries((options?.textKeys ?? []).map((key) => [
+      key, Object.fromEntries(cultures.map((culture) => [culture, settings?.texts?.[key]?.[culture] ?? ''])),
+    ])),
   };
 }
 
@@ -82,6 +87,7 @@ export const buildSettingsPayload = (form) => ({
   announcement: trimmed(form.announcement),
   policies: trimmed(form.policies),
   sections: form.sections,
+  texts: Object.fromEntries(Object.entries(form.texts ?? {}).map(([key, byCulture]) => [key, trimmed(byCulture)])),
 });
 
 // ── ترتيب الأقسام ─────────────────────────────────────────────────────────
