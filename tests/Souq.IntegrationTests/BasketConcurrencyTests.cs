@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -66,9 +67,9 @@ public class BasketConcurrencyTests
 
             var statuses = string.Join(", ", responses.Select(r => (int)r.StatusCode));
             responses.Should().NotContain(r => r.StatusCode == HttpStatusCode.Conflict,
-                $"الجولة {round}: دمج سلّة الزائر لا يجوز أن يُنتج تعارضاً على قراءة (F-28) — الردود: {statuses}");
+                $"الجولة {round}: دمج سلّة الزائر لا يجوز أن يُنتج تعارضاً على قراءة (F-28) — الردود: {statuses}{ServerErrors()}");
             responses.Should().OnlyContain(r => r.StatusCode == HttpStatusCode.OK,
-                $"الجولة {round}: كل قراءة للسلّة تنجح مهما تزامنت — الردود: {statuses}");
+                $"الجولة {round}: كل قراءة للسلّة تنجح مهما تزامنت — الردود: {statuses}{ServerErrors()}");
 
             // والدمج وقع **مرّة واحدة**: ستّ قراءات متزامنة لا تضيف الصنف ستّ مرّات.
             var baskets = await Task.WhenAll(responses.Select(r => r.Content.ReadFromJsonAsync<TestApi.BasketBody>(TestApi.Json)));
@@ -121,6 +122,26 @@ public class BasketConcurrencyTests
 
         var statuses = string.Join(", ", responses.Select(r => (int)r.StatusCode));
         responses.Should().NotContain(r => r.StatusCode == HttpStatusCode.Conflict, $"لا تعارض — الردود: {statuses}");
-        responses.Should().NotContain(r => (int)r.StatusCode >= 500, $"ولا خطأ خادم — الردود: {statuses}");
+        responses.Should().NotContain(r => (int)r.StatusCode >= 500, $"ولا خطأ خادم — الردود: {statuses}{ServerErrors()}");
     }
+
+    // ========================================================================
+    // ما قاله الخادم حين أجاب 5xx.
+    //
+    // **اختبارُ تزامنٍ يقول «500» ولا يقول لماذا يكلّف دورةَ تشخيصٍ كاملة** — وهو ما وقع فعلاً:
+    // سقط هذا الملفّ على مشغّل GitHub، ولم يكن في المخرَج ما يسمّي الاستثناء، ولم يُعد إنتاجُه
+    // محلّياً لأنّ الجمود يحتاج حِملاً لا يملكه جهازٌ غيرُ محمّل. فصار الفشلُ يحمل سببه.
+    //
+    // ويقرأ من `CapturingLoggerProvider` المُسجَّل أصلاً في المصنع: أخطاءُ الخادم تُلتقط، ورقمُ
+    // خطأ SQL يظهر في نصّها — وهو ما يفرّق الجمود (1205) عن انتهاء المهلة (-2) عن غيرهما،
+    // والفرقُ بينها هو الفرقُ بين إصلاحٍ صحيح وتخمين.
+    // ========================================================================
+    private string ServerErrors() =>
+        string.Join(" | ", _factory.Logs.Entries
+            .Where(e => e.Level >= LogLevel.Error)
+            .Select(e => $"{e.Category}: {e.Message}")
+            .Distinct()
+            .Take(3)) is { Length: > 0 } captured
+            ? $" — سجلّ الخادم: {captured}"
+            : " — لا خطأ في سجلّ الخادم";
 }
