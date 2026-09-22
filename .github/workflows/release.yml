@@ -49,6 +49,7 @@ jobs:
     timeout-minutes: 45
     outputs:
       version: ${{ steps.version.outputs.value }}
+      owner: ${{ steps.owner.outputs.value }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
@@ -66,6 +67,21 @@ jobs:
             exit 1
           fi
           echo "value=$ref" >> "$GITHUB_OUTPUT"
+
+      # ══════════════════════════════════════════════════════════════════════
+      # اسم المالك **بحروف صغيرة**، وهذا ليس تجميلاً: مرجع صورة Docker يرفض الحروف الكبيرة
+      # رفضاً صريحاً — `invalid reference format: repository name must be lowercase`. ومالك هذا
+      # المستودع `Aws03` بألفٍ كبيرة، فكان `ghcr.io/Aws03/souq-api` مرجعاً **غير صالح أصلاً**،
+      # في مهمّة الصور وفي أمر النشر معاً. لم يظهر العطل قطّ لأنّ هذا الملفّ **لم يُشغَّل مرّة
+      # واحدة** قبل اليوم — وهو بالضبط ما يحدث حين يُكتب خطُّ إصدارٍ ولا يُجرَّب: يبدو صحيحاً،
+      # ويفشل أوّل مرّة يُحتاج فيها فعلاً.
+      #
+      # ويُحسب في البوّابة لا في مهمّة الصور، لأنّ مهمّتين تحتاجانه: `images` و`deploy-staging`.
+      # ولا دالّة lower() في تعابير Actions، فالتحويل في الصدفة.
+      # ══════════════════════════════════════════════════════════════════════
+      - name: Lowercase the owner (Docker refuses uppercase references)
+        id: owner
+        run: echo "value=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_OUTPUT"
 
       - run: dotnet restore
       - run: dotnet build --no-restore -warnaserror
@@ -104,8 +120,8 @@ jobs:
           file: src/Souq.API/Dockerfile
           push: true
           tags: |
-            ${{ env.REGISTRY }}/${{ github.repository_owner }}/souq-api:${{ needs.gate.outputs.version }}
-            ${{ env.REGISTRY }}/${{ github.repository_owner }}/souq-api:sha-${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ needs.gate.outputs.owner }}/souq-api:${{ needs.gate.outputs.version }}
+            ${{ env.REGISTRY }}/${{ needs.gate.outputs.owner }}/souq-api:sha-${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -116,8 +132,8 @@ jobs:
           file: ./frontend/Dockerfile
           push: true
           tags: |
-            ${{ env.REGISTRY }}/${{ github.repository_owner }}/souq-web:${{ needs.gate.outputs.version }}
-            ${{ env.REGISTRY }}/${{ github.repository_owner }}/souq-web:sha-${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ needs.gate.outputs.owner }}/souq-web:${{ needs.gate.outputs.version }}
+            ${{ env.REGISTRY }}/${{ needs.gate.outputs.owner }}/souq-web:sha-${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -134,7 +150,10 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
-      - run: dotnet tool install --global dotnet-ef
+      # النسخة مثبَّتة على نسخة EF في المشروع (10.0.9) لا `latest`: أداةٌ أحدث من الحزم تفشل
+      # بـ«the Entity Framework tools version is older/newer», وهو فشلٌ يظهر يوم يُصدَر EF جديد
+      # لا يوم يتغيّر شيء هنا — أي خطُّ إصدارٍ يكسره طرفٌ ثالث في وقتٍ لا يختاره أحد.
+      - run: dotnet tool install --global dotnet-ef --version 10.0.9
       - name: Build self-contained bundle
         run: |
           dotnet ef migrations bundle --project src/Souq.Infrastructure \
@@ -192,8 +211,8 @@ jobs:
             set -euo pipefail
             cd "$DEPLOY_PATH"
             chmod +x ./migrate
-            SOUQ_IMAGE_API=${{ env.REGISTRY }}/${{ github.repository_owner }}/souq-api \
-            SOUQ_IMAGE_WEB=${{ env.REGISTRY }}/${{ github.repository_owner }}/souq-web \
+            SOUQ_IMAGE_API=${{ env.REGISTRY }}/${{ needs.gate.outputs.owner }}/souq-api \
+            SOUQ_IMAGE_WEB=${{ env.REGISTRY }}/${{ needs.gate.outputs.owner }}/souq-web \
             ./scripts/deploy.sh --version "$VERSION" \
               --env-file /etc/souq/.env \
               --backup-dir /var/backups/souq \
