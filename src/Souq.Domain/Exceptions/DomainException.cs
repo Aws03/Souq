@@ -77,6 +77,13 @@ public class InvalidTenantOperationException : DomainException
     public InvalidTenantOperationException(string message) : base("InvalidTenantOperation", message) { }
 }
 
+// خطأ: اسمُ عملٍ محروسٍ غيرُ صالح (C4، ADR-0057). يقع عند البرمجة لا عند التشغيل: الأسماءُ
+// ثوابتُ في `GuardedWork`، فوصولُ اسمٍ مشوَّه يعني أنّ أحداً مرّر نصّاً بيده.
+public class InvalidLeaseException : DomainException
+{
+    public InvalidLeaseException(string message) : base("InvalidLease", message) { }
+}
+
 // خطأ: قاعدة خيارات المنتج ومتغيّراته (P-08a، ADR-0040) — لكل حالة رمزها الثابت (TooManyOptions، OptionValueInUse،
 // DuplicateVariantCombination…) كي تشرحها الواجهة بلغتها بدل رسالة عامة.
 public class InvalidProductVariantException : DomainException

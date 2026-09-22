@@ -22,4 +22,16 @@
   <ItemGroup>
     <ProjectReference Include="..\Souq.Application\Souq.Application.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <!--
+      C4 (ADR-0057): اختبارُ التكامل يبني `SqlDistributedLock` بهويّتَي نسختين مختلفتين، وهو ما
+      لا يستطيع فعله عبر الحقن — الهويّةُ **مفردة** في التطبيق (نسخةٌ واحدة لكل عملية)، وهذا
+      بالضبط ما يجعل محاكاة نسختين تحتاج بناءً مباشراً.
+
+      والبديلُ كان جعلَ الصنف عامّاً، أي توسيعَ سطح Infrastructure العامّ لأجل اختبار — وهو
+      أسوأ: النمطُ هنا أن التنفيذ داخليٌّ خلف منفذه. والسابقةُ قائمة: Souq.Domain يفتح داخليّاته
+      لمشاريع الاختبار الثلاثة للسبب نفسه.
+    -->
+    <InternalsVisibleTo Include="Souq.IntegrationTests" />
+  </ItemGroup>
 </Project>

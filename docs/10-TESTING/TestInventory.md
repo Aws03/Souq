@@ -10,9 +10,9 @@
 | [`Souq.Domain.Tests`](#souqdomaintests) | 34 | 319 | 52 |
 | [`Souq.Application.Tests`](#souqapplicationtests) | 57 | 421 | 22 |
 | [`Souq.ArchitectureTests`](#souqarchitecturetests) | 17 | 77 | 8 |
-| [`Souq.IntegrationTests`](#souqintegrationtests) | 63 | 392 | 27 |
-| [frontend (Vitest)](#frontend-vitest) | 97 | 737 | — |
-| [frontend (Playwright)](#frontend-playwright) | 19 | 126 | — |
+| [`Souq.IntegrationTests`](#souqintegrationtests) | 64 | 397 | 27 |
+| [frontend (Vitest)](#frontend-vitest) | 102 | 792 | — |
+| [frontend (Playwright)](#frontend-playwright) | 22 | 136 | — |
 
 ## Souq.Domain.Tests
 
@@ -160,6 +160,7 @@
 | `tests/Souq.IntegrationTests/CookieSecurityTests.cs` | `CookieSecurityTests` | 4 | 0 |
 | `tests/Souq.IntegrationTests/CouponRedemptionTests.cs` | `CouponRedemptionTests` | 3 | 0 |
 | `tests/Souq.IntegrationTests/CustomerAccountTests.cs` | `CustomerAccountTests` | 6 | 0 |
+| `tests/Souq.IntegrationTests/DistributedLeaseTests.cs` | `DistributedLeaseTests` | 5 | 0 |
 | `tests/Souq.IntegrationTests/EnforcementDiagnosticsTests.cs` | `EnforcementDiagnosticsTests` | 3 | 3 |
 | `tests/Souq.IntegrationTests/ErrorContractTests.cs` | `ErrorContractTests` | 8 | 1 |
 | `tests/Souq.IntegrationTests/GlobalExceptionHandlerTests.cs` | `GlobalExceptionHandlerTests` | 4 | 1 |
@@ -269,7 +270,9 @@
 | `frontend/src/features/notifications/notificationView.test.js` | 5 |
 | `frontend/src/features/orders/orderView.test.js` | 3 |
 | `frontend/src/features/platform/audit.test.js` | 9 |
+| `frontend/src/features/platform/invoices.test.js` | 21 |
 | `frontend/src/features/platform/provisioning.test.js` | 22 |
+| `frontend/src/features/platform/taxProfiles.test.js` | 15 |
 | `frontend/src/features/reporting/businessHealth.test.js` | 22 |
 | `frontend/src/features/reporting/chartScales.test.js` | 18 |
 | `frontend/src/features/reporting/dashboardView.test.js` | 22 |
@@ -296,10 +299,13 @@
 | `frontend/src/pages/admin/ProductVariants.test.jsx` | 7 |
 | `frontend/src/pages/admin/Staff.test.jsx` | 8 |
 | `frontend/src/pages/admin/StoreSettings.test.jsx` | 10 |
+| `frontend/src/pages/admin/StoreTax.test.jsx` | 6 |
+| `frontend/src/pages/admin/Subscription.test.jsx` | 6 |
 | `frontend/src/pages/checkout/Checkout.test.jsx` | 7 |
 | `frontend/src/pages/checkout/stripeClient.test.js` | 3 |
 | `frontend/src/pages/platform/Accounts.test.jsx` | 6 |
 | `frontend/src/pages/platform/Audit.test.jsx` | 7 |
+| `frontend/src/pages/platform/Invoices.test.jsx` | 7 |
 | `frontend/src/pages/platform/PlatformOverview.test.jsx` | 5 |
 | `frontend/src/pages/platform/Provisioning.test.jsx` | 15 |
 | `frontend/src/pages/storefrontPages.test.jsx` | 3 |
@@ -322,6 +328,7 @@
 | `frontend/e2e/cross-tenant-adversarial.spec.js` | 4 |
 | `frontend/e2e/csp.spec.js` | 6 |
 | `frontend/e2e/experience.spec.js` | 16 |
+| `frontend/e2e/merchant-billing.spec.js` | 5 |
 | `frontend/e2e/platform-provisioning.spec.js` | 9 |
 | `frontend/e2e/product-variants.spec.js` | 5 |
 | `frontend/e2e/responsive-storefront.spec.js` | 2 |
@@ -330,5 +337,7 @@
 | `frontend/e2e/second-tenant.spec.js` | 6 |
 | `frontend/e2e/session-tabs.spec.js` | 1 |
 | `frontend/e2e/store-administration.spec.js` | 8 |
+| `frontend/e2e/store-suspension.spec.js` | 1 |
 | `frontend/e2e/storefront-variants.spec.js` | 6 |
 | `frontend/e2e/storefront.spec.js` | 17 |
+| `frontend/e2e/tax-configuration.spec.js` | 4 |

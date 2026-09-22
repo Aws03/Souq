@@ -144,6 +144,10 @@ public class AppDbContext : DbContext, IUnitOfWork
     public DbSet<BillingPeriod> BillingPeriods => Set<BillingPeriod>();
     public DbSet<BillableEvent> BillableEvents => Set<BillableEvent>();
 
+    // C4 (ADR-0057): عقودُ الإيجار المُسمّاة — الشكل C، عالميّة بلا متجر. صفٌّ واحد لكل عملٍ
+    // لا يجوز أن تُجريه نسختان معاً.
+    public DbSet<DistributedLease> DistributedLeases => Set<DistributedLease>();
+
     // سجلّ التدقيق (D-17): للإضافة فقط، بلا مرشّح (يُقرأ من المنصّة بشرط صريح).
     public DbSet<AuditEntry> AuditEntries => Set<AuditEntry>();
 

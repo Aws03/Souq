@@ -263,3 +263,24 @@ internal sealed class BillableEventConfiguration : IEntityTypeConfiguration<Bill
             .OnDelete(DeleteBehavior.Restrict);
     }
 }
+
+// ============================================================================
+// عقودُ الإيجار المُسمّاة (C4، [ADR-0057](0057)): جدولُ منصّةٍ عالميّ بلا متجر (الشكل C) —
+// المتنازعون نسخُ خادمٍ لا متاجر.
+//
+// والفهرسُ الفريد على الاسم هو ما يجعل «صفٌّ واحد لكل عمل» حقيقةً في القاعدة لا عُرفاً في
+// الكود: سباقُ إنشاءَين على أوّل استعمال يحسمه القيد، والكودُ يلتقط خرقَه ويُعيد المحاولة.
+// ============================================================================
+internal sealed class DistributedLeaseConfiguration : IEntityTypeConfiguration<DistributedLease>
+{
+    public void Configure(EntityTypeBuilder<DistributedLease> builder)
+    {
+        builder.ToTable("DistributedLeases");
+        builder.HasKey(l => l.Id);
+
+        builder.Property(l => l.Name).HasMaxLength(DistributedLease.NameMaxLength).IsRequired();
+        builder.Property(l => l.Owner).HasMaxLength(DistributedLease.OwnerMaxLength);
+
+        builder.HasIndex(l => l.Name).IsUnique();
+    }
+}

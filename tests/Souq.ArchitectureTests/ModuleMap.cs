@@ -85,6 +85,9 @@ internal static class ModuleMap
         ["StoreContact"] = "Platform", ["SeoSettings"] = "Platform", ["SocialLink"] = "Platform",
         ["BrandColors"] = "Platform", ["BrandPresets"] = "Platform", ["BrandingAsset"] = "Platform",
         ["LocalizedText"] = "Platform", ["ITenantRepository"] = "Platform", ["InvalidTenantOperationException"] = "Platform",
+        // C4 (ADR-0057): عقدُ الإيجار المُسمّى. تملكه Platform لا Billing: ما يحرسه أعمالُ
+        // منصّةٍ دورية، والمتنازعون نسخُ خادمٍ لا متاجر.
+        ["DistributedLease"] = "Platform", ["InvalidLeaseException"] = "Platform",
 
         // Identity
         ["User"] = "Identity", ["RefreshToken"] = "Identity", ["UserStatus"] = "Identity",

@@ -40,6 +40,8 @@ public class DomainExceptionCodeTests
         { new InvalidPlatformInvoiceException("x"), "InvalidPlatformInvoice" },
         { new InvalidCreditNoteException("x"), "InvalidCreditNote" },
         { new InvalidBillingPeriodException("x"), "InvalidBillingPeriod" },
+        // ADR-0057: اسمُ عملٍ محروسٍ غيرُ صالح — خطأُ برمجةٍ لا خطأُ مستخدم، ورمزُه ثابتٌ كغيره.
+        { new InvalidLeaseException("x"), "InvalidLease" },
     };
 
     [Theory]

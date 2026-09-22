@@ -147,6 +147,11 @@ public static class DependencyInjection
         services.AddScoped<IBillableEventRepository, BillableEventRepository>();
         services.AddScoped<Application.Features.Billing.IPlatformDocumentNumbers, PlatformDocumentNumbers>();
 
+        // C4 (ADR-0057): القفلُ الذي يعبر النسخ، وهويّةُ هذه النسخة. الهويّةُ **مفردةٌ** عمداً —
+        // رمزٌ واحد يعيش ما دامت العملية، فكلُّ نطاقٍ فيها يحمل العقدَ نفسه ويستطيع تجديده.
+        services.AddSingleton<Coordination.InstanceIdentity>();
+        services.AddScoped<Application.Common.Interfaces.IDistributedLock, Coordination.SqlDistributedLock>();
+
         // خدمات القراءة (ADR-0008): إسقاطات بلا تتبّع خلف منافذ Application، لكل وحدة منفذها.
         services.AddScoped<ICatalogQueries, CatalogQueries>();
         services.AddScoped<IOrderQueries, OrderQueries>();
