@@ -3,7 +3,7 @@
 > What exists today to run Souq, what happens when the API starts, what one instance assumes, and what must be true before real customers use it.
 > Settings: [Configuration.md](Configuration.md) · Failures: [Troubleshooting.md](Troubleshooting.md) · Local work: [DevelopmentGuide.md](DevelopmentGuide.md) · Scaling: [ScalingStrategy.md](ScalingStrategy.md).
 >
-> What exists: `docker-compose.yml` with two Dockerfiles; a CI pipeline, [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml), which builds and tests but **does not deploy** (and does not block a merge until branch protection is switched on — [OwnerDecisions.md](OwnerDecisions.md), "Branch protection"); and operational scripts in `scripts/` — `scripts/release-gate.sh`, `scripts/smoke-test.sh`, `scripts/backup.sh`, `scripts/backup-verify.sh`, `scripts/restore.sh`, `scripts/rehearse-restore.sh`, `scripts/audit-config.sh` and `scripts/verify-least-privilege.sh` ([scripts/README.md](../../scripts/README.md)). Since M18 there is also a release pipeline, [`.github/workflows/release.yml`](../../.github/workflows/release.yml), and `scripts/deploy.sh` — a tagged release builds versioned images and a migration bundle, and the deploy script verifies readiness and rolls back (§13). **What still does not exist: a server.** The pipeline's SSH deploy step has never executed, and neither has the pipeline itself — GitHub Actions has refused to start every job since before M13 for billing reasons, which is an owner action ([OwnerDecisions.md](OwnerDecisions.md)). Until it is resolved, `scripts/ci-local.sh` runs CI's fast job on Linux from a development machine.
+> What exists: `docker-compose.yml` with two Dockerfiles; a CI pipeline, [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml), which builds and tests but **does not deploy** (and does not block a merge until branch protection is switched on — [OwnerDecisions.md](OwnerDecisions.md), "Branch protection"); and operational scripts in `scripts/` — `scripts/release-gate.sh`, `scripts/smoke-test.sh`, `scripts/backup.sh`, `scripts/backup-verify.sh`, `scripts/restore.sh`, `scripts/rehearse-restore.sh`, `scripts/audit-config.sh` and `scripts/verify-least-privilege.sh` ([scripts/README.md](../../scripts/README.md)). Since M18 there is also a release pipeline, [`.github/workflows/release.yml`](../../.github/workflows/release.yml), and `scripts/deploy.sh` — a tagged release builds versioned images and a migration bundle, and the deploy script verifies readiness and rolls back (§13). **What still does not exist: a server.** The pipeline's SSH deploy step has never executed, and it is the only part that has not. The billing block was resolved on 2026-09-22 when the repository became public, and the release pipeline has since **run for real**: gate, images and migration bundle all green ([OwnerDecisions.md](OwnerDecisions.md)). `scripts/ci-local.sh` still runs CI's fast job on Linux from a development machine, which is faster than pushing to find out.
 
 ## 1. Current topology
 
@@ -379,8 +379,15 @@ schema did has not earned the right to act by itself.
 real deployment, a deliberately broken version that failed its health check and was automatically rolled back, and
 the same failure with the schema state withheld, which refused. The migration bundle was built, run against the live
 database, stepped back one migration and forward again, and driven through `deploy.sh --migrate-bundle` with
-`Database:MigrateOnStartup=false`. **Not verified:** the SSH step in [`.github/workflows/release.yml`](../../.github/workflows/release.yml), because there is no server; and
-[`.github/workflows/release.yml`](../../.github/workflows/release.yml) itself, because GitHub Actions is billing-blocked. [ADR-0046](../11-ADR/0046-continuous-delivery-and-rollback.md).
+`Database:MigrateOnStartup=false`. **Verified on 2026-09-22:** the pipeline itself, end to end on GitHub's runners — the gate (build with warnings as
+errors and all four suites including integration over real SQL Server), both images pushed to GHCR, and the
+migration bundle produced as an artifact. Running it for the first time found a defect that had been latent since
+M18: this repository's owner is `Aws03`, and **Docker refuses uppercase repository names**, so every image
+reference the workflow built was invalid. A pipeline nobody runs is a pipeline nobody has checked.
+
+**Still not verified:** the SSH deploy step, because there is no server. It stays behind
+`if: vars.DEPLOY_HOST != ''`, so it is skipped rather than failing, and its absence is stated rather than
+implied. [ADR-0046](../11-ADR/0046-continuous-delivery-and-rollback.md).
 
 **Before pushing**, `./scripts/ci-local.sh` runs CI's fast job on Linux in a container against exactly what CI would
 check out. It exists because the macOS/Linux gap hid four real defects at once — including a regex that counted a
@@ -390,8 +397,8 @@ different number of tests on each platform, and a backup age check that silently
 
 | Item | Status | Source |
 |---|---|---|
-| CI | **exists** — [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) builds and tests; it blocks merges only once branch protection is on, and **since before M13 it has not run at all**: GitHub Actions refuses to start jobs for billing reasons (owner action). `scripts/ci-local.sh` runs its fast job locally on Linux meanwhile | roadmap Phase 23 (delivered early) |
-| CD and defined environments | **exists, unexercised** — [`.github/workflows/release.yml`](../../.github/workflows/release.yml) and `scripts/deploy.sh` (§13). The mechanism is verified against the container stack; the SSH step and a `staging` environment need a host | M18, [ADR-0046](../11-ADR/0046-continuous-delivery-and-rollback.md) |
+| CI | **exists and runs** — [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) builds and tests on every push to `main` and `phase/**`; four jobs, green. It blocks merges only once branch protection is on, which is still an owner setting. The billing block that stopped every job from before M13 until 2026-09-22 is resolved | roadmap Phase 23 (delivered early) |
+| CD and defined environments | **exists; exercised except the deploy step** — [`.github/workflows/release.yml`](../../.github/workflows/release.yml) and `scripts/deploy.sh` (§13). The pipeline ran green on GitHub on 2026-09-22 (gate, images, bundle); `deploy.sh` is verified against the container stack; only the SSH step and a `staging` environment still need a host | M18, [ADR-0046](../11-ADR/0046-continuous-delivery-and-rollback.md) |
 | Migrations as a deployment step (migration bundle) instead of at startup | **exists** — `Database:MigrateOnStartup=false` (M17) plus the bundle built by [`.github/workflows/release.yml`](../../.github/workflows/release.yml) and applied by `deploy.sh --migrate-bundle` (M18), rehearsed back and forward against a live database | M17/M18, R-18 |
 | Metrics, traces, alerting (OpenTelemetry over the existing trace ids) | **PLANNED** Phase 23 | [ADR-0018](../11-ADR/0018-observability.md) |
 | Automated TLS for custom domains, and DNS/TLS domain verification | **PLANNED** Phase 23 | roadmap, risk R7 |
