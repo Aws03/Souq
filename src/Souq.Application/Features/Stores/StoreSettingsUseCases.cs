@@ -64,7 +64,7 @@ public class UpdateStoreSettingsHandler : IRequestHandler<UpdateStoreSettingsCom
         var tenant = await GetStoreSettingsHandler.StoreOf(_tenants, _context, ct);
         StoreSettingsEditor.Apply(tenant, cmd.Settings);
         await _uow.SaveChangesAsync(ct);
-        _directory.Invalidate();
+        await _directory.InvalidateAsync(ct);
         return Result.Success();
     }
 }
@@ -101,7 +101,7 @@ public class UploadStoreBrandingHandler : IRequestHandler<UploadStoreBrandingCom
         var url = await _storage.SaveAsync(cmd.Content, BrandingFiles.Folder, type.Value!.Extension, ct);
         tenant.SetBrandingAsset(cmd.Asset, url);
         await _uow.SaveChangesAsync(ct);
-        _directory.Invalidate();
+        await _directory.InvalidateAsync(ct);
         return Result<string>.Success(url);
     }
 }

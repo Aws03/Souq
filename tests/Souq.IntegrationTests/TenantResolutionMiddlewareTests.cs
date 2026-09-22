@@ -129,6 +129,6 @@ public class TenantResolutionMiddlewareTests
         public Task<IReadOnlyList<TenantInfo>> ListForBackgroundSweepsAsync(CancellationToken ct = default) =>
             Task.FromResult<IReadOnlyList<TenantInfo>>(Tenants);
 
-        public void Invalidate() { }
+        public Task InvalidateAsync(CancellationToken ct = default) => Task.CompletedTask;
     }
 }

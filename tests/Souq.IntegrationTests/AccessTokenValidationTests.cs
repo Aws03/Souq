@@ -118,7 +118,7 @@ public class AccessTokenValidationTests
 
         public void Forget(int userId) { }
 
-        public void ForgetAll() { }
+        public Task ForgetAllAsync(CancellationToken ct = default) => Task.CompletedTask;
     }
 
     // وكما تُخرجه فعلاً: `InvalidOperationException` تلفّ عطل القاعدة، لا استثناء إلغاء.
@@ -132,6 +132,6 @@ public class AccessTokenValidationTests
 
         public void Forget(int userId) { }
 
-        public void ForgetAll() { }
+        public Task ForgetAllAsync(CancellationToken ct = default) => Task.CompletedTask;
     }
 }

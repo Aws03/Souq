@@ -10,7 +10,7 @@
 | [`Souq.Domain.Tests`](#souqdomaintests) | 34 | 319 | 52 |
 | [`Souq.Application.Tests`](#souqapplicationtests) | 57 | 421 | 22 |
 | [`Souq.ArchitectureTests`](#souqarchitecturetests) | 17 | 77 | 8 |
-| [`Souq.IntegrationTests`](#souqintegrationtests) | 64 | 397 | 27 |
+| [`Souq.IntegrationTests`](#souqintegrationtests) | 65 | 402 | 28 |
 | [frontend (Vitest)](#frontend-vitest) | 102 | 792 | — |
 | [frontend (Playwright)](#frontend-playwright) | 22 | 136 | — |
 
@@ -152,6 +152,7 @@
 | `tests/Souq.IntegrationTests/BasketTests.cs` | `BasketTests` | 5 | 0 |
 | `tests/Souq.IntegrationTests/BehaviouralEventCaptureTests.cs` | `BehaviouralEventCaptureTests`, `VisitorCookieNames` | 5 | 0 |
 | `tests/Souq.IntegrationTests/BestSellingPerformanceTests.cs` | `BestSellingPerformanceTests`, `ScratchApp`, `SqlCapture`, `Sink` | 0 | 1 |
+| `tests/Souq.IntegrationTests/CacheSignalTests.cs` | `CacheSignalTests` | 5 | 0 |
 | `tests/Souq.IntegrationTests/CatalogSearchTests.cs` | `CatalogSearchTests` | 31 | 0 |
 | `tests/Souq.IntegrationTests/CatalogTests.cs` | `CatalogTests`, `ProductCommandCounter` | 9 | 0 |
 | `tests/Souq.IntegrationTests/CheckoutIdempotencyTests.cs` | `CheckoutIdempotencyTests` | 3 | 0 |
@@ -185,7 +186,7 @@
 | `tests/Souq.IntegrationTests/ProductVariantTests.cs` | `ProductVariantTests` | 6 | 0 |
 | `tests/Souq.IntegrationTests/ProvisioningBoundaryTests.cs` | `ProvisioningBoundaryTests` | 4 | 0 |
 | `tests/Souq.IntegrationTests/QueryServiceTests.cs` | `QueryServiceTests` | 10 | 1 |
-| `tests/Souq.IntegrationTests/RateLimitPolicyTests.cs` | `RateLimitPolicyTests` | 4 | 1 |
+| `tests/Souq.IntegrationTests/RateLimitPolicyTests.cs` | `RateLimitPolicyTests` | 4 | 2 |
 | `tests/Souq.IntegrationTests/ReadPathQueryBudgetTests.cs` | `ReadPathQueryBudgetTests` | 3 | 0 |
 | `tests/Souq.IntegrationTests/ReviewModerationTests.cs` | `ReviewModerationTests` | 5 | 0 |
 | `tests/Souq.IntegrationTests/SearchAnalyticsTests.cs` | `SearchAnalyticsTests` | 12 | 0 |

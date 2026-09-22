@@ -74,7 +74,7 @@ public class AssignTenantPlanHandler : IRequestHandler<AssignTenantPlanCommand, 
             existing.ChangePlan(plan, now);
 
         await _uow.SaveChangesAsync(ct);
-        _directory.Invalidate();
+        await _directory.InvalidateAsync(ct);
         return Result.Success();
     }
 }
@@ -106,7 +106,7 @@ public class CancelTenantPlanHandler : IRequestHandler<CancelTenantPlanCommand, 
 
         subscription.Cancel(_clock.GetUtcNow().UtcDateTime);
         await _uow.SaveChangesAsync(ct);
-        _directory.Invalidate();
+        await _directory.InvalidateAsync(ct);
         return Result.Success();
     }
 }
@@ -200,7 +200,7 @@ public class GrantEntitlementOverrideHandler : IRequestHandler<GrantEntitlementO
         var granted = new EntitlementOverride(cmd.TenantId, key, now.AddDays(cmd.Days), _user.RequireUserId(), cmd.Reason, now);
         await _overrides.AddAsync(granted, ct);
         await _uow.SaveChangesAsync(ct);
-        _directory.Invalidate();
+        await _directory.InvalidateAsync(ct);
         return Result<int>.Success(granted.Id);
     }
 }
@@ -233,7 +233,7 @@ public class RevokeEntitlementOverrideHandler : IRequestHandler<RevokeEntitlemen
 
         granted.Revoke(_clock.GetUtcNow().UtcDateTime);
         await _uow.SaveChangesAsync(ct);
-        _directory.Invalidate();
+        await _directory.InvalidateAsync(ct);
         return Result.Success();
     }
 }

@@ -37,6 +37,23 @@ public sealed class RateLimitingOptions
     // ستّ مرّات في الساعة: تنزيل نسخة ثم إعادة المحاولة بعد خطأ شبكة يسع فيها مراراً، وحلقةٌ
     // تستنزف القاعدة لا تسع.
     public WindowLimit Export { get; set; } = new() { PermitLimit = 6, WindowSeconds = 3600 };
+
+    // ========================================================================
+    // **عددُ النسخ التي تخدم هذه الحدود** (C4، [ADR-0057](0057)).
+    //
+    // نوافذُ الحدّ في الذاكرة، ولكلِّ نسخةٍ نوافذُها — فالحدُّ الفعليّ عبر موازِن حِملٍ يوزّع
+    // بالتناوب هو **الحدُّ × عددُ النسخ**. وهذا ليس شيئاً تُصلحه إشارةُ إبطال: الإبطالُ يجعل
+    // النسخَ تتفق على ما **قرأته**، والحدُّ عدّادٌ يجب أن **تتشاركه**، وتشاركُه يعني قراءةً
+    // وكتابةً في مخزنٍ مشترك على مسارِ كلِّ طلب — وهو ما لا تصلح له قاعدةُ بيانات، والمخزنُ
+    // الموزَّع غيرُ مقصودٍ صراحةً (ExplicitNonGoals §9).
+    //
+    // فالتقريبُ المتاح هو قسمةُ الحدّ على عدد النسخ، وهو ما يفعله هذا المفتاح. وهو **تقريبٌ لا
+    // ضبط**: مع توزيعٍ متساوٍ يقارب المجموعُ الحدَّ المقصود، ومع توزيعٍ غير متساوٍ قد يُرفض
+    // طلبٌ كان يجب أن يُقبل.
+    //
+    // والافتراضُ 1 — أي **لا تغيير في السلوك** لمن يشغّل نسخةً واحدة، وهو حالُ كلّ نشرٍ اليوم.
+    // ========================================================================
+    public int InstanceCount { get; set; } = 1;
 }
 
 public sealed class WindowLimit
@@ -78,16 +95,21 @@ public static class RateLimitingSetup
                     "TooManyRequests", "محاولات كثيرة. انتظر قليلاً ثم حاول مجدداً.");
             };
 
-            AddPolicy(limiter, RateLimitPolicies.Auth, options.Auth);
-            AddPolicy(limiter, RateLimitPolicies.Refresh, options.Refresh);
-            AddPolicy(limiter, RateLimitPolicies.CouponPreview, options.CouponPreview);
-            AddPolicy(limiter, RateLimitPolicies.Basket, options.Basket);
-            AddPolicy(limiter, RateLimitPolicies.Export, options.Export);
+            AddPolicy(limiter, RateLimitPolicies.Auth, options.Auth, options.InstanceCount);
+            AddPolicy(limiter, RateLimitPolicies.Refresh, options.Refresh, options.InstanceCount);
+            AddPolicy(limiter, RateLimitPolicies.CouponPreview, options.CouponPreview, options.InstanceCount);
+            AddPolicy(limiter, RateLimitPolicies.Basket, options.Basket, options.InstanceCount);
+            AddPolicy(limiter, RateLimitPolicies.Export, options.Export, options.InstanceCount);
         });
         return services;
     }
 
-    private static void AddPolicy(RateLimiterOptions limiter, string policy, WindowLimit limit) =>
+    // الحدُّ لكلِّ نسخة: المقصودُ مقسوماً على عددها، وبحدٍّ أدنى واحد — قسمةٌ تُنتج صفراً كانت
+    // ستُغلق النقطة تماماً، وهو أسوأُ بكثير من حدٍّ أوسع ممّا قُصد.
+    public static int PerInstance(int permitLimit, int instances) =>
+        instances <= 1 ? permitLimit : Math.Max(1, permitLimit / instances);
+
+    private static void AddPolicy(RateLimiterOptions limiter, string policy, WindowLimit limit, int instances) =>
         limiter.AddPolicy(policy, context => RateLimitPartition.GetFixedWindowLimiter(
             // المضيف بصيغته القانونية لا كما وصل (M15): `Request.Host.Host` يحفظ حالة الأحرف والنقطة
             // الأخيرة، وتحديد المتجر يُطبّعها — فمتجرٌ واحد كان له دلوٌ لكل صيغة، وتبديل حالة الأحرف
@@ -95,7 +117,7 @@ public static class RateLimitingSetup
             $"{RequestHost.Canonical(context)}|{context.Connection.RemoteIpAddress}",
             _ => new FixedWindowRateLimiterOptions
             {
-                PermitLimit = limit.PermitLimit,
+                PermitLimit = PerInstance(limit.PermitLimit, instances),
                 Window = TimeSpan.FromSeconds(limit.WindowSeconds),
                 QueueLimit = 0,
             }));

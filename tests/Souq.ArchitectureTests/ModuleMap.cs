@@ -88,6 +88,7 @@ internal static class ModuleMap
         // C4 (ADR-0057): عقدُ الإيجار المُسمّى. تملكه Platform لا Billing: ما يحرسه أعمالُ
         // منصّةٍ دورية، والمتنازعون نسخُ خادمٍ لا متاجر.
         ["DistributedLease"] = "Platform", ["InvalidLeaseException"] = "Platform",
+        ["CacheSignal"] = "Platform",
 
         // Identity
         ["User"] = "Identity", ["RefreshToken"] = "Identity", ["UserStatus"] = "Identity",

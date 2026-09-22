@@ -163,7 +163,7 @@ public class CreateTenantHandler : IRequestHandler<CreateTenantCommand, Result<i
         // صارت Platform ⇄ Billing دورةً في اتجاهَي المجال معاً.
         await _entitlements.AssignFoundationPlanAsync(tenant.Id, ct);
 
-        _directory.Invalidate();
+        await _directory.InvalidateAsync(ct);
         return Result<int>.Success(tenant.Id);
     }
 }
@@ -206,7 +206,7 @@ public class UpdateTenantHandler : IRequestHandler<UpdateTenantCommand, Result>
             tenant.ChangeCurrency(cmd.Currency!, await _queries.HasCommercialActivityAsync(tenant.Id, ct));
 
         await _uow.SaveChangesAsync(ct);
-        _directory.Invalidate();
+        await _directory.InvalidateAsync(ct);
         return Result.Success();
     }
 }
@@ -275,7 +275,7 @@ public class ChangeTenantStatusHandler : IRequestHandler<ChangeTenantStatusComma
         else
             await _uow.SaveChangesAsync(ct);
 
-        _directory.Invalidate();
+        await _directory.InvalidateAsync(ct);
         return Result.Success();
     }
 }
@@ -339,7 +339,7 @@ public class ChangeTenantDomainHandler : IRequestHandler<ChangeTenantDomainComma
             default: tenant.VerifyDomain(host, _clock.GetUtcNow().UtcDateTime); break;
         }
         await _uow.SaveChangesAsync(ct);
-        _directory.Invalidate();
+        await _directory.InvalidateAsync(ct);
         return Result.Success();
     }
 }
@@ -375,7 +375,7 @@ public class UpdateTenantSettingsHandler : IRequestHandler<UpdateTenantSettingsC
 
         StoreSettingsEditor.Apply(tenant, cmd.Settings);
         await _uow.SaveChangesAsync(ct);
-        _directory.Invalidate();
+        await _directory.InvalidateAsync(ct);
         return Result.Success();
     }
 }
@@ -410,7 +410,7 @@ public class SetTenantModulesHandler : IRequestHandler<SetTenantModulesCommand, 
 
         tenant.SetModules(cmd.Modules);
         await _uow.SaveChangesAsync(ct);
-        _directory.Invalidate();
+        await _directory.InvalidateAsync(ct);
         return Result.Success();
     }
 }
@@ -449,7 +449,7 @@ public class UploadTenantBrandingHandler : IRequestHandler<UploadTenantBrandingC
             storage => storage.SaveAsync(cmd.Content, BrandingFiles.Folder, type.Value!.Extension, ct));
         tenant.SetBrandingAsset(cmd.Asset, url);
         await _uow.SaveChangesAsync(ct);
-        _directory.Invalidate();
+        await _directory.InvalidateAsync(ct);
         return Result<string>.Success(url);
     }
 }

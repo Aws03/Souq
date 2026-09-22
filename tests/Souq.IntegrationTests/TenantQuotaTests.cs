@@ -247,7 +247,7 @@ public class TenantQuotaTests
         var subscription = await db.Subscriptions.FirstAsync(s => s.TenantId == store.Tenant.Id);
         subscription.ChangePlan(plan, DateTime.UtcNow);
         await db.SaveChangesAsync();
-        scope.ServiceProvider.GetRequiredService<Souq.Application.Common.Tenancy.ITenantDirectory>().Invalidate();
+        await scope.ServiceProvider.GetRequiredService<Souq.Application.Common.Tenancy.ITenantDirectory>().InvalidateAsync();
     }
 
     private async Task<int> ProductCountAsync(TestStore store)

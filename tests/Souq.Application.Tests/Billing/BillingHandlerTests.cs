@@ -54,7 +54,7 @@ public class BillingHandlerTests
         await _subscriptions.Received(1).AddAsync(
             Arg.Is<Subscription>(s => s.TenantId == 7 && s.Status == SubscriptionStatus.Active), Arg.Any<CancellationToken>());
         await _uow.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
-        _directory.Received(1).Invalidate();
+        await _directory.Received(1).InvalidateAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -69,7 +69,7 @@ public class BillingHandlerTests
 
         result.IsSuccess.Should().BeTrue();
         await _subscriptions.DidNotReceive().AddAsync(Arg.Any<Subscription>(), Arg.Any<CancellationToken>());
-        _directory.Received(1).Invalidate();
+        await _directory.Received(1).InvalidateAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -83,7 +83,7 @@ public class BillingHandlerTests
             .ErrorCode.Should().Be("NotFound");
 
         await _uow.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
-        _directory.DidNotReceive().Invalidate();
+        await _directory.DidNotReceive().InvalidateAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -97,7 +97,7 @@ public class BillingHandlerTests
 
         result.IsSuccess.Should().BeTrue();
         existing.Status.Should().Be(SubscriptionStatus.Cancelled);
-        _directory.Received(1).Invalidate();
+        await _directory.Received(1).InvalidateAsync(Arg.Any<CancellationToken>());
     }
 
     // ── استثناءات الدعم ─────────────────────────────────────────────────────
@@ -117,7 +117,7 @@ public class BillingHandlerTests
             Arg.Is<EntitlementOverride>(o => o.TenantId == 7 && o.GrantedByUserId == 42
                                              && o.ExpiresAtUtc == Now.AddDays(14)),
             Arg.Any<CancellationToken>());
-        _directory.Received(1).Invalidate();
+        await _directory.Received(1).InvalidateAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -133,7 +133,7 @@ public class BillingHandlerTests
 
         result.ErrorCode.Should().Be("ModuleSwitchedOff");
         await _overrides.DidNotReceive().AddAsync(Arg.Any<EntitlementOverride>(), Arg.Any<CancellationToken>());
-        _directory.DidNotReceive().Invalidate();
+        await _directory.DidNotReceive().InvalidateAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]

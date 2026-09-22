@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
+using Souq.Application.Common.Interfaces;
 using Souq.Application.Common.Tenancy;
 using Souq.Application.Features.Stores;
 using Souq.Domain.Platform;
@@ -24,12 +25,15 @@ internal sealed class TenantDirectory : ITenantDirectory
 {
     private readonly AppDbContext _db;
     private readonly TenantDirectoryCache _cache;
+    private readonly ICacheSignals _signals;
     private readonly TimeProvider _clock;
     private readonly ILogger<TenantDirectory> _log;
 
-    public TenantDirectory(AppDbContext db, TenantDirectoryCache cache, TimeProvider clock, ILogger<TenantDirectory> log)
+    public TenantDirectory(
+        AppDbContext db, TenantDirectoryCache cache, ICacheSignals signals,
+        TimeProvider clock, ILogger<TenantDirectory> log)
     {
-        _db = db; _cache = cache; _clock = clock; _log = log;
+        _db = db; _cache = cache; _signals = signals; _clock = clock; _log = log;
     }
 
     public Task<TenantInfo?> FindByHostAsync(string host, CancellationToken ct = default)
@@ -64,7 +68,20 @@ internal sealed class TenantDirectory : ITenantDirectory
         return rows.Select(ToTenantInfo).ToList();
     }
 
-    public void Invalidate() => _cache.Invalidate();
+    // ============================================================================
+    // الإبطال: **محلّيّاً أوّلاً ثمّ تُنشَر الإشارة** (C4، [ADR-0057](0057)).
+    //
+    // والترتيبُ مقصود: النشرُ أوّلاً كان سيترك نافذةً — قصيرة لكنّها حقيقية — تخدم فيها هذه
+    // النسخةُ نفسُها لقطةً تعرف أنّها قديمة، وهي النسخةُ الوحيدة التي تعرف ذلك يقيناً.
+    //
+    // وفشلُ النشر يُترك ليرتفع: الاستدعاءُ يقع بعد الحفظ، فالتغييرُ ملتزَمٌ أصلاً — والصمتُ عن
+    // فشلٍ هنا يعني بقيّةَ النسخ على القديم حتى تنتهي المدّة، بلا أن يعرف أحد.
+    // ============================================================================
+    public async Task InvalidateAsync(CancellationToken ct = default)
+    {
+        _cache.Invalidate();
+        await _signals.BumpAsync(CacheSignal.TenantDirectory, ct);
+    }
 
     private async Task<TenantInfo?> FirstAsync(IQueryable<Tenant> tenants, CancellationToken ct)
     {

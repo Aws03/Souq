@@ -284,3 +284,20 @@ internal sealed class DistributedLeaseConfiguration : IEntityTypeConfiguration<D
         builder.HasIndex(l => l.Name).IsUnique();
     }
 }
+
+
+// ============================================================================
+// إشاراتُ إبطال الذاكرات (C4، [ADR-0057](0057)): جدولُ منصّةٍ عالميّ بلا متجر (الشكل C)،
+// وصفٌّ واحد لكل ذاكرة يحرسه فهرسٌ فريد على الاسم.
+// ============================================================================
+internal sealed class CacheSignalConfiguration : IEntityTypeConfiguration<CacheSignal>
+{
+    public void Configure(EntityTypeBuilder<CacheSignal> builder)
+    {
+        builder.ToTable("CacheSignals");
+        builder.HasKey(s => s.Id);
+
+        builder.Property(s => s.Name).HasMaxLength(CacheSignal.NameMaxLength).IsRequired();
+        builder.HasIndex(s => s.Name).IsUnique();
+    }
+}

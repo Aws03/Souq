@@ -2,9 +2,11 @@ using System.Security.Cryptography;
 using System.Text;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
+using Souq.Application.Common.Interfaces;
 using Souq.Application.Common.Security;
 using Souq.Application.Common.Tenancy;
 using Souq.Domain.Identity;
+using Souq.Domain.Platform;
 using Souq.Infrastructure.Persistence;
 
 namespace Souq.Infrastructure.Services;
@@ -18,11 +20,12 @@ internal sealed class SessionValidator : ISessionValidator
 {
     private readonly AppDbContext _db;
     private readonly SessionStampCache _cache;
+    private readonly ICacheSignals _signals;
     private readonly ITenantContext _tenancy;
 
-    public SessionValidator(AppDbContext db, SessionStampCache cache, ITenantContext tenancy)
+    public SessionValidator(AppDbContext db, SessionStampCache cache, ICacheSignals signals, ITenantContext tenancy)
     {
-        _db = db; _cache = cache; _tenancy = tenancy;
+        _db = db; _cache = cache; _signals = signals; _tenancy = tenancy;
     }
 
     public async Task<bool> IsCurrentAsync(int userId, string securityStamp, CancellationToken ct = default)
@@ -43,7 +46,12 @@ internal sealed class SessionValidator : ISessionValidator
 
     public void Forget(int userId) => _cache.Remove(Key(userId));
 
-    public void ForgetAll() => _cache.Clear();
+    // محلّيّاً في الحال، ثمّ تُنشَر الإشارة — الترتيبُ نفسه الذي يتبعه دليلُ المتاجر، وللسبب نفسه.
+    public async Task ForgetAllAsync(CancellationToken ct = default)
+    {
+        _cache.Clear();
+        await _signals.BumpAsync(CacheSignal.SessionStamps, ct);
+    }
 
     // الجيل جزء من المفتاح: قفزتُه تُهمل كل ما كُتب قبلها بلا حذفٍ ولا عدٍّ للمفاتيح.
     private string Key(int userId) => $"{_cache.Generation}:{_tenancy.Tenant?.Id.ToString() ?? "platform"}:{userId}";

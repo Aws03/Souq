@@ -47,7 +47,7 @@ public class TenantAdministrationTests
         result.IsSuccess.Should().BeTrue();
         await _tenants.Received(1).AddAsync(Arg.Is<Tenant>(t => t.Status == TenantStatus.Provisioning), Arg.Any<CancellationToken>());
         await _uow.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
-        _directory.Received(1).Invalidate();
+        await _directory.Received(1).InvalidateAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]

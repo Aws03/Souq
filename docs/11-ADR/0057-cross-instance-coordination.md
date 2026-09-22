@@ -1,6 +1,6 @@
-# ADR-0057: One instance does the sweeping — a lease table, not a lock server
+# ADR-0057: Cross-instance coordination — a lease table and a shared generation, not a lock server
 
-- **Status:** Accepted 2026-09-22, and **implemented by `C4`** on the same day for the lock half. The cache-invalidation half is the same phase and is recorded separately below. Supersedes nothing.
+- **Status:** Accepted 2026-09-22, and **implemented by `C4`** on the same day — both halves: the sweep lease and cross-instance cache invalidation. Supersedes nothing.
 - **Date:** 2026-09-22
 - **Related modules:** Platform, Billing, Reporting, Inventory, Shopping
 - **Related ADRs:** [ADR-0034](0034-notifications-outbox.md) (the outbox's per-message lease, whose mechanism this generalises), [ADR-0049](0049-tenant-quota-enforcement.md) (why a read-then-write is not a guard), [ADR-0022](0022-tenancy-enforcement.md) (no raw SQL outside migrations), [ADR-0047](0047-commercial-control-plane.md) (the three table shapes), [ADR-0056](0056-platform-invoices-and-manual-collection.md) (`C6`'s dunning sweep is the caller that makes this urgent)
@@ -78,12 +78,46 @@ Not the hostname, not the process id. Two containers can share a hostname and a 
 - **`Souq.Infrastructure` now exposes internals to `Souq.IntegrationTests`**, so the test can construct the lock with two different instance identities — which cannot be done through DI, because identity is a singleton per process. Widening the type to public to serve a test would have been worse; `Souq.Domain` sets the precedent.
 - **The race is tested on real SQL Server and mutation-checked.** Ten simulated instances contend for a lease whose row does not exist yet, released through a barrier so they genuinely start together, and exactly one wins. Deleting the predicate makes four of the five tests fail — so the suite measures the guard rather than the happy path, which is the obligation [ADR-0049](0049-tenant-quota-enforcement.md) §4 records.
 
+## Decision, part two: cache invalidation is a shared generation counter
+
+Both per-process caches already invalidate the same way: `TenantDirectoryCache` and `SessionStampCache` each hold a **generation counter** that is part of every cache key, and "invalidate" means incrementing it — `MemoryCache` cannot enumerate its keys, so discarding what cannot be counted is done by *orphaning* it rather than deleting it.
+
+That existing design is what made this cheap. Making invalidation cross-instance does not need a new mechanism; it needs the generation to be **shared**.
+
+### 6. A `CacheSignals` row per cache, incremented atomically, polled by every instance
+
+`UPDATE CacheSignals SET Version = Version + 1 WHERE Name = @n` — one statement, for the same reason the lease claim is one statement. A read-then-write would let two instances invalidating at the same moment write the same value, losing one bump; a third instance that saw the intermediate value would then never learn the second change happened, which is exactly the staleness this exists to end.
+
+`CacheSignalWatcher` polls every **5 seconds** (`Coordination:CacheSignalPollSeconds`, 0 disables it) and bumps the matching local generation when a version has grown. Its first tick records a baseline and invalidates nothing: an instance starts with an empty cache, so invalidating it would only make every deployment begin with a pointless query storm.
+
+**The watcher is the one background job that must run on every instance, and therefore takes no lease.** What it does is purely local — updating the memory of its own process. Putting it behind a lock would mean one instance refreshes and the rest stay stale forever, which is the opposite of the goal.
+
+### 7. Invalidation happens locally first, then publishes
+
+`ITenantDirectory.InvalidateAsync` and `ISessionValidator.ForgetAllAsync` became asynchronous because publishing is a database write. Both bump the local generation **before** publishing: publishing first would leave a window in which the instance that made the change still serves a snapshot it knows is stale — and it is the one instance that knows for certain.
+
+A failed publish is allowed to propagate rather than be swallowed. The call happens after the change is committed, so silence would leave every other instance on the old value until TTL with nobody aware.
+
+### 8. Per-user session forgetting stays local, deliberately
+
+`Forget(userId)` — password change, reset, account disable — is **not** published. A global signal per password change would discard every account's cached stamp on every instance to serve one account. The window on other instances stays the cache's own 30 seconds, and that is written where the method is declared so it is known rather than discovered.
+
+`ForgetAllAsync` **is** published, because its only caller is mass revocation when a store is archived or suspended — precisely the case where a session surviving 30 seconds on another instance is a security difference rather than a performance one, and precisely what `C-17` = B promises.
+
+### 9. The rate limiter is a counter, not a cache — and it is not fixed here
+
+[CommercialPlatformArchitecture.md](../12-ROADMAP/CommercialPlatformArchitecture.md) §4.18 lists the rate limiter as the third per-process cache. **That classification is wrong, and the correction matters**: invalidation makes instances agree on what they have *read*; a rate limit is a counter they would have to *share*, and sharing it means a read and a write in a common store on the path of every request. A relational database is the wrong tool for that, and a distributed cache is a recorded non-goal.
+
+What is offered instead is an honest approximation: `RateLimiting:InstanceCount` divides each configured limit, floored at 1 so a bad value can never close an endpoint. It defaults to **1**, so nothing changes for anyone running a single instance — which is every deployment today. With an even load balancer the aggregate approaches the intended limit; with an uneven one a request may be refused that should have passed. That is a trade recorded, not a problem solved.
+
 ## What this does not do
 
-- **It does not make the rate limiter correct across instances.** That is a shared-counter problem on a request-hot path, not an invalidation problem, and it is recorded in §Related work below rather than pretended away.
-- **It does not invalidate the per-process caches.** That is the other half of `C4` and lands separately.
+- **It does not make the rate limiter exact across instances** — see §9. It approximates, and says so.
+- **It does not close the staleness window; it shrinks it** from 60 seconds to about 5 for the tenant directory, and from 30 to about 5 for mass session revocation. Closing it entirely would mean a read per request, which buys nothing here.
+- **It does not publish per-user session forgets** — see §8.
 - **It does not move the sweeps off `StoreSweepService`.** `C6`'s dunning is platform-scope by its own design and will take a lease directly.
+- **It does not deliver blob storage**, the third part of `C4`, which stays blocked on `D-18`.
 
 ## Migration
 
-`20260922034133_DistributedLeases` — additive: one table, one unique index. No column dropped or narrowed, no row deleted.
+`20260922034133_DistributedLeases` and `20260922040528_CacheSignals` — both additive: one table and one unique index each. No column dropped or narrowed, no row deleted.

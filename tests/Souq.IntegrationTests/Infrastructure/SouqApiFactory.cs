@@ -178,7 +178,7 @@ public sealed class SouqApiFactory : WebApplicationFactory<Program>, IAsyncLifet
             subscription.ChangePlan(plan, DateTime.UtcNow);
             await db.SaveChangesAsync();
 
-            scope.ServiceProvider.GetRequiredService<ITenantDirectory>().Invalidate();
+            await scope.ServiceProvider.GetRequiredService<ITenantDirectory>().InvalidateAsync();
         }
 
         // اللقطة تُعاد قراءتها: حدود الخطة تعيش فيها، والقديمة بلا حدود.
@@ -216,7 +216,7 @@ public sealed class SouqApiFactory : WebApplicationFactory<Program>, IAsyncLifet
                 await db.SaveChangesAsync();
             }
 
-            scope.ServiceProvider.GetRequiredService<ITenantDirectory>().Invalidate();
+            await scope.ServiceProvider.GetRequiredService<ITenantDirectory>().InvalidateAsync();
         }
 
         var info = await TenantAsync(slug);

@@ -60,6 +60,7 @@ public static class DependencyInjection
         AddSearchLog(services, config);
         AddEventCapture(services, config);
         AddBilling(services, config);
+        AddCoordination(services, config);
         AddPayments(services, config, environment, report);
         AddEmail(services, config, environment, report);
         AddNotifications(services, config);
@@ -151,6 +152,7 @@ public static class DependencyInjection
         // رمزٌ واحد يعيش ما دامت العملية، فكلُّ نطاقٍ فيها يحمل العقدَ نفسه ويستطيع تجديده.
         services.AddSingleton<Coordination.InstanceIdentity>();
         services.AddScoped<Application.Common.Interfaces.IDistributedLock, Coordination.SqlDistributedLock>();
+        services.AddScoped<Application.Common.Interfaces.ICacheSignals, Coordination.SqlCacheSignals>();
 
         // خدمات القراءة (ADR-0008): إسقاطات بلا تتبّع خلف منافذ Application، لكل وحدة منفذها.
         services.AddScoped<ICatalogQueries, CatalogQueries>();
@@ -228,6 +230,25 @@ public static class DependencyInjection
             sp.GetRequiredService<IOptions<Application.Features.Billing.BillingSettings>>().Value);
 
         services.AddHostedService<BackgroundJobs.QuotaReconciliationService>();
+    }
+
+    // ============================================================================
+    // التنسيق بين نسخ الخادم (C4، ADR-0057): مراقبُ إشارات الإبطال.
+    //
+    // **بلا عقدِ إيجار عليه، وهو الوحيد كذلك**: ما يفعله محلّيّ بحت — تحديثُ ذاكرةِ عمليته —
+    // فوضعُه تحت قفلٍ كان سيعني أنّ نسخةً واحدة تُبطل ذاكرتَها والباقيات يبقين على القديم.
+    // ============================================================================
+    private static void AddCoordination(IServiceCollection services, IConfiguration config)
+    {
+        services.AddOptions<BackgroundJobs.CoordinationSettings>()
+            .Bind(config.GetSection("Coordination"))
+            .Validate(s => s.CacheSignalPollSeconds == 0 || s.CacheSignalPollSeconds is >= 1 and <= 300,
+                "Coordination:CacheSignalPollSeconds صفر (معطّل) أو بين 1 و300 ثانية.")
+            .ValidateOnStart();
+        services.AddSingleton(sp =>
+            sp.GetRequiredService<IOptions<BackgroundJobs.CoordinationSettings>>().Value);
+
+        services.AddHostedService<BackgroundJobs.CacheSignalWatcher>();
     }
 
     // ============================================================================
