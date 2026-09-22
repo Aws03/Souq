@@ -71,10 +71,26 @@ current_phase_note: |
       workflow, a store's selection — a fifteenth module (d894148)
     • and the tax term itself: the pricing pipeline's explicit zero is now
       calculated, frozen onto the order, and shown to the shopper (60f5021)
-next_phase: none-unblocked
-# C6, C8 and C9 are closed; C12's port seam and both its prerequisites are in. Everything that remains
-# is waiting on someone outside engineering — see the blocked list above and §5. §4.13's four customization
-# items are all built now, editors included. Nothing executable remains that does not wait on a person.
+next_phase: none — portfolio complete
+# 2026-09-22: THE OBJECTIVE CHANGED. Souq is finished as a portfolio-quality demonstration of a commercial
+# SaaS architecture, not launched as a business. The owner delegated the remaining decisions; they are
+# recorded in docs/09-OPERATIONS/OwnerDecisions.md under "the objective changed".
+#
+# So the list below is no longer "blocked" — it is split in two, and the split is the point:
+#
+#   PORTFOLIO COMPLETE — built, tested, demonstrable:
+#     C1 C2 C3 C4(coordination) C5 C6 C8 C9 C10 C11 C12(port) — plus the demo payment adapter,
+#     local file storage, the log email sink, and behavioural capture shipping off.
+#
+#   PRODUCTION EXTERNAL DEPENDENCIES — decided, deliberately not bought, each with its seam in place:
+#     C4 blob storage      -> local filesystem chosen; cloud is a DI swap
+#     C7 certificates      -> ownership verification is manual; no managed edge, no ACME client
+#     C12/C13 provider     -> demo adapter chosen; no account, no contract
+#     C14 webhooks         -> decided (webhooks only, never customer code); built when a customer asks
+#     tax values           -> capability real, values unverified by design
+#     behavioural capture  -> off; lawful basis, retention and residency are not claimed
+#
+# Nothing here is half-built, and nothing is waiting for engineering.
 blocked_decisions: ["D-18", "C-11", "C-09", "C-18", "C-12", "C-13"]
 answered_decisions: ["C-08", "C-17", "TD-42", "C-15", "P-06", "D-13", "C-01", "C-19"]
 open_sub_decisions: ["C-08 lawful basis", "C-08 retention period", "C-08 data residency",
@@ -344,7 +360,7 @@ Each phase lists: **delivers · depends on · blocked by · why here**.
 - **Deliberately not built.** Automated collection of any kind (no provider — `C-01`), per-store dunning
   overrides (a tenant fork of a platform rule), and partial-payment credit toward the ladder.
 
-### C7 — Custom domains: verification and certificates
+### C7 — Custom domains: verification and certificates — **decided; certificates deliberately not built**
 
 - **Delivers.** The two state machines on `TenantDomain` (ownership and certificate) kept deliberately separate,
   the namespaced TXT token with its expiry, the *IDnsProbe* port, the *IDomainAttachment* port shaped so it can
@@ -352,7 +368,14 @@ Each phase lists: **delivers · depends on · blocked by · why here**.
   verified host, re-verification and renewal scheduling with backoff, and expiry alerting. Making `VerifiedAt`
   load-bearing, and giving it a way to be undone.
 - **Depends on.** C4 if ACME runs in-process (certificate storage needs atomic operations and a lock).
-- **Blocked by.** C-11 (managed edge or self-run; apex support; activation SLA; abandoned-domain policy).
+- **Blocked by.** ~~C-11~~ **answered 2026-09-22 in portfolio mode: neither.** No managed edge is subscribed to
+  and no ACME client is run — both are recurring external infrastructure, and a portfolio build should not
+  depend on either. **Ownership verification stays a manual operator action** (add the domain, confirm it after
+  DNS is set), which is what the console already does and what the readiness checklist already shows.
+  The certificate half — the second state machine, `IDomainAttachment`, renewal scheduling, expiry alerting —
+  is designed in [ADR-0051](../11-ADR/0051-custom-domain-lifecycle.md) and **not built**, because every one of
+  those parts exists to drive an external service that is deliberately absent. Building them against nothing
+  would be the kind of speculative machinery this repository refuses elsewhere.
 - **Why here.** This is what turns onboarding customer #2 from an operation into a product.
 
 ### C8 — Customization a merchant can see — **done**
@@ -606,12 +629,19 @@ Each phase lists: **delivers · depends on · blocked by · why here**.
   chargeback) still applies to the **store's own** provider relationship, which is the store's contract, not
   Souq's ledger.
 
-### C14 — The bounded extension model
+### C14 — The bounded extension model — **decided; mechanism waits for a customer**
 
 - **Delivers.** Outbound webhooks with per-tenant secrets, signing, retries, replay protection and an
   idempotency key, riding the existing outbox for the durable half. A scoped API for a merchant's own systems.
 - **Depends on.** C1.
-- **Blocked by.** C-18 (never run customer code, webhooks only, or build a sandbox).
+- **Blocked by.** ~~C-18~~ **answered 2026-09-22: webhooks only — customer code is never executed.** This was
+  already [ADR-0052](../11-ADR/0052-bounded-extension-model.md)'s recommendation; portfolio mode makes it easy
+  to take, and it is the answer a real deployment should give too: a sandbox is a platform, not a feature.
+  **The webhook mechanism itself is deliberately not built.** The plan's own order table ranks it last and says
+  "worth building when a customer actually asks", and that judgement still holds — an outbound delivery system
+  with signing, retries and an egress policy, consumed by nobody, is machinery without a user. The first
+  mechanism of the three, **bounded configuration, is fully built**: theme presets, the section registry, the
+  wording allowlist and the store settings document are all exactly that.
 
 ---
 
