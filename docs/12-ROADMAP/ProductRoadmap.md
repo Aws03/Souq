@@ -58,6 +58,12 @@ A client never sees another client's data, even if the UI or an API call is mani
 | **M4 Experience** | 15 – 18 | White-label frontend: storefront, tenant admin, platform admin |
 | **M5 Launch** | 19 – 23 | Tested, secured, fast, documented, production-ready → **first client** |
 
+> **M5's outcome is the objective this plan was written under, and that objective changed on 2026-09-22.**
+> Souq is finished as a portfolio-quality demonstration of a commercial SaaS architecture, not launched as a
+> business: no payment provider, no cloud storage, no mail account, no verified tax values, no legal review.
+> Read "production-ready" here as the target the engineering was built toward, never as a claim about what has
+> been reached. [PortfolioScope.md](../00-START-HERE/PortfolioScope.md) is the honest three-way split.
+
 ```mermaid
 flowchart LR
   P0["0 Audit"] --> P1A["1A Stabilize"] --> P1B["1B Foundations"] --> P2["2 Multi-tenancy"] --> P3["3 Auth"] --> P4["4 Platform admin API"]
