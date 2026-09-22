@@ -120,6 +120,15 @@ cd frontend && npm ci && npm run lint && npm run typecheck && npm test && npm ru
 
 > Running the integration suite **with the demo stack stopped** — it starts its own SQL Server, and a small Docker VM cannot hold both. [DevelopmentGuide.md §4](docs/09-OPERATIONS/DevelopmentGuide.md) explains what it looks like when it runs out.
 
+## Continuous integration and the release pipeline
+
+Two workflows, both of which actually run:
+
+- **[`.github/workflows/ci.yml`](.github/workflows/ci.yml)** — on every push to `main` and `phase/**`. Four parallel jobs: build with warnings as errors plus the three fast suites, the frontend (lint, type-check, tests, build), the integration suite against a real SQL Server via Testcontainers, and a supply-chain job (dependency audit, secret scan, and a check that no live payment key exists anywhere including tests). It needs **no secrets and no services**.
+- **[`.github/workflows/release.yml`](.github/workflows/release.yml)** — on a SemVer tag `v*`, or by hand. It refuses a tag that is not `vMAJOR.MINOR.PATCH`, runs the **whole** gate (build plus all four suites, integration included, and a clean-tree check), then publishes two container images to GHCR tagged with both the version and the commit sha, and builds a **self-contained migration bundle** as a 90-day artifact so a schema can be migrated by a host that has neither the SDK nor the source.
+
+Its deploy job is **skipped, not faked**: it is gated behind `vars.DEPLOY_HOST`, which is unset, because there is no server. Everything above it is exercised — `docker pull ghcr.io/aws03/souq-api:v1.0.0` works. `scripts/deploy.sh`, which that job would call, is verified against the container stack including a failed deployment and its automatic rollback ([Deployment.md §13](docs/09-OPERATIONS/Deployment.md)).
+
 ## Where things are
 
 | You want | Go to |
