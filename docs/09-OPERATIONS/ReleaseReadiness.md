@@ -27,6 +27,25 @@ Numbers are never reused. `F-5` is absent because it was closed, not forgotten.
 
 **Evidence** is either *verified in code* (someone read the path and can name it), *reproduced* (a test or a run demonstrates it), or *inherited* (carried from an earlier pass and re-read, but the failure has not been reproduced).
 
+## The verification run of 2026-09-22
+
+Recorded because a reviewer's first question is what was actually executed, and because a number nobody wrote
+down becomes a number nobody can check.
+
+| | Result |
+|---|---|
+| Build | `dotnet build -warnaserror` — clean, zero warnings |
+| Domain · Application · Architecture | 671 · 532 · 127, all passing |
+| Integration (real SQL Server, Testcontainers) | **546/546** |
+| Frontend | 865 Vitest, plus lint, `tsc --noEmit` and a production build |
+| Browser journeys | **149 across all 24 spec files, zero failures** — 44 against the container stack and 105 against a Development stack, because three files need Development-only behaviour and `csp.spec.js` needs nginx |
+| Migrations on an empty database | **all 38 applied from nothing**, seeded, and then the Development stack served its 105 journeys against that database |
+| GitHub Actions | green on the branch head, all four jobs |
+
+**One correction, kept rather than quietly fixed.** The commit that updated the scale figures says the fresh
+database "served 149 browser journeys". It served **105** — the Development-stack subset. The other 44 ran
+against the container stack on its own seeded database. The total is right; the attribution was not.
+
 ---
 
 ## P0 — must be closed before real customers or real money
