@@ -18,13 +18,13 @@
 > [OwnerDecisions.md](../09-OPERATIONS/OwnerDecisions.md); §0 lists what each one released and what is still
 > gated.
 >
-> **`C1`, `C2` and `C11` are done.** The *Billing* module exists, plans and entitlements are enforced through the
-> seam that already existed, the fail-open default is closed, numeric limits are now **enforced** by a counter row
-> that no isolation level can defeat, and merchant analytics answer in the merchant's own day with profit reported
-> only as far as the data supports it. `C11` was taken out of order because it is the only phase gated by nothing
-> at all — see §0's `next_phase` note.
+> **The commercial track is complete as a portfolio build.** `C1`–`C3`, `C5`, `C6`, `C8`–`C12` are built, tested
+> and demonstrable; `C4`'s coordination half is done and its storage half is a deliberate local stand-in. What
+> remains is not engineering — it is the external things a real deployment would buy, each with its seam already
+> in place. §0 carries that split, and it is the honest version of "done".
 >
-> **Last verified against the code:** 2026-09-21, branch `phase/17-production-hardening`, after `C11`.
+> **Last verified against the code:** 2026-09-22, branch `phase/17-production-hardening`, after `C10`, with
+> GitHub Actions green on the branch head and all 24 browser journey files passing.
 
 ---
 
@@ -33,7 +33,7 @@
 ```yaml
 plan_version: 1.7.0
 track: commercial
-current_phase: C8
+current_phase: C10
 phase_status: done
 # 2026-09-21: the owner answered the eight questions of OwnerDecisionBrief.md, and SIX phases that
 # were gated are now unblocked. The canonical record of each answer is its own entry in
@@ -51,7 +51,8 @@ phase_status: done
 #                     so C12 builds the port and the model, and the adapter waits on a contract
 #   C-19  = A  -> disclosure in the merchant agreement; blocks no engineering, as recorded
 #
-# STILL BLOCKED, and by what:
+# STILL BLOCKED, and by what — **superseded 2026-09-22 by the objective change recorded below**.
+# Kept because it is the reasoning that the split under `next_phase` replaced, not a live list:
 #   C4  <- D-18 for blob storage ONLY. Its other two thirds (cross-instance invalidation of all
 #          three caches, and a lock/leader election for the sweeps) are blocked by nothing — split.
 #   C7  <- C-11 (managed edge or self-run ACME; apex; SLA; abandoned-domain policy)
@@ -71,6 +72,17 @@ current_phase_note: |
       workflow, a store's selection — a fifteenth module (d894148)
     • and the tax term itself: the pricing pipeline's explicit zero is now
       calculated, frozen onto the order, and shown to the shopper (60f5021)
+    • C6 and C8: theme presets, the home-section registry, and store text
+      overrides — three ways to customise a store that are not a fork
+    • C10: recommendations from the store's own delivered orders, so the
+      feature works with behavioural capture off, which is its permanent state
+    • the demo payment adapter, announced on the checkout screen (ADR-0063)
+    • and then the part worth recording: with the repository public, GitHub
+      Actions ran for the first time since before M13 and immediately found
+      three real defects — F-33 (a deadlock whose victim was a *read* escaped
+      as 500), F-34 and F-35 (two assertions that sampled a property instead of
+      guaranteeing it). Each was diagnosed from a captured message, never a
+      guess, and CI is green on the branch head.
 next_phase: none — portfolio complete
 # 2026-09-22: THE OBJECTIVE CHANGED. Souq is finished as a portfolio-quality demonstration of a commercial
 # SaaS architecture, not launched as a business. The owner delegated the remaining decisions; they are
@@ -96,7 +108,8 @@ answered_decisions: ["C-08", "C-17", "TD-42", "C-15", "P-06", "D-13", "C-01", "C
 open_sub_decisions: ["C-08 lawful basis", "C-08 retention period", "C-08 data residency",
                      "P-06 every jurisdiction value", "C-01 the provider itself"]
 last_verified_date: 2026-09-22
-last_verified_head: c9a4edb  # +C8's text overrides
+last_verified_head: 914237d  # C8's section registry and text overrides, C10, the demo payment
+                             # adapter, and F-33/F-34/F-35 found and fixed with CI green after each
 
 # ── ما بقي، ولماذا ─────────────────────────────────────────────────────────
 # C4  — بقي منه ثُلثٌ واحد: التخزين السحابي، وهو وحده الموقوف على D-18. القفلُ والإبطالُ تمّا.
