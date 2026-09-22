@@ -55,11 +55,20 @@ async function signIn(page, origin, account) {
   await page.waitForURL((url) => !url.pathname.includes('/login'));
 }
 
+// ============================================================================
 // الحركةُ تُنهى قبل فحص التباين: قياسُ لونٍ في منتصف انتقالٍ يقيس مزيجاً لا يراه أحد.
+//
+// **ودورتان لا واحدة.** أوّلُ تشغيلٍ لهذه الرحلة أبلغ عن مخالفة تباينٍ في نصّ التنبيه، ولم تكن
+// مخالفةً: التنبيهُ يظهر بعد ردّ الخادم، فقد بدأت حركتُه **بعد** أن قرأ الانتظارُ الأوّل قائمةَ
+// الحركات — فقاس axe نصّاً شفّافاً في منتصف ظهوره. الدورةُ الثانية تلتقط ما بدأ أثناء الأولى.
+// ============================================================================
+const settleAnimations = (page) => page.evaluate(() => Promise.all(document.getAnimations()
+  .filter((a) => a.effect?.getComputedTiming().iterations !== Infinity)
+  .map((a) => a.finished.catch(() => {}))));
+
 const axe = async (page) => {
-  await page.evaluate(() => Promise.all(document.getAnimations()
-    .filter((a) => a.effect?.getComputedTiming().iterations !== Infinity)
-    .map((a) => a.finished.catch(() => {}))));
+  await settleAnimations(page);
+  await settleAnimations(page);
   await page.addScriptTag({ content: axeSource });
   return page.evaluate(async () =>
     // @ts-ignore — axe يُحقن في الصفحة
@@ -104,36 +113,44 @@ test.describe('فوترة التاجر', () => {
 
     // وبعد الضبط تقول الشاشةُ إنّها جاهزة — وهي الجملة التي يقرؤها المشغّل قبل أن يُصدر.
     await expect(owner.getByText(/Ready to issue|جاهزة للإصدار/)).toBeVisible();
+
+    // التنبيهُ يُنتظَر صراحةً قبل الفحص: هو آخرُ ما يظهر، وفحصُ الإتاحة قبل ظهوره يفحص شاشةً
+    // ناقصة — وبعد ظهوره بلا انتظارِ حركته يفحص لوناً ممزوجاً.
+    await owner.locator('[class*="toast"]').first().waitFor();
     expect(await axe(owner)).toEqual([]);
   });
 
-  test('مسوّدةٌ بلا أسطر لا تُصدَر، والسببُ مكتوب', async () => {
-    // الإنشاء عبر الـ API: لا شاشةَ إنشاءٍ في هذه الشريحة، وهي فجوةٌ مسجَّلة لا مفاجأة.
-    const store = await merchant.evaluate(async () => {
+  test('مسوّدةٌ تُنشأ من الشاشة، وبلا أسطر لا تُصدَر والسببُ مكتوب', async () => {
+    // ====================================================================
+    // **كلُّ خطوةٍ من الشاشة، ولا نداءَ API يدويّ في هذه الرحلة.**
+    //
+    // وهذا ما أضاف شاشةَ «فاتورة جديدة» أصلاً: أوّلُ تشغيلٍ لهذه الرحلة كشف أنّ إنشاء المسوّدة
+    // لم يكن ممكناً إلّا بـ `fetch` مكتوبٍ في الاختبار — أي أنّ مشغّلاً لا يستطيع أن يبدأ
+    // فاتورةً من لوحته. قدرةٌ أوّلُ خطوةٍ فيها خارج الواجهة ليست قدرةً يملكها أحد.
+    // ====================================================================
+    const slug = await merchant.evaluate(async () => {
       const res = await fetch('/api/storefront/config');
-      return (await res.json()).id ?? null;
+      return (await res.json()).slug ?? null;
     });
-    expect(store, 'تعذّر تحديد متجر التاجر من إعداد واجهته').not.toBeNull();
+    expect(slug, 'تعذّر قراءة معرّف متجر التاجر النصّي من إعداد واجهته').not.toBeNull();
 
-    const created = await owner.evaluate(async (tenantId) => {
-      const res = await fetch('/api/platform/invoices', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          tenantId,
-          periodStartUtc: '2026-09-01T00:00:00Z',
-          periodEndUtc: '2026-10-01T00:00:00Z',
-          includeSubscription: false,
-          billingPeriodId: null,
-          lines: [],
-        }),
-      });
-      return { status: res.status, body: await res.json().catch(() => null) };
-    }, store);
-    expect(created.status, JSON.stringify(created.body)).toBe(201);
+    await owner.goto(`${PLATFORM}/platform/invoices`);
+    await owner.getByRole('link', { name: /New invoice|فاتورة جديدة/ }).click();
+    await owner.waitForURL(/\/platform\/invoices\/new$/);
 
-    await owner.goto(`${PLATFORM}/platform/invoices/${created.body.id}`);
+    await owner.getByLabel(/Find a store|ابحث عن متجر/).fill(slug);
+    const storeSelect = owner.getByLabel(/^(Store|المتجر)$/);
+    const option = storeSelect.locator(`option:text-matches("\\(${slug}\\)")`);
+    await expect(option).toHaveCount(1, { timeout: 15_000 });
+    // بالقيمة لا بالاسم: `selectOption` لا تقبل تعبيراً نمطياً في `label`، واسمُ المتجر
+    // بياناتُ بذرٍ قد تتغيّر — أمّا المعرّف النصّي فهو ما تبحث به الرحلة أصلاً.
+    await storeSelect.selectOption(await option.getAttribute('value'));
+
+    const created = owner.waitForResponse((r) =>
+      r.url().endsWith('/api/platform/invoices') && r.request().method() === 'POST');
+    await owner.getByRole('button', { name: /Create draft|أنشئ المسوّدة/ }).click();
+    expect((await created).status()).toBe(201);
+    await owner.waitForURL(/\/platform\/invoices\/\d+$/);
 
     // زرُّ الإصدار موجودٌ ومعطَّل، والسببُ بجانبه: «أضف سطراً». زرٌّ معطَّل بلا تفسير يفتح بلاغاً.
     const issueButton = owner.getByRole('button', { name: /Issue invoice|أصدِر الفاتورة/ });

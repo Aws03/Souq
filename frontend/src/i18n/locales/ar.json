@@ -2310,7 +2310,21 @@
       "lineQuantity_two": "وحدتان",
       "lineQuantity_few": "{{count}} وحدات",
       "lineQuantity_many": "{{count}} وحدة",
-      "lineQuantity_other": "{{count}} وحدة"
+      "lineQuantity_other": "{{count}} وحدة",
+      "newInvoice": "فاتورة جديدة",
+      "newTitle": "فاتورة جديدة",
+      "newSubtitle": "ابدأ مسوّدةً لمتجر. ولا يصدر شيءٌ حتى تراجعها وتُصدرها بفعلٍ مقصود.",
+      "storeSearch": "ابحث عن متجر",
+      "storeSearchPlaceholder": "الاسم أو المعرّف أو النطاق",
+      "store": "المتجر",
+      "chooseStore": "اختر متجراً…",
+      "periodFrom": "المدّة من",
+      "periodTo": "المدّة إلى",
+      "periodHint": "النهاية حصريّة، فلا تتداخل فترتان متتاليتان.",
+      "includeSubscription": "أضف سطر الاشتراك",
+      "includeSubscriptionHint": "يُؤخذ من سعر الخطة المجمَّد. وخطةٌ بلا سعر تُرفض ولا يُخمَّن لها رقم.",
+      "createsDraft": "ينشئ هذا مسوّدةً بلا رقم. ولا تصير مستنداً إلّا حين تُصدرها.",
+      "createDraft": "أنشئ المسوّدة"
     },
     "tax": {
       "verification": {

@@ -79,6 +79,7 @@ const PlatformAudit = lazy(() => import('./pages/platform/Audit'));
 // فوترة التجّار (C5، ADR-0056): دفتر المنصّة وإعداده.
 const PlatformBillingSettings = lazy(() => import('./pages/platform/BillingSettings'));
 const PlatformInvoices = lazy(() => import('./pages/platform/Invoices'));
+const PlatformNewInvoice = lazy(() => import('./pages/platform/NewInvoice'));
 const PlatformInvoiceDetail = lazy(() => import('./pages/platform/InvoiceDetail'));
 
 // صفحة إدارة بصلاحيتها (والوحدة إن كانت اختيارية) — الشريط الجانبي يخفي رابطها بالشرط نفسه.
@@ -228,6 +229,7 @@ function PlatformRoutes() {
         <Route path="accounts" element={platformGuarded(<PlatformAccounts />, 'platform.users.manage')} />
         <Route path="billing" element={platformGuarded(<PlatformBillingSettings />, 'platform.billing.manage')} />
         <Route path="invoices" element={platformGuarded(<PlatformInvoices />, 'platform.billing.manage')} />
+        <Route path="invoices/new" element={platformGuarded(<PlatformNewInvoice />, 'platform.billing.manage')} />
         <Route path="invoices/:id" element={platformGuarded(<PlatformInvoiceDetail />, 'platform.billing.manage')} />
         <Route path="audit" element={platformGuarded(<PlatformAudit />, 'platform.audit.view')} />
         <Route path="*" element={<Navigate to="/platform" replace />} />

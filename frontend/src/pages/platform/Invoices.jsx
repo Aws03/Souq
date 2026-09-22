@@ -129,7 +129,10 @@ export default function Invoices() {
           <h1 className={styles.title}>{t('platform.invoices.title')}</h1>
           <p className={styles.subtitle}>{t('platform.invoices.subtitle')}</p>
         </div>
-        <Link to="/platform/billing" className={styles.secondaryLink}>{t('platform.invoices.settingsLink')}</Link>
+        <div className={styles.headLinks}>
+          <Link to="/platform/billing" className={styles.secondaryLink}>{t('platform.invoices.settingsLink')}</Link>
+          <Link to="/platform/invoices/new" className={styles.primaryLink}>{t('platform.invoices.newInvoice')}</Link>
+        </div>
       </div>
 
       {/* الإعدادُ ناقصٌ ⇒ لا تُصدَر فاتورة. يُقال هنا وبسببه، لا بزرٍّ معطَّل بلا تفسير — وهو

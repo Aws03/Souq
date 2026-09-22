@@ -2212,7 +2212,21 @@
       "overdueBy_one": "{{count}} day overdue",
       "overdueBy_other": "{{count}} days overdue",
       "lineQuantity_one": "{{count}} unit",
-      "lineQuantity_other": "{{count}} units"
+      "lineQuantity_other": "{{count}} units",
+      "newInvoice": "New invoice",
+      "newTitle": "New invoice",
+      "newSubtitle": "Start a draft for a store. Nothing is issued until you review it and issue it deliberately.",
+      "storeSearch": "Find a store",
+      "storeSearchPlaceholder": "Name, slug or domain",
+      "store": "Store",
+      "chooseStore": "Choose a store…",
+      "periodFrom": "Period from",
+      "periodTo": "Period to",
+      "periodHint": "The end is exclusive, so two consecutive periods never overlap.",
+      "includeSubscription": "Add the subscription line",
+      "includeSubscriptionHint": "Taken from the plan's frozen price. A plan with no price is refused rather than guessed.",
+      "createsDraft": "This creates a draft with no number. It becomes a document only when you issue it.",
+      "createDraft": "Create draft"
     },
     "tax": {
       "verification": {
