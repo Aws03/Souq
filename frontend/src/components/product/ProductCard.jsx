@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useCart } from '../../context/CartContext';
@@ -8,6 +8,7 @@ import Button from '../common/Button';
 import ProductImage from './ProductImage';
 import { HeartIcon } from '../icons/Icons';
 import { PriceTag, getProductName } from './ProductBadges';
+import { reportClick, reportImpression } from '../../features/analytics';
 import { productPath } from '../../features/catalog/productRouting';
 import { hasVariantChoice } from '../../features/catalog/variantSelection';
 import styles from './ProductCard.module.css';
@@ -26,7 +27,9 @@ import styles from './ProductCard.module.css';
 // ============================================================================
 export const CARD_VARIANTS = ['grid', 'list', 'compact', 'featured'];
 
-export default function ProductCard({ product, onAdded, isNew = false, layout = 'grid' }) {
+// listId/position: هويّةُ القائمة التي ظهرت فيها البطاقة وموضعُها فيها (C9b، ADR-0050 §3).
+// اختياريّان: بطاقةٌ خارج قائمةٍ معروفة (المفضّلة مثلاً) لا تُقاس، ولا تكسر.
+export default function ProductCard({ product, onAdded, isNew = false, layout = 'grid', listId = null, position = null }) {
   const { t } = useTranslation();
   const { add } = useCart();
   const wishlist = useWishlist();
@@ -42,6 +45,19 @@ export default function ProductCard({ product, onAdded, isNew = false, layout = 
   // المضغوطة بلا زرّ إضافة: في صفّ جانبي ضيّق الزرّ يزاحم الاسم ويُضغط خطأً.
   const showAddButton = variant !== 'compact';
 
+  // ==========================================================================
+  // الظهورُ يُبلَّغ عند تركيب البطاقة، والنقرةُ عند اتّباع رابطها (C9b).
+  //
+  // **وما يُقاس هنا هو الترتيب لا الرؤية**: بلا مُراقِب تقاطعٍ لا نعرف ما وقع في نافذة العرض
+  // فعلاً، وادّعاءُ ذلك يُنتج رقماً يبدو دقيقاً وليس كذلك. فالمقصودُ صراحةً «عُرض في القائمة
+  // بهذا الموضع»، وهو ما يكفي لنسبة النقر ولترتيب النتائج — وهما ما وُجد القياس لأجلهما.
+  // ==========================================================================
+  useEffect(() => {
+    reportImpression(listId, product.id, position);
+  }, [listId, product.id, position]);
+
+  const handleOpen = () => reportClick(listId, product.id, position);
+
   // الخادم يؤكّد الإضافة (منشور، متاح) — الإشعار بعد نجاحها فقط؛ خطؤها يعرضه سياق السلة.
   const handleAdd = async () => {
     setAdding(true);
@@ -52,7 +68,7 @@ export default function ProductCard({ product, onAdded, isNew = false, layout = 
 
   return (
     <article className={`${styles.card} ${styles[variant]}`}>
-      <Link to={productPath(product)} className={styles.media} aria-label={name}>
+      <Link to={productPath(product)} className={styles.media} aria-label={name} onClick={handleOpen}>
         {/* بطاقة الصدارة فوق الطيّة: تُحمَّل بأولوية كي لا تؤخّر أكبر عنصر مرئي. */}
         <ProductImage product={product} fit="contain" priority={variant === 'featured'} />
         {isNew && <span className={styles.badge}>{t('product.badgeNew')}</span>}
@@ -67,14 +83,14 @@ export default function ProductCard({ product, onAdded, isNew = false, layout = 
 
       <div className={styles.body}>
         <h3 className={styles.name}>
-          <Link to={productPath(product)} className={styles.nameLink}>{name}</Link>
+          <Link to={productPath(product)} className={styles.nameLink} onClick={handleOpen}>{name}</Link>
         </h3>
         <div className={styles.foot}>
           <PriceTag amount={product.price} currency={product.currency} compareAt={product.compareAtPrice}
             from={!!product.priceIsFrom} />
           {/* منتج بخيارات: رابط لصفحته (اختيار المتغيّر هناك) لا زرّ إضافة يفترض مقاساً — ورابطٌ لا زرّ لأنه انتقال. */}
           {showAddButton && (needsChoice ? (
-            <Link to={productPath(product)} className={styles.chooseLink}>
+            <Link to={productPath(product)} className={styles.chooseLink} onClick={handleOpen}>
               {outOfStock ? t('product.outOfStock') : t('product.chooseOptions')}
             </Link>
           ) : (

@@ -15,6 +15,16 @@ public static class RateLimitPolicies
     public const string Basket = "basket";              // كتابة السلة (كل إضافة من زائر جديد تُنشئ سلة)
 
     // ========================================================================
+    // التقاطُ سلوك واجهة المتجر (C9b): نقطةٌ **مجهولةُ المُنادي وكثيرةُ التكرار بطبعها** — تصفّحٌ
+    // عاديّ يرسل ظهوراً مع كلّ تمرير. فالحدُّ سخيٌّ بما يكفي لتصفّحٍ حقيقيّ، ومانعٌ لحلقةٍ تكتب
+    // في جدولٍ يكبر بلا سقف.
+    //
+    // وهو الحدُّ الوحيد الذي يحرس نقطةً **لا تعيد شيئاً**: لا تُستنزف منها بيانات، إنّما يُملأ بها
+    // مخزن. فالضررُ المقصود منعُه هو الحجم لا التسريب.
+    // ========================================================================
+    public const string Events = "storefront-events";
+
+    // ========================================================================
     // تصدير البيانات (F-21): نقطةٌ **ثقيلة** يستطيع أيّ عميل مسجَّل استدعاءها — تقرأ كل طلباته
     // بكل أسطرها وكل تقييماته في استجابة واحدة، وتكبر بعمر الحساب لا بصفحة يطلبها.
     //
@@ -33,6 +43,10 @@ public sealed class RateLimitingOptions
     public WindowLimit Refresh { get; set; } = new() { PermitLimit = 30, WindowSeconds = 60 };
     public WindowLimit CouponPreview { get; set; } = new() { PermitLimit = 30, WindowSeconds = 60 };
     public WindowLimit Basket { get; set; } = new() { PermitLimit = 120, WindowSeconds = 60 };
+
+    // ستّون في الدقيقة: التقاطُ الظهور يُجمَّع في المتصفّح ويُرسَل دفعاتٍ، فتصفّحٌ نشط لا يقترب
+    // من هذا — وحلقةٌ آليّة تصطدم به فوراً.
+    public WindowLimit Events { get; set; } = new() { PermitLimit = 60, WindowSeconds = 60 };
 
     // ستّ مرّات في الساعة: تنزيل نسخة ثم إعادة المحاولة بعد خطأ شبكة يسع فيها مراراً، وحلقةٌ
     // تستنزف القاعدة لا تسع.
@@ -99,6 +113,7 @@ public static class RateLimitingSetup
             AddPolicy(limiter, RateLimitPolicies.Refresh, options.Refresh, options.InstanceCount);
             AddPolicy(limiter, RateLimitPolicies.CouponPreview, options.CouponPreview, options.InstanceCount);
             AddPolicy(limiter, RateLimitPolicies.Basket, options.Basket, options.InstanceCount);
+            AddPolicy(limiter, RateLimitPolicies.Events, options.Events, options.InstanceCount);
             AddPolicy(limiter, RateLimitPolicies.Export, options.Export, options.InstanceCount);
         });
         return services;

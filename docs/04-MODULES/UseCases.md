@@ -19,7 +19,7 @@
 | [Shipping](#shipping) | `src/Souq.Application/Features/Shipping` | 3 | 1 | 1 |
 | [Reviews](#reviews) | `src/Souq.Application/Features/Reviews` | 3 | 2 | 0 |
 | [Notifications](#notifications) | `src/Souq.Application/Features/Notifications` | 2 | 2 | 0 |
-| [Reporting](#reporting) | `src/Souq.Application/Features/Reporting`, `src/Souq.Application/Features/Analytics` | 2 | 3 | 4 |
+| [Reporting](#reporting) | `src/Souq.Application/Features/Reporting`, `src/Souq.Application/Features/Analytics` | 3 | 3 | 4 |
 | [Billing](#billing) | `src/Souq.Application/Features/Billing`, `src/Souq.Application/Features/Subscriptions` | 20 | 12 | 2 |
 | [Tax](#tax) | `src/Souq.Application/Features/Tax` | 6 | 3 | 1 |
 
@@ -288,6 +288,7 @@ Module document: [Reporting/README.md](Reporting/README.md).
 | Use case | Kind | Handler | Validator | Audited | Sent by |
 |---|---|---|---|---|---|
 | `PurgeBehaviouralEventsCommand` | command | `PurgeBehaviouralEventsHandler` | — | — | no endpoint (sent internally) |
+| `RecordStorefrontEventsCommand` | command | `RecordStorefrontEventsHandler` | `RecordStorefrontEventsValidator` | — | `POST /api/storefront/events` |
 | `RollUpBehaviouralEventsCommand` | command | `RollUpBehaviouralEventsHandler` | — | — | no endpoint (sent internally) |
 | `GetPlatformRevenueQuery` | query | `GetPlatformRevenueHandler` | `GetPlatformRevenueQueryValidator` | yes | `GET /api/platform/revenue` |
 | `GetPlatformStatsQuery` | query | `GetPlatformStatsHandler` | — | yes | `GET /api/platform/stats` |

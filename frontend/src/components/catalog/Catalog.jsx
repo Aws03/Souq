@@ -28,6 +28,7 @@ const PAGE_SIZE = 12;
 // ============================================================================
 export default function Catalog({ categories = [], onAdded, refreshKey, lockSort, onSale = false }) {
   const { t } = useTranslation();
+
   const [searchParams, setSearchParams] = useSearchParams();
   // البحث من الرابط: نتيجة قابلة للمشاركة، وزرّ الرجوع يعيدها (searchRouting).
   // لا تأخير ثانٍ هنا: useStoreSearch يؤخّر الكتابة قبل أن يكتب `q` في الرابط أصلاً، وتأخيرٌ إضافي كان
@@ -49,6 +50,11 @@ export default function Catalog({ categories = [], onAdded, refreshKey, lockSort
   const view = ['grid5', 'grid4', 'list'].includes(searchParams.get('view')) ? searchParams.get('view') : 'grid5';
   // ?exact=1 — المتسوّق رفض التصحيح المعروض وأصرّ على كلماته (M3).
   const exact = searchParams.get('exact') === '1';
+
+  // هويّةُ القائمة بعُرف ADR-0050: `search` لنتيجة بحث، و`category:12` لتصفّح فئةٍ واحدة، وإلّا
+  // `catalog`. فئتان معاً لا تُعطيان هويّةً واحدة ذاتَ معنى، فتُقرآن كتالوجاً عامّاً — وهويّةٌ
+  // مخترَعة أسوأ من هويّةٍ عامّة: تُقسّم القياس على قوائم لا وجود لها.
+  const listId = searching ? 'search' : (categoryIds.length === 1 ? `category:${categoryIds[0]}` : 'catalog');
   const page = Math.max(1, parseInt(searchParams.get('page'), 10) || 1);
 
   // تعديل موضعي للرابط. resetPage: أي تغيير في الفلاتر يعيد للصفحة 1 (نتائج
@@ -182,6 +188,7 @@ export default function Catalog({ categories = [], onAdded, refreshKey, lockSort
 
       <ProductGrid
         products={items} loading={loading} error={error} onRetry={refetch} onAdded={onAdded} view={view}
+        listId={listId}
         empty={search?.category ? {
           title: t('catalog.search.noMatchTitle', { term: search.term }),
           message: t('catalog.search.categorySuggestion', { name: search.category.name }),

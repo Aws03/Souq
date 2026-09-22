@@ -30,6 +30,7 @@ import { breadcrumbStructuredData, productStructuredData } from '../app/structur
 import { useStructuredData } from '../app/useStructuredData';
 import { canonicalUrl } from '../app/pageMetadata';
 import { usePageMetadata } from '../app/usePageMetadata';
+import { reportView } from '../features/analytics';
 import styles from './ProductDetail.module.css';
 
 const REVIEWS_PAGE_SIZE = 5;
@@ -58,6 +59,13 @@ export default function ProductDetail() {
     queryKey: queryKeys.product(handle),
     queryFn: () => (isProductId(handle) ? api.getProduct(handle) : api.getProductBySlug(handle)),
   });
+
+  // معاينةُ الصنف (C9b، ADR-0050 §3): تُبلَّغ مرّةً لكلّ منتجٍ يُفتح. والقائمةُ والموضعُ لا
+  // يُمرّران هنا — الصفحةُ لا تعرف من أين جاء الزائر، والمعرّفُ الذي يربطها ببحثه يختمه الخادم
+  // من ترويسة الطلب. هويّةٌ مخمَّنة هنا كانت ستنسب النقرة إلى قائمةٍ لم تكن.
+  useEffect(() => {
+    if (product?.id) reportView(product.id);
+  }, [product?.id]);
 
   // وصل المنتج بمعرّفه ⇒ نُبدّل الرابط إلى شكله القانوني بلا إضافة خطوة في سجلّ الرجوع، وننسخ
   // ما وصل إلى مفتاح الرابط الجديد كي لا يُطلب المنتج نفسه مرّة ثانية باسمه.

@@ -11,7 +11,7 @@ const SKELETON_COUNT = 10;
 // grid5 (افتراضي: 5 بالصف على سطح المكتب، 2 على الجوال)، grid4 (4 بالصف)، أو
 // list (صفّ واحد ببطاقات أفقية).
 export default function ProductGrid({
-  products, loading, error, onRetry, onAdded, view = 'grid5', empty,
+  products, loading, error, onRetry, onAdded, view = 'grid5', empty, listId = null,
 }) {
   const { t } = useTranslation();
   if (error) return <ErrorBanner message={error} onRetry={onRetry} />;
@@ -50,7 +50,10 @@ export default function ProductGrid({
 
   return (
     <div className={gridClass}>
-      {products.map((p) => <ProductCard key={p.id} product={p} onAdded={onAdded} layout={layout} />)}
+      {products.map((p, index) => (
+        <ProductCard key={p.id} product={p} onAdded={onAdded} layout={layout}
+          listId={listId} position={index + 1} />
+      ))}
     </div>
   );
 }

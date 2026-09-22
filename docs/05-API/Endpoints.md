@@ -5,7 +5,7 @@
 >
 > Conventions (errors, paging, status codes): [ApiDocumentation.md](ApiDocumentation.md). Use cases per module: [UseCases.md](../04-MODULES/UseCases.md).
 
-**187 endpoints** in 34 controllers: 26 anonymous, 27 for any signed-in account, 134 behind a permission.
+**188 endpoints** in 35 controllers: 27 anonymous, 27 for any signed-in account, 134 behind a permission.
 
 ## How to read this table
 
@@ -200,6 +200,7 @@
 | GET | `/api/products/{productId:int}/reviews` | anonymous | store | `reviews` | — | `GetProductReviewsQuery` | Reviews |
 | POST | `/api/products/{productId:int}/reviews` | signed in | store | `reviews` | — | `CreateReviewCommand` | Reviews |
 | GET | `/api/storefront/config` | anonymous | store, even when closed | — | — | `GetStorefrontConfigQuery` | Platform |
+| POST | `/api/storefront/events` | anonymous | store | — | `storefront-events` | `RecordStorefrontEventsCommand` | Reporting |
 | GET | `/api/wishlist` | signed in | store | `wishlist` | — | `GetWishlistQuery` | Shopping |
 | POST | `/api/wishlist/merge` | signed in | store | `wishlist` | — | `MergeWishlistCommand` | Shopping |
 | PUT | `/api/wishlist/{productId:int}` | signed in | store | `wishlist` | — | `AddToWishlistCommand` | Shopping |

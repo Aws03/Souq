@@ -8,10 +8,10 @@
 | Suite | Files | Facts | Theories |
 |---|---|---|---|
 | [`Souq.Domain.Tests`](#souqdomaintests) | 35 | 329 | 55 |
-| [`Souq.Application.Tests`](#souqapplicationtests) | 58 | 440 | 22 |
+| [`Souq.Application.Tests`](#souqapplicationtests) | 59 | 448 | 22 |
 | [`Souq.ArchitectureTests`](#souqarchitecturetests) | 17 | 77 | 8 |
 | [`Souq.IntegrationTests`](#souqintegrationtests) | 67 | 425 | 28 |
-| [frontend (Vitest)](#frontend-vitest) | 106 | 819 | — |
+| [frontend (Vitest)](#frontend-vitest) | 107 | 830 | — |
 | [frontend (Playwright)](#frontend-playwright) | 24 | 147 | — |
 
 ## Souq.Domain.Tests
@@ -60,6 +60,7 @@
 |---|---|---|---|
 | `tests/Souq.Application.Tests/Analytics/EventCaptureTests.cs` | `EventCaptureSettingsTests`, `BehaviouralEventPayloadsTests` | 9 | 1 |
 | `tests/Souq.Application.Tests/Analytics/PurgeBehaviouralEventsHandlerTests.cs` | `PurgeBehaviouralEventsHandlerTests`, `FakeTimeProvider` | 4 | 1 |
+| `tests/Souq.Application.Tests/Analytics/RecordStorefrontEventsHandlerTests.cs` | `RecordStorefrontEventsHandlerTests` | 8 | 0 |
 | `tests/Souq.Application.Tests/Auth/AccountLifecycleTests.cs` | `AccountLifecycleTests` | 7 | 0 |
 | `tests/Souq.Application.Tests/Auth/AccountWriterTests.cs` | `AccountWriterTests` | 6 | 0 |
 | `tests/Souq.Application.Tests/Auth/AuthHandlersTests.cs` | `AuthRig`, `RegisterHandlerTests`, `LoginHandlerTests`, `RefreshSessionHandlerTests`, `LogoutHandlerTests`, `ChangePasswordHandlerTests`, `ForgotPasswordHandlerTests`, `ResetPasswordHandlerTests`, `VerifyEmailHandlerTests` | 27 | 0 |
@@ -264,6 +265,7 @@
 | `frontend/src/features/admin/settings/settingsForm.test.js` | 23 |
 | `frontend/src/features/admin/shipping/shippingForm.test.js` | 4 |
 | `frontend/src/features/admin/staff/staffView.test.js` | 11 |
+| `frontend/src/features/analytics.test.js` | 11 |
 | `frontend/src/features/auth/safeRedirect.test.js` | 5 |
 | `frontend/src/features/basket/basketModel.test.js` | 4 |
 | `frontend/src/features/catalog/catalogText.test.js` | 5 |

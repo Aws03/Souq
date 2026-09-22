@@ -10,7 +10,7 @@ const SKELETON_COUNT = 4;
 // "الأكثر مبيعاً". تمرير أفقي على الجوال، شبكة ثابتة على سطح المكتب.
 export default function ProductSection({
   title, products, loading, onAdded, isNew = false,
-  viewAllTargetId = 'catalog', viewAllHref, showViewAll = true,
+  viewAllTargetId = 'catalog', viewAllHref, showViewAll = true, listId = null,
 }) {
   const { t } = useTranslation();
 
@@ -47,9 +47,10 @@ export default function ProductSection({
                   </div>
                 </div>
               ))
-            : products.map((p) => (
+            : products.map((p, index) => (
                 <div className={styles.productSection__item} key={p.id}>
-                  <ProductCard product={p} onAdded={onAdded} isNew={isNew} />
+                  <ProductCard product={p} onAdded={onAdded} isNew={isNew}
+                    listId={listId} position={index + 1} />
                 </div>
               ))}
         </div>

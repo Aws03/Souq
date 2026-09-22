@@ -56,14 +56,15 @@ export default function Storefront({
 
     newArrivals: () => (
       <ProductSection key="newArrivals" title={t('store.newArrivals')} products={newArrivals}
-        loading={newArrivalsLoading} onAdded={onAdded} isNew viewAllTargetId="catalog" />
+        loading={newArrivalsLoading} onAdded={onAdded} isNew viewAllTargetId="catalog"
+        listId="new-arrivals" />
     ),
 
     // صفّ العروض: منتجات مخفّضة فعلاً (onSale في الخادم). ProductSection يخفي نفسه حين لا نتائج،
     // فمتجر بلا تخفيضات لا يعرض صفّاً اسمه "عروض" فيه منتجات عادية.
     offers: () => (
       <ProductSection key="offers" title={t('nav.offers')} products={offers} loading={offersLoading}
-        onAdded={onAdded} viewAllHref="/offers" />
+        onAdded={onAdded} viewAllHref="/offers" listId="offers" />
     ),
 
     catalog: () => (

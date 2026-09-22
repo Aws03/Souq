@@ -1,6 +1,7 @@
 import i18n from '../i18n';
 import { toApiError } from './problem';
 import { toQueryString } from './query';
+import { currentSearchExecution, rememberSearchExecution, setEventPoster } from '../features/analytics';
 
 // ============================================================================
 // عميل API موحّد — لماذا ملف واحد؟ (مبدأ DRY + فصل الاهتمامات)
@@ -75,7 +76,14 @@ async function send(path, init, { fallbackKey = 'errors.connection', anonymous =
   const attempt = () => fetch(BASE + path, {
     ...init,
     credentials: 'same-origin',
-    headers: { ...init.headers, ...(accessToken && !anonymous ? { Authorization: `Bearer ${accessToken}` } : {}) },
+    headers: {
+      ...init.headers,
+      ...(accessToken && !anonymous ? { Authorization: `Bearer ${accessToken}` } : {}),
+      // معرّفُ تنفيذ البحث على **كلّ** طلب (C9b): الخادم يختمه على ما يُسجَّل في ذلك الطلب،
+      // فتُقفل سلسلةُ بحث ← نقرة ← سلّة ← شراء بلا أن يحمله كلُّ مُنادٍ في حمولته — بما فيها
+      // أحداثٌ يكتبها الخادمُ وحده ولا تعرف عنها الواجهةُ شيئاً.
+      ...(currentSearchExecution() ? { 'X-Souq-Search': currentSearchExecution() } : {}),
+    },
   });
 
   const sentToken = accessToken !== null && !anonymous;
@@ -111,6 +119,12 @@ function publicAuth(path, payload) {
 }
 
 // دوال معبّرة بأسماء المجال، تخفي تفاصيل HTTP عن بقية التطبيق.
+// إرسالُ أحداث الواجهة: مجهولٌ صراحةً (`anonymous`) — القياس لا يحتاج جلسة، ولا يجوز أن
+// يتسبّب في تجديدها أو في إنهائها عند 401.
+setEventPoster((path, body) =>
+  send(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) },
+    { anonymous: true }));
+
 export const api = {
   // ── المصادقة ── (الدخول/التسجيل/تغيير الكلمة تبدأ جلسة: التوكن يبقى هنا والمستخدم يعود للمتصل)
   register: async (payload) => startSession(await publicAuth('/auth/register', payload)),
@@ -140,7 +154,12 @@ export const api = {
   getStorefrontConfig: () => request('/storefront/config'),
 
   // ── الكتالوج ── (سلسلة الاستعلام لكل القوائم من toQueryString: مصفوفات بمفتاح متكرّر)
-  getProducts: (params = {}) => request(`/products${toQueryString(params)}`),
+  // نتيجةُ البحث تحمل معرّف تنفيذه حين يصكّه الخادم — يُحفظ هنا مرّةً، فيلحق كلَّ طلبٍ بعده.
+  getProducts: async (params = {}) => {
+    const page = await request(`/products${toQueryString(params)}`);
+    rememberSearchExecution(page?.searchExecutionId);
+    return page;
+  },
   // مفردات بحث المتجر (M3، ADR-0042، أدمن): يُعلِّمها التاجر فيتوسّع بها استعلام المتسوّق.
   getSearchSynonyms: () => request('/admin/search-synonyms'),
   getSearchInsights: (params = {}) => request(`/admin/search-synonyms/insights${toQueryString(params)}`),
