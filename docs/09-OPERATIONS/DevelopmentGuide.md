@@ -41,7 +41,7 @@ dotnet user-secrets set "Jwt:Key" "$(openssl rand -base64 48)" --project src/Sou
 | `Secrets:ActiveKeyId`, `Secrets:Keys:dev` | let stores connect their own Stripe account (§6) |
 | `Auth:RefreshCookie:Secure` | `false` when testing in Safari or over a LAN IP (§5) |
 | `Tenancy:LocalDefaultTenant` | make `localhost` serve a store other than the seeded default |
-| `Payments:Fake:WebhookSecret` | exercise signed webhooks against the fake gateway |
+| `Payments:Demo:WebhookSecret` | exercise signed webhooks against the fake gateway |
 | `RateLimiting:Auth:PermitLimit` and friends | stop a local script from hitting the limits |
 
 Without `Seed:*`, Development falls back to **admin@souq.com / Admin@123** (store admin) and **owner@souq.com / Owner@12345** (platform owner, platform host only). These exist in Development only — `DbSeeder` refuses a weak or default bootstrap password anywhere else.

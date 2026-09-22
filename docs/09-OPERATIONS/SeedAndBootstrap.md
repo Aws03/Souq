@@ -141,7 +141,7 @@ Each of these is enforced in code and covered by a test, not merely intended:
 | Demo catalog in production | `ShouldSeedDemoData` returns false outside Development/Testing unless `Seed:DemoData=true` is set explicitly |
 | Published demo admin in production | gated on `IsDevelopment`; `StartupAndSecurityTests` proves those credentials cannot sign in |
 | A weak first admin | a password under 12 characters throws at startup instead of creating the account |
-| Fake payments in production | `PaymentProviderSelector` refuses to boot without an explicit `Payments:Provider=Fake` |
+| Fake payments in production | `PaymentProviderSelector` refuses to boot without an explicit `Payments:Provider=Demo` |
 | Email silently going nowhere | no provider outside Development/Testing throws unless `Email:Provider=Log` is explicit |
 | A published signing key | `Jwt:Key` containing placeholder text is rejected ([Configuration.md](Configuration.md) §2) |
 | A store domain silently stolen | `BindDefaultTenantHosts` skips any host already bound to another store |

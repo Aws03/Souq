@@ -43,8 +43,8 @@ public sealed class SouqApiFactory : WebApplicationFactory<Program>, IAsyncLifet
     public CapturingLoggerProvider Logs { get; } = new();
     public string UploadsRoot { get; } = Path.Combine(Path.GetTempPath(), $"souq-it-uploads-{Guid.NewGuid():N}");
 
-    // المرحلة 11: سرّ الإشعارات التجريبية الموقَّعة (FakeGateway.Sign)، ومفتاح تشفير أسرار حسابات المتاجر.
-    public const string FakeWebhookSecret = "integration-tests-fake-webhook-secret";
+    // المرحلة 11: سرّ الإشعارات التجريبية الموقَّعة (DemoPaymentGateway.Sign)، ومفتاح تشفير أسرار حسابات المتاجر.
+    public const string DemoWebhookSecret = "integration-tests-demo-webhook-secret";
     public const string SecretsKeyId = "it";
     private static readonly string SecretsKey = Convert.ToBase64String(Enumerable.Range(1, 32).Select(i => (byte)i).ToArray());
 
@@ -93,7 +93,7 @@ public sealed class SouqApiFactory : WebApplicationFactory<Program>, IAsyncLifet
         builder.UseSetting("Search:Log:WriteBatchMilliseconds", "20");
         builder.UseSetting("Secrets:ActiveKeyId", SecretsKeyId);
         builder.UseSetting($"Secrets:Keys:{SecretsKeyId}", SecretsKey);
-        builder.UseSetting("Payments:Fake:WebhookSecret", FakeWebhookSecret);
+        builder.UseSetting("Payments:Demo:WebhookSecret", DemoWebhookSecret);
         // مئات الاختبارات تدخل من العنوان نفسه: حدود الإنتاج تخنقها. اختبار حدّ المعدّل يضيّقها بمصنع مشتقّ.
         foreach (var policy in new[] { "Auth", "Refresh", "CouponPreview", "Basket", "Export" })
             builder.UseSetting($"RateLimiting:{policy}:PermitLimit", "100000");

@@ -37,7 +37,7 @@ public class PaymentsAndRefundsTests
         var orderId = await PaidOrderAsync(_api, admin, customer, price: 20m);
 
         var payment = await PaymentAsync(_api, orderId);
-        (payment.Status, payment.Gateway, payment.Amount.Amount).Should().Be((PaymentStatus.Succeeded, FakeGateway.GatewayName, 20m));
+        (payment.Status, payment.Gateway, payment.Amount.Amount).Should().Be((PaymentStatus.Succeeded, DemoPaymentGateway.GatewayName, 20m));
 
         (await RefundAsync(admin, orderId, new { amount = 5m, reason = "منتج تالف" })).Should().Be(("Succeeded", 5m));
         (await ProblemAsync(await admin.PostAsJsonAsync($"/api/orders/{orderId}/refunds", new { amount = 20m })))
@@ -112,18 +112,18 @@ public class PaymentsAndRefundsTests
             type = "payment_intent.succeeded", paymentIntentId = intentId, orderReference = orderId.ToString(), tenantId = store.Tenant.Id,
         });
 
-        var forged = await PostWebhookAsync(_api.Anonymous(), payload, FakeGateway.Sign(payload, "not-the-secret"));
+        var forged = await PostWebhookAsync(_api.Anonymous(), payload, DemoPaymentGateway.Sign(payload, "not-the-secret"));
         (await ProblemAsync(forged)).Should().Be((HttpStatusCode.BadRequest, "InvalidSignature"));
         (await OrderStatusAsync(storeApi, orderId)).Should().Be(OrderStatus.Pending);
 
         // على مضيف المتجر الافتراضي (رابط حساب النشر الواحد)، والطلب في المتجر الآخر.
-        (await PostWebhookAsync(_api.Anonymous(), payload, FakeGateway.Sign(payload, SouqApiFactory.FakeWebhookSecret)))
+        (await PostWebhookAsync(_api.Anonymous(), payload, DemoPaymentGateway.Sign(payload, SouqApiFactory.DemoWebhookSecret)))
             .StatusCode.Should().Be(HttpStatusCode.OK);
         (await OrderStatusAsync(storeApi, orderId)).Should().Be(OrderStatus.Paid);
         (await PaymentAsync(storeApi, orderId)).Status.Should().Be(PaymentStatus.Succeeded);
 
         // تكرار الإشعار (على مضيف المتجر نفسه هذه المرة) بلا أثر ثانٍ.
-        (await PostWebhookAsync(storeApi.Anonymous(), payload, FakeGateway.Sign(payload, SouqApiFactory.FakeWebhookSecret)))
+        (await PostWebhookAsync(storeApi.Anonymous(), payload, DemoPaymentGateway.Sign(payload, SouqApiFactory.DemoWebhookSecret)))
             .StatusCode.Should().Be(HttpStatusCode.OK);
         (await storeApi.WithDbAsync(db => db.OrderStatusHistories.CountAsync(h => EF.Property<int>(h, "OrderId") == orderId
             && h.Status == OrderStatus.Paid))).Should().Be(1);
@@ -153,7 +153,7 @@ public class PaymentsAndRefundsTests
         {
             type = "payment_intent.succeeded", paymentIntentId = intentId, orderReference = orderId.ToString(), tenantId = store.Tenant.Id,
         });
-        (await PostWebhookAsync(storeApi.Anonymous(), payload, FakeGateway.Sign(payload, SouqApiFactory.FakeWebhookSecret)))
+        (await PostWebhookAsync(storeApi.Anonymous(), payload, DemoPaymentGateway.Sign(payload, SouqApiFactory.DemoWebhookSecret)))
             .StatusCode.Should().Be(HttpStatusCode.OK, "الإشعار يُقرّ به كي لا تعيد البوّابة إرساله إلى الأبد");
 
         (await OrderStatusAsync(storeApi, orderId)).Should().Be(OrderStatus.Cancelled, "الطلب لا يعود للحياة");
@@ -165,7 +165,7 @@ public class PaymentsAndRefundsTests
         (settled.RefundedAmount, settled.Refundable.Amount).Should().Be((25m, 0m));
 
         // تكرار الإشعار لا يسجّل قبضاً ثانياً ولا يغيّر شيئاً.
-        (await PostWebhookAsync(storeApi.Anonymous(), payload, FakeGateway.Sign(payload, SouqApiFactory.FakeWebhookSecret)))
+        (await PostWebhookAsync(storeApi.Anonymous(), payload, DemoPaymentGateway.Sign(payload, SouqApiFactory.DemoWebhookSecret)))
             .StatusCode.Should().Be(HttpStatusCode.OK);
         (await PaymentAsync(storeApi, orderId)).Refunds.Should().ContainSingle();
     }

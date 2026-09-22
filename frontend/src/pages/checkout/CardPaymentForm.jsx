@@ -52,11 +52,17 @@ function InnerForm({ order, onPaid }) {
   );
 }
 
-// تراجع صامت حين لا يكون Stripe مُهيّأً على الخادم: لا تحذير للمستخدم إطلاقاً —
-// الخادم يستخدم FakeGateway الذي يؤكّد الدفع تلقائياً، فنعرض زرّ إتمام
-// مباشراً يستدعي confirm-payment (يمرّ عبر البوّابة التجريبية وينجح). المتجر
-// يبقى قابلاً للاستخدام كاملاً بلا مفاتيح Stripe.
-function DirectPayForm({ order, onPaid }) {
+// ============================================================================
+// الدفعُ التجريبي (ADR-0063) — ويُعلَن، لا يُخفى.
+//
+// كان هذا المسار **تراجعاً صامتاً**: بلا مفاتيح مزوّدٍ على الخادم يظهر زرُّ إتمامٍ عاديّ، ولا
+// شيء يقول للمستخدم إنّ لا مالاً يتحرّك. وهو مقبولٌ في بيئة تطوير، **وغيرُ مقبولٍ في عرضٍ
+// عامّ**: شاشةُ دفعٍ لا تقول إنّها تجريبية تدّعي ضمناً أنّها ليست كذلك.
+//
+// فصار يُعلن نفسه، ويشرح كيف تُستدعى المسارات الأخرى: المبلغُ هو ما يختار النتيجة، فيستطيع
+// مَن يراجع المشروع أن يُظهر الرفضَ والانتظارَ والإلغاء بتغيير الكمّية وحدها.
+// ============================================================================
+function DemoPayForm({ order, onPaid }) {
   const { t } = useTranslation();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
@@ -65,14 +71,26 @@ function DirectPayForm({ order, onPaid }) {
     setBusy(true); setError(null);
     try {
       const confirmed = await api.confirmOrderPayment(order.orderId);
+      // حالةٌ غير «مدفوع» بلا خطأ: لا تقع اليوم، وتُقال صراحةً إن وقعت بدل أن تُبتلع.
       if (confirmed.status !== 'Paid') { setError(t('checkout.confirmFailed')); setBusy(false); return; }
       onPaid();
-    } catch (err) { setError(err.message); setBusy(false); }
+    } catch (err) {
+      // رسالةُ الخادم كما هي: «قيد المعالجة»، «بطاقة مرفوضة»، «أُلغيت» — ثلاثتها مسارات
+      // يعرضها المحوّل التجريبي عمداً، وعرضُها برسالةٍ واحدة عامّة يُخفي ما وُجدت لتُظهره.
+      setError(err.message); setBusy(false);
+    }
   };
 
   return (
     <div className={styles.panel}>
       <h2 className={styles.panelTitle}>{t('checkout.completeOrderTitle')}</h2>
+
+      <div className={styles.demoNotice} role="note">
+        <strong>{t('checkout.demo.title')}</strong>
+        <p>{t('checkout.demo.body')}</p>
+        <p className={styles.demoHint}>{t('checkout.demo.outcomes')}</p>
+      </div>
+
       {error && <ErrorBanner message={error} />}
       <Button variant="accent" size="lg" loading={busy} onClick={pay} className={styles.submit}>
         {t('checkout.payNow')}
@@ -119,7 +137,7 @@ export default function CardPaymentForm({ order, onPaid }) {
     );
   }
 
-  if (gateway.stripe === null) return <DirectPayForm order={order} onPaid={onPaid} />;
+  if (gateway.stripe === null) return <DemoPayForm order={order} onPaid={onPaid} />;
 
   const storeFonts = cardFonts(fontStylesheetUrl(config?.settings?.branding?.typography));
 

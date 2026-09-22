@@ -490,7 +490,7 @@ habit or chased in an incident — both expensive.
 
 | Line | Meaning |
 |---|---|
-| `بوّابة الدفع التجريبية مفعّلة صراحةً (Payments:Provider=Fake)` | Every payment "succeeds" and no money moves. Correct for a demo, never for customers. |
+| `بوّابة الدفع التجريبية مفعّلة صراحةً (Payments:Provider=Demo)` | Every payment "succeeds" and no money moves. Correct for a demo, never for customers. |
 | `Email:Provider=Log — لا تُرسَل أي رسالة` | Nothing is delivered. Registration, reset and order mails are written to the log only. |
 | `Secrets:ActiveKeyId غير مضبوط` | No store can connect its own payment account; everything would settle into the deployment's. |
 | `التطبيق متصل بالهوية 'sa'` | The runtime identity can change the schema. R-12 has the least-privilege recipe. |

@@ -54,7 +54,7 @@ The options marked "Chosen" above.
   - A declined order now holds its stock reservation until the checkout expiry window elapses, instead of releasing it at once. That is the mechanism abandoned checkouts already use, and the window is `Inventory:ReservationMinutes`.
   - `PaymentCapturedOnCancelledOrder` is a state a human must resolve; nothing sweeps for it. The log line names the order, and the register records it.
   - The webhook still answers 200 for it, because the gateway must stop retrying; the signal is the log line and the payment row, not the HTTP status.
-  - **Unverified against a real account.** Every state in this ADR is exercised against `FakeGateway` and reasoned from Stripe's documented intent lifecycle. The mapping of a real declined intent to `Retryable`, and of a real late capture, has not been observed on a live Stripe account — see [ReleaseReadiness.md](../09-OPERATIONS/ReleaseReadiness.md).
+  - **Unverified against a real account.** Every state in this ADR is exercised against `DemoPaymentGateway` and reasoned from Stripe's documented intent lifecycle. The mapping of a real declined intent to `Retryable`, and of a real late capture, has not been observed on a live Stripe account — see [ReleaseReadiness.md](../09-OPERATIONS/ReleaseReadiness.md).
 
 ## Revisit when
 

@@ -345,9 +345,9 @@ public static class DependencyInjection
         }
         else
         {
-            services.AddSingleton<Payments.FakeGatewayLedger>();
-            services.AddSingleton(sp => new Payments.DeploymentPaymentGateway(new Payments.FakeGateway(
-                sp.GetRequiredService<Payments.FakeGatewayLedger>(), config["Payments:Fake:WebhookSecret"])));
+            services.AddSingleton<Payments.DemoPaymentLedger>();
+            services.AddSingleton(sp => new Payments.DeploymentPaymentGateway(new Payments.DemoPaymentGateway(
+                sp.GetRequiredService<Payments.DemoPaymentLedger>(), config["Payments:Demo:WebhookSecret"])));
             if (!local)
                 report.Warn($"بوّابة الدفع التجريبية مفعّلة صراحةً ({PaymentProviderSelector.ConfigKey}=Fake): " +
                             "كل دفع يُعتبر ناجحاً بلا مال — للعرض التوضيحي فقط، لا زبائن حقيقيون.");

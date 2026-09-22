@@ -31,7 +31,7 @@ public class ValidationRuleTests
     private static readonly Dictionary<string, string> ReviewedWithoutValidator = new(StringComparer.Ordinal)
     {
         ["ProcessPaymentWebhookCommand"] =
-            "الجسم والتوقيع من الشبكة لا من مستخدم: التحقّق توقيعٌ مُعمّى (StripeGateway/FakeGateway) قبل قراءة أي معنى، "
+            "الجسم والتوقيع من الشبكة لا من مستخدم: التحقّق توقيعٌ مُعمّى (StripeGateway/DemoPaymentGateway) قبل قراءة أي معنى، "
             + "وحجمه محدود بـ [RequestSizeLimit] على النقطة (M15). مُحقِّقُ شكلٍ قبل ذلك لا يزيد شيئاً",
         ["ApplyPaymentEventCommand"] =
             "أمرٌ داخلي لا يصل من HTTP — يُرسله معالج الويبهوك بعد التحقّق من التوقيع",

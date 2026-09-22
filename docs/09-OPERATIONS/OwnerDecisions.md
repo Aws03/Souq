@@ -18,6 +18,45 @@
 > page stays canonical**: the brief summarises it and links back, and where the two differ this page wins.
 > **All eight of those questions were answered on 2026-09-21** — see the next section.
 
+## 2026-09-22 — the objective changed, and with it every remaining decision
+
+**Souq is now being finished as a portfolio-quality demonstration of a commercial SaaS architecture, not
+launched as a commercial SaaS business.** The owner stated this directly and delegated the remaining decisions
+to engineering, under principles recorded here so that anyone reading later can check the reasoning rather than
+take it on trust:
+
+> portfolio value first · engineering correctness second · no unnecessary paid or external service · no real
+> financial or legal claims · prefer local deterministic implementations · prefer reversible decisions ·
+> preserve the architecture a real deployment would need · never fake an integration that does not exist ·
+> document the demo limitations plainly.
+
+**What this does not change.** Every architectural constraint in this repository stands: tenant isolation,
+fail-closed defaults, the ports that keep providers out of the core, the audit trail, the money rules. The
+objective changed; the engineering standard did not. What changed is *which adapter sits behind each port*, and
+that is precisely the choice a port exists to make cheap.
+
+**What this does change.** Eight decisions that were blocked on a purchase, a contract, or a professional
+opinion are now answered in **portfolio mode** — each one honest about what it is, each one leaving the seam a
+real deployment would use.
+
+| Decision | Portfolio answer | What stays open for a real deployment |
+|---|---|---|
+| `C-01` / `C12` — payment provider | **A local deterministic demo adapter** ([ADR-0063](../11-ADR/0063-the-demo-payment-adapter.md)). No account, no contract, no card, no money. | Choosing and contracting a real provider, and writing its adapter behind the unchanged port |
+| `D-18` / `C4` — file storage | **The local filesystem provider already in the repository** is the chosen implementation, not a placeholder | Cloud object storage, which is a DI swap plus a shared mount |
+| `C-11` / `C7` — custom domains | **Ownership verification, implemented and load-bearing. No certificate automation.** Neither a managed edge nor a self-run ACME client is purchased or run | The certificate half: a managed edge or an ACME client, and the storage and locking it needs |
+| `C-18` / `C14` — extension model | **Webhooks only; customer code is never executed.** This was always the recommended answer in [ADR-0052](../11-ADR/0052-bounded-extension-model.md); portfolio mode makes it easy to take | A sandbox, if a customer ever justifies one — a platform, with its own record |
+| `C-09` / `C10` — pooling behaviour across tenants | **Never.** Correct by construction, simplest to put in a contract, and every tenant starts cold either way | Nothing. This answer is the one a real deployment should also give |
+| `C-08` sub-answers — lawful basis, retention, residency | **None claimed, so capture stays off.** A public demonstration must not quietly collect identifiers from people looking at a portfolio | All three, before a single row is written in a real deployment |
+| `P-06` — tax values | **Demo profiles, marked unverified, with no invented rate.** The capability is real; the numbers are examples | A named professional verifying real values for a real jurisdiction |
+| Email and SMS delivery | **A local sink. Nothing is sent by default.** | An SMTP or provider account, behind the existing `IEmailSender` |
+
+**The honest summary, and the one a reviewer should take away:** the engineering system is complete and
+demonstrable end to end. A real commercial deployment would need external infrastructure, provider contracts and
+legal review — none of which is faked here, and all of which has a seam waiting.
+
+Everything below this section predates the change and is kept because the reasoning still holds; where an entry
+says a decision is *blocking*, read it together with the table above.
+
 ## How to read the blocking columns
 
 | Column | Means |

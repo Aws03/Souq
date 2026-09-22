@@ -74,7 +74,7 @@ A system can be a *modular monolith* (deployment) that follows the *Clean* depen
   - It treats driving adapters (HTTP, webhooks, background jobs, CLI) and driven adapters (DB, Stripe, email, storage) symmetrically.
 - **Introduces:** vocabulary and indirection. If every class gets a port, it becomes abstraction for its own sake.
 - **Operational and development complexity:** low, if ports exist only at real variation points.
-- **Testing:** fakes for driven ports (e.g. `FakeGateway` for payments, `CapturingEmailSender` in tests). Driving adapters stay thin.
+- **Testing:** fakes for driven ports (e.g. `DemoPaymentGateway` for payments, `CapturingEmailSender` in tests). Driving adapters stay thin.
 - **Database:** the database is just one driven adapter.
 - **Multi-tenancy:** tenant resolution is a driving concern (from the host header); tenant storage and routing is a driven one. Both are clean adapters.
 - **Team size, deployment, scaling:** neutral.

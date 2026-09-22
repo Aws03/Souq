@@ -260,7 +260,12 @@
       "unavailable": "No delivery method serves this address.",
       "needsSavedAddress": "Delivery depends on the country: choose a saved address, or add one in your account."
     },
-    "orderPlacedNote": "Order #{{number}} is being held for you and nothing has been charged yet. If you need to change something, cancel it from My orders and start again."
+    "orderPlacedNote": "Order #{{number}} is being held for you and nothing has been charged yet. If you need to change something, cancel it from My orders and start again.",
+    "demo": {
+      "title": "Demo payment — no real money",
+      "body": "This store runs a local demo payment adapter. No card is collected, no provider is contacted, and nothing is charged.",
+      "outcomes": "The order total decides the outcome: ending …01 is declined (retry works), …02 stays processing, …03 is cancelled at the gateway, anything else succeeds."
+    }
   },
   "confirmation": {
     "title": "Your order was received successfully",

@@ -16,10 +16,12 @@ public class ConfigurationTests
     private const string ValidKey = "configuration-tests-only-signing-key-0123456789abcdef";
 
     [Theory]
-    [InlineData(null, null, "Development", PaymentProvider.Fake)]
-    [InlineData(null, null, "Testing", PaymentProvider.Fake)]
+    [InlineData(null, null, "Development", PaymentProvider.Demo)]
+    [InlineData(null, null, "Testing", PaymentProvider.Demo)]
     [InlineData(null, "sk_test_x", "Production", PaymentProvider.Stripe)]
-    [InlineData("Fake", null, "Production", PaymentProvider.Fake)]
+    [InlineData("Demo", null, "Production", PaymentProvider.Demo)]
+    // الاسم القديم يبقى مقبولاً: إعدادٌ مكتوب قبل إعادة التسمية لا يُسقط إقلاعاً.
+    [InlineData("Fake", null, "Production", PaymentProvider.Demo)]
     [InlineData("stripe", "sk_test_x", "Staging", PaymentProvider.Stripe)]
     public void اختيار_بوّابة_الدفع_صريح_خارج_التطوير(string? configured, string? key, string environment, PaymentProvider expected)
     {

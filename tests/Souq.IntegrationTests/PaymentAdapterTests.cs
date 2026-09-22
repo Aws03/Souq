@@ -99,15 +99,15 @@ public class SecretProtectorTests
     }
 }
 
-public class FakeGatewayTests
+public class DemoPaymentGatewayTests
 {
-    private const string Secret = "fake-webhook-secret";
-    private readonly FakeGatewayLedger _ledger = new();
+    private const string Secret = "demo-webhook-secret";
+    private readonly DemoPaymentLedger _ledger = new();
 
     [Fact]
     public async Task الاسترداد_بالمفتاح_نفسه_يعيد_الاسترداد_نفسه()
     {
-        var gateway = new FakeGateway(_ledger, null);
+        var gateway = new DemoPaymentGateway(_ledger, null);
         var amount = new Money(10, "JOD");
 
         var first = await gateway.RefundAsync("pi_fake_1", amount, "souq-refund-1-7", CancellationToken.None);
@@ -122,19 +122,84 @@ public class FakeGatewayTests
     [Fact]
     public void الإشعار_التجريبي_يُقبل_موقَّعاً_فقط_ويحمل_متجره()
     {
-        var gateway = new FakeGateway(_ledger, Secret);
+        var gateway = new DemoPaymentGateway(_ledger, Secret);
         var payload = JsonSerializer.Serialize(new
         {
             type = "payment_intent.succeeded", paymentIntentId = "pi_fake_1", orderReference = "42", tenantId = 7,
         });
 
-        gateway.ParseWebhook(payload, FakeGateway.Sign(payload, Secret)).Should().Be(new GatewayWebhookEvent("pi_fake_1", "42", 7));
-        gateway.Invoking(g => g.ParseWebhook(payload, FakeGateway.Sign(payload, "another-secret")))
+        gateway.ParseWebhook(payload, DemoPaymentGateway.Sign(payload, Secret)).Should().Be(new GatewayWebhookEvent("pi_fake_1", "42", 7));
+        gateway.Invoking(g => g.ParseWebhook(payload, DemoPaymentGateway.Sign(payload, "another-secret")))
             .Should().Throw<InvalidPaymentWebhookException>();
         gateway.Invoking(g => g.ParseWebhook(payload, null)).Should().Throw<InvalidPaymentWebhookException>();
 
         var unrelated = JsonSerializer.Serialize(new { type = "charge.refunded", orderReference = "42" });
-        gateway.ParseWebhook(unrelated, FakeGateway.Sign(unrelated, Secret)).Should().BeNull();
-        new FakeGateway(_ledger, null).ParseWebhook(payload, "anything").Should().BeNull("بلا سرّ لا إشعارات");
+        gateway.ParseWebhook(unrelated, DemoPaymentGateway.Sign(unrelated, Secret)).Should().BeNull();
+        new DemoPaymentGateway(_ledger, null).ParseWebhook(payload, "anything").Should().BeNull("بلا سرّ لا إشعارات");
+    }
+
+    // ========================================================================
+    // النتائجُ الحتميّة (ADR-0063) — وهي **جوهرُ قيمة محوّل العرض**: عرضٌ يُظهر النجاح وحده
+    // لا يُظهر شيئاً. والحتميّةُ شرطٌ لا زينة: مولّدٌ عشوائيّ يجعل العرض غير قابل للتكرار
+    // واختبارَه غير قابل للكتابة.
+    // ========================================================================
+    [Theory]
+    [InlineData(10.001, PaymentIntentState.Retryable)]   // …01 ⇒ مرفوضة، والطلب يبقى معلّقاً
+    [InlineData(10.002, PaymentIntentState.Processing)]  // …02 ⇒ قيد المعالجة
+    [InlineData(10.003, PaymentIntentState.Cancelled)]   // …03 ⇒ ملغاة لدى البوّابة
+    [InlineData(10.000, PaymentIntentState.Succeeded)]
+    [InlineData(25.500, PaymentIntentState.Succeeded)]
+    public async Task المبلغ_يختار_المسار_ونتيجته_تُقرأ_من_المعرّف(decimal amount, PaymentIntentState expected)
+    {
+        var gateway = new DemoPaymentGateway(_ledger, Secret);
+
+        var intent = await gateway.CreateIntentAsync(
+            Money.FromCalculation(amount, "JOD"), "ORD-1", tenantId: 1, CancellationToken.None);
+        var confirmation = await gateway.ConfirmAsync(intent.PaymentIntentId, CancellationToken.None);
+
+        confirmation.State.Should().Be(expected);
+    }
+
+    // التأكيدُ دالّةٌ نقيّة: لا دفترَ نتائجَ ولا حالةَ مخزَّنة، فتأكيدان يعطيان الجواب نفسه
+    // بالضرورة — وعلى ذلك يقوم سباقُ «العميل ضدّ الإشعار» في `OrderPaymentConfirmation`.
+    [Fact]
+    public async Task التأكيد_متماثل_الاستدعاء_مهما_تكرّر()
+    {
+        var gateway = new DemoPaymentGateway(_ledger, Secret);
+        var intent = await gateway.CreateIntentAsync(
+            Money.FromCalculation(10.001m, "JOD"), "ORD-1", 1, CancellationToken.None);
+
+        var first = await gateway.ConfirmAsync(intent.PaymentIntentId, CancellationToken.None);
+        var second = await gateway.ConfirmAsync(intent.PaymentIntentId, CancellationToken.None);
+
+        second.State.Should().Be(first.State);
+    }
+
+    // معرّفٌ لا يحمل ختماً (نيّةٌ من إصدارٍ أقدم، أو نصٌّ غريب) يُقرأ نجاحاً بدل أن يرمي:
+    // بوّابةُ عرضٍ تُسقط طلباً بسبب شكل معرّف تُفسد العرض الذي وُجدت لأجله.
+    [Fact]
+    public async Task معرّف_بلا_ختم_يُقرأ_نجاحاً_ولا_يرمي()
+    {
+        var gateway = new DemoPaymentGateway(_ledger, Secret);
+
+        var confirmation = await gateway.ConfirmAsync("pi_legacy", CancellationToken.None);
+
+        confirmation.State.Should().Be(PaymentIntentState.Succeeded);
+    }
+
+    // **لا رقم بطاقة ولا اعتماد في أيّ مخرَج**: هذا محوّلُ عرضٍ، وادّعاءُ غير ذلك هو ما يمنعه
+    // هذا الاختبار من أن يتسلّل لاحقاً.
+    [Fact]
+    public async Task لا_يُخرج_المحوّل_شيئاً_يشبه_بطاقة_أو_سرّاً()
+    {
+        var gateway = new DemoPaymentGateway(_ledger, Secret);
+
+        var intent = await gateway.CreateIntentAsync(
+            Money.FromCalculation(10m, "JOD"), "ORD-1", 1, CancellationToken.None);
+
+        intent.PaymentIntentId.Should().StartWith("pi_demo_");
+        intent.ClientSecret.Should().NotContain(Secret);
+        intent.PaymentIntentId.Should().NotMatchRegex(@"\d{13,19}");
+        gateway.PublishableKey.Should().BeNull("لا مفتاح علنيّ: لا مزوّد خلفها");
     }
 }

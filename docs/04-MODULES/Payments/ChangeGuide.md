@@ -22,7 +22,7 @@
 
 ## I need to add a payment provider
 
-- **Inspect:** `IPaymentGateway`, `StripeGateway`, `FakeGateway`, `DeploymentPaymentGateway`, `PaymentGatewayRouter`, `PaymentProviderSelector`, `AddPayments` in `src/Souq.Infrastructure/DependencyInjection.cs`, `StripeAmountConverter`, `frontend/src/pages/checkout/stripeClient.js` and `CardPaymentForm.jsx`.
+- **Inspect:** `IPaymentGateway`, `StripeGateway`, `DemoPaymentGateway`, `DeploymentPaymentGateway`, `PaymentGatewayRouter`, `PaymentProviderSelector`, `AddPayments` in `src/Souq.Infrastructure/DependencyInjection.cs`, `StripeAmountConverter`, `frontend/src/pages/checkout/stripeClient.js` and `CardPaymentForm.jsx`.
 - **Rules to respect:** everything provider-specific stays in Infrastructure — `DependencyRuleTests` fails if Domain, Application or a controller references a provider SDK. The adapter serves **one account** and receives its keys; choosing the account is the router's job. `Name` must be a stable string, because it is written on every payment row and later decides where refunds go — and the router currently treats any name other than `stripe:store` as the deployment account, which is the first thing to revisit for a second provider. Webhook signature verification belongs in the adapter and nowhere else.
 - **Steps:**
   1. Implement `IPaymentGateway` for the provider, including `ParseWebhook` returning a `GatewayWebhookEvent` with the order reference and the store id from the intent's metadata, and minor-unit conversion for its API.
@@ -30,7 +30,7 @@
   3. Register it in `AddPayments` as the `DeploymentPaymentGateway`, and decide whether a *store* account for it exists: if so, `PaymentGatewayRouter.StoreAsync` and `StorePaymentAccount` need a provider dimension — today `Provider` is set to `StorePaymentAccount.Stripe` and never varies, and `PaymentKeyRules` hard-codes Stripe key shapes.
   4. Teach `ForIntentAsync` to route by the recorded name instead of "store versus everything else".
   5. Front end: `GET /api/payments/config` returns only a publishable key today; a provider needing more will change `PaymentClientConfig` and the checkout page.
-- **Tests:** an adapter test beside `FakeGatewayTests` in `tests/Souq.IntegrationTests/PaymentAdapterTests.cs`; extend `tests/Souq.IntegrationTests/ConfigurationTests.cs` for the selection rules; `tests/Souq.Application.Tests/Payments/OrderPaymentsTests.cs` should still pass untouched — if it doesn't, the abstraction leaked.
+- **Tests:** an adapter test beside `DemoPaymentGatewayTests` in `tests/Souq.IntegrationTests/PaymentAdapterTests.cs`; extend `tests/Souq.IntegrationTests/ConfigurationTests.cs` for the selection rules; `tests/Souq.Application.Tests/Payments/OrderPaymentsTests.cs` should still pass untouched — if it doesn't, the abstraction leaked.
 - **API:** no new route; `/api/payments/webhook` stays one endpoint, and the adapter decides whether a payload is its own.
 - **Database:** a migration only if store accounts gain a provider column or provider-specific fields.
 - **Security:** new secrets follow the existing path — configuration for the deployment account, `ISecretProtector` with a new purpose for store accounts; add the key shapes to the rules so a wrong key is refused before it is stored.
@@ -100,14 +100,14 @@ For example adopting Stripe Connect, or requiring every store to connect its own
 
 For example refund events, or disputes.
 
-- **Inspect:** `StripeGateway.ParseWebhook`, `GatewayWebhookEvent`, `PaymentWebhookEvent`, `PaymentGatewayRouter.ParseWebhookAsync`, `ProcessPaymentWebhookHandler` and `ApplyPaymentEventHandler` (both in [Ordering](../Ordering/README.md)), `FakeGateway.ParseWebhook` and `FakeGateway.Sign`.
+- **Inspect:** `StripeGateway.ParseWebhook`, `GatewayWebhookEvent`, `PaymentWebhookEvent`, `PaymentGatewayRouter.ParseWebhookAsync`, `ProcessPaymentWebhookHandler` and `ApplyPaymentEventHandler` (both in [Ordering](../Ordering/README.md)), `DemoPaymentGateway.ParseWebhook` and `DemoPaymentGateway.Sign`.
 - **Rules to respect:** the event's payload is never trusted on its own — the current design re-asks the gateway for the truth, which is what makes store-id metadata harmless. Verification stays in the adapter; routing between stores stays in the handler. A store-signed event must never be applied to another store. Unknown events are acknowledged with 200, so the gateway stops retrying.
 - **Steps:**
   1. Widen `GatewayWebhookEvent` (or add a sibling) so the event kind survives the adapter, and keep returning `null` for events we don't care about.
   2. For a refund event, the natural home is a new Payments use case that settles the matching `Refund` by provider refund id — it is the missing half of "a pending refund needs a manual retry". Keep `Payment.CompleteRefund` and `FailRefund` as the only way to change the amounts, since both are idempotent.
   3. Keep the handler's tenant routing intact: resolve the store, then run the work in its scope.
   4. Add the event to the fake gateway so tests can sign and send it.
-- **Tests:** `tests/Souq.Application.Tests/Orders/ProcessPaymentWebhookHandlerTests.cs` for routing and rejection; `tests/Souq.IntegrationTests/PaymentsAndRefundsTests.cs` for a signed event applied end to end; `FakeGatewayTests` for the signature.
+- **Tests:** `tests/Souq.Application.Tests/Orders/ProcessPaymentWebhookHandlerTests.cs` for routing and rejection; `tests/Souq.IntegrationTests/PaymentsAndRefundsTests.cs` for a signed event applied end to end; `DemoPaymentGatewayTests` for the signature.
 - **API:** the endpoint and its 200-on-unknown behaviour stay as they are.
 - **Database:** none for refunds; a new concept (a dispute) needs a table and an owner module.
 - **Security:** never widen the endpoint's trust: no branch may act on the payload without verification, and the webhook stays anonymous-but-signed in the reviewed public list in `AuthorizationBoundaryTests`.

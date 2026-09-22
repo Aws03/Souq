@@ -197,12 +197,12 @@ Selection is decided once by `PaymentProviderSelector` (`src/Souq.Infrastructure
 | `Stripe:PublishableKey` | empty | when Stripe runs **outside Development** | no (it is meant for the browser; served by `GET /api/payments/config`) | |
 | `Stripe:WebhookSecret` | empty | no (strongly recommended) | **yes** | missing ⇒ startup warning; webhook events are then acknowledged without action |
 | `Payments:AllowTestModeStoreAccounts` | `false` | no | no | outside local, allows stores to save Stripe **test** keys; logs a warning |
-| `Payments:Fake:WebhookSecret` | empty | no | **yes** in spirit | HMAC secret that lets the fake gateway accept signed test webhooks. Development and tests only |
+| `Payments:Demo:WebhookSecret` | empty | no | **yes** in spirit | HMAC secret that lets the fake gateway accept signed test webhooks. Development and tests only |
 
 Messages:
 
 ```text
-لا بوّابة دفع مضبوطة في بيئة {Environment}: اضبط Stripe:SecretKey، أو Payments:Provider=Fake صراحةً لعرض توضيحي بلا دفع حقيقي.
+لا بوّابة دفع مضبوطة في بيئة {Environment}: اضبط Stripe:SecretKey، أو Payments:Provider=Demo صراحةً لعرض توضيحي بلا دفع حقيقي.
 Payments:Provider=Stripe لكن Stripe:SecretKey غير مضبوط.
 Payments:Provider غير معروف: '{Value}' (المسموح: Stripe أو Fake).
 Stripe:SecretKey مطلوب حين تعمل بوّابة Stripe.
@@ -212,7 +212,7 @@ Stripe:PublishableKey مطلوب خارج Development — بدونه لا تعر
 Startup warnings:
 
 ```text
-بوّابة الدفع التجريبية مفعّلة صراحةً (Payments:Provider=Fake): كل دفع يُعتبر ناجحاً بلا مال — للعرض التوضيحي فقط، لا زبائن حقيقيون.
+بوّابة الدفع التجريبية مفعّلة صراحةً (Payments:Provider=Demo): كل دفع يُعتبر ناجحاً بلا مال — للعرض التوضيحي فقط، لا زبائن حقيقيون.
 Stripe:WebhookSecret غير مضبوط — تأكيد الدفع يعتمد على متصفّح العميل وحده؛ طلب يُغلق صاحبه الصفحة قبل التأكيد يبقى معلّقاً.
 Payments:AllowTestModeStoreAccounts مفعّل: متجر بمفاتيح Stripe تجريبية يقبل بطاقات الاختبار بلا مال حقيقي.
 ```
@@ -221,7 +221,7 @@ These keys configure the **deployment account**. A store that connects its own S
 
 **Currency caveat (P-05):** `StripeAmountConverter` sends every currency except a fixed zero-decimal list as ×100. JOD is a three-decimal currency that Stripe's documentation does not list as a special case; confirm the multiplier on the real account before taking live JOD payments, because a wrong multiplier charges a tenth of the price.
 
-docker-compose: `Payments__Provider`, `Stripe__SecretKey`, `Stripe__PublishableKey`, `Stripe__WebhookSecret`, `Payments__AllowTestModeStoreAccounts` (`.env`: `PAYMENTS_PROVIDER`, `STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET`, `PAYMENTS_ALLOW_TEST_MODE_STORE_ACCOUNTS`). `Payments:Fake:WebhookSecret` is not exposed by compose, by design.
+docker-compose: `Payments__Provider`, `Stripe__SecretKey`, `Stripe__PublishableKey`, `Stripe__WebhookSecret`, `Payments__AllowTestModeStoreAccounts` (`.env`: `PAYMENTS_PROVIDER`, `STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET`, `PAYMENTS_ALLOW_TEST_MODE_STORE_ACCOUNTS`). `Payments:Demo:WebhookSecret` is not exposed by compose, by design.
 
 ## 10. Secrets (the key that encrypts stores' own keys)
 
@@ -368,7 +368,7 @@ Honest list of what a wrong value does **not** stop at startup:
 
 ## 15. Configuration in the test suites
 
-`SouqApiFactory` builds the real `Program` against SQL Server in Testcontainers with: the container's connection string, a long `Jwt:Key`, explicit seed accounts (so the test exercises the production seeding path), a temporary `Storage:Local:RootPath`, all three background intervals set to `0`, a `Secrets` key pair, `Payments:Fake:WebhookSecret`, and rate limits raised to 100000. It runs as `Testing`, which keeps the fake gateway and log-only email legal without touching developer secrets.
+`SouqApiFactory` builds the real `Program` against SQL Server in Testcontainers with: the container's connection string, a long `Jwt:Key`, explicit seed accounts (so the test exercises the production seeding path), a temporary `Storage:Local:RootPath`, all three background intervals set to `0`, a `Secrets` key pair, `Payments:Demo:WebhookSecret`, and rate limits raised to 100000. It runs as `Testing`, which keeps the fake gateway and log-only email legal without touching developer secrets.
 
 ## 16. Related documents
 

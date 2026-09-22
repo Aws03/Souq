@@ -613,7 +613,7 @@ Status legend: ✅ done · 🟡 in progress · ⏳ planned · ⏸ awaiting appro
     - five parallel refunds never exceed the payment (integration);
     - duplicate webhooks and confirmations change nothing twice.
   - **No card data is ever stored.** `PaymentDataRulesTests` scans the whole EF model for card-like columns and pins the payment tables' columns.
-  - **Swapping the gateway needs no Application change.** Application sees only `IPaymentService`; the adapters (`StripeGateway`, `FakeGateway`) sit behind the Infrastructure router. Architecture tests keep the Stripe SDK in Infrastructure.
+  - **Swapping the gateway needs no Application change.** Application sees only `IPaymentService`; the adapters (`StripeGateway`, `DemoPaymentGateway`) sit behind the Infrastructure router. Architecture tests keep the Stripe SDK in Infrastructure.
 - **Scope.**
   - `IPaymentGateway`: create intent, confirm, refund (full or partial), and parse webhooks.
   - `Payment` and `Refund` entities.

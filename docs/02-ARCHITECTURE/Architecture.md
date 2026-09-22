@@ -230,7 +230,7 @@ Every integration — payments, email and storage — follows the same rules. Sh
 
 1. **A port exists only at a real boundary:** an external system, or a technology with real variants (payment gateway, email provider, file storage, password hashing, token issuing, current user). A concrete application service with one implementation gets no interface (`OrderPaymentConfirmation`, `CustomerErasure`, `BasketResolver`). The clock is .NET's own `TimeProvider`.
 2. **Ports speak our language:** `Money`, `Stream`, records. No provider SDK type appears in a port, and provider exceptions are translated at the adapter (`InvalidPaymentWebhookException`, `ConcurrencyConflictException`).
-3. **Every adapter has a stand-in** for development and tests (`FakeGateway` for payments, the log email sender, the capturing test doubles). Stand-ins are selected implicitly only in Development/Testing ([ADR-0020](../11-ADR/0020-configuration-and-secrets.md)).
+3. **Every adapter has a stand-in** for development and tests (`DemoPaymentGateway` for payments, the log email sender, the capturing test doubles). Stand-ins are selected implicitly only in Development/Testing ([ADR-0020](../11-ADR/0020-configuration-and-secrets.md)).
 4. **Adapter settings are typed options validated at startup;** secrets are never logged, and provider errors are logged with masked data and truncated bodies.
 5. **HTTP adapters** use `IHttpClientFactory` with a timeout. Calls happen **outside** database transactions ([ADR-0021](../11-ADR/0021-transaction-boundaries.md)).
 6. **Tenant awareness enters inside adapters** (storage key prefix, per-tenant gateway keys, sender identity) without changing the ports.

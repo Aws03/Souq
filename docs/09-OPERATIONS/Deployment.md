@@ -97,7 +97,7 @@ Nothing is shared between processes except the database. Anything below is per i
 | `TenantDirectoryCache` (host → store, store config) | 60 s for hits, 15 s for misses, plus explicit invalidation | a store change (suspend, domain, modules) applies instantly on the instance that made it and within ~60 s elsewhere |
 | `SessionStampCache` | 30 s | a disabled account or a password change can still be accepted by another instance for up to 30 s |
 | Rate-limiter windows | in memory | effective limits multiply by the number of instances |
-| `FakeGatewayLedger` (fake gateway only) | process lifetime | refund idempotency is per process; irrelevant with Stripe |
+| `DemoPaymentLedger` (fake gateway only) | process lifetime | refund idempotency is per process; irrelevant with Stripe |
 | Uploaded files | local disk | see §7 |
 
 ## 5. Logging and correlation

@@ -31,7 +31,7 @@ How should configuration be structured, validated and classified so that missing
    |---|---|
    | `ConnectionStrings:Default` | present |
    | `Jwt:Key` / `Jwt:Issuer` / `Jwt:Audience` / `Jwt:ExpiryMinutes` | key ≥ 32 bytes (HS256), issuer and audience present, expiry 5–1440 min |
-   | Payment provider | Stripe key, or `Payments:Provider=Fake` explicitly (outside Development/Testing) |
+   | Payment provider | Stripe key, or `Payments:Provider=Demo` explicitly (outside Development/Testing) |
    | `Stripe:*` when Stripe is selected | secret key; publishable key outside Development |
    | `Storage:Local:RootPath` | absolute (defaults to `wwwroot/uploads`) |
 3. **Development conveniences run implicitly only in Development and Testing:** the fake payment gateway, reset links in the console log, the dev admin. Elsewhere the fake gateway must be requested explicitly and is logged as a warning at every start.
