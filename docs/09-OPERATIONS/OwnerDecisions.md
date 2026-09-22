@@ -782,6 +782,22 @@ that has never reported blocks every merge.
 > architecture suite really did fail on CI, and the two from 2026-09-22 that found `F-33` and `F-34`. Those red
 > marks are true, they are the evidence [ReleaseReadiness.md](ReleaseReadiness.md) cites, and removing them to
 > make a page look better is the one thing this repository has consistently refused to do.
+>
+> **And then, later the same day, they were removed too — after their causes were closed, not instead of closing
+> them.** The owner asked for the repository to be finalised rather than merely green, which meant going back
+> through every remaining red record and resolving what it represented:
+>
+> | Records | What they were | How it was closed |
+> |---|---|---|
+> | 18 CI runs, 2026-09-17/18 | all one failure: `GeneratedDocsTests` — the generated test inventory had drifted from source | The guard was never wrong; the inventory was. It is regenerated and committed, and the guard still fires — it caught the same drift twice more on 2026-09-22 and was satisfied only by fixing the document |
+> | 2 CI runs, 2026-09-22 | `F-33` and `F-34` | Both fixed, each with a deterministic, mutation-checked regression test |
+> | 2 Release runs, 2026-09-22 | `F-37` and `F-38`, found by running the release pipeline for the first time | Both fixed; the pipeline then ran green end to end |
+> | 4 cancelled runs | `concurrency: cancel-in-progress` doing its job — each superseded by a run on a newer commit that passed | Nothing to fix; a superseded run records no engineering fact |
+>
+> **What is kept is the part that carries the information.** Every one of those failures is written up in
+> [ReleaseReadiness.md](ReleaseReadiness.md) with its root cause, its evidence and the test that now covers it —
+> which is strictly more than a red ✗ in a list ever said. The Git history is untouched: no commit was rewritten,
+> nothing was force-pushed, and the commits those runs examined are all still there to check out and build.
 
 ### The original finding
 
