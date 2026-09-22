@@ -1,5 +1,5 @@
 import { Suspense } from 'react';
-import { Link, Outlet } from 'react-router-dom';
+import { Link, Outlet, useOutletContext } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { storeName, storeStatusKey, storefrontIsOpen } from './tenantModel';
 import { useStoreConfig } from './TenantProvider';
@@ -40,8 +40,18 @@ export function StoreClosedNotice() {
 
 // بوّابة صفحات التسوّق: مفتوحة ⇒ الصفحة كما هي، مغلقة ⇒ الإشعار. مسارٌ بلا مسار (pathless) كي
 // يكون الشرط في مكان واحد بدل أن يُنسخ على كل صفحة — ونسيانُه على صفحةٍ واحدة هو العطب كلّه.
+//
+// **والسياق يُمرَّر صراحةً، وهذا ليس تزيّناً.** `useOutlet(context)` في react-router يلفّ أبناءه
+// بمزوّدٍ **دائماً**، بقيمة الوسيط — و`<Outlet />` بلا وسيط قيمتُه `undefined`. فبوّابةٌ بلا
+// مسارٍ بين التخطيط والصفحة كانت **تمحو** ما يضعه التخطيط، ويصل إلى `useOutletContext()` في
+// الصفحة لا شيء. وأثرُه ليس خفيّاً: الرئيسية و«العروض» تفكّان `showToast` من `undefined`،
+// فتسقطان إلى حاجز الأخطاء — أي أنّ واجهة المتجر كانت **مكسورة لكلّ زائر**.
+//
+// أمسكه `storefront.spec.js` على حزمةٍ أُعيد بناؤها من الصفر، لا اختبارُ وحدة: الوحداتُ تركّب
+// الصفحة تحت مزوّدٍ تكتبه هي، فلا يوجد فيها بوّابةٌ تمحو شيئاً.
 export function StorefrontGate() {
-  return storefrontIsOpen(useStoreConfig()) ? <Outlet /> : <StoreClosedNotice />;
+  const context = useOutletContext();
+  return storefrontIsOpen(useStoreConfig()) ? <Outlet context={context} /> : <StoreClosedNotice />;
 }
 
 // قشرة صغيرة لمتجر مغلق: بلا شريط تنقّل ولا سلّة ولا بحث — كلّها تنادي نقاطاً يردّها الخادم 503،
