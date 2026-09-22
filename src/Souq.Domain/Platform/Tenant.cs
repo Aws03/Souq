@@ -125,6 +125,15 @@ public partial class Tenant : Entity
             policies: policies);
     }
 
+    // ترتيبُ أقسام الرئيسية وتفعيلُها (C8). دالّةٌ مستقلّة لا وسيطٌ سادس على `UpdateStorefront`:
+    // ذاك يصف **محتوى** الواجهة، وهذا يصف **تخطيطها** — والفصلُ يُبقي لكلٍّ منهما تحقّقَه ومساره
+    // في سجلّ التدقيق. و`null` تعني «لم أذكرها» فتبقى كما هي، كما في الروابط.
+    public void UpdateSections(StoreSections? sections)
+    {
+        if (sections is null) return;
+        _settings = Settings.With(sections: sections);
+    }
+
     public void UpdateBranding(BrandColors colors, string typography, string themePreset,
         string? themeMode = null, StoreOpening? opening = null) =>
         _settings = Settings.With(branding: Settings.Branding.WithStyle(colors, typography, themePreset, themeMode, opening));

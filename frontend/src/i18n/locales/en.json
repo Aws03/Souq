@@ -1204,6 +1204,18 @@
         "shipping": "Shipping policy",
         "faq": "FAQ",
         "hint": "A full https link, up to {{max}} characters"
+      },
+      "sections": "Home page sections",
+      "sectionsHint": "The order shoppers see, top to bottom. Turn a section off to hide it; the catalog cannot be hidden.",
+      "sectionRequired": "(always shown)",
+      "sectionMoveUp": "Move {{name, bidi}} up",
+      "sectionMoveDown": "Move {{name, bidi}} down",
+      "sectionOption": {
+        "hero": "Banner",
+        "featured": "Featured product",
+        "newArrivals": "New arrivals",
+        "offers": "Offers",
+        "catalog": "Full catalog"
       }
     },
     "staff": {

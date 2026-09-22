@@ -8,7 +8,8 @@ import Skeleton from '../common/Skeleton';
 import { ErrorBanner } from '../common/StateViews';
 import { TrashIcon } from '../icons/Icons';
 import {
-  COLOR_FIELDS, buildSettingsPayload, colorChecks, hasChanges, previewBranding, problemFor, settingsProblems,
+  COLOR_FIELDS, buildSettingsPayload, colorChecks, hasChanges, moveSection, previewBranding, problemFor,
+  settingsProblems, toggleSection,
   settingsToForm,
 } from '../../features/admin/settings/settingsForm';
 import BrandingAssetField from './BrandingAssetField';
@@ -281,6 +282,43 @@ export default function StoreSettingsEditor({ source, actions = null, onDirtyCha
                   ))}
                 </div>
                 <span className={styles.hint}>{t('admin.settings.themeModeHint')}</span>
+              </fieldset>
+
+              {/* ==========================================================
+                  ترتيبُ أقسام الرئيسية (C8، ADR-0060). زرّان بخطوةٍ واحدة لا سحبٌ وإفلات:
+                  السحبُ يحتاج بديلاً بلوحة المفاتيح وقارئَ شاشةٍ يفهمه، وزرٌّ بعنوانٍ صريح
+                  يعمل لكلّ مُدخَلٍ بلا ذلك. والقائمةُ عموديّة، فلا «يمين/يسار» يقلبه اتجاهُ
+                  الصفحة — والترتيبُ يُقرأ «الأوّل فالثاني» في العربية والإنجليزية معاً.
+                  ========================================================== */}
+              <fieldset className={styles.fieldset}>
+                <legend className={styles.label}>{t('admin.settings.sections')}</legend>
+                <span className={styles.hint}>{t('admin.settings.sectionsHint')}</span>
+                <ol className={styles.sectionList}>
+                  {form.sections.map((section, index) => {
+                    const required = (options.requiredSections ?? []).includes(section.type);
+                    const name = t(`admin.settings.sectionOption.${section.type}`);
+                    return (
+                      <li key={section.type} className={styles.sectionRow}>
+                        <span className={styles.sectionOrder} aria-hidden="true">{index + 1}</span>
+                        <label className={styles.sectionName}>
+                          <input type="checkbox" checked={section.enabled} disabled={required}
+                            onChange={() => update({ sections: toggleSection(form.sections, index) })} />
+                          {name}
+                          {required && <span className={styles.hint}> {t('admin.settings.sectionRequired')}</span>}
+                        </label>
+                        <span className={styles.sectionMoves}>
+                          <button type="button" className={styles.sectionMove} disabled={index === 0}
+                            aria-label={t('admin.settings.sectionMoveUp', { name })}
+                            onClick={() => update({ sections: moveSection(form.sections, index, -1) })}>↑</button>
+                          <button type="button" className={styles.sectionMove}
+                            disabled={index === form.sections.length - 1}
+                            aria-label={t('admin.settings.sectionMoveDown', { name })}
+                            onClick={() => update({ sections: moveSection(form.sections, index, 1) })}>↓</button>
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ol>
               </fieldset>
 
               <div className={styles.field}>

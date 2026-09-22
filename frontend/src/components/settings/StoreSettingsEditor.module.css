@@ -118,3 +118,43 @@
 }
 .roleOption:has(input:checked) { border-color: var(--color-primary); }
 .roleOption input { margin-top: 3px; inline-size: 18px; block-size: 18px; accent-color: var(--color-primary); flex-shrink: 0; }
+
+/* ── ترتيب أقسام الرئيسية (C8) ─────────────────────────────────────────────
+   قائمةٌ مرقّمة: الرقمُ زخرفيّ (`aria-hidden`) لأنّ `<ol>` تُعلن الترتيب أصلاً لقارئ الشاشة،
+   وتكرارُه نطقٌ مزدوج. والتخطيطُ عموديٌّ بالكامل فلا يقلبه اتجاهُ الصفحة. */
+.sectionList { list-style: none; margin: var(--space-2) 0 0; padding: 0; display: grid; gap: var(--space-2); }
+
+.sectionRow {
+  display: flex; align-items: center; gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border); border-radius: var(--radius-sm);
+  background: var(--color-surface);
+}
+
+.sectionOrder {
+  flex: 0 0 auto; min-width: 22px; text-align: center;
+  color: var(--color-text-muted); font-size: var(--fs-caption);
+}
+
+.sectionName { flex: 1 1 auto; display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
+
+.sectionMoves { flex: 0 0 auto; display: flex; gap: var(--space-1); }
+
+/* السهمان محرفان لا أيقونتان، واسمُ الزرّ في `aria-label` — فما يُنطق «حرّك الكتالوج لأعلى»
+   لا «سهم». والحدُّ الأدنى للمسّ 32px: هذان أصغرُ ما في الشاشة وأكثرُه استعمالاً. */
+.sectionMove {
+  min-width: 32px; min-height: 32px; line-height: 1;
+  border: 1px solid var(--color-border); border-radius: var(--radius-sm);
+  background: var(--color-surface-alt); color: var(--color-text);
+  transition: background var(--ease-hover);
+}
+.sectionMove:hover:not(:disabled) { background: var(--color-border); }
+.sectionMove:disabled { opacity: 0.4; cursor: not-allowed; }
+
+@media (max-width: 480px) {
+  /* على الهاتف: الاسمُ سطرٌ والأزرارُ تحته، فلا يُقصّ الاسمُ ولا يضيق الزرّ عن حدّ المسّ. */
+  .sectionRow { flex-wrap: wrap; }
+  .sectionName { flex: 1 1 100%; order: 1; }
+  .sectionOrder { order: 0; }
+  .sectionMoves { order: 2; margin-inline-start: auto; }
+}

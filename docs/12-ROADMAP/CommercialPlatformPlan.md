@@ -33,7 +33,7 @@
 ```yaml
 plan_version: 1.7.0
 track: commercial
-current_phase: C6
+current_phase: C8
 phase_status: done
 # 2026-09-21: the owner answered the eight questions of OwnerDecisionBrief.md, and SIX phases that
 # were gated are now unblocked. The canonical record of each answer is its own entry in
@@ -71,22 +71,23 @@ current_phase_note: |
       workflow, a store's selection — a fifteenth module (d894148)
     • and the tax term itself: the pricing pipeline's explicit zero is now
       calculated, frozen onto the order, and shown to the shopper (60f5021)
-next_phase: C8           # the theme presets + section registry: a design decision, not an owner decision
-# C4's lock and invalidation are in, so C6 is closed too. What is left unblocked is C8 (design),
-# C9b's remaining capture surfaces (capture stays OFF), and C12's port + redirect-first model.
+next_phase: C12          # the payment port re-shaped + the redirect-first model; the adapter waits on a contract
+# C8 is closed (presets + section registry). What is left unblocked is C12's port and model, and
+# C9b's remaining capture surfaces — capture itself stays OFF until C-08's three sub-answers exist.
 blocked_decisions: ["D-18", "C-11", "C-09", "C-18", "C-12", "C-13"]
 answered_decisions: ["C-08", "C-17", "TD-42", "C-15", "P-06", "D-13", "C-01", "C-19"]
 open_sub_decisions: ["C-08 lawful basis", "C-08 retention period", "C-08 data residency",
                      "P-06 every jurisdiction value", "C-01 the provider itself"]
 last_verified_date: 2026-09-22
-last_verified_head: 14fef59
+last_verified_head: d97c131
 
 # ── ما بقي، ولماذا ─────────────────────────────────────────────────────────
 # C4  — بقي منه ثُلثٌ واحد: التخزين السحابي، وهو وحده الموقوف على D-18. القفلُ والإبطالُ تمّا.
 # C12 — المنفذ بشكله الجديد والنموذج المُحوِّل (C-01 = B). المحوّلُ نفسه ينتظر عقد مزوّد.
 # C9b — أسطحُ الالتقاط الباقية. لا تُراكم بياناتٍ اليوم لأنّ الالتقاط معطّل، فقيمتُها تبدأ يوم
 #       يُجيب المالك على أسئلة C-08 الثلاث (الأساس القانوني، ومدّة الحفظ، ومكان التخزين).
-# C8  — القوالب الثلاثة وسجلّ الأقسام: قرارُ تصميم لا قرارُ مالك.
+# C8  — **تمّت**: القوالب الثلاثة (ADR-0059) وسجلُّ الأقسام (ADR-0060). وبقي تحت عنوانها ما
+#       أجّله المالك: صفحاتُ المتجر المؤلَّفة (TD-42) وتجاوزاتُ النصوص لكلّ متجر.
 # C10 — موقوف على C-09 وعلى تراكم بيانات C9.
 # ونصفُ شريحةٍ واحدة تبقى مؤجَّلة صراحةً: فئةُ الضريبة للمنتج (ضريبتان في سلّةٍ واحدة).
 #
@@ -353,7 +354,7 @@ Each phase lists: **delivers · depends on · blocked by · why here**.
 - **Blocked by.** C-11 (managed edge or self-run; apex support; activation SLA; abandoned-domain policy).
 - **Why here.** This is what turns onboarding customer #2 from an operation into a product.
 
-### C8 — Customization a merchant can see — **presets done, section registry open**
+### C8 — Customization a merchant can see — **done**
 
 - **Delivers.** Real theme presets (CSS only — the hook, validation, delivery and editor already exist). A
   server-validated registry of section types so the home page becomes an ordered descriptor list rather than
@@ -385,11 +386,24 @@ Each phase lists: **delivers · depends on · blocked by · why here**.
   dropped `themePreset`, so the preview was always `classic` — the browser journey caught it, because the field
   is sent correctly on save and the loss is only visible in something drawn — and `--shadow-sm`/`--shadow-md`
   were never derived at all, keeping light-mode values in dark mode, which is a black shadow on a black surface.
-- **Still open in this phase:** the server-validated section registry. `Storefront.jsx` composes a fixed JSX
-  list and the section components are already prop-driven, so they are renderers waiting for a descriptor list.
-  A design decision, not an owner decision.
+- **Section registry: done (2026-09-22)** ([ADR-0060](../11-ADR/0060-home-page-sections-as-an-ordered-registry.md)),
+  which closes the phase. `StoreSections` is a closed allowlist in the Domain — `hero`, `featured`,
+  `newArrivals`, `offers`, `catalog` — with the default order being the page's existing order character for
+  character, published through the same options endpoint as typography and policy kinds. The merchant reorders
+  and toggles; **no component name ever arrives from a client**, and a type the frontend does not recognise is
+  skipped rather than fatal. An unknown type is refused and a duplicate refused (ignoring either means a
+  merchant saves one layout and gets another); the catalog may be moved but never removed, because a home page
+  without it has no products on it. **Unmentioned types are appended disabled** — the `StoreModules` principle,
+  so a new section never appears on a store that did not ask for it — while a store that never configured
+  sections reads the full default, so the upgrade changes nothing for anybody. `sections` is
+  absent-means-unchanged, unlike the rest of that contract, because an older client would otherwise erase a
+  merchant's layout by saving an unrelated field. No migration: the settings are a JSON document. The editor
+  reorders with two named buttons rather than drag-and-drop, so it works from the keyboard and needs no
+  left/right that RTL would invert.
 - **Why here.** It was the cheapest credibility fix on the list: a merchant evaluating the product picked one of
-  three themes and saw no difference, which reads as broken. That half is now closed; the layout half is not.
+  three themes and saw no difference, which reads as broken. Both halves are now closed. What remains under this
+  heading is `TD-42`'s authored-page capability, deferred by the owner with a named trigger, and per-store string
+  overrides — neither of which is section or preset work.
 
 ### C9 — The behavioural event foundation — **the store and the write path are done**
 

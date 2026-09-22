@@ -38,7 +38,8 @@ internal static class StoreSettingsJson
             [.. s.Social.Select(l => new SocialDocument(l.Network, l.Url))],
             new SeoDocument(new(s.Seo.Title), new(s.Seo.Description)),
             new(s.Announcement),
-            new(s.Policies.Urls)), Options);
+            new(s.Policies.Urls),
+            [.. s.Sections.Items.Select(i => new SectionDocument(i.Type, i.Enabled))]), Options);
     }
 
     internal static StoreSettings Deserialize(string json)
@@ -65,13 +66,21 @@ internal static class StoreSettingsJson
             new SeoSettings(document.Seo?.Title ?? new(), document.Seo?.Description ?? new()),
             document.Announcement ?? new(),
             // مستند أقدم بلا هذا الحقل ⇒ لا روابط سياسات، لا رابط يظهر في تذييل متجر لم يضبطه.
-            document.Policies is { Count: > 0 } policies ? new StorePolicyLinks(policies) : StorePolicyLinks.Empty);
+            document.Policies is { Count: > 0 } policies ? new StorePolicyLinks(policies) : StorePolicyLinks.Empty,
+            // مستند أقدم بلا هذا الحقل ⇒ الترتيب الافتراضي كاملاً، أي رئيسيةُ المتجر كما هي اليوم.
+            // ولا يمرّ بـ `Create`: ذاك يُلحق ما لم يُذكر **مُطفأً**، وهو الصحيح لمتجرٍ ضبط أقسامه
+            // ثمّ أُضيف نوعٌ جديد — أمّا مستندٌ لم يُكتب فيه شيءٌ قطّ فلم يُطفئ أحدٌ فيه شيئاً.
+            document.Sections is { Count: > 0 } sections
+                ? new StoreSections([.. sections.Select(x => new StoreSection(x.Type, x.Enabled))])
+                : StoreSections.Default);
     }
 
     internal sealed record SettingsDocument(
         Dictionary<string, string>? DisplayName, List<string>? EnabledCultures, BrandingDocument? Branding,
         ContactDocument? Contact, List<SocialDocument>? Social, SeoDocument? Seo, Dictionary<string, string>? Announcement,
-        Dictionary<string, string>? Policies = null);
+        Dictionary<string, string>? Policies = null, List<SectionDocument>? Sections = null);
+
+    internal sealed record SectionDocument(string Type, bool Enabled);
 
     internal sealed record BrandingDocument(
         ColorsDocument? Colors, string? Typography, string? ThemePreset, string? LogoUrl, string? FaviconUrl,

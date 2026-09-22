@@ -25,7 +25,11 @@ public sealed record StoreSettingsOptionsDto(
     IReadOnlyList<string> ThemeModes, IReadOnlyList<string> OpeningStyles,
     IReadOnlyList<SocialNetworkOptionDto> SocialNetworks, StoreSettingsLimitsDto Limits, StoreContrastRulesDto Contrast,
     // أنواع السياسات المقبولة (TD-42) — القائمة من النطاق كي لا تحتفظ الواجهة بنسخة ثانية تفترق يوماً.
-    IReadOnlyList<string> PolicyKinds);
+    IReadOnlyList<string> PolicyKinds,
+    // أنواع أقسام الرئيسية وترتيبُها الافتراضي (C8)، ومَن منها لا يُطفأ. من النطاق لا من نسخةٍ
+    // في الواجهة: قائمةٌ ثانية تفترق يوماً، ومحرّرٌ يعرض خياراً يرفضه الخادم بلاغٌ مضمون.
+    IReadOnlyList<string> SectionTypes,
+    IReadOnlyList<string> RequiredSections);
 
 public record GetStoreSettingsOptionsQuery : IRequest<StoreSettingsOptionsDto>;
 
@@ -42,7 +46,9 @@ public class GetStoreSettingsOptionsHandler : IRequestHandler<GetStoreSettingsOp
             StoreSettings.MaxSocialLinks, SocialLink.UrlMaxLength, Tenant.TimeZoneMaxLength, BrandingFiles.MaxBytes,
             StorePolicyLinks.UrlMaxLength),
         new StoreContrastRulesDto(BrandColors.MinimumTextContrast, BrandColors.MinimumUiContrast),
-        StorePolicyLinks.Kinds);
+        StorePolicyLinks.Kinds,
+        StoreSections.Types,
+        [.. StoreSections.Required]);
 
     public Task<StoreSettingsOptionsDto> Handle(GetStoreSettingsOptionsQuery query, CancellationToken ct) =>
         Task.FromResult(Options);

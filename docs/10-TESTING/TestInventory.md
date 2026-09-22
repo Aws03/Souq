@@ -7,12 +7,12 @@
 
 | Suite | Files | Facts | Theories |
 |---|---|---|---|
-| [`Souq.Domain.Tests`](#souqdomaintests) | 34 | 319 | 52 |
+| [`Souq.Domain.Tests`](#souqdomaintests) | 35 | 327 | 54 |
 | [`Souq.Application.Tests`](#souqapplicationtests) | 58 | 433 | 22 |
 | [`Souq.ArchitectureTests`](#souqarchitecturetests) | 17 | 77 | 8 |
-| [`Souq.IntegrationTests`](#souqintegrationtests) | 66 | 406 | 28 |
-| [frontend (Vitest)](#frontend-vitest) | 103 | 796 | — |
-| [frontend (Playwright)](#frontend-playwright) | 22 | 136 | — |
+| [`Souq.IntegrationTests`](#souqintegrationtests) | 66 | 411 | 28 |
+| [frontend (Vitest)](#frontend-vitest) | 106 | 819 | — |
+| [frontend (Playwright)](#frontend-playwright) | 23 | 141 | — |
 
 ## Souq.Domain.Tests
 
@@ -46,6 +46,7 @@
 | `tests/Souq.Domain.Tests/SearchTextTests.cs` | `SearchTextTests` | 5 | 6 |
 | `tests/Souq.Domain.Tests/ShippingMethodTests.cs` | `ShippingMethodTests` | 4 | 1 |
 | `tests/Souq.Domain.Tests/StorePaymentAccountTests.cs` | `StorePaymentAccountTests` | 3 | 2 |
+| `tests/Souq.Domain.Tests/StoreSectionsTests.cs` | `StoreSectionsTests` | 8 | 2 |
 | `tests/Souq.Domain.Tests/StoreSettingsTests.cs` | `StoreSettingsTests` | 5 | 3 |
 | `tests/Souq.Domain.Tests/TaxProfileTests.cs` | `TaxProfileTests`, `OrderTaxTests` | 15 | 0 |
 | `tests/Souq.Domain.Tests/TenantSettingsTests.cs` | `TenantSettingsTests` | 9 | 1 |
@@ -197,7 +198,7 @@
 | `tests/Souq.IntegrationTests/ShippingTests.cs` | `ShippingTests` | 3 | 0 |
 | `tests/Souq.IntegrationTests/StartupAndSecurityTests.cs` | `StartupAndSecurityTests`, `LoggerAdapter` | 7 | 1 |
 | `tests/Souq.IntegrationTests/StoreAdministrationTests.cs` | `StoreAdministrationTests` | 7 | 0 |
-| `tests/Souq.IntegrationTests/StoreBrandingPersistenceTests.cs` | `StoreBrandingPersistenceTests` | 4 | 0 |
+| `tests/Souq.IntegrationTests/StoreBrandingPersistenceTests.cs` | `StoreBrandingPersistenceTests`, `StoreSectionsPersistenceTests` | 9 | 0 |
 | `tests/Souq.IntegrationTests/StoreDashboardTests.cs` | `StoreDashboardTests` | 20 | 1 |
 | `tests/Souq.IntegrationTests/StorefrontVariantTests.cs` | `StorefrontVariantTests` | 7 | 0 |
 | `tests/Souq.IntegrationTests/StripeAmountConverterTests.cs` | `StripeAmountConverterTests` | 2 | 2 |
@@ -219,6 +220,7 @@
 | `frontend/src/api/query.test.js` | 4 |
 | `frontend/src/app/QueryProvider.test.jsx` | 4 |
 | `frontend/src/app/StoreClosed.test.jsx` | 5 |
+| `frontend/src/app/StorefrontGate.test.jsx` | 2 |
 | `frontend/src/app/dateLocale.test.js` | 8 |
 | `frontend/src/app/moduleInvariants.test.js` | 2 |
 | `frontend/src/app/pageMetadata.test.js` | 11 |
@@ -258,7 +260,7 @@
 | `frontend/src/features/admin/reviews/reviewModeration.test.js` | 2 |
 | `frontend/src/features/admin/search/insights.test.js` | 7 |
 | `frontend/src/features/admin/search/synonymForm.test.js` | 7 |
-| `frontend/src/features/admin/settings/settingsForm.test.js` | 22 |
+| `frontend/src/features/admin/settings/settingsForm.test.js` | 23 |
 | `frontend/src/features/admin/shipping/shippingForm.test.js` | 4 |
 | `frontend/src/features/admin/staff/staffView.test.js` | 11 |
 | `frontend/src/features/auth/safeRedirect.test.js` | 5 |
@@ -291,6 +293,7 @@
 | `frontend/src/pages/MyOrders.test.jsx` | 7 |
 | `frontend/src/pages/OrderTracking.test.jsx` | 6 |
 | `frontend/src/pages/ProductDetail.test.jsx` | 19 |
+| `frontend/src/pages/StorefrontSections.test.jsx` | 9 |
 | `frontend/src/pages/account/AccountLayout.test.jsx` | 6 |
 | `frontend/src/pages/account/AddressFormDrawer.test.jsx` | 5 |
 | `frontend/src/pages/account/ChangePassword.test.jsx` | 7 |
@@ -315,6 +318,7 @@
 | `frontend/src/pages/storefrontPages.test.jsx` | 3 |
 | `frontend/src/rtl.test.js` | 2 |
 | `frontend/src/styles.darkTokens.test.js` | 3 |
+| `frontend/src/styles.presets.test.js` | 11 |
 | `frontend/src/whiteLabel.test.js` | 2 |
 
 ## Frontend (Playwright)
@@ -332,7 +336,7 @@
 | `frontend/e2e/cross-tenant-adversarial.spec.js` | 4 |
 | `frontend/e2e/csp.spec.js` | 6 |
 | `frontend/e2e/experience.spec.js` | 16 |
-| `frontend/e2e/merchant-billing.spec.js` | 5 |
+| `frontend/e2e/merchant-billing.spec.js` | 6 |
 | `frontend/e2e/platform-provisioning.spec.js` | 9 |
 | `frontend/e2e/product-variants.spec.js` | 5 |
 | `frontend/e2e/responsive-storefront.spec.js` | 2 |
@@ -345,3 +349,4 @@
 | `frontend/e2e/storefront-variants.spec.js` | 6 |
 | `frontend/e2e/storefront.spec.js` | 17 |
 | `frontend/e2e/tax-configuration.spec.js` | 4 |
+| `frontend/e2e/theme-presets.spec.js` | 4 |

@@ -32,6 +32,9 @@ export function settingsToForm(settings, options) {
     colors: Object.fromEntries(COLOR_FIELDS.map((field) => [field, (branding.colors?.[field] ?? '').toUpperCase()])),
     typography: branding.typography ?? '',
     themePreset: branding.themePreset ?? '',
+    // أقسام الرئيسية بترتيبها وحالتها (C8). من الخادم كاملةً — المُطفأُ منها أيضاً — كي يعرف
+    // المحرّرُ ما يمكن تشغيلُه، لا ما هو مُشغَّلٌ وحده.
+    sections: (settings?.sections ?? []).map(({ type, enabled }) => ({ type, enabled })),
     themeMode: branding.themeMode ?? 'system',
     openingEnabled: branding.opening?.enabled ?? false,
     openingStyle: branding.opening?.style ?? options?.openingStyles?.[0] ?? '',
@@ -78,7 +81,22 @@ export const buildSettingsPayload = (form) => ({
   seo: { title: trimmed(form.seoTitle), description: trimmed(form.seoDescription) },
   announcement: trimmed(form.announcement),
   policies: trimmed(form.policies),
+  sections: form.sections,
 });
+
+// ── ترتيب الأقسام ─────────────────────────────────────────────────────────
+// تحريكٌ بخطوةٍ واحدة لا سحبٌ وإفلات: السحبُ يحتاج لوحةَ مفاتيحٍ بديلة وقارئَ شاشةٍ يفهمه،
+// وزرّان بعنوانٍ صريح يعملان لكلّ مُدخَل بلا ذلك كلّه. ودالّةٌ نقيّة كي يُختبر الترتيب وحده.
+export function moveSection(sections, index, delta) {
+  const target = index + delta;
+  if (target < 0 || target >= sections.length) return sections;
+  const next = [...sections];
+  [next[index], next[target]] = [next[target], next[index]];
+  return next;
+}
+
+export const toggleSection = (sections, index) =>
+  sections.map((s, i) => (i === index ? { ...s, enabled: !s.enabled } : s));
 
 // ── التباين ───────────────────────────────────────────────────────────────
 // نصّ الزرّ كما يشتقّه Domain (BrandColors.ReadableOn): الأبيض أو لون نصّ المتجر، أيّهما أوضح.

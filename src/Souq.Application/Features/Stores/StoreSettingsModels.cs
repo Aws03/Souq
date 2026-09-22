@@ -26,7 +26,14 @@ public sealed record StoreSettingsInput(
     IReadOnlyDictionary<string, string?>? Announcement,
     // روابط السياسات: النوع ⇒ عنوانه (TD-42). غائبة ⇒ تُمسح كبقيّة هذا العقد — الحفظ يستبدل كل ما
     // فيه، والواجهة ترسله كاملاً دائماً.
-    IReadOnlyDictionary<string, string?>? Policies = null);
+    IReadOnlyDictionary<string, string?>? Policies = null,
+    // أقسام الرئيسية بترتيبها (C8). **غائبةٌ ⇒ تبقى كما هي**، على خلاف بقيّة هذا العقد الذي
+    // يستبدل ما فيه: عميلٌ أقدم لا يعرف الحقل كان سيُعيد كلَّ متجرٍ يحفظ منه إلى الترتيب
+    // الافتراضي بلا أن يطلب أحدٌ ذلك — وتخطيطٌ يُمحى بحفظِ حقلٍ آخر عطبٌ لا عقد.
+    IReadOnlyList<StoreSectionInput>? Sections = null);
+
+public sealed record StoreSectionInput(string Type, bool Enabled);
+public sealed record StoreSectionDto(string Type, bool Enabled);
 
 public sealed record BrandColorsDto(
     string Primary, string Secondary, string Accent, string Background, string Text, string OnPrimary, string OnAccent);
@@ -45,7 +52,11 @@ public sealed record StoreSettingsDto(
     StoreContactDto Contact, IReadOnlyList<SocialLinkDto> Social, StoreSeoDto Seo,
     IReadOnlyDictionary<string, string> Announcement,
     // روابط السياسات المضبوطة وحدها (TD-42): النوع غير المضبوط غائب لا فارغ، فالتذييل يرسم ما يجد.
-    IReadOnlyDictionary<string, string> Policies);
+    IReadOnlyDictionary<string, string> Policies,
+    // الأقسام كاملةً — المُطفأُ منها أيضاً — كي يعرف المحرّرُ ما يمكن تشغيلُه، و`EnabledSections`
+    // ما تعرضه الواجهةُ فعلاً بترتيبه. الاثنان معاً لأنّ للشاشتين سؤالين مختلفين.
+    IReadOnlyList<StoreSectionDto> Sections,
+    IReadOnlyList<string> EnabledSections);
 
 // إعداد الواجهة العام (GET /api/storefront/config): عرض فقط — لا أسرار، ولا بريد إداري، ولا معرّفات داخلية.
 public sealed record StorefrontConfigDto(
@@ -72,7 +83,10 @@ public static class StoreSettingsMapper
             settings.Social.Select(l => new SocialLinkDto(l.Network, l.Url)).ToList(),
             new StoreSeoDto(settings.Seo.Title, settings.Seo.Description),
             settings.Announcement,
-            settings.Policies.Urls);
+            settings.Policies.Urls,
+            settings.Sections.Items.Select(i => new StoreSectionDto(i.Type, i.Enabled)).ToList(),
+            // ما يُرسَم فعلاً، محسوباً في الخادم: الواجهةُ تعرض ولا تقرّر (FrontendGuide).
+            settings.Sections.EnabledTypes);
     }
 
     public static StorefrontConfigDto ToStorefront(Tenant tenant) => new(
@@ -101,6 +115,10 @@ public static class StoreSettingsEditor
             SeoSettings.Create(input.Seo?.Title, input.Seo?.Description),
             input.Announcement,
             StorePolicyLinks.Create(input.Policies));
+
+        tenant.UpdateSections(input.Sections is null
+            ? null
+            : StoreSections.Create([.. input.Sections.Select(x => new StoreSection(x.Type, x.Enabled))]));
     }
 }
 

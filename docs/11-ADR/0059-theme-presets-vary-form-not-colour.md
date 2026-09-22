@@ -18,6 +18,24 @@ What was missing was never code. It was the answer to **what the three presets a
 1. What may a preset change, given that the merchant has already chosen the store's colours and fonts?
 2. Where does a preset's definition live, when some design tokens are written inline at runtime and others come from the stylesheet?
 
+## Options considered
+
+### A — Each preset carries its own palette
+
+**Rejected, and it is the option most products pick.** It makes the three visibly different in one step. It also takes the store's identity away from the merchant: colour is chosen in the same editor, derived per mode for contrast, and is the substance of a white-label product. A preset that shipped a palette would either override that choice or fight it, and there is no third outcome.
+
+### B — Each preset is a different home-page layout
+
+**Rejected here, but only as a matter of sequencing.** Different header styles, card styles and section orders are real variation, and the architecture calls for them — but they need an ordered descriptor list, not a CSS attribute. That is the section registry, `C8`'s other half. Attaching layout to the preset attribute would have made the registry harder to build later, not easier.
+
+### C — Remove the choice until it does something
+
+**Seriously considered**, and what `TD-65` explicitly offered as the alternative. It is the honest move if the design question cannot be answered. It was not taken because the question *could* be answered cheaply, and because removing a stored field that stores already carry costs a migration and a decision about what happens to their saved value.
+
+### D — Vary form only
+
+**Chosen.** Surface treatment, radii, heading weight and type scale are orthogonal to the merchant's palette, so the three presets differ visibly without touching anything the merchant chose.
+
 ## Decision
 
 ### A preset varies form, never colour or type family

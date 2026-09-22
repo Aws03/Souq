@@ -4,6 +4,7 @@ import Storefront from './Storefront';
 import { api } from '../api/client';
 import { queryKeys } from '../app/queryKeys';
 import { usePageMetadata } from '../app/usePageMetadata';
+import { useStoreConfig } from '../app/TenantProvider';
 
 const HOME_SECTION_SIZE = 10;
 
@@ -27,6 +28,10 @@ export default function Store() {
   usePageMetadata();
   const { showToast, refreshKey, categories } = useOutletContext();
 
+  // ترتيبُ الأقسام من إعداد المتجر، محسوباً في الخادم (C8): الواجهةُ تعرض ولا تقرّر.
+  // `undefined` قبل وصول الإعداد، و`Storefront` يرسم الترتيب الافتراضي حينها.
+  const sections = useStoreConfig()?.settings?.enabledSections;
+
   // "وصل حديثاً" الترتيب الافتراضي؛ "الأكثر مبيعاً" مجموع الكميات عبر الطلبات المُسلَّمة؛
   // و"العروض" ما عليه تخفيض فعلاً (onSale) — لا "الصفحة الثانية من الأحدث" باسم عروض.
   const newArrivals = useHomeRow({}, refreshKey);
@@ -35,7 +40,7 @@ export default function Store() {
 
   return (
     <Storefront
-      categories={categories} onAdded={showToast} refreshKey={refreshKey}
+      categories={categories} onAdded={showToast} refreshKey={refreshKey} sections={sections}
       newArrivals={newArrivals.data?.items ?? []} newArrivalsLoading={newArrivals.isPending}
       bestSellers={bestSellers.data?.items ?? []} bestSellersLoading={bestSellers.isPending}
       offers={offers.data?.items ?? []} offersLoading={offers.isPending}

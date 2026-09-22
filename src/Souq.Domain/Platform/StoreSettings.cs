@@ -33,14 +33,19 @@ public sealed class StoreSettings
     // يظهر فجأةً في تذييل متجر لم يضبطه.
     public StorePolicyLinks Policies { get; } = StorePolicyLinks.Empty;
 
+    // أقسام الرئيسية بترتيبها (C8). صفوف كُتبت قبل هذا الحقل تُقرأ بلا قيمة فتأخذ الترتيب
+    // الافتراضي — وهو ترتيب الصفحة اليوم حرفياً، فلا تتغيّر رئيسيةُ متجرٍ قائم عند الترقية.
+    public StoreSections Sections { get; } = StoreSections.Default;
+
     internal StoreSettings(
         IReadOnlyDictionary<string, string> displayName, IReadOnlyList<string> enabledCultures, StoreBranding branding,
         StoreContact contact, IReadOnlyList<SocialLink> social, SeoSettings seo, IReadOnlyDictionary<string, string> announcement,
-        StorePolicyLinks? policies = null)
+        StorePolicyLinks? policies = null, StoreSections? sections = null)
     {
         DisplayName = displayName; EnabledCultures = enabledCultures; Branding = branding;
         Contact = contact; Social = social; Seo = seo; Announcement = announcement;
         Policies = policies ?? StorePolicyLinks.Empty;
+        Sections = sections ?? StoreSections.Default;
     }
 
     // متجر جديد: اسمه بلغته الافتراضية وهوية محايدة مقروءة — والباقي حتى يضبطه أحد.
@@ -52,9 +57,9 @@ public sealed class StoreSettings
         IReadOnlyDictionary<string, string>? displayName = null, IReadOnlyList<string>? enabledCultures = null,
         StoreBranding? branding = null, StoreContact? contact = null, IReadOnlyList<SocialLink>? social = null,
         SeoSettings? seo = null, IReadOnlyDictionary<string, string>? announcement = null,
-        StorePolicyLinks? policies = null) => new(
+        StorePolicyLinks? policies = null, StoreSections? sections = null) => new(
         displayName ?? DisplayName, enabledCultures ?? EnabledCultures, branding ?? Branding, contact ?? Contact,
-        social ?? Social, seo ?? Seo, announcement ?? Announcement, policies ?? Policies);
+        social ?? Social, seo ?? Seo, announcement ?? Announcement, policies ?? Policies, sections ?? Sections);
 }
 
 // ============================================================================
@@ -105,6 +110,86 @@ public sealed class StorePolicyLinks
             result[kind] = uri.AbsoluteUri;
         }
         return new StorePolicyLinks(result);
+    }
+}
+
+// ============================================================================
+// أقسام الصفحة الرئيسية، مرتَّبةً ومُصنَّفة (C8، [ADR-0060](0060)).
+//
+// كانت الرئيسيةُ `JSX` ثابتاً: بانرٌ ثمّ صدارةٌ ثمّ صفّان ثمّ الكتالوج، بهذا الترتيب لكلّ متجر.
+// والمكوّناتُ نفسها كانت تأخذ كلَّ ما تعرضه وسائطَ — أي أنّها **عارضاتٌ تنتظر وصفاً**، لا صفحة.
+// وهذا الصنف هو الوصف: قائمةٌ مرتَّبة من أنواعٍ معروفة، كلٌّ منها مُفعَّلٌ أو لا.
+//
+// **والقائمةُ مُغلقة عمداً.** نوعُ قسمٍ جديد ميزةٌ تُضاف لكلّ المتاجر، لا فرعٌ لعميل — القاعدة
+// نفسها التي تحكم القوالب والخطوط (WhiteLabel.md §4–§5). فلا يصل من العميل اسمُ مكوّنٍ يُرسَم.
+//
+// وثلاث قواعد تحرس ما لا يُصلحه ترتيب:
+//   • **نوعٌ مجهول يُرفض** ولا يُتجاهَل: تجاهلُه يعني متجراً حفظ ترتيباً وحصل على غيره.
+//   • **تكرارُ نوعٍ يُرفض**: «الأحدث» مرّتين في صفحةٍ واحدة خطأٌ لا تفضيل.
+//   • **الكتالوج لا يُطفأ**: رئيسيةٌ بلا كتالوج رئيسيةٌ بلا منتجات — وهي الشاشةُ التي يصلها
+//     الزائر أوّلاً. يُحرَّك موضعُه، ولا يُحذف.
+//
+// **وما لم يُذكر يُلحَق مُطفأً** — لا مُشغَّلاً. فنوعٌ يُضاف في إصدارٍ قادم لا يظهر من تلقاء نفسه
+// في رئيسيةِ متجرٍ لم يطلبه، وهو المبدأ نفسه الذي يحكم `StoreModules`: لا قدرةَ تصل متجراً
+// بالصدفة. وذلك يخصّ متجراً **ضبط** أقسامه؛ ومتجرٌ لم يضبطها قطّ يأخذ `Default` كاملاً.
+// ============================================================================
+public sealed record StoreSection(string Type, bool Enabled);
+
+public sealed class StoreSections
+{
+    // الترتيبُ الافتراضي هو ترتيبُ `Storefront.jsx` اليوم حرفياً. تغييرُه هنا يُعيد ترتيب
+    // رئيسيةِ كلّ متجرٍ لم يضبط أقسامه — فهو قرارُ منتجٍ لا تنظيفُ شيفرة.
+    public const string Hero = "hero";
+    public const string Featured = "featured";
+    public const string NewArrivals = "newArrivals";
+    public const string Offers = "offers";
+    public const string Catalog = "catalog";
+
+    public static readonly IReadOnlyList<string> Types = [Hero, Featured, NewArrivals, Offers, Catalog];
+
+    // الأقسامُ التي لا يجوز إطفاؤها. مجموعةٌ لا حالةٌ خاصّة واحدة: قسمٌ ثانٍ يصير إلزامياً غداً
+    // يُضاف هنا، لا في شرطٍ داخل حلقة.
+    public static readonly IReadOnlySet<string> Required = new HashSet<string>(StringComparer.Ordinal) { Catalog };
+
+    public IReadOnlyList<StoreSection> Items { get; }
+
+    internal StoreSections(IReadOnlyList<StoreSection> items) => Items = items;
+
+    public static StoreSections Default { get; } = new([.. Types.Select(type => new StoreSection(type, true))]);
+
+    // ما يُرسَم فعلاً، بترتيبه. الواجهةُ تقرأ هذه لا `Items`: فلا تُعيد حساب «أيُّها مُفعَّل» في
+    // كلّ عارض، ولا تختلف شاشتان في الجواب.
+    public IReadOnlyList<string> EnabledTypes => [.. Items.Where(i => i.Enabled).Select(i => i.Type)];
+
+    public static StoreSections Create(IReadOnlyList<StoreSection>? sections)
+    {
+        if (sections is null || sections.Count == 0) return Default;
+
+        var ordered = new List<StoreSection>(Types.Count);
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var section in sections)
+        {
+            var type = section?.Type?.Trim() ?? "";
+            var known = Types.FirstOrDefault(t => string.Equals(t, type, StringComparison.OrdinalIgnoreCase));
+            if (known is null)
+                throw new InvalidTenantOperationException($"نوع قسم غير مدعوم: {section?.Type}");
+            if (!seen.Add(known))
+                throw new InvalidTenantOperationException($"القسم {known} مذكور أكثر من مرّة");
+
+            var enabled = section!.Enabled;
+            if (!enabled && Required.Contains(known))
+                throw new InvalidTenantOperationException($"القسم {known} لا يُطفأ: رئيسيةٌ بدونه بلا منتجات");
+
+            ordered.Add(new StoreSection(known, enabled));
+        }
+
+        // ما لم يُذكر يُلحَق مُطفأً — إلّا ما لا يُطفأ، فيُلحق مُشغَّلاً: متجرٌ حفظ ترتيباً لا
+        // يذكر الكتالوج يجب أن يبقى له كتالوج، والرفضُ هنا كان سيعاقبه على عميلٍ قديم.
+        foreach (var type in Types.Where(t => !seen.Contains(t)))
+            ordered.Add(new StoreSection(type, Required.Contains(type)));
+
+        return new StoreSections(ordered);
     }
 }
 

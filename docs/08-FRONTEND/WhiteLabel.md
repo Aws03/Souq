@@ -74,7 +74,7 @@ sequenceDiagram
 - **What makes it cost nothing**: `minimal` and `bold` redefine `--shadow` as `0 0 0 Npx var(--color-border)`. Every surface already writes `box-shadow: var(--shadow)`, so each acquires a line with no component change — and the ring reads a token that is already derived per mode, so dark mode needs no second set of values.
 - A tenant picks one, the server validates it, and the SPA writes it as `data-preset` on `<html>` — and on the settings-preview frame, which is why the selector is the bare attribute rather than `html[…]`.
 - **Where a preset is defined:** radii, heading weight and type scale in `styles.css`; the shadow ladder in `themeVariables`, because the light-mode shadow is tinted with the store's primary and is therefore written inline, where it beats any stylesheet rule. `styles.presets.test.js` asserts the two halves agree.
-- **Layout switching is still not built**: header style, product-card style and home-page section order need the section registry (`C8`'s other half), not an attribute.
+- **Home-page section order is separate from the preset** ([ADR-0060](../11-ADR/0060-home-page-sections-as-an-ordered-registry.md)): a closed allowlist of section types (`StoreSections.Types`) that a merchant reorders and toggles, published through the same options endpoint. The types are fixed in the Domain — no component name ever arrives from a client — and the catalog can be moved but never removed. Header style and product-card style remain unbuilt.
 - A new preset is a product feature available to everyone, never a per-client branch.
 - Custom CSS injection is **not** offered: it breaks upgrades and invites XSS. Revisit only with sandboxing and a paid tier.
 

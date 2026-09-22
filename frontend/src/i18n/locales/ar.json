@@ -1252,6 +1252,18 @@
         "shipping": "سياسة الشحن",
         "faq": "الأسئلة الشائعة",
         "hint": "رابط https كامل، حتى {{max}} حرفاً"
+      },
+      "sections": "أقسام الصفحة الرئيسية",
+      "sectionsHint": "الترتيبُ كما يراه المتسوّق، من الأعلى إلى الأسفل. أطفئ قسماً لإخفائه؛ والكتالوجُ لا يُخفى.",
+      "sectionRequired": "(يظهر دائماً)",
+      "sectionMoveUp": "حرّك {{name, bidi}} لأعلى",
+      "sectionMoveDown": "حرّك {{name, bidi}} لأسفل",
+      "sectionOption": {
+        "hero": "البانر",
+        "featured": "منتج الصدارة",
+        "newArrivals": "وصل حديثاً",
+        "offers": "العروض",
+        "catalog": "الكتالوج الكامل"
       }
     },
     "staff": {
