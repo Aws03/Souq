@@ -769,6 +769,19 @@ that has never reported blocks every merge.
 > The diagnosis below is kept because it was correct, and because the shape of it is worth remembering: **every
 > job failed in three seconds and none of them ever started.** Nothing in the repository could have fixed it,
 > and reading the annotation rather than the workflow was the whole of the answer.
+>
+> **Why the Actions history has a gap between 2026-09-18 and 2026-09-22.** Those 61 runs were deleted on
+> 2026-09-22, and the reason is accuracy rather than tidiness: **no job in them ever executed a step.** Each was
+> four jobs that failed in three seconds on `The job was not started because recent account payments have
+> failed`. GitHub renders that as a red ✗ beside the commit, which asserts something untrue — that the code
+> failed its checks — about commits no check ever examined. Deleting the run (GitHub's own
+> `DELETE /actions/runs/{id}`; no Git history was touched, no commit changed) leaves those commits with **no
+> status**, which is exactly what they have.
+>
+> **The genuinely failed runs were kept, all twenty of them** — eighteen from 2026-09-17/18 where the
+> architecture suite really did fail on CI, and the two from 2026-09-22 that found `F-33` and `F-34`. Those red
+> marks are true, they are the evidence [ReleaseReadiness.md](ReleaseReadiness.md) cites, and removing them to
+> make a page look better is the one thing this repository has consistently refused to do.
 
 ### The original finding
 
