@@ -46,6 +46,7 @@ Payments records the money side of an order — one payment per order, how it se
 
 - **Payment** — the money side of exactly one order, at exactly one gateway account.
 - **Gateway account name** — `stripe:store`, `stripe:deployment` or `fake`, recorded on the payment so later calls go where the money went.
+- **Gateway account identity** — the publishable key of the account that actually took the payment. The *name* says which shelf to look on; this says which account. Without it, a store switching test keys for live ones sent refunds to an account that had never seen the intent ([ADR-0061](../../11-ADR/0061-a-payment-records-which-account-took-it.md)).
 - **Provider payment id** — the intent id at the provider; the only thing we keep from the card flow.
 - **Refundable** — amount − refunded − pending; the ceiling for the next refund.
 - **Pending refund** — money promised to a refund that the gateway hasn't confirmed yet.
@@ -121,7 +122,7 @@ The two arrows out of `Failed` and `Cancelled` are the only way a settled paymen
 ## Dependencies
 
 - **Uses:** its own aggregates through `IPaymentRepository`; `IPaymentService`; `ITenantContext` (the tenant id is part of every idempotency key); `IUnitOfWork`; `TimeProvider`; `Money`. `src/Souq.Application/Features/Payments` references **no other feature folder**, and `AllowedContracts` gives Payments no entry, so any such reference fails the build.
-- The Infrastructure router additionally reads `IStorePaymentAccountRepository` (an entity whose use cases are Platform's) and `IPaymentRepository.GetGatewayAsync`.
+- The Infrastructure router additionally reads `IStorePaymentAccountRepository` (an entity whose use cases are Platform's) and `IPaymentRepository.GetAccountAsync`, which returns the account **kind and identity** recorded on the payment ([ADR-0061](../../11-ADR/0061-a-payment-records-which-account-took-it.md)).
 - **Used by:** Ordering (`IOrderPayments`, `IPaymentQueries`, and the `IPaymentService` port), Platform (`StorePaymentAccountEditor` uses `ISecretProtector` and `PaymentKeyRules`), the frontend (`frontend/src/pages/admin/Payments.jsx`, `frontend/src/pages/admin/OrderDetailDrawer.jsx`, `frontend/src/pages/checkout/CardPaymentForm.jsx`).
 - **Boundary leaks:** none in Application. At the database level `Payments` has a composite foreign key to `Orders` (Restrict) — deliberate, and the reason a payment knows an order id at all.
 - **Enforced vs convention.** Enforced: no reference out of the module and no cycle (`ModuleAndContractRuleTests`); no Stripe type in Domain, Application or controllers (`DependencyRuleTests`); no card-like column anywhere and an exact reviewed column list for the three payment tables (`PaymentDataRulesTests`); tenancy rules (`TenancyRuleTests`). Convention: the reserve–call–record ordering and "no transaction across the gateway call" are guarded by `OrderPaymentsTests`, not by a structural rule.
@@ -275,8 +276,12 @@ not before:
   answer, when it arrives, is flipping one value in front of an already-green test — not writing conversion and
   rounding logic under the pressure of a discovery in production. The tests also pin the trap: ISK and UGX are
   zero-decimal in ISO but ×100 at Stripe, so a naive `10^decimals` derivation would silently charge a hundredth.
-- **Refunds follow the account *kind*, not the account.** Three places in the repository claimed otherwise; they
-  now say what the code does, and the consequence is recorded as **TD-50**.
+- ~~**Refunds follow the account *kind*, not the account.**~~ **Closed by `C12`'s first slice**
+  ([ADR-0061](../../11-ADR/0061-a-payment-records-which-account-took-it.md)): a payment now records the
+  publishable key of the account that took it, and the router compares it **before** calling, refusing a
+  mismatch with a message the operator can act on. Payments written before the column still carry no identity
+  and keep the old behaviour — there is nothing to backfill from.
 - **The refund idempotency key is time-bounded.** Stripe forgets keys after 24 hours — **TD-51**.
-- **The router has no tests** because it constructs its gateway inline. All four of its routing rules were
-  verified by reading; the coverage gap is **TD-52**.
+- ~~**The router has no tests** because it constructs its gateway inline.~~ **Closed by `C12`'s first slice
+  (TD-52)**: the construction is behind an injectable `StoreGatewayFactory`, and `PaymentGatewayRoutingTests`
+  exercises every routing rule offline.

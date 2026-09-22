@@ -46,7 +46,11 @@ public class PaymentDataRulesTests
 
         ColumnsOf(db, "Payments").Should().Equal(new[]
         {
-            "Amount", "CreatedAt", "Currency", "Gateway", "Id", "OrderId", "PendingRefundAmount", "ProviderPaymentId",
+            // "GatewayAccount" أُضيف بقرارٍ مُراجَع (TD-50، ADR-0061): المفتاحُ العلني للحساب الذي
+            // قبض — علنيٌّ بحكم تعريفه، يُرسله المزوّد إلى كلّ متصفّح. **ليس سرّاً ولا بيانةَ بطاقة**،
+            // وهو ما يجعل إضافته هنا مقبولة أصلاً. وهذا السطرُ هو الحارس: عمودٌ يدخل هذه الجداول
+            // بلا مراجعةٍ يُسقط البناء.
+            "Amount", "CreatedAt", "Currency", "Gateway", "GatewayAccount", "Id", "OrderId", "PendingRefundAmount", "ProviderPaymentId",
             "RefundedAmount", "RowVersion", "Status", "TenantId", "UpdatedAt",
         }.Order());
         ColumnsOf(db, "Refunds").Should().Equal(new[]

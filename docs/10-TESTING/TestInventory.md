@@ -7,10 +7,10 @@
 
 | Suite | Files | Facts | Theories |
 |---|---|---|---|
-| [`Souq.Domain.Tests`](#souqdomaintests) | 35 | 327 | 54 |
+| [`Souq.Domain.Tests`](#souqdomaintests) | 35 | 329 | 55 |
 | [`Souq.Application.Tests`](#souqapplicationtests) | 58 | 433 | 22 |
 | [`Souq.ArchitectureTests`](#souqarchitecturetests) | 17 | 77 | 8 |
-| [`Souq.IntegrationTests`](#souqintegrationtests) | 67 | 419 | 28 |
+| [`Souq.IntegrationTests`](#souqintegrationtests) | 67 | 422 | 28 |
 | [frontend (Vitest)](#frontend-vitest) | 106 | 819 | — |
 | [frontend (Playwright)](#frontend-playwright) | 24 | 147 | — |
 
@@ -33,7 +33,7 @@
 | `tests/Souq.Domain.Tests/OrderLifecycleTests.cs` | `OrderLifecycleTests` | 6 | 1 |
 | `tests/Souq.Domain.Tests/OrderShippingTests.cs` | `OrderShippingTests` | 5 | 0 |
 | `tests/Souq.Domain.Tests/OrderTests.cs` | `OrderTests` | 28 | 2 |
-| `tests/Souq.Domain.Tests/PaymentTests.cs` | `PaymentTests` | 5 | 3 |
+| `tests/Souq.Domain.Tests/PaymentTests.cs` | `PaymentTests` | 7 | 4 |
 | `tests/Souq.Domain.Tests/PlanAndEntitlementTests.cs` | `PlanAndEntitlementTests` | 20 | 3 |
 | `tests/Souq.Domain.Tests/PlatformInvoiceTests.cs` | `PlatformInvoiceTests` | 17 | 0 |
 | `tests/Souq.Domain.Tests/ProductOptionTests.cs` | `ProductOptionTests` | 19 | 0 |
@@ -180,7 +180,7 @@
 | `tests/Souq.IntegrationTests/OrderLifecycleTests.cs` | `OrderLifecycleTests` | 6 | 0 |
 | `tests/Souq.IntegrationTests/PaymentAdapterTests.cs` | `SecretProtectorTests`, `FakeGatewayTests` | 6 | 1 |
 | `tests/Souq.IntegrationTests/PaymentDataRulesTests.cs` | `PaymentDataRulesTests` | 2 | 0 |
-| `tests/Souq.IntegrationTests/PaymentGatewayRoutingTests.cs` | `PaymentGatewayRoutingTests`, `RecordingGateway`, `FakeAccounts`, `FakePayments`, `FakeSecrets`, `FakeTenantContext` | 7 | 0 |
+| `tests/Souq.IntegrationTests/PaymentGatewayRoutingTests.cs` | `PaymentGatewayRoutingTests`, `RecordingGateway`, `FakeAccounts`, `FakePayments`, `FakeSecrets`, `FakeTenantContext` | 10 | 0 |
 | `tests/Souq.IntegrationTests/PaymentsAndRefundsTests.cs` | `PaymentsAndRefundsTests` | 7 | 0 |
 | `tests/Souq.IntegrationTests/PlatformAdministrationTests.cs` | `PlatformAdministrationTests` | 9 | 0 |
 | `tests/Souq.IntegrationTests/PlatformAuditViewerTests.cs` | `PlatformAuditViewerTests` | 5 | 0 |

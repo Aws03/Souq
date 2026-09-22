@@ -10,11 +10,16 @@ namespace Souq.Domain.Entities;
 // (نجاح بالدفع، فشل أو إلغاء بإلغائه). لا بيانات بطاقة هنا أبداً — البطاقة تذهب من المتصفّح إلى البوّابة مباشرة، ونحن
 // نحفظ معرّف النيّة لديها فقط.
 //
-// Gateway: **نوع** الحساب الذي أنشأ النيّة ("stripe:store" حساب المتجر، "stripe:deployment" حساب النشر، "fake") —
-// لا هويّته. التأكيد والإلغاء والاسترداد تمرّ بالنوع نفسه، أي بحساب المتجر **الحالي** إن كان "stripe:store".
-// ⚠️ فإن استبدل المتجر حسابه (أو بدّل من مفاتيح تجريبية إلى حقيقية) بين القبض والاسترداد، ذهب الاسترداد إلى
-// الحساب الجديد الذي لا تعرف النيّة عنده شيئاً. حُرِّر في M6 بعد أن كان هذا التعليق يدّعي العكس — القيد الحقيقي
-// مسجَّل في docs/04-MODULES/Payments/README.md (حدود المعرفة) وTD-50.
+// Gateway: **نوع** الحساب الذي أنشأ النيّة ("stripe:store" حساب المتجر، "stripe:deployment" حساب النشر، "fake").
+// GatewayAccount: **هويّته** — المفتاح العلني للحساب الذي قبض فعلاً (TD-50، [ADR-0061](0061)).
+//
+// النوعُ وحده لا يكفي، وهذا ليس افتراضاً: متجرٌ يربط مفاتيح تجريبية، يقبض دفعة، ثمّ يبدّل إلى مفاتيح حقيقية —
+// وهو مسارُ تشغيلٍ عاديّ يدعمه الكيان صراحةً — كان استردادُه يذهب إلى الحساب الجديد الذي لا تعرف النيّة عنده
+// شيئاً، فيردّ المزوّد 404 ويُعلَّم الاسترداد Failed، **ولا يُعاد استرداد فاشل**. فمالُ الزبون يبقى بلا طريقٍ
+// داخل التطبيق. الآن تُقارن الهويّة قبل النداء، ويُرفض ما لا يطابق برسالةٍ تقول للمشغّل ما يفعل.
+//
+// null تعني «لا هويّة مسجَّلة»: دفعاتٌ كُتبت قبل هذا الحقل، والبوّابة التجريبية التي لا مفتاح علنيّ لها. تلك
+// تبقى على سلوكها السابق — حارسٌ يرفض المجهول كان سيمنع استرداد كلّ دفعةٍ قائمة.
 //
 // الاسترداد تجمّع هنا: مجموع المسترَدّ والمعلّق لا يتجاوز المدفوع. طلب استرداد يزيد PendingRefundAmount فيتغيّر صفّ الدفعة
 // نفسه، فيحرسه rowversion: طلبا استرداد متزامنان لا يتجاوزان المبلغ معاً (الثاني يُعاد من قراءة جديدة ويُرفض).
@@ -22,11 +27,13 @@ namespace Souq.Domain.Entities;
 public class Payment : Entity, ITenantOwned
 {
     public const int GatewayMaxLength = 40;
+    public const int GatewayAccountMaxLength = 255;
     public const int ProviderPaymentIdMaxLength = 100;
 
     public int TenantId { get; private set; }
     public int OrderId { get; private set; }
     public string Gateway { get; private set; } = default!;
+    public string? GatewayAccount { get; private set; }
     public string ProviderPaymentId { get; private set; } = default!;
     public Money Amount { get; private set; } = default!;
     public PaymentStatus Status { get; private set; }
@@ -38,7 +45,7 @@ public class Payment : Entity, ITenantOwned
 
     private Payment() { }
 
-    public Payment(int orderId, string gateway, string providerPaymentId, Money amount)
+    public Payment(int orderId, string gateway, string providerPaymentId, Money amount, string? gatewayAccount = null)
     {
         if (orderId <= 0)
             throw new InvalidPaymentOperationException("الدفعة تخصّ طلباً محفوظاً");
@@ -46,9 +53,14 @@ public class Payment : Entity, ITenantOwned
             throw new InvalidPaymentOperationException("حساب البوّابة مطلوب");
         if (string.IsNullOrWhiteSpace(providerPaymentId) || providerPaymentId.Length > ProviderPaymentIdMaxLength)
             throw new InvalidPaymentOperationException("معرّف الدفعة لدى البوّابة مطلوب");
+        if (gatewayAccount is { Length: > GatewayAccountMaxLength })
+            throw new InvalidPaymentOperationException("هويّة حساب البوّابة أطول من الحدّ");
 
         OrderId = orderId;
         Gateway = gateway;
+        // المفتاح العلني وحده — وهو علنيٌّ بحكم تعريفه: المزوّد يرسله إلى كلّ متصفّح. لا سرّ هنا، ولا تجزئة
+        // تُخفيه عن مشغّلٍ يحتاج أن يعرف أيّ حسابٍ قبض.
+        GatewayAccount = string.IsNullOrWhiteSpace(gatewayAccount) ? null : gatewayAccount.Trim();
         ProviderPaymentId = providerPaymentId;
         Amount = amount ?? throw new InvalidPaymentOperationException("مبلغ الدفعة مطلوب");
         Status = PaymentStatus.Pending;

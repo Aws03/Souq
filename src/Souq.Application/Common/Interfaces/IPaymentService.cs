@@ -36,7 +36,10 @@ public interface IPaymentService
 }
 
 // Gateway: الحساب الذي أنشأ النيّة (يُسجَّل على الدفعة ولا يفسّره Application).
-public record PaymentIntentResult(string PaymentIntentId, string ClientSecret, string Gateway = "deployment");
+// GatewayAccount: هويّةُ الحساب الذي قبض — المفتاح العلني (TD-50، ADR-0061). null للبوّابة
+// التجريبية التي لا مفتاح علنيّ لها، ولكلّ دفعةٍ كُتبت قبل هذا الحقل.
+public record PaymentIntentResult(
+    string PaymentIntentId, string ClientSecret, string Gateway = "deployment", string? GatewayAccount = null);
 
 // نتيجة سؤال البوّابة عن نيّة دفع. State هي الحقيقة التي يُبنى عليها القرار؛ Succeeded اختصار قراءة.
 public record PaymentConfirmationResult(PaymentIntentState State, string? FailureReason = null)

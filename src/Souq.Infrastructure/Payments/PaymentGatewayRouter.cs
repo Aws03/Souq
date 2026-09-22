@@ -83,14 +83,41 @@ public sealed class PaymentGatewayRouter : IPaymentService
 
     private async Task<IPaymentGateway> CurrentAsync(CancellationToken ct) => await StoreAsync(ct) ?? _deployment.Gateway;
 
+    // ========================================================================
     // الحساب الذي أنشأ النيّة. نيّة بلا دفعة مسجَّلة ⇒ الحساب الحالي.
+    //
+    // **والهويّة تُقارَن، لا النوعُ وحده** (TD-50، ADR-0061). متجرٌ ربط مفاتيح تجريبية، قبض
+    // دفعة، ثمّ بدّل إلى مفاتيح حقيقية — مسارُ تشغيلٍ عاديّ يدعمه الكيان صراحةً — كان استردادُه
+    // يُرسَل إلى الحساب الجديد الذي لا يعرف تلك النيّة، فيردّ المزوّد 404 ويُعلَّم الاسترداد
+    // Failed، **ولا يُعاد استرداد فاشل**. فيبقى مالُ الزبون بلا طريقٍ داخل التطبيق.
+    //
+    // فالرفضُ قبل النداء أفضلُ من فشلٍ بعده: الأوّل حالةٌ يُصلحها المشغّل بإعادة ربط الحساب،
+    // والثاني سجلٌّ ميّت. ولذلك الرسالةُ تقول ما يُفعل لا ما وقع.
+    //
+    // وهويّةٌ غير مسجَّلة (null) تمرّ: دفعاتٌ كُتبت قبل هذا الحقل، والبوّابةُ التجريبية بلا مفتاح
+    // علنيّ. حارسٌ يرفض المجهول كان سيمنع استرداد كلّ دفعةٍ قائمة في كلّ متجر.
+    // ========================================================================
     private async Task<IPaymentGateway> ForIntentAsync(string paymentIntentId, CancellationToken ct)
     {
-        var gateway = await _payments.GetGatewayAsync(paymentIntentId, ct);
-        if (gateway == StripeGateway.StoreAccount)
-            return await StoreAsync(ct) ?? throw new PaymentGatewayUnavailableException(
-                "هذه الدفعة أخذها حساب المتجر، وحساب المتجر لم يعد مربوطاً — أعد ربطه لإتمام العملية");
-        return gateway is null ? await CurrentAsync(ct) : _deployment.Gateway;
+        var recorded = await _payments.GetAccountAsync(paymentIntentId, ct);
+        if (recorded is null) return await CurrentAsync(ct);
+
+        var gateway = recorded.Kind == StripeGateway.StoreAccount
+            ? await StoreAsync(ct) ?? throw new PaymentGatewayUnavailableException(
+                "هذه الدفعة أخذها حساب المتجر، وحساب المتجر لم يعد مربوطاً — أعد ربطه لإتمام العملية")
+            : _deployment.Gateway;
+
+        if (recorded.Account is { } account && gateway.PublishableKey is { } current
+            && !string.Equals(account, current, StringComparison.Ordinal))
+        {
+            _logger.LogError(
+                "Payment {IntentId} was taken by account {Recorded} but the account in use now is {Current}; refusing",
+                paymentIntentId, account, current);
+            throw new PaymentGatewayUnavailableException(
+                "هذه الدفعة أخذها حسابٌ آخر غير المربوط الآن، فلا تُنفَّذ عليه — أعد ربط الحساب الذي قبضها");
+        }
+
+        return gateway;
     }
 
     // حساب المتجر مفكوك السرّ، مرة واحدة لكل نطاق.

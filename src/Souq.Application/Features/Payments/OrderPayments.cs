@@ -37,7 +37,7 @@ public sealed class OrderPayments : IOrderPayments
     }
 
     public Task RecordIntentAsync(int orderId, PaymentIntentResult intent, Money amount, CancellationToken ct) =>
-        _payments.AddAsync(new Payment(orderId, intent.Gateway, intent.PaymentIntentId, amount), ct);
+        _payments.AddAsync(new Payment(orderId, intent.Gateway, intent.PaymentIntentId, amount, intent.GatewayAccount), ct);
 
     public async Task MarkSucceededAsync(int orderId, CancellationToken ct) =>
         (await _payments.GetForOrderAsync(orderId, ct))?.MarkSucceeded();

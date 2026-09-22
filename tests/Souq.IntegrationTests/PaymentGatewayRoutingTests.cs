@@ -55,6 +55,11 @@ public class PaymentGatewayRoutingTests
 
     private static readonly RecordingGateway Deployment = new(StripeGateway.DeploymentAccount);
 
+    // ما سُجّل على الدفعة: النوعُ، والهويّةُ التي يصنعها `RecordingGateway` لذلك النوع — فالحالةُ
+    // الطبيعية «الحساب نفسه»، والمخالفةُ تُكتب صراحةً في اختبارها.
+    private static PaymentAccountRef Recorded(string kind, string? account = null) =>
+        new(kind, account ?? $"pk_{kind}");
+
     private static StorePaymentAccount Account() =>
         new("pk_test_abcdefghij", "cipher", "hint", liveMode: false, webhookSecretCipher: null, updatedByUserId: null);
 
@@ -77,11 +82,11 @@ public class PaymentGatewayRoutingTests
 
     private sealed class FakePayments : IPaymentRepository
     {
-        private readonly string? _gateway;
-        public FakePayments(string? gateway) => _gateway = gateway;
+        private readonly PaymentAccountRef? _recorded;
+        public FakePayments(PaymentAccountRef? recorded) => _recorded = recorded;
 
-        public Task<string?> GetGatewayAsync(string providerPaymentId, CancellationToken ct = default) =>
-            Task.FromResult(_gateway);
+        public Task<PaymentAccountRef?> GetAccountAsync(string providerPaymentId, CancellationToken ct = default) =>
+            Task.FromResult(_recorded);
 
         public Task<Payment?> GetForOrderAsync(int orderId, CancellationToken ct = default) =>
             throw new NotSupportedException();
@@ -115,13 +120,13 @@ public class PaymentGatewayRoutingTests
     }
 
     private static PaymentGatewayRouter Router(
-        StorePaymentAccount? account, string? gatewayOfIntent = null, bool secretsBroken = false)
+        StorePaymentAccount? account, PaymentAccountRef? recorded = null, bool secretsBroken = false)
     {
         // المصنعُ المحقون: هنا كان الاختبارُ مستحيلاً بلا شبكة.
         StoreGatewayFactory factory = (kind, _) => new RecordingGateway(kind);
 
         return new PaymentGatewayRouter(
-            new DeploymentPaymentGateway(Deployment), new FakeAccounts(account), new FakePayments(gatewayOfIntent),
+            new DeploymentPaymentGateway(Deployment), new FakeAccounts(account), new FakePayments(recorded),
             new FakeSecrets(secretsBroken), new FakeTenantContext(),
             NullLogger<PaymentGatewayRouter>.Instance, factory);
     }
@@ -158,7 +163,7 @@ public class PaymentGatewayRoutingTests
     [Fact]
     public async Task الاسترداد_يتبع_نوع_الحساب_المسجَّل_على_الدفعة()
     {
-        var router = Router(Account(), gatewayOfIntent: StripeGateway.StoreAccount);
+        var router = Router(Account(), Recorded(StripeGateway.StoreAccount));
 
         var refund = await router.RefundAsync("pi_1", Money.FromCalculation(5m, "JOD"), "idem-1");
 
@@ -169,7 +174,7 @@ public class PaymentGatewayRoutingTests
     [Fact]
     public async Task دفعة_أخذها_حساب_النشر_تُستردّ_منه_ولو_ربط_المتجر_حسابه_بعدها()
     {
-        var router = Router(Account(), gatewayOfIntent: StripeGateway.DeploymentAccount);
+        var router = Router(Account(), Recorded(StripeGateway.DeploymentAccount));
 
         var refund = await router.RefundAsync("pi_1", Money.FromCalculation(5m, "JOD"), "idem-1");
 
@@ -179,11 +184,51 @@ public class PaymentGatewayRoutingTests
     [Fact]
     public async Task دفعة_أخذها_حساب_المتجر_ثمّ_فُكّ_ربطه_تُرفض_برسالة_لا_تُوجَّه_لحساب_النشر()
     {
-        var router = Router(account: null, gatewayOfIntent: StripeGateway.StoreAccount);
+        var router = Router(account: null, Recorded(StripeGateway.StoreAccount));
 
         var act = () => router.RefundAsync("pi_1", Money.FromCalculation(5m, "JOD"), "idem-1");
 
         await act.Should().ThrowAsync<PaymentGatewayUnavailableException>();
+    }
+
+    // ========================================================================
+    // TD-50 (ADR-0061): الهويّة تُقارَن، لا النوعُ وحده.
+    //
+    // المسارُ الواقعيّ: متجرٌ يربط مفاتيح تجريبية، يقبض دفعة، ثمّ يبدّل إلى مفاتيح حقيقية —
+    // وهو مسارٌ يدعمه الكيان صراحةً. النوعُ يبقى `stripe:store` في الحالتين، فكان الاسترداد
+    // يُرسَل إلى حسابٍ لا يعرف تلك النيّة، ويُعلَّم Failed، **ولا يُعاد استرداد فاشل**.
+    // ========================================================================
+    [Fact]
+    public async Task استرداد_دفعة_أخذها_حسابٌ_آخر_يُرفض_قبل_النداء_لا_يفشل_بعده()
+    {
+        // سُجّل على الدفعة حسابٌ بمفتاحٍ علنيّ آخر — أي مفاتيحُ المتجر بُدّلت بعد القبض.
+        var router = Router(Account(), Recorded(StripeGateway.StoreAccount, "pk_test_theoldone"));
+
+        var act = () => router.RefundAsync("pi_1", Money.FromCalculation(5m, "JOD"), "idem-1");
+
+        await act.Should().ThrowAsync<PaymentGatewayUnavailableException>();
+    }
+
+    [Fact]
+    public async Task الهويّة_المطابقة_تمرّ()
+    {
+        var router = Router(Account(), Recorded(StripeGateway.StoreAccount));
+
+        var refund = await router.RefundAsync("pi_1", Money.FromCalculation(5m, "JOD"), "idem-1");
+
+        refund.Succeeded.Should().BeTrue();
+    }
+
+    // دفعةٌ كُتبت قبل هذا الحقل، أو أخذتها البوّابة التجريبية بلا مفتاح علنيّ: تبقى على سلوكها
+    // السابق. حارسٌ يرفض المجهول كان سيمنع استرداد كلّ دفعةٍ قائمة في كلّ متجر يوم الترقية.
+    [Fact]
+    public async Task دفعة_بلا_هويّة_مسجَّلة_تمرّ_كما_كانت()
+    {
+        var router = Router(Account(), new PaymentAccountRef(StripeGateway.StoreAccount, null));
+
+        var refund = await router.RefundAsync("pi_1", Money.FromCalculation(5m, "JOD"), "idem-1");
+
+        refund.Succeeded.Should().BeTrue();
     }
 
     // **القاعدة الرابعة، وهي التي يقع عليها ضررٌ ماليّ حقيقيّ لو انعكست**: سرٌّ لا يُفكّ يوقف

@@ -18,6 +18,9 @@ public class PaymentConfiguration : IEntityTypeConfiguration<Payment>
         builder.HasAlternateKey(p => new { p.TenantId, p.Id });
         builder.Property(p => p.Status).HasConversion<int>();
         builder.Property(p => p.Gateway).HasMaxLength(Payment.GatewayMaxLength).IsUnicode(false).IsRequired();
+        // هويّةُ الحساب الذي قبض (TD-50): اختياريّة — دفعاتٌ كُتبت قبلها، والبوّابة التجريبية بلا
+        // مفتاح علنيّ. ASCII: المفاتيح العلنية للمزوّدين كلُّها كذلك.
+        builder.Property(p => p.GatewayAccount).HasMaxLength(Payment.GatewayAccountMaxLength).IsUnicode(false);
         builder.Property(p => p.ProviderPaymentId).HasMaxLength(Payment.ProviderPaymentIdMaxLength).IsUnicode(false).IsRequired();
         builder.Property(p => p.RefundedAmount).HasColumnType(PersistenceConventions.MoneyColumnType);
         builder.Property(p => p.PendingRefundAmount).HasColumnType(PersistenceConventions.MoneyColumnType);

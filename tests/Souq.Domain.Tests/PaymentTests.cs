@@ -154,4 +154,36 @@ public class PaymentTests
 
         (longReason.Reason!.Length, blank.Reason).Should().Be((Refund.ReasonMaxLength, (string?)null));
     }
+
+    // ========================================================================
+    // هويّةُ الحساب الذي قبض (TD-50، ADR-0061). الكيانُ يحفظها ولا يفسّرها — القرارُ في الموجّه —
+    // لكنّه يضمن أنّ الفارغَ يُقرأ `null` لا سلسلةً فارغة: حارسُ المقارنة يفرّق بينهما.
+    // ========================================================================
+    [Fact]
+    public void الدفعة_تحفظ_هويّة_الحساب_الذي_قبض()
+    {
+        var payment = new Payment(1, "stripe:store", "pi_1", Money.FromCalculation(10m, "JOD"), "pk_test_abcdefghij");
+
+        payment.GatewayAccount.Should().Be("pk_test_abcdefghij");
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void هويّة_فارغة_تُقرأ_غيابَ_هويّة_لا_سلسلةً_فارغة(string? account)
+    {
+        var payment = new Payment(1, "fake", "pi_1", Money.FromCalculation(10m, "JOD"), account);
+
+        payment.GatewayAccount.Should().BeNull();
+    }
+
+    [Fact]
+    public void هويّة_أطول_من_الحدّ_تُرفض()
+    {
+        var act = () => new Payment(1, "stripe:store", "pi_1", Money.FromCalculation(10m, "JOD"),
+            new string('k', Payment.GatewayAccountMaxLength + 1));
+
+        act.Should().Throw<InvalidPaymentOperationException>();
+    }
 }

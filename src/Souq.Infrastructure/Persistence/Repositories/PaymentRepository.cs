@@ -12,8 +12,10 @@ public class PaymentRepository : RepositoryBase<Payment>, IPaymentRepository
     public Task<Payment?> GetForOrderAsync(int orderId, CancellationToken ct = default) =>
         Db.Payments.Include(p => p.Refunds).FirstOrDefaultAsync(p => p.OrderId == orderId, ct);
 
-    public Task<string?> GetGatewayAsync(string providerPaymentId, CancellationToken ct = default) =>
-        Db.Payments.Where(p => p.ProviderPaymentId == providerPaymentId).Select(p => p.Gateway).FirstOrDefaultAsync(ct);
+    public Task<PaymentAccountRef?> GetAccountAsync(string providerPaymentId, CancellationToken ct = default) =>
+        Db.Payments.Where(p => p.ProviderPaymentId == providerPaymentId)
+            .Select(p => new PaymentAccountRef(p.Gateway, p.GatewayAccount))
+            .FirstOrDefaultAsync(ct);
 
     public void Reset()
     {

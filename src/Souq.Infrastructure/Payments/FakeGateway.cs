@@ -48,7 +48,7 @@ public sealed class FakeGateway : IPaymentGateway
     public Task<PaymentIntentResult> CreateIntentAsync(Money amount, string orderReference, int tenantId, CancellationToken ct)
     {
         var id = $"pi_fake_{Guid.NewGuid():N}";
-        return Task.FromResult(new PaymentIntentResult(id, $"{id}_secret_fake", Name));
+        return Task.FromResult(new PaymentIntentResult(id, $"{id}_secret_fake", Name, PublishableKey));
     }
 
     public Task<PaymentConfirmationResult> ConfirmAsync(string paymentIntentId, CancellationToken ct) =>

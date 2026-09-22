@@ -57,7 +57,7 @@ public sealed class StripeGateway : IPaymentGateway
             // يتيمة لا نعرف معرّفها؛ إعادة المحاولة بالمفتاح نفسه تعيد النيّة الأولى بدل إنشاء ثانية.
         }, new RequestOptions { IdempotencyKey = $"souq-intent-{tenantId}-{orderReference}" }, ct);
 
-        return new PaymentIntentResult(intent.Id, intent.ClientSecret, Name);
+        return new PaymentIntentResult(intent.Id, intent.ClientSecret, Name, PublishableKey);
     }
 
     // الحالة كما هي، لا "نجح/لم ينجح": requires_payment_method بعد رفض البطاقة نيّة حيّة يعيد العميل المحاولة عليها،
