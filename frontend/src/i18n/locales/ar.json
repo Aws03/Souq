@@ -109,6 +109,11 @@
       "separator": " و",
       "soldOut": "نفد",
       "unavailableWithSelection": "هذه التركيبة غير متاحة. اختر قيمة أخرى."
+    },
+    "reason": {
+      "BoughtTogether": "يُشترى معه غالباً",
+      "SameCategory": "منتج مشابه",
+      "NewArrival": "وصل حديثاً"
     }
   },
   "reviews": {

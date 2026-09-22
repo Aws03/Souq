@@ -102,6 +102,11 @@
       "separator": " and ",
       "soldOut": "sold out",
       "unavailableWithSelection": "That combination is not available. Try another value."
+    },
+    "reason": {
+      "BoughtTogether": "Often bought together",
+      "SameCategory": "Similar item",
+      "NewArrival": "New arrival"
     }
   },
   "reviews": {

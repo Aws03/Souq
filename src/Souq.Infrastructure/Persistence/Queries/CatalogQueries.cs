@@ -166,25 +166,79 @@ internal sealed class CatalogQueries : ICatalogQueries
     public async Task<ProductDto?> FindActiveProductBySlugAsync(string slug, string culture, CancellationToken ct) =>
         await DetailAsync(VisibleProducts().Where(p => p.Slug == slug), culture, ct);
 
-    // نفس الفئة أولاً (الأكثر مبيعاً)، ثم أحدث منتجات الفئات الأخرى إن لم تكفِ — استعلامان صغيران محدودان بـ count.
+    // ========================================================================
+    // المنتجاتُ ذاتُ الصلة (C10، [ADR-0064](0064)) — **من بيانات المتجر نفسه، بلا تتبّع سلوكيّ.**
+    //
+    // ثلاث طبقاتٍ بترتيب قوّة الإشارة، وكلُّ منتجٍ يحمل سببَه كي يُعرض للمتسوّق:
+    //
+    //   1. **اشتُريا معاً** في طلباتٍ **سُلّمت** — أقوى ما يملكه متجرٌ بلا تتبّع، وأصدقُه: مالٌ
+    //      دُفع وبضاعةٌ وصلت، لا نقرةٌ عابرة. وحدُّ التكرار أدناه هو ما يفصله عن الصدفة.
+    //   2. **الفئة نفسها**، الأكثر مبيعاً أوّلاً.
+    //   3. **الأحدث** — ما يبقى لمتجرٍ جديد، ويُسمّى «جديد» لا «موصى به لك».
+    //
+    // **والعزلُ بنيويّ لا شرطيّ**: `_db.Orders` يمرّ بمرشّح المستأجر، فالتجميعُ لا يرى طلبات
+    // متجرٍ آخر أصلاً — وهو جوابُ `C-09` («لا تُجمَّع البيانات عبر المتاجر») مفروضاً بالبناء لا
+    // بانتباهِ كاتب.
+    // ========================================================================
+
+    // حدُّ التكرار: طلبٌ واحد جمع منتجين لا يجعلهما «يُشتريان معاً» — صدفةٌ تُعرض كتوصية أسوأ من
+    // لا توصية، لأنّها تدّعي حساباً لم يقع.
+    private const int MinimumCoPurchaseSupport = 2;
+
     public async Task<IReadOnlyList<ProductDto>?> FindRelatedProductsAsync(int productId, int count, string culture, CancellationToken ct)
     {
         var categoryId = await VisibleProducts().Where(p => p.Id == productId)
             .Select(p => (int?)p.CategoryId).FirstOrDefaultAsync(ct);
         if (categoryId is null) return null;
 
-        var sameCategory = await BestSellingFirst(VisibleProducts()
-                .Where(p => p.CategoryId == categoryId && p.Id != productId))
-            .Take(count).Select(Row(culture)).ToListAsync(ct);
-        if (sameCategory.Count >= count) return sameCategory.Select(r => ToDto(r, culture)).ToList();
+        var picked = new List<(ProductRow Row, RecommendationReason Reason)>();
+        var taken = new List<int> { productId };
 
-        var excluded = sameCategory.Select(p => p.Id).Append(productId).ToList();
-        var others = await VisibleProducts()
-            .Where(p => p.CategoryId != categoryId && !excluded.Contains(p.Id))
-            .OrderByDescending(p => p.Id)
-            .Take(count - sameCategory.Count).Select(Row(culture)).ToListAsync(ct);
+        // ── 1. اشتُريا معاً ──────────────────────────────────────────────────
+        var coPurchasedIds = await _db.Orders
+            .Where(o => o.Status == OrderStatus.Delivered && o.Items.Any(i => i.ProductId == productId))
+            .SelectMany(o => o.Items)
+            .Where(i => i.ProductId != productId)
+            .GroupBy(i => i.ProductId)
+            .Where(g => g.Count() >= MinimumCoPurchaseSupport)
+            .OrderByDescending(g => g.Count()).ThenByDescending(g => g.Key)
+            .Select(g => g.Key)
+            .Take(count)
+            .ToListAsync(ct);
 
-        return sameCategory.Concat(others).Select(r => ToDto(r, culture)).ToList();
+        if (coPurchasedIds.Count > 0)
+        {
+            // المعروضُ وحده: منتجٌ اشتُري معه ثمّ أُرشف أو أُخفي لا يُقترح.
+            var rows = await VisibleProducts().Where(p => coPurchasedIds.Contains(p.Id))
+                .Select(Row(culture)).ToListAsync(ct);
+            // ترتيبُ قوّة الإشارة يُعاد فرضُه في الذاكرة: `Contains` لا يحفظ ترتيب القائمة.
+            picked.AddRange(coPurchasedIds
+                .Select(id => rows.FirstOrDefault(r => r.Id == id))
+                .Where(r => r is not null)
+                .Select(r => (r!, RecommendationReason.BoughtTogether)));
+            taken.AddRange(picked.Select(x => x.Row.Id));
+        }
+
+        // ── 2. الفئة نفسها ──────────────────────────────────────────────────
+        if (picked.Count < count)
+        {
+            var sameCategory = await BestSellingFirst(VisibleProducts()
+                    .Where(p => p.CategoryId == categoryId && !taken.Contains(p.Id)))
+                .Take(count - picked.Count).Select(Row(culture)).ToListAsync(ct);
+            picked.AddRange(sameCategory.Select(r => (r, RecommendationReason.SameCategory)));
+            taken.AddRange(sameCategory.Select(r => r.Id));
+        }
+
+        // ── 3. الأحدث ───────────────────────────────────────────────────────
+        if (picked.Count < count)
+        {
+            var newest = await VisibleProducts().Where(p => !taken.Contains(p.Id))
+                .OrderByDescending(p => p.Id)
+                .Take(count - picked.Count).Select(Row(culture)).ToListAsync(ct);
+            picked.AddRange(newest.Select(r => (r, RecommendationReason.NewArrival)));
+        }
+
+        return picked.Select(x => ToDto(x.Row, culture, reason: x.Reason)).ToList();
     }
 
     public async Task<IReadOnlyList<CategoryDto>> ListCategoriesAsync(bool includeInactive, string culture, CancellationToken ct)
@@ -695,7 +749,8 @@ internal sealed class CatalogQueries : ICatalogQueries
 
     private static ProductDto ToDto(
         ProductRow r, string culture, IReadOnlyList<string>? images = null,
-        IReadOnlyList<ProductOptionDto>? options = null, IReadOnlyList<ProductVariantDto>? variants = null)
+        IReadOnlyList<ProductOptionDto>? options = null, IReadOnlyList<ProductVariantDto>? variants = null,
+        RecommendationReason? reason = null)
     {
         var texts = Texts(r.Texts);
         var main = Pick(texts, culture);
@@ -706,7 +761,7 @@ internal sealed class CatalogQueries : ICatalogQueries
             r.Id, r.Slug, main?.Name ?? r.Slug, main?.Description, texts,
             price?.Price ?? 0m, price?.CompareAtPrice, price?.Currency ?? "", r.StockQuantity,
             r.ImageUrl, images, r.VideoUrl, r.CategoryId, r.CategoryName, r.Brand,
-            priceIsFrom, r.ActiveVariants > 1, options, variants);
+            priceIsFrom, r.ActiveVariants > 1, options, variants, reason);
     }
 
     private static IReadOnlyDictionary<string, CatalogTextDto> Texts(IEnumerable<TextRow> rows) =>

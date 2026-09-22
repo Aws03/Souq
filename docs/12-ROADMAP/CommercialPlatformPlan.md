@@ -493,7 +493,7 @@ Each phase lists: **delivers · depends on · blocked by · why here**.
   permanently foreclosed** — funnel analysis, search-to-purchase attribution, and every behavioural
   recommendation — rather than leaving the question open.
 
-### C10 — Related products and recommendation baselines
+### C10 — Related products and recommendation baselines — **done**
 
 - **Delivers.** Attribute/content similarity first, because it needs no behavioural data and is therefore the
   only thing correct on day one for a new tenant. Then co-occurrence with a rescaled measure and a minimum
@@ -503,7 +503,16 @@ Each phase lists: **delivers · depends on · blocked by · why here**.
   with forty orders can deliver.
 - **Depends on.** C9 for anything behavioural. `FindRelatedProductsAsync` already exists with a route and a
   frontend surface, so the first slice changes one implementation and no client code.
-- **Blocked by.** C-09 (may behavioural data be pooled across tenants).
+- **Blocked by.** ~~C-09~~ **answered 2026-09-22: never pool across tenants** — and the record argues that is
+  the right answer beyond portfolio mode, not a concession to it.
+- **Done (2026-09-22)** ([ADR-0064](../11-ADR/0064-recommendations-from-first-party-data.md)): three layers,
+  strongest signal first, each carrying a closed-enum reason the shopper actually sees — co-purchase from
+  **delivered** orders, then same-category best-sellers, then newest, which says *new arrival* rather than
+  *recommended for you*. A **minimum support of two** separates a signal from a coincidence and is
+  mutation-checked. Cross-tenant pooling is refused **structurally**: the aggregate reads `Orders` inside the
+  tenant filter and cannot see another store's data. No new table, no rollup, no migration, no client contract
+  change. Honest about its limits — it is a count, not a model, and there is no click-through measurement
+  because the behavioural surface is off and stays off.
 
 ### C11 — Merchant analytics and decision support
 

@@ -10,7 +10,7 @@
 | [`Souq.Domain.Tests`](#souqdomaintests) | 35 | 335 | 56 |
 | [`Souq.Application.Tests`](#souqapplicationtests) | 59 | 448 | 22 |
 | [`Souq.ArchitectureTests`](#souqarchitecturetests) | 17 | 77 | 8 |
-| [`Souq.IntegrationTests`](#souqintegrationtests) | 67 | 428 | 29 |
+| [`Souq.IntegrationTests`](#souqintegrationtests) | 68 | 431 | 29 |
 | [frontend (Vitest)](#frontend-vitest) | 108 | 836 | — |
 | [frontend (Playwright)](#frontend-playwright) | 24 | 147 | — |
 
@@ -193,6 +193,7 @@
 | `tests/Souq.IntegrationTests/QueryServiceTests.cs` | `QueryServiceTests` | 10 | 1 |
 | `tests/Souq.IntegrationTests/RateLimitPolicyTests.cs` | `RateLimitPolicyTests` | 4 | 2 |
 | `tests/Souq.IntegrationTests/ReadPathQueryBudgetTests.cs` | `ReadPathQueryBudgetTests` | 3 | 0 |
+| `tests/Souq.IntegrationTests/RecommendationTests.cs` | `RecommendationTests` | 3 | 0 |
 | `tests/Souq.IntegrationTests/ReviewModerationTests.cs` | `ReviewModerationTests` | 5 | 0 |
 | `tests/Souq.IntegrationTests/SearchAnalyticsTests.cs` | `SearchAnalyticsTests` | 12 | 0 |
 | `tests/Souq.IntegrationTests/SecurityHeadersTests.cs` | `SecurityHeadersTests` | 6 | 2 |

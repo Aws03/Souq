@@ -84,6 +84,11 @@ export default function ProductCard({ product, onAdded, isNew = false, layout = 
       <div className={styles.body}>
         <h3 className={styles.name}>
           <Link to={productPath(product)} className={styles.nameLink} onClick={handleOpen}>{name}</Link>
+        {/* سببُ الاقتراح (C10، ADR-0064): يُعرض حيث يوجد فقط — قائمةٌ عادية لا سبب لها، وبطاقةٌ
+            تقول «موصى به» بلا سبب تدّعي حساباً لم يقع. والنصُّ من قائمةٍ مغلقة في الخادم. */}
+        {product.reason && (
+          <span className={styles.reason}>{t(`product.reason.${product.reason}`)}</span>
+        )}
         </h3>
         <div className={styles.foot}>
           <PriceTag amount={product.price} currency={product.currency} compareAt={product.compareAtPrice}

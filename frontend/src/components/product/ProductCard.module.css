@@ -106,3 +106,11 @@
 }
 .chooseLink:hover { border-color: var(--color-primary); }
 html[data-theme='dark'] .chooseLink { color: var(--color-text); }
+
+/* سببُ الاقتراح (C10): خافتٌ عمداً — هو شرحٌ لا عنوان، ولا يزاحم اسم المنتج ولا سعره. */
+.reason {
+  display: block;
+  margin-top: var(--space-1);
+  color: var(--color-text-muted);
+  font-size: var(--fs-caption);
+}
