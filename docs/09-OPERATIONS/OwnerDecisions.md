@@ -757,7 +757,18 @@ tracked script.
 suites)` from [`release.yml`](../../.github/workflows/release.yml). Do not select it before then — a required check
 that has never reported blocks every merge.
 
-## GitHub Actions is billing-blocked — nothing has run since before M13
+## GitHub Actions — billing-blocked for months, resolved 2026-09-22
+
+> **Resolved.** The repository was made **public** with the owner's authorisation after a clean security audit,
+> and public repositories get standard-runner minutes free. The first run afterwards executed all four jobs for
+> the first time since before M13 — and immediately earned its keep by reproducing a concurrency defect that a
+> developer machine could not (F-33 in [ReleaseReadiness.md](ReleaseReadiness.md)). Subsequent runs are green.
+>
+> The diagnosis below is kept because it was correct, and because the shape of it is worth remembering: **every
+> job failed in three seconds and none of them ever started.** Nothing in the repository could have fixed it,
+> and reading the annotation rather than the workflow was the whole of the answer.
+
+### The original finding
 
 **This is the most consequential open item M18 found, and it is not an engineering one.**
 

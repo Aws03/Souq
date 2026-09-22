@@ -143,7 +143,7 @@ Kept current rather than discovered later. The full lists are [TechnicalDebt.md]
 - **Custom domains verify ownership manually.** Certificate automation is designed but not built — it needs either a managed edge or an ACME client ([ADR-0051](docs/11-ADR/0051-custom-domain-lifecycle.md)).
 - **Outbound webhooks are decided but not built.** The decision is *webhooks only, never customer code*; the mechanism waits for a customer who needs it ([ADR-0052](docs/11-ADR/0052-bounded-extension-model.md)).
 - **Uploads live on the instance's disk**, so a second instance needs a shared mount until storage moves to a blob store.
-- **GitHub Actions has been billing-blocked** on this account; every CI gate is verified locally and the workflow is secret-free and service-free ([OwnerDecisions.md](docs/09-OPERATIONS/OwnerDecisions.md)).
+- **One known intermittent defect:** under real contention, a concurrent basket read at the sign-in merge moment can answer `500` instead of retrying. Reproduced on CI, instrumented so the next failure names its own cause, and tracked as F-33 in [ReleaseReadiness.md](docs/09-OPERATIONS/ReleaseReadiness.md) — recorded rather than quietly retried away.
 
 ## License
 
