@@ -38,7 +38,9 @@ public sealed class DemoPaymentLedger
 {
     private readonly ConcurrentDictionary<string, string> _refunds = new();
 
-    public string Refund(string idempotencyKey) => _refunds.GetOrAdd(idempotencyKey, _ => $"re_fake_{Guid.NewGuid():N}");
+    // `re_demo_` لا `re_fake_` — بقيّةُ تسميةٍ سبقت ADR-0063؛ و`D` بشُرَطها للسبب نفسه في
+    // `CreateIntentAsync` أدناه: ألّا يحمل معرّفٌ سلسلةَ أرقامٍ تشبه بطاقة.
+    public string Refund(string idempotencyKey) => _refunds.GetOrAdd(idempotencyKey, _ => $"re_demo_{Guid.NewGuid():D}");
 
     public int RefundsFor(string idempotencyKeyPrefix) => _refunds.Keys.Count(k => k.StartsWith(idempotencyKeyPrefix, StringComparison.Ordinal));
 }
@@ -113,9 +115,13 @@ public sealed class DemoPaymentGateway : IPaymentGateway
         return parts.Length >= 3 ? parts[2] : SucceededCode;
     }
 
+    // المعرّف بصيغة `D` (بشُرَطها) لا `N`، وهذا ليس ذوقاً: معرّفٌ من 32 خانة ستّ عشرية يحوي
+    // أحياناً سلسلةَ أرقامٍ متّصلة بطول 13–19 — أي ما يشبه رقم بطاقة لأيّ ماسحٍ يبحث بنمط. وقع
+    // فعلاً: `…4595870559329812…` أسقط الاختبار على CI بعد أن مرّ محلّياً، لأنّ الاحتمال ~1٪.
+    // والشُّرَط تقطع السلسلة عند 12 خانة على الأكثر، فتصير الخاصّية صحيحةً **بالبناء** لا بالحظّ.
     public Task<PaymentIntentResult> CreateIntentAsync(Money amount, string orderReference, int tenantId, CancellationToken ct)
     {
-        var id = $"pi_demo_{OutcomeFor(amount)}_{Guid.NewGuid():N}";
+        var id = $"pi_demo_{OutcomeFor(amount)}_{Guid.NewGuid():D}";
         return Task.FromResult(new PaymentIntentResult(id, $"{id}_secret", Name, PublishableKey));
     }
 

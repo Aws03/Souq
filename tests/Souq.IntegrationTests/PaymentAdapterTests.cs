@@ -189,17 +189,30 @@ public class DemoPaymentGatewayTests
 
     // **لا رقم بطاقة ولا اعتماد في أيّ مخرَج**: هذا محوّلُ عرضٍ، وادّعاءُ غير ذلك هو ما يمنعه
     // هذا الاختبار من أن يتسلّل لاحقاً.
+    //
+    // ومئتا معرّفٍ لا واحد، لأنّ النسخة الأولى كانت تفحص واحداً فكانت تفحص **حظّاً**: المعرّف كان
+    // `Guid:N`، و32 خانة ستّ عشرية تحوي أحياناً 13–19 رقماً متّصلاً — نحو 1٪ من المرّات. مرّ محلّياً
+    // مراراً ثمّ سقط على CI بـ`…4595870559329812…`. الآن الصيغة `D` بشُرَطها تقطع السلسلة عند 12،
+    // فالخاصّية صحيحةٌ بالبناء؛ والمئتان تُثبتان ذلك بدل أن تُعاينه.
     [Fact]
     public async Task لا_يُخرج_المحوّل_شيئاً_يشبه_بطاقة_أو_سرّاً()
     {
         var gateway = new DemoPaymentGateway(_ledger, Secret);
 
-        var intent = await gateway.CreateIntentAsync(
-            Money.FromCalculation(10m, "JOD"), "ORD-1", 1, CancellationToken.None);
+        for (var i = 0; i < 200; i++)
+        {
+            var intent = await gateway.CreateIntentAsync(
+                Money.FromCalculation(10m, "JOD"), "ORD-1", 1, CancellationToken.None);
 
-        intent.PaymentIntentId.Should().StartWith("pi_demo_");
-        intent.ClientSecret.Should().NotContain(Secret);
-        intent.PaymentIntentId.Should().NotMatchRegex(@"\d{13,19}");
+            intent.PaymentIntentId.Should().MatchRegex(
+                @"^pi_demo_[a-z]+_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                "الشُّرَط هي ما يمنع سلسلةَ الأرقام من تجاوز 12 خانة — بلا صيغة `D` تعود المصادفة");
+            intent.ClientSecret.Should().NotContain(Secret);
+            intent.PaymentIntentId.Should().NotMatchRegex(@"\d{13,19}",
+                "معرّفٌ يحمل سلسلةَ أرقامٍ بطول بطاقة يُبلَّغ عنه من أيّ ماسحٍ يبحث بنمط");
+            _ledger.Refund($"card-shape-{i}").Should().NotMatchRegex(@"\d{13,19}");
+        }
+
         gateway.PublishableKey.Should().BeNull("لا مفتاح علنيّ: لا مزوّد خلفها");
     }
 }
