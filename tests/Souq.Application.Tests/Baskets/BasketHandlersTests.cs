@@ -9,6 +9,10 @@ using Souq.Domain.Entities;
 using Souq.Domain.Interfaces;
 using Souq.Domain.ValueObjects;
 
+using Microsoft.Extensions.Logging.Abstractions;
+using Souq.Application.Features.Analytics.Contracts;
+using Souq.Application.Tests.Analytics;
+
 namespace Souq.Application.Tests.Baskets;
 
 // سلة المتصل (المرحلة 8): زائر برمز جديد تُحفظ بصمته وحدها، عميل بسلته، الدمج عند الدخول، الرمز البائد، والمتاح قبل
@@ -36,11 +40,15 @@ public class BasketHandlersTests
 
     private BasketResolver Resolver(ICurrentUser user) => new(_baskets, user, _settings, _clock);
     // كاتبٌ حقيقي على نفس المستودع المزيّف: الإعادة سلوكٌ يُختبَر لا يُتخطّى (BasketWriterTests تُثبّت آليّته).
+    // منفذُ الأحداث معطَّلٌ هنا: هذه الاختبارات تفحص السلّة لا القياس، والمعطَّل لا يغيّر شيئاً.
+    private RecordingEventSink _events = new();
+
     private BasketWriter Writer() => new(_baskets);
     private BasketViews Views(ICurrentUser user) => new(_pricing, _availability, user);
-    private AddBasketItemHandler AddHandler(ICurrentUser user) => new(_products, _availability, Resolver(user), Views(user), _uow, Writer());
+    private AddBasketItemHandler AddHandler(ICurrentUser user) => new(_products, _availability, Resolver(user), Views(user), _uow, Writer(), _events, NullLogger<AddBasketItemHandler>.Instance);
     private GetBasketHandler GetHandler(ICurrentUser user) => new(Resolver(user), Views(user), _uow, Writer());
-    private BasketLines Lines(ICurrentUser user) => new(_availability, Resolver(user), Views(user), _uow, Writer());
+    private BasketLines Lines(ICurrentUser user) =>
+        new(_availability, Resolver(user), Views(user), _uow, Writer(), _products, _events, NullLogger<BasketLines>.Instance);
     private SetBasketItemQuantityHandler SetHandler(ICurrentUser user) => new(Lines(user));
     private SetBasketLineQuantityHandler SetLineHandler(ICurrentUser user) => new(Lines(user));
     private RemoveBasketItemHandler RemoveHandler(ICurrentUser user) => new(Lines(user));
@@ -289,5 +297,42 @@ public class BasketHandlersTests
         new AddBasketItemValidator().Validate(new AddBasketItemCommand(null, 5, 1, VariantId: 0)).IsValid.Should().BeFalse();
         new SetBasketLineQuantityValidator().Validate(new SetBasketLineQuantityCommand(null, 0, 1)).IsValid.Should().BeFalse();
         new SetBasketLineQuantityValidator().Validate(new SetBasketLineQuantityCommand(null, 51, Basket.MaxQuantityPerLine + 1)).IsValid.Should().BeFalse();
+    }
+
+    // ========================================================================
+    // أسطحُ الالتقاط في السلّة (C9، ADR-0050 §3).
+    //
+    // ما يُحرس هنا ثلاثةٌ: أنّ الحدث يُسجَّل بالفعل، وأنّ **السعر يُجمَّد فيه** (السلّة تُسعَّر
+    // حيّةً، فسؤال «بكم أُضيف يومها» لا يُجاب من المنتج بعد شهر)، وأنّ **المعطَّل لا يُسجّل
+    // شيئاً** — فمتجرٌ لم يُفعّل الالتقاط لا يُكتب عنه صفٌّ ولا تُبنى له حمولة.
+    // ========================================================================
+    [Fact]
+    public async Task الإضافة_تُسجّل_حدثها_بسعر_مجمَّد()
+    {
+        _events = new RecordingEventSink { Enabled = true };
+        ProductExists(5);
+
+        var result = await AddHandler(TestCurrentUser.Customer(1))
+            .Handle(new AddBasketItemCommand(null, 5, 2), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        var recorded = _events.Recorded.Should().ContainSingle().Subject;
+        recorded.Name.Should().Be(BehaviouralEventNames.CartAdded);
+        var payload = recorded.Payload.Should().BeOfType<CartChangedPayload>().Subject;
+        (payload.ProductId, payload.Quantity).Should().Be((5, 2));
+        payload.UnitPrice.Should().BeGreaterThan(0);
+        payload.Currency.Should().NotBeNullOrWhiteSpace();
+        recorded.SearchExecutionId.Should().BeNull("المعرّف يختمه المصرف من سياق الطلب، لا يمرّره المُنادي");
+    }
+
+    [Fact]
+    public async Task الالتقاط_معطّلاً_لا_يُسجّل_شيئاً()
+    {
+        ProductExists(5);
+
+        await AddHandler(TestCurrentUser.Customer(1))
+            .Handle(new AddBasketItemCommand(null, 5, 1), CancellationToken.None);
+
+        _events.Recorded.Should().BeEmpty();
     }
 }

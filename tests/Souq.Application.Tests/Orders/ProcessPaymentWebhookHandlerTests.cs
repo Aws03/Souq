@@ -16,6 +16,8 @@ using Souq.Domain.Interfaces;
 using Souq.Domain.Platform;
 using Souq.Domain.ValueObjects;
 
+using Souq.Application.Tests.Analytics;
+
 namespace Souq.Application.Tests.Orders;
 
 // الـ Webhook يمرّ عبر منفذ الدفع (التحقّق من التوقيع هناك) ثم لنفس منطق التأكيد الذي يستخدمه العميل — بلا مستخدم خلفه:
@@ -135,7 +137,7 @@ public class ApplyPaymentEventHandlerTests
             Substitute.For<Souq.Application.Features.Coupons.Contracts.ICouponRedemptions>(),
             Substitute.For<Souq.Application.Features.Payments.Contracts.IOrderPayments>(),
             Substitute.For<Souq.Application.Features.Baskets.Contracts.IBasketCheckout>(),
-            _payment, _uow, NullLogger<OrderPaymentConfirmation>.Instance),
+            _payment, _uow, NullLogger<OrderPaymentConfirmation>.Instance, new RecordingEventSink()),
         NullLogger<ApplyPaymentEventHandler>.Instance);
 
     [Fact]

@@ -11,6 +11,8 @@ using Souq.Domain.Exceptions;
 using Souq.Domain.Interfaces;
 using Souq.Domain.ValueObjects;
 
+using Souq.Application.Tests.Analytics;
+
 namespace Souq.Application.Tests.Orders;
 
 // الانتقالات غير الصالحة يحرسها الكيان ويرفعها InvalidOrderOperationException (422 مركزياً، ADR-0017) — المعالج لا
@@ -32,7 +34,7 @@ public class UpdateOrderStatusHandlerTests
         return new(_orders, _reservations, coupons, _payments,
             new OrderPaymentConfirmation(_orders, _reservations, coupons, _payments,
                 Substitute.For<Souq.Application.Features.Baskets.Contracts.IBasketCheckout>(), _gateway, _uow,
-                NullLogger<OrderPaymentConfirmation>.Instance),
+                NullLogger<OrderPaymentConfirmation>.Instance, new RecordingEventSink()),
             TestCurrentUser.Admin(), _uow);
     }
 

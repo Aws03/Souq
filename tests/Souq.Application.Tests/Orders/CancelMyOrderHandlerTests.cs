@@ -12,6 +12,8 @@ using Souq.Domain.Enums;
 using Souq.Domain.Interfaces;
 using Souq.Domain.ValueObjects;
 
+using Souq.Application.Tests.Analytics;
+
 namespace Souq.Application.Tests.Orders;
 
 // إلغاء العميل طلبه (المرحلة 9): صاحبه فقط، قبل الدفع فقط، والبوّابة تُسأل أولاً عن نيّة الدفع — لا يُلغى طلب قد يكون دُفع.
@@ -27,7 +29,7 @@ public class CancelMyOrderHandlerTests
         new OrderPaymentConfirmation(_orders, _reservations,
             Substitute.For<Souq.Application.Features.Coupons.Contracts.ICouponRedemptions>(),
             Substitute.For<Souq.Application.Features.Payments.Contracts.IOrderPayments>(),
-            Substitute.For<IBasketCheckout>(), _payment, _uow, NullLogger<OrderPaymentConfirmation>.Instance),
+            Substitute.For<IBasketCheckout>(), _payment, _uow, NullLogger<OrderPaymentConfirmation>.Instance, new RecordingEventSink()),
         TestCurrentUser.Customer(customerId));
 
     private Order Arrange(string? intent = null, bool paid = false)

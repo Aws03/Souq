@@ -12,12 +12,12 @@ This file makes those crossings countable. It lists every place one module's use
 - **A new crossing changes this file and fails the test.** That is the point: it should be a decision, made in review, not a quiet import. Prefer adding a contract to the owning module; if the crossing is deliberate, regenerate the file so the diff shows what you added.
 - **Removing a crossing also changes this file.** Regenerate, and the count goes down.
 
-**Today: 78 crossings across 15 module pairs.**
+**Today: 81 crossings across 15 module pairs.**
 
 | From | To | Crossings |
 |---|---|---|
 | Notifications | Identity | 15 |
-| Shopping | Catalog | 12 |
+| Shopping | Catalog | 15 |
 | Billing | Platform | 10 |
 | Notifications | Ordering | 9 |
 | Notifications | Platform | 6 |
@@ -43,14 +43,17 @@ This file makes those crossings countable. It lists every place one module's use
 | Shopping | Catalog | `CatalogTranslation` | `PricingService` |
 | Shopping | Catalog | `IProductRepository` | `AddBasketItemHandler` |
 | Shopping | Catalog | `IProductRepository` | `AddToWishlistHandler` |
+| Shopping | Catalog | `IProductRepository` | `BasketLines` |
 | Shopping | Catalog | `IProductRepository` | `MergeWishlistHandler` |
 | Shopping | Catalog | `IProductRepository` | `PricingService` |
 | Shopping | Catalog | `Product` | `AddBasketItemHandler` |
 | Shopping | Catalog | `Product` | `AddToWishlistHandler` |
+| Shopping | Catalog | `Product` | `BasketLines` |
 | Shopping | Catalog | `Product` | `MergeWishlistHandler` |
 | Shopping | Catalog | `Product` | `PricingService` |
 | Shopping | Catalog | `ProductTranslation` | `PricingService` |
 | Shopping | Catalog | `ProductVariant` | `AddBasketItemHandler` |
+| Shopping | Catalog | `ProductVariant` | `BasketLines` |
 | Shopping | Catalog | `ProductVariant` | `PricingService` |
 | Shopping | Promotions | `Coupon` | `PricingService` |
 | Shopping | Promotions | `ICouponRedemptionRepository` | `PricingService` |

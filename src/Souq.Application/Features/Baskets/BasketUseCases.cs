@@ -1,5 +1,7 @@
 using FluentValidation;
 using MediatR;
+using Microsoft.Extensions.Logging;
+using Souq.Application.Features.Analytics.Contracts;
 using Souq.Application.Common.Models;
 using Souq.Application.Features.Inventory.Contracts;
 using Souq.Domain.Entities;
@@ -81,12 +83,15 @@ public class AddBasketItemHandler : IRequestHandler<AddBasketItemCommand, Result
     private readonly IUnitOfWork _uow;
 
     private readonly BasketWriter _writer;
+    private readonly IEventSink _events;
+    private readonly ILogger<AddBasketItemHandler> _logger;
 
     public AddBasketItemHandler(
         IProductRepository products, IStockAvailability availability, BasketResolver resolver, BasketViews views,
-        IUnitOfWork uow, BasketWriter writer)
+        IUnitOfWork uow, BasketWriter writer, IEventSink events, ILogger<AddBasketItemHandler> logger)
     {
-        _products = products; _availability = availability; _resolver = resolver; _views = views; _uow = uow; _writer = writer;
+        _products = products; _availability = availability; _resolver = resolver; _views = views; _uow = uow;
+        _writer = writer; _events = events; _logger = logger;
     }
 
     public Task<Result<BasketResult>> Handle(AddBasketItemCommand cmd, CancellationToken ct) =>
@@ -119,6 +124,31 @@ public class AddBasketItemHandler : IRequestHandler<AddBasketItemCommand, Result
         var basket = resolved.Basket!;
         basket.Add(product.Id, variant.Id, cmd.Quantity, _resolver.ExpiryFor(basket));
         await _uow.SaveChangesAsync(ct);
+
+        // ====================================================================
+        // الإضافةُ إلى السلّة، بعد نجاح الحفظ لا قبله (C9، ADR-0050 §3).
+        //
+        // **والسعرُ يُجمَّد هنا** لا يُقرأ لاحقاً: سعرُ المنتج يتغيّر، والسؤالُ الذي يُجيب عنه
+        // هذا الحدث هو «بكم أُضيف يومها». وقراءتُه من المنتج بعد شهرٍ تُجيب سؤالاً آخر.
+        //
+        // ومعرّفُ تنفيذ البحث لا يُمرَّر: `EventBuffer` يختمه من سياق الطلب، فالسلسلةُ
+        // بحث ← إضافة ← شراء تُقفل بلا أن يحملها كلُّ مُنادٍ بيده.
+        //
+        // والحراسةُ للسبب نفسه الذي في `GetProductsHandler`: **سلّةُ المتسوّق لا تفشل بسبب قياس.**
+        // ====================================================================
+        if (_events.Enabled)
+        {
+            try
+            {
+                _events.Record(BehaviouralEventNames.CartAdded, new CartChangedPayload(
+                    product.Id, variant.Id, cmd.Quantity, variant.Price.Amount, variant.Price.Currency));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Behavioural cart.added event rejected; the basket is unaffected");
+            }
+        }
+
         return Result<BasketResult>.Success(resolved.Written(await _views.BuildAsync(basket, null, ct)));
     }
 }
@@ -197,10 +227,16 @@ public sealed class BasketLines
     private readonly IUnitOfWork _uow;
 
     private readonly BasketWriter _writer;
+    private readonly IProductRepository _products;
+    private readonly IEventSink _events;
+    private readonly ILogger<BasketLines> _logger;
 
-    public BasketLines(IStockAvailability availability, BasketResolver resolver, BasketViews views, IUnitOfWork uow, BasketWriter writer)
+    public BasketLines(
+        IStockAvailability availability, BasketResolver resolver, BasketViews views, IUnitOfWork uow,
+        BasketWriter writer, IProductRepository products, IEventSink events, ILogger<BasketLines> logger)
     {
         _availability = availability; _resolver = resolver; _views = views; _uow = uow; _writer = writer;
+        _products = products; _events = events; _logger = logger;
     }
 
     public static Error VariantRequired() =>
@@ -252,8 +288,34 @@ public sealed class BasketLines
         var found = find(basket);
         if (!found.IsSuccess) return Result<BasketResult>.Failure(found.Error!);
 
-        basket!.Remove(found.Value!.VariantId, _resolver.ExpiryFor(basket));
+        var line = found.Value!;
+        basket!.Remove(line.VariantId, _resolver.ExpiryFor(basket));
         await _uow.SaveChangesAsync(ct);
+
+        // ====================================================================
+        // الحذفُ من السلّة (C9، ADR-0050 §3): ما تُرك يُقاس كما يُقاس ما أُخذ — «أُضيف ثمّ حُذف»
+        // إشارةٌ عن السعر أو المخزون لا تُستخرج من الطلبات، ولا تُستردّ لاحقاً إن لم تُلتقط.
+        //
+        // **وقراءةُ المنتج تقع داخل الحارس عمداً**: السطرُ لا يحمل سعراً (السلّة تُسعَّر حيّةً)،
+        // فالسعرُ يحتاج قراءةً — ومسارُ الحذف لا يدفع ثمنها ما دام الالتقاط معطّلاً.
+        // ====================================================================
+        if (_events.Enabled)
+        {
+            try
+            {
+                var product = await _products.GetByIdAsync(line.ProductId, ct);
+                if (product?.FindVariant(line.VariantId)?.Price is { } price)
+                {
+                    _events.Record(BehaviouralEventNames.CartRemoved, new CartChangedPayload(
+                        line.ProductId, line.VariantId, line.Quantity, price.Amount, price.Currency));
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Behavioural cart.removed event rejected; the basket is unaffected");
+            }
+        }
+
         return Result<BasketResult>.Success(resolved.Written(await _views.BuildAsync(basket, null, ct)));
     }
 }

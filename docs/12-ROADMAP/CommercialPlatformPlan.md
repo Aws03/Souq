@@ -446,10 +446,25 @@ Each phase lists: **delivers · depends on · blocked by · why here**.
     cookie read the clock directly; the payload registry sat outside `Contracts`, so `Catalog` reached into
     another module's internals; the rollup's read-then-insert needed a written reason in the count-then-write
     allowlist; and the new domain types needed an owner in the module map.
-- **Still to come in this phase:** the capture surfaces — list impressions with position and list identity,
-  clicks, item views, cart changes and purchases — which need the frontend to echo the search-execution id and
-  to pass an ordinal to each card. The events and their payloads exist; nothing writes them yet except the
-  search.
+- **The server-side capture surfaces: done (2026-09-22).** `cart.added`, `cart.removed`, `checkout.started`
+  and `order.placed` are emitted where each fact occurs, so the funnel search → cart → checkout → purchase is
+  closed without the frontend sending anything: the search-execution id is stamped by the sink from the request
+  context, not carried by hand through every caller.
+  - **`order.placed` fires when the order is *paid*, not when it is created**, and that is a difference in
+    meaning rather than placement: the rollups count it as a purchase, and an order created then abandoned is
+    not one. `checkout.started` marks the creation, and the gap between the two *is* the abandonment rate.
+  - **Prices are frozen into the event.** A basket is priced live, so "what did it cost when it was added"
+    cannot be answered from the product a month later.
+  - `cart.removed` reads the product only when capture is enabled — the removal path pays nothing while it is
+    off, which is the default.
+  - Every emit is guarded and swallowed: *a shopper's basket does not fail because of measurement*, the same
+    property the search path already held.
+  - Two `AllowedContracts` edges were added deliberately, `Shopping` → `Reporting` and `Ordering` →
+    `Reporting`, which is what the existing comment there promised would happen "when the capture surfaces
+    arrive".
+- **Still to come:** the client-only surfaces — list impressions with position and list identity, clicks, and
+  item views. These have no server touchpoint, so they need an ingest endpoint and a frontend that echoes the
+  search-execution id and passes an ordinal to each card.
 - **Why here — and why the delay is expensive.** Every other item on this plan can be built later at the same
   cost. This one cannot: a purchase that happened before the event existed can never be attributed to the search
   that produced it. **If C-08 is answered "no visitor identifier", say so explicitly and record what is

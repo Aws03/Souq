@@ -12,6 +12,8 @@ using Souq.Domain.Enums;
 using Souq.Domain.Interfaces;
 using Souq.Domain.ValueObjects;
 
+using Souq.Application.Tests.Analytics;
+
 namespace Souq.Application.Tests.Orders;
 
 // منسّق انتهاء مهلة الدفع (Phase 0 C6): لا يُلغى طلب قد يكون دُفع — البوّابة تُسأل أولاً (بإلغاء النيّة)، ولكل مرجع
@@ -29,7 +31,7 @@ public class ExpireStaleCheckoutsHandlerTests
             Substitute.For<Souq.Application.Features.Coupons.Contracts.ICouponRedemptions>(),
             Substitute.For<Souq.Application.Features.Payments.Contracts.IOrderPayments>(),
             Substitute.For<Souq.Application.Features.Baskets.Contracts.IBasketCheckout>(),
-            _payment, _uow, NullLogger<OrderPaymentConfirmation>.Instance),
+            _payment, _uow, NullLogger<OrderPaymentConfirmation>.Instance, new RecordingEventSink()),
         NullLogger<ExpireStaleCheckoutsHandler>.Instance);
 
     private Order PendingOrder(int id, string? intent = null)

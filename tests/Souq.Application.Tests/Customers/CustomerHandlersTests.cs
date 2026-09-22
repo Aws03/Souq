@@ -21,6 +21,8 @@ using Souq.Domain.Interfaces;
 using Souq.Domain.ValueObjects;
 using Souq.Application.Features.Auth.Contracts;
 
+using Souq.Application.Tests.Analytics;
+
 namespace Souq.Application.Tests.Customers;
 
 // حساب العميل (المرحلة 7): العميل هو المستخدم الحالي دائماً، ومعرّف عنوان ليس في دفتره ⇒ 404 بلا حفظ؛ المحو يتطلّب كلمة
@@ -146,6 +148,8 @@ public class CreateOrderCustomerRulesTests
     private readonly IBasketCheckout _baskets = Substitute.For<IBasketCheckout>();
     private readonly IOrderNumbers _numbers = Substitute.For<IOrderNumbers>();
     private readonly IUnitOfWork _uow = TestUnitOfWork.Create();
+    // منفذُ الأحداث معطَّلٌ افتراضاً: هذه الاختبارات تفحص قواعد العميل لا القياس.
+    private readonly RecordingEventSink _events = new();
     private readonly Customer _customer = new(userId: 1, "عميل", "c@souq.test");
 
     public CreateOrderCustomerRulesTests()
@@ -170,11 +174,12 @@ public class CreateOrderCustomerRulesTests
             Substitute.For<ICouponRedemptionRepository>(), TestShipping.None(), TestTax.None(),
             TestTenant.Context(), new FixedClock());
         var confirmation = new OrderPaymentConfirmation(_orders, _reservations, couponRedemptions, orderPayments,
-            _baskets, _payment, _uow, NullLogger<OrderPaymentConfirmation>.Instance);
+            _baskets, _payment, _uow, NullLogger<OrderPaymentConfirmation>.Instance, _events);
         return new CreateOrderHandler(
             new CheckoutQuote(_customers, pricing, _baskets, _availability, TestCurrentUser.Customer(1)),
             new OrderPlacement(_orders, _numbers, couponRedemptions, _reservations, TestTenant.Context(), _uow, new FixedClock()),
-            new CheckoutPayment(_payment, orderPayments, confirmation, _uow, NullLogger<CheckoutPayment>.Instance));
+            new CheckoutPayment(_payment, orderPayments, confirmation, _uow, NullLogger<CheckoutPayment>.Instance),
+            _events, NullLogger<CreateOrderHandler>.Instance);
     }
 
     private static CreateOrderCommand Command(string? address = "عمّان", int? addressId = null) =>

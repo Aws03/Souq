@@ -15,6 +15,9 @@ using Souq.Domain.Events;
 using Souq.Domain.Interfaces;
 using Souq.Domain.ValueObjects;
 
+using Souq.Application.Features.Analytics.Contracts;
+using Souq.Application.Tests.Analytics;
+
 namespace Souq.Application.Tests.Orders;
 
 // الخطوة الثانية من الدفع: التحقّق من النتيجة لدى البوّابة نفسها، ثم الالتزام بالحجز (نجاح) أو تحريره مع الإلغاء
@@ -32,12 +35,13 @@ public class ConfirmOrderPaymentHandlerTests
     private readonly Souq.Application.Features.Payments.Contracts.IOrderPayments _orderPayments =
         Substitute.For<Souq.Application.Features.Payments.Contracts.IOrderPayments>();
     private readonly IUnitOfWork _uow = TestUnitOfWork.Create();
+    private RecordingEventSink _events = new();
 
     // الطلبات في هذه الاختبارات يملكها العميل 1 (انظر PendingOrderWithIntent).
     private ConfirmOrderPaymentHandler CreateHandler(ICurrentUser? user = null) => new(
         _orders,
         new OrderPaymentConfirmation(_orders, _reservations, _couponRedemptions, _orderPayments, _baskets, _payment, _uow,
-            NullLogger<OrderPaymentConfirmation>.Instance),
+            NullLogger<OrderPaymentConfirmation>.Instance, _events),
         user ?? TestCurrentUser.Customer(1));
 
     private static Order PendingOrderWithIntent(string paymentIntentId = "pi_123", int quantity = 2)
@@ -257,5 +261,43 @@ public class ConfirmOrderPaymentHandlerTests
         var act = () => CreateHandler().Handle(new ConfirmOrderPaymentCommand(1), CancellationToken.None);
 
         await act.Should().ThrowAsync<ConcurrencyConflictException>();
+    }
+
+    // ========================================================================
+    // **الشراء يُسجَّل حين يُدفع، لا حين يُنشأ الطلب** (C9، ADR-0050 §3).
+    //
+    // وهذا ليس موضعاً بل معنى: `order.placed` يُعدّ في المجاميع «شراءً»، وطلبٌ أُنشئ ثمّ هُجر
+    // قبل الدفع ليس شراءً. خلطُ الاثنين يجعل كلَّ سلّةٍ مهجورة مبيعاً في لوحة التاجر.
+    // ========================================================================
+    [Fact]
+    public async Task الدفع_الناجح_يُسجّل_الشراء_بأسطره_المجمَّدة()
+    {
+        _events = new RecordingEventSink { Enabled = true };
+        var order = PendingOrderWithIntent();
+        _orders.GetWithItemsAsync(1, Arg.Any<CancellationToken>()).Returns(order);
+        _payment.ConfirmAsync("pi_123", Arg.Any<CancellationToken>()).Returns(PaymentConfirmationResult.Ok());
+
+        (await CreateHandler().Handle(new ConfirmOrderPaymentCommand(1), CancellationToken.None))
+            .IsSuccess.Should().BeTrue();
+
+        var recorded = _events.Recorded.Should().ContainSingle().Subject;
+        recorded.Name.Should().Be(BehaviouralEventNames.OrderPlaced);
+        var payload = recorded.Payload.Should().BeOfType<OrderPlacedPayload>().Subject;
+        payload.Total.Should().Be(order.TotalAmount.Amount);
+        payload.Items.Should().NotBeEmpty();
+    }
+
+    [Fact]
+    public async Task دفع_لم_ينجح_لا_يُسجّل_شراءً()
+    {
+        _events = new RecordingEventSink { Enabled = true };
+        var order = PendingOrderWithIntent();
+        _orders.GetWithItemsAsync(1, Arg.Any<CancellationToken>()).Returns(order);
+        _payment.ConfirmAsync("pi_123", Arg.Any<CancellationToken>())
+            .Returns(new PaymentConfirmationResult(PaymentIntentState.Cancelled));
+
+        await CreateHandler().Handle(new ConfirmOrderPaymentCommand(1), CancellationToken.None);
+
+        _events.Recorded.Should().BeEmpty("طلبٌ لم يُدفع ليس شراءً");
     }
 }

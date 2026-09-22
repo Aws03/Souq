@@ -16,12 +16,17 @@ using Souq.Domain.Exceptions;
 using Souq.Domain.Interfaces;
 using Souq.Domain.ValueObjects;
 
+using Souq.Application.Tests.Analytics;
+
 namespace Souq.Application.Tests.Orders;
 
 // التحقّق بلا أثر، ثم الطلب والحجز في معاملة واحدة، ثم نيّة الدفع خارجها — وتعويض فشل البوّابة (المرحلة 6).
 public class CreateOrderHandlerTests
 {
     private const int SavedOrderId = 77;
+
+    // منفذُ الأحداث معطَّلٌ افتراضاً: هذه الاختبارات تفحص الطلب لا القياس.
+    private readonly RecordingEventSink _events = new();
 
     private readonly IProductRepository _products = Substitute.For<IProductRepository>();
     private readonly IOrderRepository _orders = Substitute.For<IOrderRepository>();
@@ -69,11 +74,12 @@ public class CreateOrderHandlerTests
         var pricing = new PricingService(
             _products, _coupons, _couponUses, _shipping, _tax, TestTenant.Context(), new FixedClock());
         var confirmation = new OrderPaymentConfirmation(_orders, _reservations, _couponRedemptions, _orderPayments,
-            _baskets, _payment, _uow, NullLogger<OrderPaymentConfirmation>.Instance);
+            _baskets, _payment, _uow, NullLogger<OrderPaymentConfirmation>.Instance, _events);
         return new CreateOrderHandler(
             new CheckoutQuote(_customers, pricing, _baskets, _availability, TestCurrentUser.Customer(1)),
             new OrderPlacement(_orders, _numbers, _couponRedemptions, _reservations, TestTenant.Context(), _uow, new FixedClock()),
-            new CheckoutPayment(_payment, _orderPayments, confirmation, _uow, NullLogger<CheckoutPayment>.Instance));
+            new CheckoutPayment(_payment, _orderPayments, confirmation, _uow, NullLogger<CheckoutPayment>.Instance),
+            _events, NullLogger<CreateOrderHandler>.Instance);
     }
 
     private static Customer NewCustomer() => new(userId: 1, "عميل", "customer@souq.com");

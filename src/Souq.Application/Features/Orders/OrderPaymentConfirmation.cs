@@ -2,6 +2,7 @@ using Microsoft.Extensions.Logging;
 using Souq.Application.Common.Exceptions;
 using Souq.Application.Common.Interfaces;
 using Souq.Application.Common.Models;
+using Souq.Application.Features.Analytics.Contracts;
 using Souq.Application.Features.Baskets.Contracts;
 using Souq.Application.Features.Coupons.Contracts;
 using Souq.Application.Features.Inventory.Contracts;
@@ -39,14 +40,16 @@ public sealed class OrderPaymentConfirmation
     private readonly IPaymentService _payment;
     private readonly IUnitOfWork _uow;
     private readonly ILogger<OrderPaymentConfirmation> _logger;
+    private readonly IEventSink _events;
 
     public OrderPaymentConfirmation(
         IOrderRepository orders, IInventoryReservations reservations, ICouponRedemptions couponRedemptions,
         IOrderPayments payments, IBasketCheckout baskets, IPaymentService payment, IUnitOfWork uow,
-        ILogger<OrderPaymentConfirmation> logger)
+        ILogger<OrderPaymentConfirmation> logger, IEventSink events)
     {
         _orders = orders; _reservations = reservations; _couponRedemptions = couponRedemptions;
         _payments = payments; _baskets = baskets; _payment = payment; _uow = uow; _logger = logger;
+        _events = events;
     }
 
     public async Task<Result<OrderConfirmedDto>> ConfirmAsync(Order order, CancellationToken ct)
@@ -90,6 +93,29 @@ public sealed class OrderPaymentConfirmation
             var current = await _orders.GetStatusAsync(order.Id, ct);
             if (current is null or OrderStatus.Pending) throw;
             return Result<OrderConfirmedDto>.Success(ToDto(order, current.Value));
+        }
+
+        // ====================================================================
+        // **الشراء** (C9، ADR-0050 §3) — ويقع هنا لا عند إنشاء الطلب، وهذا فرقٌ في المعنى لا في
+        // الموضع: `order.placed` يُعدّ في المجاميع «شراءً»، وطلبٌ أُنشئ ثمّ هُجر قبل الدفع ليس
+        // شراءً. الإنشاءُ يُقاس بـ`checkout.started`، وبينهما يقع القُمع كلُّه.
+        //
+        // ويقع **بعد** التزام المعاملة: حدثٌ يقول «اشترى» لطلبٍ تراجع حفظُه أسوأُ من حدثٍ ناقص.
+        // وأسطرُه لقطةٌ من الطلب نفسه — الأسعارُ فيه مجمَّدة أصلاً، فهي ما دُفع لا ما يُعرض اليوم.
+        // ====================================================================
+        if (_events.Enabled)
+        {
+            try
+            {
+                _events.Record(BehaviouralEventNames.OrderPlaced, new OrderPlacedPayload(
+                    order.Id, order.TotalAmount.Amount, order.TotalAmount.Currency,
+                    order.Items.Select(i => new OrderLineSnapshot(
+                        i.ProductId, i.VariantId, i.Quantity, i.UnitPrice.Amount)).ToList()));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Behavioural order.placed event rejected; the order is unaffected");
+            }
         }
 
         // بريد التأكيد وإشعارات العميل والإدارة (المرحلة 14): حدث OrderStatusChanged الذي رفعه MarkAsPaid كُتب في صندوق

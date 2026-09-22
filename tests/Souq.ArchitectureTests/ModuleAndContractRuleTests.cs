@@ -57,12 +57,12 @@ public class ModuleAndContractRuleTests
     private static readonly IReadOnlyDictionary<string, string[]> AllowedContracts = new Dictionary<string, string[]>
     {
         // الحجز والمتاح (6)؛ IPricing والسلة (8/9)؛ استخدامات الكوبون (10)؛ دفعة الطلب واستردادها (11)
-        ["Ordering"] = ["Inventory", "Shopping", "Promotions", "Payments", "Shipping"],   // … لقطة طريقة الشحن (12)
+        ["Ordering"] = ["Inventory", "Shopping", "Promotions", "Payments", "Shipping", "Reporting"],   // … لقطة طريقة الشحن (12)
         ["Inventory"] = ["Catalog"],    // تنفّذ منفذ Catalog IVariantStockInitializer (عكس الاعتماد، المرحلة 6)
         // IStockAvailability لعرض المتاح في السلة — لا حجز (المرحلة 8)؛ IShippingRateProvider لمرحلة الشحن في التسعير (12).
         // وITaxCalculator (ADR-0055): مرحلةُ الضريبة في الخطّ نفسه، بعد الخصم والشحن — فمَن يحسب
         // الإجمالي هو مَن يسأل. والاتجاه واحد: الضريبة لا تسأل السلّةَ شيئاً.
-        ["Shopping"] = ["Inventory", "Shipping", "Tax"],
+        ["Shopping"] = ["Inventory", "Shipping", "Tax", "Reporting"],   // وReporting: إضافةُ السلّة وحذفُها تُقاسان (C9)
         // IStorePaymentAccountEditor: منطقة المنصّة تدخل نطاق متجر مستهدف (ITenantScopeRunner) وتربط حسابه — استُخرج
         // عقداً في التدقيق المعماري M1 (TD-04/R-04) بدل إشارة Platform المباشرة لصنف Payments (الصنف D سابقاً).
         // IStoreEntitlements (C1، ADR-0047/0053): تجهيز متجر من المنصّة يُسنِد له الخطة التأسيسية، وإلّا
@@ -97,8 +97,9 @@ public class ModuleAndContractRuleTests
         // الاتجاه واحد دائماً، **ولا عكسَ ممكن**: المصرف `void` لا يعيد شيئاً، فلا شيء تطلبه
         // Reporting من مُسجِّل. وهذا ما يجعل الحافّة آمنةً بالبناء لا بالانتباه.
         //
-        // Catalog أوّلاً: البحث يصكّ معرّف تنفيذه ويسجّله. وما بعدها (السلّة، الطلبات) يأتي مع
-        // أسطح الالتقاط في الشريحة التالية، وتُضاف حافّتُه هنا حين تُضاف.
+        // Catalog أوّلاً: البحث يصكّ معرّف تنفيذه ويسجّله. ثمّ Shopping (إضافةُ السلّة وحذفُها)
+        // وOrdering (بدءُ الدفع والشراء) مع أسطح الالتقاط — وهي الحافّاتُ التي وعد بها هذا
+        // التعليق، تُضاف هنا مع الشيفرة التي تحتاجها لا قبلها.
         // ============================================================================
         ["Catalog"] = ["Billing", "Reporting"],
         ["Identity"] = ["Billing"],

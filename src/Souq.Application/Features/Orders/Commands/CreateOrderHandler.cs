@@ -1,6 +1,9 @@
 using MediatR;
+using Microsoft.Extensions.Logging;
 using Souq.Application.Common.Models;
+using Souq.Application.Features.Analytics.Contracts;
 using Souq.Application.Features.Orders.Checkout;
+using Souq.Domain.Entities;
 
 namespace Souq.Application.Features.Orders.Commands;
 
@@ -22,10 +25,14 @@ public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, Result<Ord
     private readonly CheckoutQuote _quote;
     private readonly OrderPlacement _placement;
     private readonly CheckoutPayment _payment;
+    private readonly IEventSink _events;
+    private readonly ILogger<CreateOrderHandler> _logger;
 
-    public CreateOrderHandler(CheckoutQuote quote, OrderPlacement placement, CheckoutPayment payment)
+    public CreateOrderHandler(
+        CheckoutQuote quote, OrderPlacement placement, CheckoutPayment payment,
+        IEventSink events, ILogger<CreateOrderHandler> logger)
     {
-        _quote = quote; _placement = placement; _payment = payment;
+        _quote = quote; _placement = placement; _payment = payment; _events = events; _logger = logger;
     }
 
     public async Task<Result<OrderCreatedDto>> Handle(CreateOrderCommand cmd, CancellationToken ct)
@@ -37,6 +44,21 @@ public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, Result<Ord
 
         var started = await _payment.StartAsync(order, ct);
         if (!started.IsSuccess) return Result<OrderCreatedDto>.Failure(started.Error!);
+
+        // بدءُ الدفع (C9، ADR-0050 §3): الطلبُ قائمٌ وله وسيلةُ دفع، ولم يُدفع بعد. وهو الطرفُ
+        // الآخر للقُمع: ما بينه وبين `order.placed` هو **الهجر**، ولا يُستخرج من الطلبات وحدها.
+        if (_events.Enabled)
+        {
+            try
+            {
+                _events.Record(BehaviouralEventNames.CheckoutStarted, new CheckoutStartedPayload(
+                    order.TotalAmount.Amount, order.TotalAmount.Currency, order.Items.Count));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Behavioural checkout.started event rejected; the order is unaffected");
+            }
+        }
 
         return Result<OrderCreatedDto>.Success(new OrderCreatedDto(
             order.Id, order.OrderNumber, order.Status.ToString(),
