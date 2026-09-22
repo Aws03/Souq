@@ -31,9 +31,9 @@
 ## 0. Status (machine-readable)
 
 ```yaml
-plan_version: 1.6.0
+plan_version: 1.7.0
 track: commercial
-current_phase: C11
+current_phase: C5
 phase_status: done
 # 2026-09-21: the owner answered the eight questions of OwnerDecisionBrief.md, and SIX phases that
 # were gated are now unblocked. The canonical record of each answer is its own entry in
@@ -71,27 +71,33 @@ current_phase_note: |
       workflow, a store's selection — a fifteenth module (d894148)
     • and the tax term itself: the pricing pipeline's explicit zero is now
       calculated, frozen onto the order, and shown to the shopper (60f5021)
-current_phase: C5
-next_phase: C5           # the revenue mechanism D-13=A made mandatory; its tax snapshot now has a mechanism
+next_phase: C4           # split: cross-instance invalidation + locking are unblocked; blob storage waits on D-18
+# and C6 becomes executable the moment C4's lock exists — C3 and C5 are both in.
 blocked_decisions: ["D-18", "C-11", "C-09", "C-18", "C-12", "C-13"]
 answered_decisions: ["C-08", "C-17", "TD-42", "C-15", "P-06", "D-13", "C-01", "C-19"]
 open_sub_decisions: ["C-08 lawful basis", "C-08 retention period", "C-08 data residency",
                      "P-06 every jurisdiction value", "C-01 the provider itself"]
 last_verified_date: 2026-09-22
-last_verified_head: 60f5021
+last_verified_head: 30b02d5
 
 # ── ما بقي، ولماذا ─────────────────────────────────────────────────────────
-# C5  — فواتير المنصّة بالدينار وتحصيلٌ يدويّ. **الطريق التجاري الحرج**: D-13 = A جعل
-#       اشتراكَ التاجر مصدرَ إيراد سوق الوحيد، فبلا هذا لا تُحصَّل قرشاً. ولقطةُ الضريبة التي
-#       تُجمَّد على الفاتورة صار لها آلية.
+# C4  — الإبطال بين النسخ والقفل: **الجزء غير الموقوف هو التالي**، وثُلثُه (التخزين السحابي)
+#       وحده موقوف على D-18. وقفلُه هو آخرُ ما ينقص C6.
+# C6  — المطالبة الآلية: C3 تمّت وC5 تمّت، فلم يبقَ إلّا قفلُ C4.
 # C12 — المنفذ بشكله الجديد والنموذج المُحوِّل (C-01 = B). المحوّلُ نفسه ينتظر عقد مزوّد.
-# C4  — الإبطال بين النسخ والقفل: مقسومٌ، وثُلثُه (التخزين السحابي) وحده موقوف على D-18.
-# C6  — المطالبة الآلية: تحتاج C3 (تمّت) + C4 (قفلها) + C5.
-# C9b — أسطحُ الالتقاط الباقية (ظهورُ القوائم بموضعها، النقر، السلّة، الشراء). لا تُراكم
-#       بياناتٍ اليوم لأنّ الالتقاط معطّل، فقيمتُها تبدأ يوم يُجيب المالك على C-08.
+# C9b — أسطحُ الالتقاط الباقية. لا تُراكم بياناتٍ اليوم لأنّ الالتقاط معطّل، فقيمتُها تبدأ يوم
+#       يُجيب المالك على أسئلة C-08 الثلاث (الأساس القانوني، ومدّة الحفظ، ومكان التخزين).
 # C8  — القوالب الثلاثة وسجلّ الأقسام: قرارُ تصميم لا قرارُ مالك.
-# ونصفُ شريحةٍ مؤجَّل صريحاً: فئةُ الضريبة للمنتج (ضريبتان في سلّةٍ واحدة)، وشاشتا إعداد
-# الضريبة (المنصّة والتاجر) — كلتاهما API فقط اليوم.
+# C10 — موقوف على C-09 وعلى تراكم بيانات C9.
+# ونصفُ شريحةٍ واحدة تبقى مؤجَّلة صراحةً: فئةُ الضريبة للمنتج (ضريبتان في سلّةٍ واحدة).
+#
+# ── ما أُغلق في جلسة 2026-09-22 (الثانية) ─────────────────────────────────
+# C5 — **تمّت كاملةً**: الإعداد الذي يفشل مغلقاً، وسلسلةُ ترقيمٍ واحدة للمنصّة، والفاتورةُ
+#      المجمَّدة، وإشعارُ الدائن، والتحصيلُ اليدويّ، ودفترُ القياس — ومعها شاشاتُها الأربع
+#      (إعدادُ الفوترة، الدفتر، الفاتورة، ومسوّدةٌ جديدة) وشاشةُ التاجر عن اشتراكه. ADR-0056.
+# وشاشتا الضريبة اللتان كانتا API فقط: صارتا موجودتين ومحقَّقتَين في متصفّح — فما كان
+#      «قدرةً بلا واجهة» صار قدرةً يصلها مشغّلٌ وتاجر.
+# وفجوةُ التحقّق في المتصفّح التي تركتها C3: أُغلقت برحلةٍ تُعلّق متجراً وتعيده.
 baseline_branch: phase/17-production-hardening
 
 # ── ما جرى بعد C11 وليس مرحلة ─────────────────────────────────────────────
@@ -285,6 +291,21 @@ Each phase lists: **delivers · depends on · blocked by · why here**.
   profile is carried as unverified onto the invoice rather than silently trusted.
 - **Why here.** It is the half of billing that needs no payment provider at all, and in this market it is the
   mainstream case rather than the fallback.
+- **Done (2026-09-22), and it is the phase that makes the company payable.** *PlatformInvoice* with Souq's own
+  platform-wide number series allocated inside the issuing transaction, the tax snapshot frozen at issue through
+  the **same verification gate a shopper's basket passes**, *CreditNote* as a separate aggregate with its own
+  series, manual collection recorded and attributed on the document itself, and *BillableEvent* / *BillingPeriod*
+  as a ledger that prices nothing by itself. Recorded as [ADR-0056](../11-ADR/0056-platform-invoices-and-manual-collection.md).
+- **`C-15`'s answer entered the product as configuration, not as a constant** — it could not be a literal, because
+  `WhiteLabelSourceTests` forbids a currency in `src/` and that rule is right. So billing **fails closed**: with no
+  currency and no issuer nothing can be invoiced, the refusal names itself, and the row is deliberately **not
+  seeded in production**. Once an invoice exists the currency locks.
+- **Five screens, because an API is not a capability.** Billing settings, the ledger, one invoice, a new draft,
+  and the merchant's own view of what it owes. The first browser run is what found that *creating* an invoice had
+  no UI at all — every other step existed. **The merchant screen has no pay button and a test asserts its
+  absence**: collection is a bank transfer by `C-15`, and a button promising a gateway would promise a lie.
+- **What C5 deliberately did not do:** no automated collection (needs `C-01`), no dunning (that is `C6`), no
+  commission ledger (`D-13` = A leaves it no subject), no PDF or email, and no tier values (`C-12`).
 
 ### C6 — Dunning and automated suspension
 
@@ -497,9 +518,9 @@ legal.
 | 3 | **C9** | the only item whose cost rises with delay | ~~C-08~~ answered A — **store, write path, rollups and retention done 2026-09-22; capture surfaces next** |
 | 4 | ~~**C3**~~ **done (2026-09-22)** | suspension must be real before it is automated | ~~C-17~~ answered B |
 | 5 | **C8** | cheapest visible credibility; parallel to the money track | ~~TD-42~~ **answered C — policy links shipped 2026-09-22; theme presets and the section registry still need a design call** |
-| 6 | **C5** | the half of billing that needs no provider | ~~C-15, P-06~~ **both answered — unblocked** |
-| 7 | **C4** | the precondition for C6 and for in-process ACME | **split:** caches + locking unblocked; blob storage still D-18 |
-| 8 | **C6** | the first automated irreversible action against a customer | ~~C-17~~ answered; needs C3 + C4's locking + C5 |
+| 6 | ~~**C5**~~ **done (2026-09-22)** | the half of billing that needs no provider — and, under `D-13` = A, the only way Souq is paid | ~~C-15, P-06~~ answered |
+| 7 | **C4** &larr; **next** | the precondition for C6 and for in-process ACME | **split:** caches + locking unblocked; blob storage still D-18 |
+| 8 | **C6** | the first automated irreversible action against a customer | ~~C-17~~ answered; ~~C3~~ done, ~~C5~~ done &mdash; **only C4's lock remains** |
 | 9 | **C7** | turns onboarding into a product | **C-11** |
 | 10 | ~~**C11**~~ **done (taken early)** | small, independent, immediately useful to merchants — and the only phase gated by nothing, so it ran once C2 closed | — |
 | 11 | **C12** | the port's vocabulary is set by the first real adapter | ~~D-13, C-01~~ **both answered — the port and the redirect-first model are unblocked; a real adapter waits on a provider contract** |
